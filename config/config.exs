@@ -10,6 +10,8 @@ import Config
 config :ysc,
   ecto_repos: [Ysc.Repo]
 
+config :ysc, Ysc.Repo, migration_timestamps: [type: :utc_datetime]
+
 # Configures the endpoint
 config :ysc, YscWeb.Endpoint,
   url: [host: "localhost"],

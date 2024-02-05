@@ -9,7 +9,7 @@ defmodule Ysc.Ledgers.AccountTransaction do
     belongs_to :ledger, Ysc.Ledgers.Ledger
     belongs_to :account, Ysc.Ledgers.LedgerAccount
 
-    field :amount, :integer
+    field :amount, Money.Ecto.Composite.Type
 
     timestamps(updated_at: false)
   end

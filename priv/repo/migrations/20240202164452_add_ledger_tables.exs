@@ -39,7 +39,7 @@ defmodule Ysc.Repo.Migrations.AddLedgerTables do
       add :ledger_id, references(:ledgers, on_delete: :restrict), null: false
       add :account_id, references(:ledger_accounts, on_delete: :restrict), null: false
 
-      add :amount, :integer, null: false
+      add :amount, :money_with_currency, null: false
 
       # Immutable
       timestamps(updated_at: false)

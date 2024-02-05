@@ -20,10 +20,10 @@
               <img class="absolute top-0 left-0 object-cover w-full h-full transform-none" srcset="https://ysc.org/wp-content/uploads/2018/12/2.jpg 1227w, https://ysc.org/wp-content/uploads/2018/12/2-350x216.jpg 350w, https://ysc.org/wp-content/uploads/2018/12/2-300x185.jpg 300w, https://ysc.org/wp-content/uploads/2018/12/2-768x474.jpg 768w, https://ysc.org/wp-content/uploads/2018/12/2-1024x633.jpg 1024w, https://ysc.org/wp-content/uploads/2018/12/2-600x371.jpg 600w">
             </div>
 
-            <a href="/" class="absolute z-10 flex items-center text-left transition ease-in-out transform -translate-x-1/2 -translate-y-1/2 duration-400 left-48 space-x-9 rtl:space-x-reverse top-1/2 sm:left-1/2 hover:opacity-80">
+            <.link href={~p"/"} class="absolute z-10 flex items-center text-left transition ease-in-out transform -translate-x-1/2 -translate-y-1/2 duration-400 left-48 space-x-9 rtl:space-x-reverse top-1/2 sm:left-1/2 hover:opacity-80">
               <img src="https://ysc.org/wp-content/uploads/2022/03/cropped-YSC-LOGO-cleaned-up-021420.png" class="h-20" alt="YSC logo">
               <span class="self-center text-2xl font-extrabold tracking-wide text-white uppercase lg:text-4xl lg:whitespace-nowrap">The Young Scandinavians Club</span>
-            </a>
+            </.link>
           </div>
         </div>
 
@@ -36,24 +36,31 @@
               </a>
             </div>
             -->
-            <div class="flex space-x-3 md:space-x-0">
-              <button data-collapse-toggle="navbar-sticky" type="button" class="inline-flex items-center justify-center w-10 h-10 p-2 text-sm text-gray-800 transition ease-in-out rounded md:hidden hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 duration-400" aria-controls="navbar-sticky" aria-expanded="false">
-                <span class="sr-only">Open main menu</span>
-                <svg class="w-5 h-5 fill-inherit" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 17 14">
-                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"/>
-                </svg>
-              </button>
-              <div class="hidden w-full md:block md:w-auto" id="navbar-dropdown">
-                <ul class="flex flex-col p-4 mt-4 font-medium md:p-0 md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0 md:border-0">
+            <div class="flex flex-col w-full space-x-3 lg:w-auto lg:space-x-0">
+              <.hamburger_menu toggle_id="navbar-dropdown" />
+              <div class="hidden w-full lg:block lg:w-auto" id="navbar-dropdown">
+                <ul class="flex flex-col p-4 mt-4 font-medium lg:p-0 lg:space-x-8 rtl:space-x-reverse lg:flex-row lg:mt-0 lg:border-0">
                   <li>
-                    <.dropdown id="tjena" label="Tjena">
+                    <a href="#" class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-gray-100 duration-400 hover:text-black">Events</a>
+                  </li>
+                  <li>
+                    <a href="#" class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-gray-100 duration-400 hover:text-black">News</a>
+                  </li>
+                  <li>
+                    <a href="#" class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-gray-100 duration-400 hover:text-black">Tahoe Cabin</a>
+                  </li>
+                  <li>
+                    <a href="#" class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-gray-100 duration-400 hover:text-black">Clear Lake</a>
+                  </li>
+                  <li>
+                    <.dropdown id="tjena" label="About">
                       <ul class="py-2 text-sm font-medium text-gray-800" aria-labelledby="dropdownLargeButton">
                         <li>
                           <a
                             href="#"
                             class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-gray-100"
                           >
-                            Dashboard
+                            Membership
                           </a>
                         </li>
                         <li>
@@ -61,7 +68,7 @@
                             href="#"
                             class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-gray-100"
                           >
-                            Settings
+                            My Bookings
                           </a>
                         </li>
                         <li>
@@ -69,7 +76,7 @@
                             href="#"
                             class="block px-4 py-2 transition ease-in-out hover:bg-gray-100 duration-400"
                           >
-                            Earnings
+                            Account Settings
                           </a>
                         </li>
                       </ul>
@@ -83,23 +90,41 @@
                       </div>
                     </.dropdown>
                   </li>
-                  <li>
-                    <a href="#" class="block px-3 py-2 font-bold text-gray-700 transition ease-in-out rounded hover:bg-gray-100 duration-400 hover:text-gray-900" aria-current="page">Home</a>
-                  </li>
-                  <li>
-                    <a href="#" class="block px-3 py-2 font-bold text-gray-700 transition ease-in-out rounded hover:bg-gray-100 duration-400 hover:text-gray-900">Services</a>
-                  </li>
-                  <li>
-                    <a href="#" class="block px-3 py-2 font-bold text-gray-700 transition ease-in-out rounded hover:bg-gray-100 duration-400 hover:text-gray-900">Pricing</a>
-                  </li>
-                  <li>
-                    <a href="#" class="block px-3 py-2 font-bold text-gray-700 transition ease-in-out rounded hover:bg-gray-100 duration-400 hover:text-gray-900">Contact</a>
-                  </li>
                 </ul>
               </div>
             </div>
-            <div id="cta-section" class="flex">
+            <div id="cta-section" class="relative flex-row hidden w-auto lg:flex">
+              <%= if @current_user do %>
+              <button class="px-3 py-2 mr-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-gray-100 duration-400 hover:text-black">
+                <.icon name="hero-shopping-cart" class="w-5 h-5" />
+              </button>
+              <!-- <p><%= @current_user.email %></p> -->
+              <.user_avatar first_name="Johan" last_name="backman">
+                <div class="z-10 w-64 bg-white divide-y divide-gray-100 rounded shadow">
+                  <div class="px-4 py-3 text-sm text-gray-900">
+                    <div>Bonnie Green</div>
+                    <div class="font-medium truncate">email_address@dude.outlook.com</div>
+                  </div>
+                  <ul class="py-2 text-sm text-gray-700" aria-labelledby="avatarButton">
+                    <li>
+                      <a href="#" class="block px-4 py-2 transition ease-in-out hover:bg-gray-100 duration-400">Membership</a>
+                    </li>
+                    <li>
+                      <a href="#" class="block px-4 py-2 transition ease-in-out hover:bg-gray-100 duration-400">My Bookings</a>
+                    </li>
+                    <li>
+                      <a href="#" class="block px-4 py-2 transition ease-in-out hover:bg-gray-100 duration-400">Account Settings</a>
+                    </li>
+                  </ul>
+                  <div class="py-1">
+                    <.link href={~p"/users/log_out"} method="delete" class="block px-4 py-2 text-sm text-gray-800 transition ease-in-out hover:bg-gray-100 duration-400">Sign out</.link>
+                  </div>
+                </div>
+              </.user_avatar>
+              <% else %>
+              <.link href={~p"/users/log_in"} class="px-3 py-2 mr-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-gray-100 duration-400 hover:text-black">Sign In</.link>
               <button type="button" class="px-4 py-2 text-sm font-bold text-center text-white transition ease-in-out bg-blue-700 rounded duration-400 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300">Become a Member</button>
+              <% end %>
             </div>
           </div>
         </nav>
@@ -155,66 +180,54 @@
 
       <footer class="bg-white border-t border-gray-100">
         <div class="w-full max-w-screen-lg p-4 py-6 mx-auto lg:py-8">
-            <div class="md:flex md:justify-between">
-              <div class="mb-6 md:mb-0">
-                  <a href="https://flowbite.com/" class="flex items-center">
-                      <img src="https://flowbite.com/docs/images/logo.svg" class="h-8 me-3" alt="FlowBite Logo" />
-                      <span class="self-center text-2xl font-semibold whitespace-nowrap">Flowbite</span>
-                  </a>
+            <div class="lg:flex lg:justify-between">
+              <div class="mb-6 lg:mb-0">
+                <.link href={~p"/"} class="flex items-center">
+                  <img src="https://ysc.org/wp-content/uploads/2022/03/cropped-YSC-LOGO-cleaned-up-021420.png" class="h-14 me-3" alt="YSC logo">
+                  <span class="self-center text-xl font-semibold whitespace-nowrap">The Young Scandinavians Club</span>
+                </.link>
               </div>
-              <div class="grid grid-cols-2 gap-8 sm:gap-6 sm:grid-cols-3">
+              <div class="flex mb-6">
                   <div>
-                      <h2 class="mb-6 text-sm font-semibold text-gray-900 uppercase">Resources</h2>
-                      <ul class="font-medium text-gray-500">
-                          <li class="mb-4">
-                              <a href="https://flowbite.com/" class="hover:underline">Flowbite</a>
+                      <h2 class="mb-2 text-sm font-semibold uppercase text-zinc-900">Follow us on socials</h2>
+                      <ul class="flex flex-wrap items-start justify-start">
+                          <li class="">
+                            <a href="https://github.com/themesberg/flowbite">
+                              <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" viewBox="0 0 64 64" class="w-10 h-10 transition duration-300 fill-current text-zinc-900 hover:text-blue-700">
+                                <path d="M48,7H16c-4.418,0-8,3.582-8,8v32c0,4.418,3.582,8,8,8h17V38h-6v-7h6v-5c0-7,4-11,10-11c3.133,0,5,1,5,1v6h-4 c-2.86,0-4,2.093-4,4v5h7l-1,7h-6v17h8c4.418,0,8-3.582,8-8V15C56,10.582,52.418,7,48,7z"></path>
+                              </svg>
+                            </a>
                           </li>
                           <li>
-                              <a href="https://tailwindcss.com/" class="hover:underline">Tailwind CSS</a>
-                          </li>
-                      </ul>
-                  </div>
-                  <div>
-                      <h2 class="mb-6 text-sm font-semibold text-gray-900 uppercase">Follow us</h2>
-                      <ul class="font-medium text-gray-500">
-                          <li class="mb-4">
-                              <a href="https://github.com/themesberg/flowbite" class="hover:underline ">Facebook</a>
-                          </li>
-                          <li>
-                              <a href="https://discord.gg/4eeurUVvTy" class="hover:underline">Instagram</a>
-                          </li>
-                      </ul>
-                  </div>
-                  <div>
-                      <h2 class="mb-6 text-sm font-semibold text-gray-900 uppercase">Legal</h2>
-                      <ul class="font-medium text-gray-500">
-                          <li class="mb-4">
-                              <a href="#" class="hover:underline">Privacy Policy</a>
-                          </li>
-                          <li>
-                              <a href="#" class="hover:underline">Terms &amp; Conditions</a>
+                            <a href="https://discord.gg/4eeurUVvTy">
+                              <div class="relative">
+                                <svg style="width:0;height:0;position:absolute;" aria-hidden="true" focusable="false">
+                                  <linearGradient id="insta-gradient" y1="1">
+                                    <stop stop-color="#405de6"/>
+                                    <stop offset=".2" stop-color="#5851db"/>
+                                    <stop offset=".4" stop-color="#833ab4"/>
+                                    <stop offset=".6" stop-color="#c13584"/>
+                                    <stop offset=".8" stop-color="#e1306c"/>
+                                    <stop offset="1" stop-color="#fd1d1d"/>
+                                  </linearGradient>
+                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" viewBox="0 0 64 64" class="absolute z-10 w-10 h-10 transition duration-300 fill-current text-zinc-900 hover:opacity-0">
+                                  <path d="M 21.580078 7 C 13.541078 7 7 13.544938 7 21.585938 L 7 42.417969 C 7 50.457969 13.544938 57 21.585938 57 L 42.417969 57 C 50.457969 57 57 50.455062 57 42.414062 L 57 21.580078 C 57 13.541078 50.455062 7 42.414062 7 L 21.580078 7 z M 47 15 C 48.104 15 49 15.896 49 17 C 49 18.104 48.104 19 47 19 C 45.896 19 45 18.104 45 17 C 45 15.896 45.896 15 47 15 z M 32 19 C 39.17 19 45 24.83 45 32 C 45 39.17 39.169 45 32 45 C 24.83 45 19 39.169 19 32 C 19 24.831 24.83 19 32 19 z M 32 23 C 27.029 23 23 27.029 23 32 C 23 36.971 27.029 41 32 41 C 36.971 41 41 36.971 41 32 C 41 27.029 36.971 23 32 23 z"></path>
+                                </svg>
+                                <svg fill="url(#insta-gradient)" xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" viewBox="0 0 64 64" class="absolute w-10 h-10 transition duration-300 z-1">
+                                  <path d="M 21.580078 7 C 13.541078 7 7 13.544938 7 21.585938 L 7 42.417969 C 7 50.457969 13.544938 57 21.585938 57 L 42.417969 57 C 50.457969 57 57 50.455062 57 42.414062 L 57 21.580078 C 57 13.541078 50.455062 7 42.414062 7 L 21.580078 7 z M 47 15 C 48.104 15 49 15.896 49 17 C 49 18.104 48.104 19 47 19 C 45.896 19 45 18.104 45 17 C 45 15.896 45.896 15 47 15 z M 32 19 C 39.17 19 45 24.83 45 32 C 45 39.17 39.169 45 32 45 C 24.83 45 19 39.169 19 32 C 19 24.831 24.83 19 32 19 z M 32 23 C 27.029 23 23 27.029 23 32 C 23 36.971 27.029 41 32 41 C 36.971 41 41 36.971 41 32 C 41 27.029 36.971 23 32 23 z"></path>
+                                </svg>
+                              </div>
+                            </a>
                           </li>
                       </ul>
                   </div>
               </div>
           </div>
            <div class="sm:flex sm:items-center sm:justify-between">
-              <span class="text-sm text-gray-500 sm:text-center">© 2023 <a href="https://flowbite.com/" class="hover:underline">Flowbite™</a>. All Rights Reserved.
+              <span class="text-sm text-zinc-800 sm:text-center">© <%= DateTime.utc_now.year %> <.link href={~p"/"} class="hover:underline">The Young Scandinavians Club</.link>. All Rights Reserved.
               </span>
-              <div class="flex mt-4 sm:justify-center sm:mt-0">
-                  <a href="#" class="text-gray-500 hover:text-gray-900">
-                      <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 8 19">
-                            <path fill-rule="evenodd" d="M6.135 3H8V0H6.135a4.147 4.147 0 0 0-4.142 4.142V6H0v3h2v9.938h3V9h2.021l.592-3H5V3.591A.6.6 0 0 1 5.592 3h.543Z" clip-rule="evenodd"/>
-                        </svg>
-                      <span class="sr-only">Facebook page</span>
-                  </a>
-                  <a href="#" class="text-gray-500 hover:text-gray-900 ms-5">
-                      <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 17">
-                        <path fill-rule="evenodd" d="M20 1.892a8.178 8.178 0 0 1-2.355.635 4.074 4.074 0 0 0 1.8-2.235 8.344 8.344 0 0 1-2.605.98A4.13 4.13 0 0 0 13.85 0a4.068 4.068 0 0 0-4.1 4.038 4 4 0 0 0 .105.919A11.705 11.705 0 0 1 1.4.734a4.006 4.006 0 0 0 1.268 5.392 4.165 4.165 0 0 1-1.859-.5v.05A4.057 4.057 0 0 0 4.1 9.635a4.19 4.19 0 0 1-1.856.07 4.108 4.108 0 0 0 3.831 2.807A8.36 8.36 0 0 1 0 14.184 11.732 11.732 0 0 0 6.291 16 11.502 11.502 0 0 0 17.964 4.5c0-.177 0-.35-.012-.523A8.143 8.143 0 0 0 20 1.892Z" clip-rule="evenodd"/>
-                    </svg>
-                      <span class="sr-only">Twitter page</span>
-                  </a>
-              </div>
+              <span class="text-sm text-zinc-500 sm:text-center"><a href="#" class="hover:underline">Privacy Policy</a></span>
           </div>
         </div>
       </footer>

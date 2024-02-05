@@ -3,15 +3,15 @@ defmodule YscWeb.UserLoginLive do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-sm">
+    <div class="max-w-sm mx-auto">
       <.header class="text-center">
-        Sign in to account
+        Sign in to your YSC account
         <:subtitle>
-          Don't have an account?
-          <.link navigate={~p"/users/register"} class="font-semibold text-brand hover:underline">
-            Sign up
+          Not a member yet?
+          <.link navigate={~p"/users/register"} class="font-semibold text-blue-700 hover:underline">
+            Apply for a membership
           </.link>
-          for an account now.
+          now.
         </:subtitle>
       </.header>
 
@@ -20,8 +20,8 @@ defmodule YscWeb.UserLoginLive do
         <.input field={@form[:password]} type="password" label="Password" required />
 
         <:actions>
-          <.input field={@form[:remember_me]} type="checkbox" label="Keep me logged in" />
-          <.link href={~p"/users/reset_password"} class="text-sm font-semibold">
+          <.input field={@form[:remember_me]} type="checkbox" label="Keep me signed in" />
+          <.link href={~p"/users/reset_password"} class="text-sm font-semibold hover:underline">
             Forgot your password?
           </.link>
         </:actions>

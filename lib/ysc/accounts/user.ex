@@ -2,13 +2,17 @@ defmodule Ysc.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Ysc.Extensions.PhoneNumber
+  alias Ysc.Accounts.{FamilyMember, SignupApplication}
+
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
+  @timestamps_opts [type: :utc_datetime]
   schema "users" do
     field :email, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
-    field :confirmed_at, :naive_datetime
+    field :confirmed_at, :utc_datetime
 
     field :state, UserAccountState
     field :role, UserAccountRole
@@ -16,6 +20,9 @@ defmodule Ysc.Accounts.User do
     field :first_name, :string, redact: true
     field :last_name, :string, redact: true
     field :phone_number, :string, redact: true
+
+    has_one :registration_form, SignupApplication
+    has_many :family_members, FamilyMember
 
     timestamps()
   end
@@ -53,9 +60,51 @@ defmodule Ysc.Accounts.User do
   """
   def registration_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email, :password])
+    |> cast(attrs, [:email, :password, :first_name, :last_name, :phone_number])
+    |> validate_length(:first_name, min: 1, max: 150)
+    |> validate_length(:last_name, min: 1, max: 150)
+    |> validate_required([:first_name, :last_name])
     |> validate_email(opts)
     |> validate_password(opts)
+    |> validate_phone(opts)
+    |> cast_assoc(:registration_form,
+      required: true,
+      with: &SignupApplication.application_changeset/2,
+      opts: opts
+    )
+    |> cast_assoc(:family_members, with: &FamilyMember.family_member_changeset/2, opts: opts)
+  end
+
+  defp validate_phone(changeset, opts) do
+    changeset
+    |> validate_required([:phone_number])
+    |> validate_length(:phone_number, max: 25)
+    |> validate_maybe_accept_phone()
+  end
+
+  defp validate_maybe_accept_phone(changeset) do
+    phone_number = get_change(changeset, :phone_number)
+
+    if is_nil(phone_number) do
+      changeset
+    else
+      with {:ok, phone_number} <- PhoneNumber.parse_phone_number(phone_number),
+           true <- PhoneNumber.is_possible_phone_number(phone_number),
+           true <- PhoneNumber.is_valid_phone_number(phone_number) do
+        phone_number = PhoneNumber.format_phone_number(phone_number, :e164)
+        put_change(changeset, :phone_number, phone_number)
+      else
+        {:error, message} ->
+          add_error(changeset, :phone_number, message)
+
+        _ ->
+          add_error(
+            changeset,
+            :phone_number,
+            "Sorry, that does not look like a valid phone number"
+          )
+      end
+    end
   end
 
   defp validate_email(changeset, opts) do

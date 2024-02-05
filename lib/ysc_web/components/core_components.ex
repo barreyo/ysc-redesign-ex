@@ -319,6 +319,24 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  def input(%{type: "radio"} = assigns) do
+    ~H"""
+    <div phx-feedback-for={@name}>
+      <.label for={@id}><%= @label %></.label>
+      <input
+        type="radio"
+        id={@id}
+        name={@name}
+        value={@value}
+        checked={@checked}
+        class="rounded border-zinc-300 text-zinc-900 focus:ring-0"
+        {@rest}
+      />
+      <.error :for={msg <- @errors}><%= msg %></.error>
+    </div>
+    """
+  end
+
   def input(%{type: "select"} = assigns) do
     ~H"""
     <div phx-feedback-for={@name}>
@@ -326,7 +344,7 @@ defmodule YscWeb.CoreComponents do
       <select
         id={@id}
         name={@name}
-        class="block w-full mt-2 bg-white border border-gray-300 rounded-md shadow-sm focus:border-zinc-400 focus:ring-0 sm:text-sm"
+        class="block w-full mt-2 bg-white border rounded-md shadow-sm border-zinc-300 focus:border-zinc-400 focus:ring-0 sm:text-sm"
         multiple={@multiple}
         {@rest}
       >
@@ -369,7 +387,7 @@ defmodule YscWeb.CoreComponents do
         id={@id}
         value={Phoenix.HTML.Form.normalize_value(@type, @value)}
         class={[
-          "mt-2 block w-full rounded-lg text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6",
+          "mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6",
           "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400",
           @errors == [] && "border-zinc-300 focus:border-zinc-400",
           @errors != [] && "border-rose-400 focus:border-rose-400"
@@ -597,9 +615,8 @@ defmodule YscWeb.CoreComponents do
     <button
       id={"#{@id}Link"}
       data-dropdown-toggle={@id}
-      class="flex items-center justify-between w-full px-3 py-2 font-bold text-gray-700 transition duration-200 ease-in-out rounded hover:bg-gray-100 md:w-auto hover:text-gray-900"
-      phx-click={JS.toggle(to: "##{@id}")}
-      phx-click-away={JS.hide(to: "##{@id}")}
+      class="flex items-center justify-between w-full px-3 py-2 font-bold transition duration-200 ease-in-out rounded text-zinc-900 hover:bg-zinc-100 lg:w-auto hover:text-black"
+      phx-click={show_dropdown("##{@id}")}
     >
       <%= @label %>
       <svg
@@ -621,11 +638,138 @@ defmodule YscWeb.CoreComponents do
     <!-- Dropdown menu -->
     <div
       id={@id}
-      class="absolute z-10 hidden mt-4 font-normal transition duration-200 ease-in-out bg-white divide-y divide-gray-100 rounded-lg shadow w-44 "
+      class="absolute z-10 hidden mt-4 font-normal bg-white divide-y rounded shadow divide-zinc-100 w-44 "
+      phx-click-away={hide_dropdown("##{@id}")}
     >
       <%= render_slot(@inner_block) %>
     </div>
     """
+  end
+
+  attr :first_name, :string, required: true
+  attr :last_name, :string, required: true
+  slot :inner_block, required: true
+
+  def user_avatar(assigns) do
+    ~H"""
+    <div class="relative">
+      <button
+        data-dropdown-toggle="avatar-menu"
+        id="avatar-menu-link"
+        class="flex flex-row rounded hover:bg-zinc-100"
+        phx-click={show_dropdown("#avatar-menu")}
+      >
+        <div class="px-3 m-auto">
+          <p class="font-medium text-zinc-900">Bonnie Green</p>
+        </div>
+        <div class="flex items-center justify-between w-full font-bold rounded text-zinc-900 lg:w-auto">
+          <div class="inline-flex items-center justify-center w-10 h-10 overflow-hidden transition duration-200 ease-in-out bg-blue-300 rounded fi fi-is hover:bg-blue-400">
+            <span class="absolute text-2xl font-extrabold uppercase -translate-x-1/2 -translate-y-1/2 text-zinc-100 top-1/2 left-1/2">
+              <%= String.at(@first_name, 0) <> String.at(@last_name, 0) %>
+            </span>
+          </div>
+        </div>
+      </button>
+      <!-- Dropdown menu -->
+      <div
+        id="avatar-menu"
+        class="absolute z-10 hidden w-64 mt-4 font-normal bg-white divide-y rounded shadow divide-zinc-100 -left-24"
+        phx-click-away={hide_dropdown("#avatar-menu")}
+      >
+        <%= render_slot(@inner_block) %>
+      </div>
+    </div>
+    """
+  end
+
+  attr :toggle_id, :string, required: true
+
+  @spec hamburger_menu(map()) :: Phoenix.LiveView.Rendered.t()
+  def hamburger_menu(assigns) do
+    ~H"""
+    <button
+      data-collapse-toggle="navbar-sticky"
+      type="button"
+      class="inline-flex items-center justify-center h-10 p-2 text-sm transition ease-in-out rounded text-zinc-900 lg:hidden hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-300 duration-400"
+      aria-controls="navbar-sticky"
+      aria-expanded="false"
+      phx-click={toggle_expanded(@toggle_id)}
+    >
+      <svg
+        class="w-5 h-5 fill-inherit"
+        aria-hidden="true"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 17 14"
+      >
+        <path
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M1 1h15M1 7h15M1 13h15"
+        />
+      </svg>
+      <span class="ml-4 text-sm font-bold text-zinc-900 hover:text-black">
+        Menu
+      </span>
+    </button>
+    """
+  end
+
+  attr :active_step, :integer, required: true
+  attr :steps, :list, default: []
+
+  @spec stepper(map()) :: Phoenix.LiveView.Rendered.t()
+  def stepper(assigns) do
+    assigns =
+      assigns
+      |> assign(:stepper_max_length, length(assigns.steps))
+
+    IO.inspect(assigns)
+
+    ~H"""
+    <ol class="flex items-center w-full px-4 py-3 space-x-2 text-sm font-medium text-center border rounded shadow-sm text-zinc-500 border-zinc-100 sm:text-base sm:p-4 sm:space-x-4 rtl:space-x-reverse">
+      <%= for {val, idx} <- Enum.with_index(@steps) do %>
+        <li :if={idx == @active_step} class="flex items-center leading-6 text-blue-800">
+          <span class="flex items-center justify-center w-6 h-6 text-xs font-bold border border-blue-600 rounded me-2 shrink-0">
+            <%= idx + 1 %>
+          </span>
+          <%= val %>
+          <.icon name="hero-chevron-right" class="w-5 h-5 ml-2" />
+        </li>
+        <li
+          :if={idx != @active_step && idx + 1 < assigns[:stepper_max_length]}
+          class="flex items-center leading-6"
+        >
+          <span class="flex items-center justify-center w-6 h-6 text-xs font-bold border rounded border-zinc-500 me-2 shrink-0">
+            <%= idx + 1 %>
+          </span>
+          <%= val %>
+          <.icon name="hero-chevron-right" class="w-5 h-5 ml-2" />
+        </li>
+        <li :if={idx + 1 >= assigns[:stepper_max_length]} class="flex items-center leading-6 ">
+          <span class="flex items-center justify-center w-6 h-6 text-xs font-bold border rounded border-zinc-500 me-2 shrink-0">
+            <%= idx + 1 %>
+          </span>
+          <%= val %>
+        </li>
+      <% end %>
+    </ol>
+    """
+  end
+
+  # Text stuff
+  def p(assigns) do
+  end
+
+  def h1(assigns) do
+  end
+
+  def h2(assigns) do
+  end
+
+  def h3(assigns) do
   end
 
   ## JS Commands
@@ -648,6 +792,18 @@ defmodule YscWeb.CoreComponents do
         {"transition-all transform ease-in duration-200",
          "opacity-100 translate-y-0 sm:scale-100",
          "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"}
+    )
+  end
+
+  def toggle_expanded(js \\ %JS{}, id) do
+    js
+    |> JS.remove_class(
+      "expanded",
+      to: "##{id}.expanded"
+    )
+    |> JS.add_class(
+      "expanded",
+      to: "##{id}:not(.expanded)"
     )
   end
 
@@ -675,6 +831,27 @@ defmodule YscWeb.CoreComponents do
     |> JS.pop_focus()
   end
 
+  def show_dropdown(to) do
+    JS.show(
+      to: to,
+      transition:
+        {"transition ease-out duration-75", "transform opacity-0 scale-95",
+         "transform opacity-100 scale-100"}
+    )
+    |> JS.set_attribute({"aria-expanded", "true"}, to: to)
+  end
+
+  def hide_dropdown(to) do
+    JS.hide(
+      to: to,
+      transition:
+        {"transition ease-in duration-75", "transform opacity-100 scale-100",
+         "transform opacity-0 scale-95"}
+    )
+    |> JS.remove_attribute("aria-expanded", to: to)
+  end
+
+  @spec translate_error({binary(), keyword() | map()}) :: binary()
   @doc """
   Translates an error message using gettext.
   """

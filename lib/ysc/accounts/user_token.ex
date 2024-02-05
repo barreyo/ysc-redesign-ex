@@ -15,6 +15,7 @@ defmodule Ysc.Accounts.UserToken do
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
+  @timestamps_opts [type: :utc_datetime]
   schema "users_tokens" do
     field :token, :binary
     field :context, :string

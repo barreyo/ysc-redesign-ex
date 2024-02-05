@@ -8,7 +8,7 @@ defmodule Ysc.Repo.Migrations.CreateUsersAuthTables do
       add :id, :binary_id, null: false, primary_key: true
       add :email, :citext, null: false
       add :hashed_password, :string, null: false
-      add :confirmed_at, :naive_datetime
+      add :confirmed_at, :utc_datetime
 
       add :state, :string, null: false, default: "pending_approval"
       add :role, :string, null: false, default: "member"

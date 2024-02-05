@@ -15,3 +15,53 @@
     right: 0;
     z-index: 2;
 }
+
+/* DROPDOWN */
+.expanded {
+    display: block;
+}
+
+/* FLAGS */
+.fib, .fi {
+    background-size: cover;
+    background-position: 50%;
+    background-repeat: no-repeat;
+}
+
+.fi {
+    position: relative;
+    display: inline-block;
+}
+.fi:before {
+    content: " ";
+}
+
+/* Sweden */
+.fi-se {
+    background-image: url(/images/flagicons/flags/4x3/se.svg);
+}
+
+/* Finland */
+.fi-fi {
+    background-image: url(/images/flagicons/flags/4x3/fi.svg);
+}
+
+/* Norway */
+.fi-no {
+    background-image: url(/images/flagicons/flags/4x3/no.svg);
+}
+
+/* USA */
+.fi-us {
+    background-image: url(/images/flagicons/flags/4x3/us.svg);
+}
+
+/* Denmark */
+.fi-dk {
+    background-image: url(/images/flagicons/flags/4x3/dk.svg);
+}
+
+/* Iceland */
+.fi-is {
+    background-image: url(/images/flagicons/flags/4x3/dk.svg);
+}
