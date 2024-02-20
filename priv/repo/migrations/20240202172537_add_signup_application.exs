@@ -14,6 +14,8 @@ defmodule Ysc.Repo.Migrations.AddSignupApplication do
       add :address, :string, null: false
       add :country, :string, null: false
       add :city, :string, null: false
+      # State, province etc
+      add :region, :string, null: true
       add :postal_code, :string, null: false
 
       add :place_of_birth, :string, null: false
@@ -27,7 +29,12 @@ defmodule Ysc.Repo.Migrations.AddSignupApplication do
       add :spoken_languages, :text
       add :hear_about_the_club, :text
 
-      add :agreed_to_bylaws_at, :utc_datetime
+      add :agreed_to_bylaws, :boolean
+      add :agreed_to_bylaws_at, :utc_datetime, default: fragment("now()")
+
+      add :started, :utc_datetime, null: true
+      add :completed, :utc_datetime, default: fragment("now()")
+      add :browser_timezone, :string, null: true
 
       timestamps()
     end
@@ -39,15 +46,13 @@ defmodule Ysc.Repo.Migrations.AddSignupApplication do
 
       add :first_name, :string, null: false
       add :last_name, :string, null: false
+      add :birth_date, :date, null: true
       # Spouse or Child
       add :type, :string, null: false
 
-      add :signup_application_id, references(:signup_applications, column: :id, type: :binary_id),
-        null: false
+      add :user_id, references(:users, column: :id, type: :binary_id), null: false
 
       timestamps()
     end
-
-    create index(:family_members, [:signup_application_id])
   end
 end

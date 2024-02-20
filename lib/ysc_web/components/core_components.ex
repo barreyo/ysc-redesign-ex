@@ -225,8 +225,8 @@ defmodule YscWeb.CoreComponents do
     <button
       type={@type}
       class={[
-        "phx-submit-loading:opacity-75 rounded-lg bg-zinc-900 hover:bg-zinc-700 py-2 px-3",
-        "text-sm font-semibold leading-6 text-white active:text-white/80",
+        "phx-submit-loading:opacity-75 rounded bg-green-700 hover:bg-green-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80",
+        "text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80",
         @class
       ]}
       {@rest}
@@ -265,11 +265,14 @@ defmodule YscWeb.CoreComponents do
   attr :name, :any
   attr :label, :string, default: nil
   attr :value, :any
+  attr :subtitle, :string, default: ""
+  attr :icon, :string
 
   attr :type, :string,
     default: "text",
     values: ~w(checkbox color date datetime-local email file hidden month number password
-               range radio search select tel text textarea time url week)
+               range radio search select tel text textarea time url week checkgroup
+               country-select large-radio phone-input)
 
   attr :field, Phoenix.HTML.FormField,
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
@@ -337,6 +340,35 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  def input(%{type: "large-radio"} = assigns) do
+    ~H"""
+    <input
+      type="radio"
+      id={@id}
+      name={@name}
+      value={@value}
+      checked={@checked}
+      class="hidden peer"
+      {@rest}
+      required
+    />
+    <label
+      for={@id}
+      class="inline-flex items-center transition duration-150 ease-in-out justify-between w-full p-5 bg-white border rounded-lg cursor-pointer text-zinc-500 border-zinc-200 peer-checked:border-blue-600 peer-checked:text-blue-600 hover:text-zinc-600 hover:bg-zinc-100"
+    >
+      <div class="flex flex-row">
+        <div class="text-center items-center flex mr-4">
+          <.icon name={"hero-" <> @icon} class="w-8 h-8" />
+        </div>
+        <div class="block">
+          <div class="w-full font-semibold text-md text-zinc-800"><%= @label %></div>
+          <div class="w-full text-sm text-zinc-600"><%= @subtitle %></div>
+        </div>
+      </div>
+    </label>
+    """
+  end
+
   def input(%{type: "select"} = assigns) do
     ~H"""
     <div phx-feedback-for={@name}>
@@ -344,12 +376,36 @@ defmodule YscWeb.CoreComponents do
       <select
         id={@id}
         name={@name}
-        class="block w-full mt-2 bg-white border rounded-md shadow-sm border-zinc-300 focus:border-zinc-400 focus:ring-0 sm:text-sm"
+        class="block h-11 w-full mt-2 bg-white border rounded-md shadow-sm border-zinc-300 focus:border-zinc-400 focus:ring-0 sm:text-sm"
         multiple={@multiple}
         {@rest}
       >
         <option :if={@prompt} value=""><%= @prompt %></option>
         <%= Phoenix.HTML.Form.options_for_select(@options, @value) %>
+      </select>
+      <.error :for={msg <- @errors}><%= msg %></.error>
+    </div>
+    """
+  end
+
+  def input(%{type: "country-select"} = assigns) do
+    ~H"""
+    <div phx-feedback-for={@name}>
+      <.label for={@id}><%= @label %></.label>
+      <select
+        id={@id}
+        name={@name}
+        class="block w-full mt-2 h-11 bg-white border rounded-md shadow-sm border-zinc-300 focus:border-zinc-400 focus:ring-0 sm:text-sm text-zinc-800"
+        multiple={@multiple}
+        {@rest}
+      >
+        <option :if={@prompt} value=""><%= @prompt %></option>
+        <%= Phoenix.HTML.Form.options_for_select(
+          Enum.map(LivePhone.Country.list(["US", "SE", "FI", "DK", "NO", "IS"]), fn x ->
+            {x.name, x.code}
+          end),
+          @value
+        ) %>
       </select>
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
@@ -376,6 +432,56 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  def input(%{type: "checkgroup"} = assigns) do
+    ~H"""
+    <div phx-feedback-for={@name} class="text-sm">
+      <.label for={@id}><%= @label %></.label>
+      <div class="mt-4 w-full bg-white border border-gray-200 rounded px-4 py-4 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+        <div class="grid grid-cols-1 gap-1 text-sm items-baseline">
+          <input type="hidden" name={@name} value="" />
+          <div :for={{label, value} <- @options} class="flex items-center">
+            <label for={"#{@name}-#{value}"} class="font-medium text-gray-700 py-1">
+              <input
+                type="checkbox"
+                id={"#{@name}-#{value}"}
+                name={@name}
+                value={value}
+                checked={value in @value}
+                class="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-400 transition duration-150 ease-in-out"
+                {@rest}
+              />
+              <%= label %>
+            </label>
+          </div>
+        </div>
+      </div>
+      <.error :for={msg <- @errors}><%= msg %></.error>
+    </div>
+    """
+  end
+
+  def input(%{type: "phone-input"} = assigns) do
+    ~H"""
+    <div phx-feedback-for={@name} class="phx-no-feedback">
+      <.label for={"live_phone-" <> @id}><%= @label %></.label>
+      <.live_component
+        module={LivePhone}
+        id={@id}
+        form={assigns[:form]}
+        field={@field}
+        tabindex={0}
+        name={@name}
+        preferred={["US", "SE", "FI", "NO", "IS", "DK"]}
+        class={[
+          @errors == [] && "border-zinc-300 focus:border-zinc-400",
+          @errors != [] && "border-rose-400 focus:border-rose-400"
+        ]}
+      />
+      <.error :for={msg <- @errors}><%= msg %></.error>
+    </div>
+    """
+  end
+
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
@@ -397,6 +503,59 @@ defmodule YscWeb.CoreComponents do
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
     """
+  end
+
+  attr :field, Phoenix.HTML.FormField,
+    doc: "a form field struct retrieved from the form, for example: @form[:email]"
+
+  attr :options, :list, doc: "the options for the radio buttons in the fieldset"
+  attr :checked_value, :string, doc: "the currently checked value"
+
+  def radio_fieldset(%{field: %Phoenix.HTML.FormField{}} = assigns) do
+    ~H"""
+    <div phx-feedback-for={@field.name}>
+      <ul class="grid w-full gap-6 md:grid-cols-2">
+        <li :for={{_, values} <- @options}>
+          <.input
+            field={@field}
+            id={"#{@field.id}_#{values[:option]}"}
+            type="large-radio"
+            label={String.capitalize(values[:option])}
+            value={values[:option]}
+            checked={
+              @checked_value == values[:option] || @field.value == String.to_atom(values[:option])
+            }
+            subtitle={values[:subtitle]}
+            icon={values[:icon]}
+          />
+        </li>
+      </ul>
+    </div>
+    """
+  end
+
+  @doc """
+  Generate a checkbox group for multi-select.
+  """
+  attr :id, :any
+  attr :name, :any
+  attr :label, :string, default: nil
+
+  attr :field, Phoenix.HTML.FormField,
+    doc: "a form field struct retrieved from the form, for example: @form[:email]"
+
+  attr :errors, :list
+  attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
+  attr :rest, :global, include: ~w(disabled form readonly)
+  attr :class, :string, default: nil
+
+  def checkgroup(assigns) do
+    new_assigns =
+      assigns
+      |> assign(:multiple, true)
+      |> assign(:type, "checkgroup")
+
+    input(new_assigns)
   end
 
   @doc """
@@ -606,6 +765,15 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  attr :country, :string, required: true
+  attr :class, :string, default: nil
+
+  def flag(%{country: "fi-" <> _} = assigns) do
+    ~H"""
+    <span class={["fi", @country, @class]} />
+    """
+  end
+
   attr :id, :string, required: true
   attr :label, :string, required: true
   slot :inner_block, required: true
@@ -660,11 +828,11 @@ defmodule YscWeb.CoreComponents do
         phx-click={show_dropdown("#avatar-menu")}
       >
         <div class="px-3 m-auto">
-          <p class="font-medium text-zinc-900">Bonnie Green</p>
+          <p class="font-medium text-zinc-900"><%= @first_name <> " " <> @last_name %></p>
         </div>
         <div class="flex items-center justify-between w-full font-bold rounded text-zinc-900 lg:w-auto">
-          <div class="inline-flex items-center justify-center w-10 h-10 overflow-hidden transition duration-200 ease-in-out bg-blue-300 rounded fi fi-is hover:bg-blue-400">
-            <span class="absolute text-2xl font-extrabold uppercase -translate-x-1/2 -translate-y-1/2 text-zinc-100 top-1/2 left-1/2">
+          <div class="inline-flex items-center justify-center w-10 h-10 overflow-hidden transition duration-200 ease-in-out bg-blue-300 rounded hover:bg-blue-400">
+            <span class="absolute text-xl leading-5 font-extrabold uppercase text-zinc-100">
               <%= String.at(@first_name, 0) <> String.at(@last_name, 0) %>
             </span>
           </div>
@@ -726,36 +894,47 @@ defmodule YscWeb.CoreComponents do
       assigns
       |> assign(:stepper_max_length, length(assigns.steps))
 
-    IO.inspect(assigns)
-
     ~H"""
-    <ol class="flex items-center w-full px-4 py-3 space-x-2 text-sm font-medium text-center border rounded shadow-sm text-zinc-500 border-zinc-100 sm:text-base sm:p-4 sm:space-x-4 rtl:space-x-reverse">
+    <ol class="flex items-center w-full px-4 py-3 space-x-2 text-sm font-medium text-center border rounded text-zinc-400 border-zinc-100 sm:text-base sm:p-4 sm:space-x-4 rtl:space-x-reverse">
       <%= for {val, idx} <- Enum.with_index(@steps) do %>
-        <li :if={idx == @active_step} class="flex items-center leading-6 text-blue-800">
-          <span class="flex items-center justify-center w-6 h-6 text-xs font-bold border border-blue-600 rounded me-2 shrink-0">
-            <%= idx + 1 %>
-          </span>
-          <%= val %>
-          <.icon name="hero-chevron-right" class="w-5 h-5 ml-2" />
+        <li :if={idx != @active_step}>
+          <button
+            phx-click="set-step"
+            phx-value-step={idx}
+            class="flex items-center leading-6 text-sm"
+          >
+            <span class="flex items-center text-zinc-400 justify-center w-6 h-6 text-xs font-bold border rounded me-2 shrink-0 border-zinc-400">
+              <%= idx + 1 %>
+            </span>
+            <%= val %>
+            <.icon
+              :if={idx + 1 < assigns[:stepper_max_length]}
+              name="hero-chevron-right"
+              class="w-5 h-5 ml-2"
+            />
+          </button>
         </li>
-        <li
-          :if={idx != @active_step && idx + 1 < assigns[:stepper_max_length]}
-          class="flex items-center leading-6"
-        >
-          <span class="flex items-center justify-center w-6 h-6 text-xs font-bold border rounded border-zinc-500 me-2 shrink-0">
+        <li :if={idx == @active_step} class="flex items-center leading-6 text-blue-800 text-sm">
+          <span class="flex items-center text-zinc-100 justify-center w-6 h-6 text-xs font-bold bg-blue-600 border border-blue-600 rounded me-2 shrink-0">
             <%= idx + 1 %>
           </span>
           <%= val %>
-          <.icon name="hero-chevron-right" class="w-5 h-5 ml-2" />
-        </li>
-        <li :if={idx + 1 >= assigns[:stepper_max_length]} class="flex items-center leading-6 ">
-          <span class="flex items-center justify-center w-6 h-6 text-xs font-bold border rounded border-zinc-500 me-2 shrink-0">
-            <%= idx + 1 %>
-          </span>
-          <%= val %>
+          <.icon
+            :if={idx + 1 < assigns[:stepper_max_length]}
+            name="hero-chevron-right"
+            class="w-5 h-5 ml-2"
+          />
         </li>
       <% end %>
     </ol>
+    """
+  end
+
+  attr :class, :string, default: nil
+
+  def ysc_logo(assigns) do
+    ~H"""
+    <img class={@class} src="/images/ysc_logo.png" alt="The Young Scandinavian Club Logo" />
     """
   end
 

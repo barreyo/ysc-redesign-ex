@@ -224,4 +224,5 @@ defmodule YscWeb.UserAuth do
   defp maybe_store_return_to(conn), do: conn
 
   defp signed_in_path(_conn), do: ~p"/"
+  defp not_approved_path(_conn), do: ~p"/not_approved"
 end

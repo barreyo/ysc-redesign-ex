@@ -22,7 +22,7 @@ defmodule Ysc.Accounts.User do
     field :phone_number, :string, redact: true
 
     has_one :registration_form, SignupApplication
-    has_many :family_members, FamilyMember
+    has_many :family_members, FamilyMember, on_replace: :delete
 
     timestamps()
   end
@@ -68,11 +68,17 @@ defmodule Ysc.Accounts.User do
     |> validate_password(opts)
     |> validate_phone(opts)
     |> cast_assoc(:registration_form,
-      required: true,
       with: &SignupApplication.application_changeset/2,
+      required: true,
       opts: opts
     )
-    |> cast_assoc(:family_members, with: &FamilyMember.family_member_changeset/2, opts: opts)
+    |> cast_assoc(
+      :family_members,
+      with: &FamilyMember.family_member_changeset/2,
+      sort_param: :family_members_order,
+      drop_param: :family_members_delete,
+      opts: opts
+    )
   end
 
   defp validate_phone(changeset, opts) do

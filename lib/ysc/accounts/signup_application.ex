@@ -1,6 +1,28 @@
 defmodule Ysc.Accounts.SignupApplication do
   use Ecto.Schema
   import Ecto.Changeset
+  import Ysc.ChangesetHelpers
+
+  alias Ysc.Accounts.FamilyMember
+
+  @eligibility_options [
+    {
+      "I am a citizen of a Scandinavian country (Denmark, Finland, Iceland, Norway & Sweden)",
+      :citizen_of_scandinavia
+    },
+    {"I was born in Scandinavia", :born_in_scandinavia},
+    {
+      "I have at least one Scandinavian-born parent, grandparent or great-grandparent",
+      :scandinavian_parent
+    },
+    {
+      "I have lived in Scandinavia for at least six (6) months",
+      :lived_in_scandinavia
+    },
+    {"I speak one of the Scandinavian languages", :speak_scandinavian_language},
+    {"I am the spouse of a member", :spouse_of_member}
+  ]
+  @valid_eligibility_option Enum.map(@eligibility_options, fn {_text, val} -> val end)
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
@@ -9,9 +31,9 @@ defmodule Ysc.Accounts.SignupApplication do
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
 
     field :membership_type, MembershipType
-    field :membership_eligibility, {:array, MembershipEligibility}
+    field :membership_eligibility, {:array, MembershipEligibility}, default: []
 
-    has_many :family_members, Ysc.Accounts.FamilyMember
+    # has_many :family_members, Ysc.Accounts.FamilyMember
 
     field :occupation, :string
     field :birth_date, :date
@@ -19,6 +41,7 @@ defmodule Ysc.Accounts.SignupApplication do
     field :address, :string
     field :country, :string
     field :city, :string
+    field :region, :string
     field :postal_code, :string
 
     field :place_of_birth, :string
@@ -30,11 +53,24 @@ defmodule Ysc.Accounts.SignupApplication do
     field :spoken_languages, :string
     field :hear_about_the_club, :string
 
+    field :agreed_to_bylaws, :boolean
     field :agreed_to_bylaws_at, :utc_datetime
+
+    field :started, :utc_datetime
+    field :completed, :utc_datetime
+    field :browser_timezone, :string
 
     timestamps()
   end
 
+  @spec application_changeset(
+          {map(), map()}
+          | %{
+              :__struct__ => atom() | %{:__changeset__ => map(), optional(any()) => any()},
+              optional(atom()) => any()
+            },
+          :invalid | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
+        ) :: Ecto.Changeset.t()
   def application_changeset(application, attrs, opts \\ []) do
     application
     |> cast(attrs, [
@@ -45,6 +81,7 @@ defmodule Ysc.Accounts.SignupApplication do
       :address,
       :country,
       :city,
+      :region,
       :postal_code,
       :place_of_birth,
       :citizenship,
@@ -52,7 +89,35 @@ defmodule Ysc.Accounts.SignupApplication do
       :link_to_scandinavia,
       :lived_in_scandinavia,
       :spoken_languages,
-      :hear_about_the_club
+      :hear_about_the_club,
+      :agreed_to_bylaws,
+      :started,
+      :completed,
+      :browser_timezone
     ])
+    |> validate_required([
+      :membership_type,
+      :birth_date,
+      :address,
+      :country,
+      :city,
+      :postal_code,
+      :place_of_birth,
+      :citizenship,
+      :most_connected_nordic_country,
+      :agreed_to_bylaws
+    ])
+    |> validate_membership_eligibility()
+  end
+
+  defp validate_membership_eligibility(changeset) do
+    changeset
+    |> clean_and_validate_array(:membership_eligibility, @valid_eligibility_option)
+  end
+
+  @spec eligibility_options() :: [{<<_::64, _::_*8>>, <<_::64, _::_*8>>}, ...]
+  def eligibility_options, do: @eligibility_options
+
+  defp set_agreed_to_terms(changeset) do
   end
 end
