@@ -162,11 +162,40 @@ defmodule YscWeb.UserAuth do
     end
   end
 
+  def on_mount(:ensure_admin, _params, session, socket) do
+    socket = mount_current_user(socket, session)
+
+    if socket.assigns.current_user && socket.assigns.current_user.role == :admin do
+      {:cont, socket}
+    else
+      socket =
+        socket
+        |> Phoenix.LiveView.put_flash(:error, "You do not have permission to access this page")
+        |> Phoenix.LiveView.redirect(to: ~p"/")
+
+      {:halt, socket}
+    end
+  end
+
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     socket = mount_current_user(socket, session)
 
     if socket.assigns.current_user do
       {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
+    else
+      {:cont, socket}
+    end
+  end
+
+  def on_mount(:redirect_if_user_is_authenticated_and_pending_approval, _params, session, socket) do
+    socket = mount_current_user(socket, session)
+
+    if socket.assigns.current_user do
+      if socket.assigns.current_user.state == "pending_approval" do
+        {:halt, Phoenix.LiveView.redirect(socket, to: not_approved_path(socket))}
+      else
+        {:cont, socket}
+      end
     else
       {:cont, socket}
     end
@@ -211,6 +240,20 @@ defmodule YscWeb.UserAuth do
     end
   end
 
+  def require_admin(conn, _opts) do
+    user = conn.assigns[:current_user]
+
+    if user.role == :admin do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You do not have permission to access this page.")
+      |> maybe_store_return_to()
+      |> redirect(to: ~p"/")
+      |> halt()
+    end
+  end
+
   defp put_token_in_session(conn, token) do
     conn
     |> put_session(:user_token, token)
@@ -224,5 +267,5 @@ defmodule YscWeb.UserAuth do
   defp maybe_store_return_to(conn), do: conn
 
   defp signed_in_path(_conn), do: ~p"/"
-  defp not_approved_path(_conn), do: ~p"/not_approved"
+  defp not_approved_path(_conn), do: ~p"/pending_review"
 end

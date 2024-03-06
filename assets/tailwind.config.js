@@ -12,6 +12,10 @@ module.exports = {
       colors: {
         brand: "#1b1b52",
       },
+      screens: {
+        '3xl': '1600px',
+        '4xl': '2000px',
+      },
     },
   },
   plugins: [

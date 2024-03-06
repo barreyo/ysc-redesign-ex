@@ -22,12 +22,24 @@ import { Socket } from "phoenix"
 import { LiveSocket } from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 import LivePhone from "./live_phone"
+import InfiniteScroll from "./infinite_scroll"
+import Uploaders from "./uploaders"
+import BlurHashCanvas from "./blur_hash_canvas"
+import BlurHashImage from "./blur_hash_image"
 
-let Hooks = {}
+let Hooks = { InfiniteScroll, BlurHashCanvas, BlurHashImage }
 Hooks.LivePhone = LivePhone
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-let liveSocket = new LiveSocket("/live", Socket, { params: { _csrf_token: csrfToken }, hooks: Hooks })
+let liveSocket = new LiveSocket("/live", Socket, {
+    params: {
+        _csrf_token: csrfToken,
+        locale: Intl.NumberFormat().resolvedOptions().locale,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone_offset: -(new Date().getTimezoneOffset() / 60),
+    }, hooks: Hooks,
+    uploaders: Uploaders
+})
 
 // Show progress bar on live navigation and form submits
 topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" })

@@ -3,8 +3,6 @@ defmodule Ysc.Accounts.SignupApplication do
   import Ecto.Changeset
   import Ysc.ChangesetHelpers
 
-  alias Ysc.Accounts.FamilyMember
-
   @eligibility_options [
     {
       "I am a citizen of a Scandinavian country (Denmark, Finland, Iceland, Norway & Sweden)",
@@ -71,7 +69,7 @@ defmodule Ysc.Accounts.SignupApplication do
             },
           :invalid | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
         ) :: Ecto.Changeset.t()
-  def application_changeset(application, attrs, opts \\ []) do
+  def application_changeset(application, attrs, _opts \\ []) do
     application
     |> cast(attrs, [
       :membership_type,
@@ -117,7 +115,4 @@ defmodule Ysc.Accounts.SignupApplication do
 
   @spec eligibility_options() :: [{<<_::64, _::_*8>>, <<_::64, _::_*8>>}, ...]
   def eligibility_options, do: @eligibility_options
-
-  defp set_agreed_to_terms(changeset) do
-  end
 end

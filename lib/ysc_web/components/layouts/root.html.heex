@@ -4,8 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title suffix=" · Phoenix Framework">
-      <%= assigns[:page_title] || "Ysc" %>
+
+    <link rel="manifest" href="site.webmanifest" />
+
+    <.live_title suffix=" · YSC.org">
+      <%= assigns[:page_title] || "YSC" %>
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
@@ -17,9 +20,19 @@
         <div id="hero-branding" class="relative overflow-hidden h-44">
           <div class="w-full h-full">
             <div class="w-full h-full overlay">
+              <canvas
+                id="blur-hash-image-tahoe-feature"
+                src="|TD,WZ%MacofWCX9t7oHadNGRijEofRjkEofacWB.At8MwkCaeWYbHjDj=IARPozt7jrWYa#axoeWZt7jrogoej]a$ofjsWBWAt8RjadV@WBofj@t8ofWBkDWAofofkCofoet7RjV@kCWBj@j[f6WCRPj[kCj[j]jsayfR"
+                class="absolute top-0 left-0 object-cover w-full h-full transform-none"
+                phx-hook="BlurHashCanvas"
+              >
+              </canvas>
               <img
                 class="absolute top-0 left-0 object-cover w-full h-full transform-none"
-                srcset="https://ysc.org/wp-content/uploads/2018/12/2.jpg 1227w, https://ysc.org/wp-content/uploads/2018/12/2-350x216.jpg 350w, https://ysc.org/wp-content/uploads/2018/12/2-300x185.jpg 300w, https://ysc.org/wp-content/uploads/2018/12/2-768x474.jpg 768w, https://ysc.org/wp-content/uploads/2018/12/2-1024x633.jpg 1024w, https://ysc.org/wp-content/uploads/2018/12/2-600x371.jpg 600w"
+                id="image-tahoe-feature"
+                loading="lazy"
+                src="/images/tahoe-cabin-feature.jpg"
+                phx-hook="BlurHashImage"
               />
             </div>
 
@@ -53,7 +66,7 @@
                       href="#"
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
                     >
-                      Events
+                      News
                     </a>
                   </li>
                   <li>
@@ -61,7 +74,7 @@
                       href="#"
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
                     >
-                      News
+                      Events
                     </a>
                   </li>
                   <li>
@@ -91,7 +104,7 @@
                             href="#"
                             class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
                           >
-                            Membership
+                            Contact Us
                           </a>
                         </li>
                         <li>
@@ -99,7 +112,7 @@
                             href="#"
                             class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
                           >
-                            My Bookings
+                            Volunteer
                           </a>
                         </li>
                         <li>
@@ -107,18 +120,55 @@
                             navigate={~p"/users/settings"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                           >
-                            Account Settings
+                            Report Conduct Violation
+                          </.link>
+                        </li>
+
+                        <li>
+                          <.link
+                            navigate={~p"/users/settings"}
+                            class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                          >
+                            History
+                          </.link>
+                        </li>
+
+                        <li>
+                          <.link
+                            navigate={~p"/users/settings"}
+                            class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                          >
+                            Past Presidents
+                          </.link>
+                        </li>
+
+                        <li>
+                          <.link
+                            navigate={~p"/users/settings"}
+                            class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                          >
+                            Financials & Annual Meetings
+                          </.link>
+                        </li>
+
+                        <li>
+                          <.link
+                            navigate={~p"/users/settings"}
+                            class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                          >
+                            Bylaws
+                          </.link>
+                        </li>
+
+                        <li>
+                          <.link
+                            navigate={~p"/users/settings"}
+                            class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                          >
+                            Non-Discrimination Code of Conduct
                           </.link>
                         </li>
                       </ul>
-                      <div class="py-1">
-                        <a
-                          href="#"
-                          class="block px-4 py-2 text-sm font-medium text-zinc-800 transition ease-in-out hover:bg-zinc-100 duration-400"
-                        >
-                          Sign out
-                        </a>
-                      </div>
                     </.dropdown>
                   </li>
                 </ul>
@@ -185,7 +235,7 @@
                 </.link>
                 <.link
                   navigate={~p"/users/register"}
-                  class="px-4 py-2 text-sm font-bold text-center text-white transition ease-in-out bg-blue-700 rounded duration-400 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300"
+                  class="px-4 py-2 text-sm font-bold text-center text-zinc-100 transition ease-in-out bg-blue-700 rounded duration-400 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300"
                 >
                   Become a Member
                 </.link>
@@ -237,7 +287,7 @@
         <% end %>
       </ul>
     -->
-      <main class="w-full max-w-screen-lg p-4 py-10 mx-auto lg:py-14">
+      <main class="w-full max-w-screen-lg p-4 py-10 mx-auto lg:py-14 content-start justify-start align-top">
         <%= @inner_content %>
       </main>
 

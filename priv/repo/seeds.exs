@@ -17,7 +17,8 @@ admin_user =
   User.registration_changeset(%User{}, %{
     email: "admin@ysc.org",
     password: "very_secure_password",
-    role: "admin",
+    role: :admin,
+    state: :active,
     first_name: "Admin",
     last_name: "User",
     phone_number: "+14159009009",
@@ -33,7 +34,8 @@ regular_user =
   User.registration_changeset(%User{}, %{
     email: "regular@ysc.org",
     password: "very_secure_password",
-    role: "member",
+    role: :member,
+    state: :active,
     first_name: "Regular",
     last_name: "Member",
     phone_number: "+14159009009",
@@ -49,7 +51,8 @@ pending_approval_user =
   User.registration_changeset(%User{}, %{
     email: "pending@ysc.org",
     password: "very_secure_password",
-    role: "πending_approval",
+    role: :member,
+    state: :pending_approval,
     first_name: "Pending",
     last_name: "Member",
     phone_number: "+14159009009"
@@ -64,7 +67,8 @@ rejected_user =
   User.registration_changeset(%User{}, %{
     email: "rejected@ysc.org",
     password: "very_secure_password",
-    role: "rejected",
+    role: :member,
+    state: :rejected,
     first_name: "Rejected",
     last_name: "Member",
     phone_number: "+14159009009"

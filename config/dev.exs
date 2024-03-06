@@ -77,3 +77,13 @@ config :phoenix, :plug_init_mode, :runtime
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+config :ex_aws,
+  access_key_id: "dummy",
+  secret_access_key: "fake",
+  debug_requests: true,
+  s3: [
+    scheme: "http://",
+    host: "media.s3.localhost.localstack.cloud",
+    port: "4566"
+  ]

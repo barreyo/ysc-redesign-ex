@@ -1,6 +1,7 @@
 defmodule YscWeb.Router do
   use YscWeb, :router
 
+  import Phoenix.LiveDashboard.Router
   import YscWeb.UserAuth
 
   pipeline :browser do
@@ -8,6 +9,16 @@ defmodule YscWeb.Router do
     plug :fetch_session
     plug :fetch_live_flash
     plug :put_root_layout, html: {YscWeb.Layouts, :root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+    plug :fetch_current_user
+  end
+
+  pipeline :admin_browser do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {YscWeb.Layouts, :admin_root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_user
@@ -35,12 +46,9 @@ defmodule YscWeb.Router do
     # If your application does not have an admins-only section yet,
     # you can use Plug.BasicAuth to set up some basic authentication
     # as long as you are also using SSL (which you should anyway).
-    import Phoenix.LiveDashboard.Router
-
     scope "/dev" do
       pipe_through :browser
 
-      live_dashboard "/dashboard", metrics: YscWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end
@@ -66,6 +74,8 @@ defmodule YscWeb.Router do
 
     live_session :require_authenticated_user,
       on_mount: [{YscWeb.UserAuth, :ensure_authenticated}] do
+      get "/pending_review", PageController, :pending_review
+
       live "/users/settings", UserSettingsLive, :edit
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
     end
@@ -80,6 +90,25 @@ defmodule YscWeb.Router do
       on_mount: [{YscWeb.UserAuth, :mount_current_user}] do
       live "/users/confirm/:token", UserConfirmationLive, :edit
       live "/users/confirm", UserConfirmationInstructionsLive, :new
+    end
+  end
+
+  scope "/admin", YscWeb do
+    pipe_through [:admin_browser, :require_authenticated_user, :require_admin]
+
+    live_dashboard "/dashboard", metrics: YscWeb.Telemetry
+
+    live_session :require_admin,
+      on_mount: [
+        {YscWeb.UserAuth, :ensure_authenticated},
+        {YscWeb.UserAuth, :ensure_admin}
+      ] do
+      live "/", AdminDashboardLive, :index
+
+      # Handling media gallery
+      live "/media", AdminMediaLive, :index
+      live "/media/upload", AdminMediaLive, :upload
+      live "/media/upload/:id", AdminMediaLive, :edit
     end
   end
 end

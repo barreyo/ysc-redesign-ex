@@ -66,16 +66,16 @@ defmodule YscWeb.CoreComponents do
               phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
               phx-key="escape"
               phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
-              class="relative hidden transition bg-white shadow-lg shadow-zinc-700/10 ring-zinc-700/10 rounded-2xl p-14 ring-1"
+              class="relative hidden transition bg-white shadow-lg shadow-zinc-700/10 ring-zinc-700/10 rounded p-14 ring-1"
             >
-              <div class="absolute top-6 right-5">
+              <div class="absolute top-6 right-7">
                 <button
                   phx-click={JS.exec("data-cancel", to: "##{@id}")}
                   type="button"
-                  class="flex-none p-3 -m-3 opacity-20 hover:opacity-40"
+                  class="flex-none rounded hover:bg-zinc-100 p-1 -m-3 opacity-20 hover:opacity-40"
                   aria-label={gettext("close")}
                 >
-                  <.icon name="hero-x-mark-solid" class="w-5 h-5" />
+                  <.icon name="hero-x-mark-solid" class="w-6 h-6" />
                 </button>
               </div>
               <div id={"#{@id}-content"}>
@@ -272,7 +272,7 @@ defmodule YscWeb.CoreComponents do
     default: "text",
     values: ~w(checkbox color date datetime-local email file hidden month number password
                range radio search select tel text textarea time url week checkgroup
-               country-select large-radio phone-input)
+               country-select large-radio phone-input date-text)
 
   attr :field, Phoenix.HTML.FormField,
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
@@ -376,7 +376,7 @@ defmodule YscWeb.CoreComponents do
       <select
         id={@id}
         name={@name}
-        class="block h-11 w-full mt-2 bg-white border rounded-md shadow-sm border-zinc-300 focus:border-zinc-400 focus:ring-0 sm:text-sm"
+        class="block h-10 min-w-30 mt-2 bg-white border rounded-md shadow-sm border-zinc-300 focus:border-zinc-400 focus:ring-0 sm:text-sm"
         multiple={@multiple}
         {@rest}
       >
@@ -436,18 +436,18 @@ defmodule YscWeb.CoreComponents do
     ~H"""
     <div phx-feedback-for={@name} class="text-sm">
       <.label for={@id}><%= @label %></.label>
-      <div class="mt-4 w-full bg-white border border-gray-200 rounded px-4 py-4 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+      <div class="mt-4 w-full bg-white border border-zinc-200 rounded px-4 py-4 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
         <div class="grid grid-cols-1 gap-1 text-sm items-baseline">
           <input type="hidden" name={@name} value="" />
           <div :for={{label, value} <- @options} class="flex items-center">
-            <label for={"#{@name}-#{value}"} class="font-medium text-gray-700 py-1">
+            <label for={"#{@name}-#{value}"} class="font-medium text-zinc-700 py-1">
               <input
                 type="checkbox"
                 id={"#{@name}-#{value}"}
                 name={@name}
                 value={value}
                 checked={value in @value}
-                class="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-400 transition duration-150 ease-in-out"
+                class="mr-2 h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-400 transition duration-150 ease-in-out"
                 {@rest}
               />
               <%= label %>
@@ -476,6 +476,29 @@ defmodule YscWeb.CoreComponents do
           @errors == [] && "border-zinc-300 focus:border-zinc-400",
           @errors != [] && "border-rose-400 focus:border-rose-400"
         ]}
+      />
+      <.error :for={msg <- @errors}><%= msg %></.error>
+    </div>
+    """
+  end
+
+  def input(%{type: "date-text"} = assigns) do
+    ~H"""
+    <div phx-feedback-for={@name}>
+      <.label for={@id}><%= @label %></.label>
+      <input
+        type="text"
+        name={@name}
+        id={@id}
+        value={Phoenix.HTML.Form.normalize_value("date", @value)}
+        class={[
+          "mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6",
+          "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400",
+          @errors == [] && "border-zinc-300 focus:border-zinc-400",
+          @errors != [] && "border-rose-400 focus:border-rose-400"
+        ]}
+        onfocus="(this.type='date')"
+        {@rest}
       />
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
@@ -757,7 +780,7 @@ defmodule YscWeb.CoreComponents do
       <.icon name="hero-arrow-path" class="w-3 h-3 ml-1 animate-spin" />
   """
   attr :name, :string, required: true
-  attr :class, :string, default: nil
+  attr :class, :any, default: nil
 
   def icon(%{name: "hero-" <> _} = assigns) do
     ~H"""
@@ -806,7 +829,7 @@ defmodule YscWeb.CoreComponents do
     <!-- Dropdown menu -->
     <div
       id={@id}
-      class="absolute z-10 hidden mt-4 font-normal bg-white divide-y rounded shadow divide-zinc-100 w-44 "
+      class="absolute z-10 hidden mt-4 font-normal bg-white divide-y rounded shadow divide-zinc-100 w-52"
       phx-click-away={hide_dropdown("##{@id}")}
     >
       <%= render_slot(@inner_block) %>
@@ -828,11 +851,13 @@ defmodule YscWeb.CoreComponents do
         phx-click={show_dropdown("#avatar-menu")}
       >
         <div class="px-3 m-auto">
-          <p class="font-medium text-zinc-900"><%= @first_name <> " " <> @last_name %></p>
+          <p class="font-medium text-sm text-zinc-700 leading-5">
+            <%= String.capitalize(@first_name) <> " " <> String.capitalize(@last_name) %>
+          </p>
         </div>
         <div class="flex items-center justify-between w-full font-bold rounded text-zinc-900 lg:w-auto">
           <div class="inline-flex items-center justify-center w-10 h-10 overflow-hidden transition duration-200 ease-in-out bg-blue-300 rounded hover:bg-blue-400">
-            <span class="absolute text-xl leading-5 font-extrabold uppercase text-zinc-100">
+            <span class="absolute text-md leading-5 tracking-wide font-bold uppercase text-zinc-100">
               <%= String.at(@first_name, 0) <> String.at(@last_name, 0) %>
             </span>
           </div>
@@ -841,11 +866,193 @@ defmodule YscWeb.CoreComponents do
       <!-- Dropdown menu -->
       <div
         id="avatar-menu"
-        class="absolute z-10 hidden w-64 mt-4 font-normal bg-white divide-y rounded shadow divide-zinc-100 -left-24"
+        class="absolute z-10 hidden w-60 mt-4 font-normal bg-white divide-y rounded shadow divide-zinc-100 -left-32"
         phx-click-away={hide_dropdown("#avatar-menu")}
       >
         <%= render_slot(@inner_block) %>
       </div>
+    </div>
+    """
+  end
+
+  attr :active_page, :string
+  slot :inner_block, required: true
+
+  def side_menu(assigns) do
+    ~H"""
+    <button
+      class="inline-flex items-center mb-2 p-2 mt-2 ms-3 text-sm text-zinc-500 rounded sm:hidden hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+      aria-controls="sidebar navigation"
+      type="button"
+      phx-click={show_sidebar("#admin-navigation")}
+    >
+      <span class="sr-only">Open sidebar navigation</span>
+      <.icon name="hero-bars-3" class="w-8 h-8" />
+    </button>
+
+    <aside
+      id="admin-navigation"
+      class="fixed top-0 left-0 z-40 w-72 h-screen transition-transform -translate-x-full sm:translate-x-0"
+      aria-label="Sidebar"
+      phx-click-away={hide_sidebar("#admin-navigation")}
+    >
+      <div class="h-full px-5 py-8 overflow-y-auto bg-zinc-100">
+        <.link navigate="/" class="flex items-center ps-2.5 mb-5">
+          <.ysc_logo class="h-12 sm:h-16 me-3" />
+          <span class="self-center text-xl font-semibold whitespace-nowrap text-zinc-900">
+            YSC Admin
+          </span>
+        </.link>
+
+        <ul class="space-y-2 leading-6 mt-10 font-medium">
+          <li>
+            <.link
+              navigate="/admin"
+              class={[
+                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
+                @active_page == :dashboard && "bg-zinc-200 text-zinc-800"
+              ]}
+              aria-current={@active_page == :dashboard}
+            >
+              <.icon
+                name="hero-chart-bar"
+                class={[
+                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
+                  @active_page == :dashboard && "text-zinc-800"
+                ]}
+              />
+              <span class="ms-3">Overview</span>
+            </.link>
+          </li>
+
+          <li>
+            <.link
+              navigate="/admin/news"
+              class={[
+                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
+                @active_page == :news && "bg-zinc-200 text-zinc-800"
+              ]}
+              aria-current={@active_page == :news}
+            >
+              <.icon
+                name="hero-document-text"
+                class={[
+                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
+                  @active_page == :news && "text-zinc-800"
+                ]}
+              />
+              <span class="ms-3">Posts</span>
+            </.link>
+          </li>
+
+          <li>
+            <.link
+              navigate="/admin/events"
+              class={[
+                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
+                @active_page == :events && "bg-zinc-200 text-zinc-800"
+              ]}
+              aria-current={@active_page == :events}
+            >
+              <.icon
+                name="hero-calendar"
+                class={[
+                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
+                  @active_page == :events && "text-zinc-800"
+                ]}
+              />
+              <span class="ms-3">Events</span>
+            </.link>
+          </li>
+
+          <li>
+            <.link
+              navigate="/admin/bookings"
+              class={[
+                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
+                @active_page == :bookings && "bg-zinc-200 text-zinc-800"
+              ]}
+              aria-current={@active_page == :bookings}
+            >
+              <.icon
+                name="hero-home"
+                class={[
+                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
+                  @active_page == :bookings && "text-zinc-800"
+                ]}
+              />
+              <span class="ms-3">Bookings</span>
+            </.link>
+          </li>
+
+          <li>
+            <.link
+              navigate="/admin/members"
+              class={[
+                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
+                @active_page == :members && "bg-zinc-200 text-zinc-800"
+              ]}
+              aria-current={@active_page == :members}
+            >
+              <.icon
+                name="hero-users"
+                class={[
+                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
+                  @active_page == :members && "text-zinc-800"
+                ]}
+              />
+              <span class="ms-3">Members</span>
+            </.link>
+          </li>
+
+          <li>
+            <.link
+              navigate="/admin/media"
+              class={[
+                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
+                @active_page == :media && "bg-zinc-200 text-zinc-800"
+              ]}
+              aria-current={@active_page == :media}
+            >
+              <.icon
+                name="hero-photo"
+                class={[
+                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
+                  @active_page == :media && "text-zinc-800"
+                ]}
+              />
+              <span class="ms-3">Media</span>
+            </.link>
+          </li>
+
+          <li>
+            <.link
+              navigate="/admin/settings"
+              class={[
+                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
+                @active_page == :admin_settings && "bg-zinc-200 text-zinc-800"
+              ]}
+              aria-current={@active_page == :admin_settings}
+            >
+              <.icon
+                name="hero-cog-6-tooth"
+                class={[
+                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
+                  @active_page == :admin_settings && "text-zinc-800"
+                ]}
+              />
+              <span class="ms-3">Settings</span>
+            </.link>
+          </li>
+        </ul>
+      </div>
+    </aside>
+
+    <main class="px-6 md:px-10 py-6 sm:ml-72">
+      <%= render_slot(@inner_block) %>
+    </main>
+
+    <div id="drawer-backdrop" class="hidden bg-zinc-900/50 fixed inset-0 z-30" drawer-backdrop="">
     </div>
     """
   end
@@ -938,17 +1145,27 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
-  # Text stuff
-  def p(assigns) do
-  end
+  attr :viking, :integer, default: 4
+  attr :title, :string, default: "Looks like this page is empty"
+  attr :suggestion, :string, default: nil
 
-  def h1(assigns) do
-  end
-
-  def h2(assigns) do
-  end
-
-  def h3(assigns) do
+  def empty_viking_state(assigns) do
+    ~H"""
+    <div class="text-center justify-center items-center w-full">
+      <img
+        class={[
+          "w-80 mx-auto",
+          Enum.member?([2, 4], @viking) && "rounded-full"
+        ]}
+        src={"/images/vikings/small/viking_#{@viking}.png"}
+        alt="Looks like this page is empty"
+      />
+      <.header class="pt-8">
+        <%= @title %>
+        <:subtitle><%= @suggestion %></:subtitle>
+      </.header>
+    </div>
+    """
   end
 
   ## JS Commands
@@ -991,7 +1208,7 @@ defmodule YscWeb.CoreComponents do
     |> JS.show(to: "##{id}")
     |> JS.show(
       to: "##{id}-bg",
-      transition: {"transition-all transform ease-out duration-300", "opacity-0", "opacity-100"}
+      transition: {"transition-all transform ease-out duration-100", "opacity-0", "opacity-100"}
     )
     |> show("##{id}-container")
     |> JS.add_class("overflow-hidden", to: "body")
@@ -1002,12 +1219,32 @@ defmodule YscWeb.CoreComponents do
     js
     |> JS.hide(
       to: "##{id}-bg",
-      transition: {"transition-all transform ease-in duration-200", "opacity-100", "opacity-0"}
+      transition: {"transition-all transform ease-in duration-50", "opacity-100", "opacity-0"}
     )
     |> hide("##{id}-container")
     |> JS.hide(to: "##{id}", transition: {"block", "block", "hidden"})
     |> JS.remove_class("overflow-hidden", to: "body")
     |> JS.pop_focus()
+  end
+
+  def show_sidebar(to) do
+    JS.remove_class("-translate-x-full", to: to)
+    |> JS.add_class("transform-none", to: to)
+    |> JS.show(
+      to: "#drawer-backdrop",
+      transition: {"transition-opacity ease-out duration-75", "opacity-0", "opacity-100"}
+    )
+    |> JS.set_attribute({"aria-expanded", "true"}, to: to)
+  end
+
+  def hide_sidebar(to) do
+    JS.remove_class("transform-none", to: to)
+    |> JS.add_class("-translate-x-full", to: to)
+    |> JS.hide(
+      to: "#drawer-backdrop",
+      transition: {"transition-opacity ease-in duration-75", "opacity-100", "opacity-0"}
+    )
+    |> JS.set_attribute({"aria-expanded", "false"}, to: to)
   end
 
   def show_dropdown(to) do

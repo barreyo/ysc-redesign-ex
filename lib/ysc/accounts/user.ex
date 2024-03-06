@@ -60,7 +60,7 @@ defmodule Ysc.Accounts.User do
   """
   def registration_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email, :password, :first_name, :last_name, :phone_number])
+    |> cast(attrs, [:email, :password, :state, :role, :first_name, :last_name, :phone_number])
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)
     |> validate_required([:first_name, :last_name])
@@ -69,7 +69,6 @@ defmodule Ysc.Accounts.User do
     |> validate_phone(opts)
     |> cast_assoc(:registration_form,
       with: &SignupApplication.application_changeset/2,
-      required: true,
       opts: opts
     )
     |> cast_assoc(
@@ -81,7 +80,7 @@ defmodule Ysc.Accounts.User do
     )
   end
 
-  defp validate_phone(changeset, opts) do
+  defp validate_phone(changeset, _opts) do
     changeset
     |> validate_required([:phone_number])
     |> validate_length(:phone_number, max: 25)

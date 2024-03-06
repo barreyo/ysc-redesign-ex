@@ -4,6 +4,7 @@ defmodule Ysc.Accounts do
   """
 
   import Ecto.Query, warn: false
+  alias Ysc.Accounts.SignupApplication
   alias Ysc.Repo
 
   alias Ysc.Accounts.{User, UserToken, UserNotifier}
@@ -350,5 +351,13 @@ defmodule Ysc.Accounts do
       {:ok, %{user: user}} -> {:ok, user}
       {:error, :user, changeset, _} -> {:error, changeset}
     end
+  end
+
+  def get_signup_application_submission_date(user_id) do
+    from(s in SignupApplication,
+      select: %{submit_date: s.completed, timezone: s.browser_timezone},
+      where: s.user_id == ^user_id
+    )
+    |> Repo.one()
   end
 end

@@ -16,7 +16,7 @@ defmodule Ysc.Accounts.FamilyMember do
     timestamps()
   end
 
-  def family_member_changeset(family_member, attrs, opts \\ []) do
+  def family_member_changeset(family_member, attrs, _opts \\ []) do
     family_member
     |> cast(attrs, [:first_name, :last_name, :birth_date, :type])
     |> validate_length(:first_name, min: 1, max: 160)

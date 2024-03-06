@@ -7,6 +7,8 @@ defmodule Ysc.Application do
 
   @impl true
   def start(_type, _args) do
+    Oban.Telemetry.attach_default_logger()
+
     children = [
       # Start the Telemetry supervisor
       YscWeb.Telemetry,
@@ -17,9 +19,10 @@ defmodule Ysc.Application do
       # Start Finch
       {Finch, name: Ysc.Finch},
       # Start the Endpoint (http/https)
-      YscWeb.Endpoint
+      YscWeb.Endpoint,
       # Start a worker by calling: Ysc.Worker.start_link(arg)
       # {Ysc.Worker, arg}
+      {Oban, Application.fetch_env!(:ysc, Oban)}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

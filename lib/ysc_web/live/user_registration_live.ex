@@ -134,23 +134,26 @@ defmodule YscWeb.UserRegistrationLive do
                       />
                       <.input type="text" field={nested_f[:first_name]} placeholder="First Name" />
                       <.input type="text" field={nested_f[:last_name]} placeholder="Last Name" />
-                      <.input type="date" field={nested_f[:birth_date]} />
+                      <.input type="date-text" field={nested_f[:birth_date]} placeholder="Birth Date" />
 
-                      <label class="cursor-pointer rounded hover:bg-zinc-100 align-middle items-center justify-center transition duration-200 ease-in-out">
+                      <label class="cursor-pointer py-3 block align-middle items-center justify-center text-center">
                         <input
                           type="checkbox"
                           name="user[family_members_delete][]"
                           value={nested_f.index}
                           class="hidden"
                         />
-                        <.icon name="hero-x-mark" class="w-6 h-6 text-rose-700" />
+                        <.icon
+                          name="hero-x-circle"
+                          class="w-6 h-6 text-rose-600 px-2 py-2 hover:text-rose-400 transition duration-200 ease-in-out"
+                        />
                       </label>
                     </div>
                   </.inputs_for>
                 </div>
 
                 <div class="w-full py-4">
-                  <label class="w-full cursor-pointer rounded hover:bg-zinc-100 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-800/80">
+                  <label class="w-full block border border-1 border-zinc-100 cursor-pointer rounded hover:bg-zinc-100 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-800/80 text-center align-center">
                     <input type="checkbox" name="user[family_members_order][]" class="hidden" />
                     <.icon name="hero-plus-circle" class="w-6 h-6" /> Add Family Member
                   </label>
@@ -292,6 +295,14 @@ defmodule YscWeb.UserRegistrationLive do
   end
 
   def mount(_params, _session, socket) do
+    connect_params =
+      case get_connect_params(socket) do
+        nil -> %{}
+        v -> v
+      end
+
+    browser_timezone = connect_params |> Map.get("timezone", "America/Los_Angeles")
+
     application_changeset =
       SignupApplication.application_changeset(
         %SignupApplication{},
@@ -305,11 +316,13 @@ defmodule YscWeb.UserRegistrationLive do
 
     socket =
       socket
+      |> assign(:page_title, "Become a Member")
       |> assign(:current_step, 0)
       |> assign(:step_0_invalid, false)
       |> assign(:step_1_invalid, false)
       |> assign(:step_2_invalid, false)
       |> assign(:show_family_input, false)
+      |> assign(:browser_timezone, browser_timezone)
       |> assign(trigger_submit: false, check_errors: false)
       |> assign_new(:started, fn -> DateTime.to_string(DateTime.utc_now()) end)
       |> assign_form(changeset)
@@ -335,15 +348,14 @@ defmodule YscWeb.UserRegistrationLive do
   @spec handle_event(<<_::32, _::_*32>>, map(), any()) :: {:noreply, any()}
   def handle_event("save", %{"user" => user_params}, socket) do
     reg_form_updated =
-      user_params["registration_form"] |> Map.put("started", socket.assigns[:started])
+      user_params["registration_form"]
+      |> Map.put("started", socket.assigns[:started])
+      |> Map.put("browser_timezone", socket.assigns[:browser_timezone])
 
     updated_user_params =
       user_params
       |> Map.replace("registration_form", reg_form_updated)
-      |> Map.put("family_members", [])
-
-    IO.inspect(reg_form_updated)
-    IO.inspect(updated_user_params)
+      |> Map.put_new("family_members", [])
 
     case Accounts.register_user(updated_user_params) do
       {:ok, user} ->
@@ -362,8 +374,6 @@ defmodule YscWeb.UserRegistrationLive do
   end
 
   def handle_event("validate", %{"user" => user_params}, socket) do
-    IO.inspect(user_params["registration_form"])
-
     form_data =
       User.registration_changeset(
         %User{},
