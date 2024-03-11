@@ -13,3 +13,6 @@ defenum(MembershipEligibility, [
   "speak_scandinavian_language",
   "spouse_of_member"
 ])
+
+defenum(SignupApplicationEventType, ["review_started", "review_completed", "review_updated"])
+defenum(UserEventType, ["state_update", "role_update"])

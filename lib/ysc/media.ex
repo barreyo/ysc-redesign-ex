@@ -37,7 +37,7 @@ defmodule Ysc.Media do
   def update_image(%Image{} = image, attrs, %User{} = current_user) do
     with :ok <- Policy.authorize(:media_image_update, current_user, image) do
       image
-      |> Image.add_image_changeset(attrs)
+      |> Image.edit_image_changeset(attrs)
       |> Repo.update()
     end
   end

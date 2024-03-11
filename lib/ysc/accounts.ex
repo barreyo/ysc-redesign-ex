@@ -4,6 +4,7 @@ defmodule Ysc.Accounts do
   """
 
   import Ecto.Query, warn: false
+
   alias Ysc.Accounts.SignupApplication
   alias Ysc.Repo
 
@@ -60,10 +61,20 @@ defmodule Ysc.Accounts do
       ** (Ecto.NoResultsError)
 
   """
-  def get_user!(id), do: Repo.get!(User, id)
+  def get_user!(id, preloads \\ []) do
+    Repo.get!(User, id) |> Repo.preload(preloads)
+  end
+
+  def get_signup_application_from_user_id!(id) do
+    Repo.get_by!(SignupApplication, user_id: id)
+  end
 
   ## User registration
 
+  @spec register_user(
+          :invalid
+          | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
+        ) :: any()
   @doc """
   Registers a user.
 
@@ -128,6 +139,34 @@ defmodule Ysc.Accounts do
     |> User.email_changeset(attrs)
     |> User.validate_current_password(password)
     |> Ecto.Changeset.apply_action(:update)
+  end
+
+  def list_paginated_users(params) do
+    Flop.validate_and_run(User, params, for: User)
+  end
+
+  defp fuzzy_search_user(search_term) do
+    phone_like = "%#{search_term}%"
+
+    from(u in User,
+      where: fragment("SIMILARITY(?, ?) > 0", u.email, ^search_term),
+      or_where: fragment("SIMILARITY(?, ?) > 0", u.first_name, ^search_term),
+      or_where: fragment("SIMILARITY(?, ?) > 0", u.last_name, ^search_term),
+      or_where: ilike(u.phone_number, ^phone_like)
+    )
+  end
+
+  def list_paginated_users(params, nil), do: list_paginated_users(params)
+
+  def list_paginated_users(params, search_term) when search_term == "",
+    do: list_paginated_users(params)
+
+  @spec list_paginated_users(
+          %{optional(:__struct__) => Flop, optional(atom() | binary()) => any()},
+          any()
+        ) :: {:error, Flop.Meta.t()} | {:ok, {list(), Flop.Meta.t()}}
+  def list_paginated_users(params, search_term) do
+    Flop.validate_and_run(fuzzy_search_user(search_term), params, for: User)
   end
 
   @doc """

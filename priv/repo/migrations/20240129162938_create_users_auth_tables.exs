@@ -37,5 +37,20 @@ defmodule Ysc.Repo.Migrations.CreateUsersAuthTables do
 
     create index(:users_tokens, [:user_id])
     create unique_index(:users_tokens, [:context, :token])
+
+    create table(:user_events, primary_key: false) do
+      add :user_id, references(:users, on_delete: :nothing, column: :id, type: :binary_id),
+        null: false
+
+      add :updated_by_user_id,
+          references(:users, on_delete: :nothing, column: :id, type: :binary_id),
+          null: true
+
+      add :type, :string
+      add :from, :string
+      add :to, :string
+
+      timestamps()
+    end
   end
 end

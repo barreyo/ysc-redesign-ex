@@ -1,4 +1,6 @@
 defmodule YscWeb.Workers.ImageProcessor do
+  require Logger
+
   use Oban.Worker, queue: :media
 
   alias HTTP
@@ -19,13 +21,13 @@ defmodule YscWeb.Workers.ImageProcessor do
     optimized_output_path = "#{tmp_output_file}_optimized.png"
     thumbnail_output_path = "#{tmp_output_file}_thumb.png"
 
-    IO.puts(tmp_output_file)
-    IO.puts(optimized_output_path)
-    IO.puts(thumbnail_output_path)
+    Logger.info(tmp_output_file)
+    Logger.info(optimized_output_path)
+    Logger.info(thumbnail_output_path)
 
     make_temp_dir(@temp_dir)
 
-    IO.puts("Started work on Image: #{image.id}")
+    Logger.info("Started work on Image: #{image.id}")
 
     try do
       # Start working on this image
@@ -54,13 +56,10 @@ defmodule YscWeb.Workers.ImageProcessor do
           optimized: optimized_output_path
         )
 
-      IO.inspect(upload_result)
-
       # Downscale to very small and generate blurhash
       blur_hash = generate_blur_hash(tmp_output_file)
 
-      IO.puts("Writing results to DB")
-      IO.inspect(upload_result)
+      Logger.info("Writing results to DB")
 
       Media.update_processed_image(image, %{
         optimized_image_path: upload_result[:optimized],
@@ -73,7 +72,7 @@ defmodule YscWeb.Workers.ImageProcessor do
 
       :ok
     after
-      IO.puts("Cleaning up generated files")
+      Logger.info("Cleaning up generated files")
       File.rm(tmp_output_file)
       File.rm(optimized_output_path)
       File.rm(thumbnail_output_path)

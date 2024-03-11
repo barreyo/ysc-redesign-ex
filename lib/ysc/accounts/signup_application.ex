@@ -21,6 +21,9 @@ defmodule Ysc.Accounts.SignupApplication do
     {"I am the spouse of a member", :spouse_of_member}
   ]
   @valid_eligibility_option Enum.map(@eligibility_options, fn {_text, val} -> val end)
+  @eligibility_atom_to_text Enum.reduce(@eligibility_options, %{}, fn {val, key}, acc ->
+                              Map.put(acc, key, val)
+                            end)
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
@@ -57,6 +60,9 @@ defmodule Ysc.Accounts.SignupApplication do
     field :started, :utc_datetime
     field :completed, :utc_datetime
     field :browser_timezone, :string
+
+    field :reviewed_at, :utc_datetime
+    belongs_to :reviewed_by, Ysc.Accounts.User, foreign_key: :reviewed_by_user_id, references: :id
 
     timestamps()
   end
@@ -115,4 +121,5 @@ defmodule Ysc.Accounts.SignupApplication do
 
   @spec eligibility_options() :: [{<<_::64, _::_*8>>, <<_::64, _::_*8>>}, ...]
   def eligibility_options, do: @eligibility_options
+  def eligibility_lookup, do: @eligibility_atom_to_text
 end

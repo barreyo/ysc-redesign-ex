@@ -21,6 +21,7 @@ defmodule YscWeb.Endpoint do
     at: "/",
     from: :ysc,
     gzip: false,
+    brotli: true,
     only: YscWeb.static_paths()
 
   # Code reloading can be explicitly enabled under the

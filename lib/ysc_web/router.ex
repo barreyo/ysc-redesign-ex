@@ -109,6 +109,10 @@ defmodule YscWeb.Router do
       live "/media", AdminMediaLive, :index
       live "/media/upload", AdminMediaLive, :upload
       live "/media/upload/:id", AdminMediaLive, :edit
+
+      live "/users", AdminUsersLive, :index
+      live "/users/:id", AdminUsersLive, :edit
+      live "/users/:id/review", AdminUsersLive, :review
     end
   end
 end

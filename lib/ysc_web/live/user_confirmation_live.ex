@@ -23,6 +23,7 @@ defmodule YscWeb.UserConfirmationLive do
     """
   end
 
+  @spec mount(map(), any(), any()) :: {:ok, any(), [{:temporary_assigns, [...]}, ...]}
   def mount(%{"token" => token}, _session, socket) do
     form = to_form(%{"token" => token}, as: "user")
     {:ok, assign(socket, form: form), temporary_assigns: [form: nil]}
@@ -30,6 +31,8 @@ defmodule YscWeb.UserConfirmationLive do
 
   # Do not log in the user after confirmation to avoid a
   # leaked token giving the user access to the account.
+  @spec handle_event(<<_::120>>, map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("confirm_account", %{"user" => %{"token" => token}}, socket) do
     case Accounts.confirm_user(token) do
       {:ok, _} ->

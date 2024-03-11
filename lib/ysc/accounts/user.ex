@@ -5,6 +5,21 @@ defmodule Ysc.Accounts.User do
   alias Ysc.Extensions.PhoneNumber
   alias Ysc.Accounts.{FamilyMember, SignupApplication}
 
+  @derive {
+    Flop.Schema,
+    filterable: [
+      :email,
+      :first_name,
+      :last_name,
+      :phone_number,
+      :state,
+      :role
+    ],
+    sortable: [:email, :first_name, :last_name, :state, :role],
+    default_limit: 50,
+    max_limit: 200
+  }
+
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]

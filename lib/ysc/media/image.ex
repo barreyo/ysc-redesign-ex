@@ -7,6 +7,11 @@ defmodule Ysc.Media.Image do
 
   import Ecto.Changeset
 
+  @derive {
+    Flop.Schema,
+    filterable: [:title, :alt_text, :user_id], sortable: [:inserted_at]
+  }
+
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]

@@ -135,7 +135,7 @@ defmodule YscWeb.AdminMediaLive do
         </h1>
 
         <.button phx-click={JS.navigate(~p"/admin/media/upload")}>
-          <.icon name="hero-photo" class="w-5 h-5" /><span class="ms-3">Add New</span>
+          <.icon name="hero-photo" class="w-5 h-5" /><span class="ms-1">Add New</span>
         </.button>
       </div>
 
@@ -222,8 +222,6 @@ defmodule YscWeb.AdminMediaLive do
   end
 
   def handle_event("validate-edit", %{"image" => image_params}, socket) do
-    IO.inspect(image_params)
-
     form_data =
       Media.Image.edit_image_changeset(
         socket.assigns[:active_image],

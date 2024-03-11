@@ -1,0 +1,25 @@
+defmodule Ysc.Accounts.UserEvent do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @primary_key {:id, Ecto.ULID, autogenerate: true}
+  @foreign_key_type Ecto.ULID
+  @timestamps_opts [type: :utc_datetime]
+  schema "user_events" do
+    belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
+    belongs_to :updated_by, Ysc.Accounts.User, foreign_key: :updated_by_user_id, references: :id
+
+    field :type, UserEventType
+
+    field :from, :string
+    field :to, :string
+
+    timestamps(updated_at: false)
+  end
+
+  def new_user_event_changeset(event, attrs, opts \\ []) do
+    event
+    |> cast(attrs, [:user_id, :updated_by_user_id, :type, :from, :to])
+    |> validate_required([:user_id, :updated_by_user_id, :type, :from, :to])
+  end
+end

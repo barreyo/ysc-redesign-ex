@@ -16,6 +16,7 @@ defmodule YscWeb.CoreComponents do
   """
   use Phoenix.Component
 
+  import Flop.Phoenix
   alias Phoenix.LiveView.JS
   import YscWeb.Gettext
 
@@ -225,7 +226,7 @@ defmodule YscWeb.CoreComponents do
     <button
       type={@type}
       class={[
-        "phx-submit-loading:opacity-75 rounded bg-green-700 hover:bg-green-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80",
+        "phx-submit-loading:opacity-75 rounded bg-blue-700 hover:bg-blue-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80",
         "text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80",
         @class
       ]}
@@ -436,7 +437,7 @@ defmodule YscWeb.CoreComponents do
     ~H"""
     <div phx-feedback-for={@name} class="text-sm">
       <.label for={@id}><%= @label %></.label>
-      <div class="mt-4 w-full bg-white border border-zinc-200 rounded px-4 py-4 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+      <div class="w-full bg-white rounded text-left cursor-default focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
         <div class="grid grid-cols-1 gap-1 text-sm items-baseline">
           <input type="hidden" name={@name} value="" />
           <div :for={{label, value} <- @options} class="flex items-center">
@@ -446,7 +447,7 @@ defmodule YscWeb.CoreComponents do
                 id={"#{@name}-#{value}"}
                 name={@name}
                 value={value}
-                checked={value in @value}
+                checked={@value && value in @value}
                 class="mr-2 h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-400 transition duration-150 ease-in-out"
                 {@rest}
               />
@@ -798,41 +799,34 @@ defmodule YscWeb.CoreComponents do
   end
 
   attr :id, :string, required: true
-  attr :label, :string, required: true
+  attr :class, :string, default: nil
+  attr :right, :boolean, default: false
+  slot :button_block, required: true
   slot :inner_block, required: true
 
   def dropdown(assigns) do
     ~H"""
-    <button
-      id={"#{@id}Link"}
-      data-dropdown-toggle={@id}
-      class="flex items-center justify-between w-full px-3 py-2 font-bold transition duration-200 ease-in-out rounded text-zinc-900 hover:bg-zinc-100 lg:w-auto hover:text-black"
-      phx-click={show_dropdown("##{@id}")}
-    >
-      <%= @label %>
-      <svg
-        class="w-2.5 h-2.5 ms-2.5"
-        aria-hidden="true"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 10 6"
+    <div class="relative">
+      <button
+        id={"#{@id}Link"}
+        data-dropdown-toggle={@id}
+        class={"flex items-center justify-between w-full px-3 py-2 font-bold transition duration-200 ease-in-out rounded lg:w-auto #{@class}"}
+        phx-click={show_dropdown("##{@id}")}
       >
-        <path
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="m1 1 4 4 4-4"
-        />
-      </svg>
-    </button>
-    <!-- Dropdown menu -->
-    <div
-      id={@id}
-      class="absolute z-10 hidden mt-4 font-normal bg-white divide-y rounded shadow divide-zinc-100 w-52"
-      phx-click-away={hide_dropdown("##{@id}")}
-    >
-      <%= render_slot(@inner_block) %>
+        <%= render_slot(@button_block) %>
+      </button>
+      <!-- Dropdown menu -->
+      <div
+        id={@id}
+        class={[
+          "absolute z-10 hidden mt-1 font-normal bg-white divide-y rounded shadow divide-zinc-100 w-52",
+          @right && "right-0",
+          !@right && "left-0"
+        ]}
+        phx-click-away={hide_dropdown("##{@id}")}
+      >
+        <%= render_slot(@inner_block) %>
+      </div>
     </div>
     """
   end
@@ -866,7 +860,7 @@ defmodule YscWeb.CoreComponents do
       <!-- Dropdown menu -->
       <div
         id="avatar-menu"
-        class="absolute z-10 hidden w-60 mt-4 font-normal bg-white divide-y rounded shadow divide-zinc-100 -left-32"
+        class="absolute z-10 hidden w-60 mt-0 font-normal bg-white divide-y rounded shadow divide-zinc-100 right-4 mt-1"
         phx-click-away={hide_dropdown("#avatar-menu")}
       >
         <%= render_slot(@inner_block) %>
@@ -897,14 +891,14 @@ defmodule YscWeb.CoreComponents do
       phx-click-away={hide_sidebar("#admin-navigation")}
     >
       <div class="h-full px-5 py-8 overflow-y-auto bg-zinc-100">
-        <.link navigate="/" class="flex items-center ps-2.5 mb-5">
+        <.link navigate="/" class="items-center group ps-2.5 mb-5 inline-block">
           <.ysc_logo class="h-12 sm:h-16 me-3" />
-          <span class="self-center text-xl font-semibold whitespace-nowrap text-zinc-900">
-            YSC Admin
+          <span class="block group-hover:underline text-sm font-bold text-zinc-600 py-4">
+            Go to site <.icon name="hero-arrow-right" class="h-4 w-4" />
           </span>
         </.link>
 
-        <ul class="space-y-2 leading-6 mt-10 font-medium">
+        <ul class="space-y-2 leading-6 mt-4 font-medium">
           <li>
             <.link
               navigate="/admin"
@@ -915,7 +909,7 @@ defmodule YscWeb.CoreComponents do
               aria-current={@active_page == :dashboard}
             >
               <.icon
-                name="hero-chart-bar"
+                name="hero-chart-pie"
                 class={[
                   "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
                   @active_page == :dashboard && "text-zinc-800"
@@ -987,7 +981,7 @@ defmodule YscWeb.CoreComponents do
 
           <li>
             <.link
-              navigate="/admin/members"
+              navigate="/admin/users"
               class={[
                 "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
                 @active_page == :members && "bg-zinc-200 text-zinc-800"
@@ -1001,7 +995,7 @@ defmodule YscWeb.CoreComponents do
                   @active_page == :members && "text-zinc-800"
                 ]}
               />
-              <span class="ms-3">Members</span>
+              <span class="ms-3">Users</span>
             </.link>
           </li>
 
@@ -1070,25 +1064,50 @@ defmodule YscWeb.CoreComponents do
       aria-expanded="false"
       phx-click={toggle_expanded(@toggle_id)}
     >
-      <svg
-        class="w-5 h-5 fill-inherit"
-        aria-hidden="true"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 17 14"
-      >
-        <path
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M1 1h15M1 7h15M1 13h15"
-        />
-      </svg>
-      <span class="ml-4 text-sm font-bold text-zinc-900 hover:text-black">
+      <.icon name="hero-bars-3" class="w-5 h-5 fill-inherit" />
+      <span class="ml-2 font-bold text-zinc-900 hover:text-black">
         Menu
       </span>
     </button>
+    """
+  end
+
+  attr :type, :string, default: "default"
+  slot :inner_block, required: true
+
+  def badge(assigns) do
+    ~H"""
+    <span class={[
+      "text-xs font-medium me-2 px-2.5 py-1 rounded text-left",
+      @type == "green" && "bg-green-100 text-green-800",
+      @type == "yellow" && "bg-yellow-100 text-yellow-800",
+      @type == "red" && "bg-red-100 text-red-800",
+      @type == "dark" && "bg-zinc-100 text-zinc-800",
+      @type == "default" && "bg-blue-100 text-blue-800"
+    ]}>
+      <%= render_slot(@inner_block) %>
+    </span>
+    """
+  end
+
+  attr :class, :string, default: nil
+  attr :tooltip_text, :string, required: true
+  slot :inner_block, required: true
+
+  @spec tooltip(map()) :: Phoenix.LiveView.Rendered.t()
+  def tooltip(assigns) do
+    ~H"""
+    <div>
+      <div class="group relative">
+        <%= render_slot(@inner_block) %>
+        <span
+          role="tooltip"
+          class="absolute transition-opacity mt-12 top-0 left-0 duration-200 opacity-0 z-50 text-xs font-medium text-zinc-100 bg-zinc-900 rounded-lg shadow-sm px-3 py-2 inline-block text-center rounded tooltip group-hover:opacity-100"
+        >
+          <%= @tooltip_text %>
+        </span>
+      </div>
+    </div>
     """
   end
 
@@ -1154,7 +1173,7 @@ defmodule YscWeb.CoreComponents do
     <div class="text-center justify-center items-center w-full">
       <img
         class={[
-          "w-80 mx-auto",
+          "w-60 mx-auto",
           Enum.member?([2, 4], @viking) && "rounded-full"
         ]}
         src={"/images/vikings/small/viking_#{@viking}.png"}
@@ -1165,6 +1184,67 @@ defmodule YscWeb.CoreComponents do
         <:subtitle><%= @suggestion %></:subtitle>
       </.header>
     </div>
+    """
+  end
+
+  attr :class, :string, default: nil
+
+  def spinner(assigns) do
+    ~H"""
+    <div role="status">
+      <svg
+        aria-hidden="true"
+        class={"text-zinc-200 animate-spin fill-blue-600 #{@class}"}
+        viewBox="0 0 100 101"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+          fill="currentColor"
+        />
+        <path
+          d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+          fill="currentFill"
+        />
+      </svg>
+      <span class="sr-only">Loading...</span>
+    </div>
+    """
+  end
+
+  attr :progress, :integer, required: true
+
+  @spec progress_bar(map()) :: Phoenix.LiveView.Rendered.t()
+  def progress_bar(assigns) do
+    ~H"""
+    <div class="w-full bg-zinc-200 rounded h-2">
+      <div
+        class="animate-pulse transition duration-100 ease-in-out bg-blue-600 h-2 rounded "
+        style={"width: #{@progress}%"}
+      >
+      </div>
+    </div>
+    """
+  end
+
+  attr :fields, :list, required: true
+  attr :meta, Flop.Meta, required: true
+  attr :id, :string, default: nil
+  attr :on_change, :string, default: "update-filter"
+  attr :target, :string, default: nil
+
+  @spec filter_form(map()) :: Phoenix.LiveView.Rendered.t()
+  def filter_form(%{meta: meta} = assigns) do
+    assigns =
+      assign(assigns, form: Phoenix.Component.to_form(meta), meta: nil)
+
+    ~H"""
+    <.form for={@form} id={@id} phx-target={@target} phx-change={@on_change} phx-submit={@on_change}>
+      <.filter_fields :let={i} form={@form} fields={@fields}>
+        <.input field={i.field} label={i.label} type={i.type} phx-debounce={120} {i.rest} />
+      </.filter_fields>
+    </.form>
     """
   end
 
@@ -1294,5 +1374,9 @@ defmodule YscWeb.CoreComponents do
   """
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
+  end
+
+  def random_id(prefix) do
+    prefix <> "_" <> (:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false))
   end
 end

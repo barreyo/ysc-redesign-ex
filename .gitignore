@@ -1,3 +1,9 @@
+# PROJECT
+
+priv/static/exports/*.csv
+
+# PHOENIX
+
 # The directory Mix will write compiled artifacts to.
 /_build/
 

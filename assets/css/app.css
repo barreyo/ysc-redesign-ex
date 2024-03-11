@@ -20,7 +20,111 @@
     display: block;
 }
 
+.pagination-link,
+.pagination-ellipsis {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding-left: 1rem;
+    /* 12px */
+    padding-right: 1rem;
+    /* 12px */
+    padding-top: 1.25rem;
+    /* 16px */
+    padding-bottom: 1.25rem;
+    /* 16px */
+    height: 2.5rem;
+    border-radius: 0.25rem;
+    /* 32px */
+    color: rgb(113 113 122);
+}
 
+.is-current {
+    color: rgb(63 63 70);
+    background-color: rgb(244 244 245);
+}
+
+.pagination-link:hover {
+    color: rgb(63 63 70);
+    background-color: rgb(244 244 245);
+}
+
+.tooltip:after,
+.tooltip:before {
+    bottom: 100%;
+    left: 50%;
+    border: solid transparent;
+    content: "";
+    height: 0;
+    width: 0;
+    position: absolute;
+    pointer-events: none;
+}
+
+.tooltip:after {
+    border-color: rgba(24, 24, 27, 0);
+    border-bottom-color: #18181b;
+    border-width: 8px;
+    margin-left: -8px;
+}
+
+.tooltip:before {
+    border-width: 9px;
+    margin-left: -9px;
+}
+
+#admin_users_list {
+    width: 100%;
+    color: rgb(63 63 70);
+    text-align: left;
+}
+
+#admin_users_list thead {
+    font-size: 0.875rem;
+    /* 14px */
+    line-height: 1.25rem;
+    /* 20px */
+    text-transform: uppercase;
+    background-color: rgb(250 250 250);
+    text-align: left;
+}
+
+#admin_users_list th {
+    padding-left: 1.5rem;
+    /* 24px */
+    padding-right: 1.5rem;
+    /* 24px */
+    padding-top: 0.75rem;
+    /* 12px */
+    padding-bottom: 0.75rem;
+    /* 12px */
+}
+
+#admin_users_list tr {
+    font-size: 0.875rem;
+    /* 14px */
+    line-height: 1.25rem;
+    border-bottom-width: 1px;
+}
+
+#admin_users_list tbody tr {
+    border-bottom-color: rgb(244 244 245);
+}
+
+#admin_users_list tr:hover {
+    background-color: rgb(250 250 250);
+}
+
+#admin_users_list td {
+    padding-left: 1.5rem;
+    /* 24px */
+    padding-right: 1.5rem;
+    /* 24px */
+    padding-top: 0.75rem;
+    /* 12px */
+    padding-bottom: 0.75rem;
+}
 
 /* FLAGS */
 .fib,
@@ -39,7 +143,6 @@
 .fi:before {
     content: " ";
 }
-
 
 /*
 === COUNTRY FLAGS ===

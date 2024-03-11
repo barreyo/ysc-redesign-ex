@@ -61,16 +61,29 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+config :phoenix,
+  static_compressors: [
+    PhoenixBakery.Brotli
+  ]
+
 config :argon2_elixir,
   argon2_type: 1
 
 config :ysc, Oban,
   repo: Ysc.Repo,
-  queues: [default: 10, media: 5]
+  queues: [default: 10, media: 5, exports: 3],
+  plugins: [
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 * * * *", YscWeb.Workers.FileExportCleanUp}
+     ]}
+  ]
 
 config :ex_aws,
   access_key_id: [{:system, "AWS_ACCESS_KEY_ID"}, :instance_role],
   secret_access_key: [{:system, "AWS_SECRET_ACCESS_KEY"}, :instance_role]
+
+config :flop, repo: Ysc.Repo
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
