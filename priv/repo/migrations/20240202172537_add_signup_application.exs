@@ -36,6 +36,7 @@ defmodule Ysc.Repo.Migrations.AddSignupApplication do
       add :completed, :utc_datetime, default: fragment("now()")
       add :browser_timezone, :string, null: true
 
+      add :review_outcome, :string, null: true
       add :reviewed_by_user_id, references(:users, column: :id, type: :binary_id), null: true
       add :reviewed_at, :utc_datetime, null: true
 
@@ -57,6 +58,8 @@ defmodule Ysc.Repo.Migrations.AddSignupApplication do
 
       timestamps()
     end
+
+    create index(:family_members, [:user_id])
 
     create table(:signup_application_review_events, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true

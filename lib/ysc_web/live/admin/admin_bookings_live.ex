@@ -1,4 +1,4 @@
-defmodule YscWeb.AdminDashboardLive do
+defmodule YscWeb.AdminBookingsLive do
   use YscWeb, :live_view
 
   def render(assigns) do
@@ -11,15 +11,19 @@ defmodule YscWeb.AdminDashboardLive do
       user_id={@current_user.id}
       most_connected_country={@current_user.most_connected_country}
     >
-      <h1 class="text-2xl font-semibold leading-8 text-zinc-800 py-6">
-        Overview
-      </h1>
+      <div class="flex justify-between py-6">
+        <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
+          Bookings
+        </h1>
+      </div>
     </.side_menu>
     """
   end
 
-  @spec mount(any(), any(), map()) :: {:ok, map()}
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(:active_page, :dashboard) |> assign(:page_title, "Dashboard")}
+    {:ok,
+     socket
+     |> assign(:page_title, "Bookings")
+     |> assign(:active_page, :bookings)}
   end
 end

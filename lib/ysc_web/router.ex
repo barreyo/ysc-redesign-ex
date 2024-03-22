@@ -110,9 +110,23 @@ defmodule YscWeb.Router do
       live "/media/upload", AdminMediaLive, :upload
       live "/media/upload/:id", AdminMediaLive, :edit
 
+      # User management
       live "/users", AdminUsersLive, :index
       live "/users/:id", AdminUsersLive, :edit
       live "/users/:id/review", AdminUsersLive, :review
+
+      # Events
+      live "/events", AdminEventsLive, :index
+
+      # Tahoe and Clear Lake settings etc, see bookings
+      live "/bookings", AdminBookingsLive, :index
+
+      # News and notices
+      live "/posts", AdminPostsLive, :index
+      live "/posts/:id", AdminPostEditorLive, :edit
+
+      # Website specific settings (such as socials etc)
+      live "/settings", AdminSettingsLive, :index
     end
   end
 end

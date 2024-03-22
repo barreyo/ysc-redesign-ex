@@ -15,7 +15,7 @@ defmodule Ysc.Accounts.SignupApplicationEvent do
 
     field :event, SignupApplicationEventType
 
-    timestamps(updated_at: false)
+    timestamps()
   end
 
   @spec new_event_changeset(
@@ -26,7 +26,7 @@ defmodule Ysc.Accounts.SignupApplicationEvent do
             },
           :invalid | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
         ) :: Ecto.Changeset.t()
-  def new_event_changeset(event, attrs, opts \\ []) do
+  def new_event_changeset(event, attrs, _opts \\ []) do
     event
     |> cast(attrs, [:event, :application_id, :user_id, :reviewer_user_id])
     |> validate_required([:event, :application_id, :user_id, :reviewer_user_id])

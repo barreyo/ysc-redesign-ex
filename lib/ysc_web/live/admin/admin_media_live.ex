@@ -8,7 +8,14 @@ defmodule YscWeb.AdminMediaLive do
 
   def render(assigns) do
     ~H"""
-    <.side_menu active_page={@active_page}>
+    <.side_menu
+      active_page={@active_page}
+      email={@current_user.email}
+      first_name={@current_user.first_name}
+      last_name={@current_user.last_name}
+      user_id={@current_user.id}
+      most_connected_country={@current_user.most_connected_country}
+    >
       <.modal
         :if={@live_action == :edit}
         id="update-image-modal"
@@ -135,7 +142,7 @@ defmodule YscWeb.AdminMediaLive do
         </h1>
 
         <.button phx-click={JS.navigate(~p"/admin/media/upload")}>
-          <.icon name="hero-photo" class="w-5 h-5" /><span class="ms-1">Add New</span>
+          <.icon name="hero-photo" class="w-5 h-5 -mt-1" /><span class="ms-1">Add New</span>
         </.button>
       </div>
 

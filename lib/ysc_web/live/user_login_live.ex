@@ -14,7 +14,7 @@ defmodule YscWeb.UserLoginLive do
         Sign in to your YSC account
         <:subtitle>
           Not a member yet?
-          <.link href={~p"/users/register"} class="font-semibold text-blue-700 hover:underline">
+          <.link href={~p"/users/register"} class="font-semibold text-blue-600 hover:underline">
             Apply for a membership
           </.link>
         </:subtitle>
@@ -28,7 +28,7 @@ defmodule YscWeb.UserLoginLive do
           <.input field={@form[:remember_me]} type="checkbox" label="Keep me signed in" />
           <.link
             href={~p"/users/reset_password"}
-            class="text-sm font-semibold hover:underline text-blue-700"
+            class="text-sm font-semibold hover:underline text-blue-600"
           >
             Forgot your password?
           </.link>

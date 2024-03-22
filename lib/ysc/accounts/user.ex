@@ -39,6 +39,10 @@ defmodule Ysc.Accounts.User do
     has_one :registration_form, SignupApplication
     has_many :family_members, FamilyMember, on_replace: :delete
 
+    field :most_connected_country, :string
+
+    field :display_name, :string, virtual: true
+
     timestamps()
   end
 
@@ -75,7 +79,16 @@ defmodule Ysc.Accounts.User do
   """
   def registration_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email, :password, :state, :role, :first_name, :last_name, :phone_number])
+    |> cast(attrs, [
+      :email,
+      :password,
+      :state,
+      :role,
+      :first_name,
+      :last_name,
+      :phone_number,
+      :most_connected_country
+    ])
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)
     |> validate_required([:first_name, :last_name])
@@ -93,6 +106,34 @@ defmodule Ysc.Accounts.User do
       drop_param: :family_members_delete,
       opts: opts
     )
+  end
+
+  @spec update_user_changeset(
+          {map(), map()}
+          | %{
+              :__struct__ => atom() | %{:__changeset__ => map(), optional(any()) => any()},
+              optional(atom()) => any()
+            },
+          :invalid | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
+        ) :: Ecto.Changeset.t()
+  def update_user_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [
+      :state,
+      :role,
+      :first_name,
+      :last_name,
+      :phone_number,
+      :most_connected_country
+    ])
+    |> validate_length(:first_name, min: 1, max: 150)
+    |> validate_length(:last_name, min: 1, max: 150)
+    |> validate_required([:first_name, :last_name])
+    |> validate_phone(opts)
+  end
+
+  def update_user_state_changeset(user, attrs, _opts \\ []) do
+    user |> cast(attrs, [:state])
   end
 
   defp validate_phone(changeset, _opts) do

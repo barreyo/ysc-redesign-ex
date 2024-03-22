@@ -1,7 +1,7 @@
 defmodule YscWeb.Authorization.Policy do
   use LetMe.Policy
 
-  object :news_article do
+  object :posts do
     action :create do
       allow role: :admin
     end

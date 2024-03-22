@@ -273,7 +273,7 @@ defmodule YscWeb.CoreComponents do
     default: "text",
     values: ~w(checkbox color date datetime-local email file hidden month number password
                range radio search select tel text textarea time url week checkgroup
-               country-select large-radio phone-input date-text)
+               country-select large-radio phone-input date-text text-growing)
 
   attr :field, Phoenix.HTML.FormField,
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
@@ -499,6 +499,29 @@ defmodule YscWeb.CoreComponents do
           @errors != [] && "border-rose-400 focus:border-rose-400"
         ]}
         onfocus="(this.type='date')"
+        {@rest}
+      />
+      <.error :for={msg <- @errors}><%= msg %></.error>
+    </div>
+    """
+  end
+
+  def input(%{type: "text-growing"} = assigns) do
+    ~H"""
+    <div phx-feedback-for={@name}>
+      <.label for={@id}><%= @label %></.label>
+      <input
+        type={@type}
+        name={@name}
+        id={@id}
+        phx-hook="GrowingInput"
+        value={Phoenix.HTML.Form.normalize_value(@type, @value)}
+        class={[
+          "input-element mt-2 block w-full font-extrabold text-3xl outline-none border-none focus:border focus:border-1 focus:border-zinc-200 rounded text-zinc-900 focus:border-1 focus:border-zinc-400 focus:outline focus:outline-zinc-200 focus:ring-0 leading-6",
+          "phx-no-feedback:focus:border-zinc-400",
+          @errors == [] && "focus:border-zinc-400",
+          @errors != [] && "border-rose-400 focus:border-rose-400"
+        ]}
         {@rest}
       />
       <.error :for={msg <- @errors}><%= msg %></.error>
@@ -870,6 +893,11 @@ defmodule YscWeb.CoreComponents do
   end
 
   attr :active_page, :string
+  attr :email, :string
+  attr :first_name, :string
+  attr :last_name, :string
+  attr :user_id, :string
+  attr :most_connected_country, :string
   slot :inner_block, required: true
 
   def side_menu(assigns) do
@@ -890,7 +918,7 @@ defmodule YscWeb.CoreComponents do
       aria-label="Sidebar"
       phx-click-away={hide_sidebar("#admin-navigation")}
     >
-      <div class="h-full px-5 py-8 overflow-y-auto bg-zinc-100">
+      <div class="h-full px-5 py-8 overflow-y-auto bg-zinc-100 relative">
         <.link navigate="/" class="items-center group ps-2.5 mb-5 inline-block">
           <.ysc_logo class="h-12 sm:h-16 me-3" />
           <span class="block group-hover:underline text-sm font-bold text-zinc-600 py-4">
@@ -921,7 +949,7 @@ defmodule YscWeb.CoreComponents do
 
           <li>
             <.link
-              navigate="/admin/news"
+              navigate="/admin/posts"
               class={[
                 "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
                 @active_page == :news && "bg-zinc-200 text-zinc-800"
@@ -1039,6 +1067,16 @@ defmodule YscWeb.CoreComponents do
             </.link>
           </li>
         </ul>
+
+        <div class="absolute inset-x-0 bottom-0 px-4 py-4 border-t border-1 border-zinc-200">
+          <.user_card
+            email={@email}
+            user_id={@user_id}
+            most_connected_country={@most_connected_country}
+            first_name={@first_name}
+            last_name={@last_name}
+          />
+        </div>
       </div>
     </aside>
 
@@ -1047,6 +1085,32 @@ defmodule YscWeb.CoreComponents do
     </main>
 
     <div id="drawer-backdrop" class="hidden bg-zinc-900/50 fixed inset-0 z-30" drawer-backdrop="">
+    </div>
+    """
+  end
+
+  attr :email, :string, required: true
+  attr :user_id, :string, required: true
+  attr :most_connected_country, :string, required: true
+  attr :first_name, :string, required: true
+  attr :last_name, :string, required: true
+  attr :class, :string, default: ""
+
+  def user_card(assigns) do
+    ~H"""
+    <div class={"flex items-center whitespace-nowrap #{@class}"}>
+      <.user_avatar_image
+        email={@email}
+        user_id={@user_id}
+        country={@most_connected_country}
+        class="w-10 h-10 rounded-full"
+      />
+      <div class="ps-3">
+        <div class="text-sm font-semibold text-zinc-800">
+          <%= "#{String.capitalize(@first_name)} #{String.capitalize(@last_name)}" %>
+        </div>
+        <div class="font-normal text-sm text-zinc-500"><%= String.downcase(@email) %></div>
+      </div>
     </div>
     """
   end
@@ -1078,7 +1142,7 @@ defmodule YscWeb.CoreComponents do
   def badge(assigns) do
     ~H"""
     <span class={[
-      "text-xs font-medium me-2 px-2.5 py-1 rounded text-left",
+      "text-xs font-medium me-2 px-2 py-1 rounded text-left",
       @type == "green" && "bg-green-100 text-green-800",
       @type == "yellow" && "bg-yellow-100 text-yellow-800",
       @type == "red" && "bg-red-100 text-red-800",
@@ -1245,6 +1309,74 @@ defmodule YscWeb.CoreComponents do
         <.input field={i.field} label={i.label} type={i.type} phx-debounce={120} {i.rest} />
       </.filter_fields>
     </.form>
+    """
+  end
+
+  @default_images %{
+    "Denmark" => %{
+      0 => "/images/default_avatars/denmark_flag.png",
+      1 => "/images/default_avatars/denmark_houses.png"
+    },
+    "Finland" => %{
+      0 => "/images/default_avatars/finland_flag.png",
+      1 => "/images/default_avatars/finland_house.png"
+    },
+    "Iceland" => %{
+      0 => "/images/default_avatars/iceland_flag.png",
+      1 => "/images/default_avatars/iceland_landscape.png"
+    },
+    "Norway" => %{
+      0 => "/images/default_avatars/norway_flag.png",
+      1 => "/images/default_avatars/norway_fjord.png"
+    },
+    "Sweden" => %{
+      0 => "/images/default_avatars/sweden_flag.png",
+      1 => "/images/default_avatars/sweden_houses.png"
+    }
+  }
+
+  attr :email, :string, required: true
+  attr :user_id, :string, required: true
+  attr :country, :string, required: true
+  attr :class, :string, default: ""
+
+  def user_avatar_image(assigns) do
+    cleaned_email = String.downcase(assigns[:email]) |> String.trim()
+    email_hash = :crypto.hash(:sha256, cleaned_email) |> Base.encode16(case: :lower)
+
+    image_id =
+      assigns[:user_id] |> String.replace(~r/[^\d]/, "") |> String.to_integer() |> rem(2)
+
+    image_path = Map.get(Map.get(@default_images, assigns[:country]), image_id)
+
+    assigns = assigns |> assign(:email_hash, email_hash) |> assign(:image_path, image_path)
+
+    ~H"""
+    <object class={@class} data={"https://gravatar.com/avatar/#{@email_hash}?d=404"} type="image/png">
+      <img class={@class} src={@image_path} />
+    </object>
+    """
+  end
+
+  attr :color, :string, default: "blue"
+  slot :inner_block, required: true
+
+  def alert_box(assigns) do
+    ~H"""
+    <div class={"flex p-4 mb-4 text-sm text-#{@color}-800 rounded bg-#{@color}-50"} role="alert">
+      <%= render_slot(@inner_block) %>
+    </div>
+    """
+  end
+
+  def editor(assigns) do
+    ~H"""
+    <div class="w-full prose prose-zinc prose-base">
+      <form class="w-full">
+        <input id="editor-input" type="hidden" name="content" />
+        <trix-editor input="editor-input"></trix-editor>
+      </form>
+    </div>
     """
   end
 

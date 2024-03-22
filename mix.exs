@@ -19,7 +19,7 @@ defmodule Ysc.MixProject do
   def application do
     [
       mod: {Ysc.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :os_mon]
     ]
   end
 
@@ -36,6 +36,7 @@ defmodule Ysc.MixProject do
       {:blurhash, "~> 0.1.0", hex: :rinpatch_blurhash},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:csv, "~> 3.2"},
+      {:debouncer, "~> 0.1"},
       {:ecto_enum, "~> 1.4"},
       {:ecto_psql_extras, "~> 0.6"},
       {:ecto_sql, "~> 3.11"},
@@ -50,6 +51,7 @@ defmodule Ysc.MixProject do
       {:flop_phoenix, "~> 0.22.7"},
       {:gettext, "~> 0.24"},
       {:hackney, "~> 1.9"},
+      {:html_sanitize_ex, "~> 1.4"},
       {:image, "~> 0.37"},
       {:iso, ">= 0.0.0"},
       {:jason, "~> 1.4"},
@@ -69,6 +71,7 @@ defmodule Ysc.MixProject do
       {:phoenix, "~> 1.7"},
       {:plug_cowboy, "~> 2.6"},
       {:postgrex, ">= 0.0.0"},
+      {:stripity_stripe, "~> 3.1"},
       {:swoosh, "~> 1.14"},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 0.6"},

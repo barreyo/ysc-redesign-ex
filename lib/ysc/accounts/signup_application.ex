@@ -62,6 +62,7 @@ defmodule Ysc.Accounts.SignupApplication do
     field :browser_timezone, :string
 
     field :reviewed_at, :utc_datetime
+    field :review_outcome, UserApplicationReviewOutcome
     belongs_to :reviewed_by, Ysc.Accounts.User, foreign_key: :reviewed_by_user_id, references: :id
 
     timestamps()
@@ -97,7 +98,10 @@ defmodule Ysc.Accounts.SignupApplication do
       :agreed_to_bylaws,
       :started,
       :completed,
-      :browser_timezone
+      :browser_timezone,
+      :reviewed_at,
+      :review_outcome,
+      :reviewed_by_user_id
     ])
     |> validate_required([
       :membership_type,
@@ -112,6 +116,20 @@ defmodule Ysc.Accounts.SignupApplication do
       :agreed_to_bylaws
     ])
     |> validate_membership_eligibility()
+  end
+
+  def review_outcome_changeset(application, attrs, _opts \\ []) do
+    application
+    |> cast(attrs, [
+      :reviewed_at,
+      :review_outcome,
+      :reviewed_by_user_id
+    ])
+    |> validate_required([
+      :reviewed_at,
+      :review_outcome,
+      :reviewed_by_user_id
+    ])
   end
 
   defp validate_membership_eligibility(changeset) do

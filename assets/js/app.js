@@ -26,8 +26,10 @@ import InfiniteScroll from "./infinite_scroll"
 import Uploaders from "./uploaders"
 import BlurHashCanvas from "./blur_hash_canvas"
 import BlurHashImage from "./blur_hash_image"
+import GrowingInput from "./growing_input_field"
+import TrixHook from './trix_hook'
 
-let Hooks = { InfiniteScroll, BlurHashCanvas, BlurHashImage }
+let Hooks = { InfiniteScroll, BlurHashCanvas, BlurHashImage, GrowingInput, TrixHook }
 Hooks.LivePhone = LivePhone
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

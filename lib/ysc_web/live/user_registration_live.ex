@@ -356,6 +356,7 @@ defmodule YscWeb.UserRegistrationLive do
       user_params
       |> Map.replace("registration_form", reg_form_updated)
       |> Map.put_new("family_members", [])
+      |> Map.put("most_connected_country", reg_form_updated["most_connected_nordic_country"])
 
     case Accounts.register_user(updated_user_params) do
       {:ok, user} ->

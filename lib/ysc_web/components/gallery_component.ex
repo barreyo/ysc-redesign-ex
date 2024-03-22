@@ -11,7 +11,7 @@ defmodule YscWeb.Components.GalleryComponent do
         :if={length(@images) > 0}
         id={@id}
         phx-update="prepend"
-        class="gap-2 md:gap-4 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-7 4xl:grid-cols-9"
+        class="gap-x-2 md:gap-x-4 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-7 4xl:grid-cols-9"
       >
         <%= for image <- @images do %>
           <button

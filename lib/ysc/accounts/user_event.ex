@@ -14,10 +14,10 @@ defmodule Ysc.Accounts.UserEvent do
     field :from, :string
     field :to, :string
 
-    timestamps(updated_at: false)
+    timestamps()
   end
 
-  def new_user_event_changeset(event, attrs, opts \\ []) do
+  def new_user_event_changeset(event, attrs, _opts \\ []) do
     event
     |> cast(attrs, [:user_id, :updated_by_user_id, :type, :from, :to])
     |> validate_required([:user_id, :updated_by_user_id, :type, :from, :to])

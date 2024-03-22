@@ -17,6 +17,8 @@ defmodule Ysc.Repo.Migrations.CreateUsersAuthTables do
       add :last_name, :string, null: true
       add :phone_number, :string, null: true
 
+      add :most_connected_country, :string
+
       timestamps()
     end
 
@@ -39,6 +41,8 @@ defmodule Ysc.Repo.Migrations.CreateUsersAuthTables do
     create unique_index(:users_tokens, [:context, :token])
 
     create table(:user_events, primary_key: false) do
+      add :id, :binary_id, null: false, primary_key: true
+
       add :user_id, references(:users, on_delete: :nothing, column: :id, type: :binary_id),
         null: false
 
@@ -52,5 +56,7 @@ defmodule Ysc.Repo.Migrations.CreateUsersAuthTables do
 
       timestamps()
     end
+
+    create index(:user_events, [:user_id])
   end
 end

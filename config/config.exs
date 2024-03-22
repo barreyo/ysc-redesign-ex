@@ -85,6 +85,15 @@ config :ex_aws,
 
 config :flop, repo: Ysc.Repo
 
+config :stripity_stripe,
+  api_key: System.get_env("STRIPE_SECRET")
+
+config :stripity_stripe, :retries, max_attempts: 3, base_backoff: 500, max_backoff: 2_000
+
+config :ysc, :quickbooks,
+  client_id: System.get_env("QUICKBOOKS_CLIENT_ID"),
+  client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET")
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

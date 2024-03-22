@@ -5,6 +5,9 @@ defmodule Ysc.Accounts do
 
   import Ecto.Query, warn: false
 
+  alias Ysc.Accounts.UserEvent
+  alias Ysc.Accounts.SignupApplicationEvent
+  alias YscWeb.Authorization.Policy
   alias Ysc.Accounts.SignupApplication
   alias Ysc.Repo
 
@@ -25,7 +28,7 @@ defmodule Ysc.Accounts do
 
   """
   def get_user_by_email(email) when is_binary(email) do
-    Repo.get_by(User, email: email)
+    Repo.get_by(User, email: email) |> maybe_populate_display_name()
   end
 
   @spec get_user_by_email_and_password(binary(), binary()) :: any()
@@ -62,11 +65,15 @@ defmodule Ysc.Accounts do
 
   """
   def get_user!(id, preloads \\ []) do
-    Repo.get!(User, id) |> Repo.preload(preloads)
+    Repo.get!(User, id) |> Repo.preload(preloads) |> maybe_populate_display_name()
   end
 
-  def get_signup_application_from_user_id!(id) do
-    Repo.get_by!(SignupApplication, user_id: id)
+  def get_signup_application_from_user_id!(id, current_user, preloads \\ []) do
+    with :ok <- Policy.authorize(:signup_application_read, current_user, %{user_id: id}) do
+      Repo.get_by!(SignupApplication, user_id: id)
+      |> Repo.preload(preloads)
+      |> maybe_populate_display_name()
+    end
   end
 
   ## User registration
@@ -149,9 +156,9 @@ defmodule Ysc.Accounts do
     phone_like = "%#{search_term}%"
 
     from(u in User,
-      where: fragment("SIMILARITY(?, ?) > 0", u.email, ^search_term),
-      or_where: fragment("SIMILARITY(?, ?) > 0", u.first_name, ^search_term),
-      or_where: fragment("SIMILARITY(?, ?) > 0", u.last_name, ^search_term),
+      where: fragment("SIMILARITY(?, ?) > 0.2", u.email, ^search_term),
+      or_where: fragment("SIMILARITY(?, ?) > 0.2", u.first_name, ^search_term),
+      or_where: fragment("SIMILARITY(?, ?) > 0.2", u.last_name, ^search_term),
       or_where: ilike(u.phone_number, ^phone_like)
     )
   end
@@ -399,4 +406,113 @@ defmodule Ysc.Accounts do
     )
     |> Repo.one()
   end
+
+  def record_application_outcome(:approved, user, application, current_user) do
+    with :ok <- Policy.authorize(:signup_application_update, current_user, %{user_id: user.id}) do
+      with :ok <- Policy.authorize(:user_update, current_user, %{user_id: user.id}) do
+        Ecto.Multi.new()
+        |> Ecto.Multi.update(:user, User.update_user_state_changeset(user, %{state: :active}))
+        |> Ecto.Multi.update(
+          :application,
+          SignupApplication.review_outcome_changeset(application, %{
+            reviewed_at: DateTime.utc_now(),
+            review_outcome: :approved,
+            reviewed_by_user_id: current_user.id
+          })
+        )
+        |> Ecto.Multi.insert(
+          :application_event,
+          SignupApplicationEvent.new_event_changeset(
+            %SignupApplicationEvent{},
+            %{
+              event: :review_completed,
+              application_id: application.id,
+              user_id: user.id,
+              reviewer_user_id: current_user.id
+            }
+          )
+        )
+        |> Ecto.Multi.insert(
+          :user_event,
+          UserEvent.new_user_event_changeset(
+            %UserEvent{},
+            %{
+              user_id: user.id,
+              updated_by_user_id: current_user.id,
+              type: :state_update,
+              from: "#{user.state}",
+              to: "active"
+            }
+          )
+        )
+        |> Repo.transaction()
+        |> case do
+          {:ok, _} -> :ok
+          {:error, _, changeset, _} -> {:error, changeset}
+        end
+      end
+    end
+  end
+
+  def record_application_outcome(:rejected, user, application, current_user) do
+    with :ok <- Policy.authorize(:signup_application_update, current_user, %{user_id: user.id}) do
+      with :ok <- Policy.authorize(:user_update, current_user, %{user_id: user.id}) do
+        Ecto.Multi.new()
+        |> Ecto.Multi.update(:user, User.update_user_state_changeset(user, %{state: :rejected}))
+        |> Ecto.Multi.update(
+          :application,
+          SignupApplication.review_outcome_changeset(application, %{
+            reviewed_at: DateTime.utc_now(),
+            review_outcome: :rejected,
+            reviewed_by_user_id: current_user.id
+          })
+        )
+        |> Ecto.Multi.insert(
+          :application_event,
+          SignupApplicationEvent.new_event_changeset(
+            %SignupApplicationEvent{},
+            %{
+              event: :review_completed,
+              application_id: application.id,
+              user_id: user.id,
+              reviewer_user_id: current_user.id
+            }
+          )
+        )
+        |> Ecto.Multi.insert(
+          :user_event,
+          UserEvent.new_user_event_changeset(
+            %UserEvent{},
+            %{
+              user_id: user.id,
+              updated_by_user_id: current_user.id,
+              type: :state_update,
+              from: "#{user.state}",
+              to: "rejected"
+            }
+          )
+        )
+        |> Repo.transaction()
+        |> case do
+          {:ok, _} -> :ok
+          {:error, _, changeset, _} -> {:error, changeset}
+        end
+      end
+    end
+  end
+
+  defp maybe_populate_display_name(%User{first_name: nil, last_name: nil} = user), do: user
+
+  defp maybe_populate_display_name(%User{first_name: nil, last_name: last} = user),
+    do: %{user | display_name: String.capitalize(String.downcase(last))}
+
+  defp maybe_populate_display_name(%User{first_name: first, last_name: nil} = user),
+    do: %{user | display_name: String.capitalize(String.downcase(first))}
+
+  defp maybe_populate_display_name(%User{first_name: first, last_name: last} = user),
+    do: %{
+      user
+      | display_name:
+          "#{String.capitalize(String.downcase(first))} #{String.capitalize(String.downcase(last))}"
+    }
 end

@@ -5,7 +5,14 @@ defmodule YscWeb.AdminUsersLive do
 
   def render(assigns) do
     ~H"""
-    <.side_menu active_page={@active_page}>
+    <.side_menu
+      active_page={@active_page}
+      email={@current_user.email}
+      first_name={@current_user.first_name}
+      last_name={@current_user.last_name}
+      user_id={@current_user.id}
+      most_connected_country={@current_user.most_connected_country}
+    >
       <.modal
         :if={@live_action == :edit}
         id="edit-user-modal"
@@ -17,12 +24,45 @@ defmodule YscWeb.AdminUsersLive do
         </h2>
 
         <div>
-          <img
-            class="w-20 h-20 rounded-full"
-            src="https://www.routesnorth.com/wp-content/uploads/2023/08/strong-viking.jpeg"
-            alt="Default avatar"
+          <.user_avatar_image
+            email={@selected_user.email}
+            user_id={@selected_user.id}
+            country={@selected_user.most_connected_country}
+            class="w-32 h-32 rounded-full"
           />
         </div>
+
+        <.simple_form for={@form} phx-change="validate" phx-submit="save">
+          <.input field={@form[:email]} label="Email" />
+          <.input field={@form[:first_name]} label="First Name" />
+          <.input field={@form[:last_name]} label="Last Name" />
+          <.input
+            field={@form[:most_connected_country]}
+            label="Most connected Nordic country:"
+            type="select"
+            options={["Sweden", "Norway", "Finland", "Denmark", "Iceland"]}
+          />
+          <.input
+            type="select"
+            field={@form[:state]}
+            options={["active", "pending_approval", "rejected", "suspended", "deleted"]}
+            label="State"
+          />
+          <.input type="select" field={@form[:role]} options={["member", "admin"]} label="State" />
+
+          <div class="flex flex-row justify-end w-full pt-8">
+            <button
+              phx-click={JS.navigate(~p"/admin/users?#{@params}")}
+              class="rounded hover:bg-zinc-100 py-2 px-3 mr-4 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-600"
+            >
+              Cancel
+            </button>
+
+            <button class="phx-submit-loading:opacity-75 rounded bg-green-700 hover:bg-green-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80 text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80">
+              <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" /> Save changes
+            </button>
+          </div>
+        </.simple_form>
       </.modal>
 
       <.modal
@@ -34,6 +74,24 @@ defmodule YscWeb.AdminUsersLive do
         <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-4">
           Review Application
         </h2>
+
+        <.alert_box :if={@selected_user.state != :pending_approval}>
+          <p class="leading-6 text-sm text-gray-800">
+            This application has already been reviewed. It was
+            <span>
+              <.badge type={
+                if @selected_user_application.review_outcome == :approved, do: "green", else: "red"
+              }>
+                <%= @selected_user_application.review_outcome %>
+              </.badge>
+            </span>
+            on
+            <span class="font-semibold">
+              <%= Timex.format!(@selected_user_application.reviewed_at, "%Y-%m-%d", :strftime) %>
+            </span>
+            by <span class="font-semibold"><%= @selected_user_application.reviewed_by.email %></span>.
+          </p>
+        </.alert_box>
 
         <p class="leading-6 text-sm text-zinc-800 mb-4 font-semibold">
           Submitted:
@@ -123,12 +181,22 @@ defmodule YscWeb.AdminUsersLive do
 
         <div class="flex flex-row justify-between w-full pt-8">
           <button
+            :if={@selected_user.state == :pending_approval}
+            phx-click="deny-application"
+            phx-value-user-id={@selected_user.id}
+            phx-value-application-id={@selected_user_application.id}
             class="phx-submit-loading:opacity-75 rounded bg-red-700 hover:bg-red-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80 text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80"
             data-confirm="You are about to reject this application. Are you sure?"
           >
             <.icon name="hero-no-symbol" class="w-5 h-5 mb-0.5 me-1" /> Reject
           </button>
-          <button class="phx-submit-loading:opacity-75 rounded bg-green-700 hover:bg-green-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80 text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80">
+          <button
+            :if={@selected_user.state == :pending_approval}
+            phx-click="approve-application"
+            phx-value-user-id={@selected_user.id}
+            phx-value-application-id={@selected_user_application.id}
+            class="phx-submit-loading:opacity-75 rounded bg-green-700 hover:bg-green-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80 text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80"
+          >
             <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" /> Approve
           </button>
         </div>
@@ -146,8 +214,8 @@ defmodule YscWeb.AdminUsersLive do
         >
           <:button_block>
             <.tooltip tooltip_text="Export to CSV">
-              <.icon name="hero-document-arrow-down" class="w-5 h-5 me-1 mb-1" />
-              <span>Export</span>
+              <.icon name="hero-document-arrow-down" class="w-5 h-5 -mt-1" />
+              <span class="me-1">Export</span>
             </.tooltip>
           </:button_block>
           <div class="w-full px-4 py-3">
@@ -240,7 +308,7 @@ defmodule YscWeb.AdminUsersLive do
               <:button_block>
                 <.icon
                   name="hero-funnel"
-                  class="mr-1 text-zinc-600 w-5 h-5 group-hover:text-zinc-800"
+                  class="mr-1 text-zinc-600 w-5 h-5 group-hover:text-zinc-800 -mt-0.5"
                 /> Filters
               </:button_block>
 
@@ -278,10 +346,10 @@ defmodule YscWeb.AdminUsersLive do
 
               <div class="px-4 py-4">
                 <button
-                  class="rounded bg-red-700 hover:bg-red-800 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80 w-full"
+                  class="rounded hover:bg-zinc-100 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-100/80 w-full"
                   phx-click={JS.navigate(~p"/admin/users")}
                 >
-                  <.icon name="hero-x-circle" class="w-5 h-5" /> Clear filters
+                  <.icon name="hero-x-circle" class="w-5 h-5 -mt-1" /> Clear filters
                 </button>
               </div>
             </.dropdown>
@@ -294,17 +362,13 @@ defmodule YscWeb.AdminUsersLive do
             path={~p"/admin/users"}
           >
             <:col :let={{_, user}} label="Name" field={:first_name}>
-              <div class="flex items-center text-gray-900 whitespace-nowrap">
-                <img
-                  class="w-10 h-10 rounded-full"
-                  src="https://www.routesnorth.com/wp-content/uploads/2023/08/strong-viking.jpeg"
-                  alt="Viking dude"
-                />
-                <div class="ps-3">
-                  <div class="text-sm font-semibold"><%= user_full_name(user) %></div>
-                  <div class="font-normal text-zinc-500"><%= user.email %></div>
-                </div>
-              </div>
+              <.user_card
+                email={user.email}
+                user_id={user.id}
+                most_connected_country={user.most_connected_country}
+                first_name={user.first_name}
+                last_name={user.last_name}
+              />
             </:col>
             <:col :let={{_, user}} label="Phone" field={:phone_number}>
               <%= format_phone_number(user.phone_number) %>
@@ -340,6 +404,15 @@ defmodule YscWeb.AdminUsersLive do
               title="No results found"
               suggestion="Try adjusting your search term and filters."
             />
+
+            <div class="px-4 py-4 flex items-center align-center justify-center">
+              <button
+                class="rounded mx-auto hover:bg-zinc-100 w-36 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-100/80 w-full"
+                phx-click={JS.navigate(~p"/admin/users")}
+              >
+                <.icon name="hero-x-circle" class="w-5 h-5 -mt-1" /> Clear filters
+              </button>
+            </div>
           </div>
 
           <Flop.Phoenix.pagination
@@ -370,8 +443,11 @@ defmodule YscWeb.AdminUsersLive do
   end
 
   def mount(%{"id" => id} = params, _session, socket) do
+    current_user = socket.assigns[:current_user]
+
     selected_user = Accounts.get_user!(id, [:family_members])
-    application = Accounts.get_signup_application_from_user_id!(id)
+    application = Accounts.get_signup_application_from_user_id!(id, current_user, [:reviewed_by])
+    user_changeset = Accounts.User.update_user_changeset(selected_user, %{})
 
     {:ok,
      socket
@@ -385,7 +461,8 @@ defmodule YscWeb.AdminUsersLive do
      |> assign(:export_progress, 0)
      |> assign(:file_export_path, "")
      |> assign(:export_error, "Something went wrong")
-     |> assign(form: to_form(%{}, as: "csv_export"))}
+     |> assign(form: to_form(%{}, as: "csv_export"))
+     |> assign(form: to_form(user_changeset, as: "user"))}
   end
 
   @spec mount(any(), any(), map()) :: {:ok, map()}
@@ -480,11 +557,53 @@ defmodule YscWeb.AdminUsersLive do
   end
 
   def handle_event("approve-application", _params, socket) do
-    {:noreply, socket}
+    user = socket.assigns[:selected_user]
+    application = socket.assigns[:selected_user_application]
+    current_user = socket.assigns[:current_user]
+
+    case Accounts.record_application_outcome(:approved, user, application, current_user) do
+      :ok ->
+        {:noreply,
+         socket
+         |> redirect(to: ~p"/admin/users?#{socket.assigns[:params]}")
+         |> put_flash(:info, "User was approved and is now a member!")}
+
+      {:error, _} ->
+        {:noreply, socket |> put_flash(:error, "Something went wrong")}
+    end
   end
 
   def handle_event("deny-application", _params, socket) do
-    {:noreply, socket}
+    user = socket.assigns[:selected_user]
+    application = socket.assigns[:selected_user_application]
+    current_user = socket.assigns[:current_user]
+
+    case Accounts.record_application_outcome(:rejected, user, application, current_user) do
+      :ok ->
+        {:noreply,
+         socket
+         |> redirect(to: ~p"/admin/users?#{socket.assigns[:params]}")
+         |> put_flash(:info, "User application was rejected!")}
+
+      {:error, _} ->
+        {:noreply, socket |> put_flash(:error, "Something went wrong")}
+    end
+  end
+
+  def handle_event("validate", %{"user" => user_params}, socket) do
+    assigned = socket.assigns[:selected_user]
+    form_data = Accounts.change_user_registration(assigned, user_params)
+    {:noreply, assign_form(socket, form_data)}
+  end
+
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    form = to_form(changeset, as: "user")
+
+    if changeset.valid? do
+      assign(socket, form: form, check_errors: false)
+    else
+      assign(socket, form: form)
+    end
   end
 
   def handle_info(
@@ -520,10 +639,6 @@ defmodule YscWeb.AdminUsersLive do
   defp format_phone_number(phone_number) do
     {:ok, parsed} = ExPhoneNumber.parse(phone_number, "")
     ExPhoneNumber.format(parsed, :international)
-  end
-
-  defp user_full_name(user) do
-    "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}"
   end
 
   defp maybe_update_filter(%{"value" => [""]} = filter), do: Map.replace(filter, "value", "")
