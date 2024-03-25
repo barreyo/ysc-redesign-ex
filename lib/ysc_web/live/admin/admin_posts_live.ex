@@ -1,4 +1,5 @@
 defmodule YscWeb.AdminPostsLive do
+  alias Ysc.Posts.Post
   use YscWeb, :live_view
 
   alias Ysc.Posts
@@ -13,12 +14,36 @@ defmodule YscWeb.AdminPostsLive do
       user_id={@current_user.id}
       most_connected_country={@current_user.most_connected_country}
     >
+      <.modal
+        :if={@live_action == :new}
+        id="new-post-modal"
+        on_cancel={JS.navigate(~p"/admin/posts")}
+        show
+      >
+        <.header>
+          Add new post
+        </.header>
+        <.simple_form for={@form} phx-change="validate" phx-submit="save">
+          <.input type="text" field={@form[:title]} label="Title" />
+
+          <div class="flex flex-row justify-end w-full pt-8">
+            <button
+              phx-click={JS.navigate(~p"/admin/posts")}
+              class="rounded hover:bg-zinc-100 py-2 px-3 mr-4 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-600"
+            >
+              Cancel
+            </button>
+            <.button type="submit">Create Post</.button>
+          </div>
+        </.simple_form>
+      </.modal>
+
       <div class="flex justify-between py-6">
         <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
           Posts
         </h1>
 
-        <.button>
+        <.button phx-click={JS.navigate(~p"/admin/posts/new")}>
           <.icon name="hero-document-plus" class="w-5 h-5 -mt-1" /><span class="ms-1">New Post</span>
         </.button>
       </div>
@@ -49,8 +74,8 @@ defmodule YscWeb.AdminPostsLive do
                   ],
                   user_id: [
                     label: "Author",
-                    type: "select",
-                    multiple: false,
+                    type: "checkgroup",
+                    multiple: true,
                     op: :in,
                     options: @author_filter
                   ]
@@ -87,7 +112,7 @@ defmodule YscWeb.AdminPostsLive do
 
           <:col :let={{_, post}} label="State" field={:state}>
             <.badge type={post_state_to_badge_style(post.state)}>
-              <%= "#{post.state}" %>
+              <%= String.capitalize("#{post.state}") %>
             </.badge>
           </:col>
 
@@ -107,10 +132,14 @@ defmodule YscWeb.AdminPostsLive do
 
   @spec mount(any(), any(), map()) :: {:ok, map()}
   def mount(_params, _session, socket) do
+    new_post_changeset = Post.new_post_changeset(%Post{}, %{})
+
     {:ok,
      socket
      |> assign(:page_title, "Posts")
-     |> assign(:active_page, :news)}
+     |> assign(:active_page, :news)
+     |> assign(form: to_form(new_post_changeset, as: "new_post")),
+     temporary_assigns: [author_filter: []]}
   end
 
   def handle_params(params, _uri, socket) do

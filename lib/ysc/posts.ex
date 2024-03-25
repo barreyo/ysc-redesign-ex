@@ -50,7 +50,7 @@ defmodule Ysc.Posts do
   defp format_authors(result) do
     result
     |> Enum.reduce([], fn entry, acc ->
-      [{name_format(entry), entry["user_id"]}]
+      [{name_format(entry), entry["user_id"]} | acc]
     end)
   end
 

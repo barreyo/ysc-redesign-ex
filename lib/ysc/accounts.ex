@@ -28,7 +28,7 @@ defmodule Ysc.Accounts do
 
   """
   def get_user_by_email(email) when is_binary(email) do
-    Repo.get_by(User, email: email) |> maybe_populate_display_name()
+    Repo.get_by(User, email: email)
   end
 
   @spec get_user_by_email_and_password(binary(), binary()) :: any()
@@ -65,14 +65,13 @@ defmodule Ysc.Accounts do
 
   """
   def get_user!(id, preloads \\ []) do
-    Repo.get!(User, id) |> Repo.preload(preloads) |> maybe_populate_display_name()
+    Repo.get!(User, id) |> Repo.preload(preloads)
   end
 
   def get_signup_application_from_user_id!(id, current_user, preloads \\ []) do
     with :ok <- Policy.authorize(:signup_application_read, current_user, %{user_id: id}) do
       Repo.get_by!(SignupApplication, user_id: id)
       |> Repo.preload(preloads)
-      |> maybe_populate_display_name()
     end
   end
 

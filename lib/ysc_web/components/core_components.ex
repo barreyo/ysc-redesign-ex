@@ -39,6 +39,7 @@ defmodule YscWeb.CoreComponents do
   """
   attr :id, :string, required: true
   attr :show, :boolean, default: false
+  attr :fullscreen, :boolean, default: false
   attr :on_cancel, JS, default: %JS{}
   slot :inner_block, required: true
 
@@ -61,7 +62,7 @@ defmodule YscWeb.CoreComponents do
         tabindex="0"
       >
         <div class="flex items-center justify-center min-h-full">
-          <div class="w-full max-w-3xl p-4 sm:p-6 lg:py-8">
+          <div class={"w-full #{if @fullscreen == true, do: "w-full", else: "max-w-3xl"} p-4 sm:p-6 lg:py-8"}>
             <.focus_wrap
               id={"#{@id}-container"}
               phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
@@ -217,6 +218,7 @@ defmodule YscWeb.CoreComponents do
   """
   attr :type, :string, default: nil
   attr :class, :string, default: nil
+  attr :color, :string, default: "blue"
   attr :rest, :global, include: ~w(disabled form name value)
 
   slot :inner_block, required: true
@@ -226,7 +228,7 @@ defmodule YscWeb.CoreComponents do
     <button
       type={@type}
       class={[
-        "phx-submit-loading:opacity-75 rounded bg-blue-700 hover:bg-blue-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80",
+        "phx-submit-loading:opacity-75 rounded bg-#{@color}-700 hover:bg-#{@color}-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80",
         "text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80",
         @class
       ]}
@@ -516,12 +518,6 @@ defmodule YscWeb.CoreComponents do
         id={@id}
         phx-hook="GrowingInput"
         value={Phoenix.HTML.Form.normalize_value(@type, @value)}
-        class={[
-          "input-element mt-2 block w-full font-extrabold text-3xl outline-none border-none focus:border focus:border-1 focus:border-zinc-200 rounded text-zinc-900 focus:border-1 focus:border-zinc-400 focus:outline focus:outline-zinc-200 focus:ring-0 leading-6",
-          "phx-no-feedback:focus:border-zinc-400",
-          @errors == [] && "focus:border-zinc-400",
-          @errors != [] && "border-rose-400 focus:border-rose-400"
-        ]}
         {@rest}
       />
       <.error :for={msg <- @errors}><%= msg %></.error>
@@ -831,6 +827,7 @@ defmodule YscWeb.CoreComponents do
     ~H"""
     <div class="relative">
       <button
+        type="button"
         id={"#{@id}Link"}
         data-dropdown-toggle={@id}
         class={"flex items-center justify-between w-full px-3 py-2 font-bold transition duration-200 ease-in-out rounded lg:w-auto #{@class}"}
@@ -1137,12 +1134,13 @@ defmodule YscWeb.CoreComponents do
   end
 
   attr :type, :string, default: "default"
+  attr :class, :string, default: ""
   slot :inner_block, required: true
 
   def badge(assigns) do
     ~H"""
     <span class={[
-      "text-xs font-medium me-2 px-2 py-1 rounded text-left",
+      "text-xs font-medium me-2 px-2 py-1 rounded text-left #{@class}",
       @type == "green" && "bg-green-100 text-green-800",
       @type == "yellow" && "bg-yellow-100 text-yellow-800",
       @type == "red" && "bg-red-100 text-red-800",
@@ -1365,6 +1363,42 @@ defmodule YscWeb.CoreComponents do
     ~H"""
     <div class={"flex p-4 mb-4 text-sm text-#{@color}-800 rounded bg-#{@color}-50"} role="alert">
       <%= render_slot(@inner_block) %>
+    </div>
+    """
+  end
+
+  attr :class, :string, default: ""
+  slot :inner_block, required: true
+
+  def phone_mockup(assigns) do
+    ~H"""
+    <div class={"relative mx-auto border-zinc-800 bg-zinc-800 border-[14px] rounded-xl h-[600px] w-[300px] shadow-xl #{@class}"}>
+      <div class="w-[148px] h-[18px] bg-zinc-800 top-0 rounded-b-[1rem] left-1/2 -translate-x-1/2 absolute">
+      </div>
+      <div class="h-[32px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[72px] rounded-s-lg"></div>
+      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[124px] rounded-s-lg"></div>
+      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[178px] rounded-s-lg"></div>
+      <div class="h-[64px] w-[3px] bg-zinc-800 absolute -end-[17px] top-[142px] rounded-e-lg"></div>
+      <div class="rounded-xl overflow-y-auto w-[272px] h-[572px] bg-white">
+        <%= render_slot(@inner_block) %>
+      </div>
+    </div>
+    """
+  end
+
+  attr :class, :string, default: ""
+  slot :inner_block, required: true
+
+  def tablet_mockup(assigns) do
+    ~H"""
+    <div class={"relative mx-auto border-zinc-800 bg-zinc-800 border-[14px] rounded-[2.5rem] h-[454px] max-w-[341px] md:h-[682px] md:max-w-[512px] #{@class}"}>
+      <div class="h-[32px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[72px] rounded-s-lg"></div>
+      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[124px] rounded-s-lg"></div>
+      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[178px] rounded-s-lg"></div>
+      <div class="h-[64px] w-[3px] bg-zinc-800 absolute -end-[17px] top-[142px] rounded-e-lg"></div>
+      <div class="rounded-[2rem] overflow-y-auto h-[426px] md:h-[654px] bg-white">
+        <%= render_slot(@inner_block) %>
+      </div>
     </div>
     """
   end

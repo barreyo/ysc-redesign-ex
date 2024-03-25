@@ -57,6 +57,14 @@ defmodule Ysc.Posts.Post do
     timestamps()
   end
 
+  @spec new_post_changeset(
+          {map(), map()}
+          | %{
+              :__struct__ => atom() | %{:__changeset__ => map(), optional(any()) => any()},
+              optional(atom()) => any()
+            },
+          :invalid | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
+        ) :: Ecto.Changeset.t()
   def new_post_changeset(post, attrs, _opts \\ []) do
     post
     |> cast(attrs, [

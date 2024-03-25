@@ -123,7 +123,9 @@ defmodule YscWeb.Router do
 
       # News and notices
       live "/posts", AdminPostsLive, :index
+      live "/posts/new", AdminPostsLive, :new
       live "/posts/:id", AdminPostEditorLive, :edit
+      live "/posts/:id/preview", AdminPostEditorLive, :preview
 
       # Website specific settings (such as socials etc)
       live "/settings", AdminSettingsLive, :index

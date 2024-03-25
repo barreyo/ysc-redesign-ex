@@ -76,7 +76,7 @@ defmodule YscWeb.AdminUsersLive do
         </h2>
 
         <.alert_box :if={@selected_user.state != :pending_approval}>
-          <p class="leading-6 text-sm text-gray-800">
+          <p class="leading-6 text-sm text-zinc-800">
             This application has already been reviewed. It was
             <span>
               <.badge type={
@@ -112,7 +112,7 @@ defmodule YscWeb.AdminUsersLive do
 
           <li :if={length(@selected_user.family_members) > 0}>
             <p class="font-semibold">Family members:</p>
-            <ul class="space-y-1 text-gray-800 list-disc list-inside">
+            <ul class="space-y-1 text-zinc-800 list-disc list-inside">
               <li :for={family_member <- @selected_user.family_members}>
                 <span class="text-xs font-medium me-2 px-2.5 py-1 rounded text-left bg-blue-100 text-blue-800">
                   <%= String.capitalize("#{family_member.type}") %>
@@ -131,7 +131,7 @@ defmodule YscWeb.AdminUsersLive do
 
           <li class="pt-2">
             <p class="font-semibold">Eligibility:</p>
-            <ul class="space-y-1 text-gray-800 list-disc list-inside">
+            <ul class="space-y-1 text-zinc-800 list-disc list-inside">
               <li :for={reason <- @selected_user_application.membership_eligibility}>
                 <%= Map.get(Ysc.Accounts.SignupApplication.eligibility_lookup(), reason) %>
               </li>
@@ -283,7 +283,7 @@ defmodule YscWeb.AdminUsersLive do
         <div>
           <form action="" novalidate="" role="search" phx-change="change" class="relative">
             <div class="absolute inset-y-0 rtl:inset-r-0 start-0 flex items-center ps-3 pointer-events-none">
-              <.icon name="hero-magnifying-glass" class="w-5 h-5 text-gray-500" />
+              <.icon name="hero-magnifying-glass" class="w-5 h-5 text-zinc-500" />
             </div>
             <input
               id="user-search"

@@ -7,6 +7,7 @@ defmodule Ysc.Repo.Migrations.AddPostsComments do
       # Who posted it
       add :user_id, references(:users, column: :id, type: :binary_id), null: false
 
+      # Default here has to be a valid atom: [:draft, :published, :deleted]
       add :state, :string, null: false, default: "draft"
       add :title, :string, default: "Untitled Post"
 
