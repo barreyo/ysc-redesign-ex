@@ -170,11 +170,60 @@ defmodule YscWeb.AdminPostsLive do
     {:noreply, push_patch(socket, to: ~p"/admin/posts?#{new_params}")}
   end
 
+  def handle_event("validate", %{"new_post" => params}, socket) do
+    changeset = Post.new_post_changeset(%Post{}, params)
+    {:noreply, assign_form(socket, changeset)}
+  end
+
+  def handle_event("save", %{"new_post" => params}, socket) do
+    updated_params = Map.put(params, "url_name", title_to_url_name(params["title"]))
+    result = Posts.create_post(updated_params, socket.assigns[:current_user])
+
+    case result do
+      {:ok, new_post} -> {:noreply, socket |> redirect(to: ~p"/admin/posts/#{new_post.id}")}
+      _ -> {:noreply, socket |> put_flash(:error, "Something went wrong try again.")}
+    end
+  end
+
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    form = to_form(changeset, as: "new_post")
+
+    if changeset.valid? do
+      assign(socket, form: form, check_errors: false)
+    else
+      assign(socket, form: form)
+    end
+  end
+
+  defp maybe_replace_url_name(""), do: "new-untitled-post"
+  defp maybe_replace_url_name(value), do: value
+
+  defp title_to_url_name(title) do
+    maybe_add_number_to_url_name(
+      maybe_replace_url_name(String.downcase(Regex.replace(~r/\s+/u, title, "-")))
+    )
+  end
+
+  defp maybe_add_number_to_url_name(url_name) do
+    case Posts.count_posts_with_url_name(url_name) do
+      0 -> url_name
+      n -> "#{url_name}-#{n}"
+    end
+  end
+
   defp maybe_update_filter(%{"value" => [""]} = filter), do: Map.replace(filter, "value", "")
   defp maybe_update_filter(filter), do: filter
 
   defp post_state_to_badge_style(:draft), do: "yellow"
   defp post_state_to_badge_style(:published), do: "green"
-  defp post_state_to_badge_style(:deleted), do: "dark"
+  defp post_state_to_badge_style(:deleted), do: "red"
   defp post_state_to_badge_style(_), do: "default"
+
+  defp post_state_to_tooltip_text(%Post{state: :draft}), do: "The post is not yet published"
+
+  defp post_state_to_tooltip_text(%Post{state: :published} = post),
+    do: "Post published on #{post.published_on}"
+
+  defp post_state_to_tooltip_text(%Post{state: :deleted} = post),
+    do: "Post deleted on #{post.deleted_on}"
 end

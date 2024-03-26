@@ -93,7 +93,8 @@ defmodule Ysc.Posts.Post do
       :raw_body,
       :image_id,
       :featured_post,
-      :published_on
+      :published_on,
+      :deleted_on
     ])
     |> validate_length(:title, max: 150)
     |> validate_length(:url_name, min: 1, max: 150)

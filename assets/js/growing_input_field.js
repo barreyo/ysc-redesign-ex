@@ -20,7 +20,13 @@ function getWidthOfInput(inputEl) {
 
 module.exports = {
     mounted() {
-        const element = this.el
-        attachEventListener(element)
+        const element = this.el;
+        attachEventListener(element);
+    },
+
+    updated() {
+        // Need to resize after LV update to not bug out
+        const element = this.el;
+        resizeInput.call(element);
     }
 }

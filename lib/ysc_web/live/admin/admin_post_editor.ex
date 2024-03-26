@@ -1,4 +1,5 @@
 defmodule YscWeb.AdminPostEditorLive do
+  alias Phoenix.HTML.Form
   use YscWeb, :live_view
 
   alias Ysc.Posts.Post
@@ -125,7 +126,12 @@ defmodule YscWeb.AdminPostEditorLive do
           </div>
 
           <div class="flex flex-row align-baseline items-end">
-            <.button :if={@post.state == :draft} class="hidden lg:block w-28 mr-3" type="button">
+            <.button
+              :if={@post.state == :draft}
+              class="hidden lg:block w-28 mr-3"
+              type="button"
+              phx-click="publish-post"
+            >
               <.icon name="hero-document-arrow-up" class="w-5 h-5 -mt-1" />
               <span class="me-1">Publish</span>
             </.button>
@@ -135,6 +141,7 @@ defmodule YscWeb.AdminPostEditorLive do
               color="green"
               class="hidden lg:block w-28 mr-3"
               type="button"
+              phx-click="restore-post"
             >
               <.icon name="hero-cloud-arrow-up" class="w-5 h-5 -mt-1" />
               <span class="me-1">Restore</span>
@@ -182,7 +189,7 @@ defmodule YscWeb.AdminPostEditorLive do
 
                 <ul class="py-2 text-sm font-medium text-zinc-800 py-1">
                   <li class="block py-2 px-3 transition text-red-600 ease-in-out duration-200 hover:bg-zinc-100">
-                    <button type="button" class="w-full text-left px-1">
+                    <button type="button" class="w-full text-left px-1" phx-click="delete-post">
                       <.icon name="hero-trash" class="w-5 h-5 -mt-1" />
                       <span>Delete Post</span>
                     </button>
@@ -208,7 +215,9 @@ defmodule YscWeb.AdminPostEditorLive do
             />
           </span>
         </div>
+      </.form>
 
+      <.form :let={_f} for={@form} id="trix-editor-form">
         <div class="prose prose-zinc prose-base prose-a:text-blue-600 max-w-none mx-auto py-8">
           <.input type="hidden" id="post[raw_body]" field={@form[:raw_body]} phx-hook="TrixHook" />
           <div id="richtext" phx-update="ignore">
@@ -242,9 +251,18 @@ defmodule YscWeb.AdminPostEditorLive do
      |> assign(form: to_form(update_post_changeset, as: "post"))}
   end
 
+  @spec handle_event(<<_::32, _::_*8>>, any(), atom() | map()) :: {:noreply, map()}
   def handle_event("post-update", %{"post" => values}, socket) do
+    post = socket.assigns[:post]
+
+    updated_values =
+      Map.put_new(values, "title", post.title) |> Map.put_new("url_name", post.url_name)
+
+    changeset = Post.update_post_changeset(%Post{}, updated_values)
+    form_socket = assign_form(socket, Map.put(changeset, :action, :validate))
+
     # Don't save too often :)
-    Debouncer.apply(
+    Debouncer.delay(
       socket.assigns[:post_id],
       fn ->
         Posts.update_post(
@@ -262,11 +280,93 @@ defmodule YscWeb.AdminPostEditorLive do
       @save_debounce_timeout
     )
 
-    {:noreply, socket |> assign(:saving?, true)}
+    {:noreply, form_socket |> assign(:saving?, true)}
   end
 
   def handle_event("save", %{"post" => _values} = req, socket) do
     handle_event("post-update", req, socket)
+  end
+
+  def handle_event("editor-update", params, socket) do
+    handle_event("post-update", %{"post" => params}, socket)
+  end
+
+  def handle_event("publish-post", _params, socket) do
+    post = socket.assigns[:post]
+
+    res =
+      Posts.update_post(
+        post,
+        %{state: :published, published_on: Timex.now()},
+        socket.assigns[:current_user]
+      )
+
+    case res do
+      {:ok, new_post} ->
+        {:noreply,
+         socket
+         |> assign(:post, new_post)
+         |> put_flash(:info, "The post was published!")
+         |> redirect(to: ~p"/admin/posts/#{post.id}")}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Something went wrong")
+         |> redirect(to: ~p"/admin/posts")}
+    end
+  end
+
+  def handle_event("restore-post", _params, socket) do
+    post = socket.assigns[:post]
+
+    res =
+      Posts.update_post(
+        post,
+        %{state: :draft, published_on: nil, deleted_on: nil, featured_post: false},
+        socket.assigns[:current_user]
+      )
+
+    case res do
+      {:ok, new_post} ->
+        {:noreply,
+         socket
+         |> assign(:post, new_post)
+         |> put_flash(:info, "The post recovered.")
+         |> redirect(to: ~p"/admin/posts/#{post.id}")}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Something went wrong")
+         |> redirect(to: ~p"/admin/posts")}
+    end
+  end
+
+  def handle_event("delete-post", _params, socket) do
+    post = socket.assigns[:post]
+
+    res =
+      Posts.update_post(
+        post,
+        %{state: :deleted, deleted_on: Timex.now(), published_on: nil, featured_post: false},
+        socket.assigns[:current_user]
+      )
+
+    case res do
+      {:ok, new_post} ->
+        {:noreply,
+         socket
+         |> assign(:post, new_post)
+         |> put_flash(:info, "The post was deleted.")
+         |> redirect(to: ~p"/admin/posts/#{post.id}")}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Something went wrong")
+         |> redirect(to: ~p"/admin/posts")}
+    end
   end
 
   def handle_event("phone-preview", _params, socket) do
@@ -284,6 +384,16 @@ defmodule YscWeb.AdminPostEditorLive do
   def handle_info(%Phoenix.Socket.Broadcast{event: "saved"}, socket) do
     {:noreply,
      assign(socket, :saving?, false) |> assign(:post, Posts.get_post!(socket.assigns[:post_id]))}
+  end
+
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    form = to_form(changeset, as: "post")
+
+    if changeset.valid? do
+      assign(socket, form: form, check_errors: false)
+    else
+      assign(socket, form: form)
+    end
   end
 
   defp post_state_to_badge_style(:draft), do: "yellow"

@@ -1164,7 +1164,7 @@ defmodule YscWeb.CoreComponents do
         <%= render_slot(@inner_block) %>
         <span
           role="tooltip"
-          class="absolute transition-opacity mt-12 top-0 left-0 duration-200 opacity-0 z-50 text-xs font-medium text-zinc-100 bg-zinc-900 rounded-lg shadow-sm px-3 py-2 inline-block text-center rounded tooltip group-hover:opacity-100"
+          class="absolute transition-opacity mt-10 top-0 left-0 duration-200 opacity-0 z-50 text-xs font-medium text-zinc-100 bg-zinc-900 rounded-lg shadow-sm px-3 py-2 inline-block text-center rounded tooltip group-hover:opacity-100"
         >
           <%= @tooltip_text %>
         </span>

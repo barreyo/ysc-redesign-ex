@@ -31,6 +31,17 @@ defmodule Ysc.Posts do
     end
   end
 
+  def create_post(params, %User{} = current_user) do
+    with :ok <- Policy.authorize(:posts_create, current_user) do
+      new_params = Map.put(params, "user_id", current_user.id)
+      Post.new_post_changeset(%Post{}, new_params) |> Repo.insert()
+    end
+  end
+
+  def count_posts_with_url_name(url_name) do
+    Repo.one(from p in Post, select: count(p.id), where: p.url_name == ^url_name)
+  end
+
   def get_all_authors() do
     from(
       post in Post,
