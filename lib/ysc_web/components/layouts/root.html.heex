@@ -15,7 +15,7 @@
     </script>
   </head>
   <body class="antialiased bg-white">
-    <div id="content-wrapper" class="flex flex-col justify-between h-screen">
+    <div id="content-wrapper" class="flex flex-col min-h-screen">
       <header :if={!fullscreen?(@conn)}>
         <div id="hero-branding" class="relative overflow-hidden h-44">
           <div class="w-full h-full">
@@ -50,48 +50,41 @@
 
         <nav class="top-0 z-20 w-full bg-white border-b border-zinc-100 start-0">
           <div class="flex flex-wrap items-center justify-between max-w-screen-lg p-4 mx-auto">
-            <!--
-            <div id="nav-branding" class="flex">
-              <a href="https://flowbite.com/" class="flex items-center space-x-3 rtl:space-x-reverse">
-                <img src="https://flowbite.com/docs/images/logo.svg" class="h-8" alt="Flowbite Logo">
-              </a>
-            </div>
-            -->
             <div class="flex flex-col w-full space-x-3 lg:w-auto lg:space-x-0">
               <.hamburger_menu toggle_id="navbar-dropdown" />
               <div class="hidden w-full lg:block lg:w-auto" id="navbar-dropdown">
                 <ul class="flex flex-col p-4 mt-4 font-medium lg:p-0 lg:space-x-8 rtl:space-x-reverse lg:flex-row lg:mt-0 lg:border-0">
                   <li>
-                    <a
-                      href="#"
+                    <.link
+                      navigate={~p"/posts"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
                     >
                       News
-                    </a>
+                    </.link>
                   </li>
                   <li>
-                    <a
-                      href="#"
+                    <.link
+                      navigate={~p"/events"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
                     >
                       Events
-                    </a>
+                    </.link>
                   </li>
                   <li>
-                    <a
-                      href="#"
+                    <.link
+                      navigate={~p"/cabins/tahoe"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
                     >
                       Tahoe Cabin
-                    </a>
+                    </.link>
                   </li>
                   <li>
-                    <a
-                      href="#"
+                    <.link
+                      navigate={~p"/cabins/clear-lake"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
                     >
                       Clear Lake
-                    </a>
+                    </.link>
                   </li>
                   <li>
                     <.dropdown id="about" class="text-zinc-900 hover:bg-zinc-100 hover:text-black">
@@ -181,10 +174,13 @@
             <div id="cta-section" class="relative flex-row hidden w-auto lg:flex">
               <%= if @current_user do %>
                 <button class="px-3 py-2 mr-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black">
-                  <.icon name="hero-shopping-cart" class="w-5 h-5" />
+                  <.icon name="hero-shopping-cart" class="w-5 h-5 -mt-1" />
                 </button>
                 <!-- <p><%= @current_user.email %></p> -->
                 <.user_avatar
+                  email={@current_user.email}
+                  user_id={@current_user.id}
+                  most_connected_country={@current_user.most_connected_country}
                   first_name={@current_user.first_name}
                   last_name={@current_user.last_name}
                 >
@@ -248,55 +244,13 @@
           </div>
         </nav>
       </header>
-      <!--
-      <ul class="relative z-10 flex items-center justify-end gap-4 px-4 sm:px-6 lg:px-8">
-        <%= if @current_user do %>
-          <li class="text-[0.8125rem] leading-6 text-zinc-900">
-            <%= @current_user.email %>
-          </li>
-          <li>
-            <.link
-              href={~p"/users/settings"}
-              class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700"
-            >
-              Settings
-            </.link>
-          </li>
-          <li>
-            <.link
-              href={~p"/users/log_out"}
-              method="delete"
-              class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700"
-            >
-              Log out
-            </.link>
-          </li>
-        <% else %>
-          <li>
-            <.link
-              href={~p"/users/register"}
-              class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700"
-            >
-              Register
-            </.link>
-          </li>
-          <li>
-            <.link
-              href={~p"/users/log_in"}
-              class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700"
-            >
-              Log in
-            </.link>
-          </li>
-        <% end %>
-      </ul>
-    -->
-      <main class="w-full max-w-screen-lg p-4 py-10 mx-auto lg:py-14 content-start justify-start align-top">
+
+      <main class="w-full align-top justify-start h-full">
         <%= @inner_content %>
       </main>
 
-      <footer :if={!fullscreen?(@conn)} class="bg-white border-t border-zinc-100">
-        <div class="w-full max-w-screen-lg p-4 py-6 mx-auto lg:py-8">
+      <footer :if={!fullscreen?(@conn)} class="bg-white border-t border-zinc-100 w-full mt-auto">
+        <div class="max-w-screen-lg p-4 py-6 mx-auto lg:py-8">
           <div class="lg:flex lg:justify-between">
             <div class="mb-6 lg:mb-0">
               <.link href={~p"/"} class="flex items-center">
@@ -313,7 +267,7 @@
                 </h2>
                 <ul class="flex flex-wrap items-start justify-start">
                   <li class="">
-                    <a href="https://github.com/themesberg/flowbite">
+                    <a href="https://www.facebook.com/YoungScandinaviansClub/" target="_blank">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         x="0px"
@@ -327,7 +281,7 @@
                     </a>
                   </li>
                   <li>
-                    <a href="https://discord.gg/4eeurUVvTy">
+                    <a href="https://www.instagram.com/theysc" target="_blank">
                       <div class="relative">
                         <svg
                           style="width:0;height:0;position:absolute;"

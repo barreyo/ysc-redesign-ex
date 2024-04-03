@@ -107,7 +107,7 @@ defmodule YscWeb.AdminPostsLive do
           </:col>
 
           <:col :let={{_, post}} label="Author" field={:author_name}>
-            <%= "#{String.capitalize(String.downcase(post.author.first_name))} #{String.capitalize(String.downcase(post.author.last_name))}" %>
+            <%= "#{String.capitalize(post.author.first_name)} #{String.capitalize(post.author.last_name)}" %>
           </:col>
 
           <:col :let={{_, post}} label="State" field={:state}>

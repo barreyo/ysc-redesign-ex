@@ -1,31 +1,33 @@
-<div class="max-w-xl py-6">
-  <.icon name="hero-document-magnifying-glass" class="h-16 w-16 text-zinc-600 mb-6" />
+<div class="py-6 lg:py-10 max-w-screen-lg mx-auto px-4">
+  <div class="max-w-xl mx-auto lg:mx-0">
+    <.icon name="hero-document-magnifying-glass" class="h-16 w-16 text-zinc-600 mb-6" />
 
-  <.header class="mb-6">
-    Your Membership Application is being reviewed
-    <:subtitle>
-      The YSC board will review your membership application as soon as possible and let you know the outcome via email. If your membership is approved your account will be moved to member status which unlocks all features of the website and make you an official member of the club!
-    </:subtitle>
-  </.header>
+    <.header class="mb-6">
+      Your Membership Application is being reviewed
+      <:subtitle>
+        The YSC board will review your membership application as soon as possible and let you know the outcome via email. If your membership is approved your account will be moved to member status which unlocks all features of the website and make you an official member of the club!
+      </:subtitle>
+    </.header>
 
-  <p class="text-sm font-bold leading-6 text-zinc-600 mb-14">
-    Application submitted on:
-    <span class="mx-1 bg-blue-100 text-blue-800 text-sm font-medium me-2 px-2 py-1 rounded">
-      <%= Timex.format!(
-        @application_submitted_date,
-        "{YYYY}-{0M}-{0D}"
-      ) %> (<%= @time_delta %>)
-    </span>
-  </p>
+    <p class="text-sm font-bold leading-6 text-zinc-600 mb-14">
+      Application submitted on:
+      <span class="mx-1 bg-blue-100 text-blue-800 text-sm font-medium me-2 px-2 py-1 rounded">
+        <%= Timex.format!(
+          @application_submitted_date,
+          "{YYYY}-{0M}-{0D}"
+        ) %> (<%= @time_delta %>)
+      </span>
+    </p>
 
-  <p class="text-sm font-semibold leading-6 text-zinc-800">
-    Haven't heard from us in a while?
-  </p>
+    <p class="text-sm font-semibold leading-6 text-zinc-800">
+      Haven't heard from us in a while?
+    </p>
 
-  <p class="text-sm leading-6 text-zinc-600">
-    Please reach out to <a
-      class="font-semibold text-blue-600 hover:underline"
-      href="mailto:board@ysc.org"
-    >board@ysc.org</a>.
-  </p>
+    <p class="text-sm leading-6 text-zinc-600">
+      Please reach out to <a
+        class="font-semibold text-blue-600 hover:underline"
+        href="mailto:board@ysc.org"
+      >board@ysc.org</a>.
+    </p>
+  </div>
 </div>

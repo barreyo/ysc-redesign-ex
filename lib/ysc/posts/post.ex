@@ -65,7 +65,7 @@ defmodule Ysc.Posts.Post do
             },
           :invalid | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
         ) :: Ecto.Changeset.t()
-  def new_post_changeset(post, attrs, _opts \\ []) do
+  def new_post_changeset(post, attrs, opts \\ []) do
     post
     |> cast(attrs, [
       :user_id,
@@ -81,9 +81,10 @@ defmodule Ysc.Posts.Post do
     ])
     |> validate_length(:title, max: 150)
     |> validate_length(:url_name, min: 1, max: 150)
+    |> maybe_validate_unique_url_name(opts)
   end
 
-  def update_post_changeset(post, attrs, _opts \\ []) do
+  def update_post_changeset(post, attrs, opts \\ []) do
     post
     |> cast(attrs, [
       :state,
@@ -98,5 +99,16 @@ defmodule Ysc.Posts.Post do
     ])
     |> validate_length(:title, max: 150)
     |> validate_length(:url_name, min: 1, max: 150)
+    |> maybe_validate_unique_url_name(opts)
+  end
+
+  defp maybe_validate_unique_url_name(changeset, opts) do
+    if Keyword.get(opts, :validate_url_name, false) do
+      changeset
+      |> unsafe_validate_unique(:url_name, Ysc.Repo)
+      |> unique_constraint(:url_name)
+    else
+      changeset
+    end
   end
 end

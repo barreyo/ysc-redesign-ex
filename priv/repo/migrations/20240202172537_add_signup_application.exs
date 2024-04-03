@@ -34,7 +34,7 @@ defmodule Ysc.Repo.Migrations.AddSignupApplication do
 
       add :started, :utc_datetime, null: true
       add :completed, :utc_datetime, default: fragment("now()")
-      add :browser_timezone, :string, null: true
+      add :browser_tiezone, :string, null: true
 
       add :review_outcome, :string, null: true
       add :reviewed_by_user_id, references(:users, column: :id, type: :binary_id), null: true

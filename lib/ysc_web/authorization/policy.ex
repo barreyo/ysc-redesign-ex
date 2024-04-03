@@ -93,4 +93,22 @@ defmodule YscWeb.Authorization.Policy do
       allow role: :admin
     end
   end
+
+  object :site_setting do
+    action :create do
+      allow role: :admin
+    end
+
+    action :read do
+      allow true
+    end
+
+    action :update do
+      allow role: :admin
+    end
+
+    action :delete do
+      allow role: :admin
+    end
+  end
 end

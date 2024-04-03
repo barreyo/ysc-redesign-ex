@@ -851,8 +851,11 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  attr :user_id, :string, required: true
+  attr :email, :string, required: true
   attr :first_name, :string, required: true
   attr :last_name, :string, required: true
+  attr :most_connected_country, :string, required: true
   slot :inner_block, required: true
 
   def user_avatar(assigns) do
@@ -861,21 +864,18 @@ defmodule YscWeb.CoreComponents do
       <button
         data-dropdown-toggle="avatar-menu"
         id="avatar-menu-link"
-        class="flex flex-row rounded hover:bg-zinc-100"
+        class="flex flex-row rounded hover:bg-zinc-100 pl-3"
         phx-click={show_dropdown("#avatar-menu")}
       >
-        <div class="px-3 m-auto">
-          <p class="font-medium text-sm text-zinc-700 leading-5">
-            <%= String.capitalize(@first_name) <> " " <> String.capitalize(@last_name) %>
-          </p>
-        </div>
-        <div class="flex items-center justify-between w-full font-bold rounded text-zinc-900 lg:w-auto">
-          <div class="inline-flex items-center justify-center w-10 h-10 overflow-hidden transition duration-200 ease-in-out bg-blue-300 rounded hover:bg-blue-400">
-            <span class="absolute text-md leading-5 tracking-wide font-bold uppercase text-zinc-100">
-              <%= String.at(@first_name, 0) <> String.at(@last_name, 0) %>
-            </span>
-          </div>
-        </div>
+        <.user_card
+          email={@email}
+          title=""
+          user_id={@user_id}
+          most_connected_country={@most_connected_country}
+          first_name={@first_name}
+          last_name={@last_name}
+          right={true}
+        />
       </button>
       <!-- Dropdown menu -->
       <div
@@ -1026,6 +1026,26 @@ defmodule YscWeb.CoreComponents do
 
           <li>
             <.link
+              navigate="/admin/money"
+              class={[
+                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
+                @active_page == :money && "bg-zinc-200 text-zinc-800"
+              ]}
+              aria-current={@active_page == :money}
+            >
+              <.icon
+                name="hero-wallet"
+                class={[
+                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
+                  @active_page == :money && "text-zinc-800"
+                ]}
+              />
+              <span class="ms-3">Money</span>
+            </.link>
+          </li>
+
+          <li>
+            <.link
               navigate="/admin/media"
               class={[
                 "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
@@ -1077,7 +1097,7 @@ defmodule YscWeb.CoreComponents do
       </div>
     </aside>
 
-    <main class="px-6 md:px-10 py-6 sm:ml-72">
+    <main class="px-6 md:px-10 sm:ml-72">
       <%= render_slot(@inner_block) %>
     </main>
 
@@ -1087,26 +1107,43 @@ defmodule YscWeb.CoreComponents do
   end
 
   attr :email, :string, required: true
+  attr :title, :string, required: false, default: nil
   attr :user_id, :string, required: true
   attr :most_connected_country, :string, required: true
   attr :first_name, :string, required: true
   attr :last_name, :string, required: true
+  attr :right, :boolean, default: false
   attr :class, :string, default: ""
 
   def user_card(assigns) do
+    subtitle =
+      if assigns[:title] != nil do
+        assigns[:title]
+      else
+        String.downcase(assigns[:email])
+      end
+
+    new_assigns = assign(assigns, :subtitle, subtitle)
+
     ~H"""
-    <div class={"flex items-center whitespace-nowrap #{@class}"}>
+    <div class={"flex items-center whitespace-nowrap h-10 #{@class}"}>
       <.user_avatar_image
         email={@email}
         user_id={@user_id}
         country={@most_connected_country}
-        class="w-10 h-10 rounded-full"
+        class={[
+          "w-10 rounded-full",
+          @right && "order-2"
+        ]}
       />
-      <div class="ps-3">
+      <div class={[
+        @right && "order-1 pe-3",
+        !@right && "ps-3"
+      ]}>
         <div class="text-sm font-semibold text-zinc-800">
           <%= "#{String.capitalize(@first_name)} #{String.capitalize(@last_name)}" %>
         </div>
-        <div class="font-normal text-sm text-zinc-500"><%= String.downcase(@email) %></div>
+        <div class="font-normal text-sm text-zinc-500"><%= new_assigns[:subtitle] %></div>
       </div>
     </div>
     """
@@ -1311,23 +1348,23 @@ defmodule YscWeb.CoreComponents do
   end
 
   @default_images %{
-    "Denmark" => %{
+    "DK" => %{
       0 => "/images/default_avatars/denmark_flag.png",
       1 => "/images/default_avatars/denmark_houses.png"
     },
-    "Finland" => %{
+    "FI" => %{
       0 => "/images/default_avatars/finland_flag.png",
       1 => "/images/default_avatars/finland_house.png"
     },
-    "Iceland" => %{
+    "IS" => %{
       0 => "/images/default_avatars/iceland_flag.png",
       1 => "/images/default_avatars/iceland_landscape.png"
     },
-    "Norway" => %{
+    "NO" => %{
       0 => "/images/default_avatars/norway_flag.png",
       1 => "/images/default_avatars/norway_fjord.png"
     },
-    "Sweden" => %{
+    "SE" => %{
       0 => "/images/default_avatars/sweden_flag.png",
       1 => "/images/default_avatars/sweden_houses.png"
     }

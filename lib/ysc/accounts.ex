@@ -499,19 +499,4 @@ defmodule Ysc.Accounts do
       end
     end
   end
-
-  defp maybe_populate_display_name(%User{first_name: nil, last_name: nil} = user), do: user
-
-  defp maybe_populate_display_name(%User{first_name: nil, last_name: last} = user),
-    do: %{user | display_name: String.capitalize(String.downcase(last))}
-
-  defp maybe_populate_display_name(%User{first_name: first, last_name: nil} = user),
-    do: %{user | display_name: String.capitalize(String.downcase(first))}
-
-  defp maybe_populate_display_name(%User{first_name: first, last_name: last} = user),
-    do: %{
-      user
-      | display_name:
-          "#{String.capitalize(String.downcase(first))} #{String.capitalize(String.downcase(last))}"
-    }
 end

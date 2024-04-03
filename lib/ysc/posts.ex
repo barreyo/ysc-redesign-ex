@@ -10,12 +10,24 @@ defmodule Ysc.Posts do
   alias YscWeb.Authorization.Policy
   alias Ysc.Accounts.User
 
+  def get_post(id, preloads \\ []) do
+    Repo.get(Post, id) |> Repo.preload(preloads)
+  end
+
   def get_post!(id) do
     Repo.get!(Post, id)
   end
 
+  def get_post_by_url_name(url_name, preloads \\ []) do
+    Repo.get_by(Post, url_name: url_name) |> Repo.preload(preloads)
+  end
+
   def get_post_by_url_name!(url_name) do
     Repo.get_by!(Post, url_name: url_name)
+  end
+
+  def get_post_by_id_or_url_name(value) do
+    Repo.one(from p in Post, where: p.id == ^value, or_where: p.url_name == ^value)
   end
 
   def list_posts_paginated(params) do
@@ -25,9 +37,9 @@ defmodule Ysc.Posts do
     |> Flop.validate_and_run(params, for: Post)
   end
 
-  def update_post(post, params, %User{} = current_user) do
+  def update_post(post, params, %User{} = current_user, opts \\ []) do
     with :ok <- Policy.authorize(:posts_update, current_user, post) do
-      post |> Post.update_post_changeset(params) |> Repo.update()
+      post |> Post.update_post_changeset(params, opts) |> Repo.update()
     end
   end
 
@@ -66,6 +78,6 @@ defmodule Ysc.Posts do
   end
 
   defp name_format(%{"author_first" => first, "author_last" => last}) do
-    "#{String.capitalize(String.downcase(first))} #{String.downcase(String.capitalize(last))}"
+    "#{String.capitalize(first)} #{String.downcase(last)}"
   end
 end

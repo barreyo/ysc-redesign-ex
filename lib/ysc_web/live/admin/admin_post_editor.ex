@@ -1,6 +1,7 @@
 defmodule YscWeb.AdminPostEditorLive do
-  alias Phoenix.HTML.Form
   use YscWeb, :live_view
+
+  alias HtmlSanitizeEx.Scrubber
 
   alias Ysc.Posts.Post
   alias Ysc.Posts
@@ -255,20 +256,44 @@ defmodule YscWeb.AdminPostEditorLive do
   def handle_event("post-update", %{"post" => values}, socket) do
     post = socket.assigns[:post]
 
+    # Ensure UI is not cleared out
     updated_values =
       Map.put_new(values, "title", post.title) |> Map.put_new("url_name", post.url_name)
 
     changeset = Post.update_post_changeset(%Post{}, updated_values)
     form_socket = assign_form(socket, Map.put(changeset, :action, :validate))
 
-    # Don't save too often :)
+    # Don't save too often. We wait a little and only save once user has stopped
+    # typing or removes focus from the field. Even if user navigates away from the page
+    # this function runs in a separate process and will complete.
     Debouncer.delay(
       socket.assigns[:post_id],
       fn ->
+        # Only run DB validation if it has actually changed
+        opts =
+          if post.url_name != Map.get(values, "url_name", "") do
+            [validate_url_name: true]
+          else
+            []
+          end
+
+        # Need to scrub if html body has changed
+        html_scrubbed_values =
+          if Map.has_key?(values, "raw_body") do
+            Map.put(
+              values,
+              "rendered_body",
+              Scrubber.scrub(Map.get(values, "raw_body"), Scrubber.BasicHTML)
+            )
+          else
+            values
+          end
+
         Posts.update_post(
           %Post{id: socket.assigns[:post_id]},
-          values,
-          socket.assigns[:current_user]
+          html_scrubbed_values,
+          socket.assigns[:current_user],
+          opts
         )
 
         YscWeb.Endpoint.broadcast(

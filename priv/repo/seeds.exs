@@ -12,6 +12,26 @@
 
 alias Ysc.Repo
 alias Ysc.Accounts.User
+alias Ysc.SiteSettings.SiteSetting
+
+# Default settings
+Repo.insert!(
+  SiteSetting.site_setting_changeset(%SiteSetting{}, %{
+    group: "socials",
+    name: "instagram",
+    value: "https://www.instagram.com/theysc"
+  }),
+  on_conflict: :nothing
+)
+
+Repo.insert!(
+  SiteSetting.site_setting_changeset(%SiteSetting{}, %{
+    group: "socials",
+    name: "facebook",
+    value: "https://www.facebook.com/YoungScandinaviansClub/"
+  }),
+  on_conflict: :nothing
+)
 
 first_names = [
   "Karl",
@@ -63,11 +83,11 @@ last_names = [
 ]
 
 countries = [
-  "Sweden",
-  "Norway",
-  "Finland",
-  "Iceland",
-  "Denmark"
+  "SE",
+  "NO",
+  "FI",
+  "IS",
+  "DK"
 ]
 
 n_approved_users = 9
