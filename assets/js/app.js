@@ -22,14 +22,14 @@ import { Socket } from "phoenix"
 import { LiveSocket } from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 import LivePhone from "./live_phone"
-import InfiniteScroll from "./infinite_scroll"
+import StickyNavbar from "./sticky_navbar"
 import Uploaders from "./uploaders"
 import BlurHashCanvas from "./blur_hash_canvas"
 import BlurHashImage from "./blur_hash_image"
 import GrowingInput from "./growing_input_field"
 import TrixHook from './trix_hook'
 
-let Hooks = { InfiniteScroll, BlurHashCanvas, BlurHashImage, GrowingInput, TrixHook }
+let Hooks = { StickyNavbar, BlurHashCanvas, BlurHashImage, GrowingInput, TrixHook }
 Hooks.LivePhone = LivePhone
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
@@ -41,6 +41,13 @@ let liveSocket = new LiveSocket("/live", Socket, {
         timezone_offset: -(new Date().getTimezoneOffset() / 60),
     }, hooks: Hooks,
     uploaders: Uploaders
+})
+
+window.addEventListener("phx:live_reload:attached", ({ detail: reloader }) => {
+    // Enable server log streaming to client.
+    // Disable with reloader.disableServerLogs()
+    reloader.enableServerLogs()
+    window.liveReloader = reloader
 })
 
 // Show progress bar on live navigation and form submits

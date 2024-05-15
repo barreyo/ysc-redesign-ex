@@ -7,7 +7,7 @@
 
     <link rel="manifest" href="site.webmanifest" />
 
-    <.live_title suffix=" · YSC.org">
+    <.live_title suffix=" · The Young Scandinavians Club">
       <%= assigns[:page_title] || "YSC" %>
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
@@ -38,25 +38,31 @@
 
             <.link
               navigate={~p"/"}
-              class="absolute z-10 flex items-center text-left transition-opacity ease-in-out transform -translate-x-1/2 -translate-y-1/2 duration-400 left-48 space-x-9 rtl:space-x-reverse top-1/2 sm:left-1/2 hover:opacity-80"
+              class="absolute z-10 flex items-center text-left transition-opacity ease-in-out transform top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 duration-400 hover:opacity-80"
             >
-              <.ysc_logo class="h-20" />
-              <span class="self-center text-2xl font-extrabold tracking-wide text-white uppercase lg:text-4xl lg:whitespace-nowrap">
-                The Young Scandinavians Club
-              </span>
+              <div class="self-center flex items-center space-x-5">
+                <.ysc_logo class="h-20" />
+                <span class="self-center text-xl md:text-2xl font-extrabold tracking-wide text-white uppercase lg:text-4xl lg:whitespace-nowrap">
+                  The Young Scandinavians Club
+                </span>
+              </div>
             </.link>
           </div>
         </div>
 
-        <nav class="top-0 z-20 w-full bg-white border-b border-zinc-100 start-0">
+        <nav
+          id="rootNavbar"
+          class="top-0 z-20 w-full bg-white border-b border-zinc-100 start-0"
+          phx-hook="StickyNavbar"
+        >
           <div class="flex flex-wrap items-center justify-between max-w-screen-lg p-4 mx-auto">
-            <div class="flex flex-col w-full space-x-3 lg:w-auto lg:space-x-0">
+            <div class="flex flex-col space-x-3 w-full lg:w-auto lg:space-x-0">
               <.hamburger_menu toggle_id="navbar-dropdown" />
               <div class="hidden w-full lg:block lg:w-auto" id="navbar-dropdown">
-                <ul class="flex flex-col p-4 mt-4 font-medium lg:p-0 lg:space-x-8 rtl:space-x-reverse lg:flex-row lg:mt-0 lg:border-0">
+                <ul class="flex flex-col p-4 mt-4 font-medium lg:p-0 lg:space-x-8 lg:flex-row lg:mt-0 lg:border-0">
                   <li>
                     <.link
-                      navigate={~p"/posts"}
+                      navigate={~p"/news"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
                     >
                       News
@@ -87,7 +93,11 @@
                     </.link>
                   </li>
                   <li>
-                    <.dropdown id="about" class="text-zinc-900 hover:bg-zinc-100 hover:text-black">
+                    <.dropdown
+                      id="about"
+                      class="text-zinc-900 hover:bg-zinc-100 hover:text-black"
+                      mobile={true}
+                    >
                       <:button_block>
                         About
                         <.icon name="hero-chevron-down" class="w-4 h-4 ms-2 text-color-zinc-800" />
@@ -171,12 +181,11 @@
                 </ul>
               </div>
             </div>
-            <div id="cta-section" class="relative flex-row hidden w-auto lg:flex">
+            <div id="cta-section" class="relative flex-row w-auto hidden lg:flex">
               <%= if @current_user do %>
                 <button class="px-3 py-2 mr-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black">
-                  <.icon name="hero-shopping-cart" class="w-5 h-5 -mt-1" />
+                  <.icon name="hero-bell" class="w-5 h-5 -mt-1" />
                 </button>
-                <!-- <p><%= @current_user.email %></p> -->
                 <.user_avatar
                   email={@current_user.email}
                   user_id={@current_user.id}
@@ -235,7 +244,7 @@
                 </.link>
                 <.link
                   navigate={~p"/users/register"}
-                  class="px-4 py-2 text-sm font-bold text-center text-zinc-100 transition ease-in-out bg-blue-700 rounded duration-400 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300"
+                  class="px-4 py-2.5 text-sm font-bold text-center text-zinc-100 transition ease-in-out bg-blue-700 rounded duration-400 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300"
                 >
                   Become a Member
                 </.link>
@@ -253,7 +262,7 @@
         <div class="max-w-screen-lg p-4 py-6 mx-auto lg:py-8">
           <div class="lg:flex lg:justify-between">
             <div class="mb-6 lg:mb-0">
-              <.link href={~p"/"} class="flex items-center">
+              <.link navigate={~p"/"} class="flex items-center">
                 <.ysc_logo class="h-14 me-3" />
                 <span class="self-center text-xl font-semibold whitespace-nowrap">
                   The Young Scandinavians Club
@@ -267,7 +276,7 @@
                 </h2>
                 <ul class="flex flex-wrap items-start justify-start">
                   <li class="">
-                    <a href="https://www.facebook.com/YoungScandinaviansClub/" target="_blank">
+                    <a href={@site_setting_socials_facebook} target="_blank">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         x="0px"
@@ -281,7 +290,7 @@
                     </a>
                   </li>
                   <li>
-                    <a href="https://www.instagram.com/theysc" target="_blank">
+                    <a href={@site_setting_socials_instagram} target="_blank">
                       <div class="relative">
                         <svg
                           style="width:0;height:0;position:absolute;"

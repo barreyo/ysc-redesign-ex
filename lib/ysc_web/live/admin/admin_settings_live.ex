@@ -27,11 +27,22 @@ defmodule YscWeb.AdminSettingsLive do
             <div>
               <ul>
                 <li :for={entry <- Map.get(@grouped_settings, scope)}>
-                  <%= "#{entry.name}: #{entry.value}" %>
+                  <%= "#{String.capitalize(entry.name)}: #{entry.value}" %>
                 </li>
               </ul>
             </div>
           </div>
+        </div>
+
+        <div class="w-full py-4">
+          <h2 class="text-lg leading-8 font-semibold text-zinc-800 mb-3">Misc</h2>
+          <.link
+            class="rounded px-4 py-3 bg-blue-700 hover:bg-blue-800 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-100"
+            navigate={~p"/admin/dashboard"}
+          >
+            <.icon name="hero-arrow-top-right-on-square" class=" text-zinc-100 w-4 h-4 -mt-1 mr-2" />
+            System Dashboard
+          </.link>
         </div>
       </div>
     </.side_menu>

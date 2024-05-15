@@ -90,7 +90,7 @@ defmodule YscWeb.AdminMediaLive do
                           width="120"
                           height="120"
                         />
-                        <figcaption class="truncate overflow-hidden bg-zinc-100 text-zinc-600 w-28 z-8 absolute inset-x-0 bottom-0">
+                        <figcaption class="text-sm truncate overflow-hidden bg-zinc-100 text-zinc-600 w-28 z-8 absolute inset-x-0 bottom-0 py-1">
                           <%= entry.client_name %>
                         </figcaption>
                       </button>
@@ -98,7 +98,11 @@ defmodule YscWeb.AdminMediaLive do
 
                     <%!-- Phoenix.Component.upload_errors/2 returns a list of error atoms --%>
                     <%= for err <- upload_errors(@uploads.media_uploads, entry) do %>
-                      <p class="alert alert-danger"><%= error_to_string(err) %></p>
+                      <p class="alert alert-danger text-sm text-red-600 font-semibold mt-1">
+                        <.icon name="hero-exclamation-circle" class="-mt-0.5 h-5 w-5" /> <%= error_to_string(
+                          err
+                        ) %>
+                      </p>
                     <% end %>
                   </article>
                 <% end %>
@@ -106,7 +110,11 @@ defmodule YscWeb.AdminMediaLive do
 
               <%!-- Phoenix.Component.upload_errors/1 returns a list of error atoms --%>
               <%= for err <- upload_errors(@uploads.media_uploads) do %>
-                <p class="alert alert-danger"><%= error_to_string(err) %></p>
+                <p class="alert alert-danger text-sm text-red-600 font-semibold mt-1">
+                  <.icon name="hero-exclamation-circle" class="-mt-0.5 h-5 w-5" /> <%= error_to_string(
+                    err
+                  ) %>
+                </p>
               <% end %>
 
               <div
@@ -206,7 +214,7 @@ defmodule YscWeb.AdminMediaLive do
         {:ok, new_image} =
           Media.add_new_image(
             %{
-              raw_image_path: raw_path,
+              raw_image_path: URI.encode(raw_path),
               user_id: uploader.id,
               upload_data: details
             },

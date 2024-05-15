@@ -73,6 +73,8 @@ config :ysc, Oban,
   repo: Ysc.Repo,
   queues: [default: 10, media: 5, exports: 3],
   plugins: [
+    # Maintain for 5 days
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 5},
     {Oban.Plugins.Cron,
      crontab: [
        {"0 * * * *", YscWeb.Workers.FileExportCleanUp}

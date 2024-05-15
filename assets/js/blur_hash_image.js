@@ -26,7 +26,6 @@ module.exports = {
     },
     updated() {
         const element = this.el
-        console.log("HAPOPTY")
         hideBlurHash(element)
     }
 }

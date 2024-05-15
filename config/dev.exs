@@ -27,6 +27,9 @@ config :ysc, YscWeb.Endpoint,
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}
+  ],
+  live_reload: [
+    web_console_logger: true
   ]
 
 # ## SSL Support

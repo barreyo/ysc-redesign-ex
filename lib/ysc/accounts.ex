@@ -175,6 +175,12 @@ defmodule Ysc.Accounts do
     Flop.validate_and_run(fuzzy_search_user(search_term), params, for: User)
   end
 
+  def update_user(user, params, %User{} = current_user) do
+    with :ok <- Policy.authorize(:user_update, current_user, user) do
+      user |> User.update_user_changeset(params) |> Repo.update()
+    end
+  end
+
   @doc """
   Updates the user email using the given token.
 

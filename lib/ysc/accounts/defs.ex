@@ -5,6 +5,18 @@ defenum(UserAccountRole, ["member", "admin"])
 defenum(FamilyMemberType, ["spouse", "child"])
 defenum(MembershipType, ["single", "family"])
 
+defenum(BoardMemberPosition, [
+  "president",
+  "vice_president",
+  "secretary",
+  "treasurer",
+  "clear_lake_cabin_master",
+  "tahoe_cabin_master",
+  "event_director",
+  "member_outreach",
+  "membership_director"
+])
+
 defenum(MembershipEligibility, [
   "citizen_of_scandinavia",
   "born_in_scandinavia",

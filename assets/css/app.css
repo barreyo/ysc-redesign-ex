@@ -187,6 +187,7 @@ trix-toolbar .trix-button-row {
     position: -webkit-sticky;
     position: sticky;
     top: 0;
+    z-index: 2;
 }
 
 trix-toolbar .trix-button-group {
@@ -677,26 +678,28 @@ trix-editor .attachment__metadata .attachment__size {
     color: inherit;
 }
 
-.trix-content .attachment__caption {
+.attachment__caption {
     text-align: center;
+    padding-top: 0.25em;
+    padding-bottom: 0.25em;
 }
 
-.trix-content .attachment__caption .attachment__name+.attachment__size::before {
+.attachment__caption .attachment__name+.attachment__size::before {
     content: ' \2022 ';
 }
 
-.trix-content .attachment--preview {
+.attachment--preview {
     width: 100%;
     text-align: center;
 }
 
-.trix-content .attachment--preview .attachment__caption {
+.attachment--preview .attachment__caption {
     color: #666;
     font-size: 0.9em;
     line-height: 1.2;
 }
 
-.trix-content .attachment--file {
+.attachment--file {
     color: #333;
     line-height: 1;
     margin: 0 2px 2px 2px;
@@ -705,20 +708,27 @@ trix-editor .attachment__metadata .attachment__size {
     border-radius: 5px;
 }
 
-.trix-content .attachment-gallery {
+.attachment-gallery {
     display: flex;
     flex-wrap: wrap;
     position: relative;
+    padding-top: 1em;
+    padding-bottom: 0.5em;
 }
 
-.trix-content .attachment-gallery .attachment {
+figure {
+    padding-top: 1em;
+    padding-bottom: 1em;
+}
+
+.attachment-gallery .attachment {
     flex: 1 0 33%;
     padding: 0 0.5em;
     max-width: 33%;
 }
 
-.trix-content .attachment-gallery.attachment-gallery--2 .attachment,
-.trix-content .attachment-gallery.attachment-gallery--4 .attachment {
+.attachment-gallery.attachment-gallery--2 .attachment,
+.attachment-gallery.attachment-gallery--4 .attachment {
     flex-basis: 50%;
     max-width: 50%;
 }

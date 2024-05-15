@@ -43,7 +43,7 @@ defmodule YscWeb.AdminPostsLive do
           Posts
         </h1>
 
-        <.button phx-click={JS.navigate(~p"/admin/posts/new")}>
+        <.button phx-click="new-post">
           <.icon name="hero-document-plus" class="w-5 h-5 -mt-1" /><span class="ms-1">New Post</span>
         </.button>
       </div>
@@ -103,7 +103,16 @@ defmodule YscWeb.AdminPostsLive do
           path={~p"/admin/posts"}
         >
           <:col :let={{_, post}} label="Title" field={:title}>
-            <p class="text-sm font-semibold"><%= post.title %></p>
+            <p class="text-sm font-semibold">
+              <%= post.title %>
+              <span
+                :if={post.comment_count > 0}
+                class="relative text-zinc-600 ml-2 rounded px-2 py-1 text-sm"
+              >
+                <.icon name="hero-chat-bubble-oval-left" class="w-4 h-4 -mt-0.5" />
+                <%= post.comment_count %>
+              </span>
+            </p>
           </:col>
 
           <:col :let={{_, post}} label="Author" field={:author_name}>
@@ -185,6 +194,16 @@ defmodule YscWeb.AdminPostsLive do
     end
   end
 
+  def handle_event("new-post", _params, socket) do
+    url_name = title_to_url_name("")
+    result = Posts.create_post(%{"url_name" => url_name}, socket.assigns[:current_user])
+
+    case result do
+      {:ok, new_post} -> {:noreply, socket |> redirect(to: ~p"/admin/posts/#{new_post.id}")}
+      _ -> {:noreply, socket |> put_flash(:error, "Something went wrong try again.")}
+    end
+  end
+
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     form = to_form(changeset, as: "new_post")
 
@@ -207,7 +226,7 @@ defmodule YscWeb.AdminPostsLive do
   defp maybe_add_number_to_url_name(url_name) do
     case Posts.count_posts_with_url_name(url_name) do
       0 -> url_name
-      n -> "#{url_name}-#{n}"
+      n -> "#{url_name}-#{n + 1}"
     end
   end
 
@@ -218,12 +237,4 @@ defmodule YscWeb.AdminPostsLive do
   defp post_state_to_badge_style(:published), do: "green"
   defp post_state_to_badge_style(:deleted), do: "red"
   defp post_state_to_badge_style(_), do: "default"
-
-  defp post_state_to_tooltip_text(%Post{state: :draft}), do: "The post is not yet published"
-
-  defp post_state_to_tooltip_text(%Post{state: :published} = post),
-    do: "Post published on #{post.published_on}"
-
-  defp post_state_to_tooltip_text(%Post{state: :deleted} = post),
-    do: "Post deleted on #{post.deleted_on}"
 end

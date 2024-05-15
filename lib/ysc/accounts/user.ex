@@ -13,7 +13,8 @@ defmodule Ysc.Accounts.User do
       :last_name,
       :phone_number,
       :state,
-      :role
+      :role,
+      :board_position
     ],
     sortable: [:email, :first_name, :last_name, :state, :role],
     default_limit: 50,
@@ -31,6 +32,8 @@ defmodule Ysc.Accounts.User do
 
     field :state, UserAccountState
     field :role, UserAccountRole
+
+    field :board_position, BoardMemberPosition
 
     field :first_name, :string, redact: true
     field :last_name, :string, redact: true
@@ -87,7 +90,8 @@ defmodule Ysc.Accounts.User do
       :first_name,
       :last_name,
       :phone_number,
-      :most_connected_country
+      :most_connected_country,
+      :board_position
     ])
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)
@@ -124,7 +128,8 @@ defmodule Ysc.Accounts.User do
       :first_name,
       :last_name,
       :phone_number,
-      :most_connected_country
+      :most_connected_country,
+      :board_position
     ])
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)

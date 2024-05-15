@@ -47,5 +47,9 @@ defmodule Ysc.Repo.Migrations.AddLedgerTables do
 
     create index(:account_transactions, [:ledger_id])
     create index(:account_transactions, [:account_id])
+
+    create constraint(:account_transactions, :amount_must_be_positive,
+             check: "(amount).amount >= 0"
+           )
   end
 end

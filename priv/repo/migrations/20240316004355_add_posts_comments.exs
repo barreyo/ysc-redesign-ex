@@ -22,10 +22,14 @@ defmodule Ysc.Repo.Migrations.AddPostsComments do
       add :published_on, :utc_datetime
       add :deleted_on, :utc_datetime
 
+      # Track number of comments for easy rendering of summary
+      add :comment_count, :integer, default: 0
+
       timestamps()
     end
 
     create unique_index(:posts, [:url_name])
+    create constraint(:posts, :comment_count_always_positive, check: "comment_count >= 0")
 
     create table(:post_events, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
@@ -52,8 +56,7 @@ defmodule Ysc.Repo.Migrations.AddPostsComments do
       # If is a reply
       add :comment_id, references(:comments, column: :id, type: :binary_id), null: true
 
-      add :rendered_body, :text
-      add :raw_body, :text
+      add :text, :text
 
       timestamps()
     end

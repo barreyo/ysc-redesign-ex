@@ -5,7 +5,7 @@ defmodule YscWeb.UserLoginLive do
     ~H"""
     <div class="max-w-sm mx-auto py-10">
       <.link
-        href={~p"/"}
+        navigate={~p"/"}
         class="flex items-center text-center justify-center py-10 hover:opacity-80 transition duration-200 ease-in-out"
       >
         <.ysc_logo class="h-20" />
@@ -14,7 +14,7 @@ defmodule YscWeb.UserLoginLive do
         Sign in to your YSC account
         <:subtitle>
           Not a member yet?
-          <.link href={~p"/users/register"} class="font-semibold text-blue-600 hover:underline">
+          <.link navigate={~p"/users/register"} class="font-semibold text-blue-600 hover:underline">
             Apply for a membership
           </.link>
         </:subtitle>

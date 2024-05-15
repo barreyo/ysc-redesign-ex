@@ -13,6 +13,6 @@ defmodule Ysc.Repo.Migrations.AddSiteSettings do
       timestamps()
     end
 
-    create index(:site_settings, [:name])
+    create unique_index(:site_settings, [:name])
   end
 end

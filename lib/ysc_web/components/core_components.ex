@@ -271,6 +271,8 @@ defmodule YscWeb.CoreComponents do
   attr :subtitle, :string, default: ""
   attr :icon, :string
 
+  attr :growing_field_size, :string, default: "small"
+
   attr :type, :string,
     default: "text",
     values: ~w(checkbox color date datetime-local email file hidden month number password
@@ -423,8 +425,8 @@ defmodule YscWeb.CoreComponents do
         id={@id}
         name={@name}
         class={[
-          "mt-2 block w-full rounded-lg text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6",
-          "min-h-[6rem] phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400",
+          "mt-2 block w-full rounded-lg text-zinc-800 focus:ring-0 sm:text-sm sm:leading-6",
+          "min-h-[6rem] phx-no-feedback:border-zinc-100 phx-no-feedback:focus:border-zinc-200",
           @errors == [] && "border-zinc-300 focus:border-zinc-400",
           @errors != [] && "border-rose-400 focus:border-rose-400"
         ]}
@@ -517,6 +519,7 @@ defmodule YscWeb.CoreComponents do
         name={@name}
         id={@id}
         phx-hook="GrowingInput"
+        growing-input-size={@growing_field_size}
         value={Phoenix.HTML.Form.normalize_value(@type, @value)}
         {@rest}
       />
@@ -769,12 +772,12 @@ defmodule YscWeb.CoreComponents do
 
   def back(assigns) do
     ~H"""
-    <div class="mt-16">
+    <div>
       <.link
         navigate={@navigate}
-        class="text-sm font-semibold leading-6 text-zinc-900 hover:text-zinc-700"
+        class="text-sm font-semibold leading-6 text-zinc-600 hover:text-zinc-800 rounded hover:bg-zinc-100 p-2"
       >
-        <.icon name="hero-arrow-left-solid" class="w-3 h-3" />
+        <.icon name="hero-arrow-left-solid" class="w-3 h-3 -mt-0.5" />
         <%= render_slot(@inner_block) %>
       </.link>
     </div>
@@ -820,6 +823,8 @@ defmodule YscWeb.CoreComponents do
   attr :id, :string, required: true
   attr :class, :string, default: nil
   attr :right, :boolean, default: false
+  attr :mobile, :boolean, default: false
+  attr :wide, :boolean, default: false
   slot :button_block, required: true
   slot :inner_block, required: true
 
@@ -839,9 +844,12 @@ defmodule YscWeb.CoreComponents do
       <div
         id={@id}
         class={[
-          "absolute z-10 hidden mt-1 font-normal bg-white divide-y rounded shadow divide-zinc-100 w-52",
+          "z-10 hidden mt-1 font-normal bg-white divide-y rounded divide-zinc-100 shadow w-52 wide:w-72",
           @right && "right-0",
-          !@right && "left-0"
+          !@right && "left-0",
+          @mobile && "block lg:absolute shadow-none lg:shadow",
+          !@mobile && "absolute shadow",
+          @wide && "wide"
         ]}
         phx-click-away={hide_dropdown("##{@id}")}
       >
@@ -869,12 +877,12 @@ defmodule YscWeb.CoreComponents do
       >
         <.user_card
           email={@email}
-          title=""
           user_id={@user_id}
           most_connected_country={@most_connected_country}
           first_name={@first_name}
           last_name={@last_name}
           right={true}
+          show_subtitle={false}
         />
       </button>
       <!-- Dropdown menu -->
@@ -1085,7 +1093,7 @@ defmodule YscWeb.CoreComponents do
           </li>
         </ul>
 
-        <div class="absolute inset-x-0 bottom-0 px-4 py-4 border-t border-1 border-zinc-200">
+        <div class="absolute inset-x-0 bottom-0 px-4 py-4 border-t border-1 border-zinc-200 bg-zinc-100">
           <.user_card
             email={@email}
             user_id={@user_id}
@@ -1106,6 +1114,18 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  @board_position_to_title_lookup %{
+    president: "President",
+    vice_president: "Vice President",
+    secretary: "Secretary",
+    treasurer: "Treasurer",
+    clear_lake_cabin_master: "Clear Lake Cabin Master",
+    tahoe_cabin_master: "Tahoe Cabin Master",
+    event_director: "Event Director",
+    member_outreach: "Member Outreach & Events",
+    membership_director: "Membership Director"
+  }
+
   attr :email, :string, required: true
   attr :title, :string, required: false, default: nil
   attr :user_id, :string, required: true
@@ -1113,12 +1133,15 @@ defmodule YscWeb.CoreComponents do
   attr :first_name, :string, required: true
   attr :last_name, :string, required: true
   attr :right, :boolean, default: false
+  attr :show_subtitle, :boolean, default: true
   attr :class, :string, default: ""
 
   def user_card(assigns) do
     subtitle =
       if assigns[:title] != nil do
-        assigns[:title]
+        "YSC #{Map.get(@board_position_to_title_lookup,
+        assigns[:title],
+        String.capitalize("#{assigns[:title]}"))}"
       else
         String.downcase(assigns[:email])
       end
@@ -1140,10 +1163,12 @@ defmodule YscWeb.CoreComponents do
         @right && "order-1 pe-3",
         !@right && "ps-3"
       ]}>
-        <div class="text-sm font-semibold text-zinc-800">
+        <div class="text-sm font-semibold text-zinc-800 text-left">
           <%= "#{String.capitalize(@first_name)} #{String.capitalize(@last_name)}" %>
         </div>
-        <div class="font-normal text-sm text-zinc-500"><%= new_assigns[:subtitle] %></div>
+        <div :if={@show_subtitle} class="font-normal text-sm text-zinc-500">
+          <%= new_assigns[:subtitle] %>
+        </div>
       </div>
     </div>
     """
@@ -1151,7 +1176,6 @@ defmodule YscWeb.CoreComponents do
 
   attr :toggle_id, :string, required: true
 
-  @spec hamburger_menu(map()) :: Phoenix.LiveView.Rendered.t()
   def hamburger_menu(assigns) do
     ~H"""
     <button
@@ -1448,6 +1472,92 @@ defmodule YscWeb.CoreComponents do
         <trix-editor input="editor-input"></trix-editor>
       </form>
     </div>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :text, :string, required: true
+  attr :author, :string, required: true
+  attr :author_email, :string, required: true
+  attr :author_most_connected, :string, required: true
+  attr :author_id, :string, required: true
+  attr :date, :any, required: true
+  attr :reply, :boolean, default: false
+  attr :form, :any, required: true
+  attr :post_id, :string, required: true
+  attr :reply_to_comment_id, :string, default: nil
+
+  def comment(assigns) do
+    ~H"""
+    <article class={[
+      "py-4 px-4 text-base rounded",
+      @reply && "mb-3 ml-6"
+    ]}>
+      <footer class="flex justify-between items-center">
+        <div class="flex items-center">
+          <p class="inline-flex items-center mr-3 text-sm text-zinc-900 font-semibold">
+            <.user_avatar_image
+              email={@author_email}
+              user_id={@author_id}
+              country={@author_most_connected}
+              class="w-6 rounded-full mr-2"
+            />
+            <%= @author %>
+          </p>
+          <p class="text-sm text-zinc-600">
+            <time
+              pubdate
+              datetime={Timex.format!(@date, "%Y-%m-%d", :strftime)}
+              title={Timex.format!(@date, "%B %e, %Y", :strftime)}
+            >
+              <%= Timex.format!(@date, "%b %e, %Y", :strftime) %>
+            </time>
+          </p>
+        </div>
+      </footer>
+      <p class="text-zinc-600">
+        <%= @text %>
+      </p>
+      <div class="flex items-center mt-4 space-x-4">
+        <button
+          phx-click={JS.show(to: "#reply-to-#{@id}")}
+          type="button"
+          class="flex items-center text-sm text-zinc-600 hover:text-zinc-800 hover:bg-zinc-100 rounded font-medium px-2 py-1"
+        >
+          <.icon name="hero-chat-bubble-bottom-center-text" class="mr-1.5 w-4 h-4 mt-0.5" /> Reply
+        </button>
+      </div>
+
+      <div id={"reply-to-#{@id}"} class="hidden mt-2">
+        <.form for={@form} id={"reply-form-#{@post_id}-#{@id}"} phx-submit="save">
+          <.input
+            field={@form[:text]}
+            type="textarea"
+            id="comment"
+            rows="4"
+            class="px-0 w-full text-sm text-zinc-900 border-0 focus:ring-0 focus:outline-none"
+            placeholder="Write a nice reply..."
+            required
+          >
+          </.input>
+          <input type="hidden" name="comment[post_id]" value={@post_id} />
+          <input type="hidden" name="comment[comment_id]" value={@reply_to_comment_id} />
+          <button
+            type="submit"
+            class="inline-flex items-center py-2.5 px-4 text-sm font-bold text-center text-zinc-100 bg-blue-700 rounded focus:ring-4 focus:ring-blue-200 hover:bg-blue-800 mt-4"
+          >
+            Post Reply
+          </button>
+          <button
+            type="button"
+            phx-click={JS.hide(to: "#reply-to-#{@id}")}
+            class="inline-flex items-center py-2.5 px-4 text-sm font-bold text-center text-zinc-600 rounded focus:ring-4 hover:bg-zinc-100 mt-4"
+          >
+            Cancel
+          </button>
+        </.form>
+      </div>
+    </article>
     """
   end
 

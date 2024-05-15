@@ -17,6 +17,14 @@ module.exports = {
         '4xl': '2000px',
       },
     },
+    typography: {
+      DEFAULT: {
+        css: {
+          figure: false,
+          img: false,
+        }
+      }
+    }
   },
   plugins: [
     require("@tailwindcss/typography"),

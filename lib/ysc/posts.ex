@@ -5,8 +5,9 @@ defmodule Ysc.Posts do
 
   import Ecto.Query, warn: false
 
-  alias Ysc.Posts.Post
   alias Ysc.Repo
+  alias Ysc.Posts.Post
+  alias Ysc.Posts.Comment
   alias YscWeb.Authorization.Policy
   alias Ysc.Accounts.User
 
@@ -50,8 +51,84 @@ defmodule Ysc.Posts do
     end
   end
 
+  def get_comments_for_post(post_id, preloads \\ []) do
+    Repo.all(
+      from c in Comment,
+        where: c.post_id == ^post_id,
+        order_by: [{:desc, :inserted_at}]
+    )
+    |> Repo.preload(preloads)
+  end
+
+  def sort_comments_for_render(comments) do
+    replies =
+      Enum.reduce(comments, %{}, fn entry, acc ->
+        case entry.comment_id do
+          nil ->
+            acc
+
+          value ->
+            current = Map.get(acc, value, [])
+            Map.put(acc, value, [entry | current])
+        end
+      end)
+
+    Enum.reduce(comments, [], fn entry, acc ->
+      case entry.comment_id do
+        nil ->
+          acc ++ [entry | Map.get(replies, entry.id, [])]
+
+        _ ->
+          acc
+      end
+    end)
+  end
+
+  def add_comment_to_post(params, %User{} = author) do
+    corrected_params =
+      params
+      |> Map.put("user_id", author.id)
+
+    Repo.transaction(add_comment_to_post_multi(corrected_params))
+    |> case do
+      {:ok, %{new_comment: comment}} -> {:ok, comment}
+      {:error, _, changeset, _} -> {:error, changeset}
+    end
+  end
+
+  defp add_comment_to_post_multi(params) do
+    changeset = Comment.new_comment_changeset(%Comment{}, params)
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.run(:post, fn _repo, _ ->
+      get_post_with_lock(params["post_id"])
+    end)
+    |> Ecto.Multi.insert(:new_comment, fn _ ->
+      changeset
+    end)
+    |> Ecto.Multi.update(:updated_post, fn %{post: post} ->
+      post |> Post.update_comment_count_changeset(%{"comment_count" => post.comment_count + 1})
+    end)
+  end
+
+  defp get_post_with_lock(post_id) do
+    {:ok,
+     from(p in Post,
+       lock: fragment("FOR UPDATE OF ?", p),
+       where: p.id == ^post_id
+     )
+     |> Repo.one()}
+  end
+
   def count_posts_with_url_name(url_name) do
-    Repo.one(from p in Post, select: count(p.id), where: p.url_name == ^url_name)
+    search_term = "#{url_name}-%"
+
+    Repo.one(
+      from p in Post,
+        select: count(p.id),
+        where: p.url_name == ^url_name,
+        or_where: ilike(p.url_name, ^search_term)
+    )
   end
 
   def get_all_authors() do
@@ -64,7 +141,7 @@ defmodule Ysc.Posts do
         "author_first" => user.first_name,
         "author_last" => user.last_name
       },
-      order_by: [user.first_name]
+      order_by: [{:desc, user.first_name}]
     )
     |> Repo.all()
     |> format_authors()

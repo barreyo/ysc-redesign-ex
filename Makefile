@@ -1,0 +1,77 @@
+# Basics
+PROJECT_NAME := ysc
+
+DOCKER_DIR 		?= etc/docker
+DOCKER_COMPOSE_FILE	?= $(DOCKER_DIR)/docker-compose.yml
+
+# Versioning
+VERSION_LONG 		 = $(shell git describe --first-parent --abbrev=10 --long --tags --dirty)
+VERSION_SHORT 		 = $(shell echo $(VERSION_LONG) | cut -f 1 -d "-")
+DATE_STRING 		 = $(shell date +'%m-%d-%Y')
+GIT_HASH  		 = $(shell git rev-parse --verify HEAD)
+
+##
+# ~~~ Dev Targets ~~~
+##
+
+dev:
+	@mix phx.server
+
+dev-setup:  ## Set up local dev environment
+	@mix deps.get
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up -d
+	@ if [ "$($(reset-db))" = "true" ]; then $(MAKE) reset-db; fi
+	$(MAKE) setup-dev-db
+
+reset-db:  ## Drop the local dev db
+	@mix ecto.drop
+
+setup-dev-db:  ## Create, migrate and seed the local dev database
+	@mix ecto.create
+	@mix ecto.migrate
+	@mix run priv/repo/seeds.exs
+
+clean-compose:
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) down -v --remove-orphans
+
+clean-docker: clean-compose  ## Delete docker images, volumes and networks
+	@echo "$(BOLD)** Cleaning up Docker resources...$(RESET)"
+	docker-compose -f $(DOCKER_COMPOSE_FILE) rm
+
+clean-elixir:  ## Clean up Elixir and Phoenix files
+	@echo "$(BOLD)** Cleaning up Elixir files...$(RESET)"
+	mix clean
+	rm -rf _build/ deps/
+
+clean: clean-elixir clean-docker  ## Clean docker and elixir
+
+##
+# ~~~ Make Helpers ~~~
+##
+
+# Formatting variables
+BOLD 			:= $(shell tput bold)
+RESET 			:= $(shell tput sgr0)
+TEAL 			:= $(shell tput setaf 6)
+RED 			:= $(shell tput setaf 1)
+
+.DEFAULT_GOAL := help
+
+.PHONY: cleanup-compose server test tests docker-image release version format clean help
+
+help:  ## Print this make target help message
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage: make $(TEAL)<target>$(RESET)\n\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n$(TEAL)%s$(RESET)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@printf "\n"
+
+arg-%: ARG  # Checks if param is present: make key=value
+	@ if [ "$($(*))" = "" ]; then echo "$(RED)Missing param: $(BOLD)$(*)$(RESET)$(RED). Use '$(BOLD)make $(MAKECMDGOALS) $(*)=value$(RESET)$(RED)'$(RESET)" && exit 1; fi
+
+guard-%: GUARD
+	@ if [ -z "${${*}}" ]; then echo "$(RED)Required environment variable $(BOLD)$*$(RESET)$(RED) not set.$(RESET)" && exit 1; fi
+
+# This crap protects against files named the same as the target
+.PHONY: GUARD
+GUARD:
+
+.PHONY: ARG
+ARG:

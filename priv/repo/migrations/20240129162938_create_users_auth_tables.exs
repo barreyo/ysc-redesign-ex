@@ -18,11 +18,14 @@ defmodule Ysc.Repo.Migrations.CreateUsersAuthTables do
       add :phone_number, :string, null: true
 
       add :most_connected_country, :string
+      add :board_position, :string
 
       timestamps()
     end
 
     create unique_index(:users, [:email])
+    create index(:users, [:role])
+    create index(:users, [:state])
 
     create table(:users_tokens, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true

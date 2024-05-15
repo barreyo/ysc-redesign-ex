@@ -16,8 +16,12 @@ defmodule Ysc.Application do
       Ysc.Repo,
       # Start the PubSub system
       {Phoenix.PubSub, name: Ysc.PubSub},
+      # Start DNS cluster to cluster the app
+      {DNSCluster, query: Application.get_env(:ysc, :dns_cluster_query) || :ignore},
       # Start Finch
       {Finch, name: Ysc.Finch},
+      # Start cache
+      {Cachex, name: :ysc_cache},
       # Start the Endpoint (http/https)
       YscWeb.Endpoint,
       # Start a worker by calling: Ysc.Worker.start_link(arg)

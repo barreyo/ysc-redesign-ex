@@ -304,7 +304,7 @@ defmodule YscWeb.AdminUsersLive do
         </div>
         <div class="py-6 w-full">
           <div id="admin-user-filters" class="pb-4 flex">
-            <.dropdown id="filter-state-dropdown" class="group hover:bg-zinc-100">
+            <.dropdown id="filter-state-dropdown" class="group hover:bg-zinc-100" wide={false}>
               <:button_block>
                 <.icon
                   name="hero-funnel"
@@ -336,6 +336,23 @@ defmodule YscWeb.AdminUsersLive do
                       options: [
                         {"Member", :member},
                         {"Admin", :admin}
+                      ]
+                    ],
+                    board_position: [
+                      label: "Board Position",
+                      type: "checkgroup",
+                      multiple: true,
+                      op: :in,
+                      options: [
+                        {"President", :president},
+                        {"Vice President", :vice_president},
+                        {"Secretary", :secretary},
+                        {"Treasurer", :treasurer},
+                        {"Clear Lake Cabin Master", :clear_lake_cabin_master},
+                        {"Tahoe Cabin Master", :tahoe_cabin_master},
+                        {"Event Director", :event_director},
+                        {"Member Outreach & Events", :member_outreach},
+                        {"Membership Director", :membership_director}
                       ]
                     ]
                   ]}
@@ -391,7 +408,7 @@ defmodule YscWeb.AdminUsersLive do
               </button>
               <button
                 :if={user.state != :pending_approval}
-                phx-click={JS.navigate(~p"/admin/users/#{user.id}?#{@params}")}
+                phx-click={JS.navigate(~p"/admin/users/#{user.id}/details")}
                 class="text-blue-600 font-semibold hover:underline cursor-pointer"
               >
                 Edit
@@ -407,7 +424,7 @@ defmodule YscWeb.AdminUsersLive do
 
             <div class="px-4 py-4 flex items-center align-center justify-center">
               <button
-                class="rounded mx-auto hover:bg-zinc-100 w-36 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-100/80 w-full"
+                class="rounded mx-auto hover:bg-zinc-100 w-36 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-100/80"
                 phx-click={JS.navigate(~p"/admin/users")}
               >
                 <.icon name="hero-x-circle" class="w-5 h-5 -mt-1" /> Clear filters

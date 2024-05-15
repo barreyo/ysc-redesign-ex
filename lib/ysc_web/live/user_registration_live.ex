@@ -11,7 +11,7 @@ defmodule YscWeb.UserRegistrationLive do
     ~H"""
     <div id="registration-wrapper" class="max-w-xl mx-auto py-10">
       <div class="flex w-full mx-auto items-center text-center justify-center">
-        <.link href={~p"/"} class="p-10 hover:opacity-80 transition duration-200 ease-in-out">
+        <.link navigate={~p"/"} class="p-10 hover:opacity-80 transition duration-200 ease-in-out">
           <.ysc_logo class="h-20" />
         </.link>
       </div>

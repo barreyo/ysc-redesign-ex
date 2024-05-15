@@ -54,6 +54,9 @@ defmodule Ysc.Posts.Post do
     field :published_on, :utc_datetime
     field :deleted_on, :utc_datetime
 
+    # Easier to render with normalized value and no join required
+    field :comment_count, :integer
+
     timestamps()
   end
 
@@ -95,11 +98,16 @@ defmodule Ysc.Posts.Post do
       :image_id,
       :featured_post,
       :published_on,
-      :deleted_on
+      :deleted_on,
+      :comment_count
     ])
     |> validate_length(:title, max: 150)
     |> validate_length(:url_name, min: 1, max: 150)
     |> maybe_validate_unique_url_name(opts)
+  end
+
+  def update_comment_count_changeset(post, attrs, opts \\ []) do
+    post |> cast(attrs, [:comment_count])
   end
 
   defp maybe_validate_unique_url_name(changeset, opts) do
