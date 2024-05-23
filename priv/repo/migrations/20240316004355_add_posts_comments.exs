@@ -14,6 +14,7 @@ defmodule Ysc.Repo.Migrations.AddPostsComments do
       add :url_name, :text
       add :rendered_body, :text
       add :raw_body, :text
+      add :preview_text, :text
 
       # Featured image
       add :image_id, references(:images, column: :id, type: :binary_id)

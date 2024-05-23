@@ -16,12 +16,12 @@ module.exports = {
         '3xl': '1600px',
         '4xl': '2000px',
       },
-    },
-    typography: {
-      DEFAULT: {
-        css: {
-          figure: false,
-          img: false,
+      typography: {
+        DEFAULT: {
+          css: {
+            img: false,
+            figure: false
+          }
         }
       }
     }

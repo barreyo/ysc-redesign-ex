@@ -8,15 +8,14 @@ defmodule YscWeb.Components.GalleryComponent do
     ~H"""
     <div>
       <div
-        :if={length(@images) > 0}
         id={@id}
-        phx-update="prepend"
+        phx-update="stream"
         class="gap-x-2 md:gap-x-4 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-7 4xl:grid-cols-9"
       >
-        <%= for image <- @images do %>
+        <%= for {id, image} <- @images do %>
           <button
             phx-click={JS.navigate(~p"/admin/media/upload/#{image.id}")}
-            id={"image-wrapper-#{image.id}"}
+            id={id}
             class="mb-4 group relative w-full rounded aspect-square border border-1 border-zinc-200 cursor-pointer hover:border-zinc-300"
           >
             <canvas
@@ -44,14 +43,6 @@ defmodule YscWeb.Components.GalleryComponent do
             </div>
           </button>
         <% end %>
-      </div>
-
-      <div :if={length(@images) == 0} class="W-full py-20">
-        <.empty_viking_state
-          viking={4}
-          title="This place looks empty"
-          suggestion="Upload a few images to start building out the library"
-        />
       </div>
     </div>
     """

@@ -31,6 +31,37 @@ defmodule Ysc.Posts do
     Repo.one(from p in Post, where: p.id == ^value, or_where: p.url_name == ^value)
   end
 
+  def get_featured_post() do
+    Repo.one(
+      from p in Post,
+        where: p.state == :published,
+        where: p.featured_post == true
+    )
+  end
+
+  def list_posts(offset, limit) do
+    Repo.all(
+      from p in Post,
+        where: p.state == :published,
+        where: p.featured_post == false,
+        preload: [:author, :featured_image],
+        order_by: [{:desc, :published_on}],
+        limit: ^limit,
+        offset: ^offset
+    )
+  end
+
+  def list_posts(limit) do
+    Repo.all(
+      from p in Post,
+        where: p.state == :published,
+        where: p.featured_post == false,
+        preload: [:author, :featured_image],
+        order_by: [{:desc, :published_on}],
+        limit: ^limit
+    )
+  end
+
   def list_posts_paginated(params) do
     Post
     |> join(:left, [p], u in assoc(p, :author), as: :author)
@@ -49,6 +80,14 @@ defmodule Ysc.Posts do
       new_params = Map.put(params, "user_id", current_user.id)
       Post.new_post_changeset(%Post{}, new_params) |> Repo.insert()
     end
+  end
+
+  def get_comment!(comment_id, preloads \\ []) do
+    Repo.one(
+      from c in Comment,
+        where: c.id == ^comment_id
+    )
+    |> Repo.preload(preloads)
   end
 
   def get_comments_for_post(post_id, preloads \\ []) do
@@ -84,6 +123,43 @@ defmodule Ysc.Posts do
     end)
   end
 
+  def get_insert_index_for_comment(%Comment{comment_id: nil}), do: 0
+
+  def get_insert_index_for_comment(%Comment{} = new_comment) do
+    reply_to_id = new_comment.comment_id
+    reply_counts = reply_counts(new_comment.post_id)
+    root_comments_before = top_level_comments_before(reply_to_id, new_comment.post_id)
+
+    Enum.reduce(reply_counts, 0, fn [c_id, reply_count], acc ->
+      if c_id > reply_to_id do
+        acc + reply_count
+      else
+        acc
+      end
+    end) + root_comments_before + 1
+  end
+
+  defp reply_counts(post_id) do
+    Repo.all(
+      from c in Comment,
+        select: [c.comment_id, count(c.comment_id)],
+        where: c.post_id == ^post_id,
+        where: not is_nil(c.comment_id),
+        group_by: c.comment_id,
+        order_by: [{:desc, c.comment_id}]
+    )
+  end
+
+  defp top_level_comments_before(comment_id, post_id) do
+    Repo.one(
+      from c in Comment,
+        select: count(c.id),
+        where: c.post_id == ^post_id,
+        where: c.id > ^comment_id,
+        where: is_nil(c.comment_id)
+    )
+  end
+
   def add_comment_to_post(params, %User{} = author) do
     corrected_params =
       params
@@ -91,7 +167,7 @@ defmodule Ysc.Posts do
 
     Repo.transaction(add_comment_to_post_multi(corrected_params))
     |> case do
-      {:ok, %{new_comment: comment}} -> {:ok, comment}
+      {:ok, %{new_comment: comment}} -> {:ok, comment} |> broadcast_change("new_comment")
       {:error, _, changeset, _} -> {:error, changeset}
     end
   end
@@ -145,6 +221,16 @@ defmodule Ysc.Posts do
     )
     |> Repo.all()
     |> format_authors()
+  end
+
+  def post_topic(post_id) do
+    "post-updates:#{post_id}"
+  end
+
+  defp broadcast_change({:ok, result}, event) do
+    YscWeb.Endpoint.broadcast(post_topic(result.post_id), event, result)
+
+    {:ok, result}
   end
 
   defp format_authors(result) do

@@ -5,7 +5,10 @@ defmodule Ysc.Settings do
   alias Ysc.SiteSettings.SiteSetting
 
   def settings() do
-    Repo.all(SiteSetting)
+    Repo.all(
+      from s in SiteSetting,
+        order_by: [{:desc, :id}]
+    )
   end
 
   defp setting_cache_key(name) do

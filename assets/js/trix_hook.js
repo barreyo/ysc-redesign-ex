@@ -5,8 +5,8 @@ function emitEditorUpdateEvent(source) {
     source.pushEvent("editor-update", { raw_body: editorElement.value })
 }
 
-function uploadFileAttachment(attachment) {
-    uploadFile(attachment.file, setProgress, setAttributes)
+function uploadFileAttachment(attachment, postID) {
+    uploadFile(attachment.file, postID, setProgress, setAttributes)
 
     function setProgress(progress) {
         attachment.setUploadProgress(progress)
@@ -17,9 +17,10 @@ function uploadFileAttachment(attachment) {
     }
 }
 
-function uploadFile(file, progressCallback, successCallback) {
+function uploadFile(file, postID, progressCallback, successCallback) {
     const formData = new FormData()
     formData.append("file", file)
+    formData.append("post_id", postID)
     const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
     const xhr = new XMLHttpRequest()
 
@@ -57,7 +58,8 @@ module.exports = {
         })
 
         document.addEventListener("trix-attachment-add", event => {
-            uploadFileAttachment(event.attachment)
+            const postID = this.el.getAttribute("post-id")
+            uploadFileAttachment(event.attachment, postID)
         })
     },
 

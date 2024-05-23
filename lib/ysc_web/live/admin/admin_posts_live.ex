@@ -43,7 +43,7 @@ defmodule YscWeb.AdminPostsLive do
           Posts
         </h1>
 
-        <.button phx-click="new-post">
+        <.button phx-click={JS.navigate(~p"/admin/posts/new")}>
           <.icon name="hero-document-plus" class="w-5 h-5 -mt-1" /><span class="ms-1">New Post</span>
         </.button>
       </div>
@@ -218,9 +218,10 @@ defmodule YscWeb.AdminPostsLive do
   defp maybe_replace_url_name(value), do: value
 
   defp title_to_url_name(title) do
-    maybe_add_number_to_url_name(
-      maybe_replace_url_name(String.downcase(Regex.replace(~r/\s+/u, title, "-")))
-    )
+    dd = String.downcase(Regex.replace(~r/\s+/u, title, "-"))
+    stripped_punctuation = Regex.replace(~r/[^0-9\-a-z]/u, dd, "")
+
+    maybe_add_number_to_url_name(maybe_replace_url_name(stripped_punctuation))
   end
 
   defp maybe_add_number_to_url_name(url_name) do

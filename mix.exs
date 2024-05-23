@@ -50,7 +50,7 @@ defmodule Ysc.MixProject do
       {:ex_money_sql, "~> 1.0"},
       {:ex_phone_number, "~> 0.4"},
       {:finch, "~> 0.17"},
-      {:floki, ">= 0.30.0", only: :test},
+      {:floki, ">= 0.30.0"},
       {:flop_phoenix, "~> 0.22.7"},
       {:gettext, "~> 0.24"},
       {:hackney, "~> 1.9"},

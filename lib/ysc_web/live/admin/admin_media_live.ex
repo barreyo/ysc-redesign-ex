@@ -158,7 +158,7 @@ defmodule YscWeb.AdminMediaLive do
         <.live_component
           module={GalleryComponent}
           id="admin-media-gallery"
-          images={@images}
+          images={@streams.images}
           page={@page}
         />
       </section>
@@ -176,8 +176,8 @@ defmodule YscWeb.AdminMediaLive do
      |> assign(form: form)
      |> assign(:active_image, image)
      |> assign(:image_uploader, image_uploader)
-     |> assign(:page, 1)
-     |> assign(:images, images())
+     |> assign(page: 1, per_page: 20)
+     |> paginate_images(1)
      |> assign(:active_page, :media), temporary_assigns: [form: nil]}
   end
 
@@ -186,14 +186,53 @@ defmodule YscWeb.AdminMediaLive do
      socket
      |> assign(:page_title, "Media")
      |> assign(:active_page, :media)
-     |> assign(:page, 1)
+     |> assign(page: 1, per_page: 20)
      |> assign(:uploaded_files, [])
-     |> assign(:images, images())
+     |> paginate_images(1)
      |> allow_upload(:media_uploads,
        accept: ~w(.jpg .jpeg .png .gif .webp),
        max_entries: 10,
        external: &presign_upload/2
      )}
+  end
+
+  defp paginate_images(socket, new_page) when new_page >= 1 do
+    %{per_page: per_page, page: cur_page} = socket.assigns
+    images = Media.list_images((new_page - 1) * per_page, per_page)
+
+    {images, at, limit} =
+      if new_page >= cur_page do
+        {images, -1, per_page * 3 * -1}
+      else
+        {Enum.reverse(images), 0, per_page * 3}
+      end
+
+    case images do
+      [] ->
+        assign(socket, end_of_timeline?: at == -1)
+
+      [_ | _] = images ->
+        socket
+        |> assign(end_of_timeline?: false)
+        |> assign(:page, new_page)
+        |> stream(:images, images, at: at, limit: limit)
+    end
+  end
+
+  def handle_event("next-page", _, socket) do
+    {:noreply, paginate_images(socket, socket.assigns.page + 1)}
+  end
+
+  def handle_event("prev-page", %{"_overran" => true}, socket) do
+    {:noreply, paginate_images(socket, 1)}
+  end
+
+  def handle_event("prev-page", _, socket) do
+    if socket.assigns.page > 1 do
+      {:noreply, paginate_images(socket, socket.assigns.page - 1)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("validate", _params, socket) do
@@ -222,18 +261,19 @@ defmodule YscWeb.AdminMediaLive do
           )
 
         %{id: new_image.id} |> YscWeb.Workers.ImageProcessor.new() |> Oban.insert()
-        {:ok, raw_path}
+        {:ok, new_image}
+      end)
+
+    IO.inspect(uploaded_files)
+
+    updated_socket =
+      Enum.reduce(uploaded_files, socket, fn x, acc ->
+        acc |> stream_insert(:images, x, at: 0)
       end)
 
     {:noreply,
-     update(socket, :uploaded_files, &(&1 ++ uploaded_files))
-     |> assign(:page, 1)
-     |> assign(:images, images())
+     update(updated_socket, :uploaded_files, &(&1 ++ uploaded_files))
      |> push_navigate(to: ~p"/admin/media")}
-  end
-
-  def handle_event("load-more", _, %{assigns: assigns} = socket) do
-    {:noreply, assign(socket, page: assigns[:page] + 1) |> get_images()}
   end
 
   def handle_event("validate-edit", %{"image" => image_params}, socket) do
@@ -283,17 +323,6 @@ defmodule YscWeb.AdminMediaLive do
     }
 
     {:ok, meta, socket}
-  end
-
-  defp get_images(%{assigns: %{page: page}} = socket) do
-    socket
-    |> assign(page: page)
-    |> assign(images: images())
-  end
-
-  defp images do
-    {:ok, images} = Media.list_images()
-    images
   end
 
   defp error_to_string(:too_large), do: "Too large"

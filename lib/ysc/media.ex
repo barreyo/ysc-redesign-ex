@@ -16,6 +16,15 @@ defmodule Ysc.Media do
     {:ok, Media.Image |> order_by(desc: :id) |> Repo.all()}
   end
 
+  def list_images(offset, limit) do
+    Repo.all(
+      from i in Media.Image,
+        order_by: [{:desc, :inserted_at}],
+        limit: ^limit,
+        offset: ^offset
+    )
+  end
+
   @spec list_images_per_year() :: any()
   def list_images_per_year() do
     {:ok, images} = list_images()

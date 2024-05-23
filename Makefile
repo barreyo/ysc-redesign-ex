@@ -14,6 +14,10 @@ GIT_HASH  		 = $(shell git rev-parse --verify HEAD)
 # ~~~ Dev Targets ~~~
 ##
 
+# Dummy variables needed for local dev server
+export AWS_ACCESS_KEY_ID="fake"
+export AWS_SECRET_ACCESS_KEY="secret"
+
 dev:
 	@mix phx.server
 
@@ -22,6 +26,11 @@ dev-setup:  ## Set up local dev environment
 	@docker-compose -f $(DOCKER_COMPOSE_FILE) up -d
 	@ if [ "$($(reset-db))" = "true" ]; then $(MAKE) reset-db; fi
 	$(MAKE) setup-dev-db
+	@awslocal s3api create-bucket --bucket media || true
+	@awslocal s3api put-bucket-cors --bucket media --cors-configuration file://etc/config/s3_bucket_cors_rules.json || true
+	@echo " "
+	@echo "$(GREEN)Your local dev env is ready!$(RESET)"
+	@echo "Run $(BOLD)make dev$(RESET) to start the server and then visit $(BOLD)http://localhost:4000/$(RESET)"
 
 reset-db:  ## Drop the local dev db
 	@mix ecto.drop
@@ -29,7 +38,7 @@ reset-db:  ## Drop the local dev db
 setup-dev-db:  ## Create, migrate and seed the local dev database
 	@mix ecto.create
 	@mix ecto.migrate
-	@mix run priv/repo/seeds.exs
+	@mix run priv/repo/seeds.exs || true
 
 clean-compose:
 	@docker-compose -f $(DOCKER_COMPOSE_FILE) down -v --remove-orphans
@@ -52,8 +61,9 @@ clean: clean-elixir clean-docker  ## Clean docker and elixir
 # Formatting variables
 BOLD 			:= $(shell tput bold)
 RESET 			:= $(shell tput sgr0)
-TEAL 			:= $(shell tput setaf 6)
 RED 			:= $(shell tput setaf 1)
+GREEN 			:= $(shell tput setaf 2)
+TEAL 			:= $(shell tput setaf 6)
 
 .DEFAULT_GOAL := help
 

@@ -1408,13 +1408,21 @@ defmodule YscWeb.CoreComponents do
 
     image_path = Map.get(Map.get(@default_images, assigns[:country]), image_id)
 
-    assigns = assigns |> assign(:email_hash, email_hash) |> assign(:image_path, image_path)
+    assigns =
+      assigns
+      |> assign(:full_path, full_path(email_hash, image_path))
 
     ~H"""
-    <object class={@class} data={"https://gravatar.com/avatar/#{@email_hash}?d=404"} type="image/png">
-      <img class={@class} src={@image_path} />
-    </object>
+    <img class={@class} src={@full_path} loading="lazy" />
     """
+  end
+
+  defp full_path(email_hash, image_path) do
+    if Application.get_env(:ysc, :dev_routes, false) == true do
+      image_path
+    else
+      "https://gravatar.com/avatar/#{@email_hash}?d=#{@image_path}"
+    end
   end
 
   attr :color, :string, default: "blue"
@@ -1486,13 +1494,21 @@ defmodule YscWeb.CoreComponents do
   attr :form, :any, required: true
   attr :post_id, :string, required: true
   attr :reply_to_comment_id, :string, default: nil
+  attr :animate, :boolean, default: false
 
   def comment(assigns) do
     ~H"""
-    <article class={[
-      "py-4 px-4 text-base rounded",
-      @reply && "mb-3 ml-6"
-    ]}>
+    <article
+      id={@id}
+      class={[
+        "py-4 px-4 text-base rounded",
+        @reply && "mb-3 ml-6"
+      ]}
+      phx-mounted={
+        @animate &&
+          JS.transition({"transition ease-in duration-500", "opacity-0 ping", "opacity-100"})
+      }
+    >
       <footer class="flex justify-between items-center">
         <div class="flex items-center">
           <p class="inline-flex items-center mr-3 text-sm text-zinc-900 font-semibold">
@@ -1545,6 +1561,10 @@ defmodule YscWeb.CoreComponents do
           <button
             type="submit"
             class="inline-flex items-center py-2.5 px-4 text-sm font-bold text-center text-zinc-100 bg-blue-700 rounded focus:ring-4 focus:ring-blue-200 hover:bg-blue-800 mt-4"
+            phx-click={
+              JS.dispatch("submit", to: "reply-form-#{@post_id}-#{@id}")
+              |> JS.hide(to: "#reply-to-#{@id}")
+            }
           >
             Post Reply
           </button>

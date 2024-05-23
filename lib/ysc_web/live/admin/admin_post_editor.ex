@@ -2,9 +2,7 @@ defmodule YscWeb.AdminPostEditorLive do
   use YscWeb, :live_view
 
   alias HtmlSanitizeEx.Scrubber
-  alias YscWeb.S3.SimpleS3Upload
 
-  alias Ysc.Media
   alias Ysc.Posts.Post
   alias Ysc.Posts
 
@@ -122,10 +120,6 @@ defmodule YscWeb.AdminPostEditorLive do
           </div>
         </div>
       </.modal>
-
-      <form id="file-upload-form" phx-submit="save-image">
-        <.live_file_input upload={@uploads.uploads} class="hidden" />
-      </form>
 
       <.form :let={_f} for={@form} id="edit_post_form" phx-submit="save" phx-change="post-update">
         <div class="w-full flex flex-row justify-between">
@@ -256,7 +250,13 @@ defmodule YscWeb.AdminPostEditorLive do
 
       <.form :let={_f} for={@form} id="trix-editor-form">
         <div class="prose prose-zinc prose-base prose-a:text-blue-600 max-w-none mx-auto py-8">
-          <.input type="hidden" id="post[raw_body]" field={@form[:raw_body]} phx-hook="TrixHook" />
+          <.input
+            type="hidden"
+            id="post[raw_body]"
+            field={@form[:raw_body]}
+            post-id={@post_id}
+            phx-hook="TrixHook"
+          />
           <div id="richtext" phx-update="ignore">
             <trix-editor
               input="post[raw_body]"
@@ -285,14 +285,7 @@ defmodule YscWeb.AdminPostEditorLive do
      |> assign(:post_id, post.id)
      |> assign(:post, post)
      |> assign(:preview_device, :computer)
-     |> assign(:uploaded_files, [])
-     |> assign(form: to_form(update_post_changeset, as: "post"))
-     |> allow_upload(:uploads,
-       accept: :any,
-       max_entries: 10,
-       external: &presign_upload/2,
-       auto_uploads: true
-     )}
+     |> assign(form: to_form(update_post_changeset, as: "post"))}
   end
 
   @spec handle_event(<<_::32, _::_*8>>, any(), atom() | map()) :: {:noreply, map()}
@@ -449,49 +442,6 @@ defmodule YscWeb.AdminPostEditorLive do
     {:noreply, assign(socket, :preview_device, :computer)}
   end
 
-  def handle_event("validate", params, socket) do
-    IO.inspect(params)
-    {:noreply, socket}
-  end
-
-  def handle_event("save-image", params, socket) do
-    uploader = socket.assigns[:current_user]
-
-    IO.inspect(socket)
-    IO.inspect(params)
-
-    uploaded_files =
-      consume_uploaded_entries(socket, :uploads, fn details, _entry ->
-        raw_path = "#{details[:url]}/#{details[:key]}"
-
-        IO.inspect(details)
-
-        {:ok, new_image} =
-          Media.add_new_image(
-            %{
-              raw_image_path: raw_path,
-              user_id: uploader.id,
-              upload_data: details
-            },
-            uploader
-          )
-
-        %{id: new_image.id} |> YscWeb.Workers.ImageProcessor.new() |> Oban.insert()
-        {:ok, raw_path}
-      end)
-
-    IO.puts("DDDDD")
-    IO.inspect(uploaded_files)
-
-    {:noreply,
-     update(socket, :uploaded_files, &(&1 ++ uploaded_files))
-     |> push_event("media-upload-complete", %{image_url: "YOOO IMAGE ID"})}
-  end
-
-  @spec handle_info(Phoenix.Socket.Broadcast.t(), %{
-          :assigns => nil | maybe_improper_list() | map(),
-          optional(any()) => any()
-        }) :: {:noreply, map()}
   def handle_info(%Phoenix.Socket.Broadcast{event: "saved"}, socket) do
     {:noreply,
      assign(socket, :saving?, false) |> assign(:post, Posts.get_post!(socket.assigns[:post_id]))}
@@ -505,34 +455,6 @@ defmodule YscWeb.AdminPostEditorLive do
     else
       assign(socket, form: form)
     end
-  end
-
-  defp presign_upload(entry, socket) do
-    uploads = socket.assigns.uploads
-    key = "public/#{entry.client_name}"
-
-    config = %{
-      region: "us-west-1",
-      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
-      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
-    }
-
-    {:ok, fields} =
-      SimpleS3Upload.sign_form_upload(config, @s3_bucket,
-        key: key,
-        content_type: entry.client_type,
-        max_file_size: uploads[entry.upload_config].max_file_size,
-        expires_in: :timer.hours(1)
-      )
-
-    meta = %{
-      uploader: "S3",
-      key: key,
-      url: "http://media.s3.localhost.localstack.cloud:4566",
-      fields: fields
-    }
-
-    {:ok, meta, socket}
   end
 
   defp post_state_to_badge_style(:draft), do: "yellow"

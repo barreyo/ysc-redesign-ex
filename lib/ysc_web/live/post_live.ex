@@ -1,4 +1,5 @@
 defmodule YscWeb.PostLive do
+  alias Ysc.Media.Image
   use YscWeb, :live_view
 
   alias HtmlSanitizeEx.Scrubber
@@ -44,11 +45,31 @@ defmodule YscWeb.PostLive do
         </div>
       </div>
 
-      <div :if={@post != nil && @post.image_id != nil} id="post-featured-image" class="w-full py-8">
+      <div
+        :if={@post != nil && @post.image_id != nil}
+        id="post-featured-image"
+        class="my-8 relative mx-auto rounded"
+      >
+        <canvas
+          id={"blur-hash-image-#{@post.image_id}"}
+          src={get_blur_hash(@post.featured_image)}
+          class="absolute m-auto left-0 right-0 w-full h-full z-0 rounded"
+          phx-hook="BlurHashCanvas"
+        >
+        </canvas>
+
         <img
-          src="https://ysc.org/wp-content/uploads/2018/12/2.jpg"
+          src={featured_image_url(@post.featured_image)}
+          id={"image-#{@post.image_id}"}
           loading="lazy"
-          class="object-cover w-full"
+          class="object-cover h-full m-auto absolute left-0 right-0 z-[1] rounded"
+        />
+
+        <img
+          src={featured_image_url(@post.featured_image)}
+          id={"image-#{@post.image_id}"}
+          loading="lazy"
+          class="object-cover h-full mx-auto z-0 rounded"
         />
       </div>
 
@@ -65,7 +86,7 @@ defmodule YscWeb.PostLive do
           <div class="max-w-2xl">
             <div class="flex justify-between items-center mb-6">
               <h2 class="text-2xl font-bold text-zinc-900 leading-8">
-                Discussion (<%= @post.comment_count %>)
+                Discussion (<%= @n_comments %>)
               </h2>
             </div>
 
@@ -83,13 +104,22 @@ defmodule YscWeb.PostLive do
               <input type="hidden" name="comment[post_id]" value={@post.id} />
               <button
                 type="submit"
-                class="inline-flex items-center py-2.5 px-4 text-sm font-bold text-center text-zinc-100 bg-blue-700 rounded focus:ring-4 focus:ring-blue-200 hover:bg-blue-800 mt-4"
+                class={[
+                  "inline-flex items-center py-2.5 px-4 text-sm font-bold text-center text-zinc-100 bg-blue-700 rounded focus:ring-4 focus:ring-blue-200 hover:bg-blue-800 mt-4 disabled:opacity-80 disabled:cursor-not-allowed",
+                  @loading && "disabled"
+                ]}
+                disabled={@loading}
               >
                 Post Comment
+                <.icon
+                  :if={@loading}
+                  name="hero-arrow-path"
+                  class="w-5 h-5 animate-spin ml-2 text-zinc-100"
+                />
               </button>
             </.form>
 
-            <div id="comment-section" phx-update="stream">
+            <div id={"comment-section-#{@post.id}"} phx-update="stream">
               <.comment
                 :for={{id, comment} <- @streams.comments}
                 id={id}
@@ -103,6 +133,7 @@ defmodule YscWeb.PostLive do
                 post_id={@post.id}
                 reply_to_comment_id={get_reply_to_id(comment)}
                 reply={comment_is_reply(comment)}
+                animate={@animate_insert}
               />
             </div>
           </div>
@@ -123,10 +154,15 @@ defmodule YscWeb.PostLive do
     comments = Posts.get_comments_for_post(post.id, [:author])
     sorted_comments = Posts.sort_comments_for_render(comments)
 
+    YscWeb.Endpoint.subscribe(Posts.post_topic(post.id))
+
     {:ok,
      socket
      |> assign(:post_id, id)
      |> assign(:post, post)
+     |> assign(:animate_insert, false)
+     |> assign(:n_comments, post.comment_count)
+     |> assign(:loading, false)
      |> assign_form(new_comment_changeset)
      |> stream(:comments, sorted_comments), temporary_assigns: [form: nil]}
   end
@@ -140,8 +176,28 @@ defmodule YscWeb.PostLive do
 
     Posts.add_comment_to_post(scrubbed_comment, current_user)
 
-    # TODO: No redirect
-    {:noreply, socket |> redirect(to: ~p"/posts/#{socket.assigns[:post].url_name}")}
+    {:noreply, socket |> assign(:loading, true)}
+  end
+
+  def handle_info(%Phoenix.Socket.Broadcast{event: "new_comment", payload: new_comment}, socket) do
+    loaded = Posts.get_comment!(new_comment.id, [:author])
+    new_comment_changeset = Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
+
+    new_socket =
+      socket
+      |> assign(:animate_insert, true)
+      |> stream_insert(:comments, loaded, at: Posts.get_insert_index_for_comment(new_comment))
+      |> assign(:n_comments, socket.assigns[:n_comments] + 1)
+
+    if new_comment.user_id == socket.assigns[:current_user].id do
+      {:noreply,
+       new_socket
+       |> put_flash(:info, "Your comment has been posted!")
+       |> assign(:loading, false)
+       |> assign_form(new_comment_changeset)}
+    else
+      {:noreply, new_socket}
+    end
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
@@ -170,4 +226,10 @@ defmodule YscWeb.PostLive do
 
   defp get_reply_to_id(%Comment{comment_id: nil} = comment), do: comment.id
   defp get_reply_to_id(comment), do: comment.comment_id
+
+  defp featured_image_url(%Image{optimized_image_path: nil} = image), do: image.raw_image_path
+  defp featured_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
+
+  defp get_blur_hash(%Image{blur_hash: nil}), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+  defp get_blur_hash(%Image{blur_hash: blur_hash}), do: blur_hash
 end

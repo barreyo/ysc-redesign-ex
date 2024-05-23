@@ -657,9 +657,12 @@ trix-editor .attachment__metadata .attachment__size {
     overflow-x: auto;
 }
 
-.trix-content img {
+.trix-content img,
+.post-render img {
     max-width: 100%;
     height: auto;
+    margin-top: 0em !important;
+    margin-bottom: 0em !important;
 }
 
 .trix-content .attachment {
@@ -712,13 +715,16 @@ trix-editor .attachment__metadata .attachment__size {
     display: flex;
     flex-wrap: wrap;
     position: relative;
-    padding-top: 1em;
+    padding-top: 0.5em;
     padding-bottom: 0.5em;
 }
 
-figure {
-    padding-top: 1em;
-    padding-bottom: 1em;
+.trix-content figure,
+.post-render figure {
+    padding-top: 1em !important;
+    padding-bottom: 1em !important;
+    margin-top: 0em !important;
+    margin-bottom: 0em !important;
 }
 
 .attachment-gallery .attachment {

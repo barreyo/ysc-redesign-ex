@@ -46,6 +46,7 @@ defmodule Ysc.Posts.Post do
     field :url_name, :string
     field :rendered_body, :string
     field :raw_body, :string
+    field :preview_text, :string
 
     belongs_to :featured_image, Ysc.Media.Image, foreign_key: :image_id, references: :id
 
@@ -60,14 +61,6 @@ defmodule Ysc.Posts.Post do
     timestamps()
   end
 
-  @spec new_post_changeset(
-          {map(), map()}
-          | %{
-              :__struct__ => atom() | %{:__changeset__ => map(), optional(any()) => any()},
-              optional(atom()) => any()
-            },
-          :invalid | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
-        ) :: Ecto.Changeset.t()
   def new_post_changeset(post, attrs, opts \\ []) do
     post
     |> cast(attrs, [
@@ -77,6 +70,7 @@ defmodule Ysc.Posts.Post do
       :url_name,
       :rendered_body,
       :raw_body,
+      :preview_text,
       :image_id,
       :featured_post,
       :published_on,
@@ -96,6 +90,7 @@ defmodule Ysc.Posts.Post do
       :rendered_body,
       :raw_body,
       :image_id,
+      :preview_text,
       :featured_post,
       :published_on,
       :deleted_on,
