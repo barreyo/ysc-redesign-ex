@@ -54,6 +54,9 @@ clean-elixir:  ## Clean up Elixir and Phoenix files
 
 clean: clean-elixir clean-docker  ## Clean docker and elixir
 
+version:  ## Print the current version
+	@echo $(VERSION_LONG)
+
 ##
 # ~~~ Make Helpers ~~~
 ##
