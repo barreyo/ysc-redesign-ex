@@ -13,5 +13,10 @@ module.exports = {
     mounted() {
         const element = this.el
         applyBlurHash(element)
+    },
+    updated() {
+        const element = this.el
+        applyBlurHash(element)
+        element.classList.add("hidden")
     }
 }

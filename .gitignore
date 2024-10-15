@@ -1,5 +1,6 @@
 # PROJECT
 
+etc/docker/volume/*
 priv/static/exports/*.csv
 
 # PHOENIX

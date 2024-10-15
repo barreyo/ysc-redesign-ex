@@ -6,17 +6,21 @@ function attachEventListener(imageElement) {
     // then do an instant swap of the blur hash to the image.
     if (!alreadyLoaded) {
         imageElement.onload = function () {
-            hideBlurHash(imageElement)
+            hideBlurHash(imageElement, false)
         }
     } else {
-        hideBlurHash(imageElement)
+        hideBlurHash(imageElement, true)
     }
 }
 
-function hideBlurHash(imageElement) {
+function hideBlurHash(imageElement, force) {
     const elementId = imageElement.id
     const blurHashCanvas = document.getElementById("blur-hash-" + elementId)
-    blurHashCanvas.classList.add("transition-opacity", "ease-out", "duration-50", "opacity-0")
+    if (force) {
+        blurHashCanvas.classList.add("hidden")
+    } else {
+        blurHashCanvas.classList.add("transition-opacity", "ease-out", "duration-50", "opacity-0")
+    }
 }
 
 module.exports = {
@@ -26,6 +30,6 @@ module.exports = {
     },
     updated() {
         const element = this.el
-        hideBlurHash(element)
+        hideBlurHash(element, true)
     }
 }

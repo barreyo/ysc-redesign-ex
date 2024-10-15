@@ -62,14 +62,8 @@ defmodule YscWeb.PostLive do
           src={featured_image_url(@post.featured_image)}
           id={"image-#{@post.image_id}"}
           loading="lazy"
-          class="object-cover h-full m-auto absolute left-0 right-0 z-[1] rounded"
-        />
-
-        <img
-          src={featured_image_url(@post.featured_image)}
-          id={"image-#{@post.image_id}"}
-          loading="lazy"
-          class="object-cover h-full mx-auto z-0 rounded"
+          class="object-cover h-full mx-auto z-[1] rounded"
+          phx-hook="BlurHashImage"
         />
       </div>
 

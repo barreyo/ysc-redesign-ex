@@ -116,7 +116,7 @@ defmodule YscWeb.NewsLive do
                   <%= post.title %>
                 </.link>
 
-                <article class="text-zinc-600 mt-4 prose prose-zinc prose-base prose-a:text-blue-600 max-h-40 overflow-hidden text-wrap">
+                <article class="text-zinc-600 mt-4 prose prose-zinc prose-base prose-a:text-blue-600 max-h-[10.5rem] overflow-hidden text-wrap">
                   <%= raw(preview_text(post)) %>
                 </article>
               </div>
