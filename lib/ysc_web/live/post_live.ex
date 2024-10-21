@@ -20,7 +20,7 @@ defmodule YscWeb.PostLive do
       </div>
 
       <div :if={@post != nil} class="max-w-screen-lg mx-auto px-4">
-        <div class="max-w-xl mx-auto lg:mx-0">
+        <div class="max-w-xl mx-auto">
           <div class="text-sm leading-6 text-zinc-600">
             <p class="sr-only">Date</p>
             <p>
@@ -48,7 +48,7 @@ defmodule YscWeb.PostLive do
       <div
         :if={@post != nil && @post.image_id != nil}
         id="post-featured-image"
-        class="my-8 relative mx-auto rounded"
+        class="mt-8 relative mx-auto rounded max-w-4xl"
       >
         <canvas
           id={"blur-hash-image-#{@post.image_id}"}
@@ -68,7 +68,7 @@ defmodule YscWeb.PostLive do
       </div>
 
       <div :if={@post != nil} class="max-w-screen-lg mx-auto px-4">
-        <article class="prose prose-zinc prose-base prose-a:text-blue-600 max-w-xl mx-auto lg:mx-0">
+        <article class="prose prose-zinc prose-base prose-a:text-blue-600 max-w-xl mx-auto">
           <div id="article-body" class="py-8 post-render">
             <%= raw(@post.raw_body) %>
           </div>
@@ -76,7 +76,7 @@ defmodule YscWeb.PostLive do
       </div>
 
       <div :if={@post != nil && @current_user != nil} class="max-w-screen-lg mx-auto px-4">
-        <section class="max-w-xl mx-auto lg:mx-0 py-8">
+        <section class="max-w-xl mx-auto py-8">
           <div class="max-w-2xl">
             <div class="flex justify-between items-center mb-6">
               <h2 class="text-2xl font-bold text-zinc-900 leading-8">
