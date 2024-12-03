@@ -32,7 +32,8 @@ defmodule YscWeb.UserForgotPasswordLive do
   end
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, form: to_form(%{}, as: "user"))}
+    {:ok,
+     assign(socket, form: to_form(%{}, as: "user")) |> assign(:page_title, "Forgot Password")}
   end
 
   def handle_event("send_email", %{"user" => %{"email" => email}}, socket) do

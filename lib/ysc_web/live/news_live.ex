@@ -18,7 +18,7 @@ defmodule YscWeb.NewsLive do
           >
             <div class="relative max-h-[112rem]">
               <canvas
-                id={"blur-hash-image-#{@featured.image_id}"}
+                id={"blur-hash-image-#{@featured.id}"}
                 src={get_blur_hash(@featured.featured_image)}
                 class="absolute left-0 top-0 rounded-lg w-full h-full max-h-[112rem] object-center"
                 phx-hook="BlurHashCanvas"
@@ -27,7 +27,7 @@ defmodule YscWeb.NewsLive do
 
               <img
                 src={featured_image_url(@featured.featured_image)}
-                id={"image-#{@featured.image_id}"}
+                id={"image-#{@featured.id}"}
                 loading="lazy"
                 phx-hook="BlurHashImage"
                 class="object-cover rounded-lg w-full object-center h-full max-h-[112rem]"
@@ -83,7 +83,7 @@ defmodule YscWeb.NewsLive do
             >
               <div class="relative">
                 <canvas
-                  id={"blur-hash-image-#{post.image_id}"}
+                  id={"blur-hash-image-#{post.id}"}
                   src={get_blur_hash(post.featured_image)}
                   class="absolute left-0 top-0 rounded-lg w-full h-full object-center aspect-video"
                   phx-hook="BlurHashCanvas"
@@ -92,7 +92,7 @@ defmodule YscWeb.NewsLive do
 
                 <img
                   src={featured_image_url(post.featured_image)}
-                  id={"image-#{post.image_id}"}
+                  id={"image-#{post.id}"}
                   loading="lazy"
                   phx-hook="BlurHashImage"
                   class="object-cover rounded-lg w-full object-center aspect-video"
@@ -144,8 +144,9 @@ defmodule YscWeb.NewsLive do
 
     {:ok,
      socket
+     |> assign(:page_title, "News")
      |> assign(:featured, featured_post)
-     |> assign(page: 1, per_page: 8)
+     |> assign(page: 1, per_page: 10)
      |> paginate_posts(1)}
   end
 

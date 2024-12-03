@@ -50,7 +50,7 @@ defmodule YscWeb.UserResetPasswordLive do
           %{}
       end
 
-    {:ok, assign_form(socket, form_source), temporary_assigns: [form: nil]}
+    {:ok, assign_form(socket, form_source) |> assign(:page_title, "Reset Password"), temporary_assigns: [form: nil]}
   end
 
   # Do not log in the user after reset password to avoid a

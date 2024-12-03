@@ -154,6 +154,7 @@ defmodule YscWeb.PostLive do
      socket
      |> assign(:post_id, id)
      |> assign(:post, post)
+     |> assign(:page_title, post.title)
      |> assign(:animate_insert, false)
      |> assign(:n_comments, post.comment_count)
      |> assign(:loading, false)

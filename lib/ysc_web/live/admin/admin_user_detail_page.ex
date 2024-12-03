@@ -117,7 +117,7 @@ defmodule YscWeb.AdminUserDetailsLive do
               type="select"
               field={@form[:role]}
               options={[Member: "member", Admin: "admin"]}
-              label="State"
+              label="Role"
             />
 
             <.input

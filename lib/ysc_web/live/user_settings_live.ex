@@ -48,6 +48,22 @@ defmodule YscWeb.UserSettingsLive do
 
         <div class="p-6 text-medium text-zinc-500 rounded w-full md:border-l md:border-1 md:border-zinc-100 md:pl-16">
           <div :if={@current_tab == "profile"}>
+            <.user_avatar_image
+              email={@user.email}
+              user_id={@user.id}
+              country={@user.most_connected_country}
+              class="w-20 rounded-full"
+            />
+
+            <p class="pt-4 text-sm">
+              Your profile picture is synced via Gravatar. Update it on your <a
+                class="text-blue-600 hover:underline"
+                href="https://gravatar.com/profile"
+                target="_blank"
+                noreferrer
+              >Gravatar Profile</a>.
+            </p>
+
             <.simple_form
               for={@email_form}
               id="email_form"
@@ -133,7 +149,9 @@ defmodule YscWeb.UserSettingsLive do
     socket =
       socket
       |> assign(:current_tab, default_tab)
+      |> assign(:page_title, String.capitalize(default_tab))
       |> assign(:current_password, nil)
+      |> assign(:user, user)
       |> assign(:email_form_current_password, nil)
       |> assign(:current_email, user.email)
       |> assign(:email_form, to_form(email_changeset))
