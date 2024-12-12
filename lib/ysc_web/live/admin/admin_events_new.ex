@@ -36,32 +36,18 @@ defmodule YscWeb.AdminEventsNewLive do
           </div>
         </div>
 
-        <div :if={@start_date != nil} class="flex flex-row space-x-1 items-center">
+        <div
+          :if={@start_date != nil && @start_date != ""}
+          class="flex flex-row space-x-1 items-center"
+        >
           <.icon name="hero-calendar-days" class="text-zinc-600" />
-          <p :if={@end_date == nil || @end_date == @start_date} class="text-zinc-600 text-sm">
-            <%= Timex.format!(@start_date, "%a, %b %d, %Y", :strftime) %>
-          </p>
-
-          <p :if={@end_date != nil && @end_date != @start_date} class="text-zinc-600 text-sm">
-            <%= Timex.format!(@start_date, "%a, %b %d, %Y", :strftime) %> - <%= Timex.format!(
-              @end_date,
-              "%a, %b %d, %Y",
-              :strftime
-            ) %>
-          </p>
-
-          <p
-            :if={@start_time != nil && @end_time != nil && @start_time != "" && @end_time != ""}
-            class="text-sm text-zinc-400"
-          >
-            •
-          </p>
-
-          <p
-            :if={@start_time != nil && @end_time != nil && @start_time != "" && @end_time != ""}
-            class="text-zinc-600 text-sm"
-          >
-            <%= @start_time %> - <%= @end_time %>
+          <p class="text-sm text-zinc-600">
+            <%= Ysc.Events.DateTimeFormatter.format_datetime(%{
+              start_date: format_date(@start_date),
+              start_time: format_time(@start_time),
+              end_date: format_date(@end_date),
+              end_time: format_time(@end_time)
+            }) %>
           </p>
         </div>
 
@@ -143,14 +129,20 @@ defmodule YscWeb.AdminEventsNewLive do
                     label="Date*"
                     id="event_date"
                     form={@form}
-                    start_date_field={@form[:start]}
-                    end_date_field={@form[:end]}
+                    start_date_field={@form[:start_date]}
+                    end_date_field={@form[:end_date]}
                     min={Date.utc_today()}
                   />
                 </div>
 
-                <.input type="time" id="start_time" field={@form[:start_time]} label="Start Time*" />
-                <.input type="time" id="end_time" field={@form[:end_time]} label="End Time" />
+                <.input
+                  type="time"
+                  id="start_time"
+                  step="60"
+                  field={@form[:start_time]}
+                  label="Start Time*"
+                />
+                <.input type="time" id="end_time" step="60" field={@form[:end_time]} label="End Time" />
               </div>
 
               <h3 class="text-lg pt-4 font-medium">Location</h3>
@@ -174,6 +166,7 @@ defmodule YscWeb.AdminEventsNewLive do
                   field={@form[:raw_details]}
                   post-id={@event.id}
                   phx-hook="TrixHook"
+                  phx-debounce={200}
                 />
                 <div id="richtext" phx-update="ignore">
                   <trix-editor
@@ -262,6 +255,10 @@ defmodule YscWeb.AdminEventsNewLive do
     event_changeset = Event.changeset(event, %{})
     agendas = Agendas.list_agendas_for_event(event.id)
 
+    IO.puts("YOOO")
+    IO.inspect(event.start_time)
+    IO.inspect(event.end_time)
+
     {:ok,
      socket
      |> assign(:event, event)
@@ -269,11 +266,11 @@ defmodule YscWeb.AdminEventsNewLive do
      |> assign(:page_title, event.title)
      |> assign(:description_length, description_length(event.description))
      |> assign(:event_title, event.title)
-     |> assign(:start_date, event.start)
-     |> assign(:end_date, event.end)
-     |> assign(:start_time, nil)
-     |> assign(:end_time, nil)
      |> assign(:state, :draft)
+     |> assign(:start_date, event.start_date)
+     |> assign(:end_date, event.end_date)
+     |> assign(:start_time, event.start_time)
+     |> assign(:end_time, event.end_time)
      |> assign(trigger_submit: false, check_errors: false)
      |> stream(:agendas, agendas)
      |> assign(form: to_form(event_changeset, as: "event"))}
@@ -373,13 +370,17 @@ defmodule YscWeb.AdminEventsNewLive do
     event_changeset =
       Event.changeset(socket.assigns[:event], event_params) |> Map.put(:action, :validate)
 
-    Events.update_event(socket.assigns[:event], event_params)
+    if event_changeset.valid? do
+      Events.update_event(socket.assigns[:event], event_params)
+    end
 
     {:noreply,
      assign_form(socket, event_changeset)
      |> assign(description_length: String.length(event_params["description"] || ""))
      |> assign(:event_title, event_params["title"])
      |> assign(:page_title, event_params["title"])
+     |> assign(:start_date, event_params["start_date"])
+     |> assign(:end_date, event_params["end_date"])
      |> assign(:start_time, event_params["start_time"])
      |> assign(:end_time, event_params["end_time"])}
   end
@@ -387,8 +388,6 @@ defmodule YscWeb.AdminEventsNewLive do
   def handle_info({:updated_event, data}, socket) do
     # Handle the message and update the socket as needed
     # For example, you might want to update the event changeset
-    IO.inspect(data)
-
     {:noreply, assign(socket, start_date: data[:start_date], end_date: data[:end_date])}
   end
 
@@ -402,37 +401,26 @@ defmodule YscWeb.AdminEventsNewLive do
     end
   end
 
-  defp parse_start_end(%{start_date: nil, end_date: nil} = params) do
-    params
+  defp format_date(nil), do: ""
+  defp format_date(""), do: ""
+
+  defp format_date(dt) when is_binary(dt) do
+    Timex.parse!(dt, "{ISO:Extended}")
   end
 
-  defp parse_start_end(%{start_date: value, end_date: nil} = params) do
-    Map.put(params, "start", Timex.parse!(value, "%Y-%m-%d"))
-  end
+  defp format_date(dt), do: dt
 
-  defp parse_start_end(%{start_date: nil, end_date: value} = params) do
-    Map.put(params, "end", Timex.parse!(value, "%Y-%m-%d"))
-  end
+  defp format_time(nil), do: nil
+  defp format_time(""), do: nil
 
-  defp parse_start_end(event_params) do
-    Map.put(event_params, "start", Timex.parse!(event_params["start_date"], "%Y-%m-%d"))
-    |> Map.put("end", Timex.parse!(event_params["end_date"], "%Y-%m-%d"))
-  end
-
-  defp save_agendas_and_items(event_id, agendas) do
-    for agenda_params <- agendas do
-      agenda =
-        %Agenda{}
-        |> Agenda.changeset(Map.put(agenda_params, "event_id", event_id))
-        |> Repo.insert!()
-
-      for item_params <- agenda_params["items"] || [] do
-        %AgendaItem{}
-        |> AgendaItem.changeset(Map.put(item_params, "agenda_id", agenda.id))
-        |> Repo.insert!()
-      end
+  defp format_time(time) when is_binary(time) do
+    case Timex.parse(time, "%H:%M:%S", :strftime) do
+      {:ok, time} -> time
+      {:error, _} -> Timex.parse!(time, "%H:%M", :strftime)
     end
   end
+
+  defp format_time(time), do: time
 
   defp description_length(nil), do: 0
   defp description_length(description), do: String.length(description)

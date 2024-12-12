@@ -23,8 +23,10 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
       add :image_id, references(:images, column: :id, type: :binary_id, on_delete: :nothing),
         null: true
 
-      add :start, :utc_datetime, null: true
-      add :end, :utc_datetime, null: true
+      add :start_date, :utc_datetime, null: true
+      add :start_time, :time, null: true
+      add :end_date, :utc_datetime, null: true
+      add :end_time, :time, null: true
 
       add :location_name, :string, size: 1024, null: true
       add :address, :string, size: 1024, null: true
@@ -58,8 +60,8 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
 
       add :title, :string, size: 256
       add :description, :string, size: 1024, null: true
-      add :start_time, :utc_datetime, null: true
-      add :end_time, :utc_datetime, null: true
+      add :start_time, :time, null: true
+      add :end_time, :time, null: true
 
       timestamps()
     end

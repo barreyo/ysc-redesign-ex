@@ -6,6 +6,21 @@ defmodule Ysc.Events.Event do
 
   @reference_prefix "EVT"
 
+  @derive {
+    Flop.Schema,
+    filterable: [
+      :reference_id,
+      :state,
+      :organizer_id,
+      :location_name,
+      :start_date,
+      :end_date
+    ],
+    sortable: [:state, :title, :start_date, :end_date],
+    default_limit: 50,
+    max_limit: 200
+  }
+
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]
@@ -44,9 +59,11 @@ defmodule Ysc.Events.Event do
     belongs_to :cover_image, Ysc.Media.Image, foreign_key: :image_id, references: :id
 
     # When event starts
-    field :start, :utc_datetime
+    field :start_date, :utc_datetime
+    field :start_time, :time
     # When event ends (if null, then it's a single day event)
-    field :end, :utc_datetime
+    field :end_date, :utc_datetime
+    field :end_time, :time
 
     # Location fields
     # Name of the location (e.g., "Central Park")
@@ -85,13 +102,15 @@ defmodule Ysc.Events.Event do
       :raw_details,
       :rendered_details,
       :image_id,
-      :start,
-      :end,
       :location_name,
       :address,
       :latitude,
       :longitude,
-      :place_id
+      :place_id,
+      :start_date,
+      :start_time,
+      :end_date,
+      :end_time
     ])
     |> validate_required([
       :state,
@@ -102,7 +121,6 @@ defmodule Ysc.Events.Event do
     |> validate_length(:description, max: 200)
     |> put_reference_id()
     |> unique_constraint(:reference_id)
-    |> validate_start_end()
     |> validate_publish_dates()
   end
 

@@ -12,8 +12,9 @@ defmodule Ysc.Events.AgendaItem do
 
     field :title, :string
     field :description, :string
-    field :start_time, :utc_datetime
-    field :end_time, :utc_datetime
+
+    field :start_time, :time
+    field :end_time, :time
 
     timestamps()
   end

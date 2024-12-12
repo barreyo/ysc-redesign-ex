@@ -51,7 +51,6 @@ defmodule YscWeb.AgendaEditComponent do
                   <.input
                     type="text"
                     field={form[:title]}
-                    border={false}
                     placeholder="Title"
                     label="Title"
                     phx-mounted={!form.data.id && JS.focus()}
@@ -65,9 +64,9 @@ defmodule YscWeb.AgendaEditComponent do
                     <.input
                       type="time"
                       field={form[:start_time]}
-                      border={false}
                       label="Start"
                       phx-key="escape"
+                      phx-keydown={!form.data.id && JS.push("discard", target: @myself)}
                       phx-blur={form.data.id && JS.dispatch("submit", to: "##{form.id}")}
                       phx-target={@myself}
                     />
@@ -75,8 +74,8 @@ defmodule YscWeb.AgendaEditComponent do
                     <.input
                       type="time"
                       field={form[:end_time]}
-                      border={false}
                       label="End"
+                      phx-keydown={!form.data.id && JS.push("discard", target: @myself)}
                       phx-key="escape"
                       phx-blur={form.data.id && JS.dispatch("submit", to: "##{form.id}")}
                       phx-target={@myself}
@@ -170,7 +169,7 @@ defmodule YscWeb.AgendaEditComponent do
     case Agendas.update_agenda_item(
            agenda_item.agenda.event_id,
            agenda_item,
-           parse_time_fields(params)
+           params
          ) do
       {:ok, updated_agenda_item} ->
         {:noreply, socket}
@@ -246,11 +245,9 @@ defmodule YscWeb.AgendaEditComponent do
   end
 
   defp to_change_form(agenda_item_or_changeset, params, action \\ nil) do
-    IO.inspect(parse_time_fields(params))
-
     changeset =
       agenda_item_or_changeset
-      |> Agendas.change_agenda_item(parse_time_fields(params))
+      |> Agendas.change_agenda_item(params)
       |> Map.put(:action, action)
 
     IO.inspect(changeset)
@@ -262,23 +259,4 @@ defmodule YscWeb.AgendaEditComponent do
   end
 
   defp build_agenda_item(agenda_id), do: %AgendaItem{agenda_id: agenda_id}
-
-  # Parse `start_time` and `end_time` fields from `hh:mm:ss` format into full `utc_datetime`
-  defp parse_time_fields(params) do
-    params
-    |> Map.update("start_time", nil, &parse_time/1)
-    |> Map.update("end_time", nil, &parse_time/1)
-  end
-
-  defp parse_time(nil), do: nil
-
-  defp parse_time(time_str) do
-    case Timex.parse(time_str, "{h24}:{m}") do
-      {:ok, time} ->
-        Timex.now() |> Timex.set(hour: time.hour, minute: time.minute)
-
-      _ ->
-        nil
-    end
-  end
 end
