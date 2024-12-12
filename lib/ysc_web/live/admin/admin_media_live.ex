@@ -150,7 +150,7 @@ defmodule YscWeb.AdminMediaLive do
         </h1>
 
         <.button phx-click={JS.navigate(~p"/admin/media/upload")}>
-          <.icon name="hero-photo" class="w-5 h-5 -mt-1" /><span class="ms-1">Add New</span>
+          <.icon name="hero-photo" class="w-5 h-5 -mt-1" /><span class="ms-1">New Image</span>
         </.button>
       </div>
 

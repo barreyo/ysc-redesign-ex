@@ -426,7 +426,7 @@ defmodule YscWeb.CoreComponents do
         name={@name}
         class={[
           "mt-2 block w-full rounded-lg text-zinc-800 focus:ring-0 sm:text-sm sm:leading-6",
-          "min-h-[6rem] phx-no-feedback:border-zinc-100 phx-no-feedback:focus:border-zinc-200",
+          "min-h-[6rem] phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400",
           @errors == [] && "border-zinc-300 focus:border-zinc-400",
           @errors != [] && "border-rose-400 focus:border-rose-400"
         ]}
@@ -631,6 +631,83 @@ defmodule YscWeb.CoreComponents do
     </p>
     """
   end
+
+  @min_date Date.utc_today() |> Date.add(-365)
+
+  attr(:id, :string, required: true)
+  attr(:label, :string, required: true)
+
+  attr(:start_date_field, :any,
+    doc: "a %Phoenix.HTML.Form{}/field name tuple, for example: @form[:start_date]"
+  )
+
+  attr(:end_date_field, :any,
+    doc: "a %Phoenix.HTML.Form{}/field name tuple, for example: @form[:end_date]"
+  )
+
+  attr(:required, :boolean, default: false)
+  attr(:readonly, :boolean, default: false)
+  attr(:min, :any, default: @min_date, doc: "the earliest date that can be set")
+  attr(:errors, :list, default: [])
+  attr(:form, :any)
+
+  def date_range_picker(assigns) do
+    ~H"""
+    <.live_component
+      module={YscWeb.Components.DateRangePicker}
+      label={@label}
+      id={@id}
+      form={@form}
+      start_date_field={@start_date_field}
+      end_date_field={@end_date_field}
+      required={@required}
+      readonly={@readonly}
+      is_range?
+      min={@min}
+    />
+    <div phx-feedback-for={@start_date_field.name}>
+      <.error :for={msg <- @start_date_field.errors}><%= format_form_error(msg) %></.error>
+    </div>
+    <div phx-feedback-for={@end_date_field.name}>
+      <.error :for={msg <- @end_date_field.errors}><%= format_form_error(msg) %></.error>
+    </div>
+    """
+  end
+
+  attr(:id, :string, required: true)
+  attr(:label, :string, required: true)
+
+  attr(:start_date_field, :any,
+    doc: "a %Phoenix.HTML.Form{}/field name tuple, for example: @form[:start_date]"
+  )
+
+  attr(:required, :boolean, default: false)
+  attr(:readonly, :boolean, default: false)
+  attr(:min, :any, default: @min_date, doc: "the earliest date that can be set")
+  attr(:errors, :list, default: [])
+  attr(:form, :any)
+
+  def date_picker(assigns) do
+    ~H"""
+    <.live_component
+      module={YscWeb.Components.DateRangePicker}
+      label={@label}
+      id={@id}
+      form={@form}
+      start_date_field={@start_date_field}
+      required={@required}
+      readonly={@readonly}
+      is_range?={false}
+      min={@min}
+    />
+    <div phx-feedback-for={@start_date_field.name}>
+      <.error :for={msg <- @start_date_field.form.errors}><%= format_form_error(msg) %></.error>
+    </div>
+    """
+  end
+
+  defp format_form_error({_key, {msg, _type}}), do: msg
+  defp format_form_error({msg, _type}), do: msg
 
   @doc """
   Renders a header with title.
@@ -1202,6 +1279,7 @@ defmodule YscWeb.CoreComponents do
     ~H"""
     <span class={[
       "text-xs font-medium me-2 px-2 py-1 rounded text-left #{@class}",
+      @type == "sky" && "bg-sky-100 text-sky-800",
       @type == "green" && "bg-green-100 text-green-800",
       @type == "yellow" && "bg-yellow-100 text-yellow-800",
       @type == "red" && "bg-red-100 text-red-800",

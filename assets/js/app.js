@@ -16,50 +16,63 @@
 //
 
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
-import "phoenix_html"
+import "phoenix_html";
 // Establish Phoenix Socket and LiveView configuration.
-import { Socket } from "phoenix"
-import { LiveSocket } from "phoenix_live_view"
-import topbar from "../vendor/topbar"
-import LivePhone from "./live_phone"
-import StickyNavbar from "./sticky_navbar"
-import Uploaders from "./uploaders"
-import BlurHashCanvas from "./blur_hash_canvas"
-import BlurHashImage from "./blur_hash_image"
-import GrowingInput from "./growing_input_field"
-import TrixHook from './trix_hook'
+import { Socket } from "phoenix";
+import { LiveSocket } from "phoenix_live_view";
+import topbar from "../vendor/topbar";
+import LivePhone from "./live_phone";
+import StickyNavbar from "./sticky_navbar";
+import Uploaders from "./uploaders";
+import BlurHashCanvas from "./blur_hash_canvas";
+import BlurHashImage from "./blur_hash_image";
+import GrowingInput from "./growing_input_field";
+import TrixHook from "./trix_hook";
+import DaterangeHover from "./daterange-hover";
+import Sortable from "./sortable";
 
-let Hooks = { StickyNavbar, BlurHashCanvas, BlurHashImage, GrowingInput, TrixHook }
-Hooks.LivePhone = LivePhone
+let Hooks = {
+  StickyNavbar,
+  BlurHashCanvas,
+  BlurHashImage,
+  GrowingInput,
+  TrixHook,
+  DaterangeHover,
+  Sortable,
+};
+Hooks.LivePhone = LivePhone;
 
-let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+let csrfToken = document
+  .querySelector("meta[name='csrf-token']")
+  .getAttribute("content");
 let liveSocket = new LiveSocket("/live", Socket, {
-    params: {
-        _csrf_token: csrfToken,
-        locale: Intl.NumberFormat().resolvedOptions().locale,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        timezone_offset: -(new Date().getTimezoneOffset() / 60),
-    }, hooks: Hooks,
-    uploaders: Uploaders
-})
+  params: {
+    _csrf_token: csrfToken,
+    locale: Intl.NumberFormat().resolvedOptions().locale,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timezone_offset: -(new Date().getTimezoneOffset() / 60),
+  },
+  hooks: Hooks,
+  uploaders: Uploaders,
+});
 
 window.addEventListener("phx:live_reload:attached", ({ detail: reloader }) => {
-    // Enable server log streaming to client.
-    // Disable with reloader.disableServerLogs()
-    reloader.enableServerLogs()
-    window.liveReloader = reloader
-})
+  // Enable server log streaming to client.
+  // Disable with reloader.disableServerLogs()
+  reloader.enableServerLogs();
+  window.liveReloader = reloader;
+});
 
 // Show progress bar on live navigation and form submits
-topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" })
-window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
-window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
+topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });
+window.addEventListener("phx:page-loading-start", (_info) => topbar.show(300));
+window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
 
 // connect if there are any LiveViews on the page
-liveSocket.connect()
+liveSocket.connect();
 
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
-window.liveSocket = liveSocket
+window.liveSocket = liveSocket;

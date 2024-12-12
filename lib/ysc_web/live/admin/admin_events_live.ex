@@ -15,6 +15,10 @@ defmodule YscWeb.AdminEventsLive do
         <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
           Events
         </h1>
+
+        <.button phx-click={JS.navigate(~p"/admin/events/new")}>
+          <.icon name="hero-calendar" class="w-5 h-5 -mt-1" /><span class="ms-1">New Event</span>
+        </.button>
       </div>
     </.side_menu>
     """

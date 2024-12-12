@@ -120,7 +120,16 @@ defmodule YscWeb.AdminPostsLive do
           </:col>
 
           <:col :let={{_, post}} label="State" field={:state}>
-            <.badge type={post_state_to_badge_style(post.state)}>
+            <.tooltip
+              :if={post.published_on != nil}
+              tooltip_text={Timex.format!(post.published_on, "%b %e, %Y", :strftime)}
+            >
+              <.badge type={post_state_to_badge_style(post.state)}>
+                <%= String.capitalize("#{post.state}") %>
+              </.badge>
+            </.tooltip>
+
+            <.badge :if={post.published_on == nil} type={post_state_to_badge_style(post.state)}>
               <%= String.capitalize("#{post.state}") %>
             </.badge>
           </:col>

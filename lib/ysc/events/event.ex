@@ -1,0 +1,144 @@
+defmodule Ysc.Events.Event do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  alias Ysc.ReferenceGenerator
+
+  @reference_prefix "EVT"
+
+  @primary_key {:id, Ecto.ULID, autogenerate: true}
+  @foreign_key_type Ecto.ULID
+  @timestamps_opts [type: :utc_datetime]
+  schema "events" do
+    field :reference_id, :string
+
+    # Control publishing of the event
+    # Draft: Not visible to the public
+    # Published: Visible to the public
+    field :state, EventState
+    field :published_at, :utc_datetime
+    field :publish_at, :utc_datetime
+
+    # Who created the event (organizer)
+    belongs_to :organizer, Ysc.Accounts.User, foreign_key: :organizer_id, references: :id
+
+    field :title, :string
+    # Short description that will be displayed in the event list
+    # and in the calendar event tooltip
+    field :description, :string
+
+    # Optional: Puts a total limit on the number of attendees
+    # across all ticket types if set to 0 or null then no limit
+    # is enforced globally -- it will be enforced per ticket type instead.
+    field :max_attendees, :integer
+    # Optional: Age restriction for the event
+    # if null or 0 then no age restriction
+    field :age_restriction, :integer
+
+    # Detailed information about the event
+    field :raw_details, :string
+    # Cache for the rich content in the details sections
+    field :rendered_details, :string
+
+    # Required: A cover image for the event to show in the list
+    belongs_to :cover_image, Ysc.Media.Image, foreign_key: :image_id, references: :id
+
+    # When event starts
+    field :start, :utc_datetime
+    # When event ends (if null, then it's a single day event)
+    field :end, :utc_datetime
+
+    # Location fields
+    # Name of the location (e.g., "Central Park")
+    field :location_name, :string
+    # Full address (e.g., "59th St and 5th Ave, New York, NY")
+    field :address, :string
+    # Latitude for map display
+    field :latitude, :float
+    # Longitude for map display
+    field :longitude, :float
+    # Optional: External ID from a mapping service (e.g., Google Place ID)
+    field :place_id, :string
+
+    has_many :faq_questions, Ysc.Events.FaqQuestion, on_replace: :delete
+    has_many :agendas, Ysc.Events.Agenda, on_replace: :delete
+    has_many :ticket_tiers, Ysc.Events.TicketTier, on_replace: :delete
+
+    timestamps()
+  end
+
+  @doc """
+  Changeset for the event with validations.
+  """
+  def changeset(event, attrs) do
+    event
+    |> cast(attrs, [
+      :reference_id,
+      :state,
+      :published_at,
+      :publish_at,
+      :organizer_id,
+      :title,
+      :description,
+      :max_attendees,
+      :age_restriction,
+      :raw_details,
+      :rendered_details,
+      :image_id,
+      :start,
+      :end,
+      :location_name,
+      :address,
+      :latitude,
+      :longitude,
+      :place_id
+    ])
+    |> validate_required([
+      :state,
+      :organizer_id,
+      :title
+    ])
+    |> validate_length(:title, max: 100)
+    |> validate_length(:description, max: 200)
+    |> put_reference_id()
+    |> unique_constraint(:reference_id)
+    |> validate_start_end()
+    |> validate_publish_dates()
+  end
+
+  defp validate_start_end(changeset) do
+    start_date = get_field(changeset, :start)
+    end_date = get_field(changeset, :end)
+
+    if start_date && end_date && start_date > end_date do
+      add_error(changeset, :start, "must be before the end date and time")
+    else
+      changeset
+    end
+  end
+
+  defp validate_publish_dates(changeset) do
+    publish_at = get_field(changeset, :publish_at)
+    start = get_field(changeset, :start)
+
+    if publish_at && start && publish_at > start do
+      add_error(changeset, :publish_at, "must be before the event start date and time")
+    else
+      changeset
+    end
+  end
+
+  defp put_reference_id(changeset) do
+    case get_field(changeset, :reference_id) do
+      nil ->
+        put_change(
+          changeset,
+          :reference_id,
+          ReferenceGenerator.generate_reference_id(@reference_prefix)
+        )
+
+      _ ->
+        changeset
+    end
+  end
+end

@@ -152,6 +152,9 @@ defmodule YscWeb.Router do
 
       # Events
       live "/events", AdminEventsLive, :index
+      live "/events/new", AdminEventsNewLive, :new
+      live "/events/:id/edit", AdminEventsNewLive, :edit
+      live "/events/:id/tickets", AdminEventsNewLive, :tickets
 
       # Tahoe and Clear Lake settings etc, see bookings
       live "/bookings", AdminBookingsLive, :index
