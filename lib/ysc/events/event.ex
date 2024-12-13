@@ -9,16 +9,33 @@ defmodule Ysc.Events.Event do
   @derive {
     Flop.Schema,
     filterable: [
-      :reference_id,
       :state,
-      :organizer_id,
-      :location_name,
-      :start_date,
-      :end_date
+      :organizer_id
     ],
-    sortable: [:state, :title, :start_date, :end_date],
+    sortable: [:state, :title, :start_date, :organizer_name, :inserted_at],
     default_limit: 50,
-    max_limit: 200
+    max_limit: 200,
+    default_order: %{
+      order_by: [:inserted_at],
+      order_directions: [:desc]
+    },
+    adapter_opts: [
+      join_fields: [
+        organizer_first: [
+          binding: :organizer,
+          field: :first_name,
+          ecto_type: :string
+        ],
+        organizer_last: [
+          binding: :organizer,
+          field: :first_name,
+          ecto_type: :string
+        ]
+      ],
+      compound_fields: [
+        organizer_name: [:organizer_first, :organizer_last]
+      ]
+    ]
   }
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}

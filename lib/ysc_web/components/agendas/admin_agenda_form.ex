@@ -56,32 +56,6 @@ defmodule YscWeb.AgendasLive.FormComponent do
     {:noreply, socket}
   end
 
-  # defp save_list(socket, :edit_list, list_params) do
-  #   case Todos.update_list(socket.assigns.scope, socket.assigns.list, list_params) do
-  #     {:ok, _list} ->
-  #       {:noreply,
-  #        socket
-  #        |> put_flash(:info, "List updated successfully")
-  #        |> push_patch(to: socket.assigns.patch)}
-
-  #     {:error, %Ecto.Changeset{} = changeset} ->
-  #       {:noreply, assign_form(socket, changeset)}
-  #   end
-  # end
-
-  # defp save_list(socket, :new_list, list_params) do
-  #   case Todos.create_list(socket.assigns.scope, list_params) do
-  #     {:ok, _list} ->
-  #       {:noreply,
-  #        socket
-  #        |> put_flash(:info, "List created successfully")
-  #        |> push_patch(to: socket.assigns.patch)}
-
-  #     {:error, %Ecto.Changeset{} = changeset} ->
-  #       {:noreply, assign_form(socket, changeset)}
-  #   end
-  # end
-
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
   end

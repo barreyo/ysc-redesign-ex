@@ -44,6 +44,7 @@ defmodule YscWeb.Router do
       live "/posts/:id", PostLive, :index
 
       live "/events", EventsLive, :index
+      live "/events/:id", EventDetailsLive, :index
 
       live "/news", NewsLive, :index
     end

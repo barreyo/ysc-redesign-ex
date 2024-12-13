@@ -23,32 +23,110 @@ defmodule YscWeb.AdminEventsNewLive do
       user_id={@current_user.id}
       most_connected_country={@current_user.most_connected_country}
     >
-      <div class="flex py-6 flex-col space-y-1">
-        <div class="flex flex-row items-center space-x-3">
-          <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
-            <%= @event_title %>
-          </h1>
+      <div class="flex py-6 flex-col">
+        <div class="flex flex-row justify-between">
+          <div class="flex flex-col space-y-1">
+            <div class="flex flex-row items-center space-x-3">
+              <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
+                <%= @event_title %>
+              </h1>
 
-          <div>
-            <.badge type={event_state_to_badge_style(@state)}>
-              <%= String.capitalize("#{@state}") %>
-            </.badge>
+              <div>
+                <.badge type={event_state_to_badge_style(@state)}>
+                  <%= String.capitalize("#{@state}") %>
+                </.badge>
+              </div>
+            </div>
+
+            <div
+              :if={@start_date != nil && @start_date != ""}
+              class="flex flex-row space-x-1 items-center"
+            >
+              <.icon name="hero-calendar-days" class="text-zinc-600" />
+              <p class="text-sm text-zinc-600">
+                <%= Ysc.Events.DateTimeFormatter.format_datetime(%{
+                  start_date: format_date(@start_date),
+                  start_time: format_time(@start_time),
+                  end_date: format_date(@end_date),
+                  end_time: format_time(@end_time)
+                }) %>
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div
-          :if={@start_date != nil && @start_date != ""}
-          class="flex flex-row space-x-1 items-center"
-        >
-          <.icon name="hero-calendar-days" class="text-zinc-600" />
-          <p class="text-sm text-zinc-600">
-            <%= Ysc.Events.DateTimeFormatter.format_datetime(%{
-              start_date: format_date(@start_date),
-              start_time: format_time(@start_time),
-              end_date: format_date(@end_date),
-              end_time: format_time(@end_time)
-            }) %>
-          </p>
+          <div class="pl-4 space-x-1 flex flex-row">
+            <div :if={@event.state in [:draft, :scheduled]}>
+              <.button color="blue" phx-click="publish-event">
+                <.icon name="hero-document-arrow-up" class="w-5 h-5 -mt-1 me-1" />Publish
+              </.button>
+            </div>
+
+            <div :if={@event.state in [:published]}>
+              <.button color="gray" phx-click="unpublish-event">
+                <.icon name="hero-document-arrow-down" class="w-5 h-5 -mt-1 me-1" />Unpublish
+              </.button>
+            </div>
+
+            <.dropdown
+              :if={@event.state in [:draft, :scheduled]}
+              id="edit-post-more"
+              right={true}
+              class={
+                Enum.join(
+                  [
+                    "text-zinc-100 px-3 leading-6 py-2 text-sm font-semibold transition duration-300",
+                    @event.state == :scheduled && "bg-green-700 hover:bg-green-800",
+                    @event.state != :scheduled && "bg-blue-700 hover:bg-blue-800"
+                  ],
+                  " "
+                )
+              }
+            >
+              <:button_block>
+                <.icon name="hero-clock" class="w-5 h-5 me-1" /><%= schedule_button_text(@event.state) %>
+                <.icon name="hero-chevron-down" class="ms-2" />
+              </:button_block>
+
+              <div class="w-full px-2 py-4">
+                <.live_component
+                  id={@event.id}
+                  event={@event}
+                  module={YscWeb.AdminEventsLive.ScheduleEventForm}
+                  event_id={@event.id}
+                />
+              </div>
+            </.dropdown>
+
+            <.dropdown
+              id="edit-event-more"
+              right={true}
+              class="text-zinc-800 hover:bg-zinc-100 hover:text-black"
+            >
+              <:button_block>
+                <.icon name="hero-ellipsis-vertical" class="w-6 h-6" />
+              </:button_block>
+
+              <div class="w-full divide-y divide-zinc-100 text-sm text-zinc-700">
+                <ul class="py-2 text-sm font-medium text-zinc-800 px-2">
+                  <li
+                    :if={@event.state == :published}
+                    class="block py-2 px-3 transition ease-in-out duration-200 hover:bg-zinc-100"
+                  >
+                    <button type="button" class="w-full text-left px-1" phx-click="cancel-event">
+                      <.icon name="hero-minus-circle" class="me-1 -mt-1 w-5 h-5" />Cancel Event
+                    </button>
+                  </li>
+
+                  <li class="block py-2 px-3 transition text-red-600 ease-in-out duration-200 hover:bg-zinc-100">
+                    <button type="button" class="w-full text-left px-1" phx-click="delete-event">
+                      <.icon name="hero-trash" class="w-5 h-5 -mt-1" />
+                      <span>Delete Event</span>
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </.dropdown>
+          </div>
         </div>
 
         <div class="pt-4">
@@ -146,8 +224,18 @@ defmodule YscWeb.AdminEventsNewLive do
               </div>
 
               <h3 class="text-lg pt-4 font-medium">Location</h3>
-              <div>
-                <p>dance</p>
+              <div class="space-y-4">
+                <.input
+                  type="text"
+                  field={@form[:location_name]}
+                  label="Location Name"
+                  phx-debounce="300"
+                />
+                <.input type="text" field={@form[:address]} label="Address" phx-debounce="300" />
+                <div class="flex flex-row space-x-4">
+                  <.input type="number" step="any" field={@form[:latitude]} label="Latitude" />
+                  <.input type="number" step="any" field={@form[:longitude]} label="Longitude" />
+                </div>
               </div>
             </div>
 
@@ -266,7 +354,7 @@ defmodule YscWeb.AdminEventsNewLive do
      |> assign(:page_title, event.title)
      |> assign(:description_length, description_length(event.description))
      |> assign(:event_title, event.title)
-     |> assign(:state, :draft)
+     |> assign(:state, event.state)
      |> assign(:start_date, event.start_date)
      |> assign(:end_date, event.end_date)
      |> assign(:start_time, event.start_time)
@@ -327,6 +415,24 @@ defmodule YscWeb.AdminEventsNewLive do
   def handle_info({Ysc.Agendas, %_event{agenda_item: agenda_item} = event}, socket) do
     send_update(YscWeb.AgendaEditComponent, id: agenda_item.agenda_id, event: event)
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("publish-event", _, socket) do
+    Events.publish_event(socket.assigns.event)
+
+    {:noreply,
+     socket |> put_flash(:info, "Event published.") |> push_redirect(to: "/admin/events")}
+  end
+
+  @impl true
+  def handle_event("unpublish-event", _, socket) do
+    Events.unpublish_event(socket.assigns.event)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Event moved back to draft.")
+     |> push_redirect(to: "/admin/events/#{socket.assigns.event.id}/new")}
   end
 
   @impl true
@@ -431,4 +537,7 @@ defmodule YscWeb.AdminEventsNewLive do
   defp event_state_to_badge_style(:cancelled), do: "orange"
   defp event_state_to_badge_style(:deleted), do: "red"
   defp event_state_to_badge_style(_), do: "default"
+
+  defp schedule_button_text(:scheduled), do: "Scheduled"
+  defp schedule_button_text(_), do: "Schedule"
 end

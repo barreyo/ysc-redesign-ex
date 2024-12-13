@@ -23,8 +23,8 @@ defmodule YscWeb.AdminPostsLive do
         <.header>
           Add new post
         </.header>
-        <.simple_form for={@form} phx-change="validate" phx-submit="save">
-          <.input type="text" field={@form[:title]} label="Title" />
+        <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-key="enter">
+          <.input type="text" field={@form[:title]} label="Title" phx-mounted={JS.focus()} />
 
           <div class="flex flex-row justify-end w-full pt-8">
             <button

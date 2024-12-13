@@ -4,7 +4,12 @@
 /* This file is for your main application CSS */
 
 .overlay::before {
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.3) 75%, rgba(0, 0, 0, 0.3) 100%);
+    background: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0) 0%,
+        rgba(0, 0, 0, 0.3) 75%,
+        rgba(0, 0, 0, 0.3) 100%
+    );
     bottom: 0;
     content: "";
     display: block;
@@ -79,6 +84,7 @@
     margin-left: -9px;
 }
 
+#admin_events_list,
 #admin_posts_list,
 #admin_users_list {
     width: 100%;
@@ -86,6 +92,7 @@
     text-align: left;
 }
 
+#admin_events_list thead,
 #admin_posts_list thead,
 #admin_users_list thead {
     font-size: 0.875rem;
@@ -97,6 +104,7 @@
     text-align: left;
 }
 
+#admin_events_list th,
 #admin_posts_list th,
 #admin_users_list th {
     padding-left: 1.5rem;
@@ -109,6 +117,7 @@
     /* 12px */
 }
 
+#admin_events_list tr,
 #admin_posts_list tr,
 #admin_users_list tr {
     font-size: 0.875rem;
@@ -117,16 +126,19 @@
     border-bottom-width: 1px;
 }
 
+#admin_events_list tbody tr,
 #admin_posts_list tbody tr,
 #admin_users_list tbody tr {
     border-bottom-color: rgb(244 244 245);
 }
 
+#admin_events_list tr:hover,
 #admin_posts_list tr:hover,
 #admin_users_list tr:hover {
     background-color: rgb(250 250 250);
 }
 
+#admin_events_list td,
 #admin_posts_list td,
 #admin_users_list td {
     padding-left: 1.5rem;
@@ -232,7 +244,9 @@ trix-toolbar .trix-button {
     border: none;
     background: transparent;
     border-radius: 0.25rem;
-    transition-property: color, background-color, border-color, text-decoration-color, fill, opacity, box-shadow, transform, backdrop-filter;
+    transition-property: color, background-color, border-color,
+        text-decoration-color, fill, opacity, box-shadow, transform,
+        backdrop-filter;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 150ms;
 }
@@ -270,7 +284,7 @@ trix-toolbar .trix-button:disabled {
 
 trix-toolbar .trix-button--icon {
     font-size: inherit;
-    width: 2.0em;
+    width: 2em;
     height: 1.8em;
     max-width: calc(0.8em + 4vw);
     text-indent: -9999px;
@@ -403,7 +417,7 @@ trix-toolbar .trix-input--dialog {
 }
 
 trix-toolbar .trix-input--dialog.validate:invalid {
-    box-shadow: #F00 0px 0px 1.5px 1px;
+    box-shadow: #f00 0px 0px 1.5px 1px;
 }
 
 trix-toolbar .trix-button--dialog {
@@ -449,7 +463,8 @@ trix-editor [data-trix-mutable] ::selection {
     background: none;
 }
 
-trix-editor .attachment__caption-editor:focus[data-trix-mutable]::-moz-selection {
+trix-editor
+    .attachment__caption-editor:focus[data-trix-mutable]::-moz-selection {
     background: highlight;
 }
 
@@ -629,8 +644,8 @@ trix-editor .attachment__metadata .attachment__size {
     padding-left: 0.6em;
 }
 
-.trix-content [dir=rtl] blockquote,
-.trix-content blockquote[dir=rtl] {
+.trix-content [dir="rtl"] blockquote,
+.trix-content blockquote[dir="rtl"] {
     border-width: 0;
     border-right-width: 0.3em;
     margin-right: 0.3em;
@@ -641,7 +656,7 @@ trix-editor .attachment__metadata .attachment__size {
     margin-left: 1em;
 }
 
-.trix-content [dir=rtl] li {
+.trix-content [dir="rtl"] li {
     margin-right: 1em;
 }
 
@@ -687,8 +702,8 @@ trix-editor .attachment__metadata .attachment__size {
     padding-bottom: 0.25em;
 }
 
-.attachment__caption .attachment__name+.attachment__size::before {
-    content: ' \2022 ';
+.attachment__caption .attachment__name + .attachment__size::before {
+    content: " \2022 ";
 }
 
 .attachment--preview {
@@ -738,7 +753,6 @@ trix-editor .attachment__metadata .attachment__size {
     flex-basis: 50%;
     max-width: 50%;
 }
-
 
 /*
 === COUNTRY FLAGS ===

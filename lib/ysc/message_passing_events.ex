@@ -30,4 +30,12 @@ defmodule Ysc.MessagePassingEvents do
   defmodule AgendaItemUpdated do
     defstruct agenda_item: nil
   end
+
+  defmodule EventAdded do
+    defstruct event: nil
+  end
+
+  defmodule EventUpdated do
+    defstruct event: nil
+  end
 end

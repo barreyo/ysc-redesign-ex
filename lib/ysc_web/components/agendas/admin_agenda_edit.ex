@@ -27,8 +27,8 @@ defmodule YscWeb.AgendaEditComponent do
           focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:border-gray-100
           drag-item:focus-within:ring-0 drag-item:focus-within:ring-offset-0
           drag-ghost:bg-zinc-300 drag-ghost:border-0 drag-ghost:ring-0 drag-item:shadow-lg
+          bg-blue-100
           "
-          style={"background-color: #{ULIDColor.generate_color(form.data.id)};"}
         >
           <div class="drag-handle hover:cursor-row-resize group h-full flex items-center">
             <.icon name="hero-arrows-up-down" class="group-hover:bg-zinc-800 bg-zinc-500 transition" />
@@ -42,8 +42,7 @@ defmodule YscWeb.AgendaEditComponent do
             phx-submit="save"
             phx-value-id={form.data.id}
             phx-target={@myself}
-            class="min-w-0 flex-1 py-2 drag-ghost:opacity-0 border-l pl-4 border-l-2"
-            style={"border-color: #{ULIDColor.generate_darker_color(form.data.id)};"}
+            class="min-w-0 flex-1 py-2 drag-ghost:opacity-0 border-l pl-4 border-l-2 border-blue-300"
           >
             <div class="w-full">
               <div class="flex space-x-1">
