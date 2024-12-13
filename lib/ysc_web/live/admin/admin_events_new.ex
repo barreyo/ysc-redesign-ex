@@ -250,7 +250,7 @@ defmodule YscWeb.AdminEventsNewLive do
               <div class="prose prose-zinc prose-base prose-a:text-blue-600 max-w-none">
                 <.input
                   type="hidden"
-                  id="post[raw_details]"
+                  id="post[raw_body]"
                   field={@form[:raw_details]}
                   post-id={@event.id}
                   phx-hook="TrixHook"
@@ -258,7 +258,7 @@ defmodule YscWeb.AdminEventsNewLive do
                 />
                 <div id="richtext" phx-update="ignore">
                   <trix-editor
-                    input="post[raw_details]"
+                    input="post[raw_body]"
                     class="trix-content block px-4 py-2 bg-white border-zinc-200 focus:ring-1 focus:ring-blue-400 focus:border-blue-400 transition border-l border-b border-r focus:ring-0 text-wrap"
                     placeholder="Write something delightful and nice..."
                   >
@@ -342,10 +342,6 @@ defmodule YscWeb.AdminEventsNewLive do
     event = Events.get_event!(id)
     event_changeset = Event.changeset(event, %{})
     agendas = Agendas.list_agendas_for_event(event.id)
-
-    IO.puts("YOOO")
-    IO.inspect(event.start_time)
-    IO.inspect(event.end_time)
 
     {:ok,
      socket
@@ -489,6 +485,11 @@ defmodule YscWeb.AdminEventsNewLive do
      |> assign(:end_date, event_params["end_date"])
      |> assign(:start_time, event_params["start_time"])
      |> assign(:end_time, event_params["end_time"])}
+  end
+
+  def handle_event("editor-update", %{"raw_body" => raw_body}, socket) do
+    changeset = Event.changeset(socket.assigns[:event], %{"raw_details" => raw_body})
+    {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_info({:updated_event, data}, socket) do

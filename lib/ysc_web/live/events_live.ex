@@ -27,8 +27,6 @@ defmodule YscWeb.EventsLive do
   end
 
   def mount(_params, _session, socket) do
-    events = Events.list_upcoming_events()
-
-    {:ok, socket |> assign(:page_title, "Events") |> assign(:events, events)}
+    {:ok, socket |> assign(:page_title, "Events")}
   end
 end

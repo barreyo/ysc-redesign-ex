@@ -60,7 +60,17 @@ defmodule YscWeb.EventsListLive do
       </div>
 
       <div :if={@event_count == 0} class="flex flex-col items-center justify-center py-12">
-        <p class="text-zinc-700">No upcoming events</p>
+        <div class="text-center justify-center items-center w-full">
+          <img
+            class="w-60 mx-auto rounded-full"
+            src="/images/vikings/viking_beer.png"
+            alt="No upcoming events at the moment"
+          />
+          <.header class="pt-8">
+            No upcoming events at the moment
+            <:subtitle>Check back soon again! We're always adding new events.</:subtitle>
+          </.header>
+        </div>
       </div>
     </div>
     """

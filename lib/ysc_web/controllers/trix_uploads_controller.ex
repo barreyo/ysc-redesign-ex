@@ -7,11 +7,18 @@ defmodule YscWeb.TrixUploadsController do
   @bucket_name "media"
   @temp_dir "/tmp/image_processor"
 
-  def create(conn, params) do
+  def create(conn, %{"post_id" => post_id} = params) do
     IO.inspect(params)
-    post_id = Map.get(params, "post_id")
-    res = upload_file(params, post_id, conn.assigns[:current_user])
-    send_resp(conn, 201, res)
+    current_user = conn.assigns[:current_user]
+    updated_image = upload_file(params, current_user)
+
+    post = Posts.get_post(post_id)
+
+    if post != nil do
+      set_cover_photo(post, updated_image.id, current_user)
+    end
+
+    send_resp(conn, 201, get_return_url(updated_image))
   end
 
   defp set_cover_photo(post, image_id, user) do
@@ -22,7 +29,6 @@ defmodule YscWeb.TrixUploadsController do
 
   defp upload_file(
          %{"file" => %Plug.Upload{}} = plug_upload,
-         post_id,
          %User{} = current_user
        ) do
     # 1. Upload raw file to s3
@@ -57,13 +63,7 @@ defmodule YscWeb.TrixUploadsController do
         optimized_output_path
       )
 
-    post = Posts.get_post(post_id)
-
-    if post != nil do
-      set_cover_photo(post, updated_image.id, current_user)
-    end
-
-    get_return_url(updated_image)
+    updated_image
   end
 
   defp get_return_url(%Media.Image{optimized_image_path: nil} = image), do: image.raw_image_path
