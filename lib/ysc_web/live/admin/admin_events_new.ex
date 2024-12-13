@@ -236,6 +236,13 @@ defmodule YscWeb.AdminEventsNewLive do
                   <.input type="number" step="any" field={@form[:latitude]} label="Latitude" />
                   <.input type="number" step="any" field={@form[:longitude]} label="Longitude" />
                 </div>
+                <div>
+                  <.live_component
+                    id={"#{@event.id}-map"}
+                    module={YscWeb.Components.MapComponent}
+                    event_id={@event.id}
+                  />
+                </div>
               </div>
             </div>
 
@@ -490,6 +497,15 @@ defmodule YscWeb.AdminEventsNewLive do
   def handle_event("editor-update", %{"raw_body" => raw_body}, socket) do
     changeset = Event.changeset(socket.assigns[:event], %{"raw_details" => raw_body})
     {:noreply, assign_form(socket, changeset)}
+  end
+
+  def handle_event("map-new-marker", params, socket) do
+    send_update(YscWeb.Components.MapComponent,
+      id: "#{socket.assigns.event.id}-map",
+      event: params
+    )
+
+    {:noreply, socket}
   end
 
   def handle_info({:updated_event, data}, socket) do

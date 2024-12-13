@@ -30,6 +30,7 @@ import GrowingInput from "./growing_input_field";
 import TrixHook from "./trix_hook";
 import DaterangeHover from "./daterange-hover";
 import Sortable from "./sortable";
+import RadarMap from "./radar";
 
 let Hooks = {
   StickyNavbar,
@@ -39,12 +40,14 @@ let Hooks = {
   TrixHook,
   DaterangeHover,
   Sortable,
+  RadarMap,
 };
 Hooks.LivePhone = LivePhone;
 
 let csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");
+
 let liveSocket = new LiveSocket("/live", Socket, {
   params: {
     _csrf_token: csrfToken,
