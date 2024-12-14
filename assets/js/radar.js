@@ -5,27 +5,37 @@ export default RadarMap = {
     );
 
     let existingMarker = undefined;
+    let locked = false;
     const elementID = this.el.getAttribute("id");
     const map = Radar.ui.map({
       container: elementID,
     });
 
-    this.handleEvent("add_marker", ({ reference, lat, lon }) => {
-      console.log("YOOOOOO DDOSABBROO");
-      // lets not add duplicates for the same marker!
-
+    const setMarker = (lat, lon) => {
       if (existingMarker) {
         existingMarker.remove();
       }
-      existingMarker = Radar.ui
-        .marker()
-        .setLngLat([-73.99055, 40.735225])
-        .addTo(map);
+      existingMarker = Radar.ui.marker().setLngLat([lon, lat]).addTo(map);
       // fit map to markers
       map.fitToMarkers({ maxZoom: 14, padding: 80 });
+    };
+
+    this.handleEvent("add_marker", ({ reference, lat, lon, locked }) => {
+      console.log(locked);
+      locked = locked;
+      setMarker(lat, lon);
     });
 
+    // Hack to make the zoom work on render
+    setTimeout(() => {
+      map.fitToMarkers({ maxZoom: 14, padding: 80 });
+    }, 300);
+
     map.on("click", (e) => {
+      if (locked) {
+        return;
+      }
+
       if (existingMarker) {
         existingMarker.remove();
       }
@@ -46,7 +56,6 @@ export default RadarMap = {
     });
 
     this.handleEvent("position", () => {
-      console.log("Position!");
       map.fitToMarkers({ maxZoom: 14, padding: 80 });
     });
   },

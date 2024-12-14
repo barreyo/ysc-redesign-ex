@@ -46,7 +46,7 @@ defmodule YscWeb.AgendaEditComponent do
           >
             <div class="w-full">
               <div class="flex space-x-1">
-                <div class="flex-auto">
+                <div class="flex-auto space-y-4">
                   <.input
                     type="text"
                     field={form[:title]}
@@ -55,7 +55,7 @@ defmodule YscWeb.AgendaEditComponent do
                     phx-mounted={!form.data.id && JS.focus()}
                     phx-keydown={!form.data.id && JS.push("discard", target: @myself)}
                     phx-key="escape"
-                    phx-blur={form.data.id && JS.dispatch("submit", to: "##{form.id}")}
+                    phx-blur={JS.dispatch("submit", to: "##{form.id}")}
                     phx-target={@myself}
                   />
 

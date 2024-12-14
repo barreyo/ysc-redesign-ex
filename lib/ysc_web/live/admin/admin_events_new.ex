@@ -236,12 +236,18 @@ defmodule YscWeb.AdminEventsNewLive do
                   <.input type="number" step="any" field={@form[:latitude]} label="Latitude" />
                   <.input type="number" step="any" field={@form[:longitude]} label="Longitude" />
                 </div>
-                <div>
+                <div class="space-y-2">
                   <.live_component
                     id={"#{@event.id}-map"}
                     module={YscWeb.Components.MapComponent}
                     event_id={@event.id}
+                    latitude={@form[:latitude].value}
+                    longitude={@form[:longitude].value}
+                    locked={false}
                   />
+                  <p class="text-zinc-700 text-sm">
+                    Click on the map to set marker that will be displayed on event page.
+                  </p>
                 </div>
               </div>
             </div>
@@ -448,7 +454,7 @@ defmodule YscWeb.AdminEventsNewLive do
   @impl true
   def handle_event("add-agenda", _, socket) do
     Agendas.create_agenda(socket.assigns[:event], %{
-      title: "Untitled Agenda",
+      title: "Agenda",
       event_id: socket.assigns[:event].id
     })
 
@@ -499,13 +505,15 @@ defmodule YscWeb.AdminEventsNewLive do
     {:noreply, assign_form(socket, changeset)}
   end
 
-  def handle_event("map-new-marker", params, socket) do
-    send_update(YscWeb.Components.MapComponent,
-      id: "#{socket.assigns.event.id}-map",
-      event: params
-    )
+  def handle_event("map-new-marker", %{"lat" => latitude, "long" => longitude} = params, socket) do
+    changeset =
+      Event.changeset(socket.assigns[:event], %{latitude: latitude, longitude: longitude})
 
-    {:noreply, socket}
+    if changeset.valid? do
+      Events.update_event(socket.assigns[:event], %{latitude: latitude, longitude: longitude})
+    end
+
+    {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_info({:updated_event, data}, socket) do

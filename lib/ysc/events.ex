@@ -34,6 +34,7 @@ defmodule Ysc.Events do
 
   def list_events_paginated(params) do
     Event
+    |> where([e], e.state not in ["deleted"])
     |> join(:left, [p], u in assoc(p, :organizer), as: :organizer)
     |> preload([organizer: p], organizer: p)
     |> Flop.validate_and_run(params, for: Event)

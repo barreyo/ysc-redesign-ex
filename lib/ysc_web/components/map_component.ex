@@ -15,25 +15,20 @@ defmodule YscWeb.Components.MapComponent do
   end
 
   def mount(assigns, socket) do
-    {:ok, socket |> assign(:lat, -122.4304095624007) |> assign(:lon, 37.76665168141606)}
+    {:ok, socket |> assign(assigns)}
   end
 
   def update(assigns, socket) do
-    IO.inspect(assigns)
-    IO.inspect(socket.assigns)
-
     {:ok,
      socket
+     |> assign(:latitude, assigns[:latitude])
+     |> assign(:longitude, assigns[:longitude])
      |> Phoenix.LiveView.push_event("add_marker", %{
        reference: "dance",
-       lat: socket.assigns[:lat],
-       lon: socket.assigns[:lon]
+       lat: assigns[:latitude],
+       lon: assigns[:longitude],
+       locked: assigns[:locked]
      })
      |> Phoenix.LiveView.push_event("position", %{})}
-  end
-
-  def handle_event("map-new-marker", params, socket) do
-    IO.inspect(params)
-    {:noreply, socket}
   end
 end
