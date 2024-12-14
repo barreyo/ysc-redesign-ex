@@ -264,8 +264,6 @@ defmodule YscWeb.AdminMediaLive do
         {:ok, new_image}
       end)
 
-    IO.inspect(uploaded_files)
-
     updated_socket =
       Enum.reduce(uploaded_files, socket, fn x, acc ->
         acc |> stream_insert(:images, x, at: 0)

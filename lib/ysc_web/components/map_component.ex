@@ -14,10 +14,6 @@ defmodule YscWeb.Components.MapComponent do
     """
   end
 
-  def mount(assigns, socket) do
-    {:ok, socket |> assign(assigns)}
-  end
-
   def update(assigns, socket) do
     {:ok,
      socket

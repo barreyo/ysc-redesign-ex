@@ -162,7 +162,17 @@ defmodule YscWeb.AdminEventsNewLive do
           </div>
         </div>
 
-        <div :if={@live_action == :edit} class="relative pb-10">
+        <div :if={@live_action == :edit} class="relative py-8">
+          <div class="border max-w-3xl rounded border-zinc-200 py-6 px-4 space-y-4">
+            <h2 class="text-xl font-bold">Cover Image</h2>
+
+            <.live_component
+              id={"#{@event.id}-cover-image"}
+              module={YscWeb.Components.ImageUploadComponent}
+              event_id={@event.id}
+            />
+          </div>
+
           <.form
             for={@form}
             id="new_event_form"
@@ -503,6 +513,21 @@ defmodule YscWeb.AdminEventsNewLive do
   def handle_event("editor-update", %{"raw_body" => raw_body}, socket) do
     changeset = Event.changeset(socket.assigns[:event], %{"raw_details" => raw_body})
     {:noreply, assign_form(socket, changeset)}
+  end
+
+  def handle_event("save-upload", params, socket) do
+    IO.inspect(params)
+    {:noreply, socket}
+  end
+
+  def handle_event("validate-upload", params, socket) do
+    IO.inspect(params)
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel-upload", params, socket) do
+    IO.inspect(params)
+    {:noreply, socket}
   end
 
   def handle_event("map-new-marker", %{"lat" => latitude, "long" => longitude} = params, socket) do
