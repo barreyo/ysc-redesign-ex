@@ -219,7 +219,6 @@ defmodule YscWeb.AgendaEditComponent do
       ) do
     case params do
       %{"agenda_id" => old_agenda_id} ->
-        IO.inspect(params)
         agenda_item = Agendas.get_agenda_item!(id)
         Agendas.update_agenda_item_position(agenda_item.agenda.event_id, agenda_item, new_idx)
         {:noreply, socket}
@@ -248,8 +247,6 @@ defmodule YscWeb.AgendaEditComponent do
       agenda_item_or_changeset
       |> Agendas.change_agenda_item(params)
       |> Map.put(:action, action)
-
-    IO.inspect(changeset)
 
     to_form(changeset,
       as: "agenda_item",

@@ -38,4 +38,8 @@ defmodule Ysc.MessagePassingEvents do
   defmodule EventUpdated do
     defstruct event: nil
   end
+
+  defmodule EventDeleted do
+    defstruct event: nil
+  end
 end

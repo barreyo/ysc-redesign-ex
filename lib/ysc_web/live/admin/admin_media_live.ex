@@ -156,11 +156,16 @@ defmodule YscWeb.AdminMediaLive do
 
       <section>
         <.live_component
+          :if={@media_count > 0}
           module={GalleryComponent}
           id="admin-media-gallery"
           images={@streams.images}
           page={@page}
         />
+
+        <div :if={@media_count == 0} class="mx-auto py-10 text-center">
+          <p class="text-zinc-700">No images</p>
+        </div>
       </section>
     </.side_menu>
     """
@@ -170,9 +175,11 @@ defmodule YscWeb.AdminMediaLive do
     image = Media.fetch_image(id)
     image_uploader = Ysc.Accounts.get_user!(image.user_id)
     form = to_form(Media.Image.edit_image_changeset(image, %{}), as: "image")
+    media_count = Media.count_images()
 
     {:ok,
      socket
+     |> assign(:media_count, media_count)
      |> assign(form: form)
      |> assign(:active_image, image)
      |> assign(:image_uploader, image_uploader)
@@ -182,8 +189,11 @@ defmodule YscWeb.AdminMediaLive do
   end
 
   def mount(_params, _session, socket) do
+    media_count = Media.count_images()
+
     {:ok,
      socket
+     |> assign(:media_count, media_count)
      |> assign(:page_title, "Media")
      |> assign(:active_page, :media)
      |> assign(page: 1, per_page: 20)
@@ -326,4 +336,6 @@ defmodule YscWeb.AdminMediaLive do
   defp error_to_string(:too_large), do: "Too large"
   defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
   defp error_to_string(:too_many_files), do: "You have selected too many files"
+  defp error_to_string(:external_client_failure), do: "External client failure"
+  defp error_to_string(_), do: "An error occurred"
 end

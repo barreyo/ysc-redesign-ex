@@ -12,7 +12,7 @@ defmodule Ysc.Events do
   Fetch an event by its ID.
   """
   def get_event!(id) do
-    Repo.get!(Event, id) |> Repo.preload(:agendas)
+    Repo.get!(Event, id)
   end
 
   @doc """
@@ -78,7 +78,17 @@ defmodule Ysc.Events do
   Delete an event from the database.
   """
   def delete_event(%Event{} = event) do
-    Repo.delete(event)
+    event
+    |> Event.changeset(%{state: "deleted", published_at: nil})
+    |> Repo.update()
+    |> case do
+      {:ok, event} ->
+        broadcast(%Ysc.MessagePassingEvents.EventDeleted{event: event})
+        {:ok, event}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   @doc """

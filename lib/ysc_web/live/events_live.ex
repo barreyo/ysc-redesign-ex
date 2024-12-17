@@ -6,7 +6,7 @@ defmodule YscWeb.EventsLive do
   def render(assigns) do
     ~H"""
     <div class="py-6 lg:py-10">
-      <div class="max-w-screen-lg mx-auto flex flex-col px-4 space-y-4">
+      <div class="max-w-screen-lg mx-auto flex flex-col px-4 space-y-6">
         <div class="w-full">
           <h2 class="text-2xl font-semibold leading-8">Latest Events</h2>
           <p class="text-zinc-700 max-w-2xl">
@@ -14,13 +14,13 @@ defmodule YscWeb.EventsLive do
           </p>
         </div>
 
-        <div class="pb-4">
+        <div class="pb-10">
           <.button>
             <.icon name="hero-calendar" class="-mt-1 me-2" />Subscribe to Event Calendar
           </.button>
         </div>
 
-        <.live_component id="" module={YscWeb.EventsListLive} />
+        <.live_component id="event_list" module={YscWeb.EventsListLive} />
       </div>
     </div>
     """

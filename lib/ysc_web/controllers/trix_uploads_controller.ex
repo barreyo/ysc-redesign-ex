@@ -8,7 +8,6 @@ defmodule YscWeb.TrixUploadsController do
   @temp_dir "/tmp/image_processor"
 
   def create(conn, %{"post_id" => post_id} = params) do
-    IO.inspect(params)
     current_user = conn.assigns[:current_user]
     updated_image = upload_file(params, current_user)
 

@@ -44,7 +44,6 @@ defmodule YscWeb.AdminEventsLive do
                     options: [
                       {"Published", :published},
                       {"Draft", :draft},
-                      {"Deleted", :deleted},
                       {"Scheduled", :scheduled},
                       {"Cancelled", :cancelled}
                     ]

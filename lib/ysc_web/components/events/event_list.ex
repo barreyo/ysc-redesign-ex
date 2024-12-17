@@ -6,17 +6,16 @@ defmodule YscWeb.EventsListLive do
   def render(assigns) do
     ~H"""
     <div>
-      <div :if={@event_count > 0} class="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
+      <div :if={@event_count > 0} class="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
         <div :for={{id, event} <- @streams.events} class="flex flex-col rounded" id={id}>
           <.link
             navigate={~p"/events/#{event.id}"}
             class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
           >
-            <img
-              src="http://media.s3.localhost.localstack.cloud:4566/media/01JEXWXEN68RCWEEQT6CRVXX7A_optimized.png"
-              id={"image-#{event.id}"}
-              loading="lazy"
-              class="object-cover aspect-video rounded w-full object-center h-full max-h-[112rem]"
+            <.live_component
+              id={"event-cover-#{event.id}"}
+              module={YscWeb.Components.Image}
+              image_id={event.image_id}
             />
           </.link>
 
@@ -49,7 +48,7 @@ defmodule YscWeb.EventsListLive do
               </p>
             </div>
 
-            <p class="text-sm text-pretty text-zinc-600"><%= event.description %></p>
+            <p class="text-sm text-pretty text-zinc-600 py-1"><%= event.description %></p>
 
             <div class="flex flex-row space-x-2 pt-2 items-center">
               <p class="text-sm font-semibold text-zinc-800">From $100.00</p>

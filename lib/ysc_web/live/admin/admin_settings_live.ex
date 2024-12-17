@@ -85,8 +85,6 @@ defmodule YscWeb.AdminSettingsLive do
   end
 
   def handle_event("update-settings", %{"settings" => settings}, socket) do
-    IO.inspect(settings)
-
     for {k, v} <- settings do
       Settings.update_setting(k, Map.get(v, "value"))
     end

@@ -25,6 +25,14 @@ defmodule Ysc.Media do
     )
   end
 
+  @doc """
+  Count the number of published events.
+  """
+  def count_images do
+    Media.Image
+    |> Repo.aggregate(:count, :id)
+  end
+
   @spec list_images_per_year() :: any()
   def list_images_per_year() do
     {:ok, images} = list_images()
@@ -39,6 +47,10 @@ defmodule Ysc.Media do
   @spec fetch_image(any()) :: any()
   def fetch_image(id) do
     Repo.get(Media.Image, id)
+  end
+
+  def get_image!(id) do
+    Repo.get!(Media.Image, id)
   end
 
   def add_new_image(attrs, %User{} = current_user) do

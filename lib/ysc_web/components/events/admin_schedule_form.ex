@@ -52,8 +52,6 @@ defmodule YscWeb.AdminEventsLive.ScheduleEventForm do
   def handle_event("save", %{"event" => event_params}, socket) do
     # agenda = Agendas.get_agenda!(socket.assigns.agenda_id)
     # Agendas.update_agenda(socket.assigns.event_id, agenda, agenda_params)
-    IO.inspect(event_params)
-
     Events.schedule_event(socket.assigns.event, event_params["publish_at"])
 
     {:noreply,

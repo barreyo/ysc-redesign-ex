@@ -12,6 +12,10 @@ export default RadarMap = {
     });
 
     const setMarker = (lat, lon) => {
+      if (!lat || !lon) {
+        return;
+      }
+
       if (existingMarker) {
         existingMarker.remove();
       }
@@ -21,14 +25,15 @@ export default RadarMap = {
     };
 
     this.handleEvent("add_marker", ({ reference, lat, lon, locked }) => {
-      console.log(locked);
       locked = locked;
       setMarker(lat, lon);
     });
 
     // Hack to make the zoom work on render
     setTimeout(() => {
-      map.fitToMarkers({ maxZoom: 14, padding: 80 });
+      if (existingMarker) {
+        map.fitToMarkers({ maxZoom: 14, padding: 80 });
+      }
     }, 300);
 
     map.on("click", (e) => {

@@ -39,6 +39,12 @@ defmodule Ysc.Posts do
     )
   end
 
+  def count_published_posts() do
+    Post
+    |> where(state: :published)
+    |> Repo.aggregate(:count, :id)
+  end
+
   def list_posts(offset, limit) do
     Repo.all(
       from p in Post,
@@ -64,6 +70,7 @@ defmodule Ysc.Posts do
 
   def list_posts_paginated(params) do
     Post
+    |> where([p], p.state not in [:deleted])
     |> join(:left, [p], u in assoc(p, :author), as: :author)
     |> preload([author: p], author: p)
     |> Flop.validate_and_run(params, for: Post)

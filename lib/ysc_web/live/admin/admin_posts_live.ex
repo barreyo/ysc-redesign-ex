@@ -68,8 +68,7 @@ defmodule YscWeb.AdminPostsLive do
                     op: :in,
                     options: [
                       {"Published", :published},
-                      {"Draft", :draft},
-                      {"Deleted", :deleted}
+                      {"Draft", :draft}
                     ]
                   ],
                   user_id: [
@@ -132,6 +131,10 @@ defmodule YscWeb.AdminPostsLive do
             <.badge :if={post.published_on == nil} type={post_state_to_badge_style(post.state)}>
               <%= String.capitalize("#{post.state}") %>
             </.badge>
+          </:col>
+
+          <:col :let={{_, post}} label="Created" field={:inserted_at}>
+            <%= Timex.format!(post.inserted_at, "{Mshort} {D}, {YYYY}") %>
           </:col>
 
           <:action :let={{_, post}} label="Action">

@@ -89,9 +89,11 @@ defmodule YscWeb.Components.ImageUploadComponent do
     """
   end
 
-  def mount(socket) do
+  @impl true
+  def update(assigns, socket) do
     {:ok,
      socket
+     |> assign(assigns)
      |> assign(:uploaded_files, [])
      |> allow_upload(:media_uploads,
        accept: ~w(.jpg .jpeg .png .gif .webp),
@@ -101,26 +103,17 @@ defmodule YscWeb.Components.ImageUploadComponent do
      )}
   end
 
-  def update(_assigns, socket) do
-    {:ok,
-     socket
-     |> assign(:uploaded_files, [])
-     |> allow_upload(:media_uploads,
-       accept: ~w(.jpg .jpeg .png .gif .webp),
-       max_entries: 1,
-       external: &presign_upload/2,
-       auto_upload: true
-     )}
-  end
-
+  @impl true
   def handle_event("validate-upload", _params, socket) do
     {:noreply, socket}
   end
 
+  @impl true
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :media_uploads, ref)}
   end
 
+  @impl true
   def handle_event("save-upload", _params, socket) do
     uploader = socket.assigns[:current_user]
 
@@ -183,4 +176,9 @@ defmodule YscWeb.Components.ImageUploadComponent do
   defp error_to_string(:too_large), do: "Too large"
   defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
   defp error_to_string(:too_many_files), do: "You have selected too many files"
+
+  defp hoist_upload(socket, upload_path) do
+    send(self(), {__MODULE__, socket.assigns.id, upload_path})
+    :ok
+  end
 end

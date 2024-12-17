@@ -69,6 +69,7 @@ defmodule YscWeb.NewsLive do
         </div>
 
         <div
+          :if={@post_count > 0}
           id="news-grid"
           class="grid grid-cols-1 lg:grid-cols-2 py-4 gap-8"
           phx-update="stream"
@@ -141,9 +142,11 @@ defmodule YscWeb.NewsLive do
 
   def mount(_params, _session, socket) do
     featured_post = Posts.get_featured_post()
+    post_count = Posts.count_published_posts()
 
     {:ok,
      socket
+     |> assign(:post_count, post_count)
      |> assign(:page_title, "News")
      |> assign(:featured, featured_post)
      |> assign(page: 1, per_page: 10)

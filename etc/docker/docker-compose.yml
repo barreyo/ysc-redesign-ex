@@ -21,7 +21,7 @@ services:
       - pgadmin-data:/var/lib/pgadmin
 
   localstack:
-    image: localstack/localstack:s3-latest
+    image: localstack/localstack:3.8.1
     ports:
       - "127.0.0.1:4566:4566"
     environment:

@@ -165,12 +165,14 @@ defmodule YscWeb.AdminEventsNewLive do
         <div :if={@live_action == :edit} class="relative py-8">
           <div class="border max-w-3xl rounded border-zinc-200 py-6 px-4 space-y-4">
             <h2 class="text-xl font-bold">Cover Image</h2>
-
-            <.live_component
-              id={"#{@event.id}-cover-image"}
-              module={YscWeb.Components.ImageUploadComponent}
-              event_id={@event.id}
-            />
+            <div :if={@form[:image_id].value != nil && @form[:image_id].value != ""}>
+              <.live_component
+                id="cover-preview"
+                module={YscWeb.Components.Image}
+                image_id={@form[:image_id].value}
+              />
+            </div>
+            <.live_component module={YscWeb.UploadComponent} id={:file} user_id={@current_user.id} />
           </div>
 
           <.form
@@ -183,6 +185,7 @@ defmodule YscWeb.AdminEventsNewLive do
             class="space-y-6 max-w-3xl"
           >
             <.input type="hidden" field={@form[:organizer_id]} value={@current_user.id} />
+            <.input type="hidden" field={@form[:image_id]} />
 
             <div class="border rounded border-zinc-200 py-6 px-4 space-y-4">
               <div>
@@ -256,7 +259,7 @@ defmodule YscWeb.AdminEventsNewLive do
                     locked={false}
                   />
                   <p class="text-zinc-700 text-sm">
-                    Click on the map to set marker that will be displayed on event page.
+                    Click on the map to set marker to set or move the marker to set the location.
                   </p>
                 </div>
               </div>
@@ -380,7 +383,12 @@ defmodule YscWeb.AdminEventsNewLive do
      |> assign(:end_time, event.end_time)
      |> assign(trigger_submit: false, check_errors: false)
      |> stream(:agendas, agendas)
-     |> assign(form: to_form(event_changeset, as: "event"))}
+     |> assign(form: to_form(event_changeset, as: "event"))
+     |> allow_upload(:file,
+       accept: ~w(.jpg .jpeg .png .gif .webp),
+       max_entries: 1,
+       auto_upload: true
+     )}
   end
 
   def mount(params, _session, socket) do
@@ -434,6 +442,12 @@ defmodule YscWeb.AdminEventsNewLive do
   def handle_info({Ysc.Agendas, %_event{agenda_item: agenda_item} = event}, socket) do
     send_update(YscWeb.AgendaEditComponent, id: agenda_item.agenda_id, event: event)
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("delete-event", _, socket) do
+    Events.delete_event(socket.assigns.event)
+    {:noreply, socket |> put_flash(:info, "Event deleted.") |> push_redirect(to: "/admin/events")}
   end
 
   @impl true
@@ -515,21 +529,6 @@ defmodule YscWeb.AdminEventsNewLive do
     {:noreply, assign_form(socket, changeset)}
   end
 
-  def handle_event("save-upload", params, socket) do
-    IO.inspect(params)
-    {:noreply, socket}
-  end
-
-  def handle_event("validate-upload", params, socket) do
-    IO.inspect(params)
-    {:noreply, socket}
-  end
-
-  def handle_event("cancel-upload", params, socket) do
-    IO.inspect(params)
-    {:noreply, socket}
-  end
-
   def handle_event("map-new-marker", %{"lat" => latitude, "long" => longitude} = params, socket) do
     changeset =
       Event.changeset(socket.assigns[:event], %{latitude: latitude, longitude: longitude})
@@ -545,6 +544,16 @@ defmodule YscWeb.AdminEventsNewLive do
     # Handle the message and update the socket as needed
     # For example, you might want to update the event changeset
     {:noreply, assign(socket, start_date: data[:start_date], end_date: data[:end_date])}
+  end
+
+  def handle_info({YscWeb.UploadComponent, :file, file_id}, socket) do
+    changeset = Event.changeset(socket.assigns[:event], %{image_id: file_id})
+
+    if changeset.valid? do
+      Events.update_event(socket.assigns[:event], %{image_id: file_id})
+    end
+
+    {:noreply, socket |> assign_form(changeset)}
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
@@ -590,4 +599,32 @@ defmodule YscWeb.AdminEventsNewLive do
 
   defp schedule_button_text(:scheduled), do: "Scheduled"
   defp schedule_button_text(_), do: "Schedule"
+
+  defp presign_upload(entry, socket) do
+    uploads = socket.assigns.uploads
+    key = "public/#{entry.client_name}"
+
+    config = %{
+      region: "us-west-1",
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
+    }
+
+    {:ok, fields} =
+      SimpleS3Upload.sign_form_upload(config, @s3_bucket,
+        key: key,
+        content_type: entry.client_type,
+        max_file_size: uploads[entry.upload_config].max_file_size,
+        expires_in: :timer.hours(1)
+      )
+
+    meta = %{
+      uploader: "S3",
+      key: key,
+      url: "http://media.s3.localhost.localstack.cloud:4566",
+      fields: fields
+    }
+
+    {:ok, meta, socket}
+  end
 end
