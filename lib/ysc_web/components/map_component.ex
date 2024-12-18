@@ -19,8 +19,7 @@ defmodule YscWeb.Components.MapComponent do
      socket
      |> assign(:latitude, assigns[:latitude])
      |> assign(:longitude, assigns[:longitude])
-     |> Phoenix.LiveView.push_event("add_marker", %{
-       reference: "dance",
+     |> Phoenix.LiveView.push_event("add-marker", %{
        lat: assigns[:latitude],
        lon: assigns[:longitude],
        locked: assigns[:locked]

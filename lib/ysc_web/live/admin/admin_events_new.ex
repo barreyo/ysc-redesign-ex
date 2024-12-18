@@ -134,7 +134,7 @@ defmodule YscWeb.AdminEventsNewLive do
             <ul class="flex flex-wrap -mb-px">
               <li class="me-2">
                 <.link
-                  navigate={~p"/admin/events/new"}
+                  navigate={~p"/admin/events/#{@event.id}/edit"}
                   class={[
                     "inline-block p-4 border-b-2 rounded-t-lg",
                     @live_action == :edit && "text-blue-600 border-blue-600 active",
@@ -147,7 +147,7 @@ defmodule YscWeb.AdminEventsNewLive do
               </li>
               <li class="me-2">
                 <.link
-                  navigate={~p"/admin/events/new/tickets"}
+                  navigate={~p"/admin/events/#{@event.id}/tickets"}
                   class={[
                     "inline-block p-4 border-b-2 rounded-t-lg",
                     @live_action == :tickets && "text-blue-600 border-blue-600 active",

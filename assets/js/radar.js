@@ -1,3 +1,5 @@
+let locked = false;
+
 export default RadarMap = {
   mounted() {
     window.Radar.initialize(
@@ -5,7 +7,6 @@ export default RadarMap = {
     );
 
     let existingMarker = undefined;
-    let locked = false;
     const elementID = this.el.getAttribute("id");
     const map = Radar.ui.map({
       container: elementID,
@@ -24,8 +25,8 @@ export default RadarMap = {
       map.fitToMarkers({ maxZoom: 14, padding: 80 });
     };
 
-    this.handleEvent("add_marker", ({ reference, lat, lon, locked }) => {
-      locked = locked;
+    this.handleEvent("add-marker", ({ lat, lon, is_locked }) => {
+      locked = is_locked;
       setMarker(lat, lon);
     });
 
