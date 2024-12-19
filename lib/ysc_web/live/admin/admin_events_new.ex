@@ -1,18 +1,13 @@
 defmodule YscWeb.AdminEventsNewLive do
   use YscWeb, :live_view
 
-  alias HtmlSanitizeEx.Scrubber
-
   alias Ysc.Events.Event
   alias Ysc.Events
 
   alias Ysc.Events.Agenda
-  alias Ysc.Events.AgendaItem
   alias Ysc.Agendas
 
-  @save_debounce_timeout 2000
-  @s3_bucket "media"
-
+  @impl true
   def render(assigns) do
     ~H"""
     <.side_menu
@@ -165,14 +160,28 @@ defmodule YscWeb.AdminEventsNewLive do
         <div :if={@live_action == :edit} class="relative py-8">
           <div class="border max-w-3xl rounded border-zinc-200 py-6 px-4 space-y-4">
             <h2 class="text-xl font-bold">Cover Image</h2>
+
             <div :if={@form[:image_id].value != nil && @form[:image_id].value != ""}>
-              <.live_component
-                id="cover-preview"
-                module={YscWeb.Components.Image}
-                image_id={@form[:image_id].value}
-              />
+              <button class="group relative" phx-click="clear-cover-image">
+                <div class="absolute flex items-center justify-center opacity-0 w-full h-full z-10 m-auto left-0 right-0 group-hover:opacity-100 transition duration-200 ease-in-out">
+                  <.icon name="hero-x-circle" class="w-20 h-20 text-red-500 fill-red-500" />
+                </div>
+                <div class="w-full h-full group-hover:opacity-50 transition duration-200 ease-in-out">
+                  <.live_component
+                    id="cover-preview"
+                    module={YscWeb.Components.Image}
+                    image_id={@form[:image_id].value}
+                  />
+                </div>
+              </button>
             </div>
-            <.live_component module={YscWeb.UploadComponent} id={:file} user_id={@current_user.id} />
+
+            <.live_component
+              :if={@form[:image_id].value == nil || @form[:image_id].value == ""}
+              module={YscWeb.UploadComponent}
+              id={:file}
+              user_id={@current_user.id}
+            />
           </div>
 
           <.form
@@ -278,6 +287,7 @@ defmodule YscWeb.AdminEventsNewLive do
                   type="hidden"
                   id="post[raw_body]"
                   field={@form[:raw_details]}
+                  data-post-id={@event.id}
                   post-id={@event.id}
                   phx-hook="TrixHook"
                   phx-debounce={200}
@@ -391,7 +401,8 @@ defmodule YscWeb.AdminEventsNewLive do
      )}
   end
 
-  def mount(params, _session, socket) do
+  @impl true
+  def mount(_params, _session, socket) do
     {:ok, inserted_event} =
       Events.create_event(%{
         title: "New Event",
@@ -403,51 +414,10 @@ defmodule YscWeb.AdminEventsNewLive do
     {:ok, push_navigate(socket, to: "/admin/events/#{inserted_event.id}/edit")}
   end
 
-  def handle_info(
-        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaAdded{agenda: agenda} = event},
-        socket
-      ) do
-    {:noreply,
-     socket
-     |> stream_insert(:agendas, agenda)}
-  end
-
-  def handle_info(
-        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaUpdated{agenda: agenda} = event},
-        socket
-      ) do
-    {:noreply,
-     socket
-     |> stream_insert(:agendas, agenda)}
-  end
-
-  def handle_info(
-        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaDeleted{agenda: agenda} = event},
-        socket
-      ) do
-    {:noreply,
-     socket
-     |> stream_delete(:agendas, agenda)}
-  end
-
-  def handle_info(
-        {YscWeb.Agendas, %Ysc.MessagePassingEvents.AgendaRepositioned{agenda: agenda} = event},
-        socket
-      ) do
-    {:noreply,
-     socket
-     |> stream_insert(:agendas, agenda, at: agenda.position)}
-  end
-
-  def handle_info({Ysc.Agendas, %_event{agenda_item: agenda_item} = event}, socket) do
-    send_update(YscWeb.AgendaEditComponent, id: agenda_item.agenda_id, event: event)
-    {:noreply, socket}
-  end
-
   @impl true
   def handle_event("delete-event", _, socket) do
     Events.delete_event(socket.assigns.event)
-    {:noreply, socket |> put_flash(:info, "Event deleted.") |> push_redirect(to: "/admin/events")}
+    {:noreply, socket |> put_flash(:info, "Event deleted.") |> push_navigate(to: "/admin/events")}
   end
 
   @impl true
@@ -455,7 +425,14 @@ defmodule YscWeb.AdminEventsNewLive do
     Events.publish_event(socket.assigns.event)
 
     {:noreply,
-     socket |> put_flash(:info, "Event published.") |> push_redirect(to: "/admin/events")}
+     socket |> put_flash(:info, "Event published.") |> push_navigate(to: "/admin/events")}
+  end
+
+  @impl true
+  def handle_event("clear-cover-image", _, socket) do
+    {:ok, event} = Events.update_event(socket.assigns.event, %{image_id: nil})
+    event_changeset = Event.changeset(event, %{"image_id" => nil})
+    {:noreply, assign_form(socket, event_changeset)}
   end
 
   @impl true
@@ -465,7 +442,7 @@ defmodule YscWeb.AdminEventsNewLive do
     {:noreply,
      socket
      |> put_flash(:info, "Event moved back to draft.")
-     |> push_redirect(to: "/admin/events/#{socket.assigns.event.id}/new")}
+     |> push_navigate(to: "/admin/events/#{socket.assigns.event.id}/new")}
   end
 
   @impl true
@@ -498,7 +475,7 @@ defmodule YscWeb.AdminEventsNewLive do
 
     case Events.create_event(event_changeset) do
       {:ok, event} ->
-        {:noreply, redirect(socket, to: Routes.admin_event_path(socket, :show, event.id))}
+        {:noreply, redirect(socket, to: "/admin/events/#{event.id}/edit")}
 
       {:error, changeset} ->
         {:noreply, assign_form(socket, changeset)}
@@ -529,7 +506,7 @@ defmodule YscWeb.AdminEventsNewLive do
     {:noreply, assign_form(socket, changeset)}
   end
 
-  def handle_event("map-new-marker", %{"lat" => latitude, "long" => longitude} = params, socket) do
+  def handle_event("map-new-marker", %{"lat" => latitude, "long" => longitude}, socket) do
     changeset =
       Event.changeset(socket.assigns[:event], %{latitude: latitude, longitude: longitude})
 
@@ -540,12 +517,60 @@ defmodule YscWeb.AdminEventsNewLive do
     {:noreply, assign_form(socket, changeset)}
   end
 
+  @impl true
+  def handle_info(
+        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaAdded{agenda: agenda}},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> stream_insert(:agendas, agenda)}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaUpdated{agenda: agenda}},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> stream_insert(:agendas, agenda)}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaDeleted{agenda: agenda}},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> stream_delete(:agendas, agenda)}
+  end
+
+  @impl true
+  def handle_info(
+        {YscWeb.Agendas, %Ysc.MessagePassingEvents.AgendaRepositioned{agenda: agenda}},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> stream_insert(:agendas, agenda, at: agenda.position)}
+  end
+
+  @impl true
+  def handle_info({Ysc.Agendas, %_event{agenda_item: agenda_item} = event}, socket) do
+    send_update(YscWeb.AgendaEditComponent, id: agenda_item.agenda_id, event: event)
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_info({:updated_event, data}, socket) do
     # Handle the message and update the socket as needed
     # For example, you might want to update the event changeset
     {:noreply, assign(socket, start_date: data[:start_date], end_date: data[:end_date])}
   end
 
+  @impl true
   def handle_info({YscWeb.UploadComponent, :file, file_id}, socket) do
     changeset = Event.changeset(socket.assigns[:event], %{image_id: file_id})
 
@@ -599,32 +624,4 @@ defmodule YscWeb.AdminEventsNewLive do
 
   defp schedule_button_text(:scheduled), do: "Scheduled"
   defp schedule_button_text(_), do: "Schedule"
-
-  defp presign_upload(entry, socket) do
-    uploads = socket.assigns.uploads
-    key = "public/#{entry.client_name}"
-
-    config = %{
-      region: "us-west-1",
-      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
-      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
-    }
-
-    {:ok, fields} =
-      SimpleS3Upload.sign_form_upload(config, @s3_bucket,
-        key: key,
-        content_type: entry.client_type,
-        max_file_size: uploads[entry.upload_config].max_file_size,
-        expires_in: :timer.hours(1)
-      )
-
-    meta = %{
-      uploader: "S3",
-      key: key,
-      url: "http://media.s3.localhost.localstack.cloud:4566",
-      fields: fields
-    }
-
-    {:ok, meta, socket}
-  end
 end

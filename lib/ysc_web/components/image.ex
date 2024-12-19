@@ -6,24 +6,22 @@ defmodule YscWeb.Components.Image do
 
   def render(assigns) do
     ~H"""
-    <div>
-      <div class="relative">
-        <canvas
-          id={"blur-hash-image-#{@id}"}
-          src={get_blur_hash(@image)}
-          class="absolute left-0 top-0 rounded-lg w-full h-full object-center aspect-video"
-          phx-hook="BlurHashCanvas"
-        >
-        </canvas>
+    <div class="relative w-full h-full">
+      <canvas
+        id={"blur-hash-image-#{@id}"}
+        src={get_blur_hash(@image)}
+        class="absolute left-0 top-0 rounded-lg w-full h-full object-center aspect-video"
+        phx-hook="BlurHashCanvas"
+      >
+      </canvas>
 
-        <img
-          src={image_url(@image)}
-          id={"image-#{@id}"}
-          loading="lazy"
-          phx-hook="BlurHashImage"
-          class="object-cover rounded-lg w-full object-center aspect-video"
-        />
-      </div>
+      <img
+        src={image_url(@image)}
+        id={"image-#{@id}"}
+        loading="lazy"
+        phx-hook="BlurHashImage"
+        class="object-cover rounded-lg w-full object-center aspect-video"
+      />
     </div>
     """
   end

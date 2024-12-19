@@ -9,7 +9,6 @@ defmodule YscWeb.AdminEventsLive.ScheduleEventForm do
     ~H"""
     <div id={"schedule-drop-#{@event_id}"}>
       <.form
-        :let={f}
         for={@form}
         as={nil}
         id={"schedule_form-#{@event_id}"}
@@ -44,7 +43,7 @@ defmodule YscWeb.AdminEventsLive.ScheduleEventForm do
   end
 
   @impl true
-  def handle_event("validate", %{"event" => event_params}, socket) do
+  def handle_event("validate", %{"event" => _event_params}, socket) do
     {:noreply, socket}
   end
 
@@ -57,7 +56,7 @@ defmodule YscWeb.AdminEventsLive.ScheduleEventForm do
     {:noreply,
      socket
      |> put_flash(:info, "Event scheduled successfully")
-     |> push_redirect(to: ~p"/admin/events/#{socket.assigns.event.id}/edit")}
+     |> push_navigate(to: ~p"/admin/events/#{socket.assigns.event.id}/edit")}
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
