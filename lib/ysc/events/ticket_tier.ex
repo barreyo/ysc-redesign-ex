@@ -24,6 +24,8 @@ defmodule Ysc.Events.TicketTier do
 
     belongs_to :event, Ysc.Events.Event, foreign_key: :event_id, references: :id
 
+    field :lock_version, :integer, default: 1
+
     timestamps()
   end
 end

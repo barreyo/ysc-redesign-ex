@@ -38,3 +38,10 @@ config :logger, level: :warning
 config :phoenix, :plug_init_mode, :runtime
 
 config :ysc, Oban, testing: :inline
+
+config :ysc, Ysc.Repo,
+  pool: Ecto.Adapters.SQL.Sandbox,
+  # Increase for load tests
+  pool_size: 20
+
+config :ysc, sql_sandbox_timeout: 30_000

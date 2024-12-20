@@ -1,5 +1,6 @@
 defmodule Ysc.Events.Event do
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Ysc.ReferenceGenerator
@@ -97,6 +98,8 @@ defmodule Ysc.Events.Event do
     has_many :faq_questions, Ysc.Events.FaqQuestion, on_replace: :delete
     has_many :agendas, Ysc.Events.Agenda, on_replace: :delete
     has_many :ticket_tiers, Ysc.Events.TicketTier, on_replace: :delete
+
+    field :lock_version, :integer, default: 1
 
     timestamps()
   end

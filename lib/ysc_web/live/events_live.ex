@@ -1,8 +1,6 @@
 defmodule YscWeb.EventsLive do
   use YscWeb, :live_view
 
-  alias Ysc.Events
-
   def render(assigns) do
     ~H"""
     <div class="py-6 lg:py-10">

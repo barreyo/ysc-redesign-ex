@@ -18,12 +18,13 @@ GIT_HASH  		 = $(shell git rev-parse --verify HEAD)
 export AWS_ACCESS_KEY_ID="fake"
 export AWS_SECRET_ACCESS_KEY="secret"
 
-dev:
+dev:  ## Start the local dev server
 	@mix phx.server
 
 dev-setup:  ## Set up local dev environment
 	@mix deps.get
 	@docker-compose -f $(DOCKER_COMPOSE_FILE) up -d
+	PGPASSWORD="postgres" DBNAME="ysc_dev" ./etc/scripts/_wait_db_connection.sh
 	@ if [ "$($(reset-db))" = "true" ]; then $(MAKE) reset-db; fi
 	$(MAKE) setup-dev-db
 	@awslocal s3api create-bucket --bucket media || true
@@ -39,6 +40,11 @@ setup-dev-db:  ## Create, migrate and seed the local dev database
 	@mix ecto.create
 	@mix ecto.migrate
 	@mix run priv/repo/seeds.exs || true
+
+test:  ## Run the test suite
+	@mix test
+
+tests: test
 
 clean-compose:
 	@docker-compose -f $(DOCKER_COMPOSE_FILE) down -v --remove-orphans

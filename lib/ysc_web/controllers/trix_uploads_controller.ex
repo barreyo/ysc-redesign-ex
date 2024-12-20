@@ -4,7 +4,6 @@ defmodule YscWeb.TrixUploadsController do
   alias Ysc.Media
   use YscWeb, :controller
 
-  @bucket_name "media"
   @temp_dir "/tmp/image_processor"
 
   def create(conn, %{"post_id" => post_id} = params) do

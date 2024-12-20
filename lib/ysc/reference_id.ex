@@ -7,7 +7,6 @@ defmodule Ysc.ReferenceGenerator do
   """
 
   @prefixes ~w(PMT TKT BKG DON)
-  @random_part_length 4
 
   @charset Enum.concat(?A..?Z, ?0..?9)
            |> List.delete(?O)

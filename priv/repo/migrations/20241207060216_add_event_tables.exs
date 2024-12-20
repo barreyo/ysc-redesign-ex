@@ -34,6 +34,8 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
       add :longitude, :float, null: true
       add :place_id, :string, null: true
 
+      add :lock_version, :integer, default: 1
+
       timestamps()
     end
 
@@ -98,6 +100,8 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
       add :end_date, :utc_datetime, null: true
 
       add :event_id, references(:events, column: :id, type: :binary_id, on_delete: :nothing)
+
+      add :lock_version, :integer, default: 1
 
       timestamps()
     end
