@@ -36,6 +36,9 @@ defmodule YscWeb.Router do
 
     get "/", PageController, :home
 
+    get "/up", UpController, :index
+    get "/up/dbs", UpController, :databases
+
     live_session :mount_site_settings,
       on_mount: [
         {YscWeb.UserAuth, :mount_current_user},

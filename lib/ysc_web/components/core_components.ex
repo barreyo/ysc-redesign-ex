@@ -20,6 +20,8 @@ defmodule YscWeb.CoreComponents do
   alias Phoenix.LiveView.JS
   import YscWeb.Gettext
 
+  alias Ysc.Events.Event
+
   @doc """
   Renders a modal.
 
@@ -1311,6 +1313,24 @@ defmodule YscWeb.CoreComponents do
     </div>
     """
   end
+
+  attr :event, :any, required: true
+
+  def event_badge(assigns) do
+    assigns = assign(assigns, :event, assigns.event)
+
+    ~H"""
+    <.badge :if={event_badge_style(@event) != nil} class="text-xs font-medium">
+      <%= event_badge_text(@event) %>
+    </.badge>
+    """
+  end
+
+  defp event_badge_style(%Event{state: :cancelled}), do: "dark"
+  defp event_badge_style(_), do: nil
+
+  defp event_badge_text(%Event{state: :cancelled}), do: "Cancelled"
+  defp event_badge_text(_), do: nil
 
   attr :active_step, :integer, required: true
   attr :steps, :list, default: []

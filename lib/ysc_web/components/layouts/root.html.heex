@@ -262,7 +262,7 @@
         <%= @inner_content %>
       </main>
 
-      <footer :if={!fullscreen?(@conn)} class="bg-white border-t border-zinc-100 w-full mt-auto pb-4">
+      <footer :if={!fullscreen?(@conn)} class="bg-white border-t border-zinc-100 w-full mt-auto">
         <div class="max-w-screen-lg p-4 py-6 mx-auto lg:py-8">
           <div class="lg:flex lg:justify-between">
             <div class="mb-6 lg:mb-0">
@@ -339,7 +339,7 @@
             </div>
           </div>
           <div class="sm:flex sm:items-center sm:justify-between">
-            <span class="text-sm text-zinc-800 sm:text-center">
+            <span class="text-sm text-zinc-600 sm:text-center">
               © <%= DateTime.utc_now().year %> <.link href={~p"/"} class="hover:underline">The Young Scandinavians Club</.link>. All Rights Reserved.
             </span>
             <span class="text-sm text-zinc-500 sm:text-center">

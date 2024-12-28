@@ -1,5 +1,4 @@
 alias Ysc.Repo
-alias Ysc.Accounts.User
 alias Ysc.SiteSettings.SiteSetting
 
 Repo.insert!(

@@ -7,7 +7,11 @@ defmodule YscWeb.EventsListLive do
     ~H"""
     <div>
       <div :if={@event_count > 0} class="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
-        <div :for={{id, event} <- @streams.events} class="flex flex-col rounded" id={id}>
+        <div
+          :for={{id, event} <- @streams.events}
+          class={["flex flex-col rounded", event.state == :cancelled && "opacity-75"]}
+          id={id}
+        >
           <.link
             navigate={~p"/events/#{event.id}"}
             class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
@@ -21,7 +25,7 @@ defmodule YscWeb.EventsListLive do
 
           <div class="flex flex-col py-3 px-2 space-y-2">
             <div>
-              <.badge type="red">Sold Out</.badge>
+              <.event_badge event={event} />
             </div>
 
             <.link
@@ -50,7 +54,7 @@ defmodule YscWeb.EventsListLive do
 
             <p class="text-sm text-pretty text-zinc-600 py-1"><%= event.description %></p>
 
-            <div class="flex flex-row space-x-2 pt-2 items-center">
+            <div :if={event.state != :cancelled} class="flex flex-row space-x-2 pt-2 items-center">
               <p class="text-sm font-semibold text-zinc-800">From $100.00</p>
               <.badge type="green">Limited 20% off</.badge>
             </div>

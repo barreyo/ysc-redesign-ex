@@ -27,8 +27,6 @@ defmodule YscWeb.Components.Image do
   end
 
   def update(assigns, socket) do
-    IO.inspect(assigns)
-
     if assigns.image_id == nil || assigns.image_id == "" do
       {:ok, socket |> assign(assigns) |> assign(image: nil)}
     else

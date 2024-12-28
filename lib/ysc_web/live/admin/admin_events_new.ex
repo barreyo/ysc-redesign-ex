@@ -364,6 +364,12 @@ defmodule YscWeb.AdminEventsNewLive do
 
         <div :if={@live_action == :tickets}>
           <p>tickets</p>
+
+          <.live_component
+            id={@event.id}
+            module={YscWeb.AdminEventsLive.TicketTierForm}
+            event_id={@event.id}
+          />
         </div>
       </div>
     </.side_menu>
@@ -373,6 +379,7 @@ defmodule YscWeb.AdminEventsNewLive do
   def mount(%{"id" => id} = _params, _session, socket) do
     if connected?(socket) do
       Agendas.subscribe(id)
+      Events.subscribe()
     end
 
     event = Events.get_event!(id)
@@ -564,10 +571,28 @@ defmodule YscWeb.AdminEventsNewLive do
   end
 
   @impl true
+  def handle_info({Ysc.Events, %Ysc.MessagePassingEvents.EventUpdated{event: event}}, socket) do
+    if event.id == socket.assigns[:event].id do
+      changeset = Event.changeset(event, %{})
+      {:noreply, socket |> assign(event: event) |> assign_form(changeset)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
   def handle_info({:updated_event, data}, socket) do
     # Handle the message and update the socket as needed
     # For example, you might want to update the event changeset
-    {:noreply, assign(socket, start_date: data[:start_date], end_date: data[:end_date])}
+    changeset = Event.changeset(socket.assigns[:event], data)
+
+    if changeset.valid? do
+      Events.update_event(socket.assigns[:event], data)
+    end
+
+    {:noreply,
+     assign(socket, start_date: data[:start_date], end_date: data[:end_date])
+     |> assign_form(changeset)}
   end
 
   @impl true

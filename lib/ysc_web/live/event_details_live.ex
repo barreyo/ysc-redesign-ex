@@ -252,9 +252,17 @@ defmodule YscWeb.EventDetailsLive do
             </div>
           </div>
 
-          <div class="fixed md:shadow-md bottom-0 w-full md:w-1/3 md:sticky bg-white rounded border border-zinc-300 h-32 md:top-24 right-0 px-4 py-3 z-40 flex text-center flex flex-col justify-center space-y-4">
+          <div class="fixed md:shadow-md bottom-0 w-full md:w-1/3 md:sticky bg-white rounded border border-zinc-200 h-32 md:h-36 md:top-24 right-0 px-4 py-3 z-40 flex text-center flex flex-col justify-center space-y-4">
             <p class="font-semibold text-lg">From $100.00</p>
-            <.button class="w-full">
+            <div :if={@current_user == nil} class="w-full">
+              <p class="text-sm text-red-600 px-2 py-1 bg-red-100 rounded mb-2 border border-red-300">
+                <.icon name="hero-exclamation-circle" class="me-1 -mt-0.5" />Only members can access tickets
+              </p>
+              <.button :if={@current_user == nil} class="w-full" phx-click="login-redirect">
+                <.icon name="hero-lock-open" class="me-2 -mt-0.5" />Sign in
+              </.button>
+            </div>
+            <.button :if={@current_user != nil} class="w-full">
               <.icon name="hero-ticket" class="me-2 -mt-0.5" />Get Tickets
             </.button>
           </div>
@@ -291,6 +299,10 @@ defmodule YscWeb.EventDetailsLive do
        locked: true
      })
      |> Phoenix.LiveView.push_event("position", %{})}
+  end
+
+  def handle_event("login-redirect", _params, socket) do
+    {:noreply, socket |> redirect(to: ~p"/users/log_in")}
   end
 
   def format_start_date(date) do
