@@ -177,6 +177,22 @@ defmodule YscWeb.UserAuth do
     end
   end
 
+  def on_mount(:ensure_active, _params, session, socket) do
+    socket = mount_current_user(socket, session)
+    user = socket.assigns.current_user
+
+    if user && user.state == :active do
+      {:cont, socket}
+    else
+      socket =
+        socket
+        |> Phoenix.LiveView.put_flash(:error, "Your account is not active")
+        |> Phoenix.LiveView.redirect(to: ~p"/pending_review")
+
+      {:halt, socket}
+    end
+  end
+
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     socket = mount_current_user(socket, session)
 
@@ -250,6 +266,19 @@ defmodule YscWeb.UserAuth do
       |> put_flash(:error, "You do not have permission to access this page.")
       |> maybe_store_return_to()
       |> redirect(to: ~p"/")
+      |> halt()
+    end
+  end
+
+  def require_approved(conn, _opts) do
+    user = conn.assigns[:current_user]
+
+    if user.state == :active do
+      conn
+    else
+      conn
+      |> put_flash(:error, "Your account has not been approved yet")
+      |> redirect(to: ~p"/pending_review")
       |> halt()
     end
   end

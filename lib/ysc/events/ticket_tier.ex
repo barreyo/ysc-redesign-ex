@@ -39,8 +39,8 @@ defmodule Ysc.Events.TicketTier do
       :name,
       :description,
       :type,
-      :price,
       :quantity,
+      :price,
       :requires_registration,
       :start_date,
       :end_date,
@@ -50,14 +50,37 @@ defmodule Ysc.Events.TicketTier do
     |> validate_required([
       :name,
       :type,
-      :price,
       :quantity,
+      :price,
       :event_id
     ])
     |> validate_number(:quantity, greater_than_or_equal_to: 0)
     |> validate_datetime_order()
+    |> validate_money(:price)
     |> optimistic_lock(:lock_version)
     |> foreign_key_constraint(:event_id)
+  end
+
+  # Custom validation for money field
+  defp validate_money(changeset, field) do
+    validate_change(changeset, field, fn _field, value ->
+      case value do
+        %Money{currency: :USD} = money when money.amount >= 0 ->
+          []
+
+        %Money{currency: currency} when currency != :USD ->
+          [{field, "must be in USD"}]
+
+        %Money{amount: amount} when amount < 0 ->
+          [{field, "must be greater than or equal to 0"}]
+
+        nil ->
+          []
+
+        _ ->
+          [{field, "invalid money format"}]
+      end
+    end)
   end
 
   # Private function to validate that end_date is after start_date if both are present

@@ -362,9 +362,7 @@ defmodule YscWeb.AdminEventsNewLive do
           </div>
         </div>
 
-        <div :if={@live_action == :tickets}>
-          <p>tickets</p>
-
+        <div :if={@live_action == :tickets} class="relative py-8">
           <.live_component
             id={@event.id}
             module={YscWeb.AdminEventsLive.TicketTierForm}

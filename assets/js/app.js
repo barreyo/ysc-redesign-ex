@@ -31,6 +31,7 @@ import TrixHook from "./trix_hook";
 import DaterangeHover from "./daterange-hover";
 import Sortable from "./sortable";
 import RadarMap from "./radar";
+import MoneyInput from "./money_input";
 
 let Hooks = {
   StickyNavbar,
@@ -41,6 +42,7 @@ let Hooks = {
   DaterangeHover,
   Sortable,
   RadarMap,
+  MoneyInput,
 };
 Hooks.LivePhone = LivePhone;
 

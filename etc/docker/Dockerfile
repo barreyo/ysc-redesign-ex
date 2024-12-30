@@ -64,6 +64,7 @@ WORKDIR /app
 
 # Copy the release from the builder stage
 COPY --from=builder --chown=app:app /app/_build/prod/rel/ysc ./
+COPY --from=builder --chown=app:app /app/priv/static priv/static
 
 # Use the non-root user
 USER app

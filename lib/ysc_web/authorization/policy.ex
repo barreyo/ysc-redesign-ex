@@ -1,25 +1,7 @@
 defmodule YscWeb.Authorization.Policy do
   use LetMe.Policy
 
-  object :posts do
-    action :create do
-      allow role: :admin
-    end
-
-    action :read do
-      allow true
-    end
-
-    action :update do
-      allow role: :admin
-    end
-
-    action :delete do
-      deny true
-    end
-  end
-
-  object :event do
+  object :post do
     action :create do
       allow role: :admin
     end
@@ -95,6 +77,78 @@ defmodule YscWeb.Authorization.Policy do
   end
 
   object :site_setting do
+    action :create do
+      allow role: :admin
+    end
+
+    action :read do
+      allow true
+    end
+
+    action :update do
+      allow role: :admin
+    end
+
+    action :delete do
+      allow role: :admin
+    end
+  end
+
+  object :event do
+    action :create do
+      allow role: :admin
+    end
+
+    action :read do
+      allow true
+    end
+
+    action :update do
+      allow role: :admin
+    end
+
+    action :delete do
+      allow role: :admin
+    end
+  end
+
+  object :agenda do
+    action :create do
+      allow role: :admin
+    end
+
+    action :read do
+      allow true
+    end
+
+    action :update do
+      allow role: :admin
+    end
+
+    action :delete do
+      allow role: :admin
+    end
+  end
+
+  object :agenda_item do
+    action :create do
+      allow role: :admin
+    end
+
+    action :read do
+      allow true
+    end
+
+    action :update do
+      allow role: :admin
+    end
+
+    action :delete do
+      allow role: :admin
+    end
+  end
+
+  object :ticket_tier do
     action :create do
       allow role: :admin
     end

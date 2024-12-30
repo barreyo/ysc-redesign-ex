@@ -1,4 +1,4 @@
-defmodule YscWeb.Authorization.EnsureApprovedUser do
+defmodule YscWeb.Authorization.EnsureApprovedUserPlug do
   import Plug.Conn
   alias Phoenix.Controller
 

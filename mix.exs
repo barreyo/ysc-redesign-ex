@@ -47,6 +47,7 @@ defmodule Ysc.MixProject do
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
       {:ex_aws, "~> 2.1"},
       {:ex_aws_s3, "~> 2.0"},
+      {:ex_cldr, "~> 2.29"},
       {:ex_money_sql, "~> 1.0"},
       {:ex_phone_number, "~> 0.4"},
       {:finch, "~> 0.17"},

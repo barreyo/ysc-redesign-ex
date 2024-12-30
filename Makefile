@@ -1,8 +1,9 @@
 # Basics
-PROJECT_NAME := ysc
+PROJECT_NAME 		:= ysc
 
 DOCKER_DIR 		?= etc/docker
 DOCKER_COMPOSE_FILE	?= $(DOCKER_DIR)/docker-compose.yml
+RELEASE_DOCKERFILE 	?= $(DOCKER_DIR)/Dockerfile
 
 # Versioning
 VERSION_LONG 		 = $(shell git describe --first-parent --abbrev=10 --long --tags --dirty)
@@ -60,8 +61,17 @@ clean-elixir:  ## Clean up Elixir and Phoenix files
 
 clean: clean-elixir clean-docker  ## Clean docker and elixir
 
+##
+# ~~~ Release Targets ~~~
+##
+
 version:  ## Print the current version
 	@echo $(VERSION_LONG)
+
+release:  ## Build and tag a docker image for release
+	@docker -f $(RELEASE_DOCKERFILE) build $(PROJECT_NAME):$(VERSION_LONG) .
+	@docker tag $(PROJECT_NAME):$(VERSION_LONG) $(PROJECT_NAME):$(VERSION_SHORT)
+	@docker tag $(PROJECT_NAME):$(VERSION_LONG) $(PROJECT_NAME):latest
 
 ##
 # ~~~ Make Helpers ~~~
@@ -76,7 +86,8 @@ TEAL 			:= $(shell tput setaf 6)
 
 .DEFAULT_GOAL := help
 
-.PHONY: cleanup-compose server test tests docker-image release version format clean help
+.PHONY: dev dev-setup reset-db setup-dev-db test tests clean-compose \
+	clean-docker clean-elixir clean version release help
 
 help:  ## Print this make target help message
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage: make $(TEAL)<target>$(RESET)\n\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n$(TEAL)%s$(RESET)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
