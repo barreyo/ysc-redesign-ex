@@ -80,14 +80,14 @@ defmodule YscWeb.EventsListLive do
   end
 
   def handle_info(
-        {Ysc.Events, %Ysc.MessagePassingEvents.EventAdded{event: event} = message_event},
+        %{event: %Ysc.MessagePassingEvents.EventAdded{event: event}},
         socket
       ) do
     {:noreply, socket |> stream_insert(:events, event)}
   end
 
   def handle_info(
-        {Ysc.Events, %Ysc.MessagePassingEvents.EventUpdated{event: event} = message_event},
+        %{event: %Ysc.MessagePassingEvents.EventUpdated{event: event}},
         socket
       ) do
     {:noreply, socket |> stream_insert(:events, event)}

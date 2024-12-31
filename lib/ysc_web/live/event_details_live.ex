@@ -273,6 +273,11 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   def mount(%{"id" => event_id}, _session, socket) do
+    if connected?(socket) do
+      Events.subscribe()
+      Agendas.subscribe(event_id)
+    end
+
     event = Events.get_event!(event_id)
     agendas = Agendas.list_agendas_for_event(event_id)
 
@@ -284,10 +289,147 @@ defmodule YscWeb.EventDetailsLive do
      |> assign(:active_agenda, default_active_agenda(agendas))}
   end
 
+  @impl true
+  def handle_info({Ysc.Events, %Ysc.MessagePassingEvents.EventUpdated{event: event}}, socket) do
+    {:noreply, assign(socket, :event, event)}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaAdded{agenda: agenda}},
+        socket
+      ) do
+    new_agendas = socket.assigns.agendas ++ [agenda]
+
+    {:noreply,
+     socket
+     |> assign(:agendas, new_agendas)}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaUpdated{agenda: agenda}},
+        socket
+      ) do
+    new_agendas =
+      socket.assigns.agendas
+      |> Enum.map(fn
+        a when a.id == agenda.id -> agenda
+        a -> a
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:agendas, new_agendas)}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaDeleted{agenda: agenda}},
+        socket
+      ) do
+    new_agendas = socket.assigns.agendas |> Enum.reject(&(&1.id == agenda.id))
+    active_agenda = socket.assigns.active_agenda
+
+    if agenda.id == socket.assigns.active_agenda do
+      active_agenda = default_active_agenda(new_agendas)
+    end
+
+    {:noreply, socket |> assign(:agendas, new_agendas) |> assign(:active_agenda, active_agenda)}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaRepositioned{agenda: agenda}},
+        socket
+      ) do
+    agendas = Agendas.list_agendas_for_event(agenda.event_id)
+    {:noreply, socket |> assign(:agendas, agendas)}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaItemAdded{agenda_item: agenda_item}},
+        socket
+      ) do
+    updated_agendas =
+      socket.assigns.agendas
+      |> Enum.map(fn
+        agenda when agenda.id == agenda_item.agenda_id ->
+          %{agenda | agenda_items: agenda.agenda_items ++ [agenda_item]}
+
+        agenda ->
+          agenda
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:agendas, updated_agendas)}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaItemDeleted{agenda_item: agenda_item}},
+        socket
+      ) do
+    updated_agendas =
+      socket.assigns.agendas
+      |> Enum.map(fn
+        agenda when agenda.id == agenda_item.agenda_id ->
+          %{agenda | agenda_items: Enum.reject(agenda.agenda_items, &(&1.id == agenda_item.id))}
+
+        agenda ->
+          agenda
+      end)
+
+    {:noreply, socket |> assign(:agendas, updated_agendas)}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaItemRepositioned{agenda_item: agenda_item}},
+        socket
+      ) do
+    updated_agendas = Agendas.list_agendas_for_event(socket.assigns.event.id)
+
+    {:noreply,
+     socket
+     |> assign(:agendas, updated_agendas)}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaItemUpdated{agenda_item: agenda_item}},
+        socket
+      ) do
+    updated_agendas =
+      socket.assigns.agendas
+      |> Enum.map(fn
+        agenda when agenda.id == agenda_item.agenda_id ->
+          agenda
+          |> Map.update!(
+            :agenda_items,
+            &Enum.map(&1, fn
+              item when item.id == agenda_item.id -> agenda_item
+              item -> item
+            end)
+          )
+
+        agenda ->
+          agenda
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:agendas, updated_agendas)}
+  end
+
+  @impl true
   def handle_event("set-active-agenda", %{"id" => id}, socket) do
     {:noreply, assign(socket, :active_agenda, id)}
   end
 
+  @impl true
   def handle_event("toggle-map", _, socket) do
     event = socket.assigns.event
 
@@ -301,6 +443,7 @@ defmodule YscWeb.EventDetailsLive do
      |> Phoenix.LiveView.push_event("position", %{})}
   end
 
+  @impl true
   def handle_event("login-redirect", _params, socket) do
     {:noreply, socket |> redirect(to: ~p"/users/log_in")}
   end

@@ -508,6 +508,11 @@ defmodule YscWeb.AdminEventsNewLive do
 
   def handle_event("editor-update", %{"raw_body" => raw_body}, socket) do
     changeset = Event.changeset(socket.assigns[:event], %{"raw_details" => raw_body})
+
+    if changeset.valid? do
+      Events.update_event(socket.assigns[:event], %{"raw_details" => raw_body})
+    end
+
     {:noreply, assign_form(socket, changeset)}
   end
 

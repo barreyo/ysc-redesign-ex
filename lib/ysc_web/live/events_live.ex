@@ -1,6 +1,8 @@
 defmodule YscWeb.EventsLive do
   use YscWeb, :live_view
 
+  alias Ysc.Events
+
   def render(assigns) do
     ~H"""
     <div class="py-6 lg:py-10">
@@ -24,7 +26,19 @@ defmodule YscWeb.EventsLive do
     """
   end
 
+  @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Events.subscribe()
+    end
+
     {:ok, socket |> assign(:page_title, "Events")}
+  end
+
+  @impl true
+  def handle_info({Ysc.Events, %_event{event: event} = base_event}, socket) do
+    IO.inspect(base_event)
+    send_update(YscWeb.EventsListLive, id: "event_list", event: base_event)
+    {:noreply, socket}
   end
 end
