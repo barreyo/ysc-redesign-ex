@@ -23,11 +23,18 @@ defmodule YscWeb.EventDetailsLive do
           <div class="max-w-xl space-y-10 md:mx-0 mx-auto">
             <div class="space-y-1">
               <p
-                :if={@event.start_date != nil && @event.start_date != ""}
+                :if={
+                  @event.start_date != nil && @event.start_date != "" && @event.state != :cancelled
+                }
                 class="font-semibold text-zinc-600"
               >
                 <%= format_start_date(@event.start_date) %>
               </p>
+
+              <p :if={@event.state == :cancelled} class="font-semibold text-red-600">
+                // This event has been cancelled //
+              </p>
+
               <h2 :if={@event.title != nil && @event.title != ""} class="text-4xl font-bold leading-8">
                 <%= @event.title %>
               </h2>
@@ -253,7 +260,10 @@ defmodule YscWeb.EventDetailsLive do
             </div>
           </div>
 
-          <div class="fixed md:shadow-md bottom-0 w-full md:w-1/3 md:sticky bg-white rounded border border-zinc-200 h-32 md:h-36 md:top-24 right-0 px-4 py-3 z-40 flex text-center flex flex-col justify-center space-y-4">
+          <div
+            :if={@event.state != :cancelled}
+            class="fixed md:shadow-md bottom-0 w-full md:w-1/3 md:sticky bg-white rounded border border-zinc-200 h-32 md:h-36 md:top-24 right-0 px-4 py-3 z-40 flex text-center flex flex-col justify-center space-y-4"
+          >
             <p class="font-semibold text-lg">From $100.00</p>
             <div :if={@current_user == nil} class="w-full">
               <p class="text-sm text-red-600 px-2 py-1 bg-red-100 rounded mb-2 border border-red-300">

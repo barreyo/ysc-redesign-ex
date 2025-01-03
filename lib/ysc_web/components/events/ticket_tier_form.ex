@@ -23,7 +23,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
         <.input type="text" label="Name" field={@form[:name]} required />
 
         <.input
-          type="text-icon"
+          type="text"
           label="Price"
           field={@form[:price]}
           placeholder="0.00"
@@ -50,7 +50,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
           label="Sale Ends"
           form={@form}
           start_date_field={@form[:end_date]}
-          min={Date.utc_today()}
+          min={sale_end_min_date(@form[:start_date].value)}
           required={true}
         />
 
@@ -78,23 +78,23 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
 
   @impl true
   def handle_event("validate", %{"ticket_tier" => params}, socket) do
-    new_params = update_in(params["price"], &Ysc.MoneyHelper.parse_money/1)
+    if params["price"] do
+      params = update_in(params["price"], &Ysc.MoneyHelper.parse_money/1)
+    end
 
     changeset =
-      TicketTier.changeset(%TicketTier{}, new_params)
+      TicketTier.changeset(%TicketTier{}, params)
       |> Map.put(:action, :validate)
 
     {:noreply, socket |> assign_form(changeset)}
   end
 
   @impl true
-  def handle_event("save", %{"event" => event_params}, socket) do
-    Events.schedule_event(socket.assigns.event, event_params["publish_at"])
-
+  def handle_event("save", %{"ticket_tier" => params}, socket) do
     {:noreply,
      socket
-     |> put_flash(:info, "Event scheduled successfully")
-     |> push_navigate(to: ~p"/admin/events/#{socket.assigns.event.id}/edit")}
+     |> put_flash(:info, "Ticket tier added")
+     |> push_navigate(to: ~p"/admin/events/#{socket.assigns.event_id}/tickets")}
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
@@ -110,10 +110,17 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
   defp format_money(nil), do: nil
   defp format_money(""), do: nil
 
-  defp format_money(value) do
+  defp format_money(%Money{} = value) do
     case Ysc.MoneyHelper.format_money(value) do
       {:ok, money} -> money
       _ -> nil
     end
+  end
+
+  defp sale_end_min_date(nil), do: Date.utc_today()
+  defp sale_end_min_date(""), do: Date.utc_today()
+
+  defp sale_end_min_date(start) do
+    start
   end
 end

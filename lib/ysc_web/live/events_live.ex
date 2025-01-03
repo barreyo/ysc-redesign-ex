@@ -31,7 +31,6 @@ defmodule YscWeb.EventsLive do
 
   @impl true
   def handle_info({Ysc.Events, %_event{event: event} = base_event}, socket) do
-    IO.inspect(base_event)
     send_update(YscWeb.EventsListLive, id: "event_list", event: base_event)
     {:noreply, socket}
   end

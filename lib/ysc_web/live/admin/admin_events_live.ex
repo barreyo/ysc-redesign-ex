@@ -154,7 +154,7 @@ defmodule YscWeb.AdminEventsLive do
   defp event_state_to_badge_style(:draft), do: "sky"
   defp event_state_to_badge_style(:scheduled), do: "yellow"
   defp event_state_to_badge_style(:published), do: "green"
-  defp event_state_to_badge_style(:cancelled), do: "orange"
+  defp event_state_to_badge_style(:cancelled), do: "dark"
   defp event_state_to_badge_style(:deleted), do: "red"
   defp event_state_to_badge_style(_), do: "default"
 

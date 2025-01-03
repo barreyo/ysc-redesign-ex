@@ -36,7 +36,7 @@ defmodule Ysc.MoneyHelper do
     "10.99"
   """
   def format_money(%Money{} = money) do
-    Money.to_string(money, symbol: false, separator: ".", delimiter: ",")
+    Money.to_string(money, separator: ".", delimiter: ",")
   end
 
   def format_money(_), do: ""

@@ -1348,16 +1348,40 @@ defmodule YscWeb.CoreComponents do
     assigns = assign(assigns, :event, assigns.event)
 
     ~H"""
-    <.badge :if={event_badge_style(@event) != nil} class="text-xs font-medium">
+    <.badge
+      :if={event_badge_style(@event) != nil}
+      type={event_badge_style(@event)}
+      class="text-xs font-medium"
+    >
       <%= event_badge_text(@event) %>
     </.badge>
     """
   end
 
-  defp event_badge_style(%Event{state: :cancelled}), do: "dark"
+  defp event_badge_style(%Event{state: :cancelled}), do: "red"
+  defp event_badge_style(%Event{published_at: nil}), do: nil
+
+  defp event_badge_style(%Event{published_at: date}) do
+    if DateTime.diff(date, DateTime.utc_now(), :hour) <= 48 do
+      "green"
+    else
+      nil
+    end
+  end
+
   defp event_badge_style(_), do: nil
 
   defp event_badge_text(%Event{state: :cancelled}), do: "Cancelled"
+  defp event_badge_text(%Event{published_at: nil}), do: nil
+
+  defp event_badge_text(%Event{published_at: date}) do
+    if DateTime.diff(date, DateTime.utc_now(), :hour) <= 48 do
+      "Just Added!"
+    else
+      nil
+    end
+  end
+
   defp event_badge_text(_), do: nil
 
   attr :active_step, :integer, required: true

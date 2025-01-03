@@ -57,7 +57,7 @@ defmodule YscWeb.AdminEventsNewLive do
             </div>
 
             <div :if={@event.state in [:published]}>
-              <.button color="gray" phx-click="unpublish-event">
+              <.button color="red" phx-click="unpublish-event">
                 <.icon name="hero-document-arrow-down" class="w-5 h-5 -mt-1 me-1" />Unpublish
               </.button>
             </div>
@@ -447,7 +447,17 @@ defmodule YscWeb.AdminEventsNewLive do
     {:noreply,
      socket
      |> put_flash(:info, "Event moved back to draft.")
-     |> push_navigate(to: "/admin/events/#{socket.assigns.event.id}/new")}
+     |> push_navigate(to: "/admin/events/#{socket.assigns.event.id}/edit")}
+  end
+
+  @impl true
+  def handle_event("cancel-event", _, socket) do
+    Events.cancel_event(socket.assigns.event)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Event cancelled.")
+     |> push_navigate(to: "/admin/events")}
   end
 
   @impl true

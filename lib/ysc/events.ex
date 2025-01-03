@@ -106,7 +106,7 @@ defmodule Ysc.Events do
   def list_upcoming_events(limit \\ 50) do
     Event
     |> where([e], e.start_date > ^DateTime.utc_now())
-    |> where([e], e.state in [:published])
+    |> where([e], e.state in [:published, :cancelled])
     |> order_by(asc: :start_date)
     |> limit(^limit)
     |> Repo.all()
@@ -134,6 +134,20 @@ defmodule Ysc.Events do
   def unpublish_event(%Event{} = event) do
     event
     |> Event.changeset(%{state: "draft", published_at: nil})
+    |> Repo.update()
+    |> case do
+      {:ok, event} ->
+        broadcast(%Ysc.MessagePassingEvents.EventUpdated{event: event})
+        {:ok, event}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  def cancel_event(%Event{} = event) do
+    event
+    |> Event.changeset(%{state: "cancelled"})
     |> Repo.update()
     |> case do
       {:ok, event} ->
