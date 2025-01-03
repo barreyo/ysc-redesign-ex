@@ -14,12 +14,6 @@ defmodule YscWeb.EventsLive do
           </p>
         </div>
 
-        <div class="pb-10">
-          <.button>
-            <.icon name="hero-calendar" class="-mt-1 me-2" />Subscribe to Event Calendar
-          </.button>
-        </div>
-
         <.live_component id="event_list" module={YscWeb.EventsListLive} />
       </div>
     </div>

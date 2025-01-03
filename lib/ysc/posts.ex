@@ -77,13 +77,13 @@ defmodule Ysc.Posts do
   end
 
   def update_post(post, params, %User{} = current_user, opts \\ []) do
-    with :ok <- Policy.authorize(:posts_update, current_user, post) do
+    with :ok <- Policy.authorize(:post_update, current_user, post) do
       post |> Post.update_post_changeset(params, opts) |> Repo.update()
     end
   end
 
   def create_post(params, %User{} = current_user) do
-    with :ok <- Policy.authorize(:posts_create, current_user) do
+    with :ok <- Policy.authorize(:post_create, current_user) do
       new_params = Map.put(params, "user_id", current_user.id)
       Post.new_post_changeset(%Post{}, new_params) |> Repo.insert()
     end

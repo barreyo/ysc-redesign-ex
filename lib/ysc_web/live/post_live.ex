@@ -48,7 +48,7 @@ defmodule YscWeb.PostLive do
       <div
         :if={@post != nil && @post.image_id != nil}
         id="post-featured-image"
-        class="mt-8 relative mx-auto rounded max-w-4xl"
+        class="mt-8 relative mx-auto rounded max-w-5xl"
       >
         <canvas
           id={"blur-hash-image-#{@post.image_id}"}

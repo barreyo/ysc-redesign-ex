@@ -56,7 +56,8 @@ defmodule YscWeb.EventDetailsLive do
               <div>
                 <add-to-calendar-button
                   name={@event.title}
-                  startDate={@event.start_date}
+                  startDate={date_for_add_to_cal(@event.start_date)}
+                  endDate={date_for_add_to_cal(@event.end_date)}
                   options="'Apple','Google','iCal','Outlook.com','Yahoo'"
                   startTime={@event.start_time}
                   endTime={@event.end_time}
@@ -498,5 +499,14 @@ defmodule YscWeb.EventDetailsLive do
       {start_time, end_time} ->
         "#{Timex.format!(start_time, "{h12}:{m} {AM}")} - #{Timex.format!(end_time, "{h12}:{m} {AM}")}"
     end
+  end
+
+  def date_for_add_to_cal(nil), do: nil
+
+  def date_for_add_to_cal(dt) do
+    ts = Timex.Timezone.get("America/Los_Angeles", Timex.now())
+    new_date = Timex.Timezone.convert(dt, ts)
+
+    Timex.format!(new_date, "%Y-%m-%d", :strftime)
   end
 end
