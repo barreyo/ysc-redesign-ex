@@ -1292,6 +1292,7 @@ defmodule YscWeb.CoreComponents do
       aria-controls="navbar-sticky"
       aria-expanded="false"
       phx-click={toggle_expanded(@toggle_id)}
+      phx-click-away={hide_expanded(@toggle_id)}
     >
       <.icon name="hero-bars-3" class="w-5 h-5 fill-inherit" />
       <span class="ml-2 font-bold text-zinc-900 hover:text-black">
@@ -1763,6 +1764,14 @@ defmodule YscWeb.CoreComponents do
     |> JS.add_class(
       "expanded",
       to: "##{id}:not(.expanded)"
+    )
+  end
+
+  def hide_expanded(js \\ %JS{}, id) do
+    js
+    |> JS.remove_class(
+      "expanded",
+      to: "##{id}.expanded"
     )
   end
 
