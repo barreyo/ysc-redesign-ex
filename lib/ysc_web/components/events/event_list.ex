@@ -9,7 +9,7 @@ defmodule YscWeb.EventsListLive do
       <div :if={@event_count > 0} class="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
         <div
           :for={{id, event} <- @streams.events}
-          class={["flex flex-col rounded", event.state == :cancelled && "opacity-75"]}
+          class={["flex flex-col rounded", event.state == :cancelled && "opacity-70"]}
           id={id}
         >
           <.link

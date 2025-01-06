@@ -17,6 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2" async defer></script>
     <link href="https://js.radar.com/v4.4.8/radar.css" rel="stylesheet">
     <script src="https://js.radar.com/v4.4.8/radar.min.js" defer></script>
+    <script src="https://js.stripe.com/v3/" defer></script>
   </head>
   <body class="antialiased bg-white">
     <div id="content-wrapper" class="flex flex-col min-h-screen">
@@ -204,12 +205,12 @@
                     </div>
                     <ul class="py-2 text-sm text-zinc-700" aria-labelledby="avatarButton">
                       <li>
-                        <a
-                          href="#"
+                        <.link
+                          navigate={~p"/users/membership"}
                           class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                         >
                           Membership
-                        </a>
+                        </.link>
                       </li>
                       <li>
                         <a

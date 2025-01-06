@@ -2,6 +2,8 @@ defmodule YscWeb.UserSettingsLive do
   use YscWeb, :live_view
 
   alias Ysc.Accounts
+  alias Bling.Subscriptions
+  alias Bling.Customers
 
   def render(assigns) do
     ~H"""
@@ -12,42 +14,58 @@ defmodule YscWeb.UserSettingsLive do
             <h2 class="text-zinc-800 text-lg font-semibold leading-8 mb-10">Settings</h2>
           </li>
           <li>
-            <a
-              href="#"
-              class="inline-flex items-center px-4 py-3 text-zinc-100 bg-blue-600 rounded active w-full"
-              aria-current="page"
+            <.link
+              navigate={~p"/users/settings"}
+              class={[
+                "inline-flex items-center px-4 py-3 rounded w-full",
+                @live_action == :edit && "bg-blue-600 active text-zinc-100",
+                @live_action != :edit && "hover:bg-zinc-100 hover:text-zinc-900"
+              ]}
+              aria-active={@live_action == :edit}
             >
               <.icon name="hero-user" class="w-5 h-5 me-2" /> Profile
-            </a>
+            </.link>
           </li>
           <li>
-            <a
-              href="#"
-              class="inline-flex items-center px-4 py-3 rounded hover:text-zinc-900 hover:bg-zinc-100 w-full"
+            <.link
+              navigate={~p"/users/membership"}
+              class={[
+                "inline-flex items-center px-4 py-3 rounded w-full",
+                @live_action == :membership && "bg-blue-600 active text-zinc-100",
+                @live_action != :membership && "hover:bg-zinc-100 hover:text-zinc-900"
+              ]}
             >
               <.icon name="hero-heart" class="w-5 h-5 me-2" /> Membership
-            </a>
+            </.link>
           </li>
           <li>
-            <a
+            <.link
               href="#"
-              class="inline-flex items-center px-4 py-3 rounded hover:text-zinc-900 hover:bg-zinc-100 w-full"
+              class={[
+                "inline-flex items-center px-4 py-3 rounded w-full",
+                @live_action == :payments && "bg-blue-600 active text-zinc-100",
+                @live_action != :payments && "hover:bg-zinc-100 hover:text-zinc-900"
+              ]}
             >
               <.icon name="hero-wallet" class="w-5 h-5 me-2" /> Payments
-            </a>
+            </.link>
           </li>
           <li>
-            <a
+            <.link
               href="#"
-              class="inline-flex items-center px-4 py-3 rounded hover:text-zinc-900 hover:bg-zinc-100 w-full"
+              class={[
+                "inline-flex items-center px-4 py-3 rounded w-full",
+                @live_action == :notifications && "bg-blue-600 active text-zinc-100",
+                @live_action != :notifications && "hover:bg-zinc-100 hover:text-zinc-900"
+              ]}
             >
               <.icon name="hero-bell-alert" class="w-5 h-5 me-2" />Notifications
-            </a>
+            </.link>
           </li>
         </ul>
 
         <div class="p-6 text-medium text-zinc-500 rounded w-full md:border-l md:border-1 md:border-zinc-100 md:pl-16">
-          <div :if={@current_tab == "profile"}>
+          <div :if={@live_action == :edit}>
             <.user_avatar_image
               email={@user.email}
               user_id={@user.id}
@@ -120,6 +138,25 @@ defmodule YscWeb.UserSettingsLive do
               </:actions>
             </.simple_form>
           </div>
+
+          <div :if={@live_action == :membership} class="flex flex-col space-y-6">
+            <div class="rounded border border-zinc-100 py-4 px-4">
+              <div class="flex flex-row justify-between items-center">
+                <h2 class="text-zinc-900 font-bold text-xl">Current Membership</h2>
+                <.button>Select Membership</.button>
+              </div>
+
+              <p class="text-sm text-zinc-700">You are currently not a paying member</p>
+            </div>
+
+            <div class="rounded border border-zinc-100 px-4 py-4">
+              <h2 class="text-zinc-900 font-bold text-xl">Payment Method</h2>
+            </div>
+
+            <div class="rounded border border-zinc-100 px-4 py-4">
+              <h2 class="text-zinc-900 font-bold text-xl">Billing History</h2>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -140,16 +177,16 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   def mount(params, _session, socket) do
-    default_tab = Map.get(params, "tab", "profile")
-
     user = socket.assigns.current_user
     email_changeset = Accounts.change_user_email(user)
     password_changeset = Accounts.change_user_password(user)
 
-    socket =
+    subscription = Customers.subscription(user)
+
+    subscription =
+      socket =
       socket
-      |> assign(:current_tab, default_tab)
-      |> assign(:page_title, String.capitalize(default_tab))
+      |> assign(:page_title, "User Settings")
       |> assign(:current_password, nil)
       |> assign(:user, user)
       |> assign(:email_form_current_password, nil)
@@ -157,6 +194,7 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:trigger_submit, false)
+      |> assign(:subscription, subscription)
 
     {:ok, socket}
   end

@@ -33,6 +33,7 @@ defmodule Ysc.MixProject do
   defp deps do
     [
       {:argon2_elixir, "~> 4.0"},
+      {:bling, "~> 0.4"},
       {:blurhash, "~> 0.1.0", hex: :rinpatch_blurhash},
       {:brotli, ">= 0.0.0", runtime: false},
       {:cachex, "~> 3.6"},
@@ -75,7 +76,7 @@ defmodule Ysc.MixProject do
       {:plug_cowboy, "~> 2.6"},
       {:postgrex, ">= 0.0.0"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
-      {:stripity_stripe, "~> 3.1"},
+      {:stripity_stripe, "~> 2.17"},
       {:swoosh, "~> 1.14"},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 0.6"},

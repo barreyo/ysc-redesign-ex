@@ -91,9 +91,18 @@ config :ex_aws,
 config :flop, repo: Ysc.Repo
 
 config :stripity_stripe,
-  api_key: System.get_env("STRIPE_SECRET")
+  api_key: System.get_env("STRIPE_SECRET"),
+  public_key: System.get_env("STRIPE_PUBLIC_KEY"),
+  webhook_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
 
 config :stripity_stripe, :retries, max_attempts: 3, base_backoff: 500, max_backoff: 2_000
+
+config :bling,
+  bling: Ysc.Bling,
+  repo: Ysc.Repo,
+  customers: [user: Ysc.Accounts.User],
+  subscription: Ysc.Subscriptions.Subscription,
+  subscription_item: Ysc.Subscriptions.SubscriptionItem
 
 config :ysc, :quickbooks,
   client_id: System.get_env("QUICKBOOKS_CLIENT_ID"),

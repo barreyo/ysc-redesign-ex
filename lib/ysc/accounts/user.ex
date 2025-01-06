@@ -44,6 +44,17 @@ defmodule Ysc.Accounts.User do
 
     field :most_connected_country, :string
 
+    field :stripe_id, :string
+    field :trial_ends_at, :utc_datetime
+    field :payment_type, :string
+    field :payment_id, :string
+    field :payment_last_four, :string
+
+    has_many :subscriptions, Ysc.Subscriptions.Subscription,
+      foreign_key: :customer_id,
+      where: [customer_type: "user"],
+      defaults: [customer_type: "user"]
+
     field :display_name, :string, virtual: true
 
     timestamps()

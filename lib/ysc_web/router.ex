@@ -1,6 +1,7 @@
 defmodule YscWeb.Router do
   use YscWeb, :router
 
+  import Bling.Router
   import Phoenix.LiveDashboard.Router
   import YscWeb.UserAuth
   import YscWeb.Plugs.SiteSettingsPlugs
@@ -97,6 +98,7 @@ defmodule YscWeb.Router do
       get "/pending_review", PageController, :pending_review
 
       live "/users/settings", UserSettingsLive, :edit
+      live "/users/membership", UserSettingsLive, :membership
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
     end
   end
@@ -168,5 +170,12 @@ defmodule YscWeb.Router do
       # Website specific settings (such as socials etc)
       live "/settings", AdminSettingsLive, :index
     end
+  end
+
+  scope "/" do
+    # make sure to authenticate your users for this route
+    pipe_through [:browser, :require_authenticated_user]
+
+    bling_routes()
   end
 end
