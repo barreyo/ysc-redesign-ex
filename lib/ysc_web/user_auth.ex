@@ -5,6 +5,7 @@ defmodule YscWeb.UserAuth do
   import Phoenix.Controller
 
   alias Ysc.Accounts
+  alias Bling.Customers
 
   # Make the remember me cookie valid for 60 days.
   # If you want bump or reduce this value, also change
@@ -91,7 +92,15 @@ defmodule YscWeb.UserAuth do
   def fetch_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
     user = user_token && Accounts.get_user_by_session_token(user_token)
-    assign(conn, :current_user, user)
+    conn = assign(conn, :current_user, user)
+
+    if user do
+      conn = assign(conn, :current_membership, Customers.subscription(user))
+    else
+      conn = assign(conn, :current_membership, nil)
+    end
+
+    conn
   end
 
   defp ensure_user_token(conn) do
@@ -144,11 +153,13 @@ defmodule YscWeb.UserAuth do
       end
   """
   def on_mount(:mount_current_user, _params, session, socket) do
-    {:cont, mount_current_user(socket, session)}
+    socket = mount_current_user(socket, session)
+    {:cont, mount_current_membership(socket, session)}
   end
 
   def on_mount(:ensure_authenticated, _params, session, socket) do
     socket = mount_current_user(socket, session)
+    socket = mount_current_membership(socket, session)
 
     if socket.assigns.current_user do
       {:cont, socket}
@@ -164,6 +175,7 @@ defmodule YscWeb.UserAuth do
 
   def on_mount(:ensure_admin, _params, session, socket) do
     socket = mount_current_user(socket, session)
+    socket = mount_current_membership(socket, session)
 
     if socket.assigns.current_user && socket.assigns.current_user.role == :admin do
       {:cont, socket}
@@ -179,6 +191,8 @@ defmodule YscWeb.UserAuth do
 
   def on_mount(:ensure_active, _params, session, socket) do
     socket = mount_current_user(socket, session)
+    socket = mount_current_membership(socket, session)
+
     user = socket.assigns.current_user
 
     if user && user.state == :active do
@@ -195,6 +209,7 @@ defmodule YscWeb.UserAuth do
 
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     socket = mount_current_user(socket, session)
+    socket = mount_current_membership(socket, session)
 
     if socket.assigns.current_user do
       {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
@@ -205,6 +220,7 @@ defmodule YscWeb.UserAuth do
 
   def on_mount(:redirect_if_user_is_authenticated_and_pending_approval, _params, session, socket) do
     socket = mount_current_user(socket, session)
+    socket = mount_current_membership(socket, session)
 
     if socket.assigns.current_user do
       if socket.assigns.current_user.state == "pending_approval" do
@@ -221,6 +237,14 @@ defmodule YscWeb.UserAuth do
     Phoenix.Component.assign_new(socket, :current_user, fn ->
       if user_token = session["user_token"] do
         Accounts.get_user_by_session_token(user_token)
+      end
+    end)
+  end
+
+  defp mount_current_membership(socket, session) do
+    Phoenix.Component.assign_new(socket, :current_membership, fn ->
+      if socket.assigns.current_user != nil do
+        Customers.subscription(socket.assigns.current_user)
       end
     end)
   end

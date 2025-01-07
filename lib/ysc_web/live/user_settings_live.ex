@@ -146,7 +146,9 @@ defmodule YscWeb.UserSettingsLive do
                 <.button>Select Membership</.button>
               </div>
 
-              <p class="text-sm text-zinc-700">You are currently not a paying member</p>
+              <p :if={@current_membership == nil} class="text-sm text-zinc-700">
+                You are currently not a paying member
+              </p>
             </div>
 
             <div class="rounded border border-zinc-100 px-4 py-4">
@@ -181,10 +183,7 @@ defmodule YscWeb.UserSettingsLive do
     email_changeset = Accounts.change_user_email(user)
     password_changeset = Accounts.change_user_password(user)
 
-    subscription = Customers.subscription(user)
-
-    subscription =
-      socket =
+    socket =
       socket
       |> assign(:page_title, "User Settings")
       |> assign(:current_password, nil)
@@ -194,7 +193,6 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:trigger_submit, false)
-      |> assign(:subscription, subscription)
 
     {:ok, socket}
   end

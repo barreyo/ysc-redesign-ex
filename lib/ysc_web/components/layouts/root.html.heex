@@ -60,11 +60,10 @@
           class="top-0 z-50 w-full bg-white border-b border-zinc-100 start-0"
           phx-hook="StickyNavbar"
         >
-          <div class="flex flex-wrap items-center justify-between max-w-screen-lg p-4 mx-auto">
-            <div class="flex flex-col space-x-3 w-full lg:w-auto lg:space-x-0">
-              <.hamburger_menu toggle_id="navbar-dropdown" />
-              <div class="hidden w-full lg:block lg:w-auto" id="navbar-dropdown">
-                <ul class="flex flex-col p-4 mt-4 font-medium lg:p-0 lg:space-x-8 lg:flex-row lg:mt-0 lg:border-0">
+          <div class="flex flex-row items-start lg:items-center space-x-10 justify-between max-w-screen-lg p-4 mx-auto">
+            <div class="flex w-full">
+              <.hamburger_menu toggle_id="navbar-dropdown" current_user={@current_user}>
+                <ul class="flex flex-col py-4 mt-2 font-medium lg:p-0 lg:space-x-8 lg:flex-row lg:mt-0 lg:border-0">
                   <li>
                     <.link
                       navigate={~p"/news"}
@@ -184,76 +183,76 @@
                     </.dropdown>
                   </li>
                 </ul>
-              </div>
-            </div>
-            <div id="cta-section" class="relative flex-row w-auto hidden lg:flex">
-              <%= if @current_user do %>
-                <button class="px-3 py-2 mr-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black">
-                  <.icon name="hero-bell" class="w-5 h-5 -mt-1" />
-                </button>
-                <.user_avatar
-                  email={@current_user.email}
-                  user_id={@current_user.id}
-                  most_connected_country={@current_user.most_connected_country}
-                  first_name={@current_user.first_name}
-                  last_name={@current_user.last_name}
-                >
-                  <div class="z-10 w-64 bg-white divide-y divide-zinc-100 rounded shadow">
-                    <div class="px-4 py-3 text-sm text-zinc-900">
-                      <p><%= @current_user.first_name <> " " <> @current_user.last_name %></p>
-                      <div class="font-medium truncate"><%= @current_user.email %></div>
-                    </div>
-                    <ul class="py-2 text-sm text-zinc-700" aria-labelledby="avatarButton">
-                      <li>
-                        <.link
-                          navigate={~p"/users/membership"}
-                          class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
-                        >
-                          Membership
-                        </.link>
-                      </li>
-                      <li>
-                        <a
-                          href="#"
-                          class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
-                        >
-                          My Bookings
-                        </a>
-                      </li>
-                      <li>
-                        <.link
-                          navigate={~p"/users/settings"}
-                          class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
-                        >
-                          Account Settings
-                        </.link>
-                      </li>
-                    </ul>
-                    <div class="py-1">
+
+                <:cta_section>
+                  <%= if @current_user do %>
+                    <.user_avatar
+                      email={@current_user.email}
+                      user_id={@current_user.id}
+                      most_connected_country={@current_user.most_connected_country}
+                      first_name={@current_user.first_name}
+                      last_name={@current_user.last_name}
+                    >
+                      <div class="z-10 w-64 bg-white divide-y divide-zinc-100 rounded shadow">
+                        <div class="px-4 py-3 text-sm text-zinc-900">
+                          <p><%= @current_user.first_name <> " " <> @current_user.last_name %></p>
+                          <div class="font-medium truncate"><%= @current_user.email %></div>
+                        </div>
+                        <ul class="py-2 text-sm text-zinc-700" aria-labelledby="avatarButton">
+                          <li>
+                            <.link
+                              navigate={~p"/users/membership"}
+                              class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            >
+                              Membership
+                            </.link>
+                          </li>
+                          <li>
+                            <a
+                              href="#"
+                              class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            >
+                              My Bookings & Tickets
+                            </a>
+                          </li>
+                          <li>
+                            <.link
+                              navigate={~p"/users/settings"}
+                              class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            >
+                              Account Settings
+                            </.link>
+                          </li>
+                        </ul>
+                        <div class="py-1">
+                          <.link
+                            href={~p"/users/log_out"}
+                            method="delete"
+                            class="block px-4 py-2 text-sm text-zinc-800 transition ease-in-out hover:bg-zinc-100 duration-400"
+                          >
+                            Sign out
+                          </.link>
+                        </div>
+                      </div>
+                    </.user_avatar>
+                  <% else %>
+                    <div class="flex items-center space-x-2">
                       <.link
-                        href={~p"/users/log_out"}
-                        method="delete"
-                        class="block px-4 py-2 text-sm text-zinc-800 transition ease-in-out hover:bg-zinc-100 duration-400"
+                        href={~p"/users/log_in"}
+                        class="px-2 py-2 lg:px-3 lg:py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
                       >
-                        Sign out
+                        Sign In
+                      </.link>
+                      <.link
+                        navigate={~p"/users/register"}
+                        class="px-3 py-2 lg:px-4 lg:py-2.5 text-sm font-bold text-center text-zinc-100 transition ease-in-out bg-blue-700 rounded duration-400 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300"
+                      >
+                        Become a Member
                       </.link>
                     </div>
-                  </div>
-                </.user_avatar>
-              <% else %>
-                <.link
-                  href={~p"/users/log_in"}
-                  class="px-3 py-2 mr-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
-                >
-                  Sign In
-                </.link>
-                <.link
-                  navigate={~p"/users/register"}
-                  class="px-4 py-2.5 text-sm font-bold text-center text-zinc-100 transition ease-in-out bg-blue-700 rounded duration-400 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300"
-                >
-                  Become a Member
-                </.link>
-              <% end %>
+                  <% end %>
+                </:cta_section>
+                </.hamburger_menu>
             </div>
           </div>
         </nav>

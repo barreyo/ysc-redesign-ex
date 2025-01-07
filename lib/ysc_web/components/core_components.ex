@@ -1253,7 +1253,7 @@ defmodule YscWeb.CoreComponents do
         String.downcase(assigns[:email])
       end
 
-    new_assigns = assign(assigns, :subtitle, subtitle)
+    assigns = assign(assigns, :subtitle, subtitle)
 
     ~H"""
     <div class={"flex items-center whitespace-nowrap h-10 #{@class}"}>
@@ -1274,7 +1274,7 @@ defmodule YscWeb.CoreComponents do
           <%= "#{String.capitalize(@first_name)} #{String.capitalize(@last_name)}" %>
         </div>
         <div :if={@show_subtitle} class="font-normal text-sm text-zinc-500">
-          <%= new_assigns[:subtitle] %>
+          <%= @subtitle %>
         </div>
       </div>
     </div>
@@ -1282,23 +1282,45 @@ defmodule YscWeb.CoreComponents do
   end
 
   attr :toggle_id, :string, required: true
+  attr :current_user, :any, required: true
+  slot :inner_block, required: true
+  slot :cta_section
 
   def hamburger_menu(assigns) do
     ~H"""
-    <button
-      data-collapse-toggle="navbar-sticky"
-      type="button"
-      class="inline-flex items-center justify-center h-10 p-2 text-sm transition ease-in-out rounded text-zinc-900 lg:hidden hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-300 duration-400"
-      aria-controls="navbar-sticky"
-      aria-expanded="false"
-      phx-click={toggle_expanded(@toggle_id)}
+    <div
+      class="relative block w-full justify-between lg:flex-row lg:flex"
       phx-click-away={hide_expanded(@toggle_id)}
     >
-      <.icon name="hero-bars-3" class="w-5 h-5 fill-inherit" />
-      <span class="ml-2 font-bold text-zinc-900 hover:text-black">
-        Menu
-      </span>
-    </button>
+      <div class="flex flex-row justify-between order-2">
+        <button
+          data-collapse-toggle="navbar-sticky"
+          type="button"
+          class="inline-flex items-center justify-center h-10 p-2 transition ease-in-out rounded text-zinc-900 lg:hidden hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-300 duration-400"
+          aria-controls="navbar-sticky"
+          aria-expanded="false"
+          phx-click={toggle_expanded(@toggle_id)}
+        >
+          <.icon name="hero-bars-3" class="w-6 h-6 fill-inherit" />
+          <span class="ml-2 font-bold text-zinc-900 hover:text-black">
+            Menu
+          </span>
+        </button>
+
+        <div id="cta-section" class="relative flex-row flex flex-none items-center">
+          <%= render_slot(@cta_section) %>
+        </div>
+      </div>
+
+      <div
+        id={@toggle_id}
+        class={[
+          "hidden w-full lg:block lg:w-auto order-1"
+        ]}
+      >
+        <%= render_slot(@inner_block) %>
+      </div>
+    </div>
     """
   end
 
