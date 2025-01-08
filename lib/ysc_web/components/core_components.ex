@@ -478,11 +478,13 @@ defmodule YscWeb.CoreComponents do
         field={@field}
         tabindex={0}
         name={@name}
+        value={@value}
         preferred={["US", "SE", "FI", "NO", "IS", "DK"]}
         class={[
           @errors == [] && "border-zinc-300 focus:border-zinc-400",
           @errors != [] && "border-rose-400 focus:border-rose-400"
         ]}
+        {@rest}
       />
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>

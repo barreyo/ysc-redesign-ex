@@ -96,6 +96,13 @@ defmodule YscWeb.AdminUserDetailsLive do
             <.input field={@form[:first_name]} label="First Name" />
             <.input field={@form[:last_name]} label="Last Name" />
             <.input
+              type="phone-input"
+              label="Phone Number"
+              id="phone_number"
+              value={@form[:phone_number].value}
+              field={@form[:phone_number]}
+            />
+            <.input
               field={@form[:most_connected_country]}
               label="Most connected Nordic country:"
               type="select"
