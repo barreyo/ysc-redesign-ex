@@ -108,6 +108,36 @@ config :ysc, :quickbooks,
   client_id: System.get_env("QUICKBOOKS_CLIENT_ID"),
   client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET")
 
+config :ysc,
+  membership_plans: [
+    %{
+      id: :single,
+      name: "Single",
+      interval: "year",
+      amount: 45,
+      currency: "usd",
+      trial_period_days: 0,
+      statement_descriptor: "Single Membership",
+      metadata: %{
+        "plan_type" => "membership",
+        "interval" => "year"
+      }
+    },
+    %{
+      id: :family,
+      name: "Family",
+      interval: "year",
+      amount: 65,
+      currency: "usd",
+      trial_period_days: 0,
+      statement_descriptor: "Family Membership",
+      metadata: %{
+        "plan_type" => "membership",
+        "interval" => "year"
+      }
+    }
+  ]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

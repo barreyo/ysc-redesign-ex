@@ -1,5 +1,5 @@
 <.flash_group flash={@flash} />
-<div class="max-w-screen-lg mx-auto px-4 py-6 lg:py-10">
+<div class="max-w-screen-lg mx-auto px-4 py-2 lg:py-10">
   <div class="max-w-xl mx-auto lg:mx-0 prose prose-zinc prose-base">
     <div :if={@current_user == nil}>
       <h2>Welcome to the Young Scandinavians Club!</h2>
@@ -19,7 +19,7 @@
       <p>
         Those with <strong>Danish</strong>, <strong>Finnish</strong>, <strong>Icelandic</strong>, <strong>Norwegian</strong>, or
         <strong>Swedish</strong>
-        heritage may qualify for membership, with rates starting at just $45 per year.
+        heritage may qualify for membership, with rates starting at just <strong><%= Ysc.MoneyHelper.format_money!(Money.new(:USD, Enum.at(Application.get_env(:ysc, :membership_plans), 0).amount)) %></strong> per year.
       </p>
 
       <div class="not-prose py-4">

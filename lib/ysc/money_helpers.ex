@@ -40,4 +40,9 @@ defmodule Ysc.MoneyHelper do
   end
 
   def format_money(_), do: ""
+
+  def format_money!(value) do
+    {:ok, str} = format_money(value)
+    str
+  end
 end
