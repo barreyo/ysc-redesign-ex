@@ -140,7 +140,7 @@ defmodule YscWeb.UserSettingsLive do
           </div>
 
           <div :if={@live_action == :membership} class="flex flex-col space-y-6">
-            <div class="rounded border border-zinc-100 py-4 px-4">
+            <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
               <div class="flex flex-row justify-between items-center">
                 <h2 class="text-zinc-900 font-bold text-xl">Current Membership</h2>
                 <.button>Select Membership</.button>
@@ -151,12 +151,51 @@ defmodule YscWeb.UserSettingsLive do
               </p>
             </div>
 
-            <div class="rounded border border-zinc-100 px-4 py-4">
+            <div class="rounded border border-zinc-100 px-4 py-4 space-y-4">
               <h2 class="text-zinc-900 font-bold text-xl">Payment Method</h2>
+
+              <div class="w-full py-2 px-3 bg-zinc-50 rounded">
+                <%!-- <p class="text-zinc-800">n/a</p> --%>
+
+                <div class="w-full flex flex-row justify-between items-center">
+                  <div class="items-center space-x-2">
+                    <.icon name="hero-credit-card" class="w-6 h-6" />
+                    <span class="text-zinc-600 text-sm font-semibold">**** **** **** 4242</span>
+                  </div>
+
+                  <.button>Update</.button>
+                </div>
+              </div>
             </div>
 
-            <div class="rounded border border-zinc-100 px-4 py-4">
+            <div class="rounded border border-zinc-100 px-4 py-4 space-y-4">
               <h2 class="text-zinc-900 font-bold text-xl">Billing History</h2>
+
+              <div class="space-y-3">
+                <p :if={length(@invoices) == 0} class="text-zinc-600 text-sm">No previous payments</p>
+
+                <div
+                  :for={invoice <- @invoices}
+                  class="items-center flex w-full flex-row justify-between rounded bg-zinc-50 py-2 px-3"
+                >
+                  <div>
+                    <div class="flex flex-row space-x-2 items-center">
+                      <p class="text-sm font-bold text-zinc-800">
+                        <%= Timex.format!(invoice.created, "{Mshort} {D}, {YYYY}") %>
+                      </p>
+                      <.badge type={payment_to_badge_style(invoice.status)}>
+                        <%= String.upcase(invoice.status) %>
+                      </.badge>
+                    </div>
+
+                    <div class="text-sm text-zinc-600">
+                      <%= Ysc.MoneyHelper.format_money!(Money.new(:USD, invoice.total)) %>
+                    </div>
+                  </div>
+
+                  <.button>View</.button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -183,6 +222,50 @@ defmodule YscWeb.UserSettingsLive do
     email_changeset = Accounts.change_user_email(user)
     password_changeset = Accounts.change_user_password(user)
 
+    if user.stripe_id == nil do
+      Bling.Customers.create_stripe_customer(user)
+    end
+
+    payment_method_intent = Bling.Customers.create_setup_intent(user)
+
+    invoices =
+      Customers.invoices(user)
+      |> Enum.map(fn invoice ->
+        %{
+          hosted_invoice_url: invoice.hosted_invoice_url,
+          created: invoice.created |> DateTime.from_unix!() |> DateTime.to_date(),
+          total: invoice.total,
+          currency: invoice.currency,
+          status: invoice.status
+        }
+      end)
+
+    invoices = [
+      %{
+        hosted_invoice_url: "https://example.com",
+        created: DateTime.utc_now() |> DateTime.to_date(),
+        total: 10,
+        currency: "usd",
+        status: "paid"
+      },
+      %{
+        hosted_invoice_url: "https://example.com",
+        created: DateTime.utc_now() |> DateTime.to_date(),
+        total: 10,
+        currency: "usd",
+        status: "paid"
+      },
+      %{
+        hosted_invoice_url: "https://example.com",
+        created: DateTime.utc_now() |> DateTime.to_date(),
+        total: 10,
+        currency: "usd",
+        status: "paid"
+      }
+    ]
+
+    IO.inspect(payment_method_intent)
+
     socket =
       socket
       |> assign(:page_title, "User Settings")
@@ -190,6 +273,7 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:user, user)
       |> assign(:email_form_current_password, nil)
       |> assign(:current_email, user.email)
+      |> assign(:invoices, invoices)
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:trigger_submit, false)
@@ -258,4 +342,11 @@ defmodule YscWeb.UserSettingsLive do
         {:noreply, assign(socket, password_form: to_form(changeset))}
     end
   end
+
+  defp payment_to_badge_style("paid"), do: "green"
+  defp payment_to_badge_style("open"), do: "blue"
+  defp payment_to_badge_style("draft"), do: "yellow"
+  defp payment_to_badge_style("uncollectible"), do: "red"
+  defp payment_to_badge_style("void"), do: "red"
+  defp payment_to_badge_style(_), do: "blue"
 end

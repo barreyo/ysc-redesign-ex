@@ -1387,7 +1387,7 @@ defmodule YscWeb.CoreComponents do
   defp event_badge_style(%Event{published_at: nil}), do: nil
 
   defp event_badge_style(%Event{published_at: date}) do
-    if DateTime.diff(date, DateTime.utc_now(), :hour) <= 48 do
+    if DateTime.diff(DateTime.utc_now(), date, :hour) <= 48 do
       "green"
     else
       nil
@@ -1400,7 +1400,7 @@ defmodule YscWeb.CoreComponents do
   defp event_badge_text(%Event{published_at: nil}), do: nil
 
   defp event_badge_text(%Event{published_at: date}) do
-    if DateTime.diff(date, DateTime.utc_now(), :hour) <= 48 do
+    if DateTime.diff(DateTime.utc_now(), date, :hour) <= 48 do
       "Just Added!"
     else
       nil

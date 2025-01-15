@@ -1,6 +1,7 @@
 defmodule Ysc.MoneyHelper do
   @doc """
   Converts string input to Money type for changesets.
+
   Examples:
     iex> parse_money("10.99")
     %Money{amount: 1099, currency: :USD}
@@ -31,6 +32,7 @@ defmodule Ysc.MoneyHelper do
 
   @doc """
   Formats Money for display in forms.
+
   Examples:
     iex> format_money(%Money{amount: 1099, currency: :USD})
     "10.99"
