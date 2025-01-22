@@ -28,6 +28,6 @@ defmodule YscWeb.Authorization.EnsureApprovedUserPlug do
   end
 
   defp not_approved_path(_conn) do
-    "/pending_review"
+    "/pending-review"
   end
 end

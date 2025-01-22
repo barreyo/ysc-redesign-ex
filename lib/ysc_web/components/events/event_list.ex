@@ -101,10 +101,10 @@ defmodule YscWeb.EventsListLive do
   end
 
   defp format_start_time(time) when is_binary(time) do
-    format_start_time(Timex.parse!(time, "{h24}:{m}"))
+    format_start_time(Timex.parse!(time, "{h12}:{m} {AM}"))
   end
 
   defp format_start_time(time) do
-    Timex.format!(time, "{h24}:{m}")
+    Timex.format!(time, "{h12}:{m} {AM}")
   end
 end

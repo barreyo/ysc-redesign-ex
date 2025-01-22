@@ -1,8 +1,8 @@
 <.flash_group flash={@flash} />
 <div class="max-w-screen-lg mx-auto px-4 py-2 lg:py-10">
   <div class="max-w-xl mx-auto lg:mx-0 prose prose-zinc prose-base">
-    <div :if={@current_user == nil}>
-      <h2>Welcome to the Young Scandinavians Club!</h2>
+    <div :if={@current_user == nil} class="pb-10">
+      <h1>Welcome to the Young Scandinavians Club!</h1>
 
       <p>
         The Young Scandinavians Club (YSC) is a vibrant community for Scandinavians and Scandinavian-Americans of all ages in the San Francisco Bay Area. We host a wide range of events across Northern California, offering members access to our scenic cabins in Clear Lake and Lake Tahoe. Year-round social and cultural gatherings bring our community together in and around San Francisco.
@@ -47,7 +47,7 @@
           <.button>Let's keep in touch</.button>
           <p class="not-prose text-sm italic text-zinc-500">
             We don’t spam! Read our
-            <a href="#" class="text-blue-600 hover:underline">privacy policy</a>
+            <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">privacy policy</.link>
             for more info.
           </p>
         </form>
@@ -55,7 +55,7 @@
     </div>
 
     <div :if={@current_user != nil}>
-      <h2>Welcome back <%= String.capitalize(@current_user.first_name) %>!</h2>
+      <h1>Welcome back <%= String.capitalize(@current_user.first_name) %>!</h1>
     </div>
   </div>
 </div>

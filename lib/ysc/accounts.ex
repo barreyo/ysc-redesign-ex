@@ -154,6 +154,27 @@ defmodule Ysc.Accounts do
     |> Ecto.Changeset.apply_action(:update)
   end
 
+  def list_bod_members() do
+    from(u in User,
+      where: not is_nil(u.board_position),
+      order_by: [
+        desc: fragment("CASE
+          WHEN board_position = 'president' THEN 10
+          WHEN board_position = 'vice_president' THEN 9
+          WHEN board_position = 'secretary' THEN 8
+          WHEN board_position = 'treasurer' THEN 7
+          WHEN board_position = 'clear_lake_cabin_master' THEN 6
+          WHEN board_position = 'tahoe_cabin_master' THEN 5
+          WHEN board_position = 'event_director' THEN 4
+          WHEN board_position = 'member_outreach' THEN 3
+          WHEN board_position = 'membership_director' THEN 2
+          ELSE 1
+        END")
+      ]
+    )
+    |> Repo.all()
+  end
+
   def list_paginated_users(params) do
     Flop.validate_and_run(User, params, for: User)
   end
@@ -222,7 +243,7 @@ defmodule Ysc.Accounts do
 
   ## Examples
 
-      iex> deliver_user_update_email_instructions(user, current_email, &url(~p"/users/settings/confirm_email/#{&1})")
+      iex> deliver_user_update_email_instructions(user, current_email, &url(~p"/users/settings/confirm-email/#{&1})")
       {:ok, %{to: ..., body: ...}}
 
   """
@@ -356,7 +377,7 @@ defmodule Ysc.Accounts do
 
   ## Examples
 
-      iex> deliver_user_reset_password_instructions(user, &url(~p"/users/reset_password/#{&1}"))
+      iex> deliver_user_reset_password_instructions(user, &url(~p"/users/reset-password/#{&1}"))
       {:ok, %{to: ..., body: ...}}
 
   """

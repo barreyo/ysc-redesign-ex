@@ -456,7 +456,7 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_event("login-redirect", _params, socket) do
-    {:noreply, socket |> redirect(to: ~p"/users/log_in")}
+    {:noreply, socket |> redirect(to: ~p"/users/log-in")}
   end
 
   def format_start_date(date) do

@@ -32,7 +32,7 @@ defmodule YscWeb.UserResetPasswordLive do
 
       <p class="text-center text-sm mt-4">
         <.link href={~p"/users/register"}>Register</.link>
-        | <.link href={~p"/users/log_in"}>Log in</.link>
+        | <.link href={~p"/users/log-in"}>Log in</.link>
       </p>
     </div>
     """
@@ -50,7 +50,8 @@ defmodule YscWeb.UserResetPasswordLive do
           %{}
       end
 
-    {:ok, assign_form(socket, form_source) |> assign(:page_title, "Reset Password"), temporary_assigns: [form: nil]}
+    {:ok, assign_form(socket, form_source) |> assign(:page_title, "Reset Password"),
+     temporary_assigns: [form: nil]}
   end
 
   # Do not log in the user after reset password to avoid a
@@ -61,7 +62,7 @@ defmodule YscWeb.UserResetPasswordLive do
         {:noreply,
          socket
          |> put_flash(:info, "Password reset successfully.")
-         |> redirect(to: ~p"/users/log_in")}
+         |> redirect(to: ~p"/users/log-in")}
 
       {:error, changeset} ->
         {:noreply, assign_form(socket, Map.put(changeset, :action, :insert))}

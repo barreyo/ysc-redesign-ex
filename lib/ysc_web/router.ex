@@ -36,6 +36,12 @@ defmodule YscWeb.Router do
     pipe_through [:browser, :mount_site_settings]
 
     get "/", PageController, :home
+    get "/history", PageController, :history
+    get "/board", PageController, :board
+    get "/bylaws", PageController, :bylaws
+    get "/code-of-conduct", PageController, :code_of_conduct
+    get "/privacy-policy", PageController, :privacy_policy
+    get "/contact", PageController, :contact
 
     get "/up", UpController, :index
     get "/up/dbs", UpController, :databases
@@ -79,34 +85,36 @@ defmodule YscWeb.Router do
         {YscWeb.Plugs.SiteSettingsPlugs, :mount_site_settings}
       ] do
       live "/users/register", UserRegistrationLive, :new
-      live "/users/log_in", UserLoginLive, :new
-      live "/users/reset_password", UserForgotPasswordLive, :new
-      live "/users/reset_password/:token", UserResetPasswordLive, :edit
+      live "/users/log-in", UserLoginLive, :new
+      live "/users/reset-password", UserForgotPasswordLive, :new
+      live "/users/reset-password/:token", UserResetPasswordLive, :edit
     end
 
-    post "/users/log_in", UserSessionController, :create
+    post "/users/log-in", UserSessionController, :create
   end
 
   scope "/", YscWeb do
     pipe_through [:browser, :require_authenticated_user]
+
+    get "/financials", PageController, :financials
 
     live_session :require_authenticated_user,
       on_mount: [
         {YscWeb.UserAuth, :ensure_authenticated},
         {YscWeb.Plugs.SiteSettingsPlugs, :mount_site_settings}
       ] do
-      get "/pending_review", PageController, :pending_review
+      get "/pending-review", PageController, :pending_review
 
       live "/users/settings", UserSettingsLive, :edit
       live "/users/membership", UserSettingsLive, :membership
-      live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
+      live "/users/settings/confirm-email/:token", UserSettingsLive, :confirm_email
     end
   end
 
   scope "/", YscWeb do
     pipe_through [:browser]
 
-    delete "/users/log_out", UserSessionController, :delete
+    delete "/users/log-out", UserSessionController, :delete
 
     live_session :current_user,
       on_mount: [

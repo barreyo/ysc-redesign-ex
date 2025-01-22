@@ -167,7 +167,7 @@ defmodule YscWeb.UserAuth do
       socket =
         socket
         |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-        |> Phoenix.LiveView.redirect(to: ~p"/users/log_in")
+        |> Phoenix.LiveView.redirect(to: ~p"/users/log-in")
 
       {:halt, socket}
     end
@@ -201,7 +201,7 @@ defmodule YscWeb.UserAuth do
       socket =
         socket
         |> Phoenix.LiveView.put_flash(:error, "Your account is not active")
-        |> Phoenix.LiveView.redirect(to: ~p"/pending_review")
+        |> Phoenix.LiveView.redirect(to: ~p"/pending-review")
 
       {:halt, socket}
     end
@@ -275,7 +275,7 @@ defmodule YscWeb.UserAuth do
       conn
       |> put_flash(:error, "You must log in to access this page.")
       |> maybe_store_return_to()
-      |> redirect(to: ~p"/users/log_in")
+      |> redirect(to: ~p"/users/log-in")
       |> halt()
     end
   end
@@ -302,7 +302,7 @@ defmodule YscWeb.UserAuth do
     else
       conn
       |> put_flash(:error, "Your account has not been approved yet")
-      |> redirect(to: ~p"/pending_review")
+      |> redirect(to: ~p"/pending-review")
       |> halt()
     end
   end
@@ -320,5 +320,5 @@ defmodule YscWeb.UserAuth do
   defp maybe_store_return_to(conn), do: conn
 
   defp signed_in_path(_conn), do: ~p"/"
-  defp not_approved_path(_conn), do: ~p"/pending_review"
+  defp not_approved_path(_conn), do: ~p"/pending-review"
 end

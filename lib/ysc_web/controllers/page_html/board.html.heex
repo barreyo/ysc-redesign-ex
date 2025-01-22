@@ -1,0 +1,39 @@
+<div class="py-6 lg:py-10 max-w-screen-lg mx-auto px-4">
+  <div class="max-w-xl mx-auto lg:mx-0 prose prose-zinc prose-a:text-blue-600 pb-10">
+    <h1>Board of Directors</h1>
+
+    <p>The Board of Directors consists of up to eleven positions with a minimum of nine. In addition to overseeing the day-to-day affairs of the YSC, it also works to develop a vision for the club that reflects current membership needs and keeps the club alive, healthy, relevant and Scandinavian.</p>
+    <p>The YSC is always in need of talented, motivated members to serve on the board and/or the various committees. Annual elections take place at the beginning of each year.</p>
+
+    <h2>Current Board of Directors</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 not-prose">
+        <%= for member <- @bod_members do %>
+          <div class="flex flex-col space-y-4 p-2">
+            <.user_avatar_image
+              email={member.email}
+              user_id={member.id}
+              country={member.most_connected_country}
+              class="rounded-full mx-auto"
+            />
+            <div class="text-center">
+              <p class="font-semibold text-xl"><%= member.first_name %> <%= member.last_name %></p>
+              <p class="text-zinc-600"><%= atom_to_readable(member.board_position) %></p>
+            </div>
+          </div>
+        <% end %>
+
+        <%= for position <- @vacant_positions do %>
+          <div class="flex flex-col space-y-4 p-2">
+            <div class="flex rounded-full aspect-square bg-zinc-300 text-center items-center justify-center">
+              <span class="font-bold text-lg text-zinc-500 sm:text-xl md:text-2xl">VACANT</span>
+            </div>
+            <div class="text-center">
+              <p class="font-semibold text-xl">VACANT</p>
+              <p class="text-zinc-600"><%= atom_to_readable(position) %></p>
+            </div>
+          </div>
+        <% end %>
+    </div>
+  </div>
+</div>

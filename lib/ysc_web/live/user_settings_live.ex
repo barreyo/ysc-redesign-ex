@@ -11,7 +11,7 @@ defmodule YscWeb.UserSettingsLive do
       <div class="md:flex md:flex-row md:flex-auto md:grow container mx-auto">
         <ul class="flex-column space-y space-y-4 md:pr-10 text-sm font-medium text-zinc-600 md:me-4 mb-4 md:mb-0">
           <li>
-            <h2 class="text-zinc-800 text-lg font-semibold leading-8 mb-10">Settings</h2>
+            <h2 class="text-zinc-800 text-2xl font-semibold leading-8 mb-10">Settings</h2>
           </li>
           <li>
             <.link
@@ -106,7 +106,7 @@ defmodule YscWeb.UserSettingsLive do
             <.simple_form
               for={@password_form}
               id="password_form"
-              action={~p"/users/log_in?_action=password_updated"}
+              action={~p"/users/log-in?_action=password_updated"}
               method="post"
               phx-change="validate_password"
               phx-submit="update_password"
@@ -302,7 +302,7 @@ defmodule YscWeb.UserSettingsLive do
         Accounts.deliver_user_update_email_instructions(
           applied_user,
           user.email,
-          &url(~p"/users/settings/confirm_email/#{&1}")
+          &url(~p"/users/settings/confirm-email/#{&1}")
         )
 
         info = "A link to confirm your email change has been sent to the new address."

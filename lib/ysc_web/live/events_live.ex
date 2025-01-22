@@ -7,14 +7,16 @@ defmodule YscWeb.EventsLive do
     ~H"""
     <div class="py-6 lg:py-10">
       <div class="max-w-screen-lg mx-auto flex flex-col px-4 space-y-6">
-        <div class="w-full">
-          <h2 class="text-2xl font-semibold leading-8">Latest Events</h2>
-          <p class="text-zinc-700 max-w-2xl">
+        <div class="prose prose-zinc">
+          <h1>Latest Events</h1>
+          <p>
             Explore our upcoming events! New events are added regularly, so be sure to visit often and stay updated.
           </p>
         </div>
 
-        <.live_component id="event_list" module={YscWeb.EventsListLive} />
+        <div class="py-4">
+          <.live_component id="event_list" module={YscWeb.EventsListLive} />
+        </div>
       </div>
     </div>
     """

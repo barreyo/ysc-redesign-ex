@@ -111,24 +111,24 @@
                         aria-labelledby="dropdownLargeButton"
                       >
                         <li>
-                          <a
-                            href="#"
+                          <.link
+                            navigate={~p"/contact"}
                             class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
                           >
                             Contact Us
-                          </a>
-                        </li>
-                        <li>
-                          <a
-                            href="#"
-                            class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
-                          >
-                            Volunteer
-                          </a>
+                          </.link>
                         </li>
                         <li>
                           <.link
-                            navigate={~p"/users/settings"}
+                            navigate={~p"/volunteer"}
+                            class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
+                          >
+                            Volunteer
+                          </.link>
+                        </li>
+                        <li>
+                          <.link
+                            navigate={~p"/report-conduct-violation"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                           >
                             Report Conduct Violation
@@ -137,7 +137,7 @@
 
                         <li>
                           <.link
-                            navigate={~p"/users/settings"}
+                            navigate={~p"/history"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                           >
                             History
@@ -146,16 +146,16 @@
 
                         <li>
                           <.link
-                            navigate={~p"/users/settings"}
+                            navigate={~p"/board"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                           >
-                            Past Presidents
+                            Board of Directors
                           </.link>
                         </li>
 
                         <li>
                           <.link
-                            navigate={~p"/users/settings"}
+                            navigate={~p"/financials"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                           >
                             Financials & Annual Meetings
@@ -164,7 +164,7 @@
 
                         <li>
                           <.link
-                            navigate={~p"/users/settings"}
+                            navigate={~p"/bylaws"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                           >
                             Bylaws
@@ -173,7 +173,7 @@
 
                         <li>
                           <.link
-                            navigate={~p"/users/settings"}
+                            navigate={~p"/code-of-conduct"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                           >
                             Non-Discrimination Code of Conduct
@@ -226,7 +226,7 @@
                         </ul>
                         <div class="py-1">
                           <.link
-                            href={~p"/users/log_out"}
+                            href={~p"/users/log-out"}
                             method="delete"
                             class="block px-4 py-2 text-sm text-zinc-800 transition ease-in-out hover:bg-zinc-100 duration-400"
                           >
@@ -238,7 +238,7 @@
                   <% else %>
                     <div class="flex items-center space-x-2">
                       <.link
-                        href={~p"/users/log_in"}
+                        href={~p"/users/log-in"}
                         class="px-2 py-2 lg:px-3 lg:py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
                       >
                         Sign In
@@ -343,7 +343,7 @@
               © <%= DateTime.utc_now().year %> <.link href={~p"/"} class="hover:underline">The Young Scandinavians Club</.link>. All Rights Reserved.
             </span>
             <span class="text-sm text-zinc-500 sm:text-center">
-              <a href="#" class="hover:underline">Privacy Policy</a>
+              <.link navigate={~p"/privacy-policy"} class="hover:underline">Privacy Policy</.link>
             </span>
           </div>
         </div>

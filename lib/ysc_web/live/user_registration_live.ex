@@ -25,7 +25,7 @@ defmodule YscWeb.UserRegistrationLive do
             Apply for membership
             <:subtitle>
               Already a member?
-              <.link navigate={~p"/users/log_in"} class="font-semibold text-blue-700 hover:underline">
+              <.link navigate={~p"/users/log-in"} class="font-semibold text-blue-700 hover:underline">
                 Sign in
               </.link>
               to your account.
@@ -43,7 +43,7 @@ defmodule YscWeb.UserRegistrationLive do
           phx-submit="save"
           phx-change="validate"
           phx-trigger-action={@trigger_submit}
-          action={~p"/users/log_in?_action=registered"}
+          action={~p"/users/log-in?_action=registered"}
           method="post"
         >
           <div class="space-y-4">
@@ -229,9 +229,9 @@ defmodule YscWeb.UserRegistrationLive do
                     field={rf[:agreed_to_bylaws]}
                     label="I have read and agreed to the"
                   />
-                  <a href="#" class="text-blue-600 hover:underline">
+                  <.link navigate={~p"/bylaws"} class="text-blue-600 hover:underline">
                     Young Scandinavians Club Bylaws
-                  </a>
+                  </.link>
                 </div>
               </.inputs_for>
             </div>
