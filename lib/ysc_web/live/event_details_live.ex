@@ -11,7 +11,7 @@ defmodule YscWeb.EventDetailsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="py-6 lg:py-10">
+    <div class="py-8 lg:py-10">
       <div class="max-w-screen-lg mx-auto flex flex-wrap px-4 space-y-10 flex-col relative">
         <.live_component
           id={"event-cover-#{@event.id}"}
@@ -47,7 +47,7 @@ defmodule YscWeb.EventDetailsLive do
               </p>
             </div>
 
-            <div class="space-y-2">
+            <div class="space-y-4">
               <h3 class="text-zinc-800 text-2xl font-semibold">Date and Time</h3>
 
               <div class="items-center flex text-zinc-600 text-semibold">
@@ -82,7 +82,7 @@ defmodule YscWeb.EventDetailsLive do
                 (@event.location_name != "" && @event.location_name != nil) ||
                   (@event.address != nil && @event.address != "")
               }
-              class="space-y-2"
+              class="space-y-4"
             >
               <h3 class="text-zinc-800 text-2xl font-semibold">Location</h3>
               <p :if={@event.location_name != nil && @event.location_name != ""} class="font-semibold">
@@ -95,7 +95,7 @@ defmodule YscWeb.EventDetailsLive do
                   @event.latitude != nil && @event.longitude != nil && @event.latitude != "" &&
                     @event.longitude != ""
                 }
-                class="space-y-2"
+                class="space-y-4"
               >
                 <button
                   class="transition duration-200 ease-in-out hover:text-blue-800 text-blue-600 font-bold mt-2"
@@ -199,7 +199,7 @@ defmodule YscWeb.EventDetailsLive do
               </div>
             </div>
 
-            <div :if={length(@agendas) > 0} class="space-y-2">
+            <div :if={length(@agendas) > 0} class="space-y-4">
               <h3 class="text-zinc-800 text-2xl font-semibold">Agenda</h3>
 
               <div :if={length(@agendas) > 1} class="py-4">
@@ -250,7 +250,7 @@ defmodule YscWeb.EventDetailsLive do
               <% end %>
             </div>
 
-            <div class="space-y-2">
+            <div class="space-y-4">
               <h3 class="text-zinc-800 text-2xl font-semibold">Details</h3>
               <div class="prose prose-zinc prose-base prose-a:text-blue-600 max-w-xl">
                 <div id="article-body" class="post-render">

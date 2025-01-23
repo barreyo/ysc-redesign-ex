@@ -10,7 +10,7 @@ defmodule YscWeb.PostLive do
 
   def render(assigns) do
     ~H"""
-    <div class="py-6 lg:py-10">
+    <div class="py-8 lg:py-10">
       <div :if={@post == nil} class="my-14 mx-auto">
         <.empty_viking_state
           viking={4}

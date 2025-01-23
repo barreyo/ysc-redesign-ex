@@ -5,7 +5,7 @@ defmodule YscWeb.EventsLive do
 
   def render(assigns) do
     ~H"""
-    <div class="py-6 lg:py-10">
+    <div class="py-8 lg:py-10">
       <div class="max-w-screen-lg mx-auto flex flex-col px-4 space-y-6">
         <div class="prose prose-zinc">
           <h1>Latest Events</h1>

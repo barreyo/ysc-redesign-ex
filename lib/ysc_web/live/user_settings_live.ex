@@ -7,7 +7,7 @@ defmodule YscWeb.UserSettingsLive do
 
   def render(assigns) do
     ~H"""
-    <div class="max-w-screen-lg px-4 mx-auto py-6 lg:py-10">
+    <div class="max-w-screen-lg px-4 mx-auto py-8 lg:py-10">
       <div class="md:flex md:flex-row md:flex-auto md:grow container mx-auto">
         <ul class="flex-column space-y space-y-4 md:pr-10 text-sm font-medium text-zinc-600 md:me-4 mb-4 md:mb-0">
           <li>

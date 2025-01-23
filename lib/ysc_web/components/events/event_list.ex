@@ -30,7 +30,7 @@ defmodule YscWeb.EventsListLive do
 
             <.link
               navigate={~p"/events/#{event.id}"}
-              class="text-2xl lg:text-lg leading-6 font-semibold text-zinc-900 text-pretty"
+              class="text-2xl md:text-xl leading-6 font-semibold text-zinc-900 text-pretty"
             >
               <%= event.title %>
             </.link>

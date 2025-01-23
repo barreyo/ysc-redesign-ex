@@ -23,6 +23,10 @@
     <div id="content-wrapper" class="flex flex-col min-h-screen">
       <header :if={!fullscreen?(@conn)}>
         <div id="hero-branding" class="relative overflow-hidden h-44">
+          <div :if={@current_user && @current_user.role == :admin} class="z-50 absolute left-0 top-0 bg-zinc-800 rounded-b px-2 items-center flex py-2">
+            <.link navigate={~p"/admin"} class="text-sm bg-green-700 rounded px-3 py-1.5 transition hover:bg-green-500 items-center font-semibold text-zinc-100"><.icon name="hero-cog" class="me-1 -mt-0.5" />Go to admin panel</.link>
+          </div>
+
           <div class="w-full h-full">
             <div class="w-full h-full overlay">
               <canvas

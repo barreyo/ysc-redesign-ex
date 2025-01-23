@@ -9,12 +9,12 @@ defmodule YscWeb.NewsLive do
 
   def render(assigns) do
     ~H"""
-    <div class="py-6 lg:py-10">
+    <div class="py-6 md:py-10">
       <div class="max-w-screen-lg mx-auto flex flex-wrap px-4">
-        <div :if={@featured != nil} id="featured" class="w-full flex flex-col lg:flex-row mb-8">
+        <div :if={@featured != nil} id="featured" class="w-full flex flex-col md:flex-row mb-8">
           <.link
             navigate={~p"/posts/#{@featured.url_name}"}
-            class="w-full lg:w-1/2 hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
+            class="w-full md:w-1/2 hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
           >
             <div class="relative max-h-[112rem]">
               <canvas
@@ -34,7 +34,7 @@ defmodule YscWeb.NewsLive do
               />
             </div>
           </.link>
-          <div class="py-4 lg:py-0 px-2 lg:pl-8 lg:pr-0 flex flex-col justify-between w-full lg:w-1/2">
+          <div class="py-4 md:py-0 px-2 md:pl-8 md:pr-0 flex flex-col justify-between w-full md:w-1/2">
             <div>
               <div class="text-sm leading-6 text-zinc-600">
                 <p class="sr-only">Date</p>
@@ -71,7 +71,7 @@ defmodule YscWeb.NewsLive do
         <div
           :if={@post_count > 0}
           id="news-grid"
-          class="grid grid-cols-1 lg:grid-cols-2 py-4 gap-8"
+          class="grid grid-cols-1 md:grid-cols-2 py-4 gap-8"
           phx-update="stream"
           phx-viewport-top={@page > 1 && "prev-page"}
           phx-viewport-bottom={!@end_of_timeline? && "next-page"}
