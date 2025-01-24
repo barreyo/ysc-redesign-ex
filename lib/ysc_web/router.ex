@@ -56,6 +56,9 @@ defmodule YscWeb.Router do
       live "/events", EventsLive, :index
       live "/events/:id", EventDetailsLive, :index
 
+      live "/volunteer", VolunteerLive, :index
+      live "/report-conduct-violation", ConductViolationReportLive, :index
+
       live "/news", NewsLive, :index
     end
   end

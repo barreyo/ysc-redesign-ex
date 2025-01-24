@@ -1,0 +1,39 @@
+defmodule Ysc.Forms.Volunteer do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @primary_key {:id, Ecto.ULID, autogenerate: true}
+  @foreign_key_type Ecto.ULID
+  @timestamps_opts [type: :utc_datetime]
+  schema "volunteer_signups" do
+    field :email, :string
+    field :name, :string
+
+    field :interest_events, :boolean
+    field :interest_activities, :boolean
+    field :interest_clear_lake, :boolean
+    field :interest_tahoe, :boolean
+    field :interest_marketing, :boolean
+    field :interest_website, :boolean
+
+    timestamps()
+  end
+
+  @doc false
+  def changeset(volunteer, attrs) do
+    volunteer
+    |> cast(attrs, [
+      :email,
+      :name,
+      :interest_events,
+      :interest_activities,
+      :interest_clear_lake,
+      :interest_tahoe,
+      :interest_marketing,
+      :interest_website
+    ])
+    |> validate_required([:email, :name])
+    # Basic email validation
+    |> validate_format(:email, ~r/@/)
+  end
+end

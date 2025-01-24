@@ -65,6 +65,10 @@ if config_env() == :prod do
 
   config :ysc, dns_cluster_query: System.get_env("DNS_CLUSTER_QUERY")
 
+  config :phoenix_turnstile,
+    site_key: System.fetch_env!("TURNSTILE_SITE_KEY"),
+    secret_key: System.fetch_env!("TURNSTILE_SECRET_KEY")
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key

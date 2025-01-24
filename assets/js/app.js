@@ -32,6 +32,7 @@ import DaterangeHover from "./daterange-hover";
 import Sortable from "./sortable";
 import RadarMap from "./radar";
 import MoneyInput from "./money_input";
+import Turnstile from "./phoenix_turnstile";
 
 let Hooks = {
   StickyNavbar,
@@ -43,6 +44,7 @@ let Hooks = {
   Sortable,
   RadarMap,
   MoneyInput,
+  Turnstile,
 };
 Hooks.LivePhone = LivePhone;
 
