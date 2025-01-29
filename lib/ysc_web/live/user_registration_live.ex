@@ -103,7 +103,6 @@ defmodule YscWeb.UserRegistrationLive do
                 label="Phone Number*"
                 id="phone_number"
                 field={@form[:phone_number]}
-                value={@form[:phone_number].value}
               />
               <.input field={@form[:password]} type="password" label="Password*" required />
 

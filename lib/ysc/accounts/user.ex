@@ -268,7 +268,7 @@ defmodule Ysc.Accounts.User do
   Confirms the account by setting `confirmed_at`.
   """
   def confirm_changeset(user) do
-    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    now = Timex.now() |> DateTime.truncate(:second)
     change(user, confirmed_at: now)
   end
 

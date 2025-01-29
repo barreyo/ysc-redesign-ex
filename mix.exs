@@ -62,6 +62,7 @@ defmodule Ysc.MixProject do
       {:jason, "~> 1.4"},
       {:let_me, "~> 1.2.3"},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
+      {:mjml_eex, "~> 0.12"},
       {:mogrify, "~> 0.8.0"},
       {:mox, "~> 1.0", only: :test},
       {:oban, "~> 2.17"},
@@ -82,7 +83,8 @@ defmodule Ysc.MixProject do
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
-      {:timex, "~> 3.7"}
+      {:timex, "~> 3.7"},
+      {:uuid, "~> 1.1"}
     ]
   end
 
