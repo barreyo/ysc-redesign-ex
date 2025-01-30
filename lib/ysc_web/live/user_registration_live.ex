@@ -362,6 +362,21 @@ defmodule YscWeb.UserRegistrationLive do
       {:ok, user} ->
         Accounts.deliver_application_submitted_notification(user)
 
+        YscWeb.Emails.Notifier.send_email_to_board(
+          "#{user.id}",
+          "New Membership Application Received - Action Needed",
+          YscWeb.Emails.AdminApplicationSubmitted,
+          %{
+            applicant_name: "#{user.first_name} #{user.last_name}",
+            submission_date:
+              Timex.format!(
+                Timex.now("America/Los_Angeles"),
+                "{Mshort} {D}, {YYYY} at {h12}:{m} {AM}"
+              ),
+            review_url: YscWeb.Endpoint.url() <> "/admin/users/#{user.id}/review"
+          }
+        )
+
         {:ok, _} =
           Accounts.deliver_user_confirmation_instructions(
             user,

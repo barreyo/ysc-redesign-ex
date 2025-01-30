@@ -50,4 +50,16 @@ defmodule YscWeb.Emails.Notifier do
       nil
     )
   end
+
+  def send_email_to_board(idempotency_key, subject, template, variables) do
+    send_email_idempotent(
+      @from_email,
+      idempotency_key,
+      subject,
+      template,
+      variables,
+      "",
+      nil
+    )
+  end
 end
