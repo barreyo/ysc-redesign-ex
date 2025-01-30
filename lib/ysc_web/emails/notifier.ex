@@ -6,7 +6,15 @@ defmodule YscWeb.Emails.Notifier do
   @from_email "info@ysc.org"
   @from_name "YSC"
 
-  def send_email_idempotent(recipient, idempotency_key, subject, template, variables, text_body) do
+  def send_email_idempotent(
+        recipient,
+        idempotency_key,
+        subject,
+        template,
+        variables,
+        text_body,
+        user_id
+      ) do
     rendered = template.render(variables)
     template_name = template.get_template_name()
 
@@ -16,7 +24,8 @@ defmodule YscWeb.Emails.Notifier do
       message_template: template_name,
       params: variables,
       email: recipient,
-      rendered_message: rendered
+      rendered_message: rendered,
+      user_id: user_id
     }
 
     email =
@@ -28,5 +37,17 @@ defmodule YscWeb.Emails.Notifier do
       |> text_body(text_body)
 
     Ysc.Messages.run_send_message_idempotent(email, attrs)
+  end
+
+  def send_email_idempotent(recipient, idempotency_key, subject, template, variables, text_body) do
+    send_email_idempotent(
+      recipient,
+      idempotency_key,
+      subject,
+      template,
+      variables,
+      text_body,
+      nil
+    )
   end
 end

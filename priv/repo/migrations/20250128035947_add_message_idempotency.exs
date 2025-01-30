@@ -12,6 +12,9 @@ defmodule Ysc.Repo.Migrations.AddMessageIdempotency do
 
       add :rendered_message, :text, null: true
 
+      add :user_id, references(:users, column: :id, type: :binary_id, on_delete: :nothing),
+        null: true
+
       add :email, :citext, null: true
       add :phone_number, :string, null: true
 
@@ -26,5 +29,6 @@ defmodule Ysc.Repo.Migrations.AddMessageIdempotency do
 
     create index(:message_idempotency_entries, [:email])
     create index(:message_idempotency_entries, [:phone_number])
+    create index(:message_idempotency_entries, [:user_id])
   end
 end

@@ -360,6 +360,8 @@ defmodule YscWeb.UserRegistrationLive do
 
     case Accounts.register_user(updated_user_params) do
       {:ok, user} ->
+        Accounts.deliver_application_submitted_notification(user)
+
         {:ok, _} =
           Accounts.deliver_user_confirmation_instructions(
             user,

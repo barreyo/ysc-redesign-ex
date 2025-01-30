@@ -23,7 +23,8 @@ defmodule Ysc.Accounts.UserNotifier do
       If you didn't create an account with us, please ignore this.
 
       ==============================
-      """
+      """,
+      user.id
     )
   end
 
@@ -49,7 +50,8 @@ defmodule Ysc.Accounts.UserNotifier do
       If you didn't request this change, please ignore this.
 
       ==============================
-      """
+      """,
+      user.id
     )
   end
 
@@ -76,7 +78,8 @@ defmodule Ysc.Accounts.UserNotifier do
       If you didn't request this change, please ignore this.
 
       ==============================
-      """
+      """,
+      user.id
     )
   end
 end

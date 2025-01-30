@@ -348,6 +348,30 @@ defmodule Ysc.Accounts do
     end
   end
 
+  def deliver_application_submitted_notification(%User{} = user) do
+    YscWeb.Emails.Notifier.send_email_idempotent(
+      user.email,
+      "#{user.id}",
+      "Your Young Scandinavians Club application is in! 🎉",
+      YscWeb.Emails.ApplicationSubmitted,
+      %{first_name: user.first_name},
+      """
+      ==============================
+
+      Hi #{user.first_name},
+
+      Your application has been submitted! 🎉
+
+      We'll review your application and get back to you soon.
+
+      In the meantime, check out our upcoming events and latest news on our website.
+
+      ==============================
+      """,
+      user.id
+    )
+  end
+
   @doc """
   Confirms a user by the given token.
 

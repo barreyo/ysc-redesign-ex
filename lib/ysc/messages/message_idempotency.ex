@@ -15,6 +15,8 @@ defmodule Ysc.Messages.MessageIdempotency do
     field :email, :string
     field :phone_number, :string
 
+    belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
+
     field :rendered_message, :string
 
     timestamps()
@@ -28,6 +30,7 @@ defmodule Ysc.Messages.MessageIdempotency do
       :message_template,
       :params,
       :email,
+      :user_id,
       :phone_number,
       :rendered_message
     ])

@@ -580,6 +580,35 @@ defmodule YscWeb.AdminUsersLive do
 
     case Accounts.record_application_outcome(:approved, user, application, current_user) do
       :ok ->
+        YscWeb.Emails.Notifier.send_email_idempotent(
+          user.email,
+          "#{user.id}",
+          "Velkommen! You're officially a Young Scandinavian 🎉 (One more step!)",
+          YscWeb.Emails.ApplicationApproved,
+          %{first_name: user.first_name},
+          """
+          ==============================
+
+          Hi #{user.email},
+
+          Your application has been approved! 🎉
+
+          To complete your membership, please pay your membership dues by visiting the link below:
+
+          #{YscWeb.Endpoint.url()}/users/membership
+
+          If you have any questions, please don't hesitate to reply to this email.
+
+
+          Velkommen!
+
+          Young Scandinavians Club
+
+          ==============================
+          """,
+          user.id
+        )
+
         {:noreply,
          socket
          |> redirect(to: ~p"/admin/users?#{socket.assigns[:params]}")
@@ -597,6 +626,26 @@ defmodule YscWeb.AdminUsersLive do
 
     case Accounts.record_application_outcome(:rejected, user, application, current_user) do
       :ok ->
+        YscWeb.Emails.Notifier.send_email_idempotent(
+          user.email,
+          "#{user.id}",
+          "Update on your Young Scandinavians Club application",
+          YscWeb.Emails.ApplicationRejected,
+          %{first_name: user.first_name},
+          """
+          ==============================
+
+          Hi #{user.email},
+
+          We regret to inform you that your application has been rejected.
+
+          If you have any questions, please don't hesitate to reply to this email.
+
+          ==============================
+          """,
+          user.id
+        )
+
         {:noreply,
          socket
          |> redirect(to: ~p"/admin/users?#{socket.assigns[:params]}")
