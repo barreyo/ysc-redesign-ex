@@ -354,11 +354,11 @@ defmodule Ysc.Accounts do
       "#{user.id}",
       "Your Young Scandinavians Club application is in! 🎉",
       YscWeb.Emails.ApplicationSubmitted,
-      %{first_name: user.first_name},
+      %{first_name: String.capitalize(user.first_name)},
       """
       ==============================
 
-      Hi #{user.first_name},
+      Hi #{String.capitalize(user.first_name)},
 
       Your application has been submitted! 🎉
 

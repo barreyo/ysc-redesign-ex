@@ -9,7 +9,8 @@ defmodule YscWeb.Layouts do
     String.starts_with?(current_path, [
       "/users/log-in",
       "/users/register",
-      "/users/reset-password"
+      "/users/reset-password",
+      "/users/settings/confirm-email"
     ])
   end
 end

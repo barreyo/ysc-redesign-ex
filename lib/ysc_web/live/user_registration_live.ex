@@ -367,7 +367,8 @@ defmodule YscWeb.UserRegistrationLive do
           "New Membership Application Received - Action Needed",
           YscWeb.Emails.AdminApplicationSubmitted,
           %{
-            applicant_name: "#{user.first_name} #{user.last_name}",
+            applicant_name:
+              "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
             submission_date:
               Timex.format!(
                 Timex.now("America/Los_Angeles"),

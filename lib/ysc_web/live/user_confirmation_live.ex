@@ -5,8 +5,16 @@ defmodule YscWeb.UserConfirmationLive do
 
   def render(%{live_action: :edit} = assigns) do
     ~H"""
-    <div class="mx-auto max-w-sm">
-      <.header class="text-center">Confirm Account</.header>
+    <div class="max-w-sm mx-auto py-10">
+      <.link
+        navigate={~p"/"}
+        class="flex items-center text-center justify-center py-10 hover:opacity-80 transition duration-200 ease-in-out"
+      >
+        <.ysc_logo class="h-20" />
+      </.link>
+      <.header class="text-center">
+        Confirm Email
+      </.header>
 
       <.simple_form for={@form} id="confirmation_form" phx-submit="confirm_account">
         <.input field={@form[:token]} type="hidden" />
@@ -16,8 +24,7 @@ defmodule YscWeb.UserConfirmationLive do
       </.simple_form>
 
       <p class="text-center mt-4">
-        <.link href={~p"/users/register"}>Register</.link>
-        | <.link href={~p"/users/log-in"}>Log in</.link>
+        <.link href={~p"/users/log-in"}>Log in</.link>
       </p>
     </div>
     """

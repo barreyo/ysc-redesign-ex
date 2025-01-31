@@ -10,7 +10,7 @@ defmodule Ysc.Accounts.UserNotifier do
       "#{user.id}",
       "Confirm Your YSC Account",
       YscWeb.Emails.ConfirmEmail,
-      %{first_name: user.first_name, url: url},
+      %{first_name: String.capitalize(user.first_name), url: url},
       """
       ==============================
 
@@ -37,7 +37,7 @@ defmodule Ysc.Accounts.UserNotifier do
       UUID.uuid4(),
       "Reset Your YSC Password",
       YscWeb.Emails.ResetPassword,
-      %{first_name: user.first_name, url: url},
+      %{first_name: String.capitalize(user.first_name), url: url},
       """
       ==============================
 
@@ -65,7 +65,7 @@ defmodule Ysc.Accounts.UserNotifier do
       UUID.uuid4(),
       "Change Your YSC Email",
       YscWeb.Emails.ChangeEmail,
-      %{first_name: user.first_name, url: url},
+      %{first_name: String.capitalize(user.first_name), url: url},
       """
       ==============================
 

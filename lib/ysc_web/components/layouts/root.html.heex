@@ -46,14 +46,14 @@
               />
             </div>
 
-            <div class="z-10 absolute max-w-screen-lg transform top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div class="z-10 absolute max-w-screen-lg w-full transform top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 items-center flex">
               <.link
                 navigate={~p"/"}
-                class="flex items-center transition-opacity ease-in-out duration-400 hover:opacity-80 w-full"
+                class="transition-opacity ease-in-out duration-400 hover:opacity-80 w-full"
               >
-                <div class="flex space-x-5">
-                  <.ysc_logo class="h-20" />
-                  <span class="self-center text-xl sm:text-2xl md:text-3xl font-extrabold tracking-wide text-white uppercase lg:text-4xl lg:whitespace-nowrap">
+                <div class="flex items-center text-left px-4 space-x-5 justify-between">
+                  <.ysc_logo class="h-20 md:h-24" />
+                  <span class="self-center text-2xl font-extrabold tracking-wide text-white uppercase sm:text-3xl md:text-5xl lg:whitespace-nowrap">
                     The Young Scandinavians Club
                   </span>
                 </div>
@@ -197,12 +197,12 @@
                       email={@current_user.email}
                       user_id={@current_user.id}
                       most_connected_country={@current_user.most_connected_country}
-                      first_name={@current_user.first_name}
-                      last_name={@current_user.last_name}
+                      first_name={String.capitalize(@current_user.first_name)}
+                      last_name={String.capitalize(@current_user.last_name)}
                     >
                       <div class="z-10 w-64 bg-white divide-y divide-zinc-100 rounded shadow">
                         <div class="px-4 py-3 text-sm text-zinc-900">
-                          <p><%= @current_user.first_name <> " " <> @current_user.last_name %></p>
+                          <p><%= String.capitalize(@current_user.first_name) <> " " <> String.capitalize(@current_user.last_name) %></p>
                           <div class="font-medium truncate"><%= @current_user.email %></div>
                         </div>
                         <ul class="py-2 text-sm text-zinc-700" aria-labelledby="avatarButton">

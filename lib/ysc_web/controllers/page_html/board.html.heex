@@ -17,7 +17,7 @@
               class="rounded-full mx-auto"
             />
             <div class="text-center">
-              <p class="font-semibold text-xl"><%= member.first_name %> <%= member.last_name %></p>
+              <p class="font-semibold text-xl"><%= String.capitalize(member.first_name) %> <%= String.capitalize(member.last_name) %></p>
               <p class="text-zinc-600"><%= atom_to_readable(member.board_position) %></p>
             </div>
           </div>
