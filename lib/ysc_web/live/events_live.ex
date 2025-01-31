@@ -14,9 +14,7 @@ defmodule YscWeb.EventsLive do
           </p>
         </div>
 
-        <div class="py-4">
-          <.live_component id="event_list" module={YscWeb.EventsListLive} />
-        </div>
+        <.live_component id="event_list" module={YscWeb.EventsListLive} />
       </div>
     </div>
     """
