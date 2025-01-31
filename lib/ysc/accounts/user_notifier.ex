@@ -5,11 +5,11 @@ defmodule Ysc.Accounts.UserNotifier do
   Deliver instructions to confirm account.
   """
   def deliver_confirmation_instructions(user, url) do
-    Notifier.send_email_idempotent(
+    Notifier.schedule_email(
       user.email,
       "#{user.id}",
       "Confirm Your YSC Account",
-      YscWeb.Emails.ConfirmEmail,
+      "confirm_email",
       %{first_name: String.capitalize(user.first_name), url: url},
       """
       ==============================
@@ -32,11 +32,11 @@ defmodule Ysc.Accounts.UserNotifier do
   Deliver instructions to reset a user password.
   """
   def deliver_reset_password_instructions(user, url) do
-    Notifier.send_email_idempotent(
+    Notifier.schedule_email(
       user.email,
       UUID.uuid4(),
       "Reset Your YSC Password",
-      YscWeb.Emails.ResetPassword,
+      "reset_password",
       %{first_name: String.capitalize(user.first_name), url: url},
       """
       ==============================
@@ -59,12 +59,11 @@ defmodule Ysc.Accounts.UserNotifier do
   Deliver instructions to update a user email.
   """
   def deliver_update_email_instructions(user, url) do
-    Notifier.send_email_idempotent(
+    Notifier.schedule_email(
       user.email,
-      # Making idempotency irrelevant
       UUID.uuid4(),
       "Change Your YSC Email",
-      YscWeb.Emails.ChangeEmail,
+      "change_email",
       %{first_name: String.capitalize(user.first_name), url: url},
       """
       ==============================

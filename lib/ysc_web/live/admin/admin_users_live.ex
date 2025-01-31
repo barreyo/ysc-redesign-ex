@@ -580,11 +580,11 @@ defmodule YscWeb.AdminUsersLive do
 
     case Accounts.record_application_outcome(:approved, user, application, current_user) do
       :ok ->
-        YscWeb.Emails.Notifier.send_email_idempotent(
+        YscWeb.Emails.Notifier.schedule_email(
           user.email,
           "#{user.id}",
           "Velkommen! You're officially a Young Scandinavian 🎉 (One more step!)",
-          YscWeb.Emails.ApplicationApproved,
+          "application_approved",
           %{first_name: user.first_name},
           """
           ==============================
@@ -626,11 +626,11 @@ defmodule YscWeb.AdminUsersLive do
 
     case Accounts.record_application_outcome(:rejected, user, application, current_user) do
       :ok ->
-        YscWeb.Emails.Notifier.send_email_idempotent(
+        YscWeb.Emails.Notifier.schedule_email(
           user.email,
           "#{user.id}",
           "Update on your Young Scandinavians Club application",
-          YscWeb.Emails.ApplicationRejected,
+          "application_rejected",
           %{first_name: user.first_name},
           """
           ==============================

@@ -71,7 +71,7 @@ config :argon2_elixir,
 
 config :ysc, Oban,
   repo: Ysc.Repo,
-  queues: [default: 10, media: 5, exports: 3],
+  queues: [default: 10, media: 5, exports: 3, mailers: 20],
   plugins: [
     # Maintain for 5 days
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 5},

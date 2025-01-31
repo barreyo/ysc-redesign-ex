@@ -349,11 +349,11 @@ defmodule Ysc.Accounts do
   end
 
   def deliver_application_submitted_notification(%User{} = user) do
-    YscWeb.Emails.Notifier.send_email_idempotent(
+    YscWeb.Emails.Notifier.schedule_email(
       user.email,
       "#{user.id}",
       "Your Young Scandinavians Club application is in! 🎉",
-      YscWeb.Emails.ApplicationSubmitted,
+      "application_submitted",
       %{first_name: String.capitalize(user.first_name)},
       """
       ==============================

@@ -6,6 +6,45 @@ defmodule YscWeb.Emails.Notifier do
   @from_email "info@ysc.org"
   @from_name "YSC"
 
+  @template_mappings %{
+    "application_rejected" => YscWeb.Emails.ApplicationRejected,
+    "application_approved" => YscWeb.Emails.ApplicationApproved,
+    "application_submitted" => YscWeb.Emails.ApplicationSubmitted,
+    "confirm_email" => YscWeb.Emails.ConfirmEmail,
+    "reset_password" => YscWeb.Emails.ResetPassword,
+    "change_email" => YscWeb.Emails.ChangeEmail,
+    "admin_application_submitted" => YscWeb.Emails.AdminApplicationSubmitted
+  }
+
+  def schedule_email(recipient, idempotency_key, subject, template, variables, text_body, user_id) do
+    %{
+      recipient: recipient,
+      idempotency_key: idempotency_key,
+      subject: subject,
+      template: template,
+      params: variables,
+      text_body: text_body,
+      user_id: user_id
+    }
+    |> YscWeb.Workers.EmailNotifier.new()
+    |> Oban.insert()
+  end
+
+  def schedule_email(
+        recipient,
+        idempotency_key,
+        subject,
+        template,
+        variables,
+        text_body
+      ) do
+    schedule_email(recipient, idempotency_key, subject, template, variables, text_body, nil)
+  end
+
+  def schedule_email_to_board(idempotency_key, subject, template, variables) do
+    schedule_email(@from_email, idempotency_key, subject, template, variables, "", nil)
+  end
+
   def send_email_idempotent(
         recipient,
         idempotency_key,
@@ -33,7 +72,7 @@ defmodule YscWeb.Emails.Notifier do
       |> to(recipient)
       |> from({@from_name, @from_email})
       |> subject(subject)
-      |> html_body(attrs.rendered_message)
+      |> html_body(rendered)
       |> text_body(text_body)
 
     Ysc.Messages.run_send_message_idempotent(email, attrs)
@@ -61,5 +100,9 @@ defmodule YscWeb.Emails.Notifier do
       "",
       nil
     )
+  end
+
+  def get_template_module(template_name) do
+    @template_mappings[template_name]
   end
 end

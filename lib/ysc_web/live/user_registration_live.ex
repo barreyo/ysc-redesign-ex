@@ -362,10 +362,10 @@ defmodule YscWeb.UserRegistrationLive do
       {:ok, user} ->
         Accounts.deliver_application_submitted_notification(user)
 
-        YscWeb.Emails.Notifier.send_email_to_board(
+        YscWeb.Emails.Notifier.schedule_email_to_board(
           "#{user.id}",
           "New Membership Application Received - Action Needed",
-          YscWeb.Emails.AdminApplicationSubmitted,
+          "admin_application_submitted",
           %{
             applicant_name:
               "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
