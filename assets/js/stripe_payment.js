@@ -10,38 +10,49 @@ let StripeInput = {
     paymentElement.mount("#payment-element");
 
     const returnURL = this.el.dataset.returnurl;
-    const submitURL = this.el.dataset.submiturl;
 
-    console.log("returnURL", returnURL);
-    console.log("submitURL", submitURL);
+    const submitButton = document.getElementById("submit");
+    const cardErrors = document.getElementById("card-errors");
 
-    submitButton = document.getElementById("submit");
+    paymentElement.on("change", function (event) {
+      if (event.error) {
+        cardErrors.textContent = event.error.message;
+        submitButton.disabled = true;
+      } else {
+        cardErrors.textContent = "";
+        submitButton.disabled = false;
+      }
+    });
 
     this.el.addEventListener("submit", async (event) => {
       event.preventDefault();
 
-      submitButton.disabled = true;
-      submitButton.classList.add("phx-submit-loading");
+      try {
+        cardErrors.textContent = "";
+        submitButton.disabled = true;
+        submitButton.classList.add("phx-submit-loading");
 
-      const { error, setupIntent } = await stripe.confirmSetup({
-        elements,
-        redirect: "if_required",
-        confirmParams: {
-          return_url: returnURL,
-        },
-      });
+        const { error, setupIntent } = await stripe.confirmSetup({
+          elements,
+          redirect: "if_required",
+          confirmParams: {
+            return_url: returnURL,
+          },
+        });
 
-      console.log("setupIntent", setupIntent);
+        if (error) {
+          console.error(error);
+          cardErrors.textContent = error.message;
+          return;
+        }
 
-      if (error) {
-        // handle error
-        console.error(error);
-        return;
+        this.pushEvent("payment-method-set", {
+          payment_method_id: setupIntent.payment_method,
+        });
+      } finally {
+        submitButton.disabled = false;
+        submitButton.classList.remove("phx-submit-loading");
       }
-
-      this.pushEvent("payment-method-set", {
-        payment_method_id: setupIntent.payment_method,
-      });
     });
   },
 };

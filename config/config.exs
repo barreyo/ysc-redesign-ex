@@ -117,7 +117,9 @@ config :ysc,
       amount: 45,
       currency: "usd",
       trial_period_days: 0,
+      stripe_price_id: "price_1QfrfDIZd8GkARoBcwlNchx4",
       statement_descriptor: "Single Membership",
+      description: "Membership just for yourself",
       metadata: %{
         "plan_type" => "membership",
         "interval" => "year"
@@ -130,7 +132,9 @@ config :ysc,
       amount: 65,
       currency: "usd",
       trial_period_days: 0,
+      stripe_price_id: "price_1QfrgWIZd8GkARoB5JBtjoIL",
       statement_descriptor: "Family Membership",
+      description: "For you, your Spouse and your children under 18",
       metadata: %{
         "plan_type" => "membership",
         "interval" => "year"

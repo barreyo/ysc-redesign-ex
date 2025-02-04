@@ -30,6 +30,7 @@ defmodule YscWeb.UserSettingsLive do
           >
             <div id="error-message">
               <!-- Display error message to your customers here -->
+              <p id="card-errors" class="text-red-400 text-sm"></p>
             </div>
             <div id="payment-element">
               <!-- Elements will create form elements here -->
@@ -43,7 +44,7 @@ defmodule YscWeb.UserSettingsLive do
 
         <ul class="flex-column space-y space-y-4 md:pr-10 text-sm font-medium text-zinc-600 md:me-4 mb-4 md:mb-0">
           <li>
-            <h2 class="text-zinc-800 text-2xl font-semibold leading-8 mb-10">Settings</h2>
+            <h2 class="text-zinc-800 text-2xl font-semibold leading-8 mb-10">Account</h2>
           </li>
           <li>
             <.link
@@ -63,8 +64,10 @@ defmodule YscWeb.UserSettingsLive do
               navigate={~p"/users/membership"}
               class={[
                 "inline-flex items-center px-4 py-3 rounded w-full",
-                @live_action == :membership && "bg-blue-600 active text-zinc-100",
-                @live_action != :membership && "hover:bg-zinc-100 hover:text-zinc-900"
+                (@live_action == :membership || @live_action == :payment_method) &&
+                  "bg-blue-600 active text-zinc-100",
+                @live_action != :membership && @live_action != :payment_method &&
+                  "hover:bg-zinc-100 hover:text-zinc-900"
               ]}
             >
               <.icon name="hero-heart" class="w-5 h-5 me-2" /> Membership
@@ -171,55 +174,127 @@ defmodule YscWeb.UserSettingsLive do
             </.simple_form>
           </div>
 
-          <div :if={@live_action == :membership} class="flex flex-col space-y-6">
+          <div
+            :if={@live_action == :membership || @live_action == :payment_method}
+            class="flex flex-col space-y-6"
+          >
             <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
               <div class="flex flex-row justify-between items-center">
                 <h2 class="text-zinc-900 font-bold text-xl">Current Membership</h2>
-                <.button>Select Membership</.button>
+                <.dropdown
+                  :if={@live_action != :payment_method}
+                  id="membership-help"
+                  wide={true}
+                  right={true}
+                >
+                  <:button_block>
+                    <.icon
+                      class="w-6 h-6 text-zinc-600 hover:text-zinc-700 transition ease-in-out cursor-help"
+                      name="hero-question-mark-circle"
+                    />
+                  </:button_block>
+
+                  <div class="space-y-2 prose prose-zinc py-3 px-4">
+                    <p class="text-sm">
+                      The YSC offers two types of memberships: a <strong>Single</strong>
+                      membership for individuals and a <strong>Family</strong>
+                      membership that covers you, your spouse, and your children under 18. Both memberships are billed annually.
+                    </p>
+
+                    <p class="text-sm">
+                      With the Family membership you can for example book "member" event tickets for everyone in your household. While the Single membership only allows you to book "member" event tickets for yourself.
+                    </p>
+                  </div>
+                </.dropdown>
               </div>
 
-              <p :if={@current_membership == nil} class="text-sm text-zinc-700">
+              <p :if={@current_membership == nil} class="text-sm text-red-600 font-semibold">
                 You are currently not a paying member
               </p>
-            </div>
 
-            <div class="rounded border border-zinc-100 px-4 py-4 space-y-4">
-              <h2 class="text-zinc-900 font-bold text-xl">Payment Method</h2>
+              <p
+                if={Bling.Subscriptions.active?(@current_membership)}
+                class="text-sm text-zinc-600 font-semibold"
+              >
+                You have an
+                active <strong><%= get_membership_type(@current_membership) %></strong> membership.
+              </p>
 
-              <div class="w-full py-2 px-3 bg-zinc-50 rounded">
-                <%!-- <p class="text-zinc-800">n/a</p> --%>
+              <div>
+                <.form
+                  for={@email_form}
+                  id="membership_form"
+                  phx-submit="select_membership"
+                  phx-change="validate_membership"
+                  class="space-y-6"
+                >
+                  <div class="space-y-2">
+                    <h3 class="text-lg font-semibold text-zinc-900">Membership Type</h3>
 
-                <div class="w-full flex flex-row justify-between items-center">
-                  <div class="items-center space-x-2 flex flex-row">
-                    <svg
-                      stroke="currentColor"
-                      fill="currentColor"
-                      stroke-width="0"
-                      viewBox="0 0 576 512"
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="w-6 h-6"
-                    >
-                      <path d={card_icon(@default_payment_method.card_brand)}></path>
-                    </svg>
-
-                    <span
-                      :if={@default_payment_method != nil}
-                      class="text-zinc-600 text-sm font-semibold"
-                    >
-                      **** **** **** <%= @default_payment_method.last_four %>
-                    </span>
-                    <span
-                      :if={@default_payment_method == nil}
-                      class="text-zinc-600 text-sm font-semibold"
-                    >
-                      No payment method
-                    </span>
+                    <fieldset class="flex flex-wrap mb-8">
+                      <.radio_fieldset
+                        field={@membership_form[:membership_type]}
+                        options={
+                          Enum.map(@membership_plans, fn plan ->
+                            {plan.id,
+                             %{
+                               option: "#{plan.id}",
+                               subtitle: plan.description,
+                               icon: (plan.id == :single && "user") || "user-group",
+                               footer:
+                                 "#{Ysc.MoneyHelper.format_money!(Money.new(:USD, plan.amount))} per year"
+                             }}
+                          end)
+                        }
+                        checked_value={@membership_form.params["membership_type"]}
+                      />
+                    </fieldset>
                   </div>
 
-                  <.button phx-click={JS.navigate(~p"/users/membership/payment-method")}>
-                    Update
-                  </.button>
-                </div>
+                  <div class="space-y-2">
+                    <h3 class="text-lg font-semibold text-zinc-900">Payment Method</h3>
+
+                    <div class="w-full py-2 px-3 bg-zinc-50 rounded">
+                      <div class="w-full flex flex-row justify-between items-center">
+                        <div class="items-center space-x-2 flex flex-row">
+                          <svg
+                            stroke="currentColor"
+                            fill="currentColor"
+                            stroke-width="0"
+                            viewBox="0 0 576 512"
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="w-6 h-6 fill-zinc-800 text-zinc-800"
+                          >
+                            <path d={card_icon(@default_payment_method.card_brand)}></path>
+                          </svg>
+
+                          <span
+                            :if={@default_payment_method != nil}
+                            class="text-zinc-600 text-sm font-semibold"
+                          >
+                            **** **** **** <%= @default_payment_method.last_four %>
+                          </span>
+                          <span
+                            :if={@default_payment_method == nil}
+                            class="text-red-600 text-sm font-semibold"
+                          >
+                            No payment method
+                          </span>
+                        </div>
+
+                        <.button phx-click={JS.navigate(~p"/users/membership/payment-method")}>
+                          Update Card
+                        </.button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex w-full justify-end mt-8">
+                    <.button disabled={@default_payment_method == nil}>
+                      <.icon name="hero-credit-card" class="me-2 -mt-0.5" />Pay Membership
+                    </.button>
+                  </div>
+                </.form>
               </div>
             </div>
 
@@ -244,11 +319,11 @@ defmodule YscWeb.UserSettingsLive do
                     </div>
 
                     <div class="text-sm text-zinc-600">
-                      <%= Ysc.MoneyHelper.format_money!(Money.new(:USD, invoice.total)) %>
+                      <%= Ysc.MoneyHelper.format_money!(Money.new(:USD, "#{invoice.total / 100.0}")) %>
                     </div>
                   </div>
 
-                  <.button>View</.button>
+                  <.button phx-click={JS.navigate(invoice.hosted_invoice_url)}>View</.button>
                 </div>
               </div>
             </div>
@@ -276,17 +351,15 @@ defmodule YscWeb.UserSettingsLive do
     user = socket.assigns.current_user
     email_changeset = Accounts.change_user_email(user)
     password_changeset = Accounts.change_user_password(user)
+    live_action = socket.assigns[:live_action] || :edit
 
     if user.stripe_id == nil do
       Bling.Customers.create_stripe_customer(user)
     end
 
-    payment_method_intent = Bling.Customers.create_setup_intent(user)
     public_key = Application.get_env(:stripity_stripe, :public_key)
-
     default_payment_method = Bling.Customers.default_payment_method(user)
-
-    IO.inspect(default_payment_method)
+    membership_plans = Application.get_env(:ysc, :membership_plans)
 
     invoices =
       Customers.invoices(user)
@@ -300,45 +373,31 @@ defmodule YscWeb.UserSettingsLive do
         }
       end)
 
-    invoices = [
-      %{
-        hosted_invoice_url: "https://example.com",
-        created: DateTime.utc_now() |> DateTime.to_date(),
-        total: 10,
-        currency: "usd",
-        status: "paid"
-      },
-      %{
-        hosted_invoice_url: "https://example.com",
-        created: DateTime.utc_now() |> DateTime.to_date(),
-        total: 10,
-        currency: "usd",
-        status: "paid"
-      },
-      %{
-        hosted_invoice_url: "https://example.com",
-        created: DateTime.utc_now() |> DateTime.to_date(),
-        total: 10,
-        currency: "usd",
-        status: "paid"
-      }
-    ]
+    # This is all very dumb, but it's just a quick way to get the current membership status
+    current_membership = socket.assigns.current_membership
+    single_plan_active? = Bling.Customers.subscribed_to_price?(user, get_price_id(:single))
+    family_plan_active? = Bling.Customers.subscribed_to_price?(user, get_price_id(:family))
 
-    IO.inspect(payment_method_intent)
+    IO.inspect(current_membership)
 
     socket =
       socket
       |> assign(:page_title, "User Settings")
       |> assign(:current_password, nil)
       |> assign(:user, user)
-      |> assign(:payment_intent_secret, payment_method_intent.client_secret)
+      |> assign(:payment_intent_secret, payment_secret(live_action, user))
       |> assign(:public_key, public_key)
       |> assign(:email_form_current_password, nil)
       |> assign(:current_email, user.email)
       |> assign(:invoices, invoices)
       |> assign(:default_payment_method, default_payment_method)
+      |> assign(:membership_plans, membership_plans)
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
+      |> assign(
+        :membership_form,
+        to_form(%{"membership_type" => default_select(family_plan_active?)})
+      )
       |> assign(:trigger_submit, false)
 
     {:ok, socket}
@@ -406,18 +465,52 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
+  def handle_event("select_membership", %{"membership_type" => membership_type} = params, socket) do
+    membership_atom = String.to_existing_atom(membership_type)
+    user = socket.assigns.user
+    return_url = url(~p"/billing/user/#{user.id}/finalize")
+    price_id = get_price_id(membership_atom)
+
+    result =
+      Bling.Customers.create_subscription(
+        user,
+        return_url: return_url,
+        prices: [{price_id, 1}]
+      )
+
+    {:noreply, socket |> push_navigate(to: ~p"/users/membership")}
+  end
+
+  def handle_event("validate_membership", params, socket) do
+    IO.inspect(params)
+    {:noreply, socket}
+  end
+
   def handle_event("payment-method-set", %{"payment_method_id" => payment_method_id}, socket) do
-    IO.inspect("Payment method set")
-
-    customer =
-      socket.assigns.user |> Bling.Customers.update_default_payment_method(payment_method_id)
-
-    IO.inspect(customer)
+    socket.assigns.user |> Bling.Customers.update_default_payment_method(payment_method_id)
 
     {:noreply,
      socket
      |> put_flash(:info, "Payment method updated")
      |> push_navigate(to: ~p"/users/membership")}
+  end
+
+  defp get_price_id(memberhip_type) do
+    plans = Application.get_env(:ysc, :membership_plans)
+
+    Enum.find(plans, &(&1.id == memberhip_type))[:stripe_price_id]
+  end
+
+  defp get_membership_type(subscription) do
+    item = Enum.at(subscription.subscription_items, 0)
+
+    get_membership_type_from_price_id(item.stripe_price_id)
+  end
+
+  defp get_membership_type_from_price_id(price_id) do
+    plans = Application.get_env(:ysc, :membership_plans)
+
+    Enum.find(plans, &(&1.stripe_price_id == price_id))[:id]
   end
 
   defp payment_to_badge_style("paid"), do: "green"
@@ -426,6 +519,19 @@ defmodule YscWeb.UserSettingsLive do
   defp payment_to_badge_style("uncollectible"), do: "red"
   defp payment_to_badge_style("void"), do: "red"
   defp payment_to_badge_style(_), do: "blue"
+
+  defp default_select(true), do: "family"
+  defp default_select(false), do: "single"
+
+  defp payment_secret(:payment_method, user) do
+    payment_method_intent = Bling.Customers.create_setup_intent(user)
+    payment_method_intent.client_secret
+  end
+
+  defp payment_secret(_, _), do: nil
+
+  defp card_icon_path("visa"), do: "/images/cards/visa.png"
+  defp card_icon_path(_), do: nil
 
   defp card_icon("visa"),
     do:

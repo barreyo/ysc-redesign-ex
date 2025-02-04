@@ -272,6 +272,7 @@ defmodule YscWeb.CoreComponents do
   attr :value, :any
   attr :subtitle, :string, default: ""
   attr :icon, :string
+  attr :footer, :string, default: nil
 
   attr :growing_field_size, :string, default: "small"
 
@@ -361,7 +362,7 @@ defmodule YscWeb.CoreComponents do
     />
     <label
       for={@id}
-      class="inline-flex items-center transition duration-150 ease-in-out justify-between w-full p-5 bg-white border rounded-lg cursor-pointer text-zinc-500 border-zinc-200 peer-checked:border-blue-600 peer-checked:text-blue-600 hover:text-zinc-600 hover:bg-zinc-100"
+      class="inline-flex items-center transition duration-150 ease-in-out justify-between w-full p-5 bg-white border rounded-lg cursor-pointer text-zinc-500 border-zinc-200 peer-checked:border-blue-600 peer-checked:text-blue-600 hover:text-zinc-600 hover:bg-zinc-100 h-full"
     >
       <div class="flex flex-row">
         <div class="text-center items-center flex mr-4">
@@ -370,6 +371,9 @@ defmodule YscWeb.CoreComponents do
         <div class="block">
           <div class="w-full font-semibold text-md text-zinc-800"><%= @label %></div>
           <div class="w-full text-sm text-zinc-600"><%= @subtitle %></div>
+          <div :if={@footer != nil} class="w-full text-sm font-semibold pt-2">
+            <%= @footer %>
+          </div>
         </div>
       </div>
     </label>
@@ -593,7 +597,7 @@ defmodule YscWeb.CoreComponents do
     ~H"""
     <div phx-feedback-for={@field.name}>
       <ul class="grid w-full gap-6 md:grid-cols-2">
-        <li :for={{_, values} <- @options}>
+        <li :for={{_, values} <- @options} class="flex flex-col">
           <.input
             field={@field}
             id={"#{@field.id}_#{values[:option]}"}
@@ -605,6 +609,7 @@ defmodule YscWeb.CoreComponents do
             }
             subtitle={values[:subtitle]}
             icon={values[:icon]}
+            footer={values[:footer]}
           />
         </li>
       </ul>
@@ -1358,11 +1363,29 @@ defmodule YscWeb.CoreComponents do
         <%= render_slot(@inner_block) %>
         <span
           role="tooltip"
-          class="absolute transition-opacity mt-10 top-0 left-0 duration-200 opacity-0 z-50 text-xs font-medium text-zinc-100 bg-zinc-900 rounded-lg shadow-sm px-3 py-2 inline-block text-center rounded tooltip group-hover:opacity-100"
+          class="absolute transition-opacity min-w-40 max-w-80 mt-10 mt-10 top-0 left-1/2 transform -translate-x-1/2 duration-200 opacity-0 z-50 text-xs font-medium text-zinc-100 bg-zinc-900 rounded-lg shadow-sm px-3 py-2 inline-block text-center rounded tooltip group-hover:opacity-100"
         >
           <%= @tooltip_text %>
         </span>
       </div>
+    </div>
+    """
+  end
+
+  attr :class, :string, default: nil
+  slot :inner_block, required: true
+  slot :tooltip_body, required: true
+
+  def tooltip_special(assigns) do
+    ~H"""
+    <div class="group relative">
+      <%= render_slot(@inner_block) %>
+      <span
+        role="tooltip"
+        class="absolute transition-opacity mt-10 top-0 left-1/2 transform -translate-x-1/2 w-80 duration-200 opacity-0 z-50 text-xs font-medium text-zinc-100 bg-zinc-900 rounded-lg shadow-sm px-3 py-2 inline-block text-left rounded tooltip group-hover:opacity-100"
+      >
+        <%= render_slot(@tooltip_body) %>
+      </span>
     </div>
     """
   end
