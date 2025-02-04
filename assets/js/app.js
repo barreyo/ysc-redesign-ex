@@ -33,6 +33,7 @@ import Sortable from "./sortable";
 import RadarMap from "./radar";
 import MoneyInput from "./money_input";
 import Turnstile from "./phoenix_turnstile";
+import StripeInput from "./stripe_payment";
 
 let Hooks = {
   StickyNavbar,
@@ -45,6 +46,7 @@ let Hooks = {
   RadarMap,
   MoneyInput,
   Turnstile,
+  StripeInput,
 };
 Hooks.LivePhone = LivePhone;
 
