@@ -252,7 +252,7 @@ defmodule YscWeb.EventDetailsLive do
 
             <div class="space-y-4">
               <h3 class="text-zinc-800 text-2xl font-semibold">Details</h3>
-              <div class="prose prose-zinc prose-base prose-a:text-blue-600 max-w-xl">
+              <div class="prose prose-zinc prose-base prose-a:text-blue-600 max-w-xl pb-10">
                 <div id="article-body" class="post-render">
                   <%= raw(event_body(@event)) %>
                 </div>

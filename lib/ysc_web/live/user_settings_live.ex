@@ -185,11 +185,14 @@ defmodule YscWeb.UserSettingsLive do
                 <h2 class="text-zinc-900 font-bold text-xl">Current Membership</h2>
               </div>
 
-              <p :if={@current_membership == nil} class="text-sm text-red-600 font-semibold">
+              <p :if={@current_membership == nil} class="text-sm text-zinc-600">
                 You are currently not a paying member
               </p>
 
-              <div :if={Bling.Subscriptions.active?(@current_membership)} class="space-y-4">
+              <div
+                :if={@current_membership != nil && Bling.Subscriptions.active?(@current_membership)}
+                class="space-y-4"
+              >
                 <p class="text-sm text-zinc-600 font-semibold">
                   You have an
                   active <strong><%= get_membership_type(@current_membership) %></strong> membership.
@@ -216,7 +219,7 @@ defmodule YscWeb.UserSettingsLive do
                   id="membership_form"
                   phx-submit="select_membership"
                   phx-change="validate_membership"
-                  class="space-y-6"
+                  class="space-y-6 pt-4"
                 >
                   <div class="space-y-2">
                     <div class="flex flex-row items-center">
@@ -284,6 +287,7 @@ defmodule YscWeb.UserSettingsLive do
                       <div class="w-full flex flex-row justify-between items-center">
                         <div class="items-center space-x-2 flex flex-row">
                           <svg
+                            :if={@default_payment_method != nil}
                             stroke="currentColor"
                             fill="currentColor"
                             stroke-width="0"
@@ -302,7 +306,7 @@ defmodule YscWeb.UserSettingsLive do
                           </span>
                           <span
                             :if={@default_payment_method == nil}
-                            class="text-red-600 text-sm font-semibold"
+                            class="text-zinc-600 text-sm font-semibold"
                           >
                             No payment method
                           </span>
