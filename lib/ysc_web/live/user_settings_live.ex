@@ -5,6 +5,8 @@ defmodule YscWeb.UserSettingsLive do
   alias Bling.Subscriptions
   alias Bling.Customers
 
+  alias Ysc.Subscriptions.Subscription
+
   def render(assigns) do
     ~H"""
     <div class="max-w-screen-lg px-4 mx-auto py-8 lg:py-10">
@@ -181,55 +183,69 @@ defmodule YscWeb.UserSettingsLive do
             <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
               <div class="flex flex-row justify-between items-center">
                 <h2 class="text-zinc-900 font-bold text-xl">Current Membership</h2>
-                <.dropdown
-                  :if={@live_action != :payment_method}
-                  id="membership-help"
-                  wide={true}
-                  right={true}
-                >
-                  <:button_block>
-                    <.icon
-                      class="w-6 h-6 text-zinc-600 hover:text-zinc-700 transition ease-in-out cursor-help"
-                      name="hero-question-mark-circle"
-                    />
-                  </:button_block>
-
-                  <div class="space-y-2 prose prose-zinc py-3 px-4">
-                    <p class="text-sm">
-                      The YSC offers two types of memberships: a <strong>Single</strong>
-                      membership for individuals and a <strong>Family</strong>
-                      membership that covers you, your spouse, and your children under 18. Both memberships are billed annually.
-                    </p>
-
-                    <p class="text-sm">
-                      With the Family membership you can for example book "member" event tickets for everyone in your household. While the Single membership only allows you to book "member" event tickets for yourself.
-                    </p>
-                  </div>
-                </.dropdown>
               </div>
 
               <p :if={@current_membership == nil} class="text-sm text-red-600 font-semibold">
                 You are currently not a paying member
               </p>
 
-              <p
-                if={Bling.Subscriptions.active?(@current_membership)}
-                class="text-sm text-zinc-600 font-semibold"
-              >
-                You have an
-                active <strong><%= get_membership_type(@current_membership) %></strong> membership.
-              </p>
+              <div :if={Bling.Subscriptions.active?(@current_membership)} class="space-y-4">
+                <p class="text-sm text-zinc-600 font-semibold">
+                  You have an
+                  active <strong><%= get_membership_type(@current_membership) %></strong> membership.
+                </p>
+
+                <.button
+                  phx-click="cancel-membership"
+                  color="red"
+                  data-confirm="Are you sure you want to cancel your membership?"
+                >
+                  Cancel Membership
+                </.button>
+              </div>
+            </div>
+
+            <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
+              <div class="flex flex-row justify-between items-center">
+                <h2 class="text-zinc-900 font-bold text-xl">Manage Membership</h2>
+              </div>
 
               <div>
                 <.form
-                  for={@email_form}
+                  for={@membership_form}
                   id="membership_form"
                   phx-submit="select_membership"
                   phx-change="validate_membership"
                   class="space-y-6"
                 >
                   <div class="space-y-2">
-                    <h3 class="text-lg font-semibold text-zinc-900">Membership Type</h3>
+                    <div class="flex flex-row items-center">
+                      <h3 class="text-lg font-semibold text-zinc-900">Membership Type</h3>
+                      <.dropdown
+                        :if={@live_action != :payment_method}
+                        id="membership-help"
+                        wide={true}
+                      >
+                        <:button_block>
+                          <.icon
+                            class="w-5 h-5 text-blue-700 hover:text-blue-800 transition ease-in-out cursor-help"
+                            name="hero-question-mark-circle"
+                          />
+                        </:button_block>
+
+                        <div class="space-y-2 prose prose-zinc py-3 px-4">
+                          <p class="text-sm">
+                            The YSC offers two types of memberships: a <strong>Single</strong>
+                            membership for individuals and a <strong>Family</strong>
+                            membership that covers you, your spouse, and your children under 18. Both memberships are billed annually.
+                          </p>
+
+                          <p class="text-sm">
+                            With the Family membership you can for example book "member" event tickets for everyone in your household. While the Single membership only allows you to book "member" event tickets for yourself.
+                          </p>
+                        </div>
+                      </.dropdown>
+                    </div>
 
                     <fieldset class="flex flex-wrap mb-8">
                       <.radio_fieldset
@@ -249,6 +265,16 @@ defmodule YscWeb.UserSettingsLive do
                         checked_value={@membership_form.params["membership_type"]}
                       />
                     </fieldset>
+
+                    <div :if={@change_membership_button} class="flex w-full flex-row justify-end pt-4">
+                      <.button
+                        disabled={@default_payment_method == nil}
+                        phx-click="change-membership"
+                        type="button"
+                      >
+                        <.icon name="hero-arrows-right-left" class="me-2 -mt-0.5" />Change Membership Plan
+                      </.button>
+                    </div>
                   </div>
 
                   <div class="space-y-2">
@@ -283,14 +309,14 @@ defmodule YscWeb.UserSettingsLive do
                         </div>
 
                         <.button phx-click={JS.navigate(~p"/users/membership/payment-method")}>
-                          Update Card
+                          Update Payment Method
                         </.button>
                       </div>
                     </div>
                   </div>
 
-                  <div class="flex w-full justify-end mt-8">
-                    <.button disabled={@default_payment_method == nil}>
+                  <div class="flex w-full justify-end pt-4">
+                    <.button :if={@active_plan_type == nil} disabled={@default_payment_method == nil}>
                       <.icon name="hero-credit-card" class="me-2 -mt-0.5" />Pay Membership
                     </.button>
                   </div>
@@ -378,7 +404,9 @@ defmodule YscWeb.UserSettingsLive do
     single_plan_active? = Bling.Customers.subscribed_to_price?(user, get_price_id(:single))
     family_plan_active? = Bling.Customers.subscribed_to_price?(user, get_price_id(:family))
 
-    IO.inspect(current_membership)
+    active_plan = get_membership_plan(current_membership)
+
+    IO.inspect(default_payment_method)
 
     socket =
       socket
@@ -390,8 +418,10 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:email_form_current_password, nil)
       |> assign(:current_email, user.email)
       |> assign(:invoices, invoices)
+      |> assign(:change_membership_button, false)
       |> assign(:default_payment_method, default_payment_method)
       |> assign(:membership_plans, membership_plans)
+      |> assign(:active_plan_type, active_plan)
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(
@@ -481,9 +511,20 @@ defmodule YscWeb.UserSettingsLive do
     {:noreply, socket |> push_navigate(to: ~p"/users/membership")}
   end
 
-  def handle_event("validate_membership", params, socket) do
-    IO.inspect(params)
-    {:noreply, socket}
+  def handle_event(
+        "validate_membership",
+        %{"membership_type" => membership_type} = params,
+        socket
+      ) do
+    assigns = socket.assigns
+    membership_atom = String.to_existing_atom(membership_type)
+
+    change_membership_button =
+      assigns.active_plan_type != nil &&
+        assigns.active_plan_type !=
+          membership_atom
+
+    {:noreply, socket |> assign(change_membership_button: change_membership_button)}
   end
 
   def handle_event("payment-method-set", %{"payment_method_id" => payment_method_id}, socket) do
@@ -500,6 +541,16 @@ defmodule YscWeb.UserSettingsLive do
 
     Enum.find(plans, &(&1.id == memberhip_type))[:stripe_price_id]
   end
+
+  defp get_membership_plan(nil), do: nil
+
+  defp get_membership_plan(%Subscription{stripe_status: "active"} = subscription) do
+    item = Enum.at(subscription.subscription_items, 0)
+
+    get_membership_type_from_price_id(item.stripe_price_id)
+  end
+
+  defp get_membership_plan(_), do: nil
 
   defp get_membership_type(subscription) do
     item = Enum.at(subscription.subscription_items, 0)
@@ -524,7 +575,13 @@ defmodule YscWeb.UserSettingsLive do
   defp default_select(false), do: "single"
 
   defp payment_secret(:payment_method, user) do
-    payment_method_intent = Bling.Customers.create_setup_intent(user)
+    payment_method_intent =
+      Bling.Customers.create_setup_intent(user,
+        stripe: %{
+          payment_method_types: ["card", "us_bank_account", "link"]
+        }
+      )
+
     payment_method_intent.client_secret
   end
 

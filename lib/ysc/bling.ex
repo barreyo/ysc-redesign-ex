@@ -29,6 +29,8 @@ defmodule Ysc.Bling do
 
   @impl Bling
   def handle_stripe_webhook_event(%Stripe.Event{} = event) do
+    IO.inspect(event)
+
     case event.type do
       "invoice.payment_action_required" ->
         # todo: send email
