@@ -241,6 +241,29 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  attr :type, :string, default: nil
+  attr :class, :string, default: nil
+  attr :color, :string, default: "blue"
+  attr :rest, :global, include: ~w(disabled form name value)
+
+  slot :inner_block, required: true
+
+  def button_link(assigns) do
+    ~H"""
+    <button
+      type={@type}
+      class={[
+        "phx-submit-loading:opacity-75 rounded hover:bg-#{@color}-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80",
+        "text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80",
+        @class
+      ]}
+      {@rest}
+    >
+      <%= render_slot(@inner_block) %>
+    </button>
+    """
+  end
+
   @doc """
   Renders an input with label and error messages.
 

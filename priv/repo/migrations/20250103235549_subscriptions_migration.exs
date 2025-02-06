@@ -6,10 +6,17 @@ defmodule Ysc.Repo.Migrations.CreateSubscriptions do
       add :name, :string, null: false
       add :ends_at, :utc_datetime
       add :trial_ends_at, :utc_datetime
+
       add :stripe_id, :string
       add :stripe_status, :string
+
+      add :start_date, :utc_datetime, null: true
+      add :current_period_start, :utc_datetime, null: true
+      add :current_period_end, :utc_datetime, null: true
+
       add :customer_id, :string, null: false
       add :customer_type, :string, null: false
+
       timestamps(type: :utc_datetime)
     end
 

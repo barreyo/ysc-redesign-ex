@@ -13,6 +13,7 @@ defmodule Ysc.Accounts.SignupApplicationEvent do
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
     belongs_to :reviewer, Ysc.Accounts.User, foreign_key: :reviewer_user_id, references: :id
 
+    field :result, :string
     field :event, SignupApplicationEventType
 
     timestamps()
@@ -28,7 +29,7 @@ defmodule Ysc.Accounts.SignupApplicationEvent do
         ) :: Ecto.Changeset.t()
   def new_event_changeset(event, attrs, _opts \\ []) do
     event
-    |> cast(attrs, [:event, :application_id, :user_id, :reviewer_user_id])
+    |> cast(attrs, [:event, :application_id, :user_id, :reviewer_user_id, :result])
     |> validate_required([:event, :application_id, :user_id, :reviewer_user_id])
   end
 end

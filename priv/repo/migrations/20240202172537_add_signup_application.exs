@@ -70,6 +70,8 @@ defmodule Ysc.Repo.Migrations.AddSignupApplication do
       add :user_id, references(:users, column: :id, type: :binary_id), null: false
       add :reviewer_user_id, references(:users, column: :id, type: :binary_id), null: false
 
+      add :result, :string, null: true
+
       add :event, :string, null: false
 
       timestamps()

@@ -485,7 +485,8 @@ defmodule Ysc.Accounts do
               event: :review_completed,
               application_id: application.id,
               user_id: user.id,
-              reviewer_user_id: current_user.id
+              reviewer_user_id: current_user.id,
+              result: "approved"
             }
           )
         )
@@ -532,7 +533,8 @@ defmodule Ysc.Accounts do
               event: :review_completed,
               application_id: application.id,
               user_id: user.id,
-              reviewer_user_id: current_user.id
+              reviewer_user_id: current_user.id,
+              result: "rejected"
             }
           )
         )

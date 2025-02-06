@@ -198,13 +198,13 @@ defmodule YscWeb.UserSettingsLive do
                   active <strong><%= get_membership_type(@current_membership) %></strong> membership.
                 </p>
 
-                <.button
+                <.button_link
                   phx-click="cancel-membership"
                   color="red"
                   data-confirm="Are you sure you want to cancel your membership?"
                 >
                   Cancel Membership
-                </.button>
+                </.button_link>
               </div>
             </div>
 
@@ -582,7 +582,7 @@ defmodule YscWeb.UserSettingsLive do
     payment_method_intent =
       Bling.Customers.create_setup_intent(user,
         stripe: %{
-          payment_method_types: ["card", "us_bank_account", "link"]
+          payment_method_types: ["card", "us_bank_account"]
         }
       )
 

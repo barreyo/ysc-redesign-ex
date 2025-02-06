@@ -45,10 +45,9 @@ defmodule Ysc.Accounts.User do
     field :most_connected_country, :string
 
     field :stripe_id, :string
-    field :trial_ends_at, :utc_datetime
-    field :payment_type, :string
-    field :payment_id, :string
-    field :payment_last_four, :string
+    field :default_membership_payment_method, :binary_id
+
+    has_many :payment_methods, Ysc.Payments.PaymentMethod, foreign_key: :user_id
 
     has_many :subscriptions, Ysc.Subscriptions.Subscription,
       foreign_key: :customer_id,
@@ -140,7 +139,9 @@ defmodule Ysc.Accounts.User do
       :last_name,
       :phone_number,
       :most_connected_country,
-      :board_position
+      :board_position,
+      :stripe_id,
+      :default_membership_payment_method
     ])
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)
