@@ -1,7 +1,11 @@
 defmodule Ysc.Events.Ticket do
   use Ecto.Schema
 
-  @reference_prefix "EVT"
+  import Ecto.Changeset
+
+  alias Ysc.ReferenceGenerator
+
+  @reference_prefix "TKT"
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
@@ -20,5 +24,43 @@ defmodule Ysc.Events.Ticket do
     field :expires_at, :utc_datetime
 
     timestamps()
+  end
+
+  @doc """
+  Changeset for the ticket with validations.
+  """
+  def changeset(event, attrs) do
+    event
+    |> cast(attrs, [
+      :reference_id,
+      :event_id,
+      :ticket_tier_id,
+      :user_id,
+      :status,
+      :payment_id,
+      :expires_at
+    ])
+    |> validate_required([
+      :event_id,
+      :ticket_tier_id,
+      :user_id,
+      :expires_at
+    ])
+    |> put_reference_id()
+    |> unique_constraint(:reference_id)
+  end
+
+  defp put_reference_id(changeset) do
+    case get_field(changeset, :reference_id) do
+      nil ->
+        put_change(
+          changeset,
+          :reference_id,
+          ReferenceGenerator.generate_reference_id(@reference_prefix)
+        )
+
+      _ ->
+        changeset
+    end
   end
 end

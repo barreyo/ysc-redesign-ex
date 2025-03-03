@@ -101,7 +101,7 @@ defmodule Ysc.Posts.Post do
     |> maybe_validate_unique_url_name(opts)
   end
 
-  def update_comment_count_changeset(post, attrs, opts \\ []) do
+  def update_comment_count_changeset(post, attrs, _opts \\ []) do
     post |> cast(attrs, [:comment_count])
   end
 

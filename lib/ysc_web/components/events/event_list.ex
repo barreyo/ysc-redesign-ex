@@ -3,6 +3,7 @@ defmodule YscWeb.EventsListLive do
 
   alias Ysc.Events
 
+  @impl true
   def render(assigns) do
     ~H"""
     <div>
@@ -93,7 +94,8 @@ defmodule YscWeb.EventsListLive do
     {:noreply, socket |> stream_insert(:events, event)}
   end
 
-  def update(assigns, socket) do
+  @impl true
+  def update(_assigns, socket) do
     event_count = Events.count_published_events()
     events = Events.list_upcoming_events()
 

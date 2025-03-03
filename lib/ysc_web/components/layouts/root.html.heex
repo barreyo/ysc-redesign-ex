@@ -14,18 +14,29 @@
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2" async defer></script>
-    <link href="https://js.radar.com/v4.4.8/radar.css" rel="stylesheet">
-    <script src="https://js.radar.com/v4.4.8/radar.min.js" defer></script>
-    <script src="https://js.stripe.com/v3/" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2" async defer>
+    </script>
+    <link href="https://js.radar.com/v4.4.8/radar.css" rel="stylesheet" />
+    <script src="https://js.radar.com/v4.4.8/radar.min.js" defer>
+    </script>
+    <script src="https://js.stripe.com/v3/" defer>
+    </script>
     <Turnstile.script />
   </head>
   <body class="antialiased bg-white">
     <div id="content-wrapper" class="flex flex-col min-h-screen">
       <header :if={!fullscreen?(@conn)}>
         <div id="hero-branding" class="relative overflow-hidden h-44">
-          <div :if={@current_user && @current_user.role == :admin} class="z-50 absolute left-0 top-0 bg-zinc-800 rounded-b px-2 items-center flex py-2">
-            <.link navigate={~p"/admin"} class="text-sm bg-green-700 rounded px-3 py-1.5 transition hover:bg-green-500 items-center font-semibold text-zinc-100"><.icon name="hero-cog" class="me-1 -mt-0.5" />Go to admin dashboard</.link>
+          <div
+            :if={@current_user && @current_user.role == :admin}
+            class="z-50 absolute left-0 top-0 bg-zinc-800 rounded-b px-2 items-center flex py-2"
+          >
+            <.link
+              navigate={~p"/admin"}
+              class="text-sm bg-green-700 rounded px-3 py-1.5 transition hover:bg-green-500 items-center font-semibold text-zinc-100"
+            >
+              <.icon name="hero-cog" class="me-1 -mt-0.5" />Go to admin dashboard
+            </.link>
           </div>
 
           <div class="w-full h-full">
@@ -89,7 +100,7 @@
                   </li>
                   <li>
                     <.link
-                      navigate={~p"/cabins/tahoe"}
+                      navigate={~p"/"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
                     >
                       Tahoe Cabin
@@ -97,7 +108,7 @@
                   </li>
                   <li>
                     <.link
-                      navigate={~p"/cabins/clear-lake"}
+                      navigate={~p"/"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
                     >
                       Clear Lake Cabin
@@ -202,7 +213,10 @@
                     >
                       <div class="z-10 w-64 bg-white divide-y divide-zinc-100 rounded shadow">
                         <div class="px-4 py-3 text-sm text-zinc-900">
-                          <p><%= String.capitalize(@current_user.first_name) <> " " <> String.capitalize(@current_user.last_name) %></p>
+                          <p>
+                            <%= String.capitalize(@current_user.first_name) <>
+                              " " <> String.capitalize(@current_user.last_name) %>
+                          </p>
                           <div class="font-medium truncate"><%= @current_user.email %></div>
                         </div>
                         <ul class="py-2 text-sm text-zinc-700" aria-labelledby="avatarButton">
@@ -259,7 +273,7 @@
                     </div>
                   <% end %>
                 </:cta_section>
-                </.hamburger_menu>
+              </.hamburger_menu>
             </div>
           </div>
         </nav>

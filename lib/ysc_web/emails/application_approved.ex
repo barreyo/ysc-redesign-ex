@@ -11,11 +11,11 @@ defmodule YscWeb.Emails.ApplicationApproved do
     "Velkommen! You're officially a Young Scandinavian 🎉 (One more step!)"
   end
 
-  defp upcoming_events_url() do
+  def upcoming_events_url() do
     YscWeb.Endpoint.url() <> "/events"
   end
 
-  defp pay_membership_url() do
+  def pay_membership_url() do
     YscWeb.Endpoint.url() <> "/users/membership"
   end
 end

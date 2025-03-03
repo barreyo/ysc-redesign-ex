@@ -95,12 +95,10 @@ defmodule YscWeb.UserAuth do
     conn = assign(conn, :current_user, user)
 
     if user do
-      conn = assign(conn, :current_membership, Customers.subscription(user))
+      assign(conn, :current_membership, Customers.subscription(user))
     else
-      conn = assign(conn, :current_membership, nil)
+      assign(conn, :current_membership, nil)
     end
-
-    conn
   end
 
   defp ensure_user_token(conn) do
@@ -241,7 +239,7 @@ defmodule YscWeb.UserAuth do
     end)
   end
 
-  defp mount_current_membership(socket, session) do
+  defp mount_current_membership(socket, _session) do
     Phoenix.Component.assign_new(socket, :current_membership, fn ->
       if socket.assigns.current_user != nil do
         Customers.subscription(socket.assigns.current_user)

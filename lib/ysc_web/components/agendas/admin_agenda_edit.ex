@@ -1,7 +1,6 @@
 defmodule YscWeb.AgendaEditComponent do
   use YscWeb, :live_component
 
-  alias Ysc.Events.Agenda
   alias Ysc.Events.AgendaItem
 
   alias Ysc.Agendas
@@ -35,7 +34,7 @@ defmodule YscWeb.AgendaEditComponent do
           </div>
 
           <.form
-            :let={f}
+            :let={_f}
             for={form}
             as={nil}
             phx-change="validate"
@@ -139,7 +138,7 @@ defmodule YscWeb.AgendaEditComponent do
      )}
   end
 
-  def update(%{agenda: agenda} = assigns, socket) do
+  def update(%{agenda: agenda} = _assigns, socket) do
     agenda_forms = Enum.map(agenda.agenda_items, &to_change_form(&1, %{}))
 
     {:ok,
@@ -170,7 +169,7 @@ defmodule YscWeb.AgendaEditComponent do
            agenda_item,
            params
          ) do
-      {:ok, updated_agenda_item} ->
+      {:ok, _updated_agenda_item} ->
         {:noreply, socket}
 
       {:error, changeset} ->
@@ -182,7 +181,7 @@ defmodule YscWeb.AgendaEditComponent do
     agenda = Agendas.get_agenda!(socket.assigns.agenda_id)
 
     case Agendas.create_agenda_item(agenda.event_id, agenda, params) do
-      {:ok, new_agenda_item} ->
+      {:ok, _new_agenda_item} ->
         empty_form = to_change_form(build_agenda_item(socket.assigns.agenda_id), %{})
 
         {
@@ -218,7 +217,7 @@ defmodule YscWeb.AgendaEditComponent do
         socket
       ) do
     case params do
-      %{"agenda_id" => old_agenda_id} ->
+      %{"agenda_id" => _old_agenda_id} ->
         agenda_item = Agendas.get_agenda_item!(id)
         Agendas.update_agenda_item_position(agenda_item.agenda.event_id, agenda_item, new_idx)
         {:noreply, socket}
@@ -226,7 +225,7 @@ defmodule YscWeb.AgendaEditComponent do
       %{"agenda_id" => _old_agenda_id, "to" => %{"agenda_id" => new_agenda_id}} ->
         agenda_item = Agendas.get_agenda_item!(id)
         agenda = Agendas.get_agenda!(new_agenda_id)
-        Agendas.move_agenda_item_to_agenda(agenda_item, agenda, new_idx)
+        Agendas.move_agenda_item_to_agenda(agenda.event_id, agenda_item, agenda, new_idx)
         {:noreply, socket}
     end
   end

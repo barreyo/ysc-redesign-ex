@@ -12,7 +12,7 @@ defmodule YscWeb.Emails.HeaderBlock do
     """
   end
 
-  defp logo_path() do
+  def logo_path() do
     "#{YscWeb.Endpoint.url()}/images/ysc_logo.png"
   end
 end

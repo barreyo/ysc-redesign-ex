@@ -16,7 +16,7 @@ defmodule Ysc.Posts.Comment do
     timestamps()
   end
 
-  def new_comment_changeset(comment, attrs, opts \\ []) do
+  def new_comment_changeset(comment, attrs, _opts \\ []) do
     comment
     |> cast(attrs, [
       :user_id,

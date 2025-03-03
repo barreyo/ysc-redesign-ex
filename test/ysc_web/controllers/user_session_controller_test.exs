@@ -7,6 +7,21 @@ defmodule YscWeb.UserSessionControllerTest do
     %{user: user_fixture()}
   end
 
+  describe "GET /users/log-in" do
+    test "renders log in page", %{conn: conn} do
+      conn = get(conn, ~p"/users/log-in")
+      response = html_response(conn, 200)
+      assert response =~ "Log in"
+      assert response =~ ~p"/users/register"
+      assert response =~ "Forgot your password?"
+    end
+
+    test "redirects if already logged in", %{conn: conn, user: user} do
+      conn = conn |> log_in_user(user) |> get(~p"/users/log-in")
+      assert redirected_to(conn) == ~p"/"
+    end
+  end
+
   describe "POST /users/log-in" do
     test "logs the user in", %{conn: conn, user: user} do
       conn =
@@ -56,8 +71,7 @@ defmodule YscWeb.UserSessionControllerTest do
 
     test "login following registration", %{conn: conn, user: user} do
       conn =
-        conn
-        |> post(~p"/users/log-in", %{
+        post(conn, ~p"/users/log-in", %{
           "_action" => "registered",
           "user" => %{
             "email" => user.email,
@@ -71,8 +85,7 @@ defmodule YscWeb.UserSessionControllerTest do
 
     test "login following password update", %{conn: conn, user: user} do
       conn =
-        conn
-        |> post(~p"/users/log-in", %{
+        post(conn, ~p"/users/log-in", %{
           "_action" => "password_updated",
           "user" => %{
             "email" => user.email,
@@ -100,14 +113,14 @@ defmodule YscWeb.UserSessionControllerTest do
       conn = conn |> log_in_user(user) |> delete(~p"/users/log-out")
       assert redirected_to(conn) == ~p"/"
       refute get_session(conn, :user_token)
-      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Logged out successfully"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Signed out successfully"
     end
 
     test "succeeds even if the user is not logged in", %{conn: conn} do
       conn = delete(conn, ~p"/users/log-out")
       assert redirected_to(conn) == ~p"/"
       refute get_session(conn, :user_token)
-      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Logged out successfully"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Signed out successfully"
     end
   end
 end

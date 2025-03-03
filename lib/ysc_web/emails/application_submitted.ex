@@ -13,19 +13,19 @@ defmodule YscWeb.Emails.ApplicationSubmitted do
     "Your Young Scandinavians Club application is in! 🎉"
   end
 
-  defp upcoming_events_url() do
+  def upcoming_events_url() do
     YscWeb.Endpoint.url() <> "/events"
   end
 
-  defp latest_news_url() do
+  def latest_news_url() do
     YscWeb.Endpoint.url() <> "/news"
   end
 
-  defp facebook_path() do
+  def facebook_path() do
     Settings.get_setting("facebook")
   end
 
-  defp instagram_path() do
+  def instagram_path() do
     Settings.get_setting("instagram")
   end
 end

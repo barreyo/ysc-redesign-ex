@@ -18,7 +18,7 @@ defmodule Ysc.Messages do
       :message_idempotency,
       MessageIdempotency.changeset(%MessageIdempotency{}, attrs)
     )
-    |> Ecto.Multi.run(:send_email, fn repo, result ->
+    |> Ecto.Multi.run(:send_email, fn repo, _result ->
       case Mailer.deliver(email) do
         {:ok, _metadata} ->
           {:ok, email}

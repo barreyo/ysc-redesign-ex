@@ -14,7 +14,10 @@ defmodule Ysc.AccountsFixtures do
       email: unique_user_email(),
       password: valid_user_password(),
       first_name: valid_user_first_name(),
-      last_name: valid_user_last_name()
+      last_name: valid_user_last_name(),
+      phone_number: "+14159098268",
+      state: :active,
+      role: :member
     })
   end
 
@@ -28,8 +31,23 @@ defmodule Ysc.AccountsFixtures do
   end
 
   def extract_user_token(fun) do
-    {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
-    [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
-    token
+    {:ok, captured} = fun.(&"[TOKEN]#{&1}[TOKEN]")
+
+    case captured do
+      [token] when is_binary(token) ->
+        token
+
+      %{text: text} ->
+        [_, token | _] = String.split(text, "[TOKEN]")
+        token
+
+      # Handle the email notification format
+      %{text_body: token} ->
+        token
+
+      text when is_binary(text) ->
+        [_, token | _] = String.split(text, "[TOKEN]")
+        token
+    end
   end
 end

@@ -4,5 +4,4 @@ defmodule Ysc.Ledgers do
   """
 
   import Ecto.Query, warn: false
-  alias Ysc.Repo
 end

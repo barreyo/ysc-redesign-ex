@@ -142,6 +142,7 @@ defmodule Ysc.Events.Event do
     |> put_reference_id()
     |> unique_constraint(:reference_id)
     |> validate_publish_dates()
+    |> validate_start_end()
   end
 
   defp validate_start_end(changeset) do

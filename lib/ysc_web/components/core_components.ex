@@ -15,10 +15,10 @@ defmodule YscWeb.CoreComponents do
   Icons are provided by [heroicons](https://heroicons.com). See `icon/1` for usage.
   """
   use Phoenix.Component
+  use Gettext, backend: Ysc.Gettext
 
   import Flop.Phoenix
   alias Phoenix.LiveView.JS
-  import YscWeb.Gettext
 
   alias Ysc.Events.Event
 
@@ -1291,10 +1291,15 @@ defmodule YscWeb.CoreComponents do
         email={@email}
         user_id={@user_id}
         country={@most_connected_country}
-        class={[
-          "w-10 rounded-full",
-          @right && "order-2"
-        ]}
+        class={
+          Enum.join(
+            [
+              "w-10 rounded-full",
+              @right && "order-2"
+            ],
+            " "
+          )
+        }
       />
       <div class={[
         @right && "order-1 pe-3",
@@ -1642,7 +1647,7 @@ defmodule YscWeb.CoreComponents do
     if Application.get_env(:ysc, :dev_routes, false) == true do
       image_path
     else
-      "https://gravatar.com/avatar/#{@email_hash}?d=#{@image_path}"
+      "https://gravatar.com/avatar/#{email_hash}?d=#{image_path}"
     end
   end
 

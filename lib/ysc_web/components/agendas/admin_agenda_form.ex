@@ -8,7 +8,7 @@ defmodule YscWeb.AgendasLive.FormComponent do
     ~H"""
     <div id={@id}>
       <.form
-        :let={f}
+        :let={_f}
         for={@form}
         as={nil}
         phx-target={@myself}

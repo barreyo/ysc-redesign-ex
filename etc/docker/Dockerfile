@@ -38,7 +38,7 @@ RUN mix phx.digest
 COPY lib lib
 
 # Compile the application
-RUN mix do compile, release
+RUN mix do compile --warnings-as-errors, release
 
 # ===============================================
 # Stage 2: Create the final production image

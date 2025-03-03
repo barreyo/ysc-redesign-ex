@@ -60,10 +60,10 @@ module.exports = {
     });
 
     document.addEventListener("trix-attachment-add", (event) => {
-      const postID = this.el.getAttribute("post-id");
+      const postID = this.el.getAttribute("data-post-id");
       uploadFileAttachment(event.attachment, postID);
     });
   },
 
-  updated() {},
+  updated() { },
 };

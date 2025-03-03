@@ -1,10 +1,12 @@
 defmodule YscWeb.Components.ImageUploadComponent do
   use YscWeb, :live_component
 
-  alias Ysc.Media.Image
   alias Ysc.Media
   alias YscWeb.S3.SimpleS3Upload
 
+  @s3_bucket "media"
+
+  @impl true
   def render(assigns) do
     ~H"""
     <div>
@@ -176,9 +178,4 @@ defmodule YscWeb.Components.ImageUploadComponent do
   defp error_to_string(:too_large), do: "Too large"
   defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
   defp error_to_string(:too_many_files), do: "You have selected too many files"
-
-  defp hoist_upload(socket, upload_path) do
-    send(self(), {__MODULE__, socket.assigns.id, upload_path})
-    :ok
-  end
 end

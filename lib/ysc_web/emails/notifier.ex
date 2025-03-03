@@ -1,8 +1,6 @@
 defmodule YscWeb.Emails.Notifier do
   import Swoosh.Email
 
-  alias Ysc.Mailer
-
   @from_email "info@ysc.org"
   @from_name "YSC"
 

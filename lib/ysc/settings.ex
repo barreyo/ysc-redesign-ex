@@ -4,11 +4,56 @@ defmodule Ysc.Settings do
   alias Ysc.Repo
   alias Ysc.SiteSettings.SiteSetting
 
+  # Cache all settings on app startup
+  @settings_cache_key "all-site-settings"
+
+  def start_link do
+    GenServer.start_link(__MODULE__, %{})
+  end
+
+  def init(state) do
+    # Warm up cache on startup
+    cache_all_settings()
+    {:ok, state}
+  end
+
+  defp cache_all_settings do
+    settings =
+      Repo.all(
+        from s in SiteSetting,
+          order_by: [{:desc, :id}]
+      )
+
+    # Cache the full settings list
+    Cachex.put(:ysc_cache, @settings_cache_key, settings)
+
+    # Cache individual settings
+    Enum.each(settings, fn setting ->
+      Cachex.put(:ysc_cache, setting_cache_key(setting.name), setting.value)
+    end)
+  end
+
   def settings() do
-    Repo.all(
-      from s in SiteSetting,
-        order_by: [{:desc, :id}]
-    )
+    case Cachex.get(:ysc_cache, @settings_cache_key) do
+      {:ok, nil} ->
+        settings =
+          Repo.all(
+            from s in SiteSetting,
+              order_by: [{:desc, :id}]
+          )
+
+        Cachex.put(:ysc_cache, @settings_cache_key, settings)
+        settings
+
+      {:ok, settings} ->
+        settings
+
+      _ ->
+        Repo.all(
+          from s in SiteSetting,
+            order_by: [{:desc, :id}]
+        )
+    end
   end
 
   defp setting_cache_key(name) do
@@ -40,12 +85,30 @@ defmodule Ysc.Settings do
   def update_setting(name, value) do
     current_setting = Repo.get_by!(SiteSetting, name: name)
 
-    Cachex.put(:ysc_cache, setting_cache_key(name), value)
+    case SiteSetting.site_setting_changeset(current_setting, %{value: value})
+         |> Repo.update() do
+      {:ok, updated} ->
+        # Update both caches
+        Cachex.put(:ysc_cache, setting_cache_key(name), value)
 
-    SiteSetting.site_setting_changeset(current_setting, %{
-      value: value
-    })
-    |> Repo.update()
+        case Cachex.get(:ysc_cache, @settings_cache_key) do
+          {:ok, settings} when is_list(settings) ->
+            updated_settings =
+              Enum.map(settings, fn setting ->
+                if setting.name == name, do: updated, else: setting
+              end)
+
+            Cachex.put(:ysc_cache, @settings_cache_key, updated_settings)
+
+          _ ->
+            :ok
+        end
+
+        {:ok, updated}
+
+      error ->
+        error
+    end
   end
 
   def settings_grouped_by_scope() do
@@ -57,13 +120,13 @@ defmodule Ysc.Settings do
   end
 
   def setting_scopes() do
-    from(s in SiteSetting,
-      distinct: s.group,
-      select: %{
-        "group" => s.group
-      }
-    )
-    |> Repo.all()
-    |> Enum.map(fn entry -> Map.get(entry, "group") end)
+    settings()
+    |> Enum.map(& &1.group)
+    |> Enum.uniq()
+  end
+
+  def clear_cache() do
+    Cachex.del(:ysc_cache, @settings_cache_key)
+    Cachex.del(:ysc_cache, "site-settings:*")
   end
 end

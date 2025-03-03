@@ -3,6 +3,7 @@ defmodule YscWeb.EventsLive do
 
   alias Ysc.Events
 
+  @impl true
   def render(assigns) do
     ~H"""
     <div class="py-8 lg:py-10">
@@ -30,7 +31,7 @@ defmodule YscWeb.EventsLive do
   end
 
   @impl true
-  def handle_info({Ysc.Events, %_event{event: event} = base_event}, socket) do
+  def handle_info({Ysc.Events, %_event{event: _} = base_event}, socket) do
     send_update(YscWeb.EventsListLive, id: "event_list", event: base_event)
     {:noreply, socket}
   end

@@ -49,6 +49,7 @@ defmodule YscWeb.ConductViolationReportLive do
     """
   end
 
+  @impl true
   def mount(_params, _session, socket) do
     remote_ip = get_connect_info(socket, :peer_data).address
     current_user = socket.assigns[:current_user]
@@ -65,6 +66,7 @@ defmodule YscWeb.ConductViolationReportLive do
      |> assign_form(changeset)}
   end
 
+  @impl true
   def handle_event("validate", %{"conduct_form" => volunteer_params}, socket) do
     changeset =
       Ysc.Forms.ConductViolationReport.changeset(

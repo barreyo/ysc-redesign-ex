@@ -4,7 +4,7 @@ defmodule YscWeb.Emails.FooterBlock do
   alias Ysc.Settings
 
   @impl MjmlEEx.Component
-  def render(assigns) do
+  def render(_assigns) do
     """
     <mj-section background-color="transparent" border-bottom="1px solid #e0e0e0" border-left="none" border-right="none" border-top="none" padding-bottom="32px" padding-left="48px" padding-right="48px" padding-top="32px" padding="12px">
       <mj-column background-color="transparent" padding="0" background-color="transparent">
@@ -25,19 +25,19 @@ defmodule YscWeb.Emails.FooterBlock do
     """
   end
 
-  defp instagram_url() do
+  def instagram_url() do
     Settings.get_setting("instagram")
   end
 
-  defp facebook_url() do
+  def facebook_url() do
     Settings.get_setting("facebook")
   end
 
-  defp social_icon_instagram() do
+  def social_icon_instagram() do
     "#{YscWeb.Endpoint.url()}/images/social_icon_instagram.png"
   end
 
-  defp social_icon_facebook() do
+  def social_icon_facebook() do
     "#{YscWeb.Endpoint.url()}/images/social_icon_facebook.png"
   end
 end

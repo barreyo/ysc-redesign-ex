@@ -7,7 +7,6 @@ defmodule YscWeb.AdminPostEditorLive do
   alias Ysc.Posts
 
   @save_debounce_timeout 2000
-  @s3_bucket "media"
 
   def render(assigns) do
     ~H"""
@@ -254,7 +253,7 @@ defmodule YscWeb.AdminPostEditorLive do
             type="hidden"
             id="post[raw_body]"
             field={@form[:raw_body]}
-            post-id={@post_id}
+            data-post-id={@post_id}
             phx-hook="TrixHook"
           />
           <div id="richtext" phx-update="ignore">

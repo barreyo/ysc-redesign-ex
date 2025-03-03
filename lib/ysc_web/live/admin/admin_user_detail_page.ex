@@ -260,7 +260,7 @@ defmodule YscWeb.AdminUserDetailsLive do
     """
   end
 
-  def mount(%{"id" => id} = params, _session, socket) do
+  def mount(%{"id" => id} = _params, _session, socket) do
     current_user = socket.assigns[:current_user]
 
     selected_user = Accounts.get_user!(id, [:family_members])

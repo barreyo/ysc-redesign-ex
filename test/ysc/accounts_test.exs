@@ -12,7 +12,7 @@ defmodule Ysc.AccountsTest do
     end
 
     test "returns the user if the email exists" do
-      %{id: id} = user = user_fixture()
+      %{id: id} = user = user_fixture(%{phone_number: "+14159098268"})
       assert %User{id: ^id} = Accounts.get_user_by_email(user.email)
     end
   end
@@ -23,12 +23,12 @@ defmodule Ysc.AccountsTest do
     end
 
     test "does not return the user if the password is not valid" do
-      user = user_fixture()
+      user = user_fixture(%{phone_number: "+14159098268"})
       refute Accounts.get_user_by_email_and_password(user.email, "invalid")
     end
 
     test "returns the user if the email and password are valid" do
-      %{id: id} = user = user_fixture()
+      %{id: id} = user = user_fixture(%{phone_number: "+14159098268"})
 
       assert %User{id: ^id} =
                Accounts.get_user_by_email_and_password(user.email, valid_user_password())
@@ -38,12 +38,12 @@ defmodule Ysc.AccountsTest do
   describe "get_user!/1" do
     test "raises if id is invalid" do
       assert_raise Ecto.NoResultsError, fn ->
-        Accounts.get_user!(-1)
+        Accounts.get_user!(Ecto.ULID.generate())
       end
     end
 
     test "returns the user with the given id" do
-      %{id: id} = user = user_fixture()
+      %{id: id} = user = user_fixture(%{phone_number: "+14159098268"})
       assert %User{id: ^id} = Accounts.get_user!(user.id)
     end
   end
@@ -54,7 +54,10 @@ defmodule Ysc.AccountsTest do
 
       assert %{
                password: ["can't be blank"],
-               email: ["can't be blank"]
+               email: ["can't be blank"],
+               phone_number: ["can't be blank"],
+               first_name: ["can't be blank"],
+               last_name: ["can't be blank"]
              } = errors_on(changeset)
     end
 
@@ -63,7 +66,10 @@ defmodule Ysc.AccountsTest do
 
       assert %{
                email: ["must have the @ sign and no spaces"],
-               password: ["should be at least 12 character(s)"]
+               password: ["should be at least 12 character(s)"],
+               phone_number: ["can't be blank"],
+               first_name: ["can't be blank"],
+               last_name: ["can't be blank"]
              } = errors_on(changeset)
     end
 
@@ -75,18 +81,43 @@ defmodule Ysc.AccountsTest do
     end
 
     test "validates email uniqueness" do
-      %{email: email} = user_fixture()
-      {:error, changeset} = Accounts.register_user(%{email: email})
+      %{email: email} = user_fixture(%{phone_number: "+14159098268"})
+
+      {:error, changeset} =
+        Accounts.register_user(%{
+          email: email,
+          phone_number: "+14159098260",
+          first_name: "John",
+          last_name: "Doe",
+          password: "valid password"
+        })
+
       assert "has already been taken" in errors_on(changeset).email
 
       # Now try with the upper cased email too, to check that email case is ignored.
-      {:error, changeset} = Accounts.register_user(%{email: String.upcase(email)})
+      {:error, changeset} =
+        Accounts.register_user(%{
+          email: String.upcase(email),
+          phone_number: "+14159098260",
+          first_name: "John",
+          last_name: "Doe",
+          password: "valid password"
+        })
+
       assert "has already been taken" in errors_on(changeset).email
     end
 
     test "registers users with a hashed password" do
       email = unique_user_email()
-      {:ok, user} = Accounts.register_user(valid_user_attributes(email: email))
+
+      {:ok, user} =
+        Accounts.register_user(
+          valid_user_attributes(%{
+            email: email,
+            phone_number: "+14159098268"
+          })
+        )
+
       assert user.email == email
       assert is_binary(user.hashed_password)
       assert is_nil(user.confirmed_at)
@@ -97,7 +128,7 @@ defmodule Ysc.AccountsTest do
   describe "change_user_registration/2" do
     test "returns a changeset" do
       assert %Ecto.Changeset{} = changeset = Accounts.change_user_registration(%User{})
-      assert changeset.required == [:password, :email]
+      assert changeset.required == [:phone_number, :password, :email, :first_name, :last_name]
     end
 
     test "allows fields to be set" do
@@ -107,7 +138,11 @@ defmodule Ysc.AccountsTest do
       changeset =
         Accounts.change_user_registration(
           %User{},
-          valid_user_attributes(email: email, password: password)
+          valid_user_attributes(%{
+            email: email,
+            password: password,
+            phone_number: "+14159098268"
+          })
         )
 
       assert changeset.valid?
@@ -126,7 +161,7 @@ defmodule Ysc.AccountsTest do
 
   describe "apply_user_email/3" do
     setup do
-      %{user: user_fixture()}
+      %{user: user_fixture(%{phone_number: "+14159098268"})}
     end
 
     test "requires email to change", %{user: user} do
@@ -151,7 +186,7 @@ defmodule Ysc.AccountsTest do
     end
 
     test "validates email uniqueness", %{user: user} do
-      %{email: email} = user_fixture()
+      %{email: email} = user_fixture(%{phone_number: "+14159098265"})
       password = valid_user_password()
 
       {:error, changeset} = Accounts.apply_user_email(user, password, %{email: email})
@@ -176,7 +211,7 @@ defmodule Ysc.AccountsTest do
 
   describe "deliver_user_update_email_instructions/3" do
     setup do
-      %{user: user_fixture()}
+      %{user: user_fixture(%{phone_number: "+14159098268"})}
     end
 
     test "sends token through notification", %{user: user} do
@@ -195,7 +230,7 @@ defmodule Ysc.AccountsTest do
 
   describe "update_user_email/2" do
     setup do
-      user = user_fixture()
+      user = user_fixture(%{phone_number: "+14159098268"})
       email = unique_user_email()
 
       token =
@@ -256,7 +291,7 @@ defmodule Ysc.AccountsTest do
 
   describe "update_user_password/3" do
     setup do
-      %{user: user_fixture()}
+      %{user: user_fixture(%{phone_number: "+14159098268"})}
     end
 
     test "validates password", %{user: user} do
@@ -312,7 +347,7 @@ defmodule Ysc.AccountsTest do
 
   describe "generate_user_session_token/1" do
     setup do
-      %{user: user_fixture()}
+      %{user: user_fixture(%{phone_number: "+14159098268"})}
     end
 
     test "generates a token", %{user: user} do
@@ -324,7 +359,7 @@ defmodule Ysc.AccountsTest do
       assert_raise Ecto.ConstraintError, fn ->
         Repo.insert!(%UserToken{
           token: user_token.token,
-          user_id: user_fixture().id,
+          user_id: user_fixture(%{phone_number: "+14159098267"}).id,
           context: "session"
         })
       end
@@ -333,7 +368,7 @@ defmodule Ysc.AccountsTest do
 
   describe "get_user_by_session_token/1" do
     setup do
-      user = user_fixture()
+      user = user_fixture(%{phone_number: "+14159098268"})
       token = Accounts.generate_user_session_token(user)
       %{user: user, token: token}
     end
@@ -355,7 +390,7 @@ defmodule Ysc.AccountsTest do
 
   describe "delete_user_session_token/1" do
     test "deletes the token" do
-      user = user_fixture()
+      user = user_fixture(%{phone_number: "+14159098268"})
       token = Accounts.generate_user_session_token(user)
       assert Accounts.delete_user_session_token(token) == :ok
       refute Accounts.get_user_by_session_token(token)
@@ -364,7 +399,7 @@ defmodule Ysc.AccountsTest do
 
   describe "deliver_user_confirmation_instructions/2" do
     setup do
-      %{user: user_fixture()}
+      %{user: user_fixture(%{phone_number: "+14159098268"})}
     end
 
     test "sends token through notification", %{user: user} do
@@ -383,7 +418,7 @@ defmodule Ysc.AccountsTest do
 
   describe "confirm_user/1" do
     setup do
-      user = user_fixture()
+      user = user_fixture(%{phone_number: "+14159098268"})
 
       token =
         extract_user_token(fn url ->
@@ -417,7 +452,7 @@ defmodule Ysc.AccountsTest do
 
   describe "deliver_user_reset_password_instructions/2" do
     setup do
-      %{user: user_fixture()}
+      %{user: user_fixture(%{phone_number: "+14159098268"})}
     end
 
     test "sends token through notification", %{user: user} do
@@ -436,7 +471,7 @@ defmodule Ysc.AccountsTest do
 
   describe "get_user_by_reset_password_token/1" do
     setup do
-      user = user_fixture()
+      user = user_fixture(%{phone_number: "+14159098268"})
 
       token =
         extract_user_token(fn url ->
@@ -465,7 +500,7 @@ defmodule Ysc.AccountsTest do
 
   describe "reset_user_password/2" do
     setup do
-      %{user: user_fixture()}
+      %{user: user_fixture(%{phone_number: "+14159098268"})}
     end
 
     test "validates password", %{user: user} do

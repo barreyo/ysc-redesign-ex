@@ -26,6 +26,8 @@ defmodule Ysc.Accounts.UserNotifier do
       """,
       user.id
     )
+
+    url
   end
 
   @doc """
@@ -53,6 +55,8 @@ defmodule Ysc.Accounts.UserNotifier do
       """,
       user.id
     )
+
+    url
   end
 
   @doc """
@@ -80,5 +84,7 @@ defmodule Ysc.Accounts.UserNotifier do
       """,
       user.id
     )
+
+    url
   end
 end

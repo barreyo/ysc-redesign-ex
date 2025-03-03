@@ -1,10 +1,6 @@
 defmodule YscWeb.UploadComponent do
   use YscWeb, :live_component
 
-  alias YscWeb.S3.SimpleS3Upload
-
-  @s3_bucket "media"
-
   @impl true
   def mount(socket) do
     {:ok,
@@ -16,6 +12,7 @@ defmodule YscWeb.UploadComponent do
      )}
   end
 
+  @impl true
   def update(assigns, socket) do
     {:ok, socket |> assign(assigns)}
   end
@@ -108,7 +105,7 @@ defmodule YscWeb.UploadComponent do
     {:noreply, cancel_upload(socket, :upload_component_file, ref)}
   end
 
-  def handle_event("save", params, socket) do
+  def handle_event("save", _params, socket) do
     case YscWeb.Uploads.consume_entries(socket, :upload_component_file) do
       [] -> :ok
       [upload_path] -> hoist_upload(socket, upload_path)
@@ -120,34 +117,6 @@ defmodule YscWeb.UploadComponent do
   defp hoist_upload(socket, upload_path) do
     send(self(), {__MODULE__, socket.assigns.id, upload_path})
     :ok
-  end
-
-  defp presign_upload(entry, socket) do
-    uploads = socket.assigns.uploads
-    key = "public/#{entry.client_name}"
-
-    config = %{
-      region: "us-west-1",
-      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
-      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
-    }
-
-    {:ok, fields} =
-      SimpleS3Upload.sign_form_upload(config, @s3_bucket,
-        key: key,
-        content_type: entry.client_type,
-        max_file_size: uploads[entry.upload_config].max_file_size,
-        expires_in: :timer.hours(1)
-      )
-
-    meta = %{
-      uploader: "S3",
-      key: key,
-      url: "http://media.s3.localhost.localstack.cloud:4566",
-      fields: fields
-    }
-
-    {:ok, meta, socket}
   end
 
   defp error_to_string(:too_large), do: "Too large"

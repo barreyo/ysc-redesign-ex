@@ -252,7 +252,14 @@ defmodule Ysc.Agendas do
     Ecto.Multi.update_all(multi, name, func, opts)
   end
 
-  defp multi_reposition(%Ecto.Multi{} = multi, name, %type{} = struct, lock, new_idx, where_query)
+  defp multi_reposition(
+         %Ecto.Multi{} = multi,
+         name,
+         %type{} = struct,
+         _lock,
+         new_idx,
+         where_query
+       )
        when is_integer(new_idx) do
     old_position = from(og in type, where: og.id == ^struct.id, select: og.position)
 

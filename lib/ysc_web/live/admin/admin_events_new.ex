@@ -288,7 +288,6 @@ defmodule YscWeb.AdminEventsNewLive do
                   id="post[raw_body]"
                   field={@form[:raw_details]}
                   data-post-id={@event.id}
-                  post-id={@event.id}
                   phx-hook="TrixHook"
                   phx-debounce={200}
                 />

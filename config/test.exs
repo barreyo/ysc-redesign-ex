@@ -47,3 +47,5 @@ config :ysc, Ysc.Repo,
 config :ysc, sql_sandbox_timeout: 30_000
 
 config :phoenix_test, :endpoint, YscWeb.Endpoint
+config :ysc, :stripe_customer, Stripe.CustomerMock
+config :ysc, :accounts_module, Ysc.AccountsMock

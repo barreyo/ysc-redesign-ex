@@ -417,7 +417,7 @@ defmodule YscWeb.Components.DateRangePicker do
 
   defp from_str!(date_time_str), do: date_time_str
 
-  defp select_button_text(start_date, nil) do
+  defp select_button_text(_start_date, nil) do
     "Select Date"
   end
 
@@ -425,7 +425,7 @@ defmodule YscWeb.Components.DateRangePicker do
     "Select Date"
   end
 
-  defp select_button_text(start_date, end_date) do
+  defp select_button_text(_start_date, _end_date) do
     "Select Dates"
   end
 

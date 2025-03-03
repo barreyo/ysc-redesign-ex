@@ -123,10 +123,11 @@ defmodule YscWeb.PageController do
   end
 
   def pending_review(conn, _params) do
+    accounts_module = Application.get_env(:ysc, :accounts_module, Ysc.Accounts)
     current_user = conn.assigns.current_user
 
     submitted_application_at =
-      Ysc.Accounts.get_signup_application_submission_date(current_user.id)
+      accounts_module.get_signup_application_submission_date(current_user.id)
 
     submitted_date = submitted_application_at[:submit_date]
 

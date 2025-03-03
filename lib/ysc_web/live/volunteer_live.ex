@@ -53,6 +53,7 @@ defmodule YscWeb.VolunteerLive do
     """
   end
 
+  @impl true
   def mount(_params, _session, socket) do
     remote_ip = get_connect_info(socket, :peer_data).address
     current_user = socket.assigns[:current_user]
@@ -69,11 +70,13 @@ defmodule YscWeb.VolunteerLive do
      |> assign_form(changeset)}
   end
 
+  @impl true
   def handle_event("validate", %{"volunteer" => volunteer_params}, socket) do
     changeset = Ysc.Forms.Volunteer.changeset(%Ysc.Forms.Volunteer{}, volunteer_params)
     {:noreply, assign_form(socket, changeset)}
   end
 
+  @impl true
   def handle_event("save", %{"volunteer" => volunteer_params} = values, socket) do
     changeset = Ysc.Forms.Volunteer.changeset(%Ysc.Forms.Volunteer{}, volunteer_params)
 

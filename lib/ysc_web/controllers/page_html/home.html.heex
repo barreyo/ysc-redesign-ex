@@ -19,7 +19,13 @@
       <p>
         Those with <strong>Danish</strong>, <strong>Finnish</strong>, <strong>Icelandic</strong>, <strong>Norwegian</strong>, or
         <strong>Swedish</strong>
-        heritage may qualify for membership, with rates starting at just <strong><%= Ysc.MoneyHelper.format_money!(Money.new(:USD, Enum.at(Application.get_env(:ysc, :membership_plans), 0).amount)) %></strong> per year.
+        heritage may qualify for membership, with rates starting at just
+        <strong>
+          <%= Ysc.MoneyHelper.format_money!(
+            Money.new(:USD, Enum.at(Application.get_env(:ysc, :membership_plans), 0).amount)
+          ) %>
+        </strong>
+        per year.
       </p>
 
       <div class="not-prose py-4">
@@ -33,23 +39,50 @@
 
       <h2>Don't Let the Name Fool You –  The YSC is for Everyone!</h2>
 
-      <p>We may be called the "Young" Scandinavians Club, but we're a community for all ages! Whether you're chasing toddlers around our Midsummer celebration or sharing stories by the fireplace at our Lake Tahoe cabin, you'll find your place at the YSC. With roughly 500 active members, we're a lively bunch who love to connect and have fun.</p>
+      <p>
+        We may be called the "Young" Scandinavians Club, but we're a community for all ages! Whether you're chasing toddlers around our Midsummer celebration or sharing stories by the fireplace at our Lake Tahoe cabin, you'll find your place at the YSC. With roughly 500 active members, we're a lively bunch who love to connect and have fun.
+      </p>
 
-      <p>Our events range from casual happy hours and hikes to formal dinners and holiday celebrations. We also host cultural events, such as lectures and film screenings, to help our members stay connected to their Scandinavian roots.</p>
+      <p>
+        Our events range from casual happy hours and hikes to formal dinners and holiday celebrations. We also host cultural events, such as lectures and film screenings, to help our members stay connected to their Scandinavian roots.
+      </p>
 
       <p><strong>Your YSC membership unlocks:</strong></p>
 
       <ul>
-        <li><strong>Clear Lake Bliss:</strong> Imagine sunny days spent swimming, boating, and relaxing by the lake at our charming cabin.</li>
-        <li><strong>A Calendar Full of Fun:</strong> From festive Midsummer celebrations and cozy Christmas dinners to adventurous hikes and social happy hours, there's always something happening at the YSC.</li>
-        <li><strong>Tahoe Adventures:</strong> Picture yourself skiing down snowy slopes in the winter and hiking through breathtaking scenery in the summer – all from the comfort of our Lake Tahoe cabin.</li>
+        <li>
+          <strong>Clear Lake Bliss:</strong>
+          Imagine sunny days spent swimming, boating, and relaxing by the lake at our charming cabin.
+        </li>
+        <li>
+          <strong>A Calendar Full of Fun:</strong>
+          From festive Midsummer celebrations and cozy Christmas dinners to adventurous hikes and social happy hours, there's always something happening at the YSC.
+        </li>
+        <li>
+          <strong>Tahoe Adventures:</strong>
+          Picture yourself skiing down snowy slopes in the winter and hiking through breathtaking scenery in the summer – all from the comfort of our Lake Tahoe cabin.
+        </li>
       </ul>
 
       <p><strong>We offer two membership options to fit your lifestyle:</strong></p>
 
       <ul>
-        <li><strong>Single Membership (<%= Ysc.MoneyHelper.format_money!(Money.new(:USD, Enum.at(Application.get_env(:ysc, :membership_plans), 0).amount)) %>/year):</strong> Enjoy all the benefits of the YSC for yourself.</li>
-        <li><strong>Family Membership (<%= Ysc.MoneyHelper.format_money!(Money.new(:USD, Enum.at(Application.get_env(:ysc, :membership_plans), 1).amount)) %>/year):</strong> Share the YSC experience with your loved ones! This affordable option covers you, your spouse, and your children under 18.</li>
+        <li>
+          <strong>
+            Single Membership (<%= Ysc.MoneyHelper.format_money!(
+              Money.new(:USD, Enum.at(Application.get_env(:ysc, :membership_plans), 0).amount)
+            ) %>/year):
+          </strong>
+          Enjoy all the benefits of the YSC for yourself.
+        </li>
+        <li>
+          <strong>
+            Family Membership (<%= Ysc.MoneyHelper.format_money!(
+              Money.new(:USD, Enum.at(Application.get_env(:ysc, :membership_plans), 1).amount)
+            ) %>/year):
+          </strong>
+          Share the YSC experience with your loved ones! This affordable option covers you, your spouse, and your children under 18.
+        </li>
       </ul>
 
       <div class="border-t border-1 border-zinc-100 mt-8">
@@ -68,7 +101,9 @@
           <.button>Let's keep in touch</.button>
           <p class="not-prose text-sm italic text-zinc-500">
             We don’t spam! Read our
-            <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">privacy policy</.link>
+            <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
+              privacy policy
+            </.link>
             for more info.
           </p>
         </form>

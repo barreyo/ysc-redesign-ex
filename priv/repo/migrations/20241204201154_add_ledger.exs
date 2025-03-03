@@ -12,6 +12,8 @@ defmodule Ysc.Repo.Migrations.AddLedger do
       timestamps()
     end
 
+    create unique_index(:ledger_accounts, [:account_type, :name])
+
     create table(:payments, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
 

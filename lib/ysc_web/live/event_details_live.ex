@@ -283,6 +283,7 @@ defmodule YscWeb.EventDetailsLive do
     """
   end
 
+  @impl true
   def mount(%{"id" => event_id}, _session, socket) do
     if connected?(socket) do
       Events.subscribe()
@@ -340,11 +341,7 @@ defmodule YscWeb.EventDetailsLive do
         socket
       ) do
     new_agendas = socket.assigns.agendas |> Enum.reject(&(&1.id == agenda.id))
-    active_agenda = socket.assigns.active_agenda
-
-    if agenda.id == socket.assigns.active_agenda do
-      active_agenda = default_active_agenda(new_agendas)
-    end
+    active_agenda = new_active_agenda(agenda.id, socket.assigns.active_agenda, new_agendas)
 
     {:noreply, socket |> assign(:agendas, new_agendas) |> assign(:active_agenda, active_agenda)}
   end
@@ -398,7 +395,8 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_info(
-        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaItemRepositioned{agenda_item: agenda_item}},
+        {Ysc.Agendas,
+         %Ysc.MessagePassingEvents.AgendaItemRepositioned{agenda_item: _agenda_item}},
         socket
       ) do
     updated_agendas = Agendas.list_agendas_for_event(socket.assigns.event.id)
@@ -518,5 +516,14 @@ defmodule YscWeb.EventDetailsLive do
     new_date = Timex.Timezone.convert(dt, ts)
 
     Timex.format!(new_date, "%Y-%m-%d", :strftime)
+  end
+
+  defp new_active_agenda(agenda_id, active_agenda_id, new_agendas)
+       when agenda_id == active_agenda_id do
+    default_active_agenda(new_agendas)
+  end
+
+  defp new_active_agenda(_, active_agenda_id, _) do
+    active_agenda_id
   end
 end

@@ -208,14 +208,6 @@ defmodule YscWeb.PostLive do
   defp post_date(%Post{published_on: nil} = post), do: post.inserted_at
   defp post_date(%Post{} = post), do: post.published_on
 
-  defp post_body(%Post{rendered_body: nil} = post) do
-    Scrubber.scrub(post.raw_body, Scrubber.BasicHTML)
-  end
-
-  defp post_body(%Post{} = post) do
-    post.rendered_body
-  end
-
   defp comment_is_reply(%Comment{comment_id: nil}), do: false
   defp comment_is_reply(%Comment{}), do: true
 

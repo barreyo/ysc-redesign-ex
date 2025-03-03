@@ -8,7 +8,7 @@ defmodule YscWeb.UserConfirmationInstructionsLiveTest do
   alias Ysc.Repo
 
   setup do
-    %{user: user_fixture()}
+    %{user: user_fixture(%{phone_number: "+14159098268"})}
   end
 
   describe "Resend confirmation" do

@@ -2,7 +2,6 @@ defmodule YscWeb.UserSettingsLive do
   use YscWeb, :live_view
 
   alias Ysc.Accounts
-  alias Bling.Subscriptions
   alias Bling.Customers
 
   alias Ysc.Subscriptions.Subscription
@@ -377,7 +376,7 @@ defmodule YscWeb.UserSettingsLive do
     {:ok, push_navigate(socket, to: ~p"/users/settings")}
   end
 
-  def mount(params, _session, socket) do
+  def mount(_params, _session, socket) do
     user = socket.assigns.current_user
     email_changeset = Accounts.change_user_email(user)
     password_changeset = Accounts.change_user_password(user)
@@ -405,7 +404,6 @@ defmodule YscWeb.UserSettingsLive do
 
     # This is all very dumb, but it's just a quick way to get the current membership status
     current_membership = socket.assigns.current_membership
-    single_plan_active? = Bling.Customers.subscribed_to_price?(user, get_price_id(:single))
     family_plan_active? = Bling.Customers.subscribed_to_price?(user, get_price_id(:family))
 
     active_plan = get_membership_plan(current_membership)
@@ -499,25 +497,24 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
-  def handle_event("select_membership", %{"membership_type" => membership_type} = params, socket) do
+  def handle_event("select_membership", %{"membership_type" => membership_type} = _params, socket) do
     membership_atom = String.to_existing_atom(membership_type)
     user = socket.assigns.user
     return_url = url(~p"/billing/user/#{user.id}/finalize")
     price_id = get_price_id(membership_atom)
 
-    result =
-      Bling.Customers.create_subscription(
-        user,
-        return_url: return_url,
-        prices: [{price_id, 1}]
-      )
+    Bling.Customers.create_subscription(
+      user,
+      return_url: return_url,
+      prices: [{price_id, 1}]
+    )
 
     {:noreply, socket |> push_navigate(to: ~p"/users/membership")}
   end
 
   def handle_event(
         "validate_membership",
-        %{"membership_type" => membership_type} = params,
+        %{"membership_type" => membership_type} = _params,
         socket
       ) do
     assigns = socket.assigns
@@ -590,9 +587,6 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   defp payment_secret(_, _), do: nil
-
-  defp card_icon_path("visa"), do: "/images/cards/visa.png"
-  defp card_icon_path(_), do: nil
 
   defp card_icon("visa"),
     do:

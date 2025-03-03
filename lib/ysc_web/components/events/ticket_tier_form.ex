@@ -1,7 +1,6 @@
 defmodule YscWeb.AdminEventsLive.TicketTierForm do
   use YscWeb, :live_component
 
-  alias Ysc.Events
   alias Ysc.Events.TicketTier
 
   @impl true
@@ -77,10 +76,8 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
   end
 
   @impl true
-  def handle_event("validate", %{"ticket_tier" => params}, socket) do
-    if params["price"] do
-      params = update_in(params["price"], &Ysc.MoneyHelper.parse_money/1)
-    end
+  def handle_event("validate", %{"ticket_tier" => _params} = event_params, socket) do
+    params = update_in(event_params["price"], &Ysc.MoneyHelper.parse_money/1)
 
     changeset =
       TicketTier.changeset(%TicketTier{}, params)
@@ -90,7 +87,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
   end
 
   @impl true
-  def handle_event("save", %{"ticket_tier" => params}, socket) do
+  def handle_event("save", %{"ticket_tier" => _params}, socket) do
     {:noreply,
      socket
      |> put_flash(:info, "Ticket tier added")

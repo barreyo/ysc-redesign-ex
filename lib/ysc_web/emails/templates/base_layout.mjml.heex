@@ -4,22 +4,22 @@
       <mj-text align="center" color="#555" />
     </mj-attributes>
     <mj-style>
-     .btn_block a {
-       cursor: pointer;
-       transition: background-color 0.3s ease, color 0.3s ease;
-       text-align: center;
-     }
-     .btn_block a {
-       width: 92%;
-     }
-     .btn_block a:hover {
-       background-color: #155dfc !important;
-     }
+      .btn_block a {
+      cursor: pointer;
+      transition: background-color 0.3s ease, color 0.3s ease;
+      text-align: center;
+      }
+      .btn_block a {
+      width: 92%;
+      }
+      .btn_block a:hover {
+      background-color: #155dfc !important;
+      }
     </mj-style>
   </mj-head>
   <mj-body background-color="#eee">
-    <%= render_dynamic_component YscWeb.Emails.HeaderBlock %>
+    <%= render_dynamic_component(YscWeb.Emails.HeaderBlock) %>
     <%= @inner_content %>
-    <%= render_dynamic_component YscWeb.Emails.FooterBlock %>
+    <%= render_dynamic_component(YscWeb.Emails.FooterBlock) %>
   </mj-body>
 </mjml>

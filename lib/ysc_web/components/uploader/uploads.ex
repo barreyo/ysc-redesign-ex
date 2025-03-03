@@ -131,9 +131,9 @@ defmodule YscWeb.Uploads do
   end
 
   @doc false
-  def consume_entry(%{path: path} = details, params, current_user) do
+  def consume_entry(%{path: path} = _details, _params, current_user) do
     base = Path.basename(path)
-    dest = Path.join(uploads_dir(), base)
+    _dest = Path.join(uploads_dir(), base)
 
     upload_result = Media.upload_file_to_s3(path)
     raw_s3_path = upload_result[:body][:location]
@@ -163,11 +163,7 @@ defmodule YscWeb.Uploads do
     {:ok, updated_image.id}
   end
 
-  defp make_temp_dir(path) do
-    File.mkdir(path)
-  end
-
-  def consume_entry(%{uploader: _} = meta, _entry, current_user) do
+  def consume_entry(%{uploader: _} = meta, _entry, _current_user) do
     # External upload
     {:ok, meta}
   end
@@ -177,5 +173,9 @@ defmodule YscWeb.Uploads do
   """
   def upload_path(file) do
     YscWeb.Router.Helpers.static_path(YscWeb.Endpoint, "/uploads/#{file}")
+  end
+
+  defp make_temp_dir(path) do
+    File.mkdir(path)
   end
 end
