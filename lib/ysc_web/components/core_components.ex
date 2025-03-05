@@ -15,7 +15,7 @@ defmodule YscWeb.CoreComponents do
   Icons are provided by [heroicons](https://heroicons.com). See `icon/1` for usage.
   """
   use Phoenix.Component
-  use Gettext, backend: Ysc.Gettext
+  use Gettext, backend: YscWeb.Gettext
 
   import Flop.Phoenix
   alias Phoenix.LiveView.JS

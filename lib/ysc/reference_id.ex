@@ -14,17 +14,26 @@ defmodule Ysc.ReferenceGenerator do
            |> List.delete(?1)
            |> List.delete(?0)
 
+  @doc """
+  Validates a reference ID string.
+  Returns :ok if valid, {:error, reason} if invalid.
+  """
+  @spec validate_reference_id(String.t()) :: :ok | {:error, String.t()}
   def validate_reference_id(reference_id) when is_binary(reference_id) do
     case Regex.run(~r/^([A-Z]{3})-(\d{6})-([A-Z0-9]{4})([A-Z0-9])$/, reference_id) do
       [_, prefix, date, random_part, checksum] ->
-        validate_format(prefix, date, random_part, checksum) and
-          validate_checksum(prefix, date, random_part, checksum)
+        with :ok <- validate_format(prefix, date, random_part, checksum),
+             :ok <- validate_checksum(prefix, date, random_part, checksum) do
+          :ok
+        end
 
       nil ->
         {:error, "Invalid format"}
     end
   end
 
+  @spec validate_format(String.t(), String.t(), String.t(), String.t()) ::
+          :ok | {:error, String.t()}
   defp validate_format(prefix, date, random_part, checksum) do
     cond do
       prefix not in @prefixes ->
@@ -36,17 +45,19 @@ defmodule Ysc.ReferenceGenerator do
       not valid_base36_string?(random_part) ->
         {:error, "Invalid random part"}
 
-      String.length(checksum) != 1 or not valid_base36_string?(checksum) ->
+      String.length(checksum) != 1 ->
         {:error, "Invalid checksum character"}
 
       true ->
-        true
+        :ok
     end
   end
 
+  @spec validate_checksum(String.t(), String.t(), String.t(), String.t()) ::
+          :ok | {:error, String.t()}
   defp validate_checksum(prefix, date, random_part, checksum) do
     base = "#{prefix}#{date}#{random_part}"
-    expected_checksum = Ysc.ReferenceGenerator.compute_checksum(base)
+    expected_checksum = compute_checksum(base)
 
     if checksum == expected_checksum do
       :ok
@@ -55,12 +66,17 @@ defmodule Ysc.ReferenceGenerator do
     end
   end
 
+  @spec valid_base36_string?(String.t()) :: boolean()
   defp valid_base36_string?(string) do
     String.upcase(string)
     |> String.to_charlist()
     |> Enum.all?(&(&1 in @charset))
   end
 
+  @doc """
+  Generates a new reference ID with the given prefix.
+  """
+  @spec generate_reference_id(String.t()) :: String.t()
   def generate_reference_id(prefix) when is_binary(prefix) do
     if valid_prefix?(prefix) do
       date_part = current_date_part()
@@ -74,24 +90,30 @@ defmodule Ysc.ReferenceGenerator do
     end
   end
 
+  @spec valid_prefix?(String.t()) :: boolean()
   defp valid_prefix?(prefix) do
-    String.length(prefix) == 3 and String.upcase(prefix) == prefix
+    prefix in @prefixes
   end
 
+  @spec current_date_part() :: String.t()
   defp current_date_part do
     Date.utc_today()
     |> Date.to_string()
     |> String.replace("-", "")
-    # YYMMDD
     |> String.slice(2, 6)
   end
 
+  @spec generate_random_part(non_neg_integer()) :: String.t()
   defp generate_random_part(length) do
     for _ <- 1..length, into: "" do
       <<Enum.random(@charset)>>
     end
   end
 
+  @doc """
+  Computes the checksum for a reference ID base string.
+  """
+  @spec compute_checksum(String.t()) :: String.t()
   def compute_checksum(base) do
     base
     |> String.to_charlist()
@@ -100,6 +122,7 @@ defmodule Ysc.ReferenceGenerator do
     |> to_base36()
   end
 
+  @spec to_base36(non_neg_integer()) :: String.t()
   defp to_base36(value) when value < 10, do: Integer.to_string(value)
   defp to_base36(value), do: <<value - 10 + ?A>>
 end

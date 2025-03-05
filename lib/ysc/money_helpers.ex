@@ -20,7 +20,7 @@ defmodule Ysc.MoneyHelper do
       {decimal, ""} ->
         Money.new(:USD, decimal)
 
-      {:ok, decimal} ->
+      {decimal, _} ->
         Money.new(:USD, decimal)
 
       _ ->
@@ -44,7 +44,10 @@ defmodule Ysc.MoneyHelper do
   def format_money(_), do: ""
 
   def format_money!(value) do
-    {:ok, str} = format_money(value)
-    str
+    case format_money(value) do
+      {:ok, str} -> str
+      str when is_binary(str) -> str
+      _ -> ""
+    end
   end
 end
