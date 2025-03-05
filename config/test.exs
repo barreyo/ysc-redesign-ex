@@ -45,3 +45,5 @@ config :ysc, Ysc.Repo,
   pool_size: 20
 
 config :ysc, sql_sandbox_timeout: 30_000
+
+config :phoenix_test, :endpoint, YscWeb.Endpoint
