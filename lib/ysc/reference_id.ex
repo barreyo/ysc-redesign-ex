@@ -6,7 +6,7 @@ defmodule Ysc.ReferenceGenerator do
   `[Prefix]-[Date]-[Random String][Checksum]`
   """
 
-  @prefixes ~w(PMT TKT BKG DON)
+  @prefixes ~w(PMT TKT BKG DON EVT)
 
   @charset Enum.concat(?A..?Z, ?0..?9)
            |> List.delete(?O)
