@@ -175,6 +175,21 @@ defmodule YscWeb.AdminUserDetailsLive do
               </.badge>
             </p>
 
+            <p :if={@selected_user_application.review_outcome != nil} class="leading-6 text-sm text-zinc-800 mb-4 font-semibold">
+                Review outcome:
+                <.badge>
+                  <%= @selected_user_application.review_outcome %>
+                </.badge>
+            </p>
+
+            <p :if={@selected_user_application.reviewed_by != nil} class="leading-6 text-sm text-zinc-800 mb-4">
+              <span class="font-semibold">Reviewed by:</span> <%= @selected_user_application.reviewed_by.first_name %> <%= @selected_user_application.reviewed_by.last_name %> (<%= @selected_user_application.reviewed_by.email %>)
+            </p>
+
+            <p :if={@selected_user_application.reviewed_at != nil} class="leading-6 text-sm text-zinc-800 mb-4">
+              <span class="font-semibold">Reviewed at:</span> <.badge><%= Timex.format!(@selected_user_application.reviewed_at, "{YYYY}-{0M}-{0D} {h12}:{m}:{s} {AM}") %></.badge>
+            </p>
+
             <h3 class="leading-6 text-zinc-800 font-semibold mb-2">Applicant Details</h3>
             <ul class="leading-6 text-zinc-800 text-sm pb-6">
               <li><span class="font-semibold">Email:</span> <%= @selected_user.email %></li>

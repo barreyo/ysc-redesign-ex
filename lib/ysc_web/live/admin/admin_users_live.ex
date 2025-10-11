@@ -295,9 +295,13 @@ defmodule YscWeb.AdminUsersLive do
               enterkeyhint="search"
               spellcheck="false"
               placeholder="Search by name, email or phone number"
-              value={@params["search"]}
+              value={case @params["search"] do
+                %{"query" => query} -> query
+                query when is_binary(query) -> query
+                _ -> ""
+              end}
               tabindex="0"
-              phx-debounce={100}
+              phx-debounce="200"
               class="block pt-3 pb-3 ps-10 text-sm text-zinc-800 border border-zinc-200 rounded w-full bg-zinc-50 focus:ring-blue-500 focus:border-blue-500"
             />
           </form>
@@ -505,7 +509,13 @@ defmodule YscWeb.AdminUsersLive do
   def handle_params(params, _, socket) do
     search = params["search"]
 
-    case Accounts.list_paginated_users(params, search) do
+    search_term =
+      case search do
+        %{"query" => query} when is_binary(query) -> query
+        _ -> nil
+      end
+
+    case Accounts.list_paginated_users(params, search_term) do
       {:ok, {users, meta}} ->
         {:noreply,
          assign(socket, meta: meta)
@@ -524,7 +534,12 @@ defmodule YscWeb.AdminUsersLive do
           atom() | %{:assigns => nil | maybe_improper_list() | map(), optional(any()) => any()}
         ) :: {:noreply, any()}
   def handle_event("change", %{"search" => %{"query" => search_query}}, socket) do
-    new_params = Map.put(socket.assigns[:params], "search", search_query)
+    new_params = Map.put(socket.assigns[:params], "search", %{"query" => search_query})
+    {:noreply, push_patch(socket, to: ~p"/admin/users?#{new_params}")}
+  end
+
+  def handle_event("change", %{"search" => search_query}, socket) when is_binary(search_query) do
+    new_params = Map.put(socket.assigns[:params], "search", %{"query" => search_query})
     {:noreply, push_patch(socket, to: ~p"/admin/users?#{new_params}")}
   end
 

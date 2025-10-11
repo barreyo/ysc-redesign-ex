@@ -1760,7 +1760,7 @@ defmodule YscWeb.CoreComponents do
       <p class="text-zinc-600">
         <%= @text %>
       </p>
-      <div class="flex items-center mt-4 space-x-4">
+      <div :if={!@reply} class="flex items-center mt-4 space-x-4">
         <button
           phx-click={JS.show(to: "#reply-to-#{@id}")}
           type="button"
@@ -1770,7 +1770,7 @@ defmodule YscWeb.CoreComponents do
         </button>
       </div>
 
-      <div id={"reply-to-#{@id}"} class="hidden mt-2">
+      <div :if={!@reply} id={"reply-to-#{@id}"} class="hidden mt-2">
         <.form for={@form} id={"reply-form-#{@post_id}-#{@id}"} phx-submit="save">
           <.input
             field={@form[:text]}

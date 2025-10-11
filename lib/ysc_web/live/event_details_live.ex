@@ -262,9 +262,12 @@ defmodule YscWeb.EventDetailsLive do
 
           <div
             :if={@event.state != :cancelled}
-            class="fixed md:shadow-md bottom-0 w-full md:w-1/3 md:sticky bg-white rounded border border-zinc-200 h-32 md:h-36 md:top-24 right-0 px-4 py-3 z-40 flex text-center flex flex-col justify-center space-y-4"
+            class="fixed md:shadow-md bottom-0 w-full md:w-1/3 md:sticky bg-white rounded border border-zinc-200 h-32 md:h-36 md:top-8 right-0 px-4 py-3 z-40 flex text-center flex flex-col justify-center space-y-4"
           >
-            <p class="font-semibold text-lg">From $100.00</p>
+            <div class="flex flex-col items-center justify-center">
+              <p class="font-semibold text-lg">From $100.00</p>
+              <p :if={@event.start_date != nil} class="text-sm text-zinc-600"><%= format_start_date(@event.start_date) %></p>
+            </div>
             <div :if={@current_user == nil} class="w-full">
               <p class="text-sm text-red-600 px-2 py-1 bg-red-100 rounded mb-2 border border-red-300">
                 <.icon name="hero-exclamation-circle" class="me-1 -mt-0.5" />Only members can access tickets

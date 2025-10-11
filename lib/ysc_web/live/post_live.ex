@@ -181,7 +181,7 @@ defmodule YscWeb.PostLive do
     new_socket =
       socket
       |> assign(:animate_insert, true)
-      |> stream_insert(:comments, loaded, at: Posts.get_insert_index_for_comment(new_comment))
+      |> stream_insert(:comments, loaded)
       |> assign(:n_comments, socket.assigns[:n_comments] + 1)
 
     if new_comment.user_id == socket.assigns[:current_user].id do
