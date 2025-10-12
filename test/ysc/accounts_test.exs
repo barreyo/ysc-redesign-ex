@@ -540,4 +540,47 @@ defmodule Ysc.AccountsTest do
       refute inspect(%User{password: "123456"}) =~ "password: \"123456\""
     end
   end
+
+  describe "SignupApplication validation" do
+    alias Ysc.Accounts.SignupApplication
+
+    test "requires agreed_to_bylaws to be true" do
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, %{
+          membership_type: :single,
+          membership_eligibility: [:born_in_scandinavia],
+          birth_date: ~D[1990-01-01],
+          address: "123 Main St",
+          city: "San Francisco",
+          country: "US",
+          postal_code: "94105",
+          place_of_birth: "SE",
+          citizenship: "SE",
+          most_connected_nordic_country: "SE",
+          agreed_to_bylaws: false
+        })
+
+      refute changeset.valid?
+      assert %{agreed_to_bylaws: ["must be accepted"]} = errors_on(changeset)
+    end
+
+    test "accepts agreed_to_bylaws when true" do
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, %{
+          membership_type: :single,
+          membership_eligibility: [:born_in_scandinavia],
+          birth_date: ~D[1990-01-01],
+          address: "123 Main St",
+          city: "San Francisco",
+          country: "US",
+          postal_code: "94105",
+          place_of_birth: "SE",
+          citizenship: "SE",
+          most_connected_nordic_country: "SE",
+          agreed_to_bylaws: true
+        })
+
+      assert changeset.valid?
+    end
+  end
 end

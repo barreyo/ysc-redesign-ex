@@ -12,7 +12,7 @@ defmodule Ysc.Accounts do
   alias Ysc.Accounts.SignupApplication
   alias Ysc.Repo
 
-  alias Ysc.Accounts.{User, UserToken, UserNotifier}
+  alias Ysc.Accounts.{User, UserToken, UserNotifier, AuthService}
 
   ## Database getters
 
@@ -565,5 +565,57 @@ defmodule Ysc.Accounts do
         end
       end
     end
+  end
+
+  ## Authentication Events
+
+  @doc """
+  Gets the datetime of the last successful login for a user.
+  Returns nil if no successful login is found.
+  """
+  def get_last_successful_login_datetime(user) do
+    AuthService.get_last_successful_login_datetime(user)
+  end
+
+  @doc """
+  Gets the last successful login event for a user.
+  Returns nil if no successful login is found.
+  """
+  def get_last_successful_login_event(user) do
+    AuthService.get_last_successful_login_event(user)
+  end
+
+  @doc """
+  Gets recent authentication events for a user.
+  """
+  def get_user_auth_history(user, limit \\ 50) do
+    AuthService.get_user_auth_history(user, limit)
+  end
+
+  @doc """
+  Gets the last time a user was logged in (either login or logout event).
+  This helps determine when the user was last active on the site.
+  Returns nil if no login/logout events are found.
+  """
+  def get_last_login_session_datetime(user) do
+    AuthService.get_last_login_session_datetime(user)
+  end
+
+  @doc """
+  Gets the last login session event for a user (either login or logout).
+  This helps determine when the user was last active on the site.
+  Returns nil if no login/logout events are found.
+  """
+  def get_last_login_session_event(user) do
+    AuthService.get_last_login_session_event(user)
+  end
+
+  @doc """
+  Gets the time range when the user was last active on the site.
+  Returns a map with :session_start and :session_end datetimes.
+  This helps determine what content the user might have missed.
+  """
+  def get_last_session_timeframe(user) do
+    AuthService.get_last_session_timeframe(user)
   end
 end

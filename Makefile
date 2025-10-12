@@ -53,6 +53,10 @@ setup-s3:  ## Set up local S3 bucket
 	@awslocal s3api create-bucket --bucket media || true
 	@awslocal s3api put-bucket-cors --bucket media --cors-configuration file://etc/config/s3_bucket_cors_rules.json || true
 
+.PHONY: shell
+shell:  ## Open a shell in the dev container
+	@iex -S mix
+
 .PHONY: reset-db
 reset-db:  ## Drop the local dev db
 	@mix ecto.drop

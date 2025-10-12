@@ -54,6 +54,8 @@ defmodule Ysc.Accounts.User do
       where: [customer_type: "user"],
       defaults: [customer_type: "user"]
 
+    has_many :auth_events, Ysc.Accounts.AuthEvent
+
     field :display_name, :string, virtual: true
 
     timestamps()

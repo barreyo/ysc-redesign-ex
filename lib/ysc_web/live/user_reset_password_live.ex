@@ -2,6 +2,7 @@ defmodule YscWeb.UserResetPasswordLive do
   use YscWeb, :live_view
 
   alias Ysc.Accounts
+  alias Ysc.Accounts.AuthService
 
   def render(assigns) do
     ~H"""
@@ -66,6 +67,9 @@ defmodule YscWeb.UserResetPasswordLive do
   def handle_event("reset_password", %{"user" => user_params}, socket) do
     case Accounts.reset_user_password(socket.assigns.user, user_params) do
       {:ok, _} ->
+        # Log successful password reset
+        AuthService.log_password_reset_success(socket.assigns.user, socket)
+
         {:noreply,
          socket
          |> put_flash(:info, "Password reset successfully.")

@@ -2,6 +2,7 @@ defmodule YscWeb.UserForgotPasswordLive do
   use YscWeb, :live_view
 
   alias Ysc.Accounts
+  alias Ysc.Accounts.AuthService
 
   def render(assigns) do
     ~H"""
@@ -38,6 +39,9 @@ defmodule YscWeb.UserForgotPasswordLive do
 
   def handle_event("send_email", %{"user" => %{"email" => email}}, socket) do
     if user = Accounts.get_user_by_email(email) do
+      # Log password reset request
+      AuthService.log_password_reset_request(user, socket)
+
       Accounts.deliver_user_reset_password_instructions(
         user,
         &url(~p"/users/reset-password/#{&1}")

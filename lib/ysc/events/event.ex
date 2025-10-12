@@ -62,11 +62,14 @@ defmodule Ysc.Events.Event do
 
     # Optional: Puts a total limit on the number of attendees
     # across all ticket types if set to 0 or null then no limit
-    # is enforced globally -- it will be enforced per ticket type instead.
+    # is enforced globally -- it will be enforced per ticet type instead.
     field :max_attendees, :integer
     # Optional: Age restriction for the event
     # if null or 0 then no age restriction
     field :age_restriction, :integer
+
+    # If true, the participants list will be shown on the event page to logged in and approved members
+    field :show_participants, :boolean, default: false
 
     # Detailed information about the event
     field :raw_details, :string

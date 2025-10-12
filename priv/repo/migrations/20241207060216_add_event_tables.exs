@@ -16,6 +16,7 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
       add :description, :string, size: 1024, null: true
       add :max_attendees, :integer, null: true
       add :age_restriction, :integer, null: true
+      add :show_participants, :boolean, default: false
 
       add :raw_details, :text, null: true
       add :rendered_details, :text, null: true

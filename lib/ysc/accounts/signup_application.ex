@@ -112,9 +112,9 @@ defmodule Ysc.Accounts.SignupApplication do
       :postal_code,
       :place_of_birth,
       :citizenship,
-      :most_connected_nordic_country,
-      :agreed_to_bylaws
+      :most_connected_nordic_country
     ])
+    |> validate_agreed_to_bylaws()
     |> validate_membership_eligibility()
   end
 
@@ -130,6 +130,13 @@ defmodule Ysc.Accounts.SignupApplication do
       :review_outcome,
       :reviewed_by_user_id
     ])
+  end
+
+  defp validate_agreed_to_bylaws(changeset) do
+    case get_change(changeset, :agreed_to_bylaws) do
+      true -> changeset
+      _ -> add_error(changeset, :agreed_to_bylaws, "must be accepted")
+    end
   end
 
   defp validate_membership_eligibility(changeset) do

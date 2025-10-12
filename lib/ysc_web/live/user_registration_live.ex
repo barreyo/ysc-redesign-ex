@@ -421,7 +421,12 @@ defmodule YscWeb.UserRegistrationLive do
 
   defp evaluate_steps(socket) do
     base_errors = socket.assigns.form.errors
-    reg_form_errors = socket.assigns.form.source.changes.registration_form.errors
+
+    reg_form_errors =
+      case socket.assigns.form.source.changes do
+        %{registration_form: reg_form_changeset} -> reg_form_changeset.errors
+        _ -> []
+      end
 
     step_0_invalid =
       Enum.any?(Keyword.keys(reg_form_errors), fn k ->
@@ -438,7 +443,7 @@ defmodule YscWeb.UserRegistrationLive do
 
     step_2_invalid =
       Enum.any?(Keyword.keys(reg_form_errors), fn k ->
-        k in [:place_of_birth, :citizenship, :most_connected_nordic_country]
+        k in [:place_of_birth, :citizenship, :most_connected_nordic_country, :agreed_to_bylaws]
       end)
 
     socket
