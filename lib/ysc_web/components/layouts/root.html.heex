@@ -304,6 +304,29 @@
         </div>
       </div>
 
+      <!-- Inactive membership banner -->
+      <div :if={@current_user && @current_user.state == :active && !@active_membership?} class="bg-orange-50 border-l-4 border-orange-400 p-4">
+        <div class="flex items-center max-w-screen-lg mx-auto md:px-4">
+          <div class="flex-shrink-0">
+            <.icon name="hero-exclamation-triangle" class="h-8 w-8 text-orange-400" />
+          </div>
+          <div class="px-4 flex-1">
+            <p class="text-sm text-orange-700 mb-3">
+              <strong>Membership Required:</strong> To access events and the cabin booking system, you need a paying member of the club. Click the button below to activate your membership plan.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <.link
+                navigate={~p"/users/membership"}
+                class="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-orange-600 rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors duration-200"
+              >
+                <.icon name="hero-credit-card" class="w-4 h-4 mr-2" />
+                Manage Membership
+              </.link>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <main class="flex-1 w-full">
         <%= @inner_content %>
       </main>

@@ -46,6 +46,7 @@ defmodule Ysc.Events.Ticket do
       :user_id,
       :expires_at
     ])
+    |> validate_active_membership()
     |> validate_event_not_in_past()
     |> put_reference_id()
     |> unique_constraint(:reference_id)
@@ -63,6 +64,69 @@ defmodule Ysc.Events.Ticket do
       _ ->
         changeset
     end
+  end
+
+  # Validate that the user has an active membership
+  defp validate_active_membership(changeset) do
+    user_id = get_field(changeset, :user_id)
+
+    if user_id do
+      case Ysc.Repo.get(Ysc.Accounts.User, user_id) do
+        nil ->
+          changeset
+
+        user ->
+          # Check if user has an active membership
+          active_membership = get_active_membership(user)
+
+          if active_membership == nil do
+            add_error(
+              changeset,
+              :user_id,
+              "active membership required to purchase tickets"
+            )
+          else
+            changeset
+          end
+      end
+    else
+      changeset
+    end
+  end
+
+  # Helper function to get the most expensive active membership (same logic as user_auth.ex)
+  defp get_active_membership(user) do
+    # Get all subscriptions for the user
+    subscriptions = Bling.Customers.subscriptions(user)
+
+    # Filter for active subscriptions only
+    active_subscriptions =
+      Enum.filter(subscriptions, fn subscription ->
+        Bling.Subscriptions.valid?(subscription)
+      end)
+
+    case active_subscriptions do
+      [] ->
+        nil
+
+      [single_subscription] ->
+        single_subscription
+
+      multiple_subscriptions ->
+        # If multiple active subscriptions, pick the most expensive one
+        get_most_expensive_subscription(multiple_subscriptions)
+    end
+  end
+
+  # Helper function to determine the most expensive subscription
+  defp get_most_expensive_subscription(subscriptions) do
+    Enum.max_by(subscriptions, fn subscription ->
+      # Get the price from the subscription items
+      case subscription.subscription_items do
+        [item | _] -> item.price.amount
+        _ -> 0
+      end
+    end)
   end
 
   # Validate that the event is not in the past

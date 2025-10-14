@@ -268,9 +268,16 @@ defmodule YscWeb.EventDetailsLive do
               <p class="font-semibold text-lg"><%= @event.pricing_info.display_text %></p>
               <p :if={@event.start_date != nil} class="text-sm text-zinc-600"><%= format_start_date(@event.start_date) %></p>
             </div>
+
             <div :if={@current_user == nil} class="w-full">
-              <p class="text-sm text-red-600 px-2 py-1 bg-red-100 rounded mb-2 border border-red-300">
-                <.icon name="hero-exclamation-circle" class="me-1 -mt-0.5" />Only members can access tickets
+              <p class="text-sm text-red-700 px-2 py-1 bg-red-50 rounded mb-2 border border-red-100 text-center">
+                <.icon name="hero-exclamation-circle" class="text-red-400 w-5 h-5 me-1 -mt-0.5" />Only members can access tickets
+              </p>
+            </div>
+
+            <div :if={@current_user != nil && !@active_membership?} class="w-full">
+              <p class="text-sm text-orange-700 px-2 py-1 bg-orange-50 rounded mb-2 border border-orange-100 text-center">
+                <.icon name="hero-exclamation-circle" class="text-orange-400 w-5 h-5 me-1 -mt-0.5" />Active membership required to purchase tickets
               </p>
             </div>
 
@@ -284,7 +291,7 @@ defmodule YscWeb.EventDetailsLive do
                   <p class="text-red-600 text-xs mt-1">Tickets are no longer available</p>
                 </div>
               <% else %>
-                <.button :if={@current_user != nil} class="w-full" phx-click="open-ticket-modal">
+                <.button :if={@current_user != nil && @active_membership?} class="w-full" phx-click="open-ticket-modal">
                   <.icon name="hero-ticket" class="me-2 -mt-0.5" />Get Tickets
                 </.button>
               <% end %>
