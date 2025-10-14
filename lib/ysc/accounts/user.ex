@@ -45,7 +45,10 @@ defmodule Ysc.Accounts.User do
     field :most_connected_country, :string
 
     field :stripe_id, :string
-    field :default_membership_payment_method, :binary_id
+
+    has_one :default_membership_payment_method, Ysc.Payments.PaymentMethod,
+      foreign_key: :user_id,
+      where: [is_default: true]
 
     has_many :payment_methods, Ysc.Payments.PaymentMethod, foreign_key: :user_id
 
@@ -57,6 +60,7 @@ defmodule Ysc.Accounts.User do
     has_many :auth_events, Ysc.Accounts.AuthEvent
 
     field :display_name, :string, virtual: true
+    field :payment_id, :string, virtual: true
 
     timestamps()
   end
@@ -142,8 +146,7 @@ defmodule Ysc.Accounts.User do
       :phone_number,
       :most_connected_country,
       :board_position,
-      :stripe_id,
-      :default_membership_payment_method
+      :stripe_id
     ])
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)
@@ -300,5 +303,30 @@ defmodule Ysc.Accounts.User do
     else
       add_error(changeset, :current_password, "is not valid")
     end
+  end
+
+  @doc """
+  Returns the provider_id of the default_membership_payment_method.
+  This is a computed field that requires the default_membership_payment_method to be preloaded.
+  """
+  def payment_id(%__MODULE__{default_membership_payment_method: %{provider_id: provider_id}}) do
+    provider_id
+  end
+
+  def payment_id(%__MODULE__{default_membership_payment_method: nil}) do
+    nil
+  end
+
+  def payment_id(%__MODULE__{}) do
+    nil
+  end
+
+  @doc """
+  Populates virtual fields on a user struct.
+  This should be called after preloading associations.
+  """
+  def populate_virtual_fields(%__MODULE__{} = user) do
+    user
+    |> Map.put(:payment_id, payment_id(user))
   end
 end

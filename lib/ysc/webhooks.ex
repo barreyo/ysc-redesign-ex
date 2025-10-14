@@ -18,6 +18,9 @@ defmodule Ysc.Webhooks do
   rescue
     Ecto.ConstraintError ->
       raise DuplicateWebhookEventError, "Webhook event already exists"
+
+    Ecto.InvalidChangesetError ->
+      raise DuplicateWebhookEventError, "Webhook event already exists"
   end
 
   @doc """
@@ -122,5 +125,43 @@ defmodule Ysc.Webhooks do
   """
   def get_webhook_event(event_id) do
     Repo.get(WebhookEvent, event_id)
+  end
+
+  @doc """
+  Gets a webhook event by provider and event_id.
+  Returns nil if not found.
+  """
+  def get_webhook_event_by_provider_and_event_id(provider, event_id) do
+    Repo.get_by(WebhookEvent, provider: provider, event_id: event_id)
+  end
+
+  @doc """
+  Locks a webhook event by provider and event_id for processing.
+  Returns {:ok, webhook_event} if successful, {:error, :not_found} if not found,
+  or {:error, :already_processing} if already being processed.
+  """
+  def lock_webhook_event_by_provider_and_event_id(provider, event_id) do
+    # Use FOR UPDATE SKIP LOCKED to handle concurrent processing attempts
+    query =
+      from(w in WebhookEvent,
+        where: w.provider == ^provider and w.event_id == ^event_id and w.state == :pending,
+        lock: "FOR UPDATE SKIP LOCKED"
+      )
+
+    case Repo.one(query) do
+      nil ->
+        case get_webhook_event_by_provider_and_event_id(provider, event_id) do
+          nil -> {:error, :not_found}
+          %WebhookEvent{state: state} when state != :pending -> {:error, :already_processing}
+        end
+
+      webhook_event ->
+        {:ok, _updated} =
+          webhook_event
+          |> Ecto.Changeset.change(%{state: :processing})
+          |> Repo.update()
+
+        {:ok, webhook_event}
+    end
   end
 end

@@ -185,10 +185,14 @@ defmodule YscWeb.Router do
     end
   end
 
-  scope "/" do
+  scope "/billing/user" do
     # make sure to authenticate your users for this route
     pipe_through [:browser, :require_authenticated_user]
 
-    bling_routes()
+    scope "/:customer_id" do
+      get "/payment-method", StripePaymentMethodController, :store_payment_method
+      get "/finalize", StripePaymentMethodController, :finalize
+      get "/setup-payment", StripePaymentMethodController, :setup_payment
+    end
   end
 end

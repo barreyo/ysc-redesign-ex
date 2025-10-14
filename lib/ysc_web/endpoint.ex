@@ -43,7 +43,7 @@ defmodule YscWeb.Endpoint do
 
   plug Stripe.WebhookPlug,
     at: "/webhooks/stripe",
-    handler: Bling.StripeWebhookHandler,
+    handler: Ysc.Stripe.WebhookHandler,
     secret: {Application, :get_env, [:stripity_stripe, :webhook_secret]}
 
   plug Plug.Parsers,

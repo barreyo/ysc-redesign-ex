@@ -11,6 +11,10 @@ defmodule YscWeb.NewsLive do
     ~H"""
     <div class="py-6 md:py-10">
       <div class="max-w-screen-lg mx-auto flex flex-wrap px-4">
+        <div class="prose prose-zinc pb-8">
+          <h1>Club News</h1>
+        </div>
+
         <div :if={@featured != nil} id="featured" class="w-full flex flex-col md:flex-row mb-8">
           <.link
             navigate={~p"/posts/#{@featured.url_name}"}

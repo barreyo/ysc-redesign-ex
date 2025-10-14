@@ -1106,7 +1106,7 @@ defmodule YscWeb.CoreComponents do
                   @active_page == :news && "text-zinc-800"
                 ]}
               />
-              <span class="ms-3">Posts</span>
+              <span class="ms-3">News</span>
             </.link>
           </li>
 

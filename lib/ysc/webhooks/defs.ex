@@ -1,4 +1,4 @@
 import EctoEnum
 
 defenum(WebhookProvider, ["stripe"])
-defenum(WebhookState, ["pending", "processed", "failed"])
+defenum(WebhookState, ["pending", "processing", "processed", "failed"])

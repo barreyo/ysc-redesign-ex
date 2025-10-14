@@ -185,7 +185,7 @@ defmodule YscWeb.UserSettingsLive do
               </div>
 
               <p :if={@current_membership == nil} class="text-sm text-zinc-600">
-                You are currently not an active and paying member of the YSC.
+                You are currently <strong>not</strong> an active and paying member of the YSC.
               </p>
 
               <div
@@ -197,14 +197,14 @@ defmodule YscWeb.UserSettingsLive do
                   active <strong><%= get_membership_type(@current_membership) %></strong> membership.
                 </p>
 
-                <.button_link
+                <.button
                   phx-click="cancel-membership"
                   color="red"
                   disabled={!@user_is_active}
                   data-confirm="Are you sure you want to cancel your membership?"
                 >
                   Cancel Membership
-                </.button_link>
+                </.button>
               </div>
             </div>
 
@@ -411,28 +411,19 @@ defmodule YscWeb.UserSettingsLive do
     password_changeset = Accounts.change_user_password(user)
     live_action = socket.assigns[:live_action] || :edit
 
-    if user.stripe_id == nil do
-      Bling.Customers.create_stripe_customer(user)
-    end
+    # Ensure Stripe customer exists - create if missing or invalid
+    user = ensure_stripe_customer_exists(user)
 
     public_key = Application.get_env(:stripity_stripe, :public_key)
     default_payment_method = Bling.Customers.default_payment_method(user)
     membership_plans = Application.get_env(:ysc, :membership_plans)
 
-    invoices =
-      Customers.invoices(user)
-      |> Enum.map(fn invoice ->
-        %{
-          hosted_invoice_url: invoice.hosted_invoice_url,
-          created: invoice.created |> DateTime.from_unix!() |> DateTime.to_date(),
-          total: invoice.total,
-          currency: invoice.currency,
-          status: invoice.status
-        }
-      end)
+    # Safely fetch invoices with error handling
+    invoices = fetch_user_invoices(user)
 
     # This is all very dumb, but it's just a quick way to get the current membership status
     current_membership = socket.assigns.current_membership
+    IO.inspect(current_membership)
     family_plan_active? = Bling.Customers.subscribed_to_price?(user, get_price_id(:family))
 
     active_plan = get_membership_plan(current_membership)
@@ -533,6 +524,10 @@ defmodule YscWeb.UserSettingsLive do
   def handle_event("select_membership", %{"membership_type" => membership_type} = _params, socket) do
     user = socket.assigns.user
 
+    user =
+      Accounts.get_user!(user.id, [:default_membership_payment_method])
+      |> Accounts.User.populate_virtual_fields()
+
     if user.state != :active do
       {:noreply,
        put_flash(
@@ -577,7 +572,12 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
-  def handle_event("payment-method-set", %{"payment_method_id" => payment_method_id}, socket) do
+  def handle_event(
+        "payment-method-set",
+        %{"payment_method_id" => payment_method_id} = params,
+        socket
+      ) do
+    IO.inspect(params)
     user = socket.assigns.user
 
     if user.state != :active do
@@ -588,8 +588,6 @@ defmodule YscWeb.UserSettingsLive do
          "You must have an approved account to update your payment method."
        )}
     else
-      user |> Bling.Customers.update_default_payment_method(payment_method_id)
-
       {:noreply,
        socket
        |> put_flash(:info, "Payment method updated")
@@ -703,4 +701,57 @@ defmodule YscWeb.UserSettingsLive do
       "M239.7 79.9c-96.9 0-175.8 78.6-175.8 175.8 0 96.9 78.9 175.8 175.8 175.8 97.2 0 175.8-78.9 175.8-175.8 0-97.2-78.6-175.8-175.8-175.8zm-39.9 279.6c-41.7-15.9-71.4-56.4-71.4-103.8s29.7-87.9 71.4-104.1v207.9zm79.8.3V151.6c41.7 16.2 71.4 56.7 71.4 104.1s-29.7 87.9-71.4 104.1zM528 32H48C21.5 32 0 53.5 0 80v352c0 26.5 21.5 48 48 48h480c26.5 0 48-21.5 48-48V80c0-26.5-21.5-48-48-48zM329.7 448h-90.3c-106.2 0-193.8-85.5-193.8-190.2C45.6 143.2 133.2 64 239.4 64h90.3c105 0 200.7 79.2 200.7 193.8 0 104.7-95.7 190.2-200.7 190.2z"
 
   defp card_icon(_), do: "hero-credit-card"
+
+  # Helper function to ensure Stripe customer exists
+  defp ensure_stripe_customer_exists(user) do
+    cond do
+      # No stripe_id - create new customer
+      user.stripe_id == nil ->
+        Bling.Customers.create_stripe_customer(user)
+        # Reload user to get updated stripe_id
+        Ysc.Repo.get!(Ysc.Accounts.User, user.id)
+
+      # Has stripe_id - verify customer exists in Stripe
+      true ->
+        case verify_stripe_customer_exists(user.stripe_id) do
+          :ok ->
+            user
+
+          {:error, _} ->
+            # Customer doesn't exist in Stripe, create a new one
+            Bling.Customers.create_stripe_customer(user)
+            # Reload user to get updated stripe_id
+            Ysc.Repo.get!(Ysc.Accounts.User, user.id)
+        end
+    end
+  end
+
+  # Helper function to verify if Stripe customer exists
+  defp verify_stripe_customer_exists(stripe_id) do
+    case Stripe.Customer.retrieve(stripe_id) do
+      {:ok, _customer} -> :ok
+      {:error, %Stripe.Error{code: :resource_missing}} -> {:error, :not_found}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  # Helper function to safely fetch user invoices
+  defp fetch_user_invoices(user) do
+    try do
+      Customers.invoices(user)
+      |> Enum.map(fn invoice ->
+        %{
+          hosted_invoice_url: invoice.hosted_invoice_url,
+          created: invoice.created |> DateTime.from_unix!() |> DateTime.to_date(),
+          total: invoice.total,
+          currency: invoice.currency,
+          status: invoice.status
+        }
+      end)
+    rescue
+      # Handle any errors when fetching invoices (e.g., customer not found)
+      _error ->
+        []
+    end
+  end
 end

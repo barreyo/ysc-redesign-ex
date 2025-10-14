@@ -271,6 +271,11 @@ defmodule Ysc.Accounts do
     User.password_changeset(user, attrs, hash_password: false)
   end
 
+  def update_default_payment_method(user, payment_method_id) do
+    payment_method = Ysc.Payments.get_payment_method!(payment_method_id)
+    Ysc.Payments.set_default_payment_method(user, payment_method)
+  end
+
   @doc """
   Updates the user password.
 

@@ -90,3 +90,37 @@ config :ex_aws,
     host: "media.s3.localhost.localstack.cloud",
     port: "4566"
   ]
+
+config :ysc,
+  membership_plans: [
+    %{
+      id: :single,
+      name: "Single",
+      interval: "year",
+      amount: 45,
+      currency: "usd",
+      trial_period_days: 0,
+      stripe_price_id: "price_1SIE3vRMG501eq4FsxHj8mZQ",
+      statement_descriptor: "Single Membership",
+      description: "Membership just for yourself",
+      metadata: %{
+        "plan_type" => "membership",
+        "interval" => "year"
+      }
+    },
+    %{
+      id: :family,
+      name: "Family",
+      interval: "year",
+      amount: 65,
+      currency: "usd",
+      trial_period_days: 0,
+      stripe_price_id: "price_1SIE4lRMG501eq4FscHCTXOl",
+      statement_descriptor: "Family Membership",
+      description: "For you, your Spouse and your children under 18",
+      metadata: %{
+        "plan_type" => "membership",
+        "interval" => "year"
+      }
+    }
+  ]

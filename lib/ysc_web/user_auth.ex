@@ -6,6 +6,7 @@ defmodule YscWeb.UserAuth do
 
   alias Ysc.Accounts
   alias Bling.Customers
+  alias Bling.Subscriptions
 
   # Make the remember me cookie valid for 60 days.
   # If you want bump or reduce this value, also change
@@ -95,9 +96,12 @@ defmodule YscWeb.UserAuth do
     conn = assign(conn, :current_user, user)
 
     if user do
-      assign(conn, :current_membership, Customers.subscription(user))
+      active_membership = get_active_membership(user)
+      conn = assign(conn, :current_membership, active_membership)
+      assign(conn, :active_membership?, active_membership != nil)
     else
-      assign(conn, :current_membership, nil)
+      conn = assign(conn, :current_membership, nil)
+      assign(conn, :active_membership?, false)
     end
   end
 
@@ -240,10 +244,15 @@ defmodule YscWeb.UserAuth do
   end
 
   defp mount_current_membership(socket, _session) do
-    Phoenix.Component.assign_new(socket, :current_membership, fn ->
-      if socket.assigns.current_user != nil do
-        Customers.subscription(socket.assigns.current_user)
-      end
+    socket =
+      Phoenix.Component.assign_new(socket, :current_membership, fn ->
+        if socket.assigns.current_user != nil do
+          get_active_membership(socket.assigns.current_user)
+        end
+      end)
+
+    Phoenix.Component.assign_new(socket, :active_membership?, fn ->
+      socket.assigns.current_membership != nil
     end)
   end
 
@@ -340,4 +349,51 @@ defmodule YscWeb.UserAuth do
   end
 
   defp not_approved_path(_conn), do: ~p"/pending-review"
+
+  # Helper function to get the most expensive active membership
+  defp get_active_membership(user) do
+    # Get all subscriptions for the user
+    subscriptions = Customers.subscriptions(user)
+
+    # Filter for active subscriptions only
+    active_subscriptions =
+      Enum.filter(subscriptions, fn subscription ->
+        Subscriptions.valid?(subscription)
+      end)
+
+    case active_subscriptions do
+      [] ->
+        nil
+
+      [single_subscription] ->
+        single_subscription
+
+      multiple_subscriptions ->
+        # If multiple active subscriptions, pick the most expensive one
+        get_most_expensive_subscription(multiple_subscriptions)
+    end
+  end
+
+  # Helper function to determine the most expensive subscription
+  defp get_most_expensive_subscription(subscriptions) do
+    membership_plans = Application.get_env(:ysc, :membership_plans)
+
+    # Create a map of price_id to amount for quick lookup
+    price_to_amount =
+      Map.new(membership_plans, fn plan ->
+        {plan.stripe_price_id, plan.amount}
+      end)
+
+    # Find the subscription with the highest amount
+    Enum.max_by(subscriptions, fn subscription ->
+      # Get the first subscription item (assuming one item per subscription)
+      case subscription.subscription_items do
+        [item | _] ->
+          Map.get(price_to_amount, item.stripe_price_id, 0)
+
+        _ ->
+          0
+      end
+    end)
+  end
 end
