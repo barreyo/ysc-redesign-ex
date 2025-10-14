@@ -13,6 +13,7 @@ defmodule Ysc.Events.TicketTier do
 
     field :price, Money.Ecto.Composite.Type, default_currency: :USD
     field :quantity, :integer
+    field :unlimited_quantity, :boolean, virtual: true
 
     # If this is set all the tickets require to have
     # a registration attached to them
@@ -40,6 +41,7 @@ defmodule Ysc.Events.TicketTier do
       :description,
       :type,
       :quantity,
+      :unlimited_quantity,
       :price,
       :requires_registration,
       :start_date,
@@ -50,15 +52,52 @@ defmodule Ysc.Events.TicketTier do
     |> validate_required([
       :name,
       :type,
-      :quantity,
-      :price,
       :event_id
     ])
-    |> validate_number(:quantity, greater_than_or_equal_to: 0)
+    |> validate_required_price()
+    |> validate_quantity()
     |> validate_datetime_order()
     |> validate_money(:price)
+    |> validate_event_capacity()
     |> optimistic_lock(:lock_version)
     |> foreign_key_constraint(:event_id)
+  end
+
+  # Custom validation for price field - required for paid and donation types
+  defp validate_required_price(changeset) do
+    type = get_field(changeset, :type)
+    price = get_field(changeset, :price)
+
+    case {type, price} do
+      {:free, _} -> changeset
+      {"free", _} -> changeset
+      {_, nil} -> add_error(changeset, :price, "is required for paid and donation tickets")
+      {_, ""} -> add_error(changeset, :price, "is required for paid and donation tickets")
+      _ -> changeset
+    end
+  end
+
+  # Custom validation for quantity field - must be positive when present, nil means infinite
+  # Convert 0 to nil to treat it as unlimited
+  defp validate_quantity(changeset) do
+    quantity = get_field(changeset, :quantity)
+
+    case quantity do
+      nil ->
+        changeset
+
+      0 ->
+        put_change(changeset, :quantity, nil)
+
+      quantity when is_integer(quantity) and quantity > 0 ->
+        changeset
+
+      quantity when is_integer(quantity) and quantity < 0 ->
+        add_error(changeset, :quantity, "must be greater than or equal to 0")
+
+      _ ->
+        changeset
+    end
   end
 
   # Custom validation for money field
@@ -96,5 +135,76 @@ defmodule Ysc.Events.TicketTier do
       _ ->
         changeset
     end
+  end
+
+  # Validate that the total capacity across all ticket tiers doesn't exceed event max_attendees
+  defp validate_event_capacity(changeset) do
+    event_id = get_field(changeset, :event_id)
+    quantity = get_field(changeset, :quantity)
+
+    # Skip validation if no event_id or quantity is nil (unlimited)
+    if event_id && quantity do
+      # Get the event to check max_attendees
+      case Ysc.Repo.get(Ysc.Events.Event, event_id) do
+        nil ->
+          changeset
+
+        event when is_nil(event.max_attendees) ->
+          # No max_attendees limit set, allow any quantity
+          changeset
+
+        event ->
+          # Calculate total capacity across all ticket tiers for this event
+          total_capacity = calculate_total_event_capacity(event_id, changeset)
+
+          if total_capacity > event.max_attendees do
+            add_error(
+              changeset,
+              :quantity,
+              "would exceed event capacity of #{event.max_attendees} attendees. Total capacity would be #{total_capacity}"
+            )
+          else
+            changeset
+          end
+      end
+    else
+      changeset
+    end
+  end
+
+  # Calculate total capacity across all ticket tiers for an event
+  defp calculate_total_event_capacity(event_id, current_changeset) do
+    # Get all existing ticket tiers for this event
+    existing_tiers = Ysc.Events.list_ticket_tiers_for_event(event_id)
+
+    # Calculate total from existing tiers
+    existing_total =
+      existing_tiers
+      |> Enum.map(& &1.quantity)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.sum()
+
+    # Add the quantity from the current changeset (if it's an update, we need to handle it properly)
+    current_quantity = get_field(current_changeset, :quantity)
+    current_tier_id = get_field(current_changeset, :id)
+
+    # If this is an update to an existing tier, we need to subtract the old quantity first
+    adjusted_total =
+      if current_tier_id do
+        # Find the existing tier being updated
+        existing_tier = Enum.find(existing_tiers, &(&1.id == current_tier_id))
+
+        if existing_tier && existing_tier.quantity do
+          # Subtract the old quantity and add the new one
+          existing_total - existing_tier.quantity + (current_quantity || 0)
+        else
+          existing_total + (current_quantity || 0)
+        end
+      else
+        # This is a new tier, just add the quantity
+        existing_total + (current_quantity || 0)
+      end
+
+    adjusted_total
   end
 end

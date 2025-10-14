@@ -185,7 +185,7 @@ defmodule YscWeb.UserSettingsLive do
               </div>
 
               <p :if={@current_membership == nil} class="text-sm text-zinc-600">
-                You are currently not a paying member
+                You are currently not an active and paying member of the YSC.
               </p>
 
               <div
@@ -200,6 +200,7 @@ defmodule YscWeb.UserSettingsLive do
                 <.button_link
                   phx-click="cancel-membership"
                   color="red"
+                  disabled={!@user_is_active}
                   data-confirm="Are you sure you want to cancel your membership?"
                 >
                   Cancel Membership
@@ -212,13 +213,35 @@ defmodule YscWeb.UserSettingsLive do
                 <h2 class="text-zinc-900 font-bold text-xl">Manage Membership</h2>
               </div>
 
+              <div :if={!@user_is_active} class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+                <div class="flex">
+                  <div class="flex-shrink-0">
+                    <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-yellow-400" />
+                  </div>
+                  <div class="ml-3">
+                    <h3 class="text-sm font-medium text-yellow-800">
+                      Account Pending Approval
+                    </h3>
+                    <div class="mt-2 text-sm text-yellow-700">
+                      <p>
+                        You will be able to manage your membership plan once your account is approved.
+                        Please wait for the board to review and approve your application.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <.form
                   for={@membership_form}
                   id="membership_form"
                   phx-submit="select_membership"
                   phx-change="validate_membership"
-                  class="space-y-6 pt-4"
+                  class={[
+                    "space-y-6 pt-4",
+                    !@user_is_active && "opacity-50 pointer-events-none"
+                  ]}
                 >
                   <div class="space-y-2">
                     <div class="flex flex-row items-center">
@@ -270,7 +293,7 @@ defmodule YscWeb.UserSettingsLive do
 
                     <div :if={@change_membership_button} class="flex w-full flex-row justify-end pt-4">
                       <.button
-                        disabled={@default_payment_method == nil}
+                        disabled={@default_payment_method == nil || !@user_is_active}
                         phx-click="change-membership"
                         type="button"
                       >
@@ -311,7 +334,10 @@ defmodule YscWeb.UserSettingsLive do
                           </span>
                         </div>
 
-                        <.button phx-click={JS.navigate(~p"/users/membership/payment-method")}>
+                        <.button
+                          disabled={!@user_is_active}
+                          phx-click={JS.navigate(~p"/users/membership/payment-method")}
+                        >
                           Update Payment Method
                         </.button>
                       </div>
@@ -319,7 +345,10 @@ defmodule YscWeb.UserSettingsLive do
                   </div>
 
                   <div class="flex w-full justify-end pt-4">
-                    <.button :if={@active_plan_type == nil} disabled={@default_payment_method == nil}>
+                    <.button
+                      :if={@active_plan_type == nil}
+                      disabled={@default_payment_method == nil || !@user_is_active}
+                    >
                       <.icon name="hero-credit-card" class="me-2 -mt-0.5" />Pay Membership
                     </.button>
                   </div>
@@ -410,11 +439,15 @@ defmodule YscWeb.UserSettingsLive do
 
     IO.inspect(default_payment_method)
 
+    # Check if user is active to determine if they can manage membership
+    user_is_active = user.state == :active
+
     socket =
       socket
       |> assign(:page_title, "User Settings")
       |> assign(:current_password, nil)
       |> assign(:user, user)
+      |> assign(:user_is_active, user_is_active)
       |> assign(:payment_intent_secret, payment_secret(live_action, user))
       |> assign(:public_key, public_key)
       |> assign(:email_form_current_password, nil)
@@ -498,18 +531,28 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   def handle_event("select_membership", %{"membership_type" => membership_type} = _params, socket) do
-    membership_atom = String.to_existing_atom(membership_type)
     user = socket.assigns.user
-    return_url = url(~p"/billing/user/#{user.id}/finalize")
-    price_id = get_price_id(membership_atom)
 
-    Bling.Customers.create_subscription(
-      user,
-      return_url: return_url,
-      prices: [{price_id, 1}]
-    )
+    if user.state != :active do
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "You must have an approved account to manage your membership plan."
+       )}
+    else
+      membership_atom = String.to_existing_atom(membership_type)
+      return_url = url(~p"/billing/user/#{user.id}/finalize")
+      price_id = get_price_id(membership_atom)
 
-    {:noreply, socket |> push_navigate(to: ~p"/users/membership")}
+      Bling.Customers.create_subscription(
+        user,
+        return_url: return_url,
+        prices: [{price_id, 1}]
+      )
+
+      {:noreply, socket |> push_navigate(to: ~p"/users/membership")}
+    end
   end
 
   def handle_event(
@@ -517,24 +560,71 @@ defmodule YscWeb.UserSettingsLive do
         %{"membership_type" => membership_type} = _params,
         socket
       ) do
-    assigns = socket.assigns
-    membership_atom = String.to_existing_atom(membership_type)
+    user = socket.assigns.user
 
-    change_membership_button =
-      assigns.active_plan_type != nil &&
-        assigns.active_plan_type !=
-          membership_atom
+    if user.state != :active do
+      {:noreply, socket}
+    else
+      assigns = socket.assigns
+      membership_atom = String.to_existing_atom(membership_type)
 
-    {:noreply, socket |> assign(change_membership_button: change_membership_button)}
+      change_membership_button =
+        assigns.active_plan_type != nil &&
+          assigns.active_plan_type !=
+            membership_atom
+
+      {:noreply, socket |> assign(change_membership_button: change_membership_button)}
+    end
   end
 
   def handle_event("payment-method-set", %{"payment_method_id" => payment_method_id}, socket) do
-    socket.assigns.user |> Bling.Customers.update_default_payment_method(payment_method_id)
+    user = socket.assigns.user
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Payment method updated")
-     |> push_navigate(to: ~p"/users/membership")}
+    if user.state != :active do
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "You must have an approved account to update your payment method."
+       )}
+    else
+      user |> Bling.Customers.update_default_payment_method(payment_method_id)
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Payment method updated")
+       |> push_navigate(to: ~p"/users/membership")}
+    end
+  end
+
+  def handle_event("cancel-membership", _params, socket) do
+    user = socket.assigns.user
+
+    if user.state != :active do
+      {:noreply,
+       put_flash(socket, :error, "You must have an approved account to cancel your membership.")}
+    else
+      # TODO: Implement membership cancellation logic
+      {:noreply,
+       put_flash(socket, :info, "Membership cancellation functionality will be implemented soon.")}
+    end
+  end
+
+  def handle_event("change-membership", _params, socket) do
+    user = socket.assigns.user
+
+    if user.state != :active do
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "You must have an approved account to change your membership plan."
+       )}
+    else
+      # TODO: Implement membership change logic
+      {:noreply,
+       put_flash(socket, :info, "Membership change functionality will be implemented soon.")}
+    end
   end
 
   defp get_price_id(memberhip_type) do

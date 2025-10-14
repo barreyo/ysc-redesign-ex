@@ -29,8 +29,8 @@ defmodule Ysc.Events.Ticket do
   @doc """
   Changeset for the ticket with validations.
   """
-  def changeset(event, attrs) do
-    event
+  def changeset(ticket, attrs) do
+    ticket
     |> cast(attrs, [
       :reference_id,
       :event_id,
@@ -46,6 +46,7 @@ defmodule Ysc.Events.Ticket do
       :user_id,
       :expires_at
     ])
+    |> validate_event_not_in_past()
     |> put_reference_id()
     |> unique_constraint(:reference_id)
   end
@@ -61,6 +62,53 @@ defmodule Ysc.Events.Ticket do
 
       _ ->
         changeset
+    end
+  end
+
+  # Validate that the event is not in the past
+  defp validate_event_not_in_past(changeset) do
+    event_id = get_field(changeset, :event_id)
+
+    if event_id do
+      case Ysc.Repo.get(Ysc.Events.Event, event_id) do
+        nil ->
+          changeset
+
+        event ->
+          now = DateTime.utc_now()
+
+          # Combine the date and time properly
+          event_datetime =
+            case {event.start_date, event.start_time} do
+              {%DateTime{} = date, %Time{} = time} ->
+                # Convert DateTime to NaiveDateTime, then combine with time
+                naive_date = DateTime.to_naive(date)
+                date_part = NaiveDateTime.to_date(naive_date)
+                naive_datetime = NaiveDateTime.new!(date_part, time)
+                DateTime.from_naive!(naive_datetime, "Etc/UTC")
+
+              {date, time} when not is_nil(date) and not is_nil(time) ->
+                # Handle other date/time combinations
+                NaiveDateTime.new!(date, time)
+                |> DateTime.from_naive!("Etc/UTC")
+
+              _ ->
+                # Fallback to just the date if time is nil
+                event.start_date
+            end
+
+          if DateTime.compare(now, event_datetime) == :gt do
+            add_error(
+              changeset,
+              :event_id,
+              "cannot purchase tickets for events that have already ended"
+            )
+          else
+            changeset
+          end
+      end
+    else
+      changeset
     end
   end
 end

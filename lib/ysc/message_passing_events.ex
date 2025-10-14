@@ -42,4 +42,20 @@ defmodule Ysc.MessagePassingEvents do
   defmodule EventDeleted do
     defstruct event: nil
   end
+
+  defmodule TicketTierAdded do
+    defstruct ticket_tier: nil
+  end
+
+  defmodule TicketTierUpdated do
+    defstruct ticket_tier: nil
+  end
+
+  defmodule TicketTierDeleted do
+    defstruct ticket_tier: nil
+  end
+
+  defmodule TicketCreated do
+    defstruct ticket: nil
+  end
 end

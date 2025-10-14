@@ -85,6 +85,7 @@
                     <.link
                       navigate={~p"/news"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
+                      phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                     >
                       News
                     </.link>
@@ -93,6 +94,7 @@
                     <.link
                       navigate={~p"/events"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
+                      phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                     >
                       Events
                     </.link>
@@ -101,6 +103,7 @@
                     <.link
                       navigate={~p"/"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
+                      phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                     >
                       Tahoe Cabin
                     </.link>
@@ -109,6 +112,7 @@
                     <.link
                       navigate={~p"/"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
+                      phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                     >
                       Clear Lake Cabin
                     </.link>
@@ -131,6 +135,7 @@
                           <.link
                             navigate={~p"/contact"}
                             class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
+                            phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                           >
                             Contact Us
                           </.link>
@@ -139,6 +144,7 @@
                           <.link
                             navigate={~p"/volunteer"}
                             class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
+                            phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                           >
                             Volunteer
                           </.link>
@@ -147,6 +153,7 @@
                           <.link
                             navigate={~p"/report-conduct-violation"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                           >
                             Report Conduct Violation
                           </.link>
@@ -156,6 +163,7 @@
                           <.link
                             navigate={~p"/history"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                           >
                             History
                           </.link>
@@ -165,6 +173,7 @@
                           <.link
                             navigate={~p"/board"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                           >
                             Board of Directors
                           </.link>
@@ -174,6 +183,7 @@
                           <.link
                             navigate={~p"/financials"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                           >
                             Financials & Annual Meetings
                           </.link>
@@ -183,6 +193,7 @@
                           <.link
                             navigate={~p"/bylaws"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                           >
                             Bylaws
                           </.link>
@@ -192,6 +203,7 @@
                           <.link
                             navigate={~p"/code-of-conduct"}
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
                           >
                             Non-Discrimination Code of Conduct
                           </.link>
@@ -277,6 +289,20 @@
           </div>
         </nav>
       </header>
+
+      <!-- Pending approval flash message -->
+      <div :if={@current_user && @current_user.state == :pending_approval} class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+        <div class="flex items-center max-w-screen-lg mx-auto md:px-4">
+          <div class="flex-shrink-0">
+            <.icon name="hero-exclamation-triangle" class="h-8 w-8 text-yellow-400" />
+          </div>
+          <div class="px-4">
+            <p class="text-sm text-yellow-700">
+              <strong>Application Under Review:</strong> Your membership application is currently being reviewed by our board. You will be able to access all features of the website once your application has been approved. For more details <.link navigate={~p"/pending-review"} class="text-yellow-700 hover:underline font-bold">click here</.link>.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <main class="flex-1 w-full">
         <%= @inner_content %>

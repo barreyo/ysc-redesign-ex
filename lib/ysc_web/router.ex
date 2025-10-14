@@ -35,7 +35,6 @@ defmodule YscWeb.Router do
   scope "/", YscWeb do
     pipe_through [:browser, :mount_site_settings]
 
-    get "/", PageController, :home
     get "/history", PageController, :history
     get "/board", PageController, :board
     get "/bylaws", PageController, :bylaws
@@ -51,6 +50,8 @@ defmodule YscWeb.Router do
         {YscWeb.UserAuth, :mount_current_user},
         {YscWeb.Plugs.SiteSettingsPlugs, :mount_site_settings}
       ] do
+      live "/", HomeLive, :index
+
       live "/posts/:id", PostLive, :index
 
       live "/events", EventsLive, :index

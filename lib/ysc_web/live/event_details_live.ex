@@ -64,10 +64,10 @@ defmodule YscWeb.EventDetailsLive do
                 <add-to-calendar-button
                   name={@event.title}
                   startDate={date_for_add_to_cal(@event.start_date)}
-                  endDate={date_for_add_to_cal(@event.end_date)}
+                  {if get_end_date_for_calendar(@event), do: [endDate: date_for_add_to_cal(get_end_date_for_calendar(@event))], else: []}
                   options="'Apple','Google','iCal','Outlook.com','Yahoo'"
                   startTime={@event.start_time}
-                  endTime={@event.end_time}
+                  {if get_end_time_for_calendar(@event), do: [endTime: get_end_time_for_calendar(@event)], else: []}
                   timeZone="America/Los_Angeles"
                   location={@event.location_name}
                   size="5"
@@ -265,24 +265,256 @@ defmodule YscWeb.EventDetailsLive do
             class="fixed md:shadow-md bottom-0 w-full md:w-1/3 md:sticky bg-white rounded border border-zinc-200 h-32 md:h-36 md:top-8 right-0 px-4 py-3 z-40 flex text-center flex flex-col justify-center space-y-4"
           >
             <div class="flex flex-col items-center justify-center">
-              <p class="font-semibold text-lg">From $100.00</p>
+              <p class="font-semibold text-lg"><%= @event.pricing_info.display_text %></p>
               <p :if={@event.start_date != nil} class="text-sm text-zinc-600"><%= format_start_date(@event.start_date) %></p>
             </div>
             <div :if={@current_user == nil} class="w-full">
               <p class="text-sm text-red-600 px-2 py-1 bg-red-100 rounded mb-2 border border-red-300">
                 <.icon name="hero-exclamation-circle" class="me-1 -mt-0.5" />Only members can access tickets
               </p>
-              <.button :if={@current_user == nil} class="w-full" phx-click="login-redirect">
-                <.icon name="hero-lock-open" class="me-2 -mt-0.5" />Sign in
-              </.button>
             </div>
-            <.button :if={@current_user != nil} class="w-full">
-              <.icon name="hero-ticket" class="me-2 -mt-0.5" />Get Tickets
-            </.button>
+
+            <%= if has_ticket_tiers?(@event.id) do %>
+              <%= if is_event_in_past?(@event) do %>
+                <div class="w-full text-center py-3">
+                  <div class="text-red-600 mb-2">
+                    <.icon name="hero-clock" class="w-8 h-8 mx-auto" />
+                  </div>
+                  <p class="text-red-700 font-medium text-sm">Event has ended</p>
+                  <p class="text-red-600 text-xs mt-1">Tickets are no longer available</p>
+                </div>
+              <% else %>
+                <.button :if={@current_user != nil} class="w-full" phx-click="open-ticket-modal">
+                  <.icon name="hero-ticket" class="me-2 -mt-0.5" />Get Tickets
+                </.button>
+              <% end %>
+            <% else %>
+              <div class="w-full text-center py-1">
+                <p class="font-bold text-green-800 text-sm">No registration required</p>
+              </div>
+            <% end %>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Ticket Selection Modal -->
+    <.modal :if={@show_ticket_modal} id="ticket-modal" show on_cancel={JS.push("close-ticket-modal")} max_width="max-w-6xl">
+      <:title>Select Tickets</:title>
+
+      <div class="flex flex-col lg:flex-row gap-8 min-h-[400px]">
+        <!-- Left Panel: Ticket Tiers -->
+        <div class="lg:w-2/3 space-y-8">
+          <div class="w-full border-b border-zinc-200 pb-4">
+            <h2 class="text-2xl font-semibold"><%= @event.title %></h2>
+            <p :if={@event.start_date != nil} class="text-sm text-zinc-600"><%= format_start_date(@event.start_date) %></p>
+          </div>
+
+          <div class="space-y-4 h-full lg:overflow-y-auto lg:max-h-[600px] lg:px-4">
+            <%= for ticket_tier <- get_ticket_tiers(@event.id) do %>
+              <% available = get_available_quantity(ticket_tier) %>
+              <% is_event_at_capacity = is_event_at_capacity?(@event) %>
+              <% is_sold_out = available == 0 || is_event_at_capacity %>
+              <% is_on_sale = is_tier_on_sale?(ticket_tier) %>
+              <% days_until_sale = days_until_sale_starts(ticket_tier) %>
+              <% is_pre_sale = not is_on_sale %>
+              <% has_selected_tickets = get_ticket_quantity(@selected_tickets, ticket_tier.id) > 0 %>
+              <div class={[
+                "border rounded-lg p-6 transition-all duration-200",
+                cond do
+                  is_sold_out -> "border-zinc-200 bg-zinc-50 opacity-60"
+                  is_pre_sale -> "border-zinc-200 bg-zinc-50 opacity-70"
+                  has_selected_tickets -> "border-blue-500 bg-blue-50"
+                  true -> "border-zinc-200 bg-white"
+                end
+              ]}>
+                <div class="flex justify-between items-start mb-4">
+                  <div>
+                    <h4 class="font-semibold text-lg text-zinc-900"><%= ticket_tier.name %></h4>
+                    <p :if={ticket_tier.description} class="text-base text-zinc-600 mt-2">
+                      <%= ticket_tier.description %>
+                    </p>
+                  </div>
+                  <div class="text-right">
+                    <p class="font-semibold text-xl">
+                      <%= case ticket_tier.type do %>
+                        <% "free" -> %>
+                          Free
+                        <% _ -> %>
+                          <%= format_price(ticket_tier.price) %>
+                      <% end %>
+                    </p>
+                    <p class={[
+                      "text-base text-sm",
+                      cond do
+                        is_sold_out -> "text-red-500 font-semibold"
+                        is_pre_sale -> "text-blue-500 font-semibold"
+                        true -> "text-zinc-500"
+                      end
+                    ]}>
+                      <%= cond do %>
+                        <% is_pre_sale -> %>
+                          Sale starts in <%= days_until_sale %> <%= if days_until_sale == 1, do: "day", else: "days" %>
+                        <% is_event_at_capacity -> %>
+                          Sold Out (Event at capacity)
+                        <% available == :unlimited -> %>
+                          Unlimited
+                        <% available == 0 -> %>
+                          Sold Out
+                        <% true -> %>
+                          <%= "#{available} remaining" %>
+                      <% end %>
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-end mt-4">
+
+                  <div class="flex items-center space-x-3">
+                    <button
+                      phx-click="decrease-ticket-quantity"
+                      phx-value-tier-id={ticket_tier.id}
+                      class={[
+                        "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
+                        if(is_sold_out or is_pre_sale or get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0) do
+                          "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
+                        else
+                          "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                        end
+                      ]}
+                      disabled={is_sold_out or is_pre_sale or get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0}
+                    >
+                      <.icon name="hero-minus" class="w-5 h-5" />
+                    </button>
+                    <span class={[
+                      "w-12 text-center font-medium text-lg",
+                      if(is_sold_out or is_pre_sale, do: "text-zinc-400", else: "text-zinc-900")
+                    ]}>
+                      <%= get_ticket_quantity(@selected_tickets, ticket_tier.id) %>
+                    </span>
+                    <button
+                      phx-click="increase-ticket-quantity"
+                      phx-value-tier-id={ticket_tier.id}
+                      class={[
+                        "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-200 font-semibold",
+                        if(is_sold_out or is_pre_sale or !can_increase_quantity?(ticket_tier, get_ticket_quantity(@selected_tickets, ticket_tier.id), @selected_tickets, @event)) do
+                          "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
+                        else
+                          "border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white"
+                        end
+                      ]}
+                      disabled={is_sold_out or is_pre_sale or !can_increase_quantity?(ticket_tier, get_ticket_quantity(@selected_tickets, ticket_tier.id), @selected_tickets, @event)}
+                    >
+                      <.icon name="hero-plus" class="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Show message for different tier states -->
+                <div :if={is_pre_sale} class="mt-2">
+                  <p class="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md border border-blue-200">
+                    <.icon name="hero-clock" class="w-4 h-4 inline me-1" />
+                    Sale starts <%= Timex.format!(ticket_tier.start_date, "{Mshort} {D}, {YYYY}") %>
+                  </p>
+                </div>
+
+                <div :if={is_sold_out} class="mt-2">
+                  <p class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
+                    <.icon name="hero-x-circle" class="w-4 h-4 inline me-1" />
+                    This ticket tier is sold out
+                  </p>
+                </div>
+
+                <div :if={!is_sold_out && !is_pre_sale && available != :unlimited && get_ticket_quantity(@selected_tickets, ticket_tier.id) >= available} class="mt-2">
+                  <p class="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-md border border-amber-200">
+                    <.icon name="hero-exclamation-triangle" class="w-4 h-4 inline me-1" />
+                    Maximum available tickets selected
+                  </p>
+                </div>
+
+                <div :if={!is_sold_out && !is_pre_sale && @event.max_attendees && calculate_total_selected_tickets(@selected_tickets) >= @event.max_attendees} class="mt-2">
+                  <p class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
+                    <.icon name="hero-users" class="w-4 h-4 inline me-1" />
+                    Event capacity reached. No more tickets available.
+                  </p>
+                </div>
+
+                <div :if={is_event_at_capacity} class="mt-2">
+                  <p class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
+                    <.icon name="hero-users" class="w-4 h-4 inline me-1" />
+                    Event is at capacity (<%= @event.max_attendees %> attendees). All tickets are sold out.
+                  </p>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <!-- Right Panel: Price Breakdown -->
+        <div class="lg:w-1/3 space-y-4 justify-between flex flex-col">
+          <div class="space-y-4">
+            <div class="w-full hidden lg:block">
+              <.live_component
+                id={"event-checkout-#{@event.id}"}
+                module={YscWeb.Components.Image}
+                image_id={@event.image_id}
+              />
+            </div>
+
+            <h3 class="text-xl font-semibold mb-6">Order Summary</h3>
+
+            <div class="bg-zinc-50 rounded-lg p-6 space-y-4">
+              <%= if has_any_tickets_selected?(@selected_tickets) do %>
+                <%= for {tier_id, quantity} <- @selected_tickets, quantity > 0 do %>
+                <% ticket_tier = get_ticket_tier_by_id(@event.id, tier_id) %>
+                <div class="flex justify-between text-base">
+                  <span><%= ticket_tier.name %> × <%= quantity %></span>
+                  <span class="font-medium">
+                    <%= case ticket_tier.type do %>
+                      <% "free" -> %>
+                        Free
+                      <% _ -> %>
+                        <%= case Money.mult(ticket_tier.price, quantity) do %>
+                          <% {:ok, total} -> %>
+                            <%= format_price(total) %>
+                          <% {:error, _} -> %>
+                            $0.00
+                        <% end %>
+                    <% end %>
+                  </span>
+                </div>
+                <% end %>
+              <% else %>
+                <div class="text-center py-8">
+                  <div class="text-zinc-400 mb-2">
+                    <.icon name="hero-shopping-cart" class="w-8 h-8 mx-auto" />
+                  </div>
+                  <p class="text-zinc-500 text-sm">No tickets selected</p>
+                  <p class="hidden lg:block text-zinc-400 text-xs mt-1">Select tickets from the left to see your order</p>
+                </div>
+              <% end %>
+
+              <div class="border-t border-zinc-200 pt-4">
+                <div class="flex justify-between font-semibold text-lg">
+                  <span>Total:</span>
+                  <span><%= calculate_total_price(@selected_tickets, @event.id) %></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-8 space-y-4">
+            <.button
+              class="w-full text-lg py-3"
+              phx-click="proceed-to-checkout"
+              disabled={!has_any_tickets_selected?(@selected_tickets)}
+            >
+              <.icon name="hero-shopping-cart" class="me-2 -mt-1" />Proceed to Checkout
+            </.button>
+          </div>
+        </div>
+      </div>
+    </.modal>
     """
   end
 
@@ -296,17 +528,24 @@ defmodule YscWeb.EventDetailsLive do
     event = Events.get_event!(event_id)
     agendas = Agendas.list_agendas_for_event(event_id)
 
+    # Add pricing info to the event using the same logic as events list
+    event_with_pricing = add_pricing_info(event)
+
     {:ok,
      socket
      |> assign(:page_title, event.title)
-     |> assign(:event, event)
+     |> assign(:event, event_with_pricing)
      |> assign(:agendas, agendas)
-     |> assign(:active_agenda, default_active_agenda(agendas))}
+     |> assign(:active_agenda, default_active_agenda(agendas))
+     |> assign(:show_ticket_modal, false)
+     |> assign(:selected_tickets, %{})}
   end
 
   @impl true
   def handle_info({Ysc.Events, %Ysc.MessagePassingEvents.EventUpdated{event: event}}, socket) do
-    {:noreply, assign(socket, :event, event)}
+    # Add pricing info to the updated event
+    event_with_pricing = add_pricing_info(event)
+    {:noreply, assign(socket, :event, event_with_pricing)}
   end
 
   @impl true
@@ -460,6 +699,61 @@ defmodule YscWeb.EventDetailsLive do
     {:noreply, socket |> redirect(to: ~p"/users/log-in")}
   end
 
+  @impl true
+  def handle_event("open-ticket-modal", _params, socket) do
+    {:noreply, assign(socket, :show_ticket_modal, true)}
+  end
+
+  @impl true
+  def handle_event("close-ticket-modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_ticket_modal, false)
+     |> assign(:selected_tickets, %{})}
+  end
+
+  @impl true
+  def handle_event("increase-ticket-quantity", %{"tier-id" => tier_id}, socket) do
+    current_quantity = get_ticket_quantity(socket.assigns.selected_tickets, tier_id)
+    ticket_tier = get_ticket_tier_by_id(socket.assigns.event.id, tier_id)
+
+    # Check if we can increase the quantity before proceeding
+    if can_increase_quantity?(
+         ticket_tier,
+         current_quantity,
+         socket.assigns.selected_tickets,
+         socket.assigns.event
+       ) do
+      new_quantity = current_quantity + 1
+      updated_tickets = Map.put(socket.assigns.selected_tickets, tier_id, new_quantity)
+      {:noreply, assign(socket, :selected_tickets, updated_tickets)}
+    else
+      # Don't increase if we've reached the limit
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("decrease-ticket-quantity", %{"tier-id" => tier_id}, socket) do
+    current_quantity = get_ticket_quantity(socket.assigns.selected_tickets, tier_id)
+    new_quantity = max(0, current_quantity - 1)
+
+    updated_tickets =
+      if new_quantity == 0 do
+        Map.delete(socket.assigns.selected_tickets, tier_id)
+      else
+        Map.put(socket.assigns.selected_tickets, tier_id, new_quantity)
+      end
+
+    {:noreply, assign(socket, :selected_tickets, updated_tickets)}
+  end
+
+  @impl true
+  def handle_event("proceed-to-checkout", _params, socket) do
+    # TODO: Implement checkout logic
+    {:noreply, socket}
+  end
+
   def format_start_date(date) do
     Timex.format!(date, "{WDfull}, {Mfull} {D}")
   end
@@ -521,6 +815,60 @@ defmodule YscWeb.EventDetailsLive do
     Timex.format!(new_date, "%Y-%m-%d", :strftime)
   end
 
+  defp get_end_time_for_calendar(event) do
+    case {event.start_time, event.end_time} do
+      {start_time, nil} when not is_nil(start_time) ->
+        # Add 3 hours to start_time when end_time is null
+        Time.add(start_time, 3 * 60 * 60, :second)
+
+      {_start_time, end_time} ->
+        # Use the actual end_time if it exists
+        end_time
+
+      _ ->
+        # No start_time, return nil
+        nil
+    end
+  end
+
+  defp get_end_date_for_calendar(event) do
+    case {event.start_time, event.end_time, event.end_date} do
+      {start_time, nil, _end_date} when not is_nil(start_time) ->
+        # Calculate end time and check if it goes past midnight
+        calculated_end_time = Time.add(start_time, 3 * 60 * 60, :second)
+
+        # If calculated end time is earlier than start time, it means we went past midnight
+        if Time.compare(calculated_end_time, start_time) == :lt do
+          # Add one day to the start date
+          case event.start_date do
+            %DateTime{} = start_date ->
+              DateTime.add(start_date, 1, :day)
+
+            _ ->
+              # If start_date is not a DateTime, try to add a day using Date
+              case event.start_date do
+                %Date{} = start_date ->
+                  Date.add(start_date, 1)
+
+                _ ->
+                  event.start_date
+              end
+          end
+        else
+          # End time is on the same day, use start_date
+          event.start_date
+        end
+
+      {_start_time, _end_time, end_date} ->
+        # Use the actual end_date if it exists
+        end_date
+
+      _ ->
+        # No start_time, return nil
+        nil
+    end
+  end
+
   defp new_active_agenda(agenda_id, active_agenda_id, new_agendas)
        when agenda_id == active_agenda_id do
     default_active_agenda(new_agendas)
@@ -528,5 +876,256 @@ defmodule YscWeb.EventDetailsLive do
 
   defp new_active_agenda(_, active_agenda_id, _) do
     active_agenda_id
+  end
+
+  # Helper function to add pricing information to events (same logic as Events module)
+  defp add_pricing_info(event) do
+    ticket_tiers = Events.list_ticket_tiers_for_event(event.id)
+    pricing_info = calculate_event_pricing(ticket_tiers)
+    Map.put(event, :pricing_info, pricing_info)
+  end
+
+  # Calculate pricing display information for an event
+  defp calculate_event_pricing([]) do
+    %{display_text: "FREE", has_free_tiers: true, lowest_price: nil}
+  end
+
+  defp calculate_event_pricing(ticket_tiers) do
+    # Check if there are any free tiers (handle both atom and string types)
+    has_free_tiers = Enum.any?(ticket_tiers, &(&1.type == :free or &1.type == "free"))
+
+    # Get the lowest price from paid tiers (handle both atom and string types)
+    paid_tiers = Enum.filter(ticket_tiers, &(&1.type in [:paid, :donation, "paid", "donation"]))
+
+    case {has_free_tiers, paid_tiers} do
+      {true, []} ->
+        %{display_text: "FREE", has_free_tiers: true, lowest_price: nil}
+
+      {true, _paid_tiers} ->
+        # When there are both free and paid tiers, show "From $0.00"
+        %{display_text: "From $0.00", has_free_tiers: true, lowest_price: nil}
+
+      {false, []} ->
+        %{display_text: "FREE", has_free_tiers: false, lowest_price: nil}
+
+      {false, paid_tiers} ->
+        lowest_price = Enum.min_by(paid_tiers, & &1.price.amount, fn -> nil end)
+
+        # If there's only one paid tier, show the exact price instead of "From $X"
+        display_text =
+          if length(paid_tiers) == 1 do
+            format_price(lowest_price.price)
+          else
+            "From #{format_price(lowest_price.price)}"
+          end
+
+        %{
+          display_text: display_text,
+          has_free_tiers: false,
+          lowest_price: lowest_price
+        }
+    end
+  end
+
+  # Format price for display
+  defp format_price(%Money{} = money) do
+    Ysc.MoneyHelper.format_money!(money)
+  end
+
+  defp format_price(_), do: "$0.00"
+
+  # Helper functions for ticket modal
+  defp get_ticket_tiers(event_id) do
+    Events.list_ticket_tiers_for_event(event_id)
+    |> Enum.sort_by(fn tier ->
+      # Sort by status: available tiers first, then pre-sale tiers, then sold-out tiers
+      available = get_available_quantity(tier)
+      on_sale = is_tier_on_sale?(tier)
+
+      cond do
+        # Available tiers
+        on_sale and available > 0 -> {0, tier.inserted_at}
+        # Pre-sale tiers
+        not on_sale -> {1, tier.inserted_at}
+        # Sold-out tiers
+        on_sale and available == 0 -> {2, tier.inserted_at}
+        # Fallback
+        true -> {3, tier.inserted_at}
+      end
+    end)
+  end
+
+  defp get_ticket_tier_by_id(event_id, tier_id) do
+    get_ticket_tiers(event_id)
+    |> Enum.find(&(&1.id == tier_id))
+  end
+
+  defp get_ticket_quantity(selected_tickets, tier_id) do
+    Map.get(selected_tickets, tier_id, 0)
+  end
+
+  defp get_available_quantity(ticket_tier) do
+    case ticket_tier.quantity do
+      # Unlimited
+      nil ->
+        :unlimited
+
+      # Unlimited
+      0 ->
+        :unlimited
+
+      quantity ->
+        available = quantity - (ticket_tier.sold_tickets_count || 0)
+        max(0, available)
+    end
+  end
+
+  defp is_event_at_capacity?(event) do
+    case event.max_attendees do
+      nil ->
+        false
+
+      max_attendees ->
+        total_sold = Events.count_total_tickets_sold_for_event(event.id)
+        total_sold >= max_attendees
+    end
+  end
+
+  defp is_tier_on_sale?(ticket_tier) do
+    now = DateTime.utc_now()
+
+    case ticket_tier.start_date do
+      # No start date means always on sale
+      nil -> true
+      start_date -> DateTime.compare(now, start_date) != :lt
+    end
+  end
+
+  defp days_until_sale_starts(ticket_tier) do
+    case ticket_tier.start_date do
+      # No start date
+      nil ->
+        nil
+
+      start_date ->
+        now = DateTime.utc_now()
+
+        if DateTime.compare(now, start_date) == :lt do
+          # Calculate days difference
+          diff = DateTime.diff(start_date, now, :day)
+          max(0, diff)
+        else
+          # Already on sale
+          nil
+        end
+    end
+  end
+
+  defp can_increase_quantity?(ticket_tier, current_quantity, selected_tickets, event) do
+    # Can't increase if not on sale
+    if not is_tier_on_sale?(ticket_tier) do
+      false
+    else
+      # Check if the event is already at capacity
+      if is_event_at_capacity?(event) do
+        false
+      else
+        # Check if we've reached the event's max_attendees limit
+        if not within_event_capacity?(ticket_tier, current_quantity + 1, selected_tickets, event) do
+          false
+        else
+          case get_available_quantity(ticket_tier) do
+            :unlimited -> true
+            available -> current_quantity < available
+          end
+        end
+      end
+    end
+  end
+
+  defp within_event_capacity?(ticket_tier, new_quantity, selected_tickets, event) do
+    # Check max_attendees from the event
+    case event.max_attendees do
+      nil ->
+        # No max_attendees limit set
+        true
+
+      max_attendees ->
+        # Calculate total selected tickets across all tiers
+        total_selected = calculate_total_selected_tickets(selected_tickets)
+
+        # Calculate the new total if we add this quantity
+        current_tier_quantity = get_ticket_quantity(selected_tickets, ticket_tier.id)
+        new_total = total_selected - current_tier_quantity + new_quantity
+
+        new_total <= max_attendees
+    end
+  end
+
+  defp calculate_total_selected_tickets(selected_tickets) do
+    selected_tickets
+    |> Enum.reduce(0, fn {_tier_id, quantity}, acc -> acc + quantity end)
+  end
+
+  defp has_any_tickets_selected?(selected_tickets) do
+    selected_tickets
+    |> Enum.any?(fn {_tier_id, quantity} -> quantity > 0 end)
+  end
+
+  defp has_ticket_tiers?(event_id) do
+    get_ticket_tiers(event_id) |> length() > 0
+  end
+
+  defp is_event_in_past?(event) do
+    now = DateTime.utc_now()
+
+    # Combine the date and time properly
+    event_datetime =
+      case {event.start_date, event.start_time} do
+        {%DateTime{} = date, %Time{} = time} ->
+          # Convert DateTime to NaiveDateTime, then combine with time
+          naive_date = DateTime.to_naive(date)
+          date_part = NaiveDateTime.to_date(naive_date)
+          naive_datetime = NaiveDateTime.new!(date_part, time)
+          DateTime.from_naive!(naive_datetime, "Etc/UTC")
+
+        {date, time} when not is_nil(date) and not is_nil(time) ->
+          # Handle other date/time combinations
+          NaiveDateTime.new!(date, time)
+          |> DateTime.from_naive!("Etc/UTC")
+
+        _ ->
+          # Fallback to just the date if time is nil
+          event.start_date
+      end
+
+    DateTime.compare(now, event_datetime) == :gt
+  end
+
+  defp calculate_total_price(selected_tickets, event_id) do
+    total =
+      selected_tickets
+      |> Enum.reduce(Money.new(0, :USD), fn {tier_id, quantity}, acc ->
+        ticket_tier = get_ticket_tier_by_id(event_id, tier_id)
+
+        case ticket_tier.type do
+          "free" ->
+            acc
+
+          _ ->
+            case Money.mult(ticket_tier.price, quantity) do
+              {:ok, tier_total} ->
+                case Money.add(acc, tier_total) do
+                  {:ok, new_total} -> new_total
+                  {:error, _} -> acc
+                end
+
+              {:error, _} ->
+                acc
+            end
+        end
+      end)
+
+    format_price(total)
   end
 end

@@ -64,6 +64,8 @@ defmodule Ysc.Events.Event do
     # across all ticket types if set to 0 or null then no limit
     # is enforced globally -- it will be enforced per ticet type instead.
     field :max_attendees, :integer
+    # Virtual field for unlimited capacity checkbox
+    field :unlimited_capacity, :boolean, virtual: true
     # Optional: Age restriction for the event
     # if null or 0 then no age restriction
     field :age_restriction, :integer
@@ -121,6 +123,7 @@ defmodule Ysc.Events.Event do
       :title,
       :description,
       :max_attendees,
+      :unlimited_capacity,
       :age_restriction,
       :raw_details,
       :rendered_details,
@@ -142,6 +145,7 @@ defmodule Ysc.Events.Event do
     ])
     |> validate_length(:title, max: 100)
     |> validate_length(:description, max: 200)
+    |> handle_unlimited_capacity()
     |> put_reference_id()
     |> unique_constraint(:reference_id)
     |> validate_publish_dates()
@@ -180,6 +184,31 @@ defmodule Ysc.Events.Event do
         )
 
       _ ->
+        changeset
+    end
+  end
+
+  # Handle the unlimited_capacity virtual field
+  defp handle_unlimited_capacity(changeset) do
+    unlimited_capacity = get_field(changeset, :unlimited_capacity)
+
+    case unlimited_capacity do
+      true ->
+        # If unlimited_capacity is true, set max_attendees to nil
+        put_change(changeset, :max_attendees, nil)
+
+      false ->
+        # If unlimited_capacity is false and max_attendees is nil, set a default
+        current_max_attendees = get_field(changeset, :max_attendees)
+
+        if is_nil(current_max_attendees) do
+          put_change(changeset, :max_attendees, 100)
+        else
+          changeset
+        end
+
+      _ ->
+        # If unlimited_capacity is nil or not set, don't change max_attendees
         changeset
     end
   end

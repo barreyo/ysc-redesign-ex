@@ -317,6 +317,27 @@ defmodule YscWeb.UserAuth do
 
   defp maybe_store_return_to(conn), do: conn
 
-  defp signed_in_path(_conn), do: ~p"/"
+  defp signed_in_path(%Plug.Conn{} = conn) do
+    if user = conn.assigns[:current_user] do
+      case user.state do
+        :pending_approval -> ~p"/pending-review"
+        _ -> ~p"/"
+      end
+    else
+      ~p"/"
+    end
+  end
+
+  defp signed_in_path(socket) do
+    if user = socket.assigns[:current_user] do
+      case user.state do
+        :pending_approval -> ~p"/pending-review"
+        _ -> ~p"/"
+      end
+    else
+      ~p"/"
+    end
+  end
+
   defp not_approved_path(_conn), do: ~p"/pending-review"
 end

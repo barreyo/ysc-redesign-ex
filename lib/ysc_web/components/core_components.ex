@@ -42,6 +42,7 @@ defmodule YscWeb.CoreComponents do
   attr :id, :string, required: true
   attr :show, :boolean, default: false
   attr :fullscreen, :boolean, default: false
+  attr :max_width, :string, default: "max-w-3xl"
   attr :on_cancel, JS, default: %JS{}
   slot :inner_block, required: true
 
@@ -64,7 +65,7 @@ defmodule YscWeb.CoreComponents do
         tabindex="0"
       >
         <div class="flex items-center justify-center min-h-full">
-          <div class={"w-full #{if @fullscreen == true, do: "w-full", else: "max-w-3xl"} p-4 sm:p-6 lg:py-8"}>
+          <div class={"w-full #{if @fullscreen == true, do: "w-full", else: @max_width} p-4 sm:p-6 lg:py-8"}>
             <.focus_wrap
               id={"#{@id}-container"}
               phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}

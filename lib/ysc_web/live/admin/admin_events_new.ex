@@ -150,7 +150,7 @@ defmodule YscWeb.AdminEventsNewLive do
                       "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
                   ]}
                 >
-                  Tickets (0/0)
+                  Tickets
                 </.link>
               </li>
             </ul>
@@ -362,11 +362,53 @@ defmodule YscWeb.AdminEventsNewLive do
         </div>
 
         <div :if={@live_action == :tickets} class="relative py-8">
-          <.live_component
-            id={@event.id}
-            module={YscWeb.AdminEventsLive.TicketTierForm}
-            event_id={@event.id}
-          />
+          <div class="max-w-3xl">
+            <div class="mb-6">
+              <div class="border border-zinc-200 rounded py-6 px-4 space-y-4">
+                <div>
+                  <h2 class="text-xl font-bold">Event Capacity</h2>
+                  <p class="text-zinc-600 text-sm">
+                    Set the maximum number of attendees for this event. This limit applies across all ticket tiers.
+                  </p>
+                </div>
+
+                <.form
+                  for={@capacity_form}
+                  id="capacity_form"
+                  phx-submit="save-capacity"
+                  phx-change="validate-capacity"
+                  class="space-y-4"
+                >
+                  <div class="space-y-4">
+                    <div class="flex items-center space-x-3">
+                      <.input
+                        type="checkbox"
+                        field={@capacity_form[:unlimited_capacity]}
+                        label="Unlimited capacity"
+                        checked={is_nil(@capacity_form[:max_attendees].value) || @capacity_form[:max_attendees].value == ""}
+                        phx-click="toggle-unlimited-capacity"
+                      />
+                    </div>
+
+                    <div :if={!is_nil(@capacity_form[:max_attendees].value) && @capacity_form[:max_attendees].value != ""} class="space-y-2">
+                      <.input
+                        type="number"
+                        field={@capacity_form[:max_attendees]}
+                        label="Maximum Attendees"
+                        min="1"
+                      />
+                    </div>
+                  </div>
+                </.form>
+              </div>
+            </div>
+
+            <.live_component
+              id={"ticket-tier-management-#{@event.id}"}
+              module={YscWeb.AdminEventsLive.TicketTierManagement}
+              event_id={@event.id}
+            />
+          </div>
         </div>
       </div>
     </.side_menu>
@@ -381,12 +423,22 @@ defmodule YscWeb.AdminEventsNewLive do
 
     event = Events.get_event!(id)
     event_changeset = Event.changeset(event, %{})
+
+    # Initialize capacity form with unlimited_capacity virtual field
+    capacity_attrs = %{
+      "unlimited_capacity" => is_nil(event.max_attendees)
+    }
+
+    capacity_changeset = Event.changeset(event, capacity_attrs)
     agendas = Agendas.list_agendas_for_event(event.id)
+    ticket_tiers = Events.list_ticket_tiers_for_event(event.id)
+    tickets = Events.list_tickets_for_event(event.id)
 
     {:ok,
      socket
      |> assign(:event, event)
      |> assign(:active_page, :events)
+     |> assign(:capacity_form, to_form(capacity_changeset))
      |> assign(:page_title, event.title)
      |> assign(:description_length, description_length(event.description))
      |> assign(:event_title, event.title)
@@ -395,6 +447,8 @@ defmodule YscWeb.AdminEventsNewLive do
      |> assign(:end_date, event.end_date)
      |> assign(:start_time, event.start_time)
      |> assign(:end_time, event.end_time)
+     |> assign(:ticket_count, length(tickets))
+     |> assign(:ticket_tier_count, length(ticket_tiers))
      |> assign(trigger_submit: false, check_errors: false)
      |> stream(:agendas, agendas)
      |> assign(form: to_form(event_changeset, as: "event"))
@@ -537,6 +591,71 @@ defmodule YscWeb.AdminEventsNewLive do
   end
 
   @impl true
+  def handle_event("toggle-unlimited-capacity", _, socket) do
+    current_unlimited = socket.assigns.capacity_form[:unlimited_capacity].value
+
+    # Toggle the unlimited_capacity virtual field
+    new_unlimited = !current_unlimited
+
+    # Create changeset with the new unlimited_capacity value
+    # The handle_unlimited_capacity function will set max_attendees accordingly
+    changeset = Event.changeset(socket.assigns[:event], %{"unlimited_capacity" => new_unlimited})
+
+    if changeset.valid? do
+      # Extract the processed max_attendees value from the changeset
+      new_max_attendees = Ecto.Changeset.get_field(changeset, :max_attendees)
+      Events.update_event(socket.assigns[:event], %{"max_attendees" => new_max_attendees})
+    end
+
+    {:noreply, assign(socket, :capacity_form, to_form(changeset))}
+  end
+
+  @impl true
+  def handle_event("validate-capacity", params, socket) do
+    # Handle both expected and unexpected parameter formats
+    capacity_params =
+      case params do
+        %{"event" => event_params} -> event_params
+        # Handle target-only events
+        %{"_target" => _} -> %{}
+        other -> other
+      end
+
+    changeset =
+      Event.changeset(socket.assigns[:event], capacity_params) |> Map.put(:action, :validate)
+
+    if changeset.valid? do
+      Events.update_event(socket.assigns[:event], capacity_params)
+    end
+
+    {:noreply, assign(socket, :capacity_form, to_form(changeset))}
+  end
+
+  @impl true
+  def handle_event("save-capacity", params, socket) do
+    # Handle both expected and unexpected parameter formats
+    capacity_params =
+      case params do
+        %{"event" => event_params} -> event_params
+        # Handle target-only events
+        %{"_target" => _} -> %{}
+        other -> other
+      end
+
+    case Events.update_event(socket.assigns[:event], capacity_params) do
+      {:ok, event} ->
+        {:noreply,
+         socket
+         |> assign(:event, event)
+         |> assign(:capacity_form, to_form(Event.changeset(event, %{})))
+         |> put_flash(:info, "Event capacity updated successfully.")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :capacity_form, to_form(changeset))}
+    end
+  end
+
+  @impl true
   def handle_info(
         {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaAdded{agenda: agenda}},
         socket
@@ -593,6 +712,42 @@ defmodule YscWeb.AdminEventsNewLive do
   end
 
   @impl true
+  def handle_info(
+        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
+        socket
+      ) do
+    if ticket_tier.event_id == socket.assigns[:event].id do
+      ticket_tiers = Events.list_ticket_tiers_for_event(socket.assigns[:event].id)
+      tickets = Events.list_tickets_for_event(socket.assigns[:event].id)
+
+      {:noreply,
+       socket
+       |> assign(:ticket_tier_count, length(ticket_tiers))
+       |> assign(:ticket_count, length(tickets))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier}},
+        socket
+      ) do
+    if ticket_tier.event_id == socket.assigns[:event].id do
+      ticket_tiers = Events.list_ticket_tiers_for_event(socket.assigns[:event].id)
+      tickets = Events.list_tickets_for_event(socket.assigns[:event].id)
+
+      {:noreply,
+       socket
+       |> assign(:ticket_tier_count, length(ticket_tiers))
+       |> assign(:ticket_count, length(tickets))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
   def handle_info({:updated_event, data}, socket) do
     # Handle the message and update the socket as needed
     # For example, you might want to update the event changeset
@@ -620,11 +775,12 @@ defmodule YscWeb.AdminEventsNewLive do
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     form = to_form(changeset, as: "event")
+    capacity_form = to_form(changeset, as: "event")
 
     if changeset.valid? do
-      assign(socket, form: form, check_errors: false)
+      assign(socket, form: form, capacity_form: capacity_form, check_errors: false)
     else
-      assign(socket, form: form)
+      assign(socket, form: form, capacity_form: capacity_form)
     end
   end
 

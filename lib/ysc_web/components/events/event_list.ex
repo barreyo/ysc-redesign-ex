@@ -56,7 +56,9 @@ defmodule YscWeb.EventsListLive do
             <p class="text-sm text-pretty text-zinc-600 py-1"><%= event.description %></p>
 
             <div :if={event.state != :cancelled} class="flex flex-row space-x-2 pt-2 items-center">
-              <p class="text-sm font-semibold text-zinc-800">From $100.00</p>
+              <p class="text-sm font-semibold text-zinc-800">
+                <%= event.pricing_info.display_text %>
+              </p>
               <%!-- <.badge type="green">Limited 20% off</.badge> --%>
             </div>
           </div>
