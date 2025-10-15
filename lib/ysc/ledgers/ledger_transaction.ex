@@ -1,5 +1,6 @@
 defmodule Ysc.Ledgers.LedgerTransaction do
   use Ecto.Schema
+  import Ecto.Changeset
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
@@ -11,5 +12,12 @@ defmodule Ysc.Ledgers.LedgerTransaction do
     field :status, LedgerTransactionStatus
 
     timestamps()
+  end
+
+  def changeset(transaction, attrs) do
+    transaction
+    |> cast(attrs, [:type, :payment_id, :total_amount, :status])
+    |> validate_required([:type, :total_amount, :status])
+    |> foreign_key_constraint(:payment_id)
   end
 end

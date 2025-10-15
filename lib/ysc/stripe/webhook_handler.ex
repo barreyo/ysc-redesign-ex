@@ -1,6 +1,7 @@
 defmodule Ysc.Stripe.WebhookHandler do
   alias Ysc.Customers
   alias Ysc.Subscriptions
+  alias Ysc.Ledgers
 
   def handle_event(event) do
     require Logger
@@ -137,13 +138,8 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp handle("customer.subscription.created", %Stripe.Subscription{} = event) do
-    IO.puts("customer.subscription.created")
-    IO.inspect(event)
-
     customer = Ysc.Accounts.get_user_from_stripe_id(event.customer)
-    subscription = Subscriptions.create_subscription_from_stripe(customer, event)
-
-    IO.inspect(subscription)
+    Subscriptions.create_subscription_from_stripe(customer, event)
 
     :ok
   end
@@ -161,9 +157,6 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp handle("customer.subscription.updated", %Stripe.Subscription{} = event) do
-    IO.puts("customer.subscription.updated")
-    IO.inspect(event)
-
     subscription = Subscriptions.get_subscription_by_stripe_id(event.id)
 
     if !subscription do
@@ -278,6 +271,152 @@ defmodule Ysc.Stripe.WebhookHandler do
     :ok
   end
 
+  defp handle("invoice.payment_succeeded", %Stripe.Invoice{} = invoice) do
+    require Logger
+
+    # This webhook is specifically for subscription payments
+    # It's more reliable than payment_intent.succeeded for subscription billing
+    case invoice.subscription do
+      nil ->
+        # Not a subscription invoice, skip
+        :ok
+
+      subscription_id ->
+        # Get the user from the customer ID
+        user = Ysc.Accounts.get_user_from_stripe_id(invoice.customer)
+
+        if user do
+          # Check if we already have a payment record for this invoice
+          existing_payment = Ledgers.get_payment_by_external_id(invoice.id)
+
+          if existing_payment do
+            Logger.info("Payment already exists for invoice",
+              invoice_id: invoice.id,
+              payment_id: existing_payment.id
+            )
+
+            :ok
+          else
+            # Process the subscription payment with ledger entries
+            payment_attrs = %{
+              user_id: user.id,
+              amount: Money.new(invoice.amount_paid, :USD),
+              entity_type: :membership,
+              entity_id: find_subscription_id_from_stripe_id(subscription_id, user),
+              external_payment_id: invoice.id,
+              stripe_fee: extract_stripe_fee_from_invoice(invoice),
+              description:
+                "Membership payment - #{invoice.description || "Invoice #{invoice.number}"}"
+            }
+
+            case Ledgers.process_payment(payment_attrs) do
+              {:ok, _payment, _transaction, _entries} ->
+                Logger.info("Subscription payment processed successfully in ledger",
+                  invoice_id: invoice.id,
+                  user_id: user.id,
+                  subscription_id: subscription_id
+                )
+
+                :ok
+
+              {:error, reason} ->
+                Logger.error("Failed to process subscription payment in ledger",
+                  invoice_id: invoice.id,
+                  user_id: user.id,
+                  error: reason
+                )
+
+                :ok
+            end
+          end
+        else
+          Logger.warning("No user found for invoice payment",
+            invoice_id: invoice.id,
+            customer_id: invoice.customer
+          )
+
+          :ok
+        end
+    end
+  end
+
+  defp handle("payment_intent.succeeded", %Stripe.PaymentIntent{} = payment_intent) do
+    require Logger
+
+    # Get the user from the customer ID
+    user = Ysc.Accounts.get_user_from_stripe_id(payment_intent.customer)
+
+    if user do
+      # Check if we already have a payment record for this payment intent
+      existing_payment = Ledgers.get_payment_by_external_id(payment_intent.id)
+
+      if existing_payment do
+        Logger.info("Payment already exists for payment intent",
+          payment_intent_id: payment_intent.id,
+          payment_id: existing_payment.id
+        )
+
+        :ok
+      else
+        # Process the payment with ledger entries
+        # For membership subscriptions, we need to determine if this is a subscription payment
+        entity_type = extract_entity_type_from_payment_intent(payment_intent)
+        entity_id = extract_entity_id_from_payment_intent(payment_intent, user)
+
+        payment_attrs = %{
+          user_id: user.id,
+          amount: Money.new(payment_intent.amount, :USD),
+          entity_type: entity_type,
+          entity_id: entity_id,
+          external_payment_id: payment_intent.id,
+          stripe_fee: extract_stripe_fee_from_payment_intent(payment_intent),
+          description: extract_description_from_payment_intent(payment_intent)
+        }
+
+        case Ledgers.process_payment(payment_attrs) do
+          {:ok, _payment, _transaction, _entries} ->
+            Logger.info("Payment processed successfully in ledger",
+              payment_intent_id: payment_intent.id,
+              user_id: user.id,
+              entity_type: entity_type,
+              entity_id: entity_id
+            )
+
+            :ok
+
+          {:error, reason} ->
+            Logger.error("Failed to process payment in ledger",
+              payment_intent_id: payment_intent.id,
+              user_id: user.id,
+              error: reason
+            )
+
+            :ok
+        end
+      end
+    else
+      Logger.warning("No user found for payment intent",
+        payment_intent_id: payment_intent.id,
+        customer_id: payment_intent.customer
+      )
+
+      :ok
+    end
+  end
+
+  defp handle("charge.dispute.created", %Stripe.Dispute{} = dispute) do
+    require Logger
+
+    # Handle chargeback/dispute - you may want to create a liability entry
+    Logger.info("Chargeback/dispute created",
+      dispute_id: dispute.id,
+      charge_id: dispute.charge
+    )
+
+    # You could add logic here to create ledger entries for disputes
+    :ok
+  end
+
   defp handle(_event_name, _event_object), do: :ok
 
   # Convert Stripe.Event struct to a plain map for JSON storage
@@ -311,11 +450,152 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp convert_to_map(list) when is_list(list) do
-    # Convert lists
     Enum.map(list, &convert_to_map/1)
   end
 
   defp convert_to_map(value), do: value
+
+  # Helper functions for extracting data from payment intents
+  defp extract_entity_type_from_payment_intent(payment_intent) do
+    # Extract entity type from metadata or description
+    # For membership subscriptions, check if this is related to a subscription
+    case payment_intent.metadata do
+      %{"entity_type" => entity_type} ->
+        String.to_atom(entity_type)
+
+      _ ->
+        # Check if this payment intent is related to a subscription
+        if is_subscription_payment?(payment_intent) do
+          :membership
+        else
+          # Try to infer from description
+          case payment_intent.description do
+            desc when is_binary(desc) ->
+              cond do
+                String.contains?(String.downcase(desc), "subscription") -> :membership
+                String.contains?(String.downcase(desc), "membership") -> :membership
+                String.contains?(String.downcase(desc), "event") -> :event
+                String.contains?(String.downcase(desc), "booking") -> :booking
+                String.contains?(String.downcase(desc), "donation") -> :donation
+                # Default to membership for subscription-related payments
+                true -> :membership
+              end
+
+            _ ->
+              # Default to membership for subscription-related payments
+              :membership
+          end
+        end
+    end
+  end
+
+  defp extract_entity_id_from_payment_intent(payment_intent, user) do
+    # Extract entity ID from metadata
+    case payment_intent.metadata do
+      %{"entity_id" => entity_id} ->
+        entity_id
+
+      _ ->
+        # For membership subscriptions, try to find the subscription ID
+        if is_subscription_payment?(payment_intent) do
+          find_subscription_id_for_payment(payment_intent, user)
+        else
+          nil
+        end
+    end
+  end
+
+  defp extract_stripe_fee_from_payment_intent(payment_intent) do
+    # Stripe fees are typically available in the charge object
+    # For now, we'll calculate a rough estimate (2.9% + 30¢)
+    # In a real implementation, you'd want to fetch the actual charge details
+    amount = payment_intent.amount
+
+    # Check if fee is provided in metadata (if you're tracking it)
+    case payment_intent.metadata do
+      %{"stripe_fee" => fee_str} ->
+        case Integer.parse(fee_str) do
+          {fee, _} -> Money.new(fee, :USD)
+          :error -> calculate_estimated_fee(amount)
+        end
+
+      _ ->
+        calculate_estimated_fee(amount)
+    end
+  end
+
+  # Helper function to calculate estimated Stripe fee
+  defp calculate_estimated_fee(amount) do
+    # 2.9% + 30¢ for domestic cards
+    estimated_fee = round(amount * 0.029 + 30)
+    Money.new(estimated_fee, :USD)
+  end
+
+  defp extract_description_from_payment_intent(payment_intent) do
+    payment_intent.description || "Payment via Stripe"
+  end
+
+  # Helper function to determine if a payment intent is related to a subscription
+  defp is_subscription_payment?(payment_intent) do
+    # Check if the payment intent has subscription-related metadata
+    case payment_intent.metadata do
+      %{"subscription_id" => _} ->
+        true
+
+      %{"entity_type" => "membership"} ->
+        true
+
+      _ ->
+        # Check if the description indicates a subscription
+        case payment_intent.description do
+          desc when is_binary(desc) ->
+            String.contains?(String.downcase(desc), "subscription") or
+              String.contains?(String.downcase(desc), "membership") or
+              String.contains?(String.downcase(desc), "single") or
+              String.contains?(String.downcase(desc), "family")
+
+          _ ->
+            false
+        end
+    end
+  end
+
+  # Helper function to find the subscription ID for a payment intent
+  defp find_subscription_id_for_payment(payment_intent, _user) do
+    # Try to find the subscription from metadata first
+    case payment_intent.metadata do
+      %{"subscription_id" => subscription_id} ->
+        subscription_id
+
+      _ ->
+        # For now, return nil if no subscription ID in metadata
+        # In a more sophisticated implementation, you could query for the user's active subscription
+        nil
+    end
+  end
+
+  # Helper function to find subscription ID from Stripe subscription ID
+  defp find_subscription_id_from_stripe_id(stripe_subscription_id, _user) do
+    case Ysc.Subscriptions.get_subscription_by_stripe_id(stripe_subscription_id) do
+      nil -> nil
+      subscription -> subscription.id
+    end
+  end
+
+  # Helper function to extract Stripe fee from invoice
+  defp extract_stripe_fee_from_invoice(invoice) do
+    # Check if fee is provided in metadata
+    case invoice.metadata do
+      %{"stripe_fee" => fee_str} ->
+        case Integer.parse(fee_str) do
+          {fee, _} -> Money.new(fee, :USD)
+          :error -> calculate_estimated_fee(invoice.amount_paid)
+        end
+
+      _ ->
+        calculate_estimated_fee(invoice.amount_paid)
+    end
+  end
 
   # Helper function to update subscription items
   defp update_subscription_items(subscription, stripe_items) do

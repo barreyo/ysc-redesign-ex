@@ -130,7 +130,6 @@ defmodule YscWeb.HomeLive do
               </h1>
               <p class="text-zinc-600">Ready for your next Scandinavian adventure?</p>
             </div>
-
             <!-- Quick Actions -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <.link
@@ -185,7 +184,6 @@ defmodule YscWeb.HomeLive do
                 </div>
               </.link>
             </div>
-
             <!-- My Events Section -->
             <div class="bg-white rounded-lg border border-zinc-200 p-6">
               <div class="flex items-center justify-between mb-4">
@@ -197,7 +195,6 @@ defmodule YscWeb.HomeLive do
                   Browse all events →
                 </.link>
               </div>
-
               <!-- User's events with tickets will be loaded here via LiveView component -->
               <.live_component
                 id="home-user-events-list"
@@ -205,7 +202,6 @@ defmodule YscWeb.HomeLive do
                 current_user={@current_user}
               />
             </div>
-
             <!-- Upcoming Events Section -->
             <div class="bg-white rounded-lg border border-zinc-200 p-6">
               <div class="flex items-center justify-between mb-4">
@@ -217,14 +213,9 @@ defmodule YscWeb.HomeLive do
                   View all events →
                 </.link>
               </div>
-
               <!-- Events will be loaded here via LiveView component -->
-              <.live_component
-                id="home-events-list"
-                module={YscWeb.EventsListLive}
-              />
+              <.live_component id="home-events-list" module={YscWeb.EventsListLive} />
             </div>
-
             <!-- Latest News Section -->
             <div class="bg-white rounded-lg border border-zinc-200 p-6">
               <div class="flex items-center justify-between mb-4">
@@ -236,14 +227,9 @@ defmodule YscWeb.HomeLive do
                   Read more news →
                 </.link>
               </div>
-
               <!-- News will be loaded here via LiveView component -->
-              <.live_component
-                id="home-news-list"
-                module={YscWeb.NewsListLive}
-              />
+              <.live_component id="home-news-list" module={YscWeb.NewsListLive} />
             </div>
-
             <!-- Club Resources -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <!-- Cabin Information -->
@@ -256,7 +242,9 @@ defmodule YscWeb.HomeLive do
                     </div>
                     <div class="ml-3">
                       <h4 class="text-sm font-medium text-zinc-900">Clear Lake Cabin</h4>
-                      <p class="text-sm text-zinc-600">Perfect for summer getaways and lake activities</p>
+                      <p class="text-sm text-zinc-600">
+                        Perfect for summer getaways and lake activities
+                      </p>
                     </div>
                   </div>
                   <div class="flex items-start">
@@ -270,15 +258,11 @@ defmodule YscWeb.HomeLive do
                   </div>
                 </div>
                 <div class="mt-4">
-                  <.link
-                    href="#"
-                    class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                  >
+                  <.link href="#" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                     Learn about cabin bookings →
                   </.link>
                 </div>
               </div>
-
               <!-- Quick Links -->
               <div class="bg-white rounded-lg border border-zinc-200 p-6">
                 <h3 class="text-lg font-semibold text-zinc-900 mb-3">Quick Links</h3>
@@ -287,36 +271,34 @@ defmodule YscWeb.HomeLive do
                     navigate={~p"/volunteer"}
                     class="flex items-center text-sm text-zinc-600 hover:text-zinc-900"
                   >
-                    <.icon name="hero-hand-raised" class="w-4 h-4 mr-2" />
-                    Volunteer Opportunities
+                    <.icon name="hero-hand-raised" class="w-4 h-4 mr-2" /> Volunteer Opportunities
                   </.link>
                   <.link
                     navigate={~p"/contact"}
                     class="flex items-center text-sm text-zinc-600 hover:text-zinc-900"
                   >
-                    <.icon name="hero-envelope" class="w-4 h-4 mr-2" />
-                    Contact the Board
+                    <.icon name="hero-envelope" class="w-4 h-4 mr-2" /> Contact the Board
                   </.link>
                   <.link
                     navigate={~p"/board"}
                     class="flex items-center text-sm text-zinc-600 hover:text-zinc-900"
                   >
-                    <.icon name="hero-users" class="w-4 h-4 mr-2" />
-                    Meet the Board
+                    <.icon name="hero-users" class="w-4 h-4 mr-2" /> Meet the Board
                   </.link>
                   <.link
                     navigate={~p"/code-of-conduct"}
                     class="flex items-center text-sm text-zinc-600 hover:text-zinc-900"
                   >
-                    <.icon name="hero-shield-check" class="w-4 h-4 mr-2" />
-                    Code of Conduct
+                    <.icon name="hero-shield-check" class="w-4 h-4 mr-2" /> Code of Conduct
                   </.link>
                 </div>
               </div>
             </div>
-
             <!-- Membership Status (if applicable) -->
-            <div :if={@current_user.state == :active} class="bg-green-50 rounded-lg border border-green-200 p-6">
+            <div
+              :if={@current_user.state == :active}
+              class="bg-green-50 rounded-lg border border-green-200 p-6"
+            >
               <div class="flex items-center">
                 <div class="flex-shrink-0">
                   <.icon name="hero-check-circle" class="w-8 h-8 text-green-600" />
@@ -329,9 +311,11 @@ defmodule YscWeb.HomeLive do
                 </div>
               </div>
             </div>
-
             <!-- Pending Approval Message -->
-            <div :if={@current_user.state == :pending_approval} class="bg-yellow-50 rounded-lg border border-yellow-200 p-6">
+            <div
+              :if={@current_user.state == :pending_approval}
+              class="bg-yellow-50 rounded-lg border border-yellow-200 p-6"
+            >
               <div class="flex items-center">
                 <div class="flex-shrink-0">
                   <.icon name="hero-clock" class="w-8 h-8 text-yellow-600" />

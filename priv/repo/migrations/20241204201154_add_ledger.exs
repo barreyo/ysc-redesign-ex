@@ -13,6 +13,7 @@ defmodule Ysc.Repo.Migrations.AddLedger do
     end
 
     create unique_index(:ledger_accounts, [:account_type, :name])
+    create index(:ledger_accounts, [:name])
 
     create table(:payments, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true

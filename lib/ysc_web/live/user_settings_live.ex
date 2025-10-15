@@ -240,78 +240,137 @@ defmodule YscWeb.UserSettingsLive do
         </ul>
 
         <div class="p-6 text-medium text-zinc-500 rounded w-full md:border-l md:border-1 md:border-zinc-100 md:pl-16">
-          <div :if={@live_action == :edit}>
-            <.user_avatar_image
-              email={@user.email}
-              user_id={@user.id}
-              country={@user.most_connected_country}
-              class="w-20 rounded-full"
-            />
+          <div :if={@live_action == :edit} class="space-y-8">
+            <!-- Profile Picture Section -->
+            <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
+              <h2 class="text-zinc-900 font-bold text-xl">Profile Picture</h2>
 
-            <p class="pt-4 text-sm">
-              Your profile picture is synced via Gravatar. Update it on your <a
-                class="text-blue-600 hover:underline"
-                href="https://gravatar.com/profile"
-                target="_blank"
-                noreferrer
-              >Gravatar Profile</a>.
-            </p>
+              <div class="flex items-center space-x-4">
+                <.user_avatar_image
+                  email={@user.email}
+                  user_id={@user.id}
+                  country={@user.most_connected_country}
+                  class="w-20 rounded-full"
+                />
+                <div>
+                  <p class="text-sm text-zinc-600">
+                    Your profile picture is synced via Gravatar. Update it on your <a
+                      class="text-blue-600 hover:underline"
+                      href="https://gravatar.com/profile"
+                      target="_blank"
+                      noreferrer
+                    >Gravatar Profile</a>.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <!-- Personal Information Section -->
+            <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
+              <h2 class="text-zinc-900 font-bold text-xl">Personal Information</h2>
 
-            <.simple_form
-              for={@email_form}
-              id="email_form"
-              phx-submit="update_email"
-              phx-change="validate_email"
-            >
-              <.input field={@email_form[:email]} type="email" label="Email" required />
-              <.input
-                field={@email_form[:current_password]}
-                name="current_password"
-                id="current_password_for_email"
-                type="password"
-                label="Current password"
-                value={@email_form_current_password}
-                required
-              />
-              <:actions>
-                <.button phx-disable-with="Changing...">Change Email</.button>
-              </:actions>
-            </.simple_form>
+              <.simple_form
+                for={@profile_form}
+                id="profile_form"
+                phx-submit="update_profile"
+                phx-change="validate_profile"
+              >
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <.input field={@profile_form[:first_name]} type="text" label="First Name" required />
+                  <.input field={@profile_form[:last_name]} type="text" label="Last Name" required />
+                </div>
 
-            <.simple_form
-              for={@password_form}
-              id="password_form"
-              action={~p"/users/log-in?_action=password_updated"}
-              method="post"
-              phx-change="validate_password"
-              phx-submit="update_password"
-              phx-trigger-action={@trigger_submit}
-            >
-              <.input
-                field={@password_form[:email]}
-                type="hidden"
-                id="hidden_user_email"
-                value={@current_email}
-              />
-              <.input field={@password_form[:password]} type="password" label="New password" required />
-              <.input
-                field={@password_form[:password_confirmation]}
-                type="password"
-                label="Confirm new password"
-              />
-              <.input
-                field={@password_form[:current_password]}
-                name="current_password"
-                type="password"
-                label="Current password"
-                id="current_password_for_password"
-                value={@current_password}
-                required
-              />
-              <:actions>
-                <.button phx-disable-with="Changing...">Change Password</.button>
-              </:actions>
-            </.simple_form>
+                <.input
+                  type="phone-input"
+                  label="Phone Number"
+                  id="phone_number"
+                  field={@profile_form[:phone_number]}
+                />
+
+                <.input
+                  field={@profile_form[:most_connected_country]}
+                  type="select"
+                  label="Most Connected Country"
+                  options={[
+                    {"Sweden", "SE"},
+                    {"Norway", "NO"},
+                    {"Denmark", "DK"},
+                    {"Finland", "FI"},
+                    {"Iceland", "IS"}
+                  ]}
+                />
+
+                <:actions>
+                  <.button phx-disable-with="Updating...">Update Profile</.button>
+                </:actions>
+              </.simple_form>
+            </div>
+            <!-- Account Security Section -->
+            <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
+              <h2 class="text-zinc-900 font-bold text-xl">Account Security</h2>
+
+              <div class="space-y-6">
+                <.simple_form
+                  for={@email_form}
+                  id="email_form"
+                  phx-submit="update_email"
+                  phx-change="validate_email"
+                >
+                  <.input field={@email_form[:email]} type="email" label="Email" required />
+                  <.input
+                    field={@email_form[:current_password]}
+                    name="current_password"
+                    id="current_password_for_email"
+                    type="password"
+                    label="Current password"
+                    value={@email_form_current_password}
+                    required
+                  />
+                  <:actions>
+                    <.button phx-disable-with="Changing...">Change Email</.button>
+                  </:actions>
+                </.simple_form>
+
+                <.simple_form
+                  for={@password_form}
+                  id="password_form"
+                  action={~p"/users/log-in?_action=password_updated"}
+                  method="post"
+                  phx-change="validate_password"
+                  phx-submit="update_password"
+                  phx-trigger-action={@trigger_submit}
+                >
+                  <.input
+                    field={@password_form[:email]}
+                    type="hidden"
+                    id="hidden_user_email"
+                    value={@current_email}
+                  />
+                  <.input
+                    field={@password_form[:password]}
+                    type="password"
+                    label="New password"
+                    required
+                  />
+                  <.input
+                    field={@password_form[:password_confirmation]}
+                    type="password"
+                    label="Confirm new password"
+                  />
+                  <.input
+                    field={@password_form[:current_password]}
+                    name="current_password"
+                    type="password"
+                    label="Current password"
+                    id="current_password_for_password"
+                    value={@current_password}
+                    required
+                  />
+                  <:actions>
+                    <.button phx-disable-with="Changing...">Change Password</.button>
+                  </:actions>
+                </.simple_form>
+              </div>
+            </div>
           </div>
 
           <div
@@ -622,6 +681,7 @@ defmodule YscWeb.UserSettingsLive do
     user = socket.assigns.current_user
     email_changeset = Accounts.change_user_email(user)
     password_changeset = Accounts.change_user_password(user)
+    profile_changeset = Accounts.change_user_profile(user)
     live_action = socket.assigns[:live_action] || :edit
 
     # Ensure Stripe customer exists - create if missing or invalid
@@ -671,6 +731,7 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:active_plan_type, active_plan)
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
+      |> assign(:profile_form, to_form(profile_changeset))
       |> assign(
         :membership_form,
         to_form(%{"membership_type" => default_select(family_plan_active?)})
@@ -739,6 +800,37 @@ defmodule YscWeb.UserSettingsLive do
 
       {:error, changeset} ->
         {:noreply, assign(socket, password_form: to_form(changeset))}
+    end
+  end
+
+  def handle_event("validate_profile", params, socket) do
+    %{"user" => user_params} = params
+
+    profile_form =
+      socket.assigns.current_user
+      |> Accounts.change_user_profile(user_params)
+      |> Map.put(:action, :validate)
+      |> to_form()
+
+    {:noreply, assign(socket, profile_form: profile_form)}
+  end
+
+  def handle_event("update_profile", params, socket) do
+    %{"user" => user_params} = params
+    user = socket.assigns.current_user
+
+    case Accounts.update_user_profile(user, user_params) do
+      {:ok, updated_user} ->
+        profile_form = Accounts.change_user_profile(updated_user, user_params) |> to_form()
+
+        {:noreply,
+         socket
+         |> assign(:user, updated_user)
+         |> assign(:profile_form, profile_form)
+         |> put_flash(:info, "Profile updated successfully.")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, profile_form: to_form(changeset))}
     end
   end
 

@@ -155,6 +155,23 @@ defmodule Ysc.Accounts.User do
     user |> cast(attrs, [:state])
   end
 
+  @doc """
+  A user changeset for updating profile information.
+  """
+  def profile_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [
+      :first_name,
+      :last_name,
+      :phone_number,
+      :most_connected_country
+    ])
+    |> validate_length(:first_name, min: 1, max: 150)
+    |> validate_length(:last_name, min: 1, max: 150)
+    |> validate_required([:first_name, :last_name])
+    |> validate_phone(opts)
+  end
+
   defp validate_phone(changeset, _opts) do
     changeset
     |> validate_required([:phone_number])
