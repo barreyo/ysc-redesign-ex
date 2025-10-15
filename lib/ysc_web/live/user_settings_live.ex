@@ -185,7 +185,7 @@ defmodule YscWeb.UserSettingsLive do
               </div>
 
               <p :if={@current_membership == nil} class="text-sm text-zinc-600">
-                You are currently <strong>not</strong> an active and paying member of the YSC.
+                <.icon name="hero-x-circle" class="me-1 w-5 h-5 text-red-600 -mt-0.5" />You are currently <strong>not</strong> an active and paying member of the YSC.
               </p>
 
               <div
@@ -193,7 +193,7 @@ defmodule YscWeb.UserSettingsLive do
                 class="space-y-4"
               >
                 <p class="text-sm text-zinc-600 font-semibold">
-                  You have an
+                  <.icon name="hero-check-circle" class="me-1 w-5 h-5 text-green-600 -mt-0.5" />You have an
                   active <strong><%= get_membership_type(@current_membership) %></strong> membership.
                 </p>
 
@@ -308,30 +308,57 @@ defmodule YscWeb.UserSettingsLive do
                     <div class="w-full py-2 px-3 bg-zinc-50 rounded">
                       <div class="w-full flex flex-row justify-between items-center">
                         <div class="items-center space-x-2 flex flex-row">
-                          <svg
-                            :if={@default_payment_method != nil}
-                            stroke="currentColor"
-                            fill="currentColor"
-                            stroke-width="0"
-                            viewBox="0 0 576 512"
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="w-6 h-6 fill-zinc-800 text-zinc-800"
-                          >
-                            <path d={card_icon(@default_payment_method.card_brand)}></path>
-                          </svg>
+                           <div :if={@default_payment_method != nil} class="flex-shrink-0">
+                             <svg
+                               :if={@default_payment_method.type == :card}
+                               stroke="currentColor"
+                               fill="currentColor"
+                               stroke-width="0"
+                               viewBox="0 0 576 512"
+                               xmlns="http://www.w3.org/2000/svg"
+                               class="w-6 h-6 fill-zinc-800 text-zinc-800"
+                             >
+                               <path d={payment_method_icon(@default_payment_method)}></path>
+                             </svg>
+                             <svg
+                               :if={@default_payment_method.type == :bank_account}
+                               xmlns="http://www.w3.org/2000/svg"
+                               fill="none"
+                               viewBox="0 0 24 24"
+                               stroke-width="1.5"
+                               stroke="currentColor"
+                               class="w-6 h-6 text-zinc-800"
+                             >
+                               <path stroke-linecap="round" stroke-linejoin="round" d={payment_method_icon(@default_payment_method)}></path>
+                             </svg>
+                           </div>
 
-                          <span
-                            :if={@default_payment_method != nil}
-                            class="text-zinc-600 text-sm font-semibold"
-                          >
-                            **** **** **** <%= @default_payment_method.last_four %>
-                          </span>
-                          <span
-                            :if={@default_payment_method == nil}
-                            class="text-zinc-600 text-sm font-semibold"
-                          >
-                            No payment method
-                          </span>
+                          <div class="flex flex-col">
+                            <p
+                              :if={@default_payment_method != nil}
+                              class="text-zinc-600 text-sm font-semibold"
+                            >
+                              <%= payment_method_display_text(@default_payment_method) %>
+                            </p>
+                            <p
+                              :if={@default_payment_method != nil && @default_payment_method.type == :card}
+                              class="text-zinc-600 text-xs"
+                            >
+                              Expires <%= @default_payment_method.exp_month %> / <%= @default_payment_method.exp_year %>
+                            </p>
+                            <p
+                              :if={@default_payment_method != nil && @default_payment_method.type == :bank_account}
+                              class="text-zinc-600 text-xs"
+                            >
+                              <%= @default_payment_method.account_type %>
+                            </p>
+                            <p
+                              :if={@default_payment_method == nil}
+                              class="text-zinc-600 text-sm font-semibold"
+                            >
+                              No payment method
+                            </p>
+                          </div>
                         </div>
 
                         <.button
@@ -415,7 +442,7 @@ defmodule YscWeb.UserSettingsLive do
     user = ensure_stripe_customer_exists(user)
 
     public_key = Application.get_env(:stripity_stripe, :public_key)
-    default_payment_method = Bling.Customers.default_payment_method(user)
+    default_payment_method = Ysc.Payments.get_default_payment_method(user)
     membership_plans = Application.get_env(:ysc, :membership_plans)
 
     # Safely fetch invoices with error handling
@@ -525,7 +552,7 @@ defmodule YscWeb.UserSettingsLive do
     user = socket.assigns.user
 
     user =
-      Accounts.get_user!(user.id, [:default_membership_payment_method])
+      Accounts.get_user!(user.id)
       |> Accounts.User.populate_virtual_fields()
 
     if user.state != :active do
@@ -540,11 +567,13 @@ defmodule YscWeb.UserSettingsLive do
       return_url = url(~p"/billing/user/#{user.id}/finalize")
       price_id = get_price_id(membership_atom)
 
-      Bling.Customers.create_subscription(
+      IO.puts("Creating subscription")
+      res = Bling.Customers.create_subscription(
         user,
         return_url: return_url,
         prices: [{price_id, 1}]
       )
+      IO.inspect(res)
 
       {:noreply, socket |> redirect(to: ~p"/users/membership")}
     end
@@ -588,10 +617,14 @@ defmodule YscWeb.UserSettingsLive do
          "You must have an approved account to update your payment method."
        )}
     else
+      Stripe.Customer.update(user.stripe_id, %{
+        invoice_settings: %{default_payment_method: payment_method_id}
+      })
+
       {:noreply,
        socket
        |> put_flash(:info, "Payment method updated")
-       |> push_navigate(to: ~p"/users/membership")}
+       |> redirect(to: ~p"/users/membership")}
     end
   end
 
@@ -701,6 +734,31 @@ defmodule YscWeb.UserSettingsLive do
       "M239.7 79.9c-96.9 0-175.8 78.6-175.8 175.8 0 96.9 78.9 175.8 175.8 175.8 97.2 0 175.8-78.9 175.8-175.8 0-97.2-78.6-175.8-175.8-175.8zm-39.9 279.6c-41.7-15.9-71.4-56.4-71.4-103.8s29.7-87.9 71.4-104.1v207.9zm79.8.3V151.6c41.7 16.2 71.4 56.7 71.4 104.1s-29.7 87.9-71.4 104.1zM528 32H48C21.5 32 0 53.5 0 80v352c0 26.5 21.5 48 48 48h480c26.5 0 48-21.5 48-48V80c0-26.5-21.5-48-48-48zM329.7 448h-90.3c-106.2 0-193.8-85.5-193.8-190.2C45.6 143.2 133.2 64 239.4 64h90.3c105 0 200.7 79.2 200.7 193.8 0 104.7-95.7 190.2-200.7 190.2z"
 
   defp card_icon(_), do: "hero-credit-card"
+
+  defp payment_method_icon(%{type: :card, display_brand: brand}), do: card_icon(brand)
+  defp payment_method_icon(%{type: :bank_account}), do: bank_account_icon()
+  defp payment_method_icon(_), do: "hero-credit-card"
+
+  defp bank_account_icon(), do: "M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"
+
+  defp payment_method_display_text(%{type: :card, last_four: last_four}) when not is_nil(last_four) do
+    "**** **** **** #{last_four}"
+  end
+  defp payment_method_display_text(%{type: :bank_account, bank_name: bank_name, account_type: account_type, last_four: last_four}) when not is_nil(bank_name) and not is_nil(last_four) do
+    "#{bank_name} ••••#{last_four}"
+  end
+  defp payment_method_display_text(%{type: :bank_account, last_four: last_four}) when not is_nil(last_four) do
+    "Bank Account ••••#{last_four}"
+  end
+  defp payment_method_display_text(%{type: :card}) do
+    "Credit Card"
+  end
+  defp payment_method_display_text(%{type: :bank_account}) do
+    "Bank Account"
+  end
+  defp payment_method_display_text(_) do
+    "Payment Method"
+  end
 
   # Helper function to ensure Stripe customer exists
   defp ensure_stripe_customer_exists(user) do

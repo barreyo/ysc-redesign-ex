@@ -27,6 +27,14 @@ defmodule Ysc.Payments do
   def get_payment_method!(id), do: Repo.get!(PaymentMethod, id)
 
   @doc """
+  Gets the default payment method for a user.
+  """
+  def get_default_payment_method(user) do
+    from(pm in PaymentMethod, where: pm.user_id == ^user.id and pm.is_default == true)
+    |> Repo.one()
+  end
+
+  @doc """
   Creates a payment method with deduplication logic.
   """
   def insert_payment_method(attrs \\ %{}) do
@@ -47,9 +55,29 @@ defmodule Ysc.Payments do
 
   @doc """
   Deletes a payment method.
+  If the deleted payment method was the default, automatically sets a new default from remaining payment methods.
   """
   def delete_payment_method(%PaymentMethod{} = payment_method) do
-    Repo.delete(payment_method)
+    user = Ysc.Accounts.get_user!(payment_method.user_id)
+    was_default = payment_method.is_default
+
+    case Repo.delete(payment_method) do
+      {:ok, deleted_payment_method} ->
+        # If the deleted payment method was the default, set a new default
+        if was_default do
+          remaining_payment_methods = list_payment_methods(user)
+
+          if length(remaining_payment_methods) > 0 do
+            # Set the oldest remaining payment method as default
+            new_default = Enum.min_by(remaining_payment_methods, & &1.inserted_at)
+            set_default_payment_method(user, new_default)
+          end
+        end
+
+        {:ok, deleted_payment_method}
+
+      error -> error
+    end
   end
 
   @doc """
@@ -111,7 +139,7 @@ defmodule Ysc.Payments do
   This will unset any existing default payment method and set the new one.
   """
   def set_default_payment_method(user, payment_method) do
-    Repo.transaction(fn ->
+    case Repo.transaction(fn ->
       # First, unset any existing default payment methods for this user
       from(pm in PaymentMethod, where: pm.user_id == ^user.id and pm.is_default == true)
       |> Repo.update_all(set: [is_default: false])
@@ -120,7 +148,45 @@ defmodule Ysc.Payments do
       payment_method
       |> PaymentMethod.changeset(%{is_default: true})
       |> Repo.update!()
+    end) do
+      {:ok, _updated_payment_method} -> {:ok, user}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Fixes users who have payment methods but no default payment method set.
+  This is a utility function to fix existing data.
+  """
+  def fix_missing_default_payment_methods do
+    # Find all users who have payment methods but no default payment method
+    users_without_default =
+      from(u in Ysc.Accounts.User,
+        join: pm in PaymentMethod, on: pm.user_id == u.id,
+        left_join: default_pm in PaymentMethod,
+          on: default_pm.user_id == u.id and default_pm.is_default == true,
+        where: is_nil(default_pm.id),
+        distinct: true,
+        select: u
+      )
+      |> Repo.all()
+
+    results = Enum.map(users_without_default, fn user ->
+      payment_methods = list_payment_methods(user)
+
+      if length(payment_methods) > 0 do
+        # Set the first (oldest) payment method as default
+        first_payment_method = Enum.min_by(payment_methods, & &1.inserted_at)
+        set_default_payment_method(user, first_payment_method)
+      else
+        {:ok, user}
+      end
     end)
+
+    successful_fixes = Enum.count(results, fn {status, _} -> status == :ok end)
+    total_users = length(users_without_default)
+
+    {:ok, %{fixed_users: successful_fixes, total_users: total_users}}
   end
 
   @doc """
@@ -149,9 +215,18 @@ defmodule Ysc.Payments do
       payload: stripe_payment_method_to_map(stripe_payment_method)
     }
 
-    case get_payment_method_by_provider(:stripe, stripe_payment_method.id) do
+    result = case get_payment_method_by_provider(:stripe, stripe_payment_method.id) do
       nil -> insert_payment_method(attrs)
       existing_payment_method -> update_payment_method(existing_payment_method, attrs)
+    end
+
+    # If the payment method was successfully created/updated, ensure it's set as default if needed
+    case result do
+      {:ok, payment_method} ->
+        # Check if user has any default payment method, if not, set this one as default
+        set_default_payment_method_if_none(user, payment_method)
+        result
+      error -> error
     end
   end
 
@@ -179,9 +254,17 @@ defmodule Ysc.Payments do
 
   defp stripe_payment_method_to_map(stripe_payment_method) do
     # Convert Stripe struct to map for storage
-    Map.from_struct(stripe_payment_method)
-    |> Enum.map(fn {key, value} -> {key, convert_to_map(value)} end)
-    |> Enum.into(%{})
+    case stripe_payment_method do
+      %{__struct__: _} = struct ->
+        Map.from_struct(struct)
+        |> Enum.map(fn {key, value} -> {key, convert_to_map(value)} end)
+        |> Enum.into(%{})
+
+      %{} = map ->
+        # Already a map, just convert nested values
+        Enum.map(map, fn {key, value} -> {key, convert_to_map(value)} end)
+        |> Enum.into(%{})
+    end
   end
 
   defp convert_to_map(%{__struct__: _module} = struct) do

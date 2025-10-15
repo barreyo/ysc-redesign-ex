@@ -62,7 +62,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
           type="number"
           label="Quantity"
           field={@form[:quantity]}
-          required
         />
 
         <.date_picker

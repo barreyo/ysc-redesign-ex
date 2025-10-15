@@ -190,9 +190,9 @@ defmodule YscWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     scope "/:customer_id" do
-      get "/payment-method", StripePaymentMethodController, :store_payment_method
-      get "/finalize", StripePaymentMethodController, :finalize
-      get "/setup-payment", StripePaymentMethodController, :setup_payment
+      get "/payment-method", Ysc.Controllers.StripePaymentMethodController, :store_payment_method
+      get "/finalize", Ysc.Controllers.StripePaymentMethodController, :finalize
+      get "/setup-payment", Ysc.Controllers.StripePaymentMethodController, :setup_payment
     end
   end
 end

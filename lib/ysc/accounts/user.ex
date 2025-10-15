@@ -306,19 +306,13 @@ defmodule Ysc.Accounts.User do
   end
 
   @doc """
-  Returns the provider_id of the default_membership_payment_method.
-  This is a computed field that requires the default_membership_payment_method to be preloaded.
+  Returns the provider_id of the default payment method.
   """
-  def payment_id(%__MODULE__{default_membership_payment_method: %{provider_id: provider_id}}) do
-    provider_id
-  end
-
-  def payment_id(%__MODULE__{default_membership_payment_method: nil}) do
-    nil
-  end
-
-  def payment_id(%__MODULE__{}) do
-    nil
+  def payment_id(%__MODULE__{} = user) do
+    case Ysc.Payments.get_default_payment_method(user) do
+      %{provider_id: provider_id} -> provider_id
+      nil -> nil
+    end
   end
 
   @doc """
