@@ -358,6 +358,17 @@ defmodule YscWeb.AdminUsersLive do
                         {"Member Outreach & Events", :member_outreach},
                         {"Membership Director", :membership_director}
                       ]
+                    ],
+                    membership_type: [
+                      label: "Membership",
+                      type: "checkgroup",
+                      multiple: true,
+                      op: :in,
+                      options: [
+                        {"Single", :single},
+                        {"Family", :family},
+                        {"No Active Membership", :none}
+                      ]
                     ]
                   ]}
                   meta={@meta}
@@ -399,15 +410,12 @@ defmodule YscWeb.AdminUsersLive do
                 <%= user_state_to_readable(user.state) %>
               </.badge>
             </:col>
-            <:col :let={{_, user}} label="Role" field={:role}>
-              <%= String.capitalize("#{user.role}") %>
-            </:col>
-            <:col :let={{_, user}} label="Membership">
+            <:col :let={{_, user}} label="Membership" field={:membership_type}>
               <%= case get_active_membership_type(user) do %>
                 <% nil -> %>
                   <span class="text-zinc-400">—</span>
                 <% membership_type -> %>
-                  <.badge type="blue">
+                  <.badge type="sky">
                     <%= String.capitalize("#{membership_type}") %>
                   </.badge>
               <% end %>

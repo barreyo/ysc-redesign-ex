@@ -177,11 +177,20 @@ defmodule Ysc.Accounts do
   end
 
   def list_paginated_users(params) do
-    case Flop.validate_and_run(User, params, for: User) do
+    # Extract membership_type filter if present
+    {membership_filters, other_params} = extract_membership_filters(params)
+    # Check if sorting by membership_type
+    {membership_sort, other_params} = extract_membership_sort(other_params)
+
+    case Flop.validate_and_run(User, other_params, for: User) do
       {:ok, {users, meta}} ->
+        # Apply membership filters if any
+        filtered_users = apply_membership_filters(users, membership_filters)
         # Preload active subscriptions after the main query
-        users_with_subscriptions = preload_active_subscriptions(users)
-        {:ok, {users_with_subscriptions, meta}}
+        users_with_subscriptions = preload_active_subscriptions(filtered_users)
+        # Apply membership sorting if needed
+        sorted_users = apply_membership_sorting(users_with_subscriptions, membership_sort)
+        {:ok, {sorted_users, meta}}
 
       error ->
         error
@@ -209,11 +218,20 @@ defmodule Ysc.Accounts do
           any()
         ) :: {:error, Flop.Meta.t()} | {:ok, {list(), Flop.Meta.t()}}
   def list_paginated_users(params, search_term) do
-    case Flop.validate_and_run(fuzzy_search_user(search_term), params, for: User) do
+    # Extract membership_type filter if present
+    {membership_filters, other_params} = extract_membership_filters(params)
+    # Check if sorting by membership_type
+    {membership_sort, other_params} = extract_membership_sort(other_params)
+
+    case Flop.validate_and_run(fuzzy_search_user(search_term), other_params, for: User) do
       {:ok, {users, meta}} ->
+        # Apply membership filters if any
+        filtered_users = apply_membership_filters(users, membership_filters)
         # Preload active subscriptions after the main query
-        users_with_subscriptions = preload_active_subscriptions(users)
-        {:ok, {users_with_subscriptions, meta}}
+        users_with_subscriptions = preload_active_subscriptions(filtered_users)
+        # Apply membership sorting if needed
+        sorted_users = apply_membership_sorting(users_with_subscriptions, membership_sort)
+        {:ok, {sorted_users, meta}}
 
       error ->
         error
@@ -664,5 +682,181 @@ defmodule Ysc.Accounts do
       user_subscriptions = Map.get(subscriptions_by_user, user.id, [])
       %{user | subscriptions: user_subscriptions}
     end)
+  end
+
+  # Helper function to extract membership_type filters from params
+  defp extract_membership_filters(params) do
+    case params do
+      %{"filters" => filters} when is_map(filters) ->
+        # Look for membership_type filter in the filters map
+        membership_filter =
+          Enum.find_value(filters, fn {_key, filter} ->
+            case filter do
+              %{"field" => "membership_type", "value" => value}
+              when value != "" and value != [""] ->
+                # Clean up the value - remove empty strings
+                cleaned_value =
+                  case value do
+                    list when is_list(list) -> Enum.reject(list, &(&1 == ""))
+                    other -> other
+                  end
+
+                if cleaned_value != [] and cleaned_value != "", do: cleaned_value, else: nil
+
+              _ ->
+                nil
+            end
+          end)
+
+        if membership_filter do
+          # Remove the membership_type filter from the filters map
+          cleaned_filters =
+            Enum.reject(filters, fn {_key, filter} ->
+              case filter do
+                %{"field" => "membership_type"} -> true
+                _ -> false
+              end
+            end)
+            |> Enum.with_index()
+            |> Map.new(fn {filter, index} -> {to_string(index), filter} end)
+
+          {membership_filter, Map.put(params, "filters", cleaned_filters)}
+        else
+          {nil, params}
+        end
+
+      _ ->
+        {nil, params}
+    end
+  end
+
+  # Helper function to apply membership filters to users
+  defp apply_membership_filters(users, nil), do: users
+
+  defp apply_membership_filters(users, membership_filters) do
+    # Get membership plans for price ID lookup
+    membership_plans = Application.get_env(:ysc, :membership_plans)
+    price_to_type = Map.new(membership_plans, fn plan -> {plan.stripe_price_id, plan.id} end)
+
+    Enum.filter(users, fn user ->
+      user_membership_type = get_active_membership_type_for_filter(user, price_to_type)
+      user_membership_type in membership_filters
+    end)
+  end
+
+  # Helper function to get membership type for filtering
+  defp get_active_membership_type_for_filter(user, price_to_type) do
+    # Get all subscriptions for the user
+    subscriptions =
+      case user.subscriptions do
+        %Ecto.Association.NotLoaded{} -> []
+        subscriptions when is_list(subscriptions) -> subscriptions
+        _ -> []
+      end
+
+    # Filter for active subscriptions only
+    active_subscriptions =
+      Enum.filter(subscriptions, fn subscription ->
+        Bling.Subscriptions.valid?(subscription)
+      end)
+
+    case active_subscriptions do
+      [] ->
+        :none
+
+      [single_subscription] ->
+        get_membership_type_from_subscription_for_filter(single_subscription, price_to_type)
+
+      multiple_subscriptions ->
+        # If multiple active subscriptions, pick the most expensive one
+        most_expensive = get_most_expensive_subscription_for_filter(multiple_subscriptions)
+        get_membership_type_from_subscription_for_filter(most_expensive, price_to_type)
+    end
+  end
+
+  defp get_membership_type_from_subscription_for_filter(subscription, price_to_type) do
+    case subscription.subscription_items do
+      [item | _] ->
+        Map.get(price_to_type, item.stripe_price_id, :none)
+
+      _ ->
+        :none
+    end
+  end
+
+  defp get_most_expensive_subscription_for_filter(subscriptions) do
+    membership_plans = Application.get_env(:ysc, :membership_plans)
+
+    # Create a map of price_id to amount for quick lookup
+    price_to_amount =
+      Map.new(membership_plans, fn plan ->
+        {plan.stripe_price_id, plan.amount}
+      end)
+
+    # Find the subscription with the highest amount
+    Enum.max_by(subscriptions, fn subscription ->
+      # Get the first subscription item (assuming one item per subscription)
+      case subscription.subscription_items do
+        [item | _] ->
+          Map.get(price_to_amount, item.stripe_price_id, 0)
+
+        _ ->
+          0
+      end
+    end)
+  end
+
+  # Helper function to extract membership_type sorting from params
+  defp extract_membership_sort(params) do
+    case params do
+      %{"order_by" => order_by, "order_directions" => order_directions} ->
+        # Check if membership_type is in the order_by list
+        membership_sort_index = Enum.find_index(order_by, &(&1 == "membership_type"))
+
+        if membership_sort_index do
+          direction = Enum.at(order_directions, membership_sort_index, :asc)
+
+          # Remove membership_type from order_by and order_directions
+          new_order_by = List.delete_at(order_by, membership_sort_index)
+          new_order_directions = List.delete_at(order_directions, membership_sort_index)
+
+          new_params =
+            params
+            |> Map.put("order_by", new_order_by)
+            |> Map.put("order_directions", new_order_directions)
+
+          {{:membership_type, direction}, new_params}
+        else
+          {nil, params}
+        end
+
+      _ ->
+        {nil, params}
+    end
+  end
+
+  # Helper function to apply membership sorting to users
+  defp apply_membership_sorting(users, nil), do: users
+
+  defp apply_membership_sorting(users, {:membership_type, direction}) do
+    # Get membership plans for sorting
+    membership_plans = Application.get_env(:ysc, :membership_plans)
+    price_to_type = Map.new(membership_plans, fn plan -> {plan.stripe_price_id, plan.id} end)
+
+    # Define sort order for membership types
+    membership_sort_order = %{
+      :family => 1,
+      :single => 2,
+      :none => 3
+    }
+
+    Enum.sort_by(
+      users,
+      fn user ->
+        membership_type = get_active_membership_type_for_filter(user, price_to_type)
+        Map.get(membership_sort_order, membership_type, 4)
+      end,
+      direction
+    )
   end
 end
