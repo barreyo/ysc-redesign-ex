@@ -97,12 +97,7 @@ config :stripity_stripe,
 
 config :stripity_stripe, :retries, max_attempts: 3, base_backoff: 500, max_backoff: 2_000
 
-config :bling,
-  bling: Ysc.Bling,
-  repo: Ysc.Repo,
-  customers: [user: Ysc.Accounts.User],
-  subscription: Ysc.Subscriptions.Subscription,
-  subscription_item: Ysc.Subscriptions.SubscriptionItem
+# Removed Bling configuration - using internal subscription management
 
 config :ysc, :quickbooks,
   client_id: System.get_env("QUICKBOOKS_CLIENT_ID"),

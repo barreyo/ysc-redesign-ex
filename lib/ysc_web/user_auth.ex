@@ -5,8 +5,8 @@ defmodule YscWeb.UserAuth do
   import Phoenix.Controller
 
   alias Ysc.Accounts
-  alias Bling.Customers
-  alias Bling.Subscriptions
+  alias Ysc.Customers
+  alias Ysc.Subscriptions
 
   # Make the remember me cookie valid for 60 days.
   # If you want bump or reduce this value, also change

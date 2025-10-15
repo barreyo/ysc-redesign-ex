@@ -32,12 +32,10 @@ defmodule YscWeb.Workers.UserExporter do
       filtered_query =
         if only_subscribed do
           # Join with subscriptions and filter for users with active subscriptions
-          # Check both user.id and user.stripe_id as customer_id
+          # Check both user.id and user.stripe_id as user_id
           from(u in User,
             join: s in Subscription,
-            on:
-              (s.customer_id == fragment("?::text", u.id) or s.customer_id == u.stripe_id) and
-                s.customer_type == "user",
+            on: s.user_id == u.id,
             where: s.stripe_status in ["active", "trialing", "past_due"],
             distinct: true
           )

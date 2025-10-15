@@ -1,0 +1,99 @@
+<mj-section
+  background-color="#fff"
+  border-radius="6px 6px 0px 0px"
+  padding-bottom="24px"
+  padding-left="48px"
+  padding-right="48px"
+  padding-top="48px"
+  padding="48px"
+>
+  <mj-column padding="0">
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text color="#000000" font-size="32px" line-height="1.25" padding="0px">
+      <strong>Membership Payment Issue</strong>
+    </mj-text>
+  </mj-column>
+</mj-section>
+<mj-section
+  background-color="#fff"
+  border-radius="0px 0px 6px 6px"
+  padding-bottom="48px"
+  padding-left="48px"
+  padding-right="48px"
+  padding-top="20px"
+  padding="48px"
+>
+  <mj-column padding="0">
+    <mj-spacer height="12px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      Hej <%= @first_name %>,
+    </mj-text>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      We hope this message finds you well! We wanted to reach out regarding your Young Scandinavians Club membership payment.
+    </mj-text>
+    <mj-spacer height="12px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      Unfortunately, we encountered an issue processing your recent membership payment. This could be due to several reasons:
+    </mj-text>
+    <mj-text font-size="18px" align="left" line-height="1.5">
+      <ul>
+        <li style="padding-bottom: 10px">
+          Insufficient funds in your account
+        </li>
+        <li style="padding-bottom: 10px">
+          Expired or invalid payment method
+        </li>
+        <li style="padding-bottom: 10px">
+          Bank security restrictions
+        </li>
+        <li>
+          Temporary payment processing issues
+        </li>
+      </ul>
+    </mj-text>
+    <mj-spacer height="12px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      Don't worry - your membership application remains approved and we're here to help you complete the payment process.
+    </mj-text>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-button href="<%= pay_membership_url() %>" css-class="btn_block" inner-padding="15px" width="100%" background-color="#1447e6" color="#ffffff" align="left" font-size="18px" border-radius="4px">Retry Payment → </mj-button>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      If you continue to experience issues, please try:
+    </mj-text>
+    <mj-text font-size="18px" align="left" line-height="1.5">
+      <ul>
+        <li style="padding-bottom: 10px">
+          <strong>Contacting your bank:</strong> They may need to authorize the transaction
+        </li>
+        <li style="padding-bottom: 10px">
+          <strong>Using a different payment method:</strong> Try a different card or payment option
+        </li>
+        <li style="padding-bottom: 10px">
+          <strong>Checking your account balance:</strong> Ensure sufficient funds are available
+        </li>
+        <li>
+          <strong>Reaching out to us:</strong> Reply to this email if you need assistance
+        </li>
+      </ul>
+    </mj-text>
+    <mj-spacer height="12px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      Once your payment is successfully processed, you'll immediately gain access to all member benefits, including our events, cabin bookings, and the vibrant Scandinavian community.
+    </mj-text>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      We're excited to welcome you to the Young Scandinavians Club and look forward to seeing you at our upcoming events!
+    </mj-text>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      Vi ses snart! (See you soon!) 👋
+    </mj-text>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      The Young Scandinavians Club
+    </mj-text>
+    <mj-spacer height="12px"></mj-spacer>
+  </mj-column>
+</mj-section>

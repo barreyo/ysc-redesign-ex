@@ -295,11 +295,13 @@ defmodule YscWeb.AdminUsersLive do
               enterkeyhint="search"
               spellcheck="false"
               placeholder="Search by name, email or phone number"
-              value={case @params["search"] do
-                %{"query" => query} -> query
-                query when is_binary(query) -> query
-                _ -> ""
-              end}
+              value={
+                case @params["search"] do
+                  %{"query" => query} -> query
+                  query when is_binary(query) -> query
+                  _ -> ""
+                end
+              }
               tabindex="0"
               phx-debounce="200"
               class="block pt-3 pb-3 ps-10 text-sm text-zinc-800 border border-zinc-200 rounded w-full bg-zinc-50 focus:ring-blue-500 focus:border-blue-500"
@@ -777,7 +779,7 @@ defmodule YscWeb.AdminUsersLive do
     # Filter for active subscriptions only
     active_subscriptions =
       Enum.filter(subscriptions, fn subscription ->
-        Bling.Subscriptions.valid?(subscription)
+        Ysc.Subscriptions.valid?(subscription)
       end)
 
     case active_subscriptions do

@@ -2,7 +2,8 @@ defmodule YscWeb.UserSettingsLive do
   use YscWeb, :live_view
 
   alias Ysc.Accounts
-  alias Bling.Customers
+  alias Ysc.Customers
+  alias Ysc.Subscriptions
 
   alias Ysc.Subscriptions.Subscription
 
@@ -16,31 +17,169 @@ defmodule YscWeb.UserSettingsLive do
           on_cancel={JS.navigate(~p"/users/membership")}
           show
         >
-          <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-4">
-            Setup Payment Method
+          <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-6">
+            Update Payment Method
           </h2>
 
-          <form
-            id="payment-form"
-            class="flex space-y-6 flex-col"
-            phx-hook="StripeInput"
-            data-clientSecret={@payment_intent_secret}
-            data-publicKey={@public_key}
-            data-submitURL={"#{YscWeb.Endpoint.url()}/billing/user/#{@user.id}/payment-method"}
-            data-returnURL={"#{YscWeb.Endpoint.url()}/billing/user/#{@user.id}/finalize"}
-          >
-            <div id="error-message">
-              <!-- Display error message to your customers here -->
-              <p id="card-errors" class="text-red-400 text-sm"></p>
+          <div class="space-y-6">
+            <!-- Existing Payment Methods -->
+            <div :if={length(@all_payment_methods) > 0}>
+              <h3 class="text-lg font-medium text-zinc-900 mb-4">Select Existing Payment Method</h3>
+              <div class="space-y-3">
+                <div
+                  :for={payment_method <- @all_payment_methods}
+                  class={[
+                    "border rounded-lg p-4 transition-all duration-200",
+                    @selecting_payment_method && "cursor-not-allowed opacity-50",
+                    !@selecting_payment_method && "cursor-pointer",
+                    @default_payment_method && payment_method.id == @default_payment_method.id &&
+                      "border-blue-500 bg-blue-50",
+                    (!@default_payment_method || payment_method.id != @default_payment_method.id) &&
+                      !@selecting_payment_method && "border-zinc-200 hover:border-zinc-300"
+                  ]}
+                  phx-click={if @selecting_payment_method, do: nil, else: "select-payment-method"}
+                  phx-value-payment_method_id={payment_method.id}
+                >
+                  <div class="flex items-center space-x-3">
+                    <div class="flex-shrink-0">
+                      <svg
+                        :if={payment_method.type == :card}
+                        stroke="currentColor"
+                        fill="currentColor"
+                        stroke-width="0"
+                        viewBox="0 0 576 512"
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="w-6 h-6 fill-zinc-800 text-zinc-800"
+                      >
+                        <path d={payment_method_icon(payment_method)}></path>
+                      </svg>
+                      <svg
+                        :if={payment_method.type == :bank_account}
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke-width="1.5"
+                        stroke="currentColor"
+                        class="w-6 h-6 text-zinc-800"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d={payment_method_icon(payment_method)}
+                        >
+                        </path>
+                      </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-zinc-600 text-sm font-semibold">
+                        <%= payment_method_display_text(payment_method) %>
+                      </p>
+                      <p
+                        :if={
+                          payment_method.type == :card && payment_method.exp_month &&
+                            payment_method.exp_year
+                        }
+                        class="text-zinc-600 text-xs"
+                      >
+                        Expires <%= payment_method.exp_month %> / <%= payment_method.exp_year %>
+                      </p>
+                      <p
+                        :if={payment_method.type == :bank_account && payment_method.account_type}
+                        class="text-zinc-600 text-xs"
+                      >
+                        <%= payment_method.account_type %>
+                      </p>
+                    </div>
+                    <div class="flex-shrink-0">
+                      <div
+                        :if={
+                          @default_payment_method && payment_method.id == @default_payment_method.id
+                        }
+                        class="flex items-center text-blue-600"
+                      >
+                        <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fill-rule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clip-rule="evenodd"
+                          >
+                          </path>
+                        </svg>
+                        <span class="text-sm font-medium">Default</span>
+                      </div>
+                      <div
+                        :if={
+                          !@default_payment_method || payment_method.id != @default_payment_method.id
+                        }
+                        class="text-sm text-zinc-400"
+                      >
+                        <span :if={!@selecting_payment_method}>Click to set as default</span>
+                        <span :if={@selecting_payment_method}>Updating...</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div id="payment-element">
-              <!-- Elements will create form elements here -->
+            <!-- Add New Payment Method -->
+            <div class="border-t flex w-full justify-end">
+              <button
+                :if={!@show_new_payment_form}
+                id="add-payment-method"
+                type="button"
+                phx-click="add-new-payment-method"
+                class="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  >
+                  </path>
+                </svg>
+                Add New Payment Method
+              </button>
             </div>
+          </div>
+          <!-- New Payment Method Form (Hidden by default) -->
+          <div :if={@show_new_payment_form} class="pt-4">
+            <h3 class="text-lg font-medium text-zinc-900">Add New Payment Method</h3>
+            <form
+              id="payment-form"
+              class="flex space-y-6 flex-col"
+              phx-hook="StripeInput"
+              data-clientSecret={@payment_intent_secret}
+              data-publicKey={@public_key}
+              data-submitURL={"#{YscWeb.Endpoint.url()}/billing/user/#{@user.id}/payment-method"}
+              data-returnURL={"#{YscWeb.Endpoint.url()}/billing/user/#{@user.id}/finalize"}
+            >
+              <div id="error-message">
+                <p id="card-errors" class="text-red-400 text-sm"></p>
+              </div>
+              <div id="payment-element">
+                <!-- Elements will create form elements here -->
+              </div>
 
-            <div class="flex justify-end">
-              <.button type="submit" id="submit">Save Payment Method</.button>
-            </div>
-          </form>
+              <div class="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  phx-click="cancel-new-payment-method"
+                  class="px-4 py-2 border border-zinc-300 rounded-md text-sm font-medium text-zinc-700 bg-white hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  id="submit"
+                  class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Save Payment Method
+                </button>
+              </div>
+            </form>
+          </div>
         </.modal>
 
         <ul class="flex-column space-y space-y-4 md:pr-10 text-sm font-medium text-zinc-600 md:me-4 mb-4 md:mb-0">
@@ -185,25 +324,58 @@ defmodule YscWeb.UserSettingsLive do
               </div>
 
               <p :if={@current_membership == nil} class="text-sm text-zinc-600">
-                <.icon name="hero-x-circle" class="me-1 w-5 h-5 text-red-600 -mt-0.5" />You are currently <strong>not</strong> an active and paying member of the YSC.
+                <.icon name="hero-x-circle" class="me-1 w-5 h-5 text-red-600 -mt-0.5" />You are currently
+                <strong>not</strong>
+                an active and paying member of the YSC.
               </p>
 
               <div
-                :if={@current_membership != nil && Bling.Subscriptions.active?(@current_membership)}
+                :if={@current_membership != nil && Subscriptions.active?(@current_membership)}
                 class="space-y-4"
               >
-                <p class="text-sm text-zinc-600 font-semibold">
-                  <.icon name="hero-check-circle" class="me-1 w-5 h-5 text-green-600 -mt-0.5" />You have an
-                  active <strong><%= get_membership_type(@current_membership) %></strong> membership.
-                </p>
+                <.alert_box :if={Subscriptions.cancelled?(@current_membership)} color="red">
+                  <p class="text-sm text-zinc-600">
+                    <.icon name="hero-x-circle" class="me-1 w-5 h-5 text-red-600 -mt-0.5" />Your membership has been canceled.
+                    You are still an active member until <strong>
+                      <%= Timex.format!(@current_membership.ends_at, "{Mshort} {D}, {YYYY}") %>
+                    </strong>, at which point you will no longer have access to the YSC membership features.
+                  </p>
+                </.alert_box>
+
+                <div :if={!Subscriptions.cancelled?(@current_membership)}>
+                  <p class="text-sm text-zinc-600 font-semibold">
+                    <.icon name="hero-check-circle" class="me-1 w-5 h-5 text-green-600 -mt-0.5" />You have an
+                    active <strong><%= get_membership_type(@current_membership) %></strong>
+                    membership.
+                  </p>
+
+                  <p
+                    :if={@current_membership.current_period_end != nil}
+                    class="text-sm text-zinc-600 mt-2"
+                  >
+                    Your membership will renew on <strong>
+                      <%= Timex.format!(@current_membership.current_period_end, "{Mshort} {D}, {YYYY}") %>
+                    </strong>.
+                  </p>
+                </div>
 
                 <.button
+                  :if={!Subscriptions.cancelled?(@current_membership)}
                   phx-click="cancel-membership"
                   color="red"
-                  disabled={!@user_is_active}
+                  disabled={!@user_is_active || Subscriptions.cancelled?(@current_membership)}
                   data-confirm="Are you sure you want to cancel your membership?"
                 >
                   Cancel Membership
+                </.button>
+
+                <.button
+                  :if={Subscriptions.cancelled?(@current_membership)}
+                  phx-click="reactivate-membership"
+                  color="green"
+                  disabled={!@user_is_active}
+                >
+                  Reactivate Membership
                 </.button>
               </div>
             </div>
@@ -213,7 +385,10 @@ defmodule YscWeb.UserSettingsLive do
                 <h2 class="text-zinc-900 font-bold text-xl">Manage Membership</h2>
               </div>
 
-              <div :if={!@user_is_active} class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+              <div
+                :if={!@user_is_active}
+                class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4"
+              >
                 <div class="flex">
                   <div class="flex-shrink-0">
                     <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-yellow-400" />
@@ -305,33 +480,38 @@ defmodule YscWeb.UserSettingsLive do
                   <div class="space-y-2">
                     <h3 class="text-lg font-semibold text-zinc-900">Payment Method</h3>
 
-                    <div class="w-full py-2 px-3 bg-zinc-50 rounded">
+                    <div class="w-full py-2 px-3 rounded border border-zinc-200">
                       <div class="w-full flex flex-row justify-between items-center">
                         <div class="items-center space-x-2 flex flex-row">
-                           <div :if={@default_payment_method != nil} class="flex-shrink-0">
-                             <svg
-                               :if={@default_payment_method.type == :card}
-                               stroke="currentColor"
-                               fill="currentColor"
-                               stroke-width="0"
-                               viewBox="0 0 576 512"
-                               xmlns="http://www.w3.org/2000/svg"
-                               class="w-6 h-6 fill-zinc-800 text-zinc-800"
-                             >
-                               <path d={payment_method_icon(@default_payment_method)}></path>
-                             </svg>
-                             <svg
-                               :if={@default_payment_method.type == :bank_account}
-                               xmlns="http://www.w3.org/2000/svg"
-                               fill="none"
-                               viewBox="0 0 24 24"
-                               stroke-width="1.5"
-                               stroke="currentColor"
-                               class="w-6 h-6 text-zinc-800"
-                             >
-                               <path stroke-linecap="round" stroke-linejoin="round" d={payment_method_icon(@default_payment_method)}></path>
-                             </svg>
-                           </div>
+                          <div :if={@default_payment_method != nil} class="flex-shrink-0">
+                            <svg
+                              :if={@default_payment_method.type == :card}
+                              stroke="currentColor"
+                              fill="currentColor"
+                              stroke-width="0"
+                              viewBox="0 0 576 512"
+                              xmlns="http://www.w3.org/2000/svg"
+                              class="w-6 h-6 fill-zinc-800 text-zinc-800"
+                            >
+                              <path d={payment_method_icon(@default_payment_method)}></path>
+                            </svg>
+                            <svg
+                              :if={@default_payment_method.type == :bank_account}
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke-width="1.5"
+                              stroke="currentColor"
+                              class="w-6 h-6 text-zinc-800"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d={payment_method_icon(@default_payment_method)}
+                              >
+                              </path>
+                            </svg>
+                          </div>
 
                           <div class="flex flex-col">
                             <p
@@ -341,13 +521,19 @@ defmodule YscWeb.UserSettingsLive do
                               <%= payment_method_display_text(@default_payment_method) %>
                             </p>
                             <p
-                              :if={@default_payment_method != nil && @default_payment_method.type == :card}
+                              :if={
+                                @default_payment_method != nil &&
+                                  @default_payment_method.type == :card
+                              }
                               class="text-zinc-600 text-xs"
                             >
                               Expires <%= @default_payment_method.exp_month %> / <%= @default_payment_method.exp_year %>
                             </p>
                             <p
-                              :if={@default_payment_method != nil && @default_payment_method.type == :bank_account}
+                              :if={
+                                @default_payment_method != nil &&
+                                  @default_payment_method.type == :bank_account
+                              }
                               class="text-zinc-600 text-xs"
                             >
                               <%= @default_payment_method.account_type %>
@@ -383,7 +569,7 @@ defmodule YscWeb.UserSettingsLive do
               </div>
             </div>
 
-            <div class="rounded border border-zinc-100 px-4 py-4 space-y-4">
+            <%!-- <div class="rounded border border-zinc-100 px-4 py-4 space-y-4">
               <h2 class="text-zinc-900 font-bold text-xl">Membership Billing History</h2>
 
               <div class="space-y-3">
@@ -411,7 +597,7 @@ defmodule YscWeb.UserSettingsLive do
                   <.button phx-click={JS.navigate(invoice.hosted_invoice_url)}>View</.button>
                 </div>
               </div>
-            </div>
+            </div> --%>
           </div>
         </div>
       </div>
@@ -443,19 +629,24 @@ defmodule YscWeb.UserSettingsLive do
 
     public_key = Application.get_env(:stripity_stripe, :public_key)
     default_payment_method = Ysc.Payments.get_default_payment_method(user)
+
+    all_payment_methods =
+      Ysc.Payments.list_payment_methods(user)
+      |> Enum.sort_by(fn pm -> {!pm.is_default, pm.inserted_at} end)
+
     membership_plans = Application.get_env(:ysc, :membership_plans)
 
     # Safely fetch invoices with error handling
-    invoices = fetch_user_invoices(user)
+    # invoices = fetch_user_invoices(user)
 
     # This is all very dumb, but it's just a quick way to get the current membership status
     current_membership = socket.assigns.current_membership
     IO.inspect(current_membership)
-    family_plan_active? = Bling.Customers.subscribed_to_price?(user, get_price_id(:family))
+    family_plan_active? = Customers.subscribed_to_price?(user, get_price_id(:family))
 
     active_plan = get_membership_plan(current_membership)
 
-    IO.inspect(default_payment_method)
+    IO.inspect(Subscriptions.list_subscriptions(user))
 
     # Check if user is active to determine if they can manage membership
     user_is_active = user.state == :active
@@ -470,9 +661,12 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:public_key, public_key)
       |> assign(:email_form_current_password, nil)
       |> assign(:current_email, user.email)
-      |> assign(:invoices, invoices)
+      # |> assign(:invoices, invoices)
       |> assign(:change_membership_button, false)
       |> assign(:default_payment_method, default_payment_method)
+      |> assign(:all_payment_methods, all_payment_methods)
+      |> assign(:show_new_payment_form, false)
+      |> assign(:selecting_payment_method, false)
       |> assign(:membership_plans, membership_plans)
       |> assign(:active_plan_type, active_plan)
       |> assign(:email_form, to_form(email_changeset))
@@ -566,16 +760,50 @@ defmodule YscWeb.UserSettingsLive do
       membership_atom = String.to_existing_atom(membership_type)
       return_url = url(~p"/billing/user/#{user.id}/finalize")
       price_id = get_price_id(membership_atom)
+      default_payment_method = socket.assigns.default_payment_method
 
-      IO.puts("Creating subscription")
-      res = Bling.Customers.create_subscription(
-        user,
-        return_url: return_url,
-        prices: [{price_id, 1}]
-      )
-      IO.inspect(res)
+      case Customers.create_subscription(
+             user,
+             return_url: return_url,
+             prices: [%{price: price_id, quantity: 1}],
+             default_payment_method: default_payment_method.provider_id,
+             expand: ["latest_invoice"]
+           ) do
+        {:ok, stripe_subscription} ->
+          # Also save the subscription locally as a backup in case webhook fails
+          case Ysc.Subscriptions.create_subscription_from_stripe(user, stripe_subscription) do
+            {:ok, _local_subscription} ->
+              {:noreply,
+               socket
+               |> put_flash(:info, "Membership activated successfully!")
+               |> redirect(to: ~p"/users/membership")}
 
-      {:noreply, socket |> redirect(to: ~p"/users/membership")}
+            {:error, reason} ->
+              require Logger
+
+              Logger.warning("Failed to save subscription locally, webhook should handle it",
+                user_id: user.id,
+                stripe_subscription_id: stripe_subscription.id,
+                error: reason
+              )
+
+              {:noreply,
+               socket
+               |> put_flash(:info, "Membership activated successfully!")
+               |> redirect(to: ~p"/users/membership")}
+          end
+
+        {:error, error} ->
+          require Logger
+
+          Logger.error("Failed to create subscription",
+            user_id: user.id,
+            error: error
+          )
+
+          {:noreply,
+           socket |> put_flash(:error, "Failed to activate membership. Please try again.")}
+      end
     end
   end
 
@@ -617,14 +845,276 @@ defmodule YscWeb.UserSettingsLive do
          "You must have an approved account to update your payment method."
        )}
     else
-      Stripe.Customer.update(user.stripe_id, %{
-        invoice_settings: %{default_payment_method: payment_method_id}
-      })
+      # Retrieve the payment method from Stripe and store it locally
+      case Stripe.PaymentMethod.retrieve(payment_method_id) do
+        {:ok, stripe_payment_method} ->
+          # Store the payment method in our database and set it as default
+          case Ysc.Payments.upsert_and_set_default_payment_method_from_stripe(
+                 user,
+                 stripe_payment_method
+               ) do
+            {:ok, _} ->
+              # Update Stripe customer to use this payment method as default
+              case Stripe.Customer.update(user.stripe_id, %{
+                     invoice_settings: %{default_payment_method: payment_method_id}
+                   }) do
+                {:ok, _stripe_customer} ->
+                  # Reload user and payment methods to get updated info
+                  updated_user = Ysc.Accounts.get_user!(user.id)
+                  updated_payment_methods = Ysc.Payments.list_payment_methods(updated_user)
+                  updated_default = Ysc.Payments.get_default_payment_method(updated_user)
 
+                  {:noreply,
+                   socket
+                   |> assign(:user, updated_user)
+                   |> assign(:all_payment_methods, updated_payment_methods)
+                   |> assign(:default_payment_method, updated_default)
+                   |> assign(:show_new_payment_form, false)
+                   |> put_flash(:info, "Payment method updated and set as default")
+                   |> redirect(to: ~p"/users/membership")}
+
+                {:error, stripe_error} ->
+                  {:noreply,
+                   put_flash(
+                     socket,
+                     :error,
+                     "Payment method saved but failed to set as default in Stripe: #{stripe_error.message}"
+                   )}
+              end
+
+            {:error, _reason} ->
+              {:noreply,
+               put_flash(
+                 socket,
+                 :error,
+                 "Failed to store payment method"
+               )}
+          end
+
+        {:error, _reason} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Failed to retrieve payment method from Stripe"
+           )}
+      end
+    end
+  end
+
+  def handle_event("select-payment-method", %{"payment_method_id" => payment_method_id}, socket) do
+    user = socket.assigns.user
+
+    if user.state != :active do
       {:noreply,
-       socket
-       |> put_flash(:info, "Payment method updated")
-       |> redirect(to: ~p"/users/membership")}
+       put_flash(
+         socket,
+         :error,
+         "You must have an approved account to update your payment method."
+       )}
+    else
+      # Prevent multiple clicks
+      if socket.assigns.selecting_payment_method do
+        {:noreply, socket}
+      else
+        # Find the payment method in the current list
+        selected_payment_method =
+          Enum.find(socket.assigns.all_payment_methods, &(&1.id == payment_method_id))
+
+        if selected_payment_method do
+          # Optimistically update the UI first
+          updated_payment_methods =
+            Enum.map(socket.assigns.all_payment_methods, fn pm ->
+              if pm.id == payment_method_id do
+                # Use Ecto.Changeset to properly update the struct
+                pm
+                |> Ysc.Payments.PaymentMethod.changeset(%{is_default: true})
+                |> Ecto.Changeset.apply_changes()
+              else
+                # Use Ecto.Changeset to properly update the struct
+                pm
+                |> Ysc.Payments.PaymentMethod.changeset(%{is_default: false})
+                |> Ecto.Changeset.apply_changes()
+              end
+            end)
+
+          socket =
+            socket
+            |> assign(:selecting_payment_method, true)
+            |> assign(:all_payment_methods, updated_payment_methods)
+            |> assign(:default_payment_method, selected_payment_method)
+
+          # Then perform the actual database operations
+          require Logger
+
+          Logger.info("Setting payment method as default",
+            user_id: user.id,
+            payment_method_id: selected_payment_method.id,
+            provider_id: selected_payment_method.provider_id
+          )
+
+          case Ysc.Payments.set_default_payment_method(user, selected_payment_method) do
+            {:ok, _} ->
+              Logger.info("Successfully set payment method as default in database",
+                user_id: user.id,
+                payment_method_id: selected_payment_method.id
+              )
+
+              # Update Stripe customer to use this payment method as default
+              Logger.info("Updating Stripe customer default payment method",
+                user_id: user.id,
+                stripe_customer_id: user.stripe_id,
+                default_payment_method_id: selected_payment_method.provider_id
+              )
+
+              case Stripe.Customer.update(user.stripe_id, %{
+                     invoice_settings: %{
+                       default_payment_method: selected_payment_method.provider_id
+                     }
+                   }) do
+                {:ok, _stripe_customer} ->
+                  Logger.info("Successfully updated Stripe customer default payment method",
+                    user_id: user.id,
+                    stripe_customer_id: user.stripe_id
+                  )
+
+                  # Don't reload from database immediately to avoid race conditions with webhooks
+                  # The optimistic update should be sufficient for the UI
+                  # Skip the delayed refresh for now to prevent overriding our optimistic update
+
+                  {:noreply,
+                   socket
+                   |> assign(:selecting_payment_method, false)
+                   |> put_flash(:info, "Payment method set as default")}
+
+                {:error, stripe_error} ->
+                  # Revert optimistic update on error
+                  original_payment_methods =
+                    Enum.map(socket.assigns.all_payment_methods, fn pm ->
+                      if pm.id == socket.assigns.default_payment_method.id do
+                        pm
+                        |> Ysc.Payments.PaymentMethod.changeset(%{is_default: true})
+                        |> Ecto.Changeset.apply_changes()
+                      else
+                        pm
+                        |> Ysc.Payments.PaymentMethod.changeset(%{is_default: false})
+                        |> Ecto.Changeset.apply_changes()
+                      end
+                    end)
+
+                  {:noreply,
+                   socket
+                   |> assign(:all_payment_methods, original_payment_methods)
+                   |> assign(:selecting_payment_method, false)
+                   |> put_flash(
+                     :error,
+                     "Failed to update default payment method in Stripe: #{stripe_error.message}"
+                   )}
+              end
+
+            {:error, _reason} ->
+              # Revert optimistic update on error
+              original_payment_methods =
+                Enum.map(socket.assigns.all_payment_methods, fn pm ->
+                  if pm.id == socket.assigns.default_payment_method.id do
+                    pm
+                    |> Ysc.Payments.PaymentMethod.changeset(%{is_default: true})
+                    |> Ecto.Changeset.apply_changes()
+                  else
+                    pm
+                    |> Ysc.Payments.PaymentMethod.changeset(%{is_default: false})
+                    |> Ecto.Changeset.apply_changes()
+                  end
+                end)
+
+              {:noreply,
+               socket
+               |> assign(:all_payment_methods, original_payment_methods)
+               |> assign(:selecting_payment_method, false)
+               |> put_flash(
+                 :error,
+                 "Failed to set payment method as default"
+               )}
+          end
+        else
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Payment method not found"
+           )}
+        end
+      end
+    end
+  end
+
+  def handle_event("add-new-payment-method", _params, socket) do
+    {:noreply, assign(socket, :show_new_payment_form, true)}
+  end
+
+  def handle_event("cancel-new-payment-method", _params, socket) do
+    {:noreply, assign(socket, :show_new_payment_form, false)}
+  end
+
+  def handle_event("refresh-payment-methods", _params, socket) do
+    user = socket.assigns.user
+
+    # Use the new sync function to ensure we're in sync with Stripe
+    case Ysc.Payments.sync_payment_methods_with_stripe(user) do
+      {:ok, updated_payment_methods} ->
+        updated_default = Ysc.Payments.get_default_payment_method(user)
+
+        {:noreply,
+         socket
+         |> assign(:all_payment_methods, updated_payment_methods)
+         |> assign(:default_payment_method, updated_default)}
+
+      {:error, _reason} ->
+        # Fallback to just getting from local database
+        updated_payment_methods = Ysc.Payments.list_payment_methods(user)
+        updated_default = Ysc.Payments.get_default_payment_method(user)
+
+        {:noreply,
+         socket
+         |> assign(:all_payment_methods, updated_payment_methods)
+         |> assign(:default_payment_method, updated_default)}
+    end
+  end
+
+  def handle_info({:refresh_payment_methods, user_id}, socket) do
+    if socket.assigns.user.id == user_id do
+      user = socket.assigns.user
+
+      # Use the new sync function to ensure we're in sync with Stripe
+      case Ysc.Payments.sync_payment_methods_with_stripe(user) do
+        {:ok, updated_payment_methods} ->
+          updated_default = Ysc.Payments.get_default_payment_method(user)
+
+          require Logger
+
+          Logger.info("Refreshed payment methods after selection",
+            user_id: user.id,
+            payment_methods_count: length(updated_payment_methods),
+            default_payment_method_id: updated_default && updated_default.id
+          )
+
+          {:noreply,
+           socket
+           |> assign(:all_payment_methods, updated_payment_methods)
+           |> assign(:default_payment_method, updated_default)}
+
+        {:error, _reason} ->
+          # Fallback to just getting from local database
+          updated_payment_methods = Ysc.Payments.list_payment_methods(user)
+          updated_default = Ysc.Payments.get_default_payment_method(user)
+
+          {:noreply,
+           socket
+           |> assign(:all_payment_methods, updated_payment_methods)
+           |> assign(:default_payment_method, updated_default)}
+      end
+    else
+      {:noreply, socket}
     end
   end
 
@@ -636,8 +1126,25 @@ defmodule YscWeb.UserSettingsLive do
        put_flash(socket, :error, "You must have an approved account to cancel your membership.")}
     else
       # TODO: Implement membership cancellation logic
+      IO.inspect(socket.assigns.current_membership)
+      Subscriptions.cancel(socket.assigns.current_membership)
+
       {:noreply,
-       put_flash(socket, :info, "Membership cancellation functionality will be implemented soon.")}
+       put_flash(socket, :info, "Membership cancelled.") |> redirect(to: ~p"/users/membership")}
+    end
+  end
+
+  def handle_event("reactivate-membership", _params, socket) do
+    user = socket.assigns.user
+
+    if user.state != :active do
+      {:noreply,
+       put_flash(socket, :error, "You must have an approved account to cancel your membership.")}
+    else
+      Subscriptions.resume(socket.assigns.current_membership)
+
+      {:noreply,
+       put_flash(socket, :info, "Membership reactivated.") |> redirect(to: ~p"/users/membership")}
     end
   end
 
@@ -652,9 +1159,13 @@ defmodule YscWeb.UserSettingsLive do
          "You must have an approved account to change your membership plan."
        )}
     else
-      # TODO: Implement membership change logic
+      Subscriptions.change_prices(socket.assigns.current_membership,
+        prices: [{get_price_id(socket.assigns.membership_form.params["membership_type"]), 1}]
+      )
+
       {:noreply,
-       put_flash(socket, :info, "Membership change functionality will be implemented soon.")}
+       put_flash(socket, :info, "Your membership plan has been changed.")
+       |> redirect(to: ~p"/users/membership")}
     end
   end
 
@@ -686,25 +1197,25 @@ defmodule YscWeb.UserSettingsLive do
     Enum.find(plans, &(&1.stripe_price_id == price_id))[:id]
   end
 
-  defp payment_to_badge_style("paid"), do: "green"
-  defp payment_to_badge_style("open"), do: "blue"
-  defp payment_to_badge_style("draft"), do: "yellow"
-  defp payment_to_badge_style("uncollectible"), do: "red"
-  defp payment_to_badge_style("void"), do: "red"
-  defp payment_to_badge_style(_), do: "blue"
+  # defp payment_to_badge_style("paid"), do: "green"
+  # defp payment_to_badge_style("open"), do: "blue"
+  # defp payment_to_badge_style("draft"), do: "yellow"
+  # defp payment_to_badge_style("uncollectible"), do: "red"
+  # defp payment_to_badge_style("void"), do: "red"
+  # defp payment_to_badge_style(_), do: "blue"
 
   defp default_select(true), do: "family"
   defp default_select(false), do: "single"
 
   defp payment_secret(:payment_method, user) do
-    payment_method_intent =
-      Bling.Customers.create_setup_intent(user,
-        stripe: %{
-          payment_method_types: ["card", "us_bank_account"]
-        }
-      )
-
-    payment_method_intent.client_secret
+    case Customers.create_setup_intent(user,
+           stripe: %{
+             payment_method_types: ["card", "us_bank_account"]
+           }
+         ) do
+      {:ok, setup_intent} -> setup_intent.client_secret
+      {:error, _} -> nil
+    end
   end
 
   defp payment_secret(_, _), do: nil
@@ -739,23 +1250,38 @@ defmodule YscWeb.UserSettingsLive do
   defp payment_method_icon(%{type: :bank_account}), do: bank_account_icon()
   defp payment_method_icon(_), do: "hero-credit-card"
 
-  defp bank_account_icon(), do: "M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"
+  defp bank_account_icon(),
+    do:
+      "M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"
 
-  defp payment_method_display_text(%{type: :card, last_four: last_four}) when not is_nil(last_four) do
+  defp payment_method_display_text(%{type: :card, last_four: last_four})
+       when not is_nil(last_four) do
     "**** **** **** #{last_four}"
   end
-  defp payment_method_display_text(%{type: :bank_account, bank_name: bank_name, account_type: account_type, last_four: last_four}) when not is_nil(bank_name) and not is_nil(last_four) do
+
+  defp payment_method_display_text(%{
+         type: :bank_account,
+         bank_name: bank_name,
+         account_type: account_type,
+         last_four: last_four
+       })
+       when not is_nil(bank_name) and not is_nil(last_four) do
     "#{bank_name} ••••#{last_four}"
   end
-  defp payment_method_display_text(%{type: :bank_account, last_four: last_four}) when not is_nil(last_four) do
+
+  defp payment_method_display_text(%{type: :bank_account, last_four: last_four})
+       when not is_nil(last_four) do
     "Bank Account ••••#{last_four}"
   end
+
   defp payment_method_display_text(%{type: :card}) do
     "Credit Card"
   end
+
   defp payment_method_display_text(%{type: :bank_account}) do
     "Bank Account"
   end
+
   defp payment_method_display_text(_) do
     "Payment Method"
   end
@@ -765,7 +1291,7 @@ defmodule YscWeb.UserSettingsLive do
     cond do
       # No stripe_id - create new customer
       user.stripe_id == nil ->
-        Bling.Customers.create_stripe_customer(user)
+        Customers.create_stripe_customer(user)
         # Reload user to get updated stripe_id
         Ysc.Repo.get!(Ysc.Accounts.User, user.id)
 
@@ -777,7 +1303,7 @@ defmodule YscWeb.UserSettingsLive do
 
           {:error, _} ->
             # Customer doesn't exist in Stripe, create a new one
-            Bling.Customers.create_stripe_customer(user)
+            Customers.create_stripe_customer(user)
             # Reload user to get updated stripe_id
             Ysc.Repo.get!(Ysc.Accounts.User, user.id)
         end

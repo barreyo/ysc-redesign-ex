@@ -1,7 +1,7 @@
 defmodule YscWeb.Router do
   use YscWeb, :router
 
-  import Bling.Router
+  # Removed Bling.Router import - will implement custom billing routes
   import Phoenix.LiveDashboard.Router
   import YscWeb.UserAuth
   import YscWeb.Plugs.SiteSettingsPlugs
@@ -189,7 +189,7 @@ defmodule YscWeb.Router do
     # make sure to authenticate your users for this route
     pipe_through [:browser, :require_authenticated_user]
 
-    scope "/:customer_id" do
+    scope "/:user_id" do
       get "/payment-method", Ysc.Controllers.StripePaymentMethodController, :store_payment_method
       get "/finalize", Ysc.Controllers.StripePaymentMethodController, :finalize
       get "/setup-payment", Ysc.Controllers.StripePaymentMethodController, :setup_payment

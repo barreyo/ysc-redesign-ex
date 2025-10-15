@@ -52,10 +52,7 @@ defmodule Ysc.Accounts.User do
 
     has_many :payment_methods, Ysc.Payments.PaymentMethod, foreign_key: :user_id
 
-    has_many :subscriptions, Ysc.Subscriptions.Subscription,
-      foreign_key: :customer_id,
-      where: [customer_type: "user"],
-      defaults: [customer_type: "user"]
+    has_many :subscriptions, Ysc.Subscriptions.Subscription, foreign_key: :user_id
 
     has_many :auth_events, Ysc.Accounts.AuthEvent
 

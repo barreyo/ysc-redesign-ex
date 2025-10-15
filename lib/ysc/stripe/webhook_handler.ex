@@ -1,6 +1,6 @@
 defmodule Ysc.Stripe.WebhookHandler do
-  alias Bling.Customers
-  alias Bling.Subscriptions
+  alias Ysc.Customers
+  alias Ysc.Subscriptions
 
   def handle_event(event) do
     require Logger
@@ -105,12 +105,12 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp handle("customer.deleted", %Stripe.Customer{} = event) do
-    customer = Bling.customer_from_stripe_id(event.id)
+    user = Ysc.Accounts.get_user_from_stripe_id(event.id)
 
-    if !customer do
+    if !user do
       :ok
     else
-      customer
+      user
       |> Customers.subscriptions()
       |> Enum.each(&Subscriptions.mark_as_cancelled/1)
 
@@ -119,49 +119,37 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp handle("customer.updated", %Stripe.Customer{} = event) do
-    customer = Bling.customer_from_stripe_id(event.id)
+    user = Ysc.Accounts.get_user_from_stripe_id(event.id)
 
-    if customer do
-      # Update default payment method using the new structure
-      update_customer_default_payment_method_from_stripe(customer)
+    if user do
+      # Temporarily disable automatic syncing to prevent race conditions
+      # The user-initiated payment method selection should handle this
+      require Logger
+
+      Logger.info(
+        "Customer updated webhook received, skipping automatic sync to prevent race conditions",
+        user_id: user.id,
+        customer_id: event.id
+      )
     end
 
     :ok
   end
 
   defp handle("customer.subscription.created", %Stripe.Subscription{} = event) do
-    repo = Bling.repo()
-    sub_schema = Bling.subscription()
-    existing = repo.get_by(sub_schema, stripe_id: event.id)
+    IO.puts("customer.subscription.created")
+    IO.inspect(event)
 
-    if existing do
-      :ok
-    else
-      customer = Bling.customer_from_stripe_id(event.customer)
+    customer = Ysc.Accounts.get_user_from_stripe_id(event.customer)
+    subscription = Subscriptions.create_subscription_from_stripe(customer, event)
 
-      subscription =
-        customer
-        |> Ecto.build_assoc(:subscriptions)
-        |> Subscriptions.subscription_struct_from_stripe_subscription(event)
-        |> repo.insert!()
+    IO.inspect(subscription)
 
-      subscription_items =
-        Subscriptions.subscription_item_structs_from_stripe_items(event.items.data, subscription)
-
-      Enum.each(subscription_items, fn item -> repo.insert!(item) end)
-
-      # Ensure the customer has a default payment method after subscription creation
-      # This helps preserve the user's default payment method during subscription creation
-      ensure_customer_has_default_payment_method(customer)
-
-      :ok
-    end
+    :ok
   end
 
   defp handle("customer.subscription.deleted", %Stripe.Subscription{} = event) do
-    repo = Bling.repo()
-    sub_schema = Bling.subscription()
-    subscription = repo.get_by(sub_schema, stripe_id: event.id)
+    subscription = Subscriptions.get_subscription_by_stripe_id(event.id)
 
     if !subscription do
       :ok
@@ -173,10 +161,10 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp handle("customer.subscription.updated", %Stripe.Subscription{} = event) do
-    repo = Bling.repo()
-    sub_schema = Bling.subscription()
-    sub_item_schema = Bling.subscription_item()
-    subscription = repo.get_by(sub_schema, stripe_id: event.id)
+    IO.puts("customer.subscription.updated")
+    IO.inspect(event)
+
+    subscription = Subscriptions.get_subscription_by_stripe_id(event.id)
 
     if !subscription do
       nil
@@ -184,50 +172,37 @@ defmodule Ysc.Stripe.WebhookHandler do
       status = event.status
 
       if status == "incomplete_expired" do
-        repo.delete(subscription)
+        Subscriptions.delete_subscription(subscription)
 
         :ok
       else
-        subscription =
-          subscription
-          |> Subscriptions.subscription_struct_from_stripe_subscription(event)
-          |> repo.update!()
+        # Update subscription
+        user = Ysc.Accounts.get_user_from_stripe_id(event.customer)
 
-        subscription_items =
-          Subscriptions.subscription_item_structs_from_stripe_items(
-            event.items.data,
-            subscription
-          )
+        subscription_changeset =
+          Subscriptions.subscription_struct_from_stripe_subscription(user, event)
 
-        # insert new items, update any items that may have changed
-        Enum.each(subscription_items, fn item ->
-          repo.insert!(item, on_conflict: :replace_all, conflict_target: [:stripe_id])
-        end)
+        case Ysc.Repo.update(subscription_changeset) do
+          {:ok, updated_subscription} ->
+            # Update subscription items
+            update_subscription_items(updated_subscription, event.items.data)
+            :ok
 
-        import Ecto.Query, only: [from: 2]
-
-        # delete any that may have been removed
-        item_ids = Enum.map(event.items.data, & &1.id)
-
-        from(s in sub_item_schema,
-          where: s.subscription_id == ^subscription.id,
-          where: s.stripe_id not in ^item_ids
-        )
-        |> repo.delete_all()
-
-        :ok
+          {:error, _changeset} ->
+            :ok
+        end
       end
     end
   end
 
   defp handle("payment_method.attached", %Stripe.PaymentMethod{} = payment_method) do
-    customer = Bling.customer_from_stripe_id(payment_method.customer)
+    user = Ysc.Accounts.get_user_from_stripe_id(payment_method.customer)
 
-    if customer do
-      # Upsert the payment method - this will automatically set as default if needed
-      case Ysc.Payments.upsert_payment_method_from_stripe(customer, payment_method) do
+    if user do
+      # Just sync the payment method data without changing default status
+      case Ysc.Payments.sync_payment_method_from_stripe(user, payment_method) do
         {:ok, _payment_method_record} ->
-          # Payment method created/updated successfully, default setting is handled automatically
+          # Payment method created/updated successfully
           :ok
 
         {:error, _} ->
@@ -235,7 +210,7 @@ defmodule Ysc.Stripe.WebhookHandler do
           require Logger
 
           Logger.warning("Failed to upsert payment method from Stripe webhook",
-            customer_id: customer.id,
+            user_id: user.id,
             payment_method_id: payment_method.id
           )
       end
@@ -254,10 +229,11 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp handle("payment_method.updated", %Stripe.PaymentMethod{} = payment_method) do
-    customer = Bling.customer_from_stripe_id(payment_method.customer)
+    user = Ysc.Accounts.get_user_from_stripe_id(payment_method.customer)
 
-    if customer do
-      Ysc.Payments.upsert_payment_method_from_stripe(customer, payment_method)
+    if user do
+      # Just sync the payment method data without changing default status
+      Ysc.Payments.sync_payment_method_from_stripe(user, payment_method)
     end
 
     :ok
@@ -268,16 +244,16 @@ defmodule Ysc.Stripe.WebhookHandler do
 
     Logger.info("Setup intent created",
       setup_intent_id: setup_intent.id,
-      customer_id: setup_intent.customer
+      user_id: setup_intent.customer
     )
 
     :ok
   end
 
   defp handle("setup_intent.succeeded", %Stripe.SetupIntent{} = setup_intent) do
-    customer = Bling.customer_from_stripe_id(setup_intent.customer)
+    user = Ysc.Accounts.get_user_from_stripe_id(setup_intent.customer)
 
-    if customer && setup_intent.payment_method do
+    if user && setup_intent.payment_method do
       # When setup intent succeeds, the payment method should already be handled by payment_method.attached
       # If it's not found, it will be handled when payment_method.attached is received
       case Ysc.Payments.get_payment_method_by_provider(:stripe, setup_intent.payment_method) do
@@ -341,72 +317,96 @@ defmodule Ysc.Stripe.WebhookHandler do
 
   defp convert_to_map(value), do: value
 
+  # Helper function to update subscription items
+  defp update_subscription_items(subscription, stripe_items) do
+    import Ecto.Query, only: [from: 2]
+
+    # Create/update subscription items
+    subscription_items =
+      Subscriptions.subscription_item_structs_from_stripe_items(stripe_items, subscription)
+
+    # Insert new items, update any items that may have changed
+    Enum.each(subscription_items, fn item ->
+      Ysc.Repo.insert!(item, on_conflict: :replace_all, conflict_target: [:stripe_id])
+    end)
+
+    # Delete any items that may have been removed
+    item_ids = Enum.map(stripe_items, & &1.id)
+
+    from(s in Ysc.Subscriptions.SubscriptionItem,
+      where: s.subscription_id == ^subscription.id,
+      where: s.stripe_id not in ^item_ids
+    )
+    |> Ysc.Repo.delete_all()
+  end
 
   # Helper function to ensure customer has a default payment method after subscription creation
-  defp ensure_customer_has_default_payment_method(customer) do
+  defp ensure_customer_has_default_payment_method(user) do
     require Logger
 
     try do
       # Check if customer has a default payment method locally
-      case Ysc.Payments.get_default_payment_method(customer) do
+      case Ysc.Payments.get_default_payment_method(user) do
         nil ->
           # No local default payment method, try to set one from available payment methods
-          payment_methods = Ysc.Payments.list_payment_methods(customer)
+          payment_methods = Ysc.Payments.list_payment_methods(user)
 
           if length(payment_methods) > 0 do
             # Set the first available payment method as default
             first_payment_method = Enum.min_by(payment_methods, & &1.inserted_at)
 
-            case Ysc.Payments.set_default_payment_method(customer, first_payment_method) do
+            case Ysc.Payments.set_default_payment_method(user, first_payment_method) do
               {:ok, _} ->
                 Logger.info("Set default payment method for customer after subscription creation",
-                  customer_id: customer.id,
+                  user_id: user.id,
                   payment_method_id: first_payment_method.id
                 )
 
               {:error, _} ->
-                Logger.warning("Failed to set default payment method for customer after subscription creation",
-                  customer_id: customer.id,
+                Logger.warning(
+                  "Failed to set default payment method for customer after subscription creation",
+                  user_id: user.id,
                   payment_method_id: first_payment_method.id
                 )
             end
           else
             Logger.info("No payment methods available to set as default for customer",
-              customer_id: customer.id
+              user_id: user.id
             )
           end
 
         _existing_default ->
           # Customer already has a default payment method, no action needed
-          Logger.debug("Customer already has default payment method", customer_id: customer.id)
+          Logger.debug("Customer already has default payment method", user_id: user.id)
       end
     rescue
       error ->
-        Logger.error("Error ensuring customer has default payment method after subscription creation",
-          customer_id: customer.id,
+        Logger.error(
+          "Error ensuring customer has default payment method after subscription creation",
+          user_id: user.id,
           error: Exception.message(error)
         )
     end
   end
 
   # Helper function to update customer's default payment method from Stripe using new structure
-  defp update_customer_default_payment_method_from_stripe(customer) do
+  defp update_customer_default_payment_method_from_stripe(user) do
     require Logger
 
     try do
       # Get the default payment method from Stripe
-      case Bling.Customers.default_payment_method(customer) do
+      case Customers.default_payment_method(user) do
         nil ->
           # No default payment method in Stripe
-          case Ysc.Payments.list_payment_methods(customer) do
+          case Ysc.Payments.list_payment_methods(user) do
             [] ->
-              Logger.info("No payment methods found for customer", customer_id: customer.id)
+              Logger.info("No payment methods found for customer", user_id: user.id)
 
             payment_methods ->
               # Only unset default payment methods if the customer has no payment methods in Stripe
               # This prevents unsetting defaults during subscription creation when Stripe might temporarily
               # not have a default payment method set
-              stripe_payment_methods = Bling.Customers.payment_methods(customer)
+              stripe_payment_methods = Customers.payment_methods(user)
 
               if length(stripe_payment_methods) == 0 do
                 # Customer truly has no payment methods in Stripe, safe to unset local defaults
@@ -416,14 +416,16 @@ defmodule Ysc.Stripe.WebhookHandler do
                   end
                 end)
 
-                Logger.info("Unset default payment method for customer (no Stripe payment methods)",
-                  customer_id: customer.id
+                Logger.info(
+                  "Unset default payment method for customer (no Stripe payment methods)",
+                  user_id: user.id
                 )
               else
                 # Customer has payment methods in Stripe but no default set
                 # This might be temporary during subscription creation, so preserve local default
-                Logger.info("Customer has Stripe payment methods but no default set, preserving local default",
-                  customer_id: customer.id,
+                Logger.info(
+                  "Customer has Stripe payment methods but no default set, preserving local default",
+                  user_id: user.id,
                   stripe_payment_method_count: length(stripe_payment_methods)
                 )
               end
@@ -434,22 +436,22 @@ defmodule Ysc.Stripe.WebhookHandler do
           case Ysc.Payments.get_payment_method_by_provider(:stripe, stripe_payment_method.id) do
             nil ->
               Logger.warning("Default payment method from Stripe not found in local database",
-                customer_id: customer.id,
+                user_id: user.id,
                 stripe_payment_method_id: stripe_payment_method.id
               )
 
             local_payment_method ->
               # Set this payment method as default
-              case Ysc.Payments.set_default_payment_method(customer, local_payment_method) do
+              case Ysc.Payments.set_default_payment_method(user, local_payment_method) do
                 {:ok, _} ->
                   Logger.info("Updated default payment method for customer",
-                    customer_id: customer.id,
+                    user_id: user.id,
                     payment_method_id: local_payment_method.id
                   )
 
                 {:error, _} ->
                   Logger.warning("Failed to update default payment method for customer",
-                    customer_id: customer.id,
+                    user_id: user.id,
                     payment_method_id: local_payment_method.id
                   )
               end
@@ -458,7 +460,7 @@ defmodule Ysc.Stripe.WebhookHandler do
     rescue
       error ->
         Logger.error("Error updating customer default payment method from Stripe",
-          customer_id: customer.id,
+          user_id: user.id,
           error: Exception.message(error)
         )
     end

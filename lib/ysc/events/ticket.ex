@@ -97,12 +97,12 @@ defmodule Ysc.Events.Ticket do
   # Helper function to get the most expensive active membership (same logic as user_auth.ex)
   defp get_active_membership(user) do
     # Get all subscriptions for the user
-    subscriptions = Bling.Customers.subscriptions(user)
+    subscriptions = Ysc.Customers.subscriptions(user)
 
     # Filter for active subscriptions only
     active_subscriptions =
       Enum.filter(subscriptions, fn subscription ->
-        Bling.Subscriptions.valid?(subscription)
+        Ysc.Subscriptions.valid?(subscription)
       end)
 
     case active_subscriptions do

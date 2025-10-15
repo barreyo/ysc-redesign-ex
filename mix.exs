@@ -33,7 +33,6 @@ defmodule Ysc.MixProject do
   defp deps do
     [
       {:argon2_elixir, "~> 4.0"},
-      {:bling, "~> 0.4"},
       {:blurhash, "~> 0.1.0", hex: :rinpatch_blurhash},
       {:brotli, ">= 0.0.0", runtime: false},
       {:cachex, "~> 3.6"},

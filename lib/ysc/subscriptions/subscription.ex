@@ -1,5 +1,10 @@
 defmodule Ysc.Subscriptions.Subscription do
   use Ecto.Schema
+  import Ecto.Changeset
+
+  @primary_key {:id, Ecto.ULID, autogenerate: true}
+  @foreign_key_type Ecto.ULID
+  @timestamps_opts [type: :utc_datetime]
 
   schema "subscriptions" do
     field :name, :string
@@ -13,11 +18,29 @@ defmodule Ysc.Subscriptions.Subscription do
     field :current_period_start, :utc_datetime
     field :current_period_end, :utc_datetime
 
-    field :customer_id, :string
-    field :customer_type, :string
+    belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
 
     has_many :subscription_items, Ysc.Subscriptions.SubscriptionItem
 
     timestamps(type: :utc_datetime)
+  end
+
+  @doc false
+  def changeset(subscription, attrs) do
+    subscription
+    |> cast(attrs, [
+      :name,
+      :ends_at,
+      :trial_ends_at,
+      :stripe_id,
+      :stripe_status,
+      :start_date,
+      :current_period_start,
+      :current_period_end,
+      :user_id
+    ])
+    |> validate_required([:stripe_id, :stripe_status, :user_id])
+    |> unique_constraint(:stripe_id)
+    |> foreign_key_constraint(:user_id)
   end
 end

@@ -69,6 +69,10 @@ defmodule Ysc.Accounts do
     Repo.get!(User, id) |> Repo.preload(preloads)
   end
 
+  def get_user_from_stripe_id(stripe_id) do
+    Repo.get_by(User, stripe_id: stripe_id)
+  end
+
   def get_signup_application_from_user_id!(id, current_user, preloads \\ []) do
     with :ok <- Policy.authorize(:signup_application_read, current_user, %{user_id: id}) do
       Repo.get_by!(SignupApplication, user_id: id)
@@ -99,7 +103,7 @@ defmodule Ysc.Accounts do
          |> User.registration_changeset(attrs)
          |> Repo.insert() do
       {:ok, user} ->
-        Task.start(fn -> Bling.Customers.create_stripe_customer(user) end)
+        Task.start(fn -> Ysc.Customers.create_stripe_customer(user) end)
         {:ok, user}
 
       {:error, changeset} ->
@@ -665,17 +669,16 @@ defmodule Ysc.Accounts do
     # Get active subscriptions for all users in one query
     active_subscriptions =
       from(s in Ysc.Subscriptions.Subscription,
-        where: s.customer_id in ^user_ids,
-        where: s.customer_type == "user",
+        where: s.user_id in ^user_ids,
         where: s.stripe_status in ["active", "trialing", "past_due"],
         preload: [:subscription_items]
       )
       |> Repo.all()
 
-    # Group subscriptions by customer_id
+    # Group subscriptions by user_id
     subscriptions_by_user =
       active_subscriptions
-      |> Enum.group_by(& &1.customer_id)
+      |> Enum.group_by(& &1.user_id)
 
     # Add subscriptions to each user
     Enum.map(users, fn user ->
@@ -757,7 +760,7 @@ defmodule Ysc.Accounts do
     # Filter for active subscriptions only
     active_subscriptions =
       Enum.filter(subscriptions, fn subscription ->
-        Bling.Subscriptions.valid?(subscription)
+        Ysc.Subscriptions.valid?(subscription)
       end)
 
     case active_subscriptions do
