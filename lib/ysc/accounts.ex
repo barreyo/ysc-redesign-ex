@@ -177,7 +177,15 @@ defmodule Ysc.Accounts do
   end
 
   def list_paginated_users(params) do
-    Flop.validate_and_run(User, params, for: User)
+    case Flop.validate_and_run(User, params, for: User) do
+      {:ok, {users, meta}} ->
+        # Preload active subscriptions after the main query
+        users_with_subscriptions = preload_active_subscriptions(users)
+        {:ok, {users_with_subscriptions, meta}}
+
+      error ->
+        error
+    end
   end
 
   defp fuzzy_search_user(search_term) do
@@ -201,7 +209,15 @@ defmodule Ysc.Accounts do
           any()
         ) :: {:error, Flop.Meta.t()} | {:ok, {list(), Flop.Meta.t()}}
   def list_paginated_users(params, search_term) do
-    Flop.validate_and_run(fuzzy_search_user(search_term), params, for: User)
+    case Flop.validate_and_run(fuzzy_search_user(search_term), params, for: User) do
+      {:ok, {users, meta}} ->
+        # Preload active subscriptions after the main query
+        users_with_subscriptions = preload_active_subscriptions(users)
+        {:ok, {users_with_subscriptions, meta}}
+
+      error ->
+        error
+    end
   end
 
   def update_user(user, params, %User{} = current_user) do
@@ -622,5 +638,31 @@ defmodule Ysc.Accounts do
   """
   def get_last_session_timeframe(user) do
     AuthService.get_last_session_timeframe(user)
+  end
+
+  # Helper function to preload only active subscriptions
+  defp preload_active_subscriptions(users) do
+    user_ids = Enum.map(users, & &1.id)
+
+    # Get active subscriptions for all users in one query
+    active_subscriptions =
+      from(s in Ysc.Subscriptions.Subscription,
+        where: s.customer_id in ^user_ids,
+        where: s.customer_type == "user",
+        where: s.stripe_status in ["active", "trialing", "past_due"],
+        preload: [:subscription_items]
+      )
+      |> Repo.all()
+
+    # Group subscriptions by customer_id
+    subscriptions_by_user =
+      active_subscriptions
+      |> Enum.group_by(& &1.customer_id)
+
+    # Add subscriptions to each user
+    Enum.map(users, fn user ->
+      user_subscriptions = Map.get(subscriptions_by_user, user.id, [])
+      %{user | subscriptions: user_subscriptions}
+    end)
   end
 end

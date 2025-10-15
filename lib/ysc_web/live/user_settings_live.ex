@@ -546,7 +546,7 @@ defmodule YscWeb.UserSettingsLive do
         prices: [{price_id, 1}]
       )
 
-      {:noreply, socket |> push_navigate(to: ~p"/users/membership")}
+      {:noreply, socket |> redirect(to: ~p"/users/membership")}
     end
   end
 

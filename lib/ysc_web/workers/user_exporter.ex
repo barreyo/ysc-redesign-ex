@@ -6,6 +6,7 @@ defmodule YscWeb.Workers.UserExporter do
 
   alias Ysc.Repo
   alias Ysc.Accounts.User
+  alias Ysc.Subscriptions.Subscription
 
   @stream_rows_count 100
 
@@ -18,20 +19,38 @@ defmodule YscWeb.Workers.UserExporter do
     :ok
   end
 
-  defp build_csv(fields, _only_subscribed) do
+  defp build_csv(fields, only_subscribed) do
     job_pid = self()
-
-    # TODO: Handle `only_subscribed`
 
     # Check how many entries we have to write out
     # helps us report back progress to parent caller
     Task.async(fn ->
-      total_count = Repo.one(from u in User, select: count(u.id))
+      # Build the base query
+      base_query = from(u in User)
+
+      # Apply subscription filter if needed
+      filtered_query =
+        if only_subscribed do
+          # Join with subscriptions and filter for users with active subscriptions
+          # Check both user.id and user.stripe_id as customer_id
+          from(u in User,
+            join: s in Subscription,
+            on:
+              (s.customer_id == fragment("?::text", u.id) or s.customer_id == u.stripe_id) and
+                s.customer_type == "user",
+            where: s.stripe_status in ["active", "trialing", "past_due"],
+            distinct: true
+          )
+        else
+          base_query
+        end
+
+      total_count = Repo.one(from q in subquery(filtered_query), select: count(q.id))
       output_path = generate_output_path()
       file = File.open!(output_path, [:write, :utf8])
 
       Repo.transaction(fn ->
-        from(row in User)
+        filtered_query
         |> Repo.stream(max_rows: @stream_rows_count)
         |> Stream.with_index()
         |> Stream.map(fn {entry, index} ->

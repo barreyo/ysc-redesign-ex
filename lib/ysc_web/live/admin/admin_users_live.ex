@@ -402,6 +402,16 @@ defmodule YscWeb.AdminUsersLive do
             <:col :let={{_, user}} label="Role" field={:role}>
               <%= String.capitalize("#{user.role}") %>
             </:col>
+            <:col :let={{_, user}} label="Membership">
+              <%= case get_active_membership_type(user) do %>
+                <% nil -> %>
+                  <span class="text-zinc-400">—</span>
+                <% membership_type -> %>
+                  <.badge type="blue">
+                    <%= String.capitalize("#{membership_type}") %>
+                  </.badge>
+              <% end %>
+            </:col>
             <:action :let={{_, user}} label="Action">
               <button
                 :if={user.state == :pending_approval}
@@ -746,4 +756,74 @@ defmodule YscWeb.AdminUsersLive do
 
   defp user_state_to_readable(:pending_approval), do: "Pending Approval"
   defp user_state_to_readable(state), do: String.capitalize("#{state}")
+
+  defp get_active_membership_type(user) do
+    # Get all subscriptions for the user
+    subscriptions =
+      case user.subscriptions do
+        %Ecto.Association.NotLoaded{} -> []
+        subscriptions when is_list(subscriptions) -> subscriptions
+        _ -> []
+      end
+
+    # Filter for active subscriptions only
+    active_subscriptions =
+      Enum.filter(subscriptions, fn subscription ->
+        Bling.Subscriptions.valid?(subscription)
+      end)
+
+    case active_subscriptions do
+      [] ->
+        nil
+
+      [single_subscription] ->
+        get_membership_type_from_subscription(single_subscription)
+
+      multiple_subscriptions ->
+        # If multiple active subscriptions, pick the most expensive one
+        most_expensive = get_most_expensive_subscription(multiple_subscriptions)
+        get_membership_type_from_subscription(most_expensive)
+    end
+  end
+
+  defp get_most_expensive_subscription(subscriptions) do
+    membership_plans = Application.get_env(:ysc, :membership_plans)
+
+    # Create a map of price_id to amount for quick lookup
+    price_to_amount =
+      Map.new(membership_plans, fn plan ->
+        {plan.stripe_price_id, plan.amount}
+      end)
+
+    # Find the subscription with the highest amount
+    Enum.max_by(subscriptions, fn subscription ->
+      # Get the first subscription item (assuming one item per subscription)
+      case subscription.subscription_items do
+        [item | _] ->
+          Map.get(price_to_amount, item.stripe_price_id, 0)
+
+        _ ->
+          0
+      end
+    end)
+  end
+
+  defp get_membership_type_from_subscription(subscription) do
+    case subscription.subscription_items do
+      [item | _] ->
+        get_membership_type_from_price_id(item.stripe_price_id)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp get_membership_type_from_price_id(price_id) do
+    plans = Application.get_env(:ysc, :membership_plans)
+
+    case Enum.find(plans, &(&1.stripe_price_id == price_id)) do
+      %{id: id} -> id
+      nil -> nil
+    end
+  end
 end
