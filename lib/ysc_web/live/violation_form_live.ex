@@ -88,7 +88,7 @@ defmodule YscWeb.ConductViolationReportLive do
       case Turnstile.verify(values, socket.assigns.remote_ip) do
         {:ok, _} ->
           case Ysc.Forms.create_conduct_violation_report(changeset) do
-            {:ok, _volunteer} ->
+            {:ok, _conduct_report} ->
               {:noreply,
                assign(socket, submitted: true)
                |> put_flash(:info, "Your report has been submitted")}
@@ -106,8 +106,8 @@ defmodule YscWeb.ConductViolationReportLive do
           {:noreply, assign_form(socket, changeset)}
       end
     else
-      case Ysc.Forms.create_volunteer(changeset) do
-        {:ok, _volunteer} ->
+      case Ysc.Forms.create_conduct_violation_report(changeset) do
+        {:ok, _conduct_report} ->
           {:noreply,
            assign(socket, submitted: true)
            |> put_flash(:info, "Your report has been submitted")}

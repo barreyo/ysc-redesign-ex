@@ -11,7 +11,9 @@ defmodule YscWeb.Emails.Notifier do
     "confirm_email" => YscWeb.Emails.ConfirmEmail,
     "reset_password" => YscWeb.Emails.ResetPassword,
     "change_email" => YscWeb.Emails.ChangeEmail,
-    "admin_application_submitted" => YscWeb.Emails.AdminApplicationSubmitted
+    "admin_application_submitted" => YscWeb.Emails.AdminApplicationSubmitted,
+    "conduct_violation_confirmation" => YscWeb.Emails.ConductViolationConfirmation,
+    "conduct_violation_board_notification" => YscWeb.Emails.ConductViolationBoardNotification
   }
 
   def schedule_email(recipient, idempotency_key, subject, template, variables, text_body, user_id) do

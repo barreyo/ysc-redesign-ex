@@ -1,0 +1,100 @@
+<mj-section
+  background-color="#fff"
+  border-radius="6px 6px 0px 0px"
+  padding-bottom="24px"
+  padding-left="48px"
+  padding-right="48px"
+  padding-top="48px"
+  padding="48px"
+>
+  <mj-column padding="0">
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text color="#d32f2f" font-size="32px" line-height="1.25" padding="0px">
+      <strong>⚠️ New Conduct Violation Report</strong>
+    </mj-text>
+  </mj-column>
+</mj-section>
+<mj-section
+  background-color="#fff"
+  border-radius="0px 0px 6px 6px"
+  padding-bottom="48px"
+  padding-left="48px"
+  padding-right="48px"
+  padding-top="20px"
+  padding="48px"
+>
+  <mj-column padding="0">
+    <mj-spacer height="12px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      Dear YSC Board Members,
+    </mj-text>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      A new conduct violation report has been submitted and requires immediate board review.
+    </mj-text>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text align="left" font-size="20px" line-height="1.5" padding="0px" color="#d32f2f">
+      <strong>Report Details:</strong>
+    </mj-text>
+    <mj-spacer height="16px"></mj-spacer>
+    <mj-text align="left" font-size="16px" line-height="1.5" padding="0px" background-color="#f8f9fa" border-radius="4px" padding="16px">
+      <strong>Reporter:</strong> <%= @first_name %> <%= @last_name %><br/>
+      <strong>Email:</strong> <%= @email %><br/>
+      <strong>Phone:</strong> <%= @phone %><br/>
+      <strong>Report ID:</strong> <%= @report_id %><br/>
+      <strong>Submitted:</strong> <%= @submitted_at %>
+    </mj-text>
+    <mj-spacer height="16px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      <strong>Violation Summary:</strong>
+    </mj-text>
+    <mj-spacer height="8px"></mj-spacer>
+    <mj-text align="left" font-size="16px" line-height="1.5" padding="0px" background-color="#fff3cd" border-radius="4px" padding="16px" border-left="4px solid #ffc107">
+      <%= @summary %>
+    </mj-text>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      <strong>Required Actions:</strong>
+    </mj-text>
+    <mj-spacer height="12px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      • Review the report details carefully and confidentially
+    </mj-text>
+    <mj-spacer height="8px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      • Determine appropriate investigation steps
+    </mj-text>
+    <mj-spacer height="8px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      • Contact the reporter if additional information is needed
+    </mj-text>
+    <mj-spacer height="8px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      • Follow YSC Code of Conduct procedures for resolution
+    </mj-text>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      <strong>Important Notes:</strong>
+    </mj-text>
+    <mj-spacer height="12px"></mj-spacer>
+    <mj-text align="left" font-size="16px" line-height="1.5" padding="0px" background-color="#e3f2fd" border-radius="4px" padding="16px">
+      • This report is confidential and should only be discussed among board members<br/>
+      • All parties involved have the right to privacy and fair treatment<br/>
+      • Document all actions taken in response to this report<br/>
+      • Follow up with the reporter regarding the outcome when appropriate
+    </mj-text>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      Please access the admin dashboard to view additional details and manage this report:
+    </mj-text>
+    <mj-spacer height="16px"></mj-spacer>
+    <mj-button background-color="#1976d2" color="#ffffff" font-size="16px" font-weight="bold" href="<%= admin_dashboard_url() %>" border-radius="4px" padding="12px 24px">
+      View Admin Dashboard
+    </mj-button>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-text align="left" font-size="16px" line-height="1.5" padding="0px" color="#666">
+      This is an automated notification. Please do not reply to this email.
+    </mj-text>
+    <mj-spacer height="12px"></mj-spacer>
+  </mj-column>
+</mj-section>
