@@ -50,4 +50,14 @@ defmodule Ysc.MoneyHelper do
       _ -> ""
     end
   end
+
+  def cents_to_dollars(nil), do: Decimal.new("0.0")
+
+  def cents_to_dollars(cents) when is_integer(cents) do
+    cents
+    |> Decimal.new()
+    |> Decimal.div(Decimal.new(100))
+  end
+
+  def cents_to_dollars(_), do: Decimal.new("0.0")
 end

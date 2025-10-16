@@ -2,6 +2,7 @@ defmodule Ysc.Stripe.WebhookHandler do
   alias Ysc.Customers
   alias Ysc.Subscriptions
   alias Ysc.Ledgers
+  alias Ysc.MoneyHelper
 
   def handle_event(event) do
     require Logger
@@ -300,7 +301,7 @@ defmodule Ysc.Stripe.WebhookHandler do
             # Process the subscription payment with ledger entries
             payment_attrs = %{
               user_id: user.id,
-              amount: Money.new(invoice.amount_paid, :USD),
+              amount: Money.new(MoneyHelper.cents_to_dollars(invoice.amount_paid), :USD),
               entity_type: :membership,
               entity_id: find_subscription_id_from_stripe_id(subscription_id, user),
               external_payment_id: invoice.id,
@@ -310,7 +311,7 @@ defmodule Ysc.Stripe.WebhookHandler do
             }
 
             case Ledgers.process_payment(payment_attrs) do
-              {:ok, _payment, _transaction, _entries} ->
+              {:ok, {_payment, _transaction, _entries}} ->
                 Logger.info("Subscription payment processed successfully in ledger",
                   invoice_id: invoice.id,
                   user_id: user.id,
@@ -365,7 +366,7 @@ defmodule Ysc.Stripe.WebhookHandler do
 
         payment_attrs = %{
           user_id: user.id,
-          amount: Money.new(payment_intent.amount, :USD),
+          amount: Money.new(MoneyHelper.cents_to_dollars(payment_intent.amount), :USD),
           entity_type: entity_type,
           entity_id: entity_id,
           external_payment_id: payment_intent.id,
@@ -374,7 +375,7 @@ defmodule Ysc.Stripe.WebhookHandler do
         }
 
         case Ledgers.process_payment(payment_attrs) do
-          {:ok, _payment, _transaction, _entries} ->
+          {:ok, {_payment, _transaction, _entries}} ->
             Logger.info("Payment processed successfully in ledger",
               payment_intent_id: payment_intent.id,
               user_id: user.id,
@@ -509,13 +510,13 @@ defmodule Ysc.Stripe.WebhookHandler do
     # Stripe fees are typically available in the charge object
     # For now, we'll calculate a rough estimate (2.9% + 30¢)
     # In a real implementation, you'd want to fetch the actual charge details
-    amount = payment_intent.amount
+    amount = MoneyHelper.cents_to_dollars(payment_intent.amount)
 
     # Check if fee is provided in metadata (if you're tracking it)
     case payment_intent.metadata do
       %{"stripe_fee" => fee_str} ->
         case Integer.parse(fee_str) do
-          {fee, _} -> Money.new(fee, :USD)
+          {fee, _} -> Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
           :error -> calculate_estimated_fee(amount)
         end
 
@@ -527,7 +528,8 @@ defmodule Ysc.Stripe.WebhookHandler do
   # Helper function to calculate estimated Stripe fee
   defp calculate_estimated_fee(amount) do
     # 2.9% + 30¢ for domestic cards
-    estimated_fee = round(amount * 0.029 + 30)
+    # amount is a Decimal from cents_to_dollars, so 30¢ = 0.30
+    estimated_fee = Decimal.add(Decimal.mult(amount, Decimal.new("0.029")), Decimal.new("0.30"))
     Money.new(estimated_fee, :USD)
   end
 
@@ -588,12 +590,12 @@ defmodule Ysc.Stripe.WebhookHandler do
     case invoice.metadata do
       %{"stripe_fee" => fee_str} ->
         case Integer.parse(fee_str) do
-          {fee, _} -> Money.new(fee, :USD)
-          :error -> calculate_estimated_fee(invoice.amount_paid)
+          {fee, _} -> Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
+          :error -> calculate_estimated_fee(MoneyHelper.cents_to_dollars(invoice.amount_paid))
         end
 
       _ ->
-        calculate_estimated_fee(invoice.amount_paid)
+        calculate_estimated_fee(MoneyHelper.cents_to_dollars(invoice.amount_paid))
     end
   end
 
