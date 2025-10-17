@@ -1,6 +1,6 @@
 defmodule YscWeb.Emails.ApplicationSubmitted do
   use MjmlEEx,
-    mjml_template: "templates/application_submitted.mjml.heex",
+    mjml_template: "templates/application_submitted.mjml.eex",
     layout: YscWeb.Emails.BaseLayout
 
   alias Ysc.Settings

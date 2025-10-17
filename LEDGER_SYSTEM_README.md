@@ -32,7 +32,7 @@ The system includes these basic account types:
 
 **Revenue Accounts:**
 
-- `subscription_revenue` - Revenue from membership subscriptions
+- `membership_revenue` - Revenue from membership subscriptions
 - `event_revenue` - Revenue from event registrations
 - `booking_revenue` - Revenue from cabin bookings
 - `donation_revenue` - Revenue from donations
@@ -56,7 +56,9 @@ Ysc.Ledgers.process_payment(%{
   entity_id: membership.id,
   external_payment_id: "pi_1234567890",
   stripe_fee: Money.new(175, :USD), # $1.75 (2.9% + 30¢)
-  description: "Annual membership fee"
+  description: "Annual membership fee",
+  property: nil,
+  payment_method_id: payment_method.id # Optional: reference to payment method
 })
 ```
 
@@ -178,7 +180,9 @@ Ysc.Ledgers.process_payment(%{
   entity_id: event.id,
   external_payment_id: "pi_event_123",
   stripe_fee: Money.new(247, :USD), # $2.47
-  description: "Event registration: #{event.name}"
+  description: "Event registration: #{event.name}",
+  property: nil,
+  payment_method_id: payment_method.id # Optional: reference to payment method
 })
 ```
 
@@ -200,7 +204,9 @@ Ysc.Ledgers.process_payment(%{
   entity_id: booking.id,
   external_payment_id: "pi_booking_456",
   stripe_fee: Money.new(610, :USD), # $6.10
-  description: "Cabin booking: #{booking.cabin_name}"
+  description: "Cabin booking: #{booking.cabin_name}",
+  property: :tahoe, # or :clear_lake
+  payment_method_id: payment_method.id # Optional: reference to payment method
 })
 ```
 

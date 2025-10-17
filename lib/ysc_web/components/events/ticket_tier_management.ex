@@ -18,8 +18,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
               size="sm"
               class="w-full sm:w-auto"
             >
-              <.icon name="hero-plus" class="w-4 h-4 me-1" />
-              Add Ticket Tier
+              <.icon name="hero-plus" class="w-4 h-4 me-1" /> Add Ticket Tier
             </.button>
           </div>
         </div>
@@ -109,7 +108,11 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                     phx-target={@myself}
                     data-confirm="Are you sure you want to delete this ticket tier? This action cannot be undone."
                     disabled={ticket_tier.sold_tickets_count > 0}
-                    title={if ticket_tier.sold_tickets_count > 0, do: "Cannot delete ticket tier with sold tickets", else: "Delete ticket tier"}
+                    title={
+                      if ticket_tier.sold_tickets_count > 0,
+                        do: "Cannot delete ticket tier with sold tickets",
+                        else: "Delete ticket tier"
+                    }
                     class="flex-1 sm:flex-none"
                   >
                     <.icon name="hero-trash" class="w-4 h-4 sm:me-0" />
@@ -121,7 +124,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
           <% end %>
         </div>
       </div>
-
       <!-- Ticket Purchases Summary -->
       <div class="border border-zinc-200 rounded p-4 sm:p-6">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-4">
@@ -175,9 +177,13 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
           <% end %>
         </div>
       </div>
-
       <!-- Add Ticket Tier Modal -->
-      <.modal :if={@show_add_modal} id="add-ticket-tier-modal" show on_cancel={JS.push("close-add-ticket-tier-modal", target: @myself)}>
+      <.modal
+        :if={@show_add_modal}
+        id="add-ticket-tier-modal"
+        show
+        on_cancel={JS.push("close-add-ticket-tier-modal", target: @myself)}
+      >
         <:title>Add New Ticket Tier</:title>
         <.live_component
           id={"ticket-tier-form-#{@event_id}"}
@@ -185,9 +191,13 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
           event_id={@event_id}
         />
       </.modal>
-
       <!-- Edit Ticket Tier Modal -->
-      <.modal :if={@show_edit_modal} id="edit-ticket-tier-modal" show on_cancel={JS.push("close-edit-ticket-tier-modal", target: @myself)}>
+      <.modal
+        :if={@show_edit_modal}
+        id="edit-ticket-tier-modal"
+        show
+        on_cancel={JS.push("close-edit-ticket-tier-modal", target: @myself)}
+      >
         <:title>Edit Ticket Tier</:title>
         <.live_component
           :if={@editing_ticket_tier}

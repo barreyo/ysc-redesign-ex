@@ -372,68 +372,101 @@ defmodule Ysc.Accounts.AuthService do
 
   # Private helper functions
 
-  defp get_client_ip(conn) do
-    # Check for forwarded IP first (for load balancers/proxies)
-    case get_header(conn, "x-forwarded-for") do
-      nil ->
-        case get_header(conn, "x-real-ip") do
+  defp get_client_ip(conn_or_socket) do
+    case conn_or_socket do
+      %Plug.Conn{} = conn ->
+        # Check for forwarded IP first (for load balancers/proxies)
+        case get_header(conn, "x-forwarded-for") do
           nil ->
-            # Fall back to remote_ip
-            conn.remote_ip
-            |> :inet.ntoa()
-            |> to_string()
+            case get_header(conn, "x-real-ip") do
+              nil ->
+                # Fall back to remote_ip
+                conn.remote_ip
+                |> :inet.ntoa()
+                |> to_string()
 
-          real_ip ->
+              real_ip ->
+                # Take the first IP from comma-separated list
+                real_ip
+                |> String.split(",")
+                |> List.first()
+                |> String.trim()
+            end
+
+          forwarded_for ->
             # Take the first IP from comma-separated list
-            real_ip
+            forwarded_for
             |> String.split(",")
             |> List.first()
             |> String.trim()
         end
 
-      forwarded_for ->
-        # Take the first IP from comma-separated list
-        forwarded_for
-        |> String.split(",")
-        |> List.first()
-        |> String.trim()
+      %Phoenix.LiveView.Socket{} ->
+        # For LiveView sockets, we don't have direct access to IP
+        # Return a default value for now
+        "127.0.0.1"
+
+      _ ->
+        "127.0.0.1"
     end
   end
 
-  defp get_user_agent(conn) do
-    get_header(conn, "user-agent")
+  defp get_user_agent(conn_or_socket) do
+    get_header(conn_or_socket, "user-agent")
   end
 
-  defp get_session_id(conn) do
-    # Phoenix session ID is not directly accessible, but we can use the session token
-    try do
-      case get_session(conn, :user_token) do
-        nil ->
-          nil
+  defp get_session_id(conn_or_socket) do
+    case conn_or_socket do
+      %Plug.Conn{} = conn ->
+        # Phoenix session ID is not directly accessible, but we can use the session token
+        try do
+          case get_session(conn, :user_token) do
+            nil ->
+              nil
 
-        token when is_binary(token) ->
-          # Convert binary token to base64 string to avoid null bytes
-          Base.encode64(token)
+            token when is_binary(token) ->
+              # Convert binary token to base64 string to avoid null bytes
+              Base.encode64(token)
 
-        other ->
-          # Handle any other type
-          to_string(other)
-      end
-    rescue
-      # Session not fetched
-      ArgumentError -> nil
+            other ->
+              # Handle any other type
+              to_string(other)
+          end
+        rescue
+          # Session not fetched
+          ArgumentError -> nil
+        end
+
+      %Phoenix.LiveView.Socket{} ->
+        # For LiveView sockets, we don't have direct access to session
+        # Return nil for now
+        nil
+
+      _ ->
+        nil
     end
   end
 
-  defp get_header(conn, header) do
-    case Plug.Conn.get_req_header(conn, header) do
-      [value | _] -> value
-      [] -> nil
+  defp get_header(conn_or_socket, header) do
+    case conn_or_socket do
+      %Plug.Conn{} = conn ->
+        case Plug.Conn.get_req_header(conn, header) do
+          [value | _] -> value
+          [] -> nil
+        end
+
+      %Phoenix.LiveView.Socket{} ->
+        # LiveView sockets don't have direct access to request headers
+        # Return nil for now - this could be enhanced to extract from socket assigns if needed
+        nil
+
+      _ ->
+        nil
     end
   end
 
-  defp parse_user_agent_data(conn) do
-    case get_user_agent(conn) do
+  defp parse_user_agent_data(conn_or_socket) do
+    case get_user_agent(conn_or_socket) do
       nil ->
         %{}
 

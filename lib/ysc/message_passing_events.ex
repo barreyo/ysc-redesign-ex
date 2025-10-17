@@ -58,4 +58,12 @@ defmodule Ysc.MessagePassingEvents do
   defmodule TicketCreated do
     defstruct ticket: nil
   end
+
+  defmodule CheckoutSessionExpired do
+    defstruct ticket_order: nil, user_id: nil, event_id: nil
+  end
+
+  defmodule CheckoutSessionCancelled do
+    defstruct ticket_order: nil, user_id: nil, event_id: nil, reason: nil
+  end
 end

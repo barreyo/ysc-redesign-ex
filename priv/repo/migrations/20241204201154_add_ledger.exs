@@ -26,7 +26,7 @@ defmodule Ysc.Repo.Migrations.AddLedger do
       add :status, :string
       add :payment_date, :utc_datetime
 
-      add :user_id, references(:users, column: :id, type: :binary_id)
+      add :user_id, references(:users, column: :id, type: :binary_id), null: true
 
       timestamps()
     end

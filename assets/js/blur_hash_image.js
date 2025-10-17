@@ -5,7 +5,7 @@ function attachEventListener(imageElement) {
     // and the "onload" event is not firing retroactively. If the image has loaded
     // then do an instant swap of the blur hash to the image.
     if (!alreadyLoaded) {
-        imageElement.onload = function () {
+        imageElement.onload = function() {
             hideBlurHash(imageElement, false)
         }
     } else {

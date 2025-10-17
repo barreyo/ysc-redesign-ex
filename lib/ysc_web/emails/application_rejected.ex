@@ -1,6 +1,6 @@
 defmodule YscWeb.Emails.ApplicationRejected do
   use MjmlEEx,
-    mjml_template: "templates/application_rejected.mjml.heex",
+    mjml_template: "templates/application_rejected.mjml.eex",
     layout: YscWeb.Emails.BaseLayout
 
   def get_template_name() do

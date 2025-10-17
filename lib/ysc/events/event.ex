@@ -4,6 +4,7 @@ defmodule Ysc.Events.Event do
   import Ecto.Changeset
 
   alias Ysc.ReferenceGenerator
+  alias Ysc.Events.EventState
 
   @reference_prefix "EVT"
 
@@ -48,7 +49,7 @@ defmodule Ysc.Events.Event do
     # Control publishing of the event
     # Draft: Not visible to the public
     # Published: Visible to the public
-    field :state, EventState
+    field :state, Ysc.Events.EventState
     field :published_at, :utc_datetime
     field :publish_at, :utc_datetime
 

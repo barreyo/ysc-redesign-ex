@@ -28,7 +28,10 @@ defmodule YscWeb.UserEventsListLive do
                 <time>
                   <%= Timex.format!(ticket.event.start_date, "{WDshort}, {Mshort} {D}") %>
                 </time>
-                <span :if={ticket.event.start_time != nil && ticket.event.start_time != ""} class="ml-2">
+                <span
+                  :if={ticket.event.start_time != nil && ticket.event.start_time != ""}
+                  class="ml-2"
+                >
                   • <%= format_start_time(ticket.event.start_time) %>
                 </span>
               </div>
@@ -39,10 +42,7 @@ defmodule YscWeb.UserEventsListLive do
               </div>
             </div>
 
-            <.link
-              navigate={~p"/events/#{ticket.event.id}"}
-              class="block"
-            >
+            <.link navigate={~p"/events/#{ticket.event.id}"} class="block">
               <h3 class="text-lg font-semibold text-zinc-900 hover:text-blue-600 transition-colors mb-2">
                 <%= ticket.event.title %>
               </h3>

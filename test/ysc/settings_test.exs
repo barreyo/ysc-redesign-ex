@@ -57,14 +57,14 @@ defmodule Ysc.SettingsTest do
       setting = %SiteSetting{name: "cached", value: "old"} |> Repo.insert!()
 
       # First call populates cache
-      assert Settings.get_setting("cached") == "new"
+      assert Settings.get_setting("cached") == "old"
 
       # Update DB but should still return cached value
       setting
       |> Ecto.Changeset.change(value: "updated")
       |> Repo.update!()
 
-      assert Settings.get_setting("cached") == "new"
+      assert Settings.get_setting("cached") == "old"
 
       # Clear cache after test
       Settings.clear_cache()

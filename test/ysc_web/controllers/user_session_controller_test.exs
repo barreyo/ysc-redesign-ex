@@ -11,7 +11,7 @@ defmodule YscWeb.UserSessionControllerTest do
     test "renders log in page", %{conn: conn} do
       conn = get(conn, ~p"/users/log-in")
       response = html_response(conn, 200)
-      assert response =~ "Log in"
+      assert response =~ "Sign in"
       assert response =~ ~p"/users/register"
       assert response =~ "Forgot your password?"
     end

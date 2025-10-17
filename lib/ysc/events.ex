@@ -289,7 +289,7 @@ defmodule Ysc.Events do
     from(tt in TicketTier,
       where: tt.event_id == ^event_id,
       left_join: t in Ticket,
-      on: t.ticket_tier_id == tt.id,
+      on: t.ticket_tier_id == tt.id and t.status == :confirmed,
       group_by: [
         tt.id,
         tt.name,
@@ -387,7 +387,7 @@ defmodule Ysc.Events do
   """
   def count_tickets_for_tier(ticket_tier_id) do
     Ticket
-    |> where([t], t.ticket_tier_id == ^ticket_tier_id)
+    |> where([t], t.ticket_tier_id == ^ticket_tier_id and t.status == :confirmed)
     |> Repo.aggregate(:count, :id)
   end
 
@@ -396,7 +396,7 @@ defmodule Ysc.Events do
   """
   def count_total_tickets_sold_for_event(event_id) do
     Ticket
-    |> where([t], t.event_id == ^event_id)
+    |> where([t], t.event_id == ^event_id and t.status == :confirmed)
     |> Repo.aggregate(:count, :id)
   end
 
@@ -420,7 +420,7 @@ defmodule Ysc.Events do
   """
   def get_ticket_purchase_summary(event_id) do
     from(t in Ticket,
-      where: t.event_id == ^event_id,
+      where: t.event_id == ^event_id and t.status == :confirmed,
       join: tt in assoc(t, :ticket_tier),
       join: u in assoc(t, :user),
       group_by: [tt.id, tt.name, u.id, u.first_name, u.last_name, u.email, tt.price],
@@ -438,12 +438,21 @@ defmodule Ysc.Events do
     |> Enum.map(fn purchase ->
       # Calculate total amount by multiplying price by count
       total_amount =
-        case purchase.ticket_tier_price do
-          %Money{amount: amount} -> Money.new(amount * purchase.ticket_count, :USD)
-          _ -> Money.new(0, :USD)
+        try do
+          case purchase.ticket_tier_price do
+            %Money{amount: amount} ->
+              Money.new(Decimal.mult(amount, Decimal.new(purchase.ticket_count)), :USD)
+
+            _ ->
+              Money.new(0, :USD)
+          end
+        rescue
+          _ ->
+            Money.new(0, :USD)
         end
 
-      %{purchase | total_amount: total_amount}
+      purchase
+      |> Map.put(:total_amount, total_amount)
       |> Map.delete(:ticket_tier_price)
     end)
   end

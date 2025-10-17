@@ -31,10 +31,7 @@ defmodule YscWeb.NewsListLive do
               <span>by <%= post.author.first_name %> <%= post.author.last_name %></span>
             </div>
 
-            <.link
-              navigate={~p"/posts/#{post.url_name}"}
-              class="block"
-            >
+            <.link navigate={~p"/posts/#{post.url_name}"} class="block">
               <h3 class="text-lg font-semibold text-zinc-900 hover:text-blue-600 transition-colors mb-2">
                 <%= post.title %>
               </h3>

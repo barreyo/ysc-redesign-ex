@@ -195,12 +195,6 @@ defmodule YscWeb.HomeLive do
                   Browse all events →
                 </.link>
               </div>
-              <!-- User's events with tickets will be loaded here via LiveView component -->
-              <.live_component
-                id="home-user-events-list"
-                module={YscWeb.UserEventsListLive}
-                current_user={@current_user}
-              />
             </div>
             <!-- Upcoming Events Section -->
             <div class="bg-white rounded-lg border border-zinc-200 p-6">

@@ -15,9 +15,11 @@ defmodule Ysc.Repo.Migrations.SeedBasicLedgerAccounts do
       {"refund_liability", "liability", "Pending refunds"},
 
       # Revenue accounts
-      {"subscription_revenue", "revenue", "Revenue from membership subscriptions"},
+      {"membership_revenue", "revenue", "Revenue from membership subscriptions"},
       {"event_revenue", "revenue", "Revenue from event registrations"},
       {"booking_revenue", "revenue", "Revenue from cabin bookings"},
+      {"tahoe_booking_revenue", "revenue", "Revenue from Tahoe cabin bookings"},
+      {"clear_lake_booking_revenue", "revenue", "Revenue from Clear Lake cabin bookings"},
       {"donation_revenue", "revenue", "Revenue from donations"},
 
       # Expense accounts
@@ -50,7 +52,8 @@ defmodule Ysc.Repo.Migrations.SeedBasicLedgerAccounts do
       WHERE name IN (
         'cash', 'stripe_account', 'accounts_receivable',
         'accounts_payable', 'deferred_revenue', 'refund_liability',
-        'subscription_revenue', 'event_revenue', 'booking_revenue', 'donation_revenue',
+        'membership_revenue', 'event_revenue', 'booking_revenue',
+        'tahoe_booking_revenue', 'clear_lake_booking_revenue', 'donation_revenue',
         'stripe_fees', 'operating_expenses', 'refund_expense'
       );
     """

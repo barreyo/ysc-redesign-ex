@@ -9,7 +9,7 @@ defmodule Ysc.Events.TicketTier do
     field :name, :string
     field :description, :string
 
-    field :type, TicketTierType
+    field :type, Ysc.Events.TicketTierType
 
     field :price, Money.Ecto.Composite.Type, default_currency: :USD
     field :quantity, :integer

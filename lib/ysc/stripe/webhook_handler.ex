@@ -273,47 +273,73 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp handle("invoice.payment_succeeded", %Stripe.Invoice{} = invoice) do
+    # Convert Stripe struct to map and call the map handler
+    invoice_map = %{
+      id: invoice.id,
+      customer: invoice.customer,
+      subscription: invoice.subscription,
+      amount_paid: invoice.amount_paid,
+      description: invoice.description,
+      number: invoice.number,
+      charge: invoice.charge,
+      metadata: invoice.metadata
+    }
+
+    handle("invoice.payment_succeeded", invoice_map)
+  end
+
+  defp handle("invoice.payment_succeeded", invoice) when is_map(invoice) do
     require Logger
 
     # This webhook is specifically for subscription payments
     # It's more reliable than payment_intent.succeeded for subscription billing
-    case invoice.subscription do
+    # Handle both atom and string keys for compatibility
+    subscription_id = invoice[:subscription] || invoice["subscription"]
+
+    case subscription_id do
       nil ->
         # Not a subscription invoice, skip
         :ok
 
       subscription_id ->
         # Get the user from the customer ID
-        user = Ysc.Accounts.get_user_from_stripe_id(invoice.customer)
+        customer_id = invoice[:customer] || invoice["customer"]
+        invoice_id = invoice[:id] || invoice["id"]
+        user = Ysc.Accounts.get_user_from_stripe_id(customer_id)
 
         if user do
           # Check if we already have a payment record for this invoice
-          existing_payment = Ledgers.get_payment_by_external_id(invoice.id)
+          existing_payment = Ledgers.get_payment_by_external_id(invoice_id)
 
           if existing_payment do
             Logger.info("Payment already exists for invoice",
-              invoice_id: invoice.id,
+              invoice_id: invoice_id,
               payment_id: existing_payment.id
             )
 
             :ok
           else
             # Process the subscription payment with ledger entries
+            amount_paid = invoice[:amount_paid] || invoice["amount_paid"]
+            description = invoice[:description] || invoice["description"]
+            number = invoice[:number] || invoice["number"]
+
             payment_attrs = %{
               user_id: user.id,
-              amount: Money.new(MoneyHelper.cents_to_dollars(invoice.amount_paid), :USD),
+              amount: Money.new(MoneyHelper.cents_to_dollars(amount_paid), :USD),
               entity_type: :membership,
               entity_id: find_subscription_id_from_stripe_id(subscription_id, user),
-              external_payment_id: invoice.id,
+              external_payment_id: invoice_id,
               stripe_fee: extract_stripe_fee_from_invoice(invoice),
-              description:
-                "Membership payment - #{invoice.description || "Invoice #{invoice.number}"}"
+              description: "Membership payment - #{description || "Invoice #{number}"}",
+              property: nil,
+              payment_method_id: extract_payment_method_from_invoice(invoice)
             }
 
             case Ledgers.process_payment(payment_attrs) do
               {:ok, {_payment, _transaction, _entries}} ->
                 Logger.info("Subscription payment processed successfully in ledger",
-                  invoice_id: invoice.id,
+                  invoice_id: invoice_id,
                   user_id: user.id,
                   subscription_id: subscription_id
                 )
@@ -322,7 +348,7 @@ defmodule Ysc.Stripe.WebhookHandler do
 
               {:error, reason} ->
                 Logger.error("Failed to process subscription payment in ledger",
-                  invoice_id: invoice.id,
+                  invoice_id: invoice_id,
                   user_id: user.id,
                   error: reason
                 )
@@ -332,8 +358,8 @@ defmodule Ysc.Stripe.WebhookHandler do
           end
         else
           Logger.warning("No user found for invoice payment",
-            invoice_id: invoice.id,
-            customer_id: invoice.customer
+            invoice_id: invoice_id,
+            customer_id: customer_id
           )
 
           :ok
@@ -342,66 +368,92 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp handle("payment_intent.succeeded", %Stripe.PaymentIntent{} = payment_intent) do
+    # Convert Stripe struct to map and call the map handler
+    payment_intent_map = %{
+      id: payment_intent.id,
+      status: payment_intent.status,
+      customer: payment_intent.customer,
+      amount: payment_intent.amount,
+      description: payment_intent.description,
+      metadata: payment_intent.metadata,
+      # latest_charge might not exist on all PaymentIntent structs
+      latest_charge: Map.get(payment_intent, :latest_charge)
+    }
+
+    handle("payment_intent.succeeded", payment_intent_map)
+  end
+
+  defp handle("payment_intent.succeeded", payment_intent) when is_map(payment_intent) do
     require Logger
 
-    # Get the user from the customer ID
-    user = Ysc.Accounts.get_user_from_stripe_id(payment_intent.customer)
+    Logger.info("Payment intent succeeded",
+      payment_intent_id: payment_intent.id,
+      payment_intent_status: payment_intent.status,
+      customer_id: payment_intent.customer
+    )
 
-    if user do
-      # Check if we already have a payment record for this payment intent
-      existing_payment = Ledgers.get_payment_by_external_id(payment_intent.id)
+    :ok
+  end
 
-      if existing_payment do
-        Logger.info("Payment already exists for payment intent",
-          payment_intent_id: payment_intent.id,
-          payment_id: existing_payment.id
+  defp handle("payout.paid", %Stripe.Payout{} = payout) do
+    # Convert Stripe struct to map and call the map handler
+    payout_map = %{
+      id: payout.id,
+      amount: payout.amount,
+      currency: payout.currency,
+      status: payout.status,
+      arrival_date: payout.arrival_date,
+      description: payout.description,
+      metadata: payout.metadata
+    }
+
+    handle("payout.paid", payout_map)
+  end
+
+  defp handle("payout.paid", payout) when is_map(payout) do
+    require Logger
+
+    Logger.info("Processing Stripe payout",
+      payout_id: payout[:id] || payout["id"],
+      amount: payout[:amount] || payout["amount"],
+      currency: payout[:currency] || payout["currency"],
+      status: payout[:status] || payout["status"]
+    )
+
+    # Process the payout in the ledger
+    payout_id = payout[:id] || payout["id"]
+    amount_cents = payout[:amount] || payout["amount"]
+    currency = (payout[:currency] || payout["currency"]) |> String.downcase() |> String.to_atom()
+    description = payout[:description] || payout["description"] || "Stripe payout"
+
+    # Convert amount from cents to Money struct
+    payout_amount = Money.new(MoneyHelper.cents_to_dollars(amount_cents), currency)
+
+    # Process the payout in the ledger
+    case Ledgers.process_stripe_payout(%{
+           payout_amount: payout_amount,
+           stripe_payout_id: payout_id,
+           description: description
+         }) do
+      {:ok, {_payout_payment, _transaction, _entries}} ->
+        Logger.info("Stripe payout processed successfully in ledger",
+          payout_id: payout_id,
+          amount: Money.to_string!(payout_amount)
+        )
+
+        # Get detailed breakdown of payments included in this payout
+        print_payout_breakdown(payout_id, payout_amount)
+
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Failed to process Stripe payout in ledger",
+          payout_id: payout_id,
+          amount: Money.to_string!(payout_amount),
+          error: reason
         )
 
         :ok
-      else
-        # Process the payment with ledger entries
-        # For membership subscriptions, we need to determine if this is a subscription payment
-        entity_type = extract_entity_type_from_payment_intent(payment_intent)
-        entity_id = extract_entity_id_from_payment_intent(payment_intent, user)
-
-        payment_attrs = %{
-          user_id: user.id,
-          amount: Money.new(MoneyHelper.cents_to_dollars(payment_intent.amount), :USD),
-          entity_type: entity_type,
-          entity_id: entity_id,
-          external_payment_id: payment_intent.id,
-          stripe_fee: extract_stripe_fee_from_payment_intent(payment_intent),
-          description: extract_description_from_payment_intent(payment_intent)
-        }
-
-        case Ledgers.process_payment(payment_attrs) do
-          {:ok, {_payment, _transaction, _entries}} ->
-            Logger.info("Payment processed successfully in ledger",
-              payment_intent_id: payment_intent.id,
-              user_id: user.id,
-              entity_type: entity_type,
-              entity_id: entity_id
-            )
-
-            :ok
-
-          {:error, reason} ->
-            Logger.error("Failed to process payment in ledger",
-              payment_intent_id: payment_intent.id,
-              user_id: user.id,
-              error: reason
-            )
-
-            :ok
-        end
-      end
-    else
-      Logger.warning("No user found for payment intent",
-        payment_intent_id: payment_intent.id,
-        customer_id: payment_intent.customer
-      )
-
-      :ok
     end
   end
 
@@ -419,6 +471,14 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp handle(_event_name, _event_object), do: :ok
+
+  @doc """
+  Public function to handle webhook events by type and data object.
+  This is used by the webhook reprocessor to re-process failed webhooks.
+  """
+  def handle_webhook_event(event_type, event_object) do
+    handle(event_type, event_object)
+  end
 
   # Convert Stripe.Event struct to a plain map for JSON storage
   defp stripe_event_to_map(%Stripe.Event{} = event) do
@@ -507,30 +567,130 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp extract_stripe_fee_from_payment_intent(payment_intent) do
-    # Stripe fees are typically available in the charge object
-    # For now, we'll calculate a rough estimate (2.9% + 30¢)
-    # In a real implementation, you'd want to fetch the actual charge details
-    amount = MoneyHelper.cents_to_dollars(payment_intent.amount)
-
-    # Check if fee is provided in metadata (if you're tracking it)
+    # Check if fee is provided in metadata first
     case payment_intent.metadata do
       %{"stripe_fee" => fee_str} ->
         case Integer.parse(fee_str) do
+          # fee is already in cents
           {fee, _} -> Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
-          :error -> calculate_estimated_fee(amount)
+          :error -> fetch_actual_stripe_fee_from_payment_intent(payment_intent)
         end
 
       _ ->
-        calculate_estimated_fee(amount)
+        fetch_actual_stripe_fee_from_payment_intent(payment_intent)
     end
   end
 
-  # Helper function to calculate estimated Stripe fee
+  # Helper function to fetch actual Stripe fee from payment intent
+  defp fetch_actual_stripe_fee_from_payment_intent(payment_intent) do
+    require Logger
+
+    # Try to get the latest charge from the payment intent
+    case payment_intent.latest_charge do
+      charge_id when is_binary(charge_id) ->
+        fetch_actual_stripe_fee_from_charge(charge_id)
+
+      nil ->
+        Logger.warning("No latest charge found for payment intent",
+          payment_intent_id: payment_intent.id
+        )
+
+        # Fallback to estimated fee based on payment intent amount
+        amount_dollars = MoneyHelper.cents_to_dollars(payment_intent.amount)
+        calculate_estimated_fee(amount_dollars)
+    end
+  end
+
+  # Helper function to fetch actual Stripe fee from charge
+  defp fetch_actual_stripe_fee_from_charge(charge_id) when is_binary(charge_id) do
+    require Logger
+
+    try do
+      # Fetch the charge with expanded balance transaction to get actual fees
+      case Stripe.Charge.retrieve(charge_id, expand: ["balance_transaction"]) do
+        {:ok, %Stripe.Charge{balance_transaction: %Stripe.BalanceTransaction{fee: fee}}} ->
+          # fee is already in cents
+          Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
+
+        {:ok, %Stripe.Charge{}} ->
+          Logger.warning("Charge retrieved but no balance transaction fee found",
+            charge_id: charge_id
+          )
+
+          # Fallback to estimated fee
+          calculate_estimated_fee_from_charge_amount(charge_id)
+
+        {:error, reason} ->
+          Logger.error("Failed to fetch charge for fee calculation",
+            charge_id: charge_id,
+            error: reason
+          )
+
+          # Fallback to estimated fee
+          calculate_estimated_fee_from_charge_amount(charge_id)
+      end
+    rescue
+      error ->
+        Logger.error("Exception while fetching charge for fee calculation",
+          charge_id: charge_id,
+          error: Exception.message(error)
+        )
+
+        # Fallback to estimated fee
+        calculate_estimated_fee_from_charge_amount(charge_id)
+    end
+  end
+
+  defp fetch_actual_stripe_fee_from_charge(nil) do
+    require Logger
+    Logger.warning("No charge ID provided for fee calculation")
+    # Return zero fee if no charge ID
+    Money.new(0, :USD)
+  end
+
+  # Helper function to calculate estimated fee when we can't fetch actual fee
+  defp calculate_estimated_fee_from_charge_amount(charge_id) do
+    require Logger
+
+    try do
+      # Try to get the charge amount to calculate estimated fee
+      case Stripe.Charge.retrieve(charge_id) do
+        {:ok, %Stripe.Charge{amount: amount}} ->
+          # amount is in cents, convert to dollars for calculation
+          amount_dollars = MoneyHelper.cents_to_dollars(amount)
+          calculate_estimated_fee(amount_dollars)
+
+        {:error, reason} ->
+          Logger.error("Failed to fetch charge amount for fee estimation",
+            charge_id: charge_id,
+            error: reason
+          )
+
+          # Return zero fee as last resort
+          Money.new(0, :USD)
+      end
+    rescue
+      error ->
+        Logger.error("Exception while fetching charge amount for fee estimation",
+          charge_id: charge_id,
+          error: Exception.message(error)
+        )
+
+        # Return zero fee as last resort
+        Money.new(0, :USD)
+    end
+  end
+
+  # Helper function to calculate estimated Stripe fee (fallback only)
   defp calculate_estimated_fee(amount) do
     # 2.9% + 30¢ for domestic cards
     # amount is a Decimal from cents_to_dollars, so 30¢ = 0.30
     estimated_fee = Decimal.add(Decimal.mult(amount, Decimal.new("0.029")), Decimal.new("0.30"))
-    Money.new(estimated_fee, :USD)
+    # Convert to cents for Money.new to avoid precision issues
+    estimated_fee_cents =
+      Decimal.mult(estimated_fee, Decimal.new("100")) |> Decimal.round(0) |> Decimal.to_integer()
+
+    Money.new(MoneyHelper.cents_to_dollars(estimated_fee_cents), :USD)
   end
 
   defp extract_description_from_payment_intent(payment_intent) do
@@ -586,16 +746,20 @@ defmodule Ysc.Stripe.WebhookHandler do
 
   # Helper function to extract Stripe fee from invoice
   defp extract_stripe_fee_from_invoice(invoice) do
-    # Check if fee is provided in metadata
-    case invoice.metadata do
+    # Check if fee is provided in metadata first
+    metadata = invoice[:metadata] || invoice["metadata"] || %{}
+    charge_id = invoice[:charge] || invoice["charge"]
+
+    case metadata do
       %{"stripe_fee" => fee_str} ->
         case Integer.parse(fee_str) do
+          # fee is already in cents
           {fee, _} -> Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
-          :error -> calculate_estimated_fee(MoneyHelper.cents_to_dollars(invoice.amount_paid))
+          :error -> fetch_actual_stripe_fee_from_charge(charge_id)
         end
 
       _ ->
-        calculate_estimated_fee(MoneyHelper.cents_to_dollars(invoice.amount_paid))
+        fetch_actual_stripe_fee_from_charge(charge_id)
     end
   end
 
@@ -745,6 +909,160 @@ defmodule Ysc.Stripe.WebhookHandler do
           user_id: user.id,
           error: Exception.message(error)
         )
+    end
+  end
+
+  # Helper function to print detailed breakdown of payments included in a payout
+  defp print_payout_breakdown(payout_id, payout_amount) do
+    require Logger
+
+    Logger.info("=== PAYOUT BREAKDOWN ===",
+      payout_id: payout_id,
+      total_payout_amount: Money.to_string!(payout_amount)
+    )
+
+    # Get all payments that were part of this payout
+    # Note: This is a simplified approach. In a real implementation, you might need to
+    # correlate payments with payouts using Stripe's API or additional tracking
+    recent_payments = get_recent_payments_for_payout_breakdown()
+
+    # Group payments by type
+    payments_by_type = group_payments_by_type(recent_payments)
+
+    # Print summary for each payment type
+    Enum.each(payments_by_type, fn {type, payments} ->
+      total_amount = calculate_total_amount(payments)
+      count = length(payments)
+
+      Logger.info("Payment Type: #{type}",
+        count: count,
+        total_amount: Money.to_string!(total_amount)
+      )
+
+      # Print details for each payment
+      Enum.each(payments, fn payment ->
+        Logger.info("  - #{payment.payment_type_info.details}",
+          payment_id: payment.id,
+          amount: Money.to_string!(payment.amount),
+          user: get_user_display_name(payment.user),
+          date: payment.payment_date
+        )
+      end)
+    end)
+
+    Logger.info("=== END PAYOUT BREAKDOWN ===")
+  end
+
+  # Helper function to get recent payments for payout breakdown
+  defp get_recent_payments_for_payout_breakdown do
+    # Get payments from the last 7 days as a reasonable window for payout correlation
+    start_date = DateTime.add(DateTime.utc_now(), -7, :day)
+    end_date = DateTime.utc_now()
+
+    Ysc.Ledgers.get_recent_payments(start_date, end_date, 100)
+  end
+
+  # Helper function to group payments by type
+  defp group_payments_by_type(payments) do
+    payments
+    |> Enum.group_by(fn payment ->
+      payment.payment_type_info.type
+    end)
+  end
+
+  # Helper function to calculate total amount for a list of payments
+  defp calculate_total_amount(payments) do
+    payments
+    |> Enum.map(fn payment -> payment.amount end)
+    |> Enum.reduce(Money.new(0, :USD), fn amount, acc ->
+      case Money.add(acc, amount) do
+        {:ok, result} -> result
+        {:error, _} -> acc
+      end
+    end)
+  end
+
+  # Helper function to get user display name
+  defp get_user_display_name(nil), do: "System"
+
+  defp get_user_display_name(user) do
+    case {user.first_name, user.last_name} do
+      {nil, nil} ->
+        "Unknown User"
+
+      {first_name, nil} when is_binary(first_name) ->
+        first_name
+
+      {nil, last_name} when is_binary(last_name) ->
+        last_name
+
+      {first_name, last_name} when is_binary(first_name) and is_binary(last_name) ->
+        "#{first_name} #{last_name}"
+
+      _ ->
+        "Unknown User"
+    end
+  end
+
+  # Helper function to extract payment method from Stripe invoice
+  defp extract_payment_method_from_invoice(invoice) do
+    require Logger
+
+    # Get the charge ID from the invoice
+    charge_id = invoice[:charge] || invoice["charge"]
+
+    case charge_id do
+      nil ->
+        Logger.info("No charge found in invoice", invoice_id: invoice[:id] || invoice["id"])
+        nil
+
+      charge_id when is_binary(charge_id) ->
+        # Retrieve the charge to get payment method details
+        case Stripe.Charge.retrieve(charge_id) do
+          {:ok, charge} ->
+            # Get the payment method ID from the charge
+            payment_method_id = charge.payment_method
+
+            case payment_method_id do
+              nil ->
+                Logger.info("No payment method found in charge",
+                  charge_id: charge_id,
+                  invoice_id: invoice[:id] || invoice["id"]
+                )
+
+                nil
+
+              payment_method_id when is_binary(payment_method_id) ->
+                # Find the payment method in our database
+                case Ysc.Payments.get_payment_method_by_provider(:stripe, payment_method_id) do
+                  nil ->
+                    Logger.info("Payment method not found in local database",
+                      stripe_payment_method_id: payment_method_id,
+                      charge_id: charge_id
+                    )
+
+                    nil
+
+                  payment_method ->
+                    Logger.info("Found payment method for invoice",
+                      payment_method_id: payment_method.id,
+                      stripe_payment_method_id: payment_method_id,
+                      charge_id: charge_id
+                    )
+
+                    payment_method.id
+                end
+            end
+
+          {:error, error} ->
+            Logger.warning("Failed to retrieve charge from Stripe",
+              charge_id: charge_id,
+              error: error.message,
+              invoice_id: invoice[:id] || invoice["id"]
+            )
+
+            nil
+        end
     end
   end
 end

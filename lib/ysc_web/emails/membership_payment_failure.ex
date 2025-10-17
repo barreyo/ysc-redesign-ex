@@ -1,6 +1,6 @@
 defmodule YscWeb.Emails.MembershipPaymentFailure do
   use MjmlEEx,
-    mjml_template: "templates/membership_payment_failure.mjml.heex",
+    mjml_template: "templates/membership_payment_failure.mjml.eex",
     layout: YscWeb.Emails.BaseLayout
 
   def get_template_name() do

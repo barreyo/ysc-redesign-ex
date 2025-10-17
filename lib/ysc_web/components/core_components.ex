@@ -1627,13 +1627,23 @@ defmodule YscWeb.CoreComponents do
   attr :class, :string, default: ""
 
   def user_avatar_image(assigns) do
-    cleaned_email = String.downcase(assigns[:email]) |> String.trim()
+    # Handle nil assigns gracefully
+    email = assigns[:email] || "default@example.com"
+    user_id = assigns[:user_id] || "0"
+    country = assigns[:country] || "SE"
+
+    cleaned_email = String.downcase(email) |> String.trim()
     email_hash = :crypto.hash(:sha256, cleaned_email) |> Base.encode16(case: :lower)
 
     image_id =
-      assigns[:user_id] |> String.replace(~r/[^\d]/, "") |> String.to_integer() |> rem(2)
+      user_id |> String.replace(~r/[^\d]/, "") |> String.to_integer() |> rem(2)
 
-    image_path = Map.get(Map.get(@default_images, assigns[:country]), image_id)
+    image_path =
+      Map.get(
+        Map.get(@default_images, country, @default_images["SE"]),
+        image_id,
+        "/images/default_avatars/sweden_flag.png"
+      )
 
     assigns =
       assigns

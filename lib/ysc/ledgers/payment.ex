@@ -19,10 +19,14 @@ defmodule Ysc.Ledgers.Payment do
 
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
 
+    belongs_to :payment_method, Ysc.Payments.PaymentMethod,
+      foreign_key: :payment_method_id,
+      references: :id
+
     timestamps()
   end
 
-  def changeset(payment, attrs \\ {}) do
+  def changeset(payment, attrs \\ %{}) do
     payment
     |> cast(attrs, [
       :reference_id,
@@ -31,13 +35,13 @@ defmodule Ysc.Ledgers.Payment do
       :amount,
       :status,
       :payment_date,
-      :user_id
+      :user_id,
+      :payment_method_id
     ])
     |> validate_required([
       :external_provider,
       :amount,
-      :status,
-      :user_id
+      :status
     ])
     |> validate_length(:external_payment_id, max: 255)
     |> validate_length(:reference_id, max: 255)

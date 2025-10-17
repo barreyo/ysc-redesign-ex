@@ -34,42 +34,46 @@ import RadarMap from "./radar";
 import MoneyInput from "./money_input";
 import Turnstile from "./phoenix_turnstile";
 import StripeInput from "./stripe_payment";
+import StripeElements from "./stripe_elements";
+import CheckoutTimer from "./checkout_timer";
 
 let Hooks = {
-  StickyNavbar,
-  BlurHashCanvas,
-  BlurHashImage,
-  GrowingInput,
-  TrixHook,
-  DaterangeHover,
-  Sortable,
-  RadarMap,
-  MoneyInput,
-  Turnstile,
-  StripeInput,
+    StickyNavbar,
+    BlurHashCanvas,
+    BlurHashImage,
+    GrowingInput,
+    TrixHook,
+    DaterangeHover,
+    Sortable,
+    RadarMap,
+    MoneyInput,
+    Turnstile,
+    StripeInput,
+    StripeElements,
+    CheckoutTimer,
 };
 Hooks.LivePhone = LivePhone;
 
 let csrfToken = document
-  .querySelector("meta[name='csrf-token']")
-  .getAttribute("content");
+    .querySelector("meta[name='csrf-token']")
+    .getAttribute("content");
 
 let liveSocket = new LiveSocket("/live", Socket, {
-  params: {
-    _csrf_token: csrfToken,
-    locale: Intl.NumberFormat().resolvedOptions().locale,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    timezone_offset: -(new Date().getTimezoneOffset() / 60),
-  },
-  hooks: Hooks,
-  uploaders: Uploaders,
+    params: {
+        _csrf_token: csrfToken,
+        locale: Intl.NumberFormat().resolvedOptions().locale,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone_offset: -(new Date().getTimezoneOffset() / 60),
+    },
+    hooks: Hooks,
+    uploaders: Uploaders,
 });
 
 window.addEventListener("phx:live_reload:attached", ({ detail: reloader }) => {
-  // Enable server log streaming to client.
-  // Disable with reloader.disableServerLogs()
-  reloader.enableServerLogs();
-  window.liveReloader = reloader;
+    // Enable server log streaming to client.
+    // Disable with reloader.disableServerLogs()
+    reloader.enableServerLogs();
+    window.liveReloader = reloader;
 });
 
 // Show progress bar on live navigation and form submits

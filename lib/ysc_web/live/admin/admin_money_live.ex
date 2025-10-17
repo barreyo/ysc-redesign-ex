@@ -6,13 +6,22 @@ defmodule YscWeb.AdminMoneyLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    accounts_with_balances = Ledgers.get_accounts_with_balances()
+    # Set default date range to current calendar year
+    current_year = DateTime.utc_now().year
+    start_date = DateTime.new!(Date.new!(current_year, 1, 1), ~T[00:00:00])
+    end_date = DateTime.new!(Date.new!(current_year, 12, 31), ~T[23:59:59])
+
+    accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+    recent_payments = Ledgers.get_recent_payments(start_date, end_date)
 
     {:ok,
      socket
      |> assign(:page_title, "Money")
      |> assign(:active_page, :money)
      |> assign(:accounts_with_balances, accounts_with_balances)
+     |> assign(:recent_payments, recent_payments)
+     |> assign(:start_date, start_date)
+     |> assign(:end_date, end_date)
      |> assign(:show_refund_modal, false)
      |> assign(:show_credit_modal, false)
      |> assign(:selected_payment, nil)
@@ -72,12 +81,18 @@ defmodule YscWeb.AdminMoneyLive do
 
     case Ledgers.process_refund(refund_attrs) do
       {:ok, _transaction, _entries} ->
+        # Refresh data with current date range
+        %{start_date: start_date, end_date: end_date} = socket.assigns
+        accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+        recent_payments = Ledgers.get_recent_payments(start_date, end_date)
+
         {:noreply,
          socket
          |> put_flash(:info, "Refund processed successfully")
          |> assign(:show_refund_modal, false)
          |> assign(:selected_payment, nil)
-         |> assign(:accounts_with_balances, Ledgers.get_accounts_with_balances())}
+         |> assign(:accounts_with_balances, accounts_with_balances)
+         |> assign(:recent_payments, recent_payments)}
 
       {:error, _changeset} ->
         {:noreply,
@@ -100,12 +115,18 @@ defmodule YscWeb.AdminMoneyLive do
 
     case Ledgers.add_credit(credit_attrs) do
       {:ok, _payment, _transaction, _entries} ->
+        # Refresh data with current date range
+        %{start_date: start_date, end_date: end_date} = socket.assigns
+        accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+        recent_payments = Ledgers.get_recent_payments(start_date, end_date)
+
         {:noreply,
          socket
          |> put_flash(:info, "Credit added successfully")
          |> assign(:show_credit_modal, false)
          |> assign(:selected_user, nil)
-         |> assign(:accounts_with_balances, Ledgers.get_accounts_with_balances())}
+         |> assign(:accounts_with_balances, accounts_with_balances)
+         |> assign(:recent_payments, recent_payments)}
 
       {:error, _changeset} ->
         {:noreply,
@@ -135,6 +156,28 @@ defmodule YscWeb.AdminMoneyLive do
   end
 
   @impl true
+  def handle_event(
+        "update_date_range",
+        %{"start_date" => start_date_str, "end_date" => end_date_str},
+        socket
+      ) do
+    # Parse the date strings and convert to DateTime
+    start_date = parse_date_to_datetime(start_date_str, ~T[00:00:00])
+    end_date = parse_date_to_datetime(end_date_str, ~T[23:59:59])
+
+    # Get updated data with new date range
+    accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+    recent_payments = Ledgers.get_recent_payments(start_date, end_date)
+
+    {:noreply,
+     socket
+     |> assign(:accounts_with_balances, accounts_with_balances)
+     |> assign(:recent_payments, recent_payments)
+     |> assign(:start_date, start_date)
+     |> assign(:end_date, end_date)}
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <.side_menu
@@ -149,6 +192,45 @@ defmodule YscWeb.AdminMoneyLive do
         <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
           Money Management
         </h1>
+      </div>
+      <!-- Date Range Filter -->
+      <div class="mb-6 bg-white p-4 rounded-lg shadow border">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Date Range Filter</h3>
+        <form phx-submit="update_date_range" class="flex gap-4 items-end">
+          <div>
+            <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">
+              Start Date
+            </label>
+            <input
+              type="date"
+              id="start_date"
+              name="start_date"
+              value={Calendar.strftime(@start_date, "%Y-%m-%d")}
+              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">
+              End Date
+            </label>
+            <input
+              type="date"
+              id="end_date"
+              name="end_date"
+              value={Calendar.strftime(@end_date, "%Y-%m-%d")}
+              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            />
+          </div>
+          <.button type="submit" class="bg-blue-600 hover:bg-blue-700">
+            Update
+          </.button>
+        </form>
+        <p class="text-sm text-gray-600 mt-2">
+          Showing data from <%= Calendar.strftime(@start_date, "%B %d, %Y") %> to <%= Calendar.strftime(
+            @end_date,
+            "%B %d, %Y"
+          ) %>
+        </p>
       </div>
       <!-- Account Balances -->
       <div class="mb-8">
@@ -194,6 +276,9 @@ defmodule YscWeb.AdminMoneyLive do
                   User
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Payment Type
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Amount
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -208,12 +293,29 @@ defmodule YscWeb.AdminMoneyLive do
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr :for={payment <- get_recent_payments()}>
+              <tr :for={payment <- @recent_payments}>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   <%= payment.reference_id %>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  <%= payment.user.email %>
+                  <div class="flex flex-col">
+                    <span class="font-medium text-gray-900">
+                      <%= get_user_display_name(payment.user) %>
+                    </span>
+                    <span class="text-xs text-gray-500">
+                      <%= if payment.user, do: payment.user.email, else: "System Transaction" %>
+                    </span>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <div class="flex flex-col">
+                    <span class={"font-medium #{get_payment_type_color(payment.payment_type_info.type)}"}>
+                      <%= payment.payment_type_info.type %>
+                    </span>
+                    <span class="text-xs text-gray-500">
+                      <%= payment.payment_type_info.details %>
+                    </span>
+                  </div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   <%= Money.to_string!(payment.amount) %>
@@ -376,15 +478,43 @@ defmodule YscWeb.AdminMoneyLive do
   end
 
   # Helper functions
-  defp get_recent_payments do
-    import Ecto.Query
+  defp parse_date_to_datetime(date_string, time) do
+    case Date.from_iso8601(date_string) do
+      {:ok, date} -> DateTime.new!(date, time)
+      {:error, _} -> DateTime.utc_now()
+    end
+  end
 
-    from(p in Ysc.Ledgers.Payment,
-      preload: [:user],
-      order_by: [desc: p.inserted_at],
-      limit: 50
-    )
-    |> Ysc.Repo.all()
+  defp get_payment_type_color(payment_type) do
+    case payment_type do
+      "Membership" -> "text-blue-600"
+      "Event" -> "text-green-600"
+      "Booking" -> "text-purple-600"
+      "Donation" -> "text-orange-600"
+      "Administration" -> "text-gray-600"
+      _ -> "text-gray-900"
+    end
+  end
+
+  defp get_user_display_name(nil), do: "System"
+
+  defp get_user_display_name(user) do
+    case {user.first_name, user.last_name} do
+      {nil, nil} ->
+        "Unknown User"
+
+      {first_name, nil} when is_binary(first_name) ->
+        first_name
+
+      {nil, last_name} when is_binary(last_name) ->
+        last_name
+
+      {first_name, last_name} when is_binary(first_name) and is_binary(last_name) ->
+        "#{first_name} #{last_name}"
+
+      _ ->
+        "Unknown User"
+    end
   end
 
   defp refund_changeset(_attrs, params) do

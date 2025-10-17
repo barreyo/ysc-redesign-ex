@@ -5,6 +5,7 @@ defmodule YscWeb.EventDetailsLive do
 
   alias Ysc.Events
   alias Ysc.Events.Event
+  alias Ysc.Repo
 
   alias Ysc.Agendas
 
@@ -35,7 +36,10 @@ defmodule YscWeb.EventDetailsLive do
                 // This event has been cancelled //
               </p>
 
-              <h2 :if={@event.title != nil && @event.title != ""} class="text-4xl font-bold leading-8">
+              <h2
+                :if={@event.title != nil && @event.title != ""}
+                class="text-4xl font-bold leading-10"
+              >
                 <%= @event.title %>
               </h2>
 
@@ -45,6 +49,51 @@ defmodule YscWeb.EventDetailsLive do
               >
                 <%= @event.description %>
               </p>
+            </div>
+            <!-- User's Existing Tickets -->
+            <div :if={@current_user != nil && length(@user_tickets) > 0} class="space-y-4">
+              <h3 class="text-zinc-800 text-2xl font-semibold">Your Tickets</h3>
+              <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div class="flex items-center mb-3">
+                  <.icon name="hero-check-circle" class="text-green-500 w-5 h-5 me-2" />
+                  <h4 class="text-green-800 font-semibold">Confirmed Tickets</h4>
+                </div>
+                <div class="space-y-2">
+                  <%= for {tier_name, tickets} <- group_tickets_by_tier(@user_tickets) do %>
+                    <div class="flex justify-between items-center bg-white rounded p-3 border border-green-100">
+                      <div>
+                        <p class="font-medium text-gray-900">
+                          <%= length(tickets) %>x <%= tier_name %>
+                        </p>
+                        <p class="text-sm text-gray-500">
+                          <%= if length(tickets) == 1 do %>
+                            Ticket #<%= List.first(tickets).reference_id %>
+                          <% else %>
+                            <%= length(tickets) %> confirmed tickets
+                          <% end %>
+                        </p>
+                      </div>
+                      <div class="text-right">
+                        <p class="font-semibold text-gray-900">
+                          <%= if Money.zero?(List.first(tickets).ticket_tier.price) do %>
+                            Free
+                          <% else %>
+                            <%= case Money.to_string(List.first(tickets).ticket_tier.price) do
+                              {:ok, amount} -> amount
+                              {:error, _} -> "Error"
+                            end %>
+                          <% end %>
+                        </p>
+                        <p class="text-xs text-green-600 font-medium">Confirmed</p>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+                <p class="text-sm text-green-700 mt-3">
+                  <.icon name="hero-information-circle" class="w-4 h-4 me-1" />
+                  You may purchase additional tickets if there are any available.
+                </p>
+              </div>
             </div>
 
             <div class="space-y-4">
@@ -266,7 +315,9 @@ defmodule YscWeb.EventDetailsLive do
           >
             <div class="flex flex-col items-center justify-center">
               <p class="font-semibold text-lg"><%= @event.pricing_info.display_text %></p>
-              <p :if={@event.start_date != nil} class="text-sm text-zinc-600"><%= format_start_date(@event.start_date) %></p>
+              <p :if={@event.start_date != nil} class="text-sm text-zinc-600">
+                <%= format_start_date(@event.start_date) %>
+              </p>
             </div>
 
             <div :if={@current_user == nil} class="w-full">
@@ -291,7 +342,11 @@ defmodule YscWeb.EventDetailsLive do
                   <p class="text-red-600 text-xs mt-1">Tickets are no longer available</p>
                 </div>
               <% else %>
-                <.button :if={@current_user != nil && @active_membership?} class="w-full" phx-click="open-ticket-modal">
+                <.button
+                  :if={@current_user != nil && @active_membership?}
+                  class="w-full"
+                  phx-click="open-ticket-modal"
+                >
                   <.icon name="hero-ticket" class="me-2 -mt-0.5" />Get Tickets
                 </.button>
               <% end %>
@@ -304,17 +359,22 @@ defmodule YscWeb.EventDetailsLive do
         </div>
       </div>
     </div>
-
     <!-- Ticket Selection Modal -->
-    <.modal :if={@show_ticket_modal} id="ticket-modal" show on_cancel={JS.push("close-ticket-modal")} max_width="max-w-6xl">
-      <:title>Select Tickets</:title>
-
-      <div class="flex flex-col lg:flex-row gap-8 min-h-[400px]">
+    <.modal
+      :if={@show_ticket_modal}
+      id="ticket-modal"
+      show
+      on_cancel={JS.push("close-ticket-modal")}
+      max_width="max-w-6xl"
+    >
+      <div class="flex flex-col lg:flex-row gap-8 min-h-[600px]">
         <!-- Left Panel: Ticket Tiers -->
         <div class="lg:w-2/3 space-y-8">
           <div class="w-full border-b border-zinc-200 pb-4">
             <h2 class="text-2xl font-semibold"><%= @event.title %></h2>
-            <p :if={@event.start_date != nil} class="text-sm text-zinc-600"><%= format_start_date(@event.start_date) %></p>
+            <p :if={@event.start_date != nil} class="text-sm text-zinc-600">
+              <%= format_start_date(@event.start_date) %>
+            </p>
           </div>
 
           <div class="space-y-4 h-full lg:overflow-y-auto lg:max-h-[600px] lg:px-4">
@@ -361,7 +421,9 @@ defmodule YscWeb.EventDetailsLive do
                     ]}>
                       <%= cond do %>
                         <% is_pre_sale -> %>
-                          Sale starts in <%= days_until_sale %> <%= if days_until_sale == 1, do: "day", else: "days" %>
+                          Sale starts in <%= days_until_sale %> <%= if days_until_sale == 1,
+                            do: "day",
+                            else: "days" %>
                         <% is_event_at_capacity -> %>
                           Sold Out (Event at capacity)
                         <% available == :unlimited -> %>
@@ -376,20 +438,25 @@ defmodule YscWeb.EventDetailsLive do
                 </div>
 
                 <div class="flex items-center justify-end mt-4">
-
                   <div class="flex items-center space-x-3">
                     <button
                       phx-click="decrease-ticket-quantity"
                       phx-value-tier-id={ticket_tier.id}
                       class={[
                         "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
-                        if(is_sold_out or is_pre_sale or get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0) do
+                        if(
+                          is_sold_out or is_pre_sale or
+                            get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0
+                        ) do
                           "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
                         else
                           "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
                         end
                       ]}
-                      disabled={is_sold_out or is_pre_sale or get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0}
+                      disabled={
+                        is_sold_out or is_pre_sale or
+                          get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0
+                      }
                     >
                       <.icon name="hero-minus" class="w-5 h-5" />
                     </button>
@@ -404,19 +471,34 @@ defmodule YscWeb.EventDetailsLive do
                       phx-value-tier-id={ticket_tier.id}
                       class={[
                         "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-200 font-semibold",
-                        if(is_sold_out or is_pre_sale or !can_increase_quantity?(ticket_tier, get_ticket_quantity(@selected_tickets, ticket_tier.id), @selected_tickets, @event)) do
+                        if(
+                          is_sold_out or is_pre_sale or
+                            !can_increase_quantity?(
+                              ticket_tier,
+                              get_ticket_quantity(@selected_tickets, ticket_tier.id),
+                              @selected_tickets,
+                              @event
+                            )
+                        ) do
                           "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
                         else
                           "border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white"
                         end
                       ]}
-                      disabled={is_sold_out or is_pre_sale or !can_increase_quantity?(ticket_tier, get_ticket_quantity(@selected_tickets, ticket_tier.id), @selected_tickets, @event)}
+                      disabled={
+                        is_sold_out or is_pre_sale or
+                          !can_increase_quantity?(
+                            ticket_tier,
+                            get_ticket_quantity(@selected_tickets, ticket_tier.id),
+                            @selected_tickets,
+                            @event
+                          )
+                      }
                     >
                       <.icon name="hero-plus" class="w-5 h-5" />
                     </button>
                   </div>
                 </div>
-
                 <!-- Show message for different tier states -->
                 <div :if={is_pre_sale} class="mt-2">
                   <p class="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md border border-blue-200">
@@ -432,14 +514,26 @@ defmodule YscWeb.EventDetailsLive do
                   </p>
                 </div>
 
-                <div :if={!is_sold_out && !is_pre_sale && available != :unlimited && get_ticket_quantity(@selected_tickets, ticket_tier.id) >= available} class="mt-2">
+                <div
+                  :if={
+                    !is_sold_out && !is_pre_sale && available != :unlimited &&
+                      get_ticket_quantity(@selected_tickets, ticket_tier.id) >= available
+                  }
+                  class="mt-2"
+                >
                   <p class="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-md border border-amber-200">
                     <.icon name="hero-exclamation-triangle" class="w-4 h-4 inline me-1" />
                     Maximum available tickets selected
                   </p>
                 </div>
 
-                <div :if={!is_sold_out && !is_pre_sale && @event.max_attendees && calculate_total_selected_tickets(@selected_tickets) >= @event.max_attendees} class="mt-2">
+                <div
+                  :if={
+                    !is_sold_out && !is_pre_sale && @event.max_attendees &&
+                      calculate_total_selected_tickets(@selected_tickets) >= @event.max_attendees
+                  }
+                  class="mt-2"
+                >
                   <p class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
                     <.icon name="hero-users" class="w-4 h-4 inline me-1" />
                     Event capacity reached. No more tickets available.
@@ -456,7 +550,6 @@ defmodule YscWeb.EventDetailsLive do
             <% end %>
           </div>
         </div>
-
         <!-- Right Panel: Price Breakdown -->
         <div class="lg:w-1/3 space-y-4 justify-between flex flex-col">
           <div class="space-y-4">
@@ -468,36 +561,41 @@ defmodule YscWeb.EventDetailsLive do
               />
             </div>
 
-            <h3 class="text-xl font-semibold mb-6">Order Summary</h3>
+            <div>
+              <h2 class="text-lg font-semibold mb-6"><%= @event.title %></h2>
+              <h3 class="font-semibold mb-2">Order Summary</h3>
+            </div>
 
-            <div class="bg-zinc-50 rounded-lg p-6 space-y-4">
+            <div class="bg-zinc-50 rounded-lg p-6 space-y-4 flex flex-col justify-between">
               <%= if has_any_tickets_selected?(@selected_tickets) do %>
                 <%= for {tier_id, quantity} <- @selected_tickets, quantity > 0 do %>
-                <% ticket_tier = get_ticket_tier_by_id(@event.id, tier_id) %>
-                <div class="flex justify-between text-base">
-                  <span><%= ticket_tier.name %> × <%= quantity %></span>
-                  <span class="font-medium">
-                    <%= case ticket_tier.type do %>
-                      <% "free" -> %>
-                        Free
-                      <% _ -> %>
-                        <%= case Money.mult(ticket_tier.price, quantity) do %>
-                          <% {:ok, total} -> %>
-                            <%= format_price(total) %>
-                          <% {:error, _} -> %>
-                            $0.00
-                        <% end %>
-                    <% end %>
-                  </span>
-                </div>
+                  <% ticket_tier = get_ticket_tier_by_id(@event.id, tier_id) %>
+                  <div class="flex justify-between text-base">
+                    <span><%= ticket_tier.name %> × <%= quantity %></span>
+                    <span class="font-medium">
+                      <%= case ticket_tier.type do %>
+                        <% "free" -> %>
+                          Free
+                        <% _ -> %>
+                          <%= case Money.mult(ticket_tier.price, quantity) do %>
+                            <% {:ok, total} -> %>
+                              <%= format_price(total) %>
+                            <% {:error, _} -> %>
+                              $0.00
+                          <% end %>
+                      <% end %>
+                    </span>
+                  </div>
                 <% end %>
               <% else %>
-                <div class="text-center py-8">
+                <div class="text-center py-4">
                   <div class="text-zinc-400 mb-2">
                     <.icon name="hero-shopping-cart" class="w-8 h-8 mx-auto" />
                   </div>
                   <p class="text-zinc-500 text-sm">No tickets selected</p>
-                  <p class="hidden lg:block text-zinc-400 text-xs mt-1">Select tickets from the left to see your order</p>
+                  <p class="hidden lg:block text-zinc-400 text-xs mt-1">
+                    Select tickets from the left to see your order
+                  </p>
                 </div>
               <% end %>
 
@@ -522,6 +620,320 @@ defmodule YscWeb.EventDetailsLive do
         </div>
       </div>
     </.modal>
+    <!-- Payment Modal -->
+    <.modal
+      :if={@show_payment_modal}
+      id="payment-modal"
+      show
+      on_cancel={JS.push("close-payment-modal")}
+      max_width="max-w-6xl"
+    >
+      <%= if @checkout_expired do %>
+        <!-- Checkout Expired State -->
+        <div class="flex flex-col items-center justify-center py-16 space-y-6">
+          <div class="text-center">
+            <div class="text-red-500 mb-4">
+              <.icon name="hero-clock" class="w-16 h-16 mx-auto" />
+            </div>
+            <h2 class="text-2xl font-semibold text-red-700 mb-2">Checkout Session Expired</h2>
+            <p class="text-zinc-600 max-w-md">
+              Your checkout session has expired. The tickets you selected may no longer be available.
+              Please start over to select your tickets again.
+            </p>
+          </div>
+
+          <div class="flex space-x-4">
+            <.button
+              class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3"
+              phx-click="retry-checkout"
+            >
+              <.icon name="hero-arrow-path" class="w-5 h-5 me-2" /> Try Again
+            </.button>
+            <.button
+              class="bg-zinc-200 text-zinc-800 hover:bg-zinc-300 px-6 py-3"
+              phx-click="close-payment-modal"
+            >
+              Close
+            </.button>
+          </div>
+        </div>
+      <% else %>
+        <!-- Normal Payment Flow -->
+        <div class="flex flex-col lg:flex-row gap-8 min-h-[600px]">
+          <!-- Left Panel: Payment Details -->
+          <div class="lg:w-2/3 space-y-6">
+            <!-- Timer Section -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div class="flex items-center justify-center space-x-2">
+                <.icon name="hero-clock" class="w-5 h-5 text-blue-600" />
+                <span class="text-sm font-medium text-blue-800">
+                  Time remaining to complete purchase:
+                </span>
+                <div
+                  id="checkout-timer"
+                  class="font-bold text-blue-900"
+                  phx-hook="CheckoutTimer"
+                  data-expires-at={@ticket_order.expires_at}
+                >
+                  <!-- Timer will be populated by JavaScript -->
+                </div>
+              </div>
+            </div>
+
+            <div class="text-center">
+              <h2 class="text-2xl font-semibold">Complete Your Purchase</h2>
+              <p class="text-zinc-600 mt-2">Order: <%= @ticket_order.reference_id %></p>
+            </div>
+            <!-- Stripe Elements Payment Form -->
+            <div class="space-y-4">
+              <h3 class="font-semibold text-lg">Payment Information</h3>
+              <div
+                id="payment-element"
+                phx-hook="StripeInput"
+                data-publicKey={@public_key}
+                data-public-key={@public_key}
+                data-client-secret={@payment_intent.client_secret}
+                data-clientSecret={@payment_intent.client_secret}
+              >
+                <!-- Stripe Elements will be mounted here -->
+              </div>
+              <div id="payment-message" class="hidden text-sm text-red-600"></div>
+            </div>
+
+            <div class="flex space-x-4">
+              <.button class="flex-1" phx-click="confirm-payment" id="submit-payment">
+                Pay <%= calculate_total_price(@selected_tickets, @event.id) %>
+              </.button>
+              <.button
+                class="flex-1 bg-zinc-200 text-zinc-800 hover:bg-zinc-300"
+                phx-click="close-payment-modal"
+              >
+                Cancel
+              </.button>
+            </div>
+          </div>
+          <!-- Right Panel: Order Summary -->
+          <div class="lg:w-1/3 space-y-4 justify-between flex flex-col">
+            <div class="space-y-4">
+              <div class="w-full hidden lg:block">
+                <.live_component
+                  id={"event-checkout-#{@event.id}"}
+                  module={YscWeb.Components.Image}
+                  image_id={@event.image_id}
+                />
+              </div>
+
+              <div>
+                <h2 class="text-lg font-semibold mb-6"><%= @event.title %></h2>
+                <h3 class="font-semibold mb-2">Order Summary</h3>
+              </div>
+
+              <div class="bg-zinc-50 rounded-lg p-6 space-y-4">
+                <%= if has_any_tickets_selected?(@selected_tickets) do %>
+                  <%= for {tier_id, quantity} <- @selected_tickets, quantity > 0 do %>
+                    <% ticket_tier = get_ticket_tier_by_id(@event.id, tier_id) %>
+                    <div class="flex justify-between text-base">
+                      <span><%= ticket_tier.name %> × <%= quantity %></span>
+                      <span class="font-medium">
+                        <%= case ticket_tier.type do %>
+                          <% "free" -> %>
+                            Free
+                          <% _ -> %>
+                            <%= case Money.mult(ticket_tier.price, quantity) do %>
+                              <% {:ok, total} -> %>
+                                <%= format_price(total) %>
+                              <% {:error, _} -> %>
+                                $0.00
+                            <% end %>
+                        <% end %>
+                      </span>
+                    </div>
+                  <% end %>
+                <% else %>
+                  <div class="text-center py-8">
+                    <div class="text-zinc-400 mb-2">
+                      <.icon name="hero-shopping-cart" class="w-8 h-8 mx-auto" />
+                    </div>
+                    <p class="text-zinc-500 text-sm">No tickets selected</p>
+                  </div>
+                <% end %>
+
+                <div class="border-t border-zinc-200 pt-4">
+                  <div class="flex justify-between font-semibold text-lg">
+                    <span>Total:</span>
+                    <span><%= calculate_total_price(@selected_tickets, @event.id) %></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </.modal>
+    <!-- Free Ticket Confirmation Modal -->
+    <.modal
+      :if={@show_free_ticket_confirmation}
+      id="free-ticket-confirmation-modal"
+      show
+      on_cancel={JS.push("close-free-ticket-confirmation")}
+      max_width="max-w-2xl"
+    >
+      <div class="flex flex-col items-center justify-center py-12 space-y-6">
+        <div class="text-center">
+          <div class="text-green-500 mb-4">
+            <.icon name="hero-ticket" class="w-16 h-16 mx-auto" />
+          </div>
+          <h2 class="text-2xl font-semibold text-gray-900 mb-2">Confirm Your Free Tickets</h2>
+          <p class="text-gray-600 mb-6">
+            You've selected free tickets for this event. No payment is required.
+          </p>
+        </div>
+        <!-- Order Summary -->
+        <div class="w-full max-w-md bg-gray-50 rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
+          <div class="space-y-3">
+            <%= for {tier_id, quantity} <- @selected_tickets do %>
+              <% tier = Enum.find(@event.ticket_tiers, &(&1.id == tier_id)) %>
+              <div class="flex justify-between items-center">
+                <div>
+                  <p class="font-medium text-gray-900"><%= tier.name %></p>
+                  <p class="text-sm text-gray-500">Quantity: <%= quantity %></p>
+                </div>
+                <p class="font-semibold text-gray-900">Free</p>
+              </div>
+            <% end %>
+          </div>
+          <div class="border-t pt-3 mt-4">
+            <div class="flex justify-between items-center">
+              <p class="text-lg font-semibold text-gray-900">Total</p>
+              <p class="text-lg font-bold text-green-600">Free</p>
+            </div>
+          </div>
+        </div>
+        <!-- Action Buttons -->
+        <div class="w-full px-8">
+          <div class="flex justify-end space-x-4">
+            <.button
+              class="flex-1 bg-zinc-200 text-zinc-800 hover:bg-zinc-300"
+              phx-click="close-free-ticket-confirmation"
+            >
+              Cancel
+            </.button>
+            <.button
+              phx-click="confirm-free-tickets"
+              class="px-6 py-2 flex-1 bg-green-600 hover:bg-green-700"
+            >
+              Confirm Free Tickets
+            </.button>
+          </div>
+        </div>
+      </div>
+    </.modal>
+    <!-- Order Completion Modal -->
+    <.modal
+      :if={@show_order_completion}
+      id="order-completion-modal"
+      show
+      on_cancel={JS.push("close-order-completion")}
+      max_width="max-w-2xl"
+    >
+      <div class="flex flex-col items-center justify-center py-12 space-y-6">
+        <div class="text-center">
+          <div class="text-green-500 mb-4">
+            <.icon name="hero-check-circle" class="w-16 h-16 mx-auto" />
+          </div>
+          <h2 class="text-2xl font-semibold text-gray-900 mb-2">Order Confirmed!</h2>
+          <p class="text-gray-600 mb-6">
+            Your tickets have been successfully confirmed. A confirmation email has been sent to your registered email address.
+          </p>
+        </div>
+        <!-- Order Details -->
+        <div class="w-full max-w-md bg-gray-50 rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Order Details</h3>
+          <div class="space-y-3">
+            <div class="flex justify-between">
+              <span class="text-gray-600">Order ID:</span>
+              <span class="font-medium"><%= @ticket_order.reference_id %></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600">Event:</span>
+              <span class="font-medium"><%= @event.title %></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600">Date:</span>
+              <span class="font-medium">
+                <%= Calendar.strftime(@event.start_date, "%B %d, %Y") %>
+              </span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600">Time:</span>
+              <span class="font-medium"><%= Calendar.strftime(@event.start_time, "%I:%M %p") %></span>
+            </div>
+          </div>
+        </div>
+        <!-- Tickets List -->
+        <div class="w-full max-w-md bg-white border rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Your Tickets</h3>
+          <div class="space-y-3">
+            <%= for ticket <- @ticket_order.tickets do %>
+              <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                <div>
+                  <p class="font-medium text-gray-900"><%= ticket.ticket_tier.name %></p>
+                  <p class="text-sm text-gray-500">Ticket #<%= ticket.reference_id %></p>
+                </div>
+                <div class="text-right">
+                  <p class="font-semibold text-gray-900">
+                    <%= if Money.zero?(ticket.ticket_tier.price) do %>
+                      Free
+                    <% else %>
+                      <%= case Money.to_string(ticket.ticket_tier.price) do
+                        {:ok, amount} -> amount
+                        {:error, _} -> "Error"
+                      end %>
+                    <% end %>
+                  </p>
+                </div>
+              </div>
+            <% end %>
+          </div>
+          <div class="border-t pt-3 mt-4">
+            <div class="flex justify-between items-center">
+              <p class="text-lg font-semibold text-gray-900">Total</p>
+              <p class="text-lg font-bold text-green-600">
+                <%= if Money.zero?(@ticket_order.total_amount) do %>
+                  Free
+                <% else %>
+                  <%= case Money.to_string(@ticket_order.total_amount) do
+                    {:ok, amount} -> amount
+                    {:error, _} -> "Error"
+                  end %>
+                <% end %>
+              </p>
+            </div>
+          </div>
+        </div>
+        <!-- Email Notice -->
+        <div class="w-full max-w-md bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div class="flex items-start">
+            <.icon name="hero-envelope" class="w-5 h-5 text-blue-500 mt-0.5 mr-3" />
+            <div>
+              <p class="text-sm text-blue-800">
+                <strong>Confirmation Email Sent</strong>
+                <br /> We've sent a detailed confirmation email to
+                <strong><%= @current_user.email %></strong>
+                with your ticket details and QR codes.
+              </p>
+            </div>
+          </div>
+        </div>
+        <!-- Action Button -->
+        <div class="w-full max-w-md">
+          <.button phx-click="close-order-completion" class="w-full bg-green-600 hover:bg-green-700">
+            Continue
+          </.button>
+        </div>
+      </div>
+    </.modal>
     """
   end
 
@@ -530,13 +942,33 @@ defmodule YscWeb.EventDetailsLive do
     if connected?(socket) do
       Events.subscribe()
       Agendas.subscribe(event_id)
+      # Subscribe to ticket events for the current user
+      if socket.assigns.current_user != nil do
+        require Logger
+
+        Logger.info("Subscribing to ticket events for user",
+          user_id: socket.assigns.current_user.id,
+          event_id: event_id,
+          topic: "tickets:user:#{socket.assigns.current_user.id}"
+        )
+
+        Ysc.Tickets.subscribe(socket.assigns.current_user.id)
+      end
     end
 
-    event = Events.get_event!(event_id)
+    event = Repo.get!(Event, event_id) |> Repo.preload(:ticket_tiers)
     agendas = Agendas.list_agendas_for_event(event_id)
 
     # Add pricing info to the event using the same logic as events list
     event_with_pricing = add_pricing_info(event)
+
+    # Get user's tickets for this event if user is logged in
+    user_tickets =
+      if socket.assigns.current_user do
+        Ysc.Tickets.list_user_tickets_for_event(socket.assigns.current_user.id, event_id)
+      else
+        []
+      end
 
     {:ok,
      socket
@@ -544,8 +976,16 @@ defmodule YscWeb.EventDetailsLive do
      |> assign(:event, event_with_pricing)
      |> assign(:agendas, agendas)
      |> assign(:active_agenda, default_active_agenda(agendas))
+     |> assign(:user_tickets, user_tickets)
      |> assign(:show_ticket_modal, false)
-     |> assign(:selected_tickets, %{})}
+     |> assign(:show_payment_modal, false)
+     |> assign(:show_free_ticket_confirmation, false)
+     |> assign(:show_order_completion, false)
+     |> assign(:payment_intent, nil)
+     |> assign(:public_key, Application.get_env(:stripity_stripe, :public_key))
+     |> assign(:ticket_order, nil)
+     |> assign(:selected_tickets, %{})
+     |> assign(:checkout_expired, false)}
   end
 
   @impl true
@@ -683,6 +1123,89 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   @impl true
+  def handle_info(
+        {Ysc.Tickets, %Ysc.MessagePassingEvents.CheckoutSessionExpired{} = event},
+        socket
+      ) do
+    # Handle checkout session expiration
+    require Logger
+
+    Logger.info("Received CheckoutSessionExpired event in EventDetailsLive",
+      user_id: socket.assigns.current_user.id,
+      show_payment_modal: socket.assigns.show_payment_modal,
+      current_ticket_order_id: socket.assigns.ticket_order && socket.assigns.ticket_order.id,
+      expired_ticket_order_id: event.ticket_order && event.ticket_order.id,
+      event_data: inspect(event, limit: :infinity)
+    )
+
+    # Show expired message if:
+    # 1. We have a payment modal open, OR
+    # 2. This is the same session that expired
+    current_order_id = socket.assigns.ticket_order && socket.assigns.ticket_order.id
+    expired_order_id = event.ticket_order && event.ticket_order.id
+
+    if socket.assigns.show_payment_modal &&
+         (current_order_id == expired_order_id || current_order_id == nil) do
+      # Show expired message for the current session or if no specific session is active
+      {:noreply,
+       socket
+       |> assign(:checkout_expired, true)
+       |> assign(:payment_intent, nil)
+       |> assign(:ticket_order, nil)}
+    else
+      # This is a different session, just clear the current state without showing expired message
+      {:noreply,
+       socket
+       |> assign(:show_payment_modal, false)
+       |> assign(:payment_intent, nil)
+       |> assign(:ticket_order, nil)
+       |> assign(:selected_tickets, %{})}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Tickets, %Ysc.MessagePassingEvents.CheckoutSessionCancelled{} = event},
+        socket
+      ) do
+    # Handle checkout session cancellation
+    require Logger
+
+    Logger.info("Received CheckoutSessionCancelled event in EventDetailsLive",
+      user_id: socket.assigns.current_user.id,
+      show_payment_modal: socket.assigns.show_payment_modal,
+      current_ticket_order_id: socket.assigns.ticket_order && socket.assigns.ticket_order.id,
+      cancelled_ticket_order_id: event.ticket_order && event.ticket_order.id
+    )
+
+    # Only show expired message if this is the same session that was cancelled
+    if socket.assigns.ticket_order && event.ticket_order &&
+         socket.assigns.ticket_order.id == event.ticket_order.id do
+      {:noreply,
+       socket
+       |> assign(:checkout_expired, true)
+       |> assign(:payment_intent, nil)
+       |> assign(:ticket_order, nil)}
+    else
+      # This is a different session, just clear the current state without showing expired message
+      {:noreply,
+       socket
+       |> assign(:show_payment_modal, false)
+       |> assign(:payment_intent, nil)
+       |> assign(:ticket_order, nil)
+       |> assign(:selected_tickets, %{})}
+    end
+  end
+
+  @impl true
+  def terminate(reason, socket) do
+    # Cancel any pending ticket order when the LiveView terminates
+    if socket.assigns.ticket_order && socket.assigns.show_payment_modal do
+      Ysc.Tickets.cancel_ticket_order(socket.assigns.ticket_order, "User left checkout")
+    end
+  end
+
+  @impl true
   def handle_event("set-active-agenda", %{"id" => id}, socket) do
     {:noreply, assign(socket, :active_agenda, id)}
   end
@@ -717,6 +1240,150 @@ defmodule YscWeb.EventDetailsLive do
      socket
      |> assign(:show_ticket_modal, false)
      |> assign(:selected_tickets, %{})}
+  end
+
+  @impl true
+  def handle_event("close-payment-modal", _params, socket) do
+    # Cancel the ticket order to release reserved tickets
+    if socket.assigns.ticket_order do
+      Ysc.Tickets.cancel_ticket_order(socket.assigns.ticket_order, "User cancelled checkout")
+    end
+
+    {:noreply,
+     socket
+     |> assign(:show_payment_modal, false)
+     |> assign(:checkout_expired, false)
+     |> assign(:payment_intent, nil)
+     |> assign(:ticket_order, nil)}
+  end
+
+  @impl true
+  def handle_event("close-free-ticket-confirmation", _params, socket) do
+    # Cancel the ticket order to release reserved tickets
+    if socket.assigns.ticket_order do
+      Ysc.Tickets.cancel_ticket_order(
+        socket.assigns.ticket_order,
+        "User cancelled free ticket confirmation"
+      )
+    end
+
+    {:noreply,
+     socket
+     |> assign(:show_free_ticket_confirmation, false)
+     |> assign(:ticket_order, nil)}
+  end
+
+  @impl true
+  def handle_event("confirm-free-tickets", _params, socket) do
+    # Process the free ticket order directly without payment
+    case Ysc.Tickets.process_free_ticket_order(socket.assigns.ticket_order) do
+      {:ok, updated_order} ->
+        # Get the completed order with tickets for the completion screen
+        order_with_tickets = Ysc.Tickets.get_ticket_order(updated_order.id)
+
+        # Update user tickets for this event
+        updated_user_tickets =
+          Ysc.Tickets.list_user_tickets_for_event(
+            socket.assigns.current_user.id,
+            socket.assigns.event.id
+          )
+
+        {:noreply,
+         socket
+         |> assign(:show_free_ticket_confirmation, false)
+         |> assign(:show_order_completion, true)
+         |> assign(:ticket_order, order_with_tickets)
+         |> assign(:user_tickets, updated_user_tickets)
+         |> assign(:selected_tickets, %{})}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to confirm free tickets: #{reason}")
+         |> assign(:show_free_ticket_confirmation, false)}
+    end
+  end
+
+  @impl true
+  def handle_event("close-order-completion", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_order_completion, false)
+     |> assign(:ticket_order, nil)}
+  end
+
+  @impl true
+  def handle_event("confirm-payment", _params, socket) do
+    # This will be handled by the Stripe Elements JavaScript hook
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("payment-success", %{"payment_intent_id" => payment_intent_id}, socket) do
+    # Process the successful payment
+    case Ysc.Tickets.StripeService.process_successful_payment(payment_intent_id) do
+      {:ok, completed_order} ->
+        # Get the completed order with tickets for the completion screen
+        order_with_tickets = Ysc.Tickets.get_ticket_order(completed_order.id)
+
+        # Update user tickets for this event
+        updated_user_tickets =
+          Ysc.Tickets.list_user_tickets_for_event(
+            socket.assigns.current_user.id,
+            socket.assigns.event.id
+          )
+
+        {:noreply,
+         socket
+         |> assign(:show_payment_modal, false)
+         |> assign(:show_order_completion, true)
+         |> assign(:ticket_order, order_with_tickets)
+         |> assign(:user_tickets, updated_user_tickets)
+         |> assign(:payment_intent, nil)
+         |> assign(:selected_tickets, %{})}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Payment processed but there was an issue confirming your tickets. Please contact support."
+         )
+         |> assign(:show_payment_modal, false)}
+    end
+  end
+
+  @impl true
+  def handle_event("checkout-expired", _params, socket) do
+    # Expire the ticket order to release reserved tickets
+    if socket.assigns.ticket_order do
+      Ysc.Tickets.expire_ticket_order(socket.assigns.ticket_order)
+    end
+
+    # Handle checkout expiration
+    {:noreply,
+     socket
+     |> put_flash(
+       :error,
+       "Your checkout session has expired. Please select your tickets again to continue."
+     )
+     |> assign(:show_payment_modal, false)
+     |> assign(:payment_intent, nil)
+     |> assign(:ticket_order, nil)
+     |> assign(:selected_tickets, %{})}
+  end
+
+  @impl true
+  def handle_event("retry-checkout", _params, socket) do
+    # Reset checkout state and show ticket selection modal
+    {:noreply,
+     socket
+     |> assign(:checkout_expired, false)
+     |> assign(:show_payment_modal, false)
+     |> assign(:payment_intent, nil)
+     |> assign(:ticket_order, nil)
+     |> assign(:selected_tickets, %{})
+     |> assign(:show_ticket_modal, true)}
   end
 
   @impl true
@@ -757,8 +1424,77 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_event("proceed-to-checkout", _params, socket) do
-    # TODO: Implement checkout logic
-    {:noreply, socket}
+    user_id = socket.assigns.current_user.id
+    event_id = socket.assigns.event.id
+    ticket_selections = socket.assigns.selected_tickets
+
+    case Ysc.Tickets.create_ticket_order(user_id, event_id, ticket_selections) do
+      {:ok, ticket_order} ->
+        # Check if this is a free order (zero amount)
+        if Money.zero?(ticket_order.total_amount) do
+          # For free tickets, show confirmation modal instead of payment form
+          {:noreply,
+           socket
+           |> assign(:show_ticket_modal, false)
+           |> assign(:show_free_ticket_confirmation, true)
+           |> assign(:ticket_order, ticket_order)}
+        else
+          # For paid tickets, create Stripe payment intent
+          default_payment_method =
+            case Ysc.Payments.get_default_payment_method(socket.assigns.current_user) do
+              %{provider_id: provider_id} -> provider_id
+              nil -> nil
+            end
+
+          case Ysc.Tickets.StripeService.create_payment_intent(ticket_order,
+                 customer_id: socket.assigns.current_user.stripe_id,
+                 payment_method_id: default_payment_method
+               ) do
+            {:ok, payment_intent} ->
+              # Show payment form with Stripe Elements
+              {:noreply,
+               socket
+               |> assign(:show_ticket_modal, false)
+               |> assign(:show_payment_modal, true)
+               |> assign(:checkout_expired, false)
+               |> assign(:payment_intent, payment_intent)
+               |> assign(:ticket_order, ticket_order)}
+
+            {:error, reason} ->
+              {:noreply,
+               socket
+               |> put_flash(:error, "Failed to create payment: #{reason}")
+               |> assign(:show_ticket_modal, false)}
+          end
+        end
+
+      {:error, :overbooked} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Sorry, the event is now at capacity or the selected tickets are no longer available."
+         )
+         |> assign(:show_ticket_modal, false)}
+
+      {:error, :event_not_available} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "This event is no longer available for ticket purchase.")
+         |> assign(:show_ticket_modal, false)}
+
+      {:error, :membership_required} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "An active membership is required to purchase tickets.")
+         |> assign(:show_ticket_modal, false)}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to create ticket order. Please try again.")
+         |> assign(:show_ticket_modal, false)}
+    end
   end
 
   def format_start_date(date) do
@@ -1033,19 +1769,20 @@ defmodule YscWeb.EventDetailsLive do
     if not is_tier_on_sale?(ticket_tier) do
       false
     else
-      # Check if the event is already at capacity
-      if is_event_at_capacity?(event) do
-        false
-      else
-        # Check if we've reached the event's max_attendees limit
-        if not within_event_capacity?(ticket_tier, current_quantity + 1, selected_tickets, event) do
-          false
-        else
-          case get_available_quantity(ticket_tier) do
-            :unlimited -> true
-            available -> current_quantity < available
+      # Use the atomic booking locker for real-time availability
+      case Ysc.Tickets.BookingLocker.check_availability_with_lock(event.id) do
+        {:ok, availability} ->
+          tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
+          event_at_capacity = availability.event_capacity.at_capacity
+
+          cond do
+            event_at_capacity -> false
+            tier_info.available == :unlimited -> true
+            true -> current_quantity < tier_info.available
           end
-        end
+
+        {:error, _} ->
+          false
       end
     end
   end
@@ -1134,5 +1871,11 @@ defmodule YscWeb.EventDetailsLive do
       end)
 
     format_price(total)
+  end
+
+  defp group_tickets_by_tier(tickets) do
+    tickets
+    |> Enum.group_by(& &1.ticket_tier.name)
+    |> Enum.sort_by(fn {_tier_name, tickets} -> length(tickets) end, :desc)
   end
 end

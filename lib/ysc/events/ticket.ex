@@ -17,9 +17,13 @@ defmodule Ysc.Events.Ticket do
     belongs_to :ticket_tier, Ysc.Events.TicketTier, foreign_key: :ticket_tier_id, references: :id
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
 
-    field :status, TicketStatus
+    belongs_to :ticket_order, Ysc.Tickets.TicketOrder,
+      foreign_key: :ticket_order_id,
+      references: :id
 
-    belongs_to :payment, Ysc.Payments.Payment, foreign_key: :payment_id, references: :id
+    field :status, Ysc.Events.TicketStatus
+
+    belongs_to :payment, Ysc.Ledgers.Payment, foreign_key: :payment_id, references: :id
 
     field :expires_at, :utc_datetime
 
@@ -36,6 +40,7 @@ defmodule Ysc.Events.Ticket do
       :event_id,
       :ticket_tier_id,
       :user_id,
+      :ticket_order_id,
       :status,
       :payment_id,
       :expires_at

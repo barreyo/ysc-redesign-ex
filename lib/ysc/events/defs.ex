@@ -1,5 +1,27 @@
-import EctoEnum
+defmodule Ysc.Events.TicketOrderStatus do
+  @moduledoc """
+  Ticket order status enum.
+  """
+  use EctoEnum, type: :ticket_order_status, enums: [:pending, :completed, :cancelled, :expired]
+end
 
-defenum(EventState, ["draft", "published", "scheduled", "cancelled", "deleted"])
-defenum(TicketStatus, ["pending", "confirmed", "cancelled"])
-defenum(TicketTierType, ["free", "paid", "donation"])
+defmodule Ysc.Events.TicketStatus do
+  @moduledoc """
+  Ticket status enum.
+  """
+  use EctoEnum, type: :ticket_status, enums: [:pending, :confirmed, :cancelled, :expired]
+end
+
+defmodule Ysc.Events.TicketTierType do
+  @moduledoc """
+  Ticket tier type enum.
+  """
+  use EctoEnum, type: :ticket_tier_type, enums: [:free, :paid, :donation]
+end
+
+defmodule Ysc.Events.EventState do
+  @moduledoc """
+  Event state enum.
+  """
+  use EctoEnum, type: :event_state, enums: [:draft, :published, :cancelled, :deleted]
+end

@@ -1,6 +1,6 @@
 defmodule YscWeb.Emails.ApplicationApproved do
   use MjmlEEx,
-    mjml_template: "templates/application_approved.mjml.heex",
+    mjml_template: "templates/application_approved.mjml.eex",
     layout: YscWeb.Emails.BaseLayout
 
   def get_template_name() do

@@ -385,12 +385,21 @@ defmodule YscWeb.AdminEventsNewLive do
                         type="checkbox"
                         field={@capacity_form[:unlimited_capacity]}
                         label="Unlimited capacity"
-                        checked={is_nil(@capacity_form[:max_attendees].value) || @capacity_form[:max_attendees].value == ""}
+                        checked={
+                          is_nil(@capacity_form[:max_attendees].value) ||
+                            @capacity_form[:max_attendees].value == ""
+                        }
                         phx-click="toggle-unlimited-capacity"
                       />
                     </div>
 
-                    <div :if={!is_nil(@capacity_form[:max_attendees].value) && @capacity_form[:max_attendees].value != ""} class="space-y-2">
+                    <div
+                      :if={
+                        !is_nil(@capacity_form[:max_attendees].value) &&
+                          @capacity_form[:max_attendees].value != ""
+                      }
+                      class="space-y-2"
+                    >
                       <.input
                         type="number"
                         field={@capacity_form[:max_attendees]}

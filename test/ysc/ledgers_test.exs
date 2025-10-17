@@ -11,7 +11,7 @@ defmodule Ysc.LedgersTest do
 
       # Check that basic accounts exist
       assert Ledgers.get_account_by_name("cash")
-      assert Ledgers.get_account_by_name("subscription_revenue")
+      assert Ledgers.get_account_by_name("membership_revenue")
       assert Ledgers.get_account_by_name("event_revenue")
       assert Ledgers.get_account_by_name("booking_revenue")
       assert Ledgers.get_account_by_name("donation_revenue")
@@ -56,7 +56,9 @@ defmodule Ysc.LedgersTest do
         entity_id: Ecto.ULID.generate(),
         external_payment_id: "pi_test_123",
         stripe_fee: stripe_fee,
-        description: "Test membership payment"
+        description: "Test membership payment",
+        property: nil,
+        payment_method_id: nil
       }
 
       assert {:ok, {payment, transaction, entries}} = Ledgers.process_payment(payment_attrs)
@@ -107,7 +109,9 @@ defmodule Ysc.LedgersTest do
         entity_id: Ecto.ULID.generate(),
         external_payment_id: "pi_test_123",
         stripe_fee: Money.new(175, :USD),
-        description: "Test membership payment"
+        description: "Test membership payment",
+        property: nil,
+        payment_method_id: nil
       }
 
       {:ok, {payment, _transaction, _entries}} = Ledgers.process_payment(payment_attrs)

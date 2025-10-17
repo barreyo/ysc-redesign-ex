@@ -32,7 +32,12 @@ defmodule Ysc.Application do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Ysc.Supervisor]
-    Supervisor.start_link(children, opts)
+    {:ok, supervisor} = Supervisor.start_link(children, opts)
+
+    # Start the ticket timeout scheduler
+    Ysc.Tickets.Scheduler.start_scheduler()
+
+    {:ok, supervisor}
   end
 
   # Tell Phoenix to update the endpoint configuration
