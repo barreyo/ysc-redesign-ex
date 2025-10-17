@@ -26,8 +26,8 @@ defmodule YscWeb.PageControllerTest do
       conn: conn,
       user: _user
     } do
-      # Setup submission date in Pacific timezone
-      submitted_date = DateTime.utc_now()
+      # Setup submission date in Pacific timezone (5 minutes ago to ensure "ago" is returned)
+      submitted_date = DateTime.add(DateTime.utc_now(), -300, :second)
       timezone = "America/Los_Angeles"
 
       # Mock the get_signup_application_submission_date function
@@ -48,8 +48,8 @@ defmodule YscWeb.PageControllerTest do
       conn: conn,
       user: _user
     } do
-      # Setup submission date in a different timezone
-      submitted_date = DateTime.utc_now()
+      # Setup submission date in a different timezone (5 minutes ago to ensure "ago" is returned)
+      submitted_date = DateTime.add(DateTime.utc_now(), -300, :second)
       timezone = "Europe/Stockholm"
 
       # Mock the get_signup_application_submission_date function
@@ -68,8 +68,8 @@ defmodule YscWeb.PageControllerTest do
       conn: conn,
       user: _user
     } do
-      # Setup submission date without timezone
-      submitted_date = DateTime.utc_now()
+      # Setup submission date without timezone (5 minutes ago to ensure "ago" is returned)
+      submitted_date = DateTime.add(DateTime.utc_now(), -300, :second)
 
       # Mock the get_signup_application_submission_date function
       Mox.expect(Ysc.AccountsMock, :get_signup_application_submission_date, fn _user_id ->
