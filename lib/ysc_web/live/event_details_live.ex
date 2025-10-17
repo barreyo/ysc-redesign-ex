@@ -36,6 +36,10 @@ defmodule YscWeb.EventDetailsLive do
                 // This event has been cancelled //
               </p>
 
+              <div :if={@event.state != :cancelled && is_event_at_capacity?(@event)}>
+                <.badge type="red">SOLD OUT</.badge>
+              </div>
+
               <h2
                 :if={@event.title != nil && @event.title != ""}
                 class="text-4xl font-bold leading-10"
@@ -53,19 +57,19 @@ defmodule YscWeb.EventDetailsLive do
             <!-- User's Existing Tickets -->
             <div :if={@current_user != nil && length(@user_tickets) > 0} class="space-y-4">
               <h3 class="text-zinc-800 text-2xl font-semibold">Your Tickets</h3>
-              <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div class="">
                 <div class="flex items-center mb-3">
                   <.icon name="hero-check-circle" class="text-green-500 w-5 h-5 me-2" />
-                  <h4 class="text-green-800 font-semibold">Confirmed Tickets</h4>
+                  <h4 class="text-zinc-800 font-semibold">Your confirmed tickets for this event</h4>
                 </div>
                 <div class="space-y-2">
                   <%= for {tier_name, tickets} <- group_tickets_by_tier(@user_tickets) do %>
-                    <div class="flex justify-between items-center bg-white rounded p-3 border border-green-100">
+                    <div class="flex justify-between items-center bg-white rounded p-3 border border-zinc-200">
                       <div>
-                        <p class="font-medium text-gray-900">
+                        <p class="font-medium text-zinc-900">
                           <%= length(tickets) %>x <%= tier_name %>
                         </p>
-                        <p class="text-sm text-gray-500">
+                        <p class="text-sm text-zinc-500">
                           <%= if length(tickets) == 1 do %>
                             Ticket #<%= List.first(tickets).reference_id %>
                           <% else %>
@@ -74,7 +78,7 @@ defmodule YscWeb.EventDetailsLive do
                         </p>
                       </div>
                       <div class="text-right">
-                        <p class="font-semibold text-gray-900">
+                        <p class="font-semibold text-zinc-900">
                           <%= if Money.zero?(List.first(tickets).ticket_tier.price) do %>
                             Free
                           <% else %>
@@ -89,8 +93,7 @@ defmodule YscWeb.EventDetailsLive do
                     </div>
                   <% end %>
                 </div>
-                <p class="text-sm text-green-700 mt-3">
-                  <.icon name="hero-information-circle" class="w-4 h-4 me-1" />
+                <p class="text-sm text-zinc-600 mt-3">
                   You may purchase additional tickets if there are any available.
                 </p>
               </div>
@@ -342,13 +345,27 @@ defmodule YscWeb.EventDetailsLive do
                   <p class="text-red-600 text-xs mt-1">Tickets are no longer available</p>
                 </div>
               <% else %>
-                <.button
-                  :if={@current_user != nil && @active_membership?}
-                  class="w-full"
-                  phx-click="open-ticket-modal"
-                >
-                  <.icon name="hero-ticket" class="me-2 -mt-0.5" />Get Tickets
-                </.button>
+                <%= if is_event_at_capacity?(@event) do %>
+                  <div class="w-full">
+                    <.tooltip tooltip_text="This event is sold out">
+                      <.button
+                        :if={@current_user != nil && @active_membership?}
+                        class="w-full opacity-50 cursor-not-allowed"
+                        disabled
+                      >
+                        <.icon name="hero-ticket" class="me-2 -mt-0.5" />Sold Out
+                      </.button>
+                    </.tooltip>
+                  </div>
+                <% else %>
+                  <.button
+                    :if={@current_user != nil && @active_membership?}
+                    class="w-full"
+                    phx-click="open-ticket-modal"
+                  >
+                    <.icon name="hero-ticket" class="me-2 -mt-0.5" />Get Tickets
+                  </.button>
+                <% end %>
               <% end %>
             <% else %>
               <div class="w-full text-center py-1">
@@ -783,29 +800,29 @@ defmodule YscWeb.EventDetailsLive do
           <div class="text-green-500 mb-4">
             <.icon name="hero-ticket" class="w-16 h-16 mx-auto" />
           </div>
-          <h2 class="text-2xl font-semibold text-gray-900 mb-2">Confirm Your Free Tickets</h2>
-          <p class="text-gray-600 mb-6">
+          <h2 class="text-2xl font-semibold text-zinc-900 mb-2">Confirm Your Free Tickets</h2>
+          <p class="text-zinc-600 mb-6">
             You've selected free tickets for this event. No payment is required.
           </p>
         </div>
         <!-- Order Summary -->
-        <div class="w-full max-w-md bg-gray-50 rounded-lg p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
+        <div class="w-full max-w-md bg-zinc-50 rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-zinc-900 mb-4">Order Summary</h3>
           <div class="space-y-3">
             <%= for {tier_id, quantity} <- @selected_tickets do %>
               <% tier = Enum.find(@event.ticket_tiers, &(&1.id == tier_id)) %>
               <div class="flex justify-between items-center">
                 <div>
-                  <p class="font-medium text-gray-900"><%= tier.name %></p>
-                  <p class="text-sm text-gray-500">Quantity: <%= quantity %></p>
+                  <p class="font-medium text-zinc-900"><%= tier.name %></p>
+                  <p class="text-sm text-zinc-500">Quantity: <%= quantity %></p>
                 </div>
-                <p class="font-semibold text-gray-900">Free</p>
+                <p class="font-semibold text-zinc-900">Free</p>
               </div>
             <% end %>
           </div>
           <div class="border-t pt-3 mt-4">
             <div class="flex justify-between items-center">
-              <p class="text-lg font-semibold text-gray-900">Total</p>
+              <p class="text-lg font-semibold text-zinc-900">Total</p>
               <p class="text-lg font-bold text-green-600">Free</p>
             </div>
           </div>
@@ -842,47 +859,47 @@ defmodule YscWeb.EventDetailsLive do
           <div class="text-green-500 mb-4">
             <.icon name="hero-check-circle" class="w-16 h-16 mx-auto" />
           </div>
-          <h2 class="text-2xl font-semibold text-gray-900 mb-2">Order Confirmed!</h2>
-          <p class="text-gray-600 mb-6">
+          <h2 class="text-2xl font-semibold text-zinc-900 mb-2">Order Confirmed!</h2>
+          <p class="text-zinc-600 mb-6">
             Your tickets have been successfully confirmed. A confirmation email has been sent to your registered email address.
           </p>
         </div>
         <!-- Order Details -->
-        <div class="w-full max-w-md bg-gray-50 rounded-lg p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Order Details</h3>
+        <div class="w-full max-w-md bg-zinc-50 rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-zinc-900 mb-4">Order Details</h3>
           <div class="space-y-3">
             <div class="flex justify-between">
-              <span class="text-gray-600">Order ID:</span>
+              <span class="text-zinc-600">Order ID:</span>
               <span class="font-medium"><%= @ticket_order.reference_id %></span>
             </div>
             <div class="flex justify-between">
-              <span class="text-gray-600">Event:</span>
+              <span class="text-zinc-600">Event:</span>
               <span class="font-medium"><%= @event.title %></span>
             </div>
             <div class="flex justify-between">
-              <span class="text-gray-600">Date:</span>
+              <span class="text-zinc-600">Date:</span>
               <span class="font-medium">
                 <%= Calendar.strftime(@event.start_date, "%B %d, %Y") %>
               </span>
             </div>
             <div class="flex justify-between">
-              <span class="text-gray-600">Time:</span>
+              <span class="text-zinc-600">Time:</span>
               <span class="font-medium"><%= Calendar.strftime(@event.start_time, "%I:%M %p") %></span>
             </div>
           </div>
         </div>
         <!-- Tickets List -->
         <div class="w-full max-w-md bg-white border rounded-lg p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Your Tickets</h3>
+          <h3 class="text-lg font-semibold text-zinc-900 mb-4">Your Tickets</h3>
           <div class="space-y-3">
             <%= for ticket <- @ticket_order.tickets do %>
-              <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+              <div class="flex justify-between items-center p-3 bg-zinc-50 rounded">
                 <div>
-                  <p class="font-medium text-gray-900"><%= ticket.ticket_tier.name %></p>
-                  <p class="text-sm text-gray-500">Ticket #<%= ticket.reference_id %></p>
+                  <p class="font-medium text-zinc-900"><%= ticket.ticket_tier.name %></p>
+                  <p class="text-sm text-zinc-500">Ticket #<%= ticket.reference_id %></p>
                 </div>
                 <div class="text-right">
-                  <p class="font-semibold text-gray-900">
+                  <p class="font-semibold text-zinc-900">
                     <%= if Money.zero?(ticket.ticket_tier.price) do %>
                       Free
                     <% else %>
@@ -898,7 +915,7 @@ defmodule YscWeb.EventDetailsLive do
           </div>
           <div class="border-t pt-3 mt-4">
             <div class="flex justify-between items-center">
-              <p class="text-lg font-semibold text-gray-900">Total</p>
+              <p class="text-lg font-semibold text-zinc-900">Total</p>
               <p class="text-lg font-bold text-green-600">
                 <%= if Money.zero?(@ticket_order.total_amount) do %>
                   Free
@@ -1198,7 +1215,7 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   @impl true
-  def terminate(reason, socket) do
+  def terminate(_reason, socket) do
     # Cancel any pending ticket order when the LiveView terminates
     if socket.assigns.ticket_order && socket.assigns.show_payment_modal do
       Ysc.Tickets.cancel_ticket_order(socket.assigns.ticket_order, "User left checkout")
@@ -1342,7 +1359,7 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:payment_intent, nil)
          |> assign(:selected_tickets, %{})}
 
-      {:error, reason} ->
+      {:error, _reason} ->
         {:noreply,
          socket
          |> put_flash(
@@ -1567,10 +1584,6 @@ defmodule YscWeb.EventDetailsLive do
       {_start_time, end_time} ->
         # Use the actual end_time if it exists
         end_time
-
-      _ ->
-        # No start_time, return nil
-        nil
     end
   end
 
@@ -1605,10 +1618,6 @@ defmodule YscWeb.EventDetailsLive do
       {_start_time, _end_time, end_date} ->
         # Use the actual end_date if it exists
         end_date
-
-      _ ->
-        # No start_time, return nil
-        nil
     end
   end
 
@@ -1764,7 +1773,7 @@ defmodule YscWeb.EventDetailsLive do
     end
   end
 
-  defp can_increase_quantity?(ticket_tier, current_quantity, selected_tickets, event) do
+  defp can_increase_quantity?(ticket_tier, current_quantity, _selected_tickets, event) do
     # Can't increase if not on sale
     if not is_tier_on_sale?(ticket_tier) do
       false
@@ -1784,25 +1793,6 @@ defmodule YscWeb.EventDetailsLive do
         {:error, _} ->
           false
       end
-    end
-  end
-
-  defp within_event_capacity?(ticket_tier, new_quantity, selected_tickets, event) do
-    # Check max_attendees from the event
-    case event.max_attendees do
-      nil ->
-        # No max_attendees limit set
-        true
-
-      max_attendees ->
-        # Calculate total selected tickets across all tiers
-        total_selected = calculate_total_selected_tickets(selected_tickets)
-
-        # Calculate the new total if we add this quantity
-        current_tier_quantity = get_ticket_quantity(selected_tickets, ticket_tier.id)
-        new_total = total_selected - current_tier_quantity + new_quantity
-
-        new_total <= max_attendees
     end
   end
 

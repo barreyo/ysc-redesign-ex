@@ -1,5 +1,5 @@
 defmodule Ysc.SettingsTest do
-  use Ysc.DataCase, async: true
+  use Ysc.DataCase, async: false
   alias Ysc.Settings
   alias Ysc.SiteSettings.SiteSetting
 
@@ -54,16 +54,20 @@ defmodule Ysc.SettingsTest do
     end
 
     test "uses cache when available" do
+      # Clear cache first to ensure clean state
+      Settings.clear_cache()
+
       setting = %SiteSetting{name: "cached", value: "old"} |> Repo.insert!()
 
       # First call populates cache
       assert Settings.get_setting("cached") == "old"
 
-      # Update DB but should still return cached value
+      # Update DB directly (bypassing Settings.update_setting which would update cache)
       setting
       |> Ecto.Changeset.change(value: "updated")
       |> Repo.update!()
 
+      # Should still return cached value since we didn't use Settings.update_setting
       assert Settings.get_setting("cached") == "old"
 
       # Clear cache after test

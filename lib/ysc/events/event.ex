@@ -4,7 +4,6 @@ defmodule Ysc.Events.Event do
   import Ecto.Changeset
 
   alias Ysc.ReferenceGenerator
-  alias Ysc.Events.EventState
 
   @reference_prefix "EVT"
 

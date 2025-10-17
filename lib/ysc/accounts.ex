@@ -69,8 +69,49 @@ defmodule Ysc.Accounts do
     Repo.get!(User, id) |> Repo.preload(preloads)
   end
 
+  @doc """
+  Gets a single user, returns nil if not found.
+
+  ## Examples
+
+      iex> get_user(123)
+      %User{}
+
+      iex> get_user(456)
+      nil
+
+  """
+  def get_user(id, preloads \\ []) do
+    case Repo.get(User, id) do
+      nil -> nil
+      user -> Repo.preload(user, preloads)
+    end
+  end
+
   def get_user_from_stripe_id(stripe_id) do
     Repo.get_by(User, stripe_id: stripe_id)
+  end
+
+  @doc """
+  Checks if a user has an active membership.
+  """
+  def has_active_membership?(user) do
+    # Get all subscriptions for the user and check if any are valid (active or trialing)
+    case user.subscriptions do
+      %Ecto.Association.NotLoaded{} ->
+        # If subscriptions aren't loaded, fetch them
+        user_with_subscriptions = get_user!(user.id, [:subscriptions])
+
+        user_with_subscriptions.subscriptions
+        |> Enum.any?(&Ysc.Subscriptions.valid?/1)
+
+      subscriptions when is_list(subscriptions) ->
+        subscriptions
+        |> Enum.any?(&Ysc.Subscriptions.valid?/1)
+
+      _ ->
+        false
+    end
   end
 
   def get_signup_application_from_user_id!(id, current_user, preloads \\ []) do

@@ -63,7 +63,7 @@ defmodule YscWeb.UserRegistrationLiveTest do
       render_change(form, %{"user" => step_2_params})
 
       # Submit the complete form
-      result =
+      _result =
         render_submit(form, %{
           "user" => Map.merge(step_0_params, Map.merge(step_1_params, step_2_params))
         })

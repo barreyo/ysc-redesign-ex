@@ -15,7 +15,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
             <.button
               phx-click="open-add-ticket-tier-modal"
               phx-target={@myself}
-              size="sm"
               class="w-full sm:w-auto"
             >
               <.icon name="hero-plus" class="w-4 h-4 me-1" /> Add Ticket Tier
@@ -89,7 +88,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
                 <div class="flex flex-row sm:flex-col gap-2 sm:gap-1 sm:ml-4">
                   <.button
-                    size="sm"
                     color="blue"
                     phx-click="edit-ticket-tier"
                     phx-value-id={ticket_tier.id}
@@ -101,7 +99,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                   </.button>
 
                   <.button
-                    size="sm"
                     color="red"
                     phx-click="delete-ticket-tier"
                     phx-value-id={ticket_tier.id}
@@ -184,7 +181,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
         show
         on_cancel={JS.push("close-add-ticket-tier-modal", target: @myself)}
       >
-        <:title>Add New Ticket Tier</:title>
         <.live_component
           id={"ticket-tier-form-#{@event_id}"}
           module={YscWeb.AdminEventsLive.TicketTierForm}
@@ -198,7 +194,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
         show
         on_cancel={JS.push("close-edit-ticket-tier-modal", target: @myself)}
       >
-        <:title>Edit Ticket Tier</:title>
         <.live_component
           :if={@editing_ticket_tier}
           id={"edit-ticket-tier-form-#{@editing_ticket_tier.id}"}
@@ -292,7 +287,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
-  @impl true
   def handle_info(
         {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
         socket
@@ -305,7 +299,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
-  @impl true
   def handle_info(
         {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierUpdated{ticket_tier: ticket_tier}},
         socket
@@ -318,7 +311,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
-  @impl true
   def handle_info(
         {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier}},
         socket

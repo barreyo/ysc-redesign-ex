@@ -73,7 +73,7 @@ defmodule Ysc.Tickets.BookingValidator do
   - `{:error, :tier_not_found}` if tier doesn't exist
   """
   def check_tier_capacity(tier_id, requested_quantity) do
-    case Events.get_ticket_tier(tier_id) do
+    case get_ticket_tier(tier_id) do
       nil ->
         {:error, :tier_not_found}
 
@@ -103,7 +103,7 @@ defmodule Ysc.Tickets.BookingValidator do
   - `true` if event is at capacity
   - `false` if event has available capacity
   """
-  def is_event_at_capacity?(event_id) do
+  def is_event_at_capacity?(event_id) when is_binary(event_id) do
     event = Events.get_event!(event_id)
     is_event_at_capacity?(event)
   end
@@ -168,7 +168,7 @@ defmodule Ysc.Tickets.BookingValidator do
   end
 
   defp validate_tier_selection(event_id, tier_id, quantity) do
-    case Events.get_ticket_tier(tier_id) do
+    case get_ticket_tier(tier_id) do
       nil ->
         {:error, :tier_not_found}
 
@@ -285,7 +285,7 @@ defmodule Ysc.Tickets.BookingValidator do
 
   defp count_confirmed_tickets_for_event(event_id) do
     Ticket
-    |> where([t], t.event_id == ^event_id and t.status in [:confirmed, :pending])
+    |> where([t], t.event_id == ^event_id and t.status == :confirmed)
     |> Repo.aggregate(:count, :id)
   end
 
@@ -332,5 +332,9 @@ defmodule Ysc.Tickets.BookingValidator do
         NaiveDateTime.new!(date, time)
         |> DateTime.from_naive!("Etc/UTC")
     end
+  end
+
+  defp get_ticket_tier(tier_id) do
+    Events.get_ticket_tier(tier_id)
   end
 end

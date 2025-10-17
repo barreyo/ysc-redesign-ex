@@ -1420,25 +1420,29 @@ defmodule YscWeb.CoreComponents do
   end
 
   attr :event, :any, required: true
+  attr :sold_out, :boolean, default: false
+  attr :selling_fast, :boolean, default: false
 
   def event_badge(assigns) do
     assigns = assign(assigns, :event, assigns.event)
 
     ~H"""
     <.badge
-      :if={event_badge_style(@event) != nil}
-      type={event_badge_style(@event)}
+      :if={event_badge_style(@event, @sold_out, @selling_fast) != nil}
+      type={event_badge_style(@event, @sold_out, @selling_fast)}
       class="text-xs font-medium"
     >
-      <%= event_badge_text(@event) %>
+      <%= event_badge_text(@event, @sold_out, @selling_fast) %>
     </.badge>
     """
   end
 
-  defp event_badge_style(%Event{state: :cancelled}), do: "red"
-  defp event_badge_style(%Event{published_at: nil}), do: nil
+  defp event_badge_style(%Event{state: :cancelled}, _sold_out, _selling_fast), do: "red"
+  defp event_badge_style(%Event{published_at: nil}, _sold_out, _selling_fast), do: nil
+  defp event_badge_style(_event, true, _selling_fast), do: "red"
+  defp event_badge_style(_event, false, true), do: "yellow"
 
-  defp event_badge_style(%Event{published_at: date}) do
+  defp event_badge_style(%Event{published_at: date}, false, false) do
     if DateTime.diff(DateTime.utc_now(), date, :hour) <= 48 do
       "green"
     else
@@ -1446,12 +1450,14 @@ defmodule YscWeb.CoreComponents do
     end
   end
 
-  defp event_badge_style(_), do: nil
+  defp event_badge_style(_, _, _), do: nil
 
-  defp event_badge_text(%Event{state: :cancelled}), do: "Cancelled"
-  defp event_badge_text(%Event{published_at: nil}), do: nil
+  defp event_badge_text(%Event{state: :cancelled}, _sold_out, _selling_fast), do: "Cancelled"
+  defp event_badge_text(%Event{published_at: nil}, _sold_out, _selling_fast), do: nil
+  defp event_badge_text(_event, true, _selling_fast), do: "Sold Out"
+  defp event_badge_text(_event, false, true), do: "Selling Fast!"
 
-  defp event_badge_text(%Event{published_at: date}) do
+  defp event_badge_text(%Event{published_at: date}, false, false) do
     if DateTime.diff(DateTime.utc_now(), date, :hour) <= 48 do
       "Just Added!"
     else
@@ -1459,7 +1465,7 @@ defmodule YscWeb.CoreComponents do
     end
   end
 
-  defp event_badge_text(_), do: nil
+  defp event_badge_text(_, _, _), do: nil
 
   attr :active_step, :integer, required: true
   attr :steps, :list, default: []

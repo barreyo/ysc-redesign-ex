@@ -243,7 +243,7 @@ defmodule Ysc.Tickets do
   Validates that the requested ticket quantities don't exceed available capacity.
   """
   def validate_booking_capacity(event_id, ticket_selections) do
-    event = Events.get_event!(event_id)
+    event = Ysc.Events.get_event!(event_id)
 
     # Check if event is at capacity
     if is_event_at_capacity?(event) do
@@ -281,6 +281,14 @@ defmodule Ysc.Tickets do
     current_attendees >= max_attendees
   end
 
+  # Handle maps (from our custom query)
+  def is_event_at_capacity?(%{max_attendees: nil}), do: false
+
+  def is_event_at_capacity?(%{max_attendees: max_attendees, id: event_id}) do
+    current_attendees = count_confirmed_tickets_for_event(event_id)
+    current_attendees >= max_attendees
+  end
+
   @doc """
   Counts the total number of confirmed tickets for an event.
   """
@@ -305,7 +313,7 @@ defmodule Ysc.Tickets do
   Processes payment for a ticket order using Stripe.
   """
   def process_ticket_order_payment(ticket_order, payment_intent_id) do
-    with {:ok, payment_intent} <- Stripe.PaymentIntent.retrieve(payment_intent_id),
+    with {:ok, payment_intent} <- Stripe.PaymentIntent.retrieve(payment_intent_id, %{}),
          :ok <- validate_payment_intent(payment_intent, ticket_order),
          {:ok, {payment, _transaction, _entries}} <-
            process_ledger_payment(ticket_order, payment_intent),
@@ -574,23 +582,6 @@ defmodule Ysc.Tickets do
 
   ## Private Functions
 
-  defp validate_event_availability(event_id) do
-    case Events.get_event(event_id) do
-      nil ->
-        {:error, :event_not_found}
-
-      %Event{state: :cancelled} ->
-        {:error, :event_cancelled}
-
-      %Event{} = event ->
-        if is_event_in_past?(event) do
-          {:error, :event_in_past}
-        else
-          {:ok, event}
-        end
-    end
-  end
-
   defp validate_user_membership(user_id) do
     case Accounts.get_user!(user_id, [:subscriptions]) do
       nil ->
@@ -610,8 +601,8 @@ defmodule Ysc.Tickets do
     |> Enum.any?(&Ysc.Subscriptions.valid?/1)
   end
 
-  defp validate_tier_capacity(tier_id, requested_quantity, event) do
-    case Events.get_ticket_tier(tier_id) do
+  defp validate_tier_capacity(tier_id, requested_quantity, _event) do
+    case Ysc.Events.get_ticket_tier(tier_id) do
       nil ->
         :error
 
@@ -647,72 +638,8 @@ defmodule Ysc.Tickets do
     current_attendees + requested_quantity <= max_attendees
   end
 
-  defp calculate_total_amount(event_id, ticket_selections) do
-    total =
-      ticket_selections
-      |> Enum.reduce(Money.new(0, :USD), fn {tier_id, quantity}, acc ->
-        case Events.get_ticket_tier(tier_id) do
-          %TicketTier{type: :free} ->
-            acc
-
-          %TicketTier{price: price} ->
-            case Money.mult(price, quantity) do
-              {:ok, tier_total} ->
-                case Money.add(acc, tier_total) do
-                  {:ok, new_total} -> new_total
-                  {:error, _} -> acc
-                end
-
-              {:error, _} ->
-                acc
-            end
-
-          nil ->
-            acc
-        end
-      end)
-
-    {:ok, total}
-  end
-
-  defp create_order_record(user_id, event_id, total_amount) do
-    expires_at = get_order_expiration_time()
-
-    %TicketOrder{}
-    |> TicketOrder.create_changeset(%{
-      user_id: user_id,
-      event_id: event_id,
-      total_amount: total_amount,
-      expires_at: expires_at
-    })
-    |> Repo.insert()
-  end
-
-  defp create_tickets_for_order(ticket_order, ticket_selections) do
-    tickets =
-      ticket_selections
-      |> Enum.flat_map(fn {tier_id, quantity} ->
-        Enum.map(1..quantity, fn _ ->
-          %Ticket{}
-          |> Ticket.changeset(%{
-            event_id: ticket_order.event_id,
-            ticket_tier_id: tier_id,
-            user_id: ticket_order.user_id,
-            ticket_order_id: ticket_order.id,
-            status: :pending,
-            expires_at: ticket_order.expires_at
-          })
-        end)
-      end)
-
-    # Insert all tickets in a single transaction
-    Repo.transaction(fn ->
-      Enum.map(tickets, &Repo.insert!/1)
-    end)
-  end
-
   defp validate_payment_intent(payment_intent, ticket_order) do
-    expected_amount = Money.to_cents(ticket_order.total_amount)
+    expected_amount = money_to_cents(ticket_order.total_amount)
 
     cond do
       payment_intent.amount != expected_amount ->
@@ -748,10 +675,30 @@ defmodule Ysc.Tickets do
     Money.new(fee_cents, :USD)
   end
 
-  defp extract_payment_method_id(payment_intent) do
+  defp extract_payment_method_id(_payment_intent) do
     # Extract payment method ID from payment intent
     # This would need to be implemented based on your Stripe setup
     nil
+  end
+
+  # Helper function to safely convert Money to cents
+  defp money_to_cents(%Money{amount: amount, currency: :USD}) do
+    # Use Decimal for precise conversion to avoid floating-point errors
+    amount
+    |> Decimal.mult(100)
+    |> Decimal.to_integer()
+  end
+
+  defp money_to_cents(%Money{amount: amount, currency: _currency}) do
+    # For other currencies, use same conversion
+    amount
+    |> Decimal.mult(100)
+    |> Decimal.to_integer()
+  end
+
+  defp money_to_cents(_) do
+    # Fallback for invalid money values
+    0
   end
 
   defp confirm_tickets(ticket_order) do
@@ -766,31 +713,6 @@ defmodule Ysc.Tickets do
     end)
 
     :ok
-  end
-
-  defp is_event_in_past?(%Event{start_date: nil}), do: false
-
-  defp is_event_in_past?(%Event{start_date: start_date, start_time: nil}) do
-    DateTime.compare(DateTime.utc_now(), start_date) == :gt
-  end
-
-  defp is_event_in_past?(%Event{start_date: start_date, start_time: start_time}) do
-    event_datetime = combine_date_time(start_date, start_time)
-    DateTime.compare(DateTime.utc_now(), event_datetime) == :gt
-  end
-
-  defp combine_date_time(date, time) do
-    case {date, time} do
-      {%DateTime{} = dt, %Time{} = t} ->
-        naive_date = DateTime.to_naive(dt)
-        date_part = NaiveDateTime.to_date(naive_date)
-        naive_datetime = NaiveDateTime.new!(date_part, t)
-        DateTime.from_naive!(naive_datetime, "Etc/UTC")
-
-      {date, time} when not is_nil(date) and not is_nil(time) ->
-        NaiveDateTime.new!(date, time)
-        |> DateTime.from_naive!("Etc/UTC")
-    end
   end
 
   ## PubSub Functions
@@ -815,10 +737,6 @@ defmodule Ysc.Tickets do
 
   defp topic(user_id) do
     "tickets:user:#{user_id}"
-  end
-
-  defp broadcast(event) do
-    Phoenix.PubSub.broadcast(Ysc.PubSub, topic(), {__MODULE__, event})
   end
 
   defp broadcast_to_user(user_id, event) do

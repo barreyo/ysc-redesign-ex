@@ -93,7 +93,7 @@ defmodule Ysc.Tickets.BookingLocker do
   end
 
   defp lock_and_validate_tiers(event_id, ticket_selections) do
-    tier_ids = Map.keys(ticket_selections)
+    _tier_ids = Map.keys(ticket_selections)
 
     # Lock all ticket tiers for this event
     tiers = lock_ticket_tiers(event_id)
@@ -190,7 +190,7 @@ defmodule Ysc.Tickets.BookingLocker do
 
   defp count_confirmed_tickets_for_event_locked(event_id) do
     Ticket
-    |> where([t], t.event_id == ^event_id and t.status in [:confirmed, :pending])
+    |> where([t], t.event_id == ^event_id and t.status == :confirmed)
     |> Repo.aggregate(:count, :id)
   end
 
@@ -265,7 +265,7 @@ defmodule Ysc.Tickets.BookingLocker do
     tickets =
       ticket_selections
       |> Enum.flat_map(fn {tier_id, quantity} ->
-        tier = Enum.find(tiers, &(&1.id == tier_id))
+        _tier = Enum.find(tiers, &(&1.id == tier_id))
 
         Enum.map(1..quantity, fn _ ->
           %Ticket{}

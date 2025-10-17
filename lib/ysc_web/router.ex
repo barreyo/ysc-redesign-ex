@@ -113,6 +113,8 @@ defmodule YscWeb.Router do
       live "/users/membership", UserSettingsLive, :membership
       live "/users/membership/payment-method", UserSettingsLive, :payment_method
       live "/users/settings/confirm-email/:token", UserSettingsLive, :confirm_email
+      live "/users/tickets", UserTicketsLive, :index
+      live "/tickets/:order_id", UserTicketsLive, :show
     end
   end
 

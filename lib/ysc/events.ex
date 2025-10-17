@@ -18,6 +18,13 @@ defmodule Ysc.Events do
   end
 
   @doc """
+  Fetch an event by its ID, returns nil if not found.
+  """
+  def get_event(id) do
+    Repo.get(Event, id)
+  end
+
+  @doc """
   Fetch an event by its reference ID.
   """
   def get_event_by_reference!(reference_id) do
@@ -106,18 +113,54 @@ defmodule Ysc.Events do
   Fetch events with upcoming start dates, optionally limited.
   """
   def list_upcoming_events(limit \\ 50) do
-    Event
-    |> where([e], e.start_date > ^DateTime.utc_now())
-    |> where([e], e.state in [:published, :cancelled])
-    |> order_by([e],
-      # First sort by state: non-cancelled events first, cancelled events last
-      asc: fragment("CASE WHEN ? = 'cancelled' THEN 1 ELSE 0 END", e.state),
-      # Then sort by start_date for non-cancelled events
-      asc: e.start_date,
-      # Finally sort by start_time for events on the same date
-      asc: e.start_time
+    three_days_ago = DateTime.add(DateTime.utc_now(), -3, :day)
+
+    from(e in Event,
+      where: e.start_date > ^DateTime.utc_now(),
+      where: e.state in [:published, :cancelled],
+      left_join: t in Ticket,
+      on: t.event_id == e.id and t.status == :confirmed and t.inserted_at >= ^three_days_ago,
+      group_by: e.id,
+      select: %{
+        id: e.id,
+        reference_id: e.reference_id,
+        state: e.state,
+        published_at: e.published_at,
+        publish_at: e.publish_at,
+        organizer_id: e.organizer_id,
+        title: e.title,
+        description: e.description,
+        max_attendees: e.max_attendees,
+        age_restriction: e.age_restriction,
+        show_participants: e.show_participants,
+        raw_details: e.raw_details,
+        rendered_details: e.rendered_details,
+        image_id: e.image_id,
+        start_date: e.start_date,
+        start_time: e.start_time,
+        end_date: e.end_date,
+        end_time: e.end_time,
+        location_name: e.location_name,
+        address: e.address,
+        latitude: e.latitude,
+        longitude: e.longitude,
+        place_id: e.place_id,
+        lock_version: e.lock_version,
+        inserted_at: e.inserted_at,
+        updated_at: e.updated_at,
+        recent_tickets_count: count(t.id),
+        selling_fast: fragment("count(?) >= 10", t.id)
+      },
+      order_by: [
+        # First sort by state: non-cancelled events first, cancelled events last
+        asc: fragment("CASE WHEN ? = 'cancelled' THEN 1 ELSE 0 END", e.state),
+        # Then sort by start_date for non-cancelled events
+        asc: e.start_date,
+        # Finally sort by start_time for events on the same date
+        asc: e.start_time
+      ],
+      limit: ^limit
     )
-    |> limit(^limit)
     |> Repo.all()
     |> Enum.map(&add_pricing_info/1)
   end
@@ -126,7 +169,12 @@ defmodule Ysc.Events do
   defp add_pricing_info(event) do
     ticket_tiers = list_ticket_tiers_for_event(event.id)
     pricing_info = calculate_event_pricing(ticket_tiers)
-    Map.put(event, :pricing_info, pricing_info)
+
+    # Handle both structs and maps (from our custom query)
+    case event do
+      %{__struct__: _} -> Map.put(event, :pricing_info, pricing_info)
+      %{} -> Map.put(event, :pricing_info, pricing_info)
+    end
   end
 
   # Calculate pricing display information for an event
@@ -334,6 +382,13 @@ defmodule Ysc.Events do
   end
 
   @doc """
+  Get a ticket tier by ID, returns nil if not found.
+  """
+  def get_ticket_tier(id) do
+    Repo.get(TicketTier, id)
+  end
+
+  @doc """
   Create a new ticket tier.
   """
   def create_ticket_tier(attrs \\ %{}) do
@@ -397,6 +452,49 @@ defmodule Ysc.Events do
   def count_total_tickets_sold_for_event(event_id) do
     Ticket
     |> where([t], t.event_id == ^event_id and t.status == :confirmed)
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  Check if an event is selling fast based on recent ticket sales.
+
+  An event is considered "selling fast" if it has sold 10 or more tickets
+  in the last 3 days.
+
+  ## Parameters:
+  - `event_id`: The ID of the event to check
+
+  ## Returns:
+  - `true` if the event is selling fast
+  - `false` otherwise
+  """
+  def is_event_selling_fast?(event_id) do
+    three_days_ago = DateTime.add(DateTime.utc_now(), -3, :day)
+
+    recent_ticket_count =
+      Ticket
+      |> where([t], t.event_id == ^event_id and t.status == :confirmed)
+      |> where([t], t.inserted_at >= ^three_days_ago)
+      |> Repo.aggregate(:count, :id)
+
+    recent_ticket_count >= 10
+  end
+
+  @doc """
+  Get the count of tickets sold in the last 3 days for an event.
+
+  ## Parameters:
+  - `event_id`: The ID of the event to check
+
+  ## Returns:
+  - Integer count of tickets sold in the last 3 days
+  """
+  def count_recent_tickets_sold(event_id) do
+    three_days_ago = DateTime.add(DateTime.utc_now(), -3, :day)
+
+    Ticket
+    |> where([t], t.event_id == ^event_id and t.status == :confirmed)
+    |> where([t], t.inserted_at >= ^three_days_ago)
     |> Repo.aggregate(:count, :id)
   end
 

@@ -67,7 +67,6 @@ defmodule YscWeb.UserTicketsLive do
                           Expires <%= format_time_remaining(ticket_order.expires_at) %>
                         </div>
                         <.button
-                          size="sm"
                           color="red"
                           phx-click="cancel-order"
                           phx-value-order-id={ticket_order.id}
@@ -77,11 +76,7 @@ defmodule YscWeb.UserTicketsLive do
                       <% end %>
 
                       <%= if ticket_order.status == :completed do %>
-                        <.button
-                          size="sm"
-                          phx-click="view-tickets"
-                          phx-value-order-id={ticket_order.id}
-                        >
+                        <.button phx-click="view-tickets" phx-value-order-id={ticket_order.id}>
                           View Tickets
                         </.button>
                       <% end %>
@@ -184,8 +179,8 @@ defmodule YscWeb.UserTicketsLive do
         :pending -> "bg-amber-100 text-amber-800"
         :completed -> "bg-green-100 text-green-800"
         :cancelled -> "bg-red-100 text-red-800"
-        :expired -> "bg-gray-100 text-gray-800"
-        _ -> "bg-gray-100 text-gray-800"
+        :expired -> "bg-zinc-100 text-zinc-800"
+        _ -> "bg-zinc-100 text-zinc-800"
       end
     ]}>
       <%= String.capitalize(to_string(@status)) %>

@@ -60,15 +60,15 @@ defmodule Ysc.Controllers.StripePaymentMethodController do
         |> put_status(:bad_request)
         |> json(%{error: "Failed to retrieve payment method from Stripe"})
 
-      {:error, changeset} ->
-        conn
-        |> put_status(:unprocessable_entity)
-        |> json(%{error: "Failed to store payment method", details: changeset.errors})
-
       {:error, %Stripe.Error{} = stripe_error} ->
         conn
         |> put_status(:bad_request)
         |> json(%{error: "Failed to update Stripe customer", reason: stripe_error.message})
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Failed to store payment method", details: changeset.errors})
 
       {:error, reason} ->
         conn
@@ -83,17 +83,6 @@ defmodule Ysc.Controllers.StripePaymentMethodController do
     case Stripe.PaymentMethod.retrieve(payment_method_id) do
       {:ok, payment_method} -> {:ok, payment_method}
       {:error, _} -> {:error, :stripe_error}
-    end
-  end
-
-  defp upsert_payment_method_from_stripe(user, stripe_payment_method) do
-    Ysc.Payments.upsert_payment_method_from_stripe(user, stripe_payment_method)
-  end
-
-  defp update_user_default_payment_method(user, payment_method_id) do
-    case Ysc.Accounts.update_default_payment_method(user, payment_method_id) do
-      {:ok, updated_user} -> {:ok, updated_user}
-      {:error, _} = error -> error
     end
   end
 

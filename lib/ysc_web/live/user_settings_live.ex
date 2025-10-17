@@ -1152,25 +1152,13 @@ defmodule YscWeb.UserSettingsLive do
     user = socket.assigns.user
 
     # Use the new sync function to ensure we're in sync with Stripe
-    case Ysc.Payments.sync_payment_methods_with_stripe(user) do
-      {:ok, updated_payment_methods} ->
-        updated_default = Ysc.Payments.get_default_payment_method(user)
+    {:ok, updated_payment_methods} = Ysc.Payments.sync_payment_methods_with_stripe(user)
+    updated_default = Ysc.Payments.get_default_payment_method(user)
 
-        {:noreply,
-         socket
-         |> assign(:all_payment_methods, updated_payment_methods)
-         |> assign(:default_payment_method, updated_default)}
-
-      {:error, _reason} ->
-        # Fallback to just getting from local database
-        updated_payment_methods = Ysc.Payments.list_payment_methods(user)
-        updated_default = Ysc.Payments.get_default_payment_method(user)
-
-        {:noreply,
-         socket
-         |> assign(:all_payment_methods, updated_payment_methods)
-         |> assign(:default_payment_method, updated_default)}
-    end
+    {:noreply,
+     socket
+     |> assign(:all_payment_methods, updated_payment_methods)
+     |> assign(:default_payment_method, updated_default)}
   end
 
   def handle_info({:refresh_payment_methods, user_id}, socket) do
@@ -1178,33 +1166,21 @@ defmodule YscWeb.UserSettingsLive do
       user = socket.assigns.user
 
       # Use the new sync function to ensure we're in sync with Stripe
-      case Ysc.Payments.sync_payment_methods_with_stripe(user) do
-        {:ok, updated_payment_methods} ->
-          updated_default = Ysc.Payments.get_default_payment_method(user)
+      {:ok, updated_payment_methods} = Ysc.Payments.sync_payment_methods_with_stripe(user)
+      updated_default = Ysc.Payments.get_default_payment_method(user)
 
-          require Logger
+      require Logger
 
-          Logger.info("Refreshed payment methods after selection",
-            user_id: user.id,
-            payment_methods_count: length(updated_payment_methods),
-            default_payment_method_id: updated_default && updated_default.id
-          )
+      Logger.info("Refreshed payment methods after selection",
+        user_id: user.id,
+        payment_methods_count: length(updated_payment_methods),
+        default_payment_method_id: updated_default && updated_default.id
+      )
 
-          {:noreply,
-           socket
-           |> assign(:all_payment_methods, updated_payment_methods)
-           |> assign(:default_payment_method, updated_default)}
-
-        {:error, _reason} ->
-          # Fallback to just getting from local database
-          updated_payment_methods = Ysc.Payments.list_payment_methods(user)
-          updated_default = Ysc.Payments.get_default_payment_method(user)
-
-          {:noreply,
-           socket
-           |> assign(:all_payment_methods, updated_payment_methods)
-           |> assign(:default_payment_method, updated_default)}
-      end
+      {:noreply,
+       socket
+       |> assign(:all_payment_methods, updated_payment_methods)
+       |> assign(:default_payment_method, updated_default)}
     else
       {:noreply, socket}
     end
@@ -1354,7 +1330,7 @@ defmodule YscWeb.UserSettingsLive do
   defp payment_method_display_text(%{
          type: :bank_account,
          bank_name: bank_name,
-         account_type: account_type,
+         account_type: _account_type,
          last_four: last_four
        })
        when not is_nil(bank_name) and not is_nil(last_four) do
@@ -1412,22 +1388,4 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   # Helper function to safely fetch user invoices
-  defp fetch_user_invoices(user) do
-    try do
-      Customers.invoices(user)
-      |> Enum.map(fn invoice ->
-        %{
-          hosted_invoice_url: invoice.hosted_invoice_url,
-          created: invoice.created |> DateTime.from_unix!() |> DateTime.to_date(),
-          total: invoice.total,
-          currency: invoice.currency,
-          status: invoice.status
-        }
-      end)
-    rescue
-      # Handle any errors when fetching invoices (e.g., customer not found)
-      _error ->
-        []
-    end
-  end
 end

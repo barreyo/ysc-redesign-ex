@@ -2,6 +2,7 @@ defmodule YscWeb.EventsListLive do
   use YscWeb, :live_component
 
   alias Ysc.Events
+  alias Ysc.Tickets
 
   @impl true
   def render(assigns) do
@@ -26,7 +27,11 @@ defmodule YscWeb.EventsListLive do
 
           <div class="flex flex-col py-3 px-2 space-y-2">
             <div>
-              <.event_badge event={event} />
+              <.event_badge
+                event={event}
+                sold_out={is_event_sold_out?(event)}
+                selling_fast={Map.get(event, :selling_fast, false)}
+              />
             </div>
 
             <.link
@@ -110,5 +115,9 @@ defmodule YscWeb.EventsListLive do
 
   defp format_start_time(time) do
     Timex.format!(time, "{h12}:{m} {AM}")
+  end
+
+  defp is_event_sold_out?(event) do
+    Tickets.is_event_at_capacity?(event)
   end
 end
