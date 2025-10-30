@@ -941,11 +941,13 @@ defmodule YscWeb.CoreComponents do
       <.icon name="hero-arrow-path" class="w-3 h-3 ml-1 animate-spin" />
   """
   attr :name, :string, required: true
+  attr :id, :string, default: nil
   attr :class, :any, default: nil
 
   def icon(%{name: "hero-" <> _} = assigns) do
     ~H"""
-    <span class={[@name, @class]} />
+    <span :if={@id != nil} id={@id} class={[@name, @class]} />
+    <span :if={@id == nil} class={[@name, @class]} />
     """
   end
 
@@ -1106,7 +1108,7 @@ defmodule YscWeb.CoreComponents do
                   @active_page == :news && "text-zinc-800"
                 ]}
               />
-              <span class="ms-3">News</span>
+              <span class="ms-3">Posts</span>
             </.link>
           </li>
 
@@ -1963,4 +1965,152 @@ defmodule YscWeb.CoreComponents do
   def random_id(prefix) do
     prefix <> "_" <> (:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false))
   end
+
+  @doc """
+  Renders a membership status display component.
+
+  ## Examples
+
+      <.membership_status current_membership={@current_membership} />
+      <.membership_status current_membership={@current_membership} variant="detailed" />
+
+  """
+  attr :current_membership, :any, required: true
+  attr :class, :string, default: ""
+  attr :variant, :string, default: "simple", values: ["simple", "detailed"]
+
+  def membership_status(assigns) do
+    ~H"""
+    <div
+      :if={@current_membership != nil && is_membership_active?(@current_membership)}
+      class={["space-y-4", @class]}
+    >
+      <.alert_box :if={is_membership_cancelled?(@current_membership)} color="red">
+        <p class="text-sm text-zinc-600">
+          <.icon name="hero-x-circle" class="me-1 w-5 h-5 text-red-600 -mt-0.5" />Your membership has been canceled.
+          You are still an active member until <strong>
+            <%= Timex.format!(get_membership_ends_at(@current_membership), "{Mshort} {D}, {YYYY}") %>
+          </strong>, at which point you will no longer have access to the YSC membership features.
+        </p>
+      </.alert_box>
+
+      <div :if={!is_membership_cancelled?(@current_membership)}>
+        <div :if={@variant == "simple"} class="bg-green-50 border border-green-200 rounded-md p-4">
+          <p class="text-sm text-green-800 font-semibold">
+            <.icon name="hero-check-circle" class="w-5 h-5 text-green-600 inline-block -mt-0.5 me-2" />You have an
+            active <strong><%= get_membership_type(@current_membership) %></strong> membership.
+          </p>
+
+          <p
+            :if={get_membership_renewal_date(@current_membership) != nil}
+            class="text-sm text-green-900 mt-2"
+          >
+            Your membership will renew on <strong class="text-green-900">
+            <%= Timex.format!(get_membership_renewal_date(@current_membership), "{Mshort} {D}, {YYYY}") %>
+          </strong>.
+          </p>
+        </div>
+
+        <div :if={@variant == "detailed"} class="flex items-center justify-between">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <.icon name="hero-check-circle" class="w-8 h-8 text-green-600" />
+            </div>
+            <div class="ml-3">
+              <h3 class="text-lg font-medium text-green-900">
+                <%= String.capitalize(to_string(@current_membership.plan.name)) %> Membership
+              </h3>
+              <p class="text-sm text-green-700">
+                Active • Renews on <%= Calendar.strftime(
+                  @current_membership.renewal_date,
+                  "%B %d, %Y"
+                ) %>
+              </p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="text-sm font-medium text-green-900">
+              <%= Ysc.MoneyHelper.format_money!(Money.new(:USD, @current_membership.plan.amount)) %>/year
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div :if={@current_membership == nil} class="space-y-4">
+      <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <.icon name="hero-exclamation-triangle" class="w-8 h-8 text-red-600" />
+          </div>
+          <div class="ml-3">
+            <h3 class="text-lg font-medium text-red-900">No Active Membership</h3>
+            <p class="text-sm text-red-700">
+              You need an active membership to access YSC events and benefits.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp get_membership_type(%{subscription: subscription}) when is_map(subscription) do
+    get_membership_type_from_subscription(subscription)
+  end
+
+  defp get_membership_type(subscription) when is_struct(subscription) do
+    get_membership_type_from_subscription(subscription)
+  end
+
+  defp get_membership_type_from_subscription(subscription) do
+    item = Enum.at(subscription.subscription_items, 0)
+
+    get_membership_type_from_price_id(item.stripe_price_id)
+  end
+
+  defp get_membership_type_from_price_id(price_id) do
+    plans = Application.get_env(:ysc, :membership_plans)
+
+    Enum.find(plans, &(&1.stripe_price_id == price_id))[:id]
+  end
+
+  # Helper functions to handle different membership data structures
+  defp is_membership_active?(%{subscription: subscription}) when is_map(subscription) do
+    Ysc.Subscriptions.active?(subscription)
+  end
+
+  defp is_membership_active?(subscription) when is_struct(subscription) do
+    Ysc.Subscriptions.active?(subscription)
+  end
+
+  defp is_membership_cancelled?(%{subscription: subscription}) when is_map(subscription) do
+    Ysc.Subscriptions.cancelled?(subscription)
+  end
+
+  defp is_membership_cancelled?(subscription) when is_struct(subscription) do
+    Ysc.Subscriptions.cancelled?(subscription)
+  end
+
+  defp get_membership_ends_at(%{subscription: subscription}) when is_map(subscription) do
+    subscription.ends_at
+  end
+
+  defp get_membership_ends_at(subscription) when is_struct(subscription) do
+    subscription.ends_at
+  end
+
+  defp get_membership_renewal_date(%{renewal_date: renewal_date}) when not is_nil(renewal_date) do
+    renewal_date
+  end
+
+  defp get_membership_renewal_date(%{subscription: subscription}) when is_map(subscription) do
+    subscription.current_period_end
+  end
+
+  defp get_membership_renewal_date(subscription) when is_struct(subscription) do
+    subscription.current_period_end
+  end
+
+  defp get_membership_renewal_date(_), do: nil
 end

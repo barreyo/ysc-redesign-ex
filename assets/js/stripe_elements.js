@@ -4,7 +4,12 @@ let stripePromise = null;
 
 const getStripe = () => {
     if (!stripePromise && window.Stripe) {
-        stripePromise = window.Stripe(window.stripePublishableKey);
+        const publishableKey = window.stripePublishableKey;
+        if (!publishableKey || publishableKey.trim() === '') {
+            console.error('Stripe publishable key is not configured. Please set STRIPE_PUBLIC_KEY environment variable.');
+            return null;
+        }
+        stripePromise = window.Stripe(publishableKey);
     }
     return stripePromise;
 };
@@ -49,7 +54,8 @@ const StripeElements = {
             const stripe = getStripe();
 
             if (!stripe) {
-                console.error('Failed to initialize Stripe');
+                console.error('Failed to initialize Stripe - check publishable key configuration');
+                this.showMessage('Payment system not configured. Please contact support.');
                 return;
             }
 
@@ -104,6 +110,11 @@ const StripeElements = {
             return;
         }
 
+        // Store original button text
+        if (!this.originalButtonText) {
+            this.originalButtonText = submitButton.textContent;
+        }
+
         // Disable the submit button
         submitButton.disabled = true;
         submitButton.textContent = 'Processing...';
@@ -121,10 +132,10 @@ const StripeElements = {
                 // Show error to customer
                 this.showMessage(error.message);
                 submitButton.disabled = false;
-                submitButton.textContent = 'Pay';
+                submitButton.textContent = this.originalButtonText;
             } else {
                 // Payment succeeded
-                this.showMessage('Payment successful! Processing your order...');
+                this.showMessage('Payment successful! Processing your order...', true);
 
                 // Notify the LiveView that payment was successful
                 this.pushEvent('payment-success', {
@@ -135,15 +146,22 @@ const StripeElements = {
             console.error('Payment confirmation error:', err);
             this.showMessage('An unexpected error occurred. Please try again.');
             submitButton.disabled = false;
-            submitButton.textContent = 'Pay';
+            submitButton.textContent = this.originalButtonText;
         }
     },
 
-    showMessage(message) {
+    showMessage(message, isSuccess = false) {
         const messageDiv = document.getElementById('payment-message');
         if (messageDiv) {
             messageDiv.textContent = message;
             messageDiv.classList.remove('hidden');
+
+            // Update styling based on message type
+            if (isSuccess) {
+                messageDiv.className = 'text-sm text-green-600 font-medium';
+            } else {
+                messageDiv.className = 'text-sm text-red-600';
+            }
 
             // Hide message after 5 seconds
             setTimeout(() => {

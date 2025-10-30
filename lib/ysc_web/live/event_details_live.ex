@@ -64,7 +64,7 @@ defmodule YscWeb.EventDetailsLive do
                 </div>
                 <div class="space-y-2">
                   <%= for {tier_name, tickets} <- group_tickets_by_tier(@user_tickets) do %>
-                    <div class="flex justify-between items-center bg-white rounded p-3 border border-zinc-200">
+                    <div class="flex justify-between items-center bg-zinc-50 rounded p-3 border border-zinc-200">
                       <div>
                         <p class="font-medium text-zinc-900">
                           <%= length(tickets) %>x <%= tier_name %>
@@ -155,10 +155,18 @@ defmodule YscWeb.EventDetailsLive do
                     JS.toggle_class("hidden",
                       to: "#event-map"
                     )
+                    |> JS.toggle_class("rotate-180",
+                      to: "#map-chevron"
+                    )
                     |> JS.push("toggle-map")
                   }
                 >
-                  Show Map<.icon name="hero-chevron-down" class="ms-1 w-4 h-4" />
+                  <span id="map-button-text">Show Map</span>
+                  <.icon
+                    name="hero-chevron-down"
+                    id="map-chevron"
+                    class="ms-1 w-5 h-5 transition-transform duration-200 -mt-0.5"
+                  />
                 </button>
 
                 <div id="event-map" class="hidden">
@@ -317,7 +325,16 @@ defmodule YscWeb.EventDetailsLive do
             class="fixed md:shadow-md bottom-0 w-full md:w-1/3 md:sticky bg-white rounded border border-zinc-200 h-32 md:h-36 md:top-8 right-0 px-4 py-3 z-40 flex text-center flex flex-col justify-center space-y-4"
           >
             <div class="flex flex-col items-center justify-center">
-              <p class="font-semibold text-lg"><%= @event.pricing_info.display_text %></p>
+              <p class={[
+                "font-semibold text-lg",
+                if is_event_at_capacity?(@event) do
+                  "line-through"
+                else
+                  ""
+                end
+              ]}>
+                <%= @event.pricing_info.display_text %>
+              </p>
               <p :if={@event.start_date != nil} class="text-sm text-zinc-600">
                 <%= format_start_date(@event.start_date) %>
               </p>
@@ -329,7 +346,10 @@ defmodule YscWeb.EventDetailsLive do
               </p>
             </div>
 
-            <div :if={@current_user != nil && !@active_membership?} class="w-full">
+            <div
+              :if={@current_user != nil && !@active_membership? && has_ticket_tiers?(@event.id)}
+              class="w-full"
+            >
               <p class="text-sm text-orange-700 px-2 py-1 bg-orange-50 rounded mb-2 border border-orange-100 text-center">
                 <.icon name="hero-exclamation-circle" class="text-orange-400 w-5 h-5 me-1 -mt-0.5" />Active membership required to purchase tickets
               </p>
@@ -420,7 +440,14 @@ defmodule YscWeb.EventDetailsLive do
                     </p>
                   </div>
                   <div class="text-right">
-                    <p class="font-semibold text-xl">
+                    <p class={[
+                      "font-semibold text-xl",
+                      if is_event_at_capacity do
+                        "line-through"
+                      else
+                        ""
+                      end
+                    ]}>
                       <%= case ticket_tier.type do %>
                         <% "free" -> %>
                           Free
@@ -589,7 +616,14 @@ defmodule YscWeb.EventDetailsLive do
                   <% ticket_tier = get_ticket_tier_by_id(@event.id, tier_id) %>
                   <div class="flex justify-between text-base">
                     <span><%= ticket_tier.name %> × <%= quantity %></span>
-                    <span class="font-medium">
+                    <span class={[
+                      "font-medium",
+                      if is_event_at_capacity?(@event) do
+                        "line-through"
+                      else
+                        ""
+                      end
+                    ]}>
                       <%= case ticket_tier.type do %>
                         <% "free" -> %>
                           Free
@@ -619,7 +653,15 @@ defmodule YscWeb.EventDetailsLive do
               <div class="border-t border-zinc-200 pt-4">
                 <div class="flex justify-between font-semibold text-lg">
                   <span>Total:</span>
-                  <span><%= calculate_total_price(@selected_tickets, @event.id) %></span>
+                  <span class={[
+                    if is_event_at_capacity?(@event) do
+                      "line-through"
+                    else
+                      ""
+                    end
+                  ]}>
+                    <%= calculate_total_price(@selected_tickets, @event.id) %>
+                  </span>
                 </div>
               </div>
             </div>
@@ -706,7 +748,7 @@ defmodule YscWeb.EventDetailsLive do
               <h3 class="font-semibold text-lg">Payment Information</h3>
               <div
                 id="payment-element"
-                phx-hook="StripeInput"
+                phx-hook="StripeElements"
                 data-publicKey={@public_key}
                 data-public-key={@public_key}
                 data-client-secret={@payment_intent.client_secret}
@@ -714,11 +756,11 @@ defmodule YscWeb.EventDetailsLive do
               >
                 <!-- Stripe Elements will be mounted here -->
               </div>
-              <div id="payment-message" class="hidden text-sm text-red-600"></div>
+              <div id="payment-message" class="hidden text-sm"></div>
             </div>
 
             <div class="flex space-x-4">
-              <.button class="flex-1" phx-click="confirm-payment" id="submit-payment">
+              <.button class="flex-1" id="submit-payment">
                 Pay <%= calculate_total_price(@selected_tickets, @event.id) %>
               </.button>
               <.button
@@ -860,9 +902,6 @@ defmodule YscWeb.EventDetailsLive do
             <.icon name="hero-check-circle" class="w-16 h-16 mx-auto" />
           </div>
           <h2 class="text-2xl font-semibold text-zinc-900 mb-2">Order Confirmed!</h2>
-          <p class="text-zinc-600 mb-6">
-            Your tickets have been successfully confirmed. A confirmation email has been sent to your registered email address.
-          </p>
         </div>
         <!-- Order Details -->
         <div class="w-full max-w-md bg-zinc-50 rounded-lg p-6">
@@ -938,16 +977,27 @@ defmodule YscWeb.EventDetailsLive do
                 <strong>Confirmation Email Sent</strong>
                 <br /> We've sent a detailed confirmation email to
                 <strong><%= @current_user.email %></strong>
-                with your ticket details and QR codes.
+                with your ticket details.
               </p>
             </div>
           </div>
         </div>
-        <!-- Action Button -->
-        <div class="w-full max-w-md">
+        <!-- Action Buttons -->
+        <div class="w-full max-w-md space-y-3">
           <.button phx-click="close-order-completion" class="w-full bg-green-600 hover:bg-green-700">
             Continue
           </.button>
+          <div class="text-center">
+            <p class="text-sm text-zinc-500 mb-2">
+              Want to bookmark this confirmation?
+            </p>
+            <.link
+              href={~p"/orders/#{@ticket_order.id}/confirmation"}
+              class="text-blue-600 hover:text-blue-500 text-sm font-medium"
+            >
+              View Full Order Confirmation →
+            </.link>
+          </div>
         </div>
       </div>
     </.modal>
@@ -1238,7 +1288,8 @@ defmodule YscWeb.EventDetailsLive do
        lon: event.longitude,
        locked: true
      })
-     |> Phoenix.LiveView.push_event("position", %{})}
+     |> Phoenix.LiveView.push_event("position", %{})
+     |> Phoenix.LiveView.push_event("toggle-map-text", %{})}
   end
 
   @impl true
@@ -1311,7 +1362,8 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:show_order_completion, true)
          |> assign(:ticket_order, order_with_tickets)
          |> assign(:user_tickets, updated_user_tickets)
-         |> assign(:selected_tickets, %{})}
+         |> assign(:selected_tickets, %{})
+         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation")}
 
       {:error, reason} ->
         {:noreply,
@@ -1327,12 +1379,6 @@ defmodule YscWeb.EventDetailsLive do
      socket
      |> assign(:show_order_completion, false)
      |> assign(:ticket_order, nil)}
-  end
-
-  @impl true
-  def handle_event("confirm-payment", _params, socket) do
-    # This will be handled by the Stripe Elements JavaScript hook
-    {:noreply, socket}
   end
 
   @impl true
@@ -1357,7 +1403,8 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:ticket_order, order_with_tickets)
          |> assign(:user_tickets, updated_user_tickets)
          |> assign(:payment_intent, nil)
-         |> assign(:selected_tickets, %{})}
+         |> assign(:selected_tickets, %{})
+         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation")}
 
       {:error, _reason} ->
         {:noreply,
@@ -1457,15 +1504,8 @@ defmodule YscWeb.EventDetailsLive do
            |> assign(:ticket_order, ticket_order)}
         else
           # For paid tickets, create Stripe payment intent
-          default_payment_method =
-            case Ysc.Payments.get_default_payment_method(socket.assigns.current_user) do
-              %{provider_id: provider_id} -> provider_id
-              nil -> nil
-            end
-
           case Ysc.Tickets.StripeService.create_payment_intent(ticket_order,
-                 customer_id: socket.assigns.current_user.stripe_id,
-                 payment_method_id: default_payment_method
+                 customer_id: socket.assigns.current_user.stripe_id
                ) do
             {:ok, payment_intent} ->
               # Show payment form with Stripe Elements

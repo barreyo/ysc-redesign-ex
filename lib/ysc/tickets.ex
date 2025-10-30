@@ -80,7 +80,12 @@ defmodule Ysc.Tickets do
   def get_ticket_order(id) do
     TicketOrder
     |> where([to], to.id == ^id)
-    |> preload([:user, :event, :payment, tickets: :ticket_tier])
+    |> preload([
+      :user,
+      event: [agendas: :agenda_items],
+      payment: :payment_method,
+      tickets: :ticket_tier
+    ])
     |> Repo.one()
   end
 
@@ -101,7 +106,7 @@ defmodule Ysc.Tickets do
     TicketOrder
     |> where([to], to.user_id == ^user_id)
     |> order_by([to], desc: to.inserted_at)
-    |> preload([:tickets, :event])
+    |> preload([:tickets, :event, tickets: :ticket_tier])
     |> Repo.all()
   end
 
@@ -319,7 +324,11 @@ defmodule Ysc.Tickets do
            process_ledger_payment(ticket_order, payment_intent),
          {:ok, completed_order} <- complete_ticket_order(ticket_order, payment.id),
          :ok <- confirm_tickets(completed_order) do
-      {:ok, completed_order}
+      # Reload the completed order with all necessary associations for email
+      reloaded_order = get_ticket_order(completed_order.id)
+      # Send confirmation email
+      send_ticket_confirmation_email(reloaded_order)
+      {:ok, reloaded_order}
     end
   end
 
@@ -329,7 +338,11 @@ defmodule Ysc.Tickets do
   def process_free_ticket_order(ticket_order) do
     with {:ok, completed_order} <- complete_ticket_order(ticket_order, nil),
          :ok <- confirm_tickets(completed_order) do
-      {:ok, completed_order}
+      # Reload the completed order with all necessary associations for email
+      reloaded_order = get_ticket_order(completed_order.id)
+      # Send confirmation email
+      send_ticket_confirmation_email(reloaded_order)
+      {:ok, reloaded_order}
     end
   end
 
@@ -784,5 +797,78 @@ defmodule Ysc.Tickets do
 
     Logger.info("TEST: Broadcast completed")
     :ok
+  end
+
+  @doc """
+  Sends a ticket purchase confirmation email for a completed ticket order.
+  """
+  def send_ticket_confirmation_email(ticket_order) do
+    require Logger
+
+    Logger.info("Starting ticket confirmation email process",
+      ticket_order_id: ticket_order.id,
+      user_id: ticket_order.user_id,
+      user_email: ticket_order.user.email,
+      completed_at: ticket_order.completed_at
+    )
+
+    try do
+      # Prepare email data
+      Logger.info("Preparing email data for ticket order #{ticket_order.id}")
+      email_data = YscWeb.Emails.TicketPurchaseConfirmation.prepare_email_data(ticket_order)
+      Logger.info("Email data prepared successfully", email_data_keys: Map.keys(email_data))
+
+      # Generate idempotency key
+      idempotency_key = "ticket_confirmation_#{ticket_order.id}"
+
+      Logger.info("Generated idempotency key: #{idempotency_key}")
+
+      # Schedule the email
+      Logger.info("Scheduling email with Oban")
+
+      result =
+        YscWeb.Emails.Notifier.schedule_email(
+          ticket_order.user.email,
+          idempotency_key,
+          YscWeb.Emails.TicketPurchaseConfirmation.get_subject(),
+          "ticket_purchase_confirmation",
+          email_data,
+          "",
+          ticket_order.user_id
+        )
+
+      case result do
+        %Oban.Job{} = job ->
+          Logger.info("Ticket confirmation email scheduled successfully",
+            ticket_order_id: ticket_order.id,
+            user_id: ticket_order.user_id,
+            user_email: ticket_order.user.email,
+            job_id: job.id,
+            idempotency_key: idempotency_key
+          )
+
+          :ok
+
+        {:error, reason} ->
+          Logger.error("Failed to schedule email",
+            ticket_order_id: ticket_order.id,
+            user_id: ticket_order.user_id,
+            error: reason
+          )
+
+          :error
+      end
+    rescue
+      error ->
+        Logger.error("Failed to send ticket confirmation email",
+          ticket_order_id: ticket_order.id,
+          user_id: ticket_order.user_id,
+          user_email: ticket_order.user.email,
+          error: error,
+          stacktrace: __STACKTRACE__
+        )
+
+        :error
+    end
   end
 end

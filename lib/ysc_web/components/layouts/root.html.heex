@@ -22,7 +22,7 @@
     <script src="https://js.stripe.com/v3/" defer>
     </script>
     <script>
-      window.stripePublishableKey = "<%= Application.get_env(:ysc, :stripe_publishable_key) %>";
+      window.stripePublishableKey = "<%= Application.get_env(:stripity_stripe, :public_key) %>";
     </script>
     <Turnstile.script />
   </head>
@@ -256,12 +256,12 @@
                             </.link>
                           </li>
                           <li>
-                            <a
-                              href="#"
+                            <.link
+                              navigate={~p"/users/tickets"}
                               class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                             >
                               My Bookings & Tickets
-                            </a>
+                            </.link>
                           </li>
                           <li>
                             <.link

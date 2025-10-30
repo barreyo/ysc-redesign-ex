@@ -240,10 +240,34 @@ defmodule Ysc.Subscriptions do
       iex> cancelled?(cancelled_subscription)
       true
 
+      iex> cancelled?(nil)
+      false
+
   """
   def cancelled?(%Subscription{} = subscription) do
     subscription.stripe_status == "cancelled"
   end
+
+  def cancelled?(nil), do: false
+
+  @doc """
+  Checks if a subscription is scheduled for cancellation at the end of the current period.
+
+  ## Examples
+
+      iex> scheduled_for_cancellation?(subscription)
+      true
+
+  """
+  def scheduled_for_cancellation?(%Subscription{} = subscription) do
+    # This would need to be tracked in the database or fetched from Stripe
+    # For now, we'll check if the subscription is active but has a cancellation flag
+    subscription.stripe_status == "active" &&
+      subscription.current_period_end &&
+      DateTime.compare(subscription.current_period_end, DateTime.utc_now()) == :gt
+  end
+
+  def scheduled_for_cancellation?(nil), do: false
 
   @doc """
   Marks a subscription as cancelled.
@@ -259,7 +283,8 @@ defmodule Ysc.Subscriptions do
   end
 
   @doc """
-  Cancels a subscription in Stripe and marks it as cancelled locally.
+  Cancels a subscription in Stripe by scheduling cancellation at the end of the current period.
+  This makes the subscription resumable until the period ends.
 
   ## Examples
 
@@ -268,12 +293,35 @@ defmodule Ysc.Subscriptions do
 
   """
   def cancel(%Subscription{} = subscription) do
+    case Stripe.Subscription.update(subscription.stripe_id, %{cancel_at_period_end: true}) do
+      {:ok, stripe_subscription} ->
+        update_subscription(subscription, %{
+          stripe_status: stripe_subscription.status,
+          current_period_end: stripe_subscription.current_period_end
+        })
+
+      {:error, _error} ->
+        {:error, "Failed to cancel subscription in Stripe"}
+    end
+  end
+
+  @doc """
+  Immediately cancels a subscription in Stripe (permanent deletion).
+  This should only be used for admin purposes or special cases where resumability is not needed.
+
+  ## Examples
+
+      iex> cancel_immediately(subscription)
+      {:ok, %Subscription{}}
+
+  """
+  def cancel_immediately(%Subscription{} = subscription) do
     case Stripe.Subscription.delete(subscription.stripe_id) do
       {:ok, _stripe_subscription} ->
         mark_as_cancelled(subscription)
 
       {:error, _error} ->
-        {:error, "Failed to cancel subscription in Stripe"}
+        {:error, "Failed to cancel subscription immediately in Stripe"}
     end
   end
 

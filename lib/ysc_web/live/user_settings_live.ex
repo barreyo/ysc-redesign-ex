@@ -215,7 +215,7 @@ defmodule YscWeb.UserSettingsLive do
           </li>
           <li>
             <.link
-              href="#"
+              navigate={~p"/users/tickets"}
               class={[
                 "inline-flex items-center px-4 py-3 rounded w-full",
                 @live_action == :payments && "bg-blue-600 active text-zinc-100",
@@ -225,7 +225,7 @@ defmodule YscWeb.UserSettingsLive do
               <.icon name="hero-wallet" class="w-5 h-5 me-2" /> Payments
             </.link>
           </li>
-          <li>
+          <%!-- <li>
             <.link
               href="#"
               class={[
@@ -236,7 +236,7 @@ defmodule YscWeb.UserSettingsLive do
             >
               <.icon name="hero-bell-alert" class="w-5 h-5 me-2" />Notifications
             </.link>
-          </li>
+          </li> --%>
         </ul>
 
         <div class="text-medium px-2 text-zinc-500 rounded w-full md:border-l md:border-1 md:border-zinc-100 md:pl-16">
@@ -388,38 +388,11 @@ defmodule YscWeb.UserSettingsLive do
                 an active and paying member of the YSC.
               </p>
 
-              <div
-                :if={@current_membership != nil && Subscriptions.active?(@current_membership)}
-                class="space-y-4"
-              >
-                <.alert_box :if={Subscriptions.cancelled?(@current_membership)} color="red">
-                  <p class="text-sm text-zinc-600">
-                    <.icon name="hero-x-circle" class="me-1 w-5 h-5 text-red-600 -mt-0.5" />Your membership has been canceled.
-                    You are still an active member until <strong>
-                      <%= Timex.format!(@current_membership.ends_at, "{Mshort} {D}, {YYYY}") %>
-                    </strong>, at which point you will no longer have access to the YSC membership features.
-                  </p>
-                </.alert_box>
+              <.membership_status current_membership={@current_membership} />
 
-                <div :if={!Subscriptions.cancelled?(@current_membership)}>
-                  <p class="text-sm text-zinc-600 font-semibold">
-                    <.icon name="hero-check-circle" class="me-1 w-5 h-5 text-green-600 -mt-0.5" />You have an
-                    active <strong><%= get_membership_type(@current_membership) %></strong>
-                    membership.
-                  </p>
-
-                  <p
-                    :if={@current_membership.current_period_end != nil}
-                    class="text-sm text-zinc-600 mt-2"
-                  >
-                    Your membership will renew on <strong>
-                      <%= Timex.format!(@current_membership.current_period_end, "{Mshort} {D}, {YYYY}") %>
-                    </strong>.
-                  </p>
-                </div>
-
+              <div class="space-y-4">
                 <.button
-                  :if={!Subscriptions.cancelled?(@current_membership)}
+                  :if={@current_membership != nil && !Subscriptions.cancelled?(@current_membership)}
                   phx-click="cancel-membership"
                   color="red"
                   disabled={!@user_is_active || Subscriptions.cancelled?(@current_membership)}
@@ -1252,12 +1225,6 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   defp get_membership_plan(_), do: nil
-
-  defp get_membership_type(subscription) do
-    item = Enum.at(subscription.subscription_items, 0)
-
-    get_membership_type_from_price_id(item.stripe_price_id)
-  end
 
   defp get_membership_type_from_price_id(price_id) do
     plans = Application.get_env(:ysc, :membership_plans)

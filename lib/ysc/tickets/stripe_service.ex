@@ -94,7 +94,8 @@ defmodule Ysc.Tickets.StripeService do
     with {:ok, payment_intent} <- Stripe.PaymentIntent.retrieve(payment_intent_id, %{}),
          {:ok, ticket_order} <- get_ticket_order_from_payment_intent(payment_intent),
          :ok <- validate_payment_intent(payment_intent, ticket_order),
-         {:ok, completed_order} <- process_ticket_order_payment(ticket_order, payment_intent) do
+         {:ok, completed_order} <-
+           Tickets.process_ticket_order_payment(ticket_order, payment_intent_id) do
       {:ok, completed_order}
     end
   end
@@ -203,9 +204,18 @@ defmodule Ysc.Tickets.StripeService do
     # Get the actual Stripe fee from the charge
     case get_charge_from_payment_intent(payment_intent) do
       {:ok, charge} ->
-        # Calculate fee from charge balance transaction
-        fee_cents = charge.balance_transaction["fee"] || 0
-        Money.new(fee_cents, :USD)
+        # Get the balance transaction to extract the fee
+        case get_balance_transaction(charge.balance_transaction) do
+          {:ok, balance_transaction} ->
+            fee_cents = balance_transaction.fee || 0
+            Money.new(fee_cents, :USD)
+
+          {:error, _} ->
+            # Fallback to estimated fee calculation
+            amount_cents = payment_intent.amount
+            estimated_fee_cents = trunc(amount_cents * 0.029 + 30)
+            Money.new(estimated_fee_cents, :USD)
+        end
 
       {:error, _} ->
         # Fallback to estimated fee calculation
@@ -225,9 +235,24 @@ defmodule Ysc.Tickets.StripeService do
     end
   end
 
-  defp extract_payment_method_id(payment_intent) do
-    # Extract payment method ID from payment intent
-    payment_intent.payment_method
+  defp get_balance_transaction(balance_transaction_id) do
+    case Stripe.BalanceTransaction.retrieve(balance_transaction_id) do
+      {:ok, balance_transaction} ->
+        {:ok, balance_transaction}
+
+      {:error, %Stripe.Error{} = error} ->
+        {:error, error.message}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp extract_payment_method_id(_payment_intent) do
+    # For ticket payments, we don't currently track payment methods in our database
+    # The payment method ID from Stripe is not mapped to our internal payment method records
+    # TODO: Implement payment method mapping if needed for ticket payments
+    nil
   end
 
   defp confirm_tickets(tickets) do

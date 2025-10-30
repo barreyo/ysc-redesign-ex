@@ -1,9 +1,33 @@
 defmodule YscWeb.HomeLive do
   use YscWeb, :live_view
 
+  alias Ysc.{Accounts, Events, Subscriptions, Repo}
+
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, page_title: "Home")}
+    user = socket.assigns.current_user
+
+    socket =
+      if user do
+        # Load user with subscriptions and get membership info
+        user_with_subs =
+          Accounts.get_user!(user.id)
+          |> Ysc.Repo.preload(subscriptions: :subscription_items)
+          |> Accounts.User.populate_virtual_fields()
+
+        current_membership = get_current_membership(user_with_subs)
+        upcoming_tickets = get_upcoming_tickets(user.id)
+
+        assign(socket,
+          page_title: "Home",
+          current_membership: current_membership,
+          upcoming_tickets: upcoming_tickets
+        )
+      else
+        assign(socket, page_title: "Home")
+      end
+
+    {:ok, socket}
   end
 
   @impl true
@@ -122,203 +146,131 @@ defmodule YscWeb.HomeLive do
         </div>
 
         <div :if={@current_user != nil}>
-          <div class="space-y-8">
+          <div class="space-y-10 md:space-y-16">
             <!-- Welcome Section -->
             <div>
-              <h1 class="text-3xl font-bold text-zinc-900 mb-2">
+              <h1>
                 Welcome back, <%= String.capitalize(@current_user.first_name) %>!
               </h1>
-              <p class="text-zinc-600">Ready for your next Scandinavian adventure?</p>
             </div>
-            <!-- Quick Actions -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <.link
-                navigate={~p"/users/membership"}
-                class="flex items-center p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors"
-              >
-                <div class="flex-shrink-0">
-                  <.icon name="hero-heart" class="w-8 h-8 text-blue-600" />
-                </div>
-                <div class="ml-3">
-                  <h3 class="text-sm font-medium text-blue-900">Membership</h3>
-                  <p class="text-sm text-blue-700">Manage your membership</p>
-                </div>
-              </.link>
 
-              <.link
-                navigate={~p"/events"}
-                class="flex items-center p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
-              >
-                <div class="flex-shrink-0">
-                  <.icon name="hero-calendar-days" class="w-8 h-8 text-green-600" />
-                </div>
-                <div class="ml-3">
-                  <h3 class="text-sm font-medium text-green-900">Events</h3>
-                  <p class="text-sm text-green-700">Browse upcoming events</p>
-                </div>
-              </.link>
-
-              <.link
-                href="#"
-                class="flex items-center p-4 bg-orange-50 rounded-lg border border-orange-200 hover:bg-orange-100 transition-colors"
-              >
-                <div class="flex-shrink-0">
-                  <.icon name="hero-ticket" class="w-8 h-8 text-orange-600" />
-                </div>
-                <div class="ml-3">
-                  <h3 class="text-sm font-medium text-orange-900">My Tickets</h3>
-                  <p class="text-sm text-orange-700">View your event tickets</p>
-                </div>
-              </.link>
-
-              <.link
-                navigate={~p"/users/settings"}
-                class="flex items-center p-4 bg-purple-50 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors"
-              >
-                <div class="flex-shrink-0">
-                  <.icon name="hero-user" class="w-8 h-8 text-purple-600" />
-                </div>
-                <div class="ml-3">
-                  <h3 class="text-sm font-medium text-purple-900">Profile</h3>
-                  <p class="text-sm text-purple-700">Update your information</p>
-                </div>
-              </.link>
-            </div>
-            <!-- My Events Section -->
-            <div class="bg-white rounded-lg border border-zinc-200 p-6">
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-zinc-900">My Upcoming Events</h2>
-                <.link
-                  navigate={~p"/events"}
-                  class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  Browse all events →
-                </.link>
-              </div>
-            </div>
-            <!-- Upcoming Events Section -->
-            <div class="bg-white rounded-lg border border-zinc-200 p-6">
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-zinc-900">All Upcoming Events</h2>
-                <.link
-                  navigate={~p"/events"}
-                  class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  View all events →
-                </.link>
-              </div>
-              <!-- Events will be loaded here via LiveView component -->
-              <.live_component id="home-events-list" module={YscWeb.EventsListLive} />
-            </div>
-            <!-- Latest News Section -->
-            <div class="bg-white rounded-lg border border-zinc-200 p-6">
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-zinc-900">Latest News</h2>
-                <.link
-                  navigate={~p"/news"}
-                  class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  Read more news →
-                </.link>
-              </div>
-              <!-- News will be loaded here via LiveView component -->
-              <.live_component id="home-news-list" module={YscWeb.NewsListLive} />
-            </div>
-            <!-- Club Resources -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <!-- Cabin Information -->
-              <div class="bg-white rounded-lg border border-zinc-200 p-6">
-                <h3 class="text-lg font-semibold text-zinc-900 mb-3">Club Cabins</h3>
-                <div class="space-y-3">
-                  <div class="flex items-start">
-                    <div class="flex-shrink-0">
-                      <.icon name="hero-home" class="w-5 h-5 text-blue-600 mt-0.5" />
-                    </div>
-                    <div class="ml-3">
-                      <h4 class="text-sm font-medium text-zinc-900">Clear Lake Cabin</h4>
-                      <p class="text-sm text-zinc-600">
-                        Perfect for summer getaways and lake activities
-                      </p>
-                    </div>
+            <div class="space-y-10 md:space-y-16 not-prose">
+              <!-- Membership Status Section -->
+              <div class="flex flex-col space-y-4">
+                <div class="flex flex-row justify-between space-x-4">
+                  <div class="flex-shrink-0">
+                    <h2 class="text-xl md:text-2xl font-semibold text-zinc-900">Membership Status</h2>
                   </div>
-                  <div class="flex items-start">
-                    <div class="flex-shrink-0">
-                      <.icon name="hero-mountain" class="w-5 h-5 text-green-600 mt-0.5" />
-                    </div>
-                    <div class="ml-3">
-                      <h4 class="text-sm font-medium text-zinc-900">Lake Tahoe Cabin</h4>
-                      <p class="text-sm text-zinc-600">Year-round mountain adventures and skiing</p>
-                    </div>
+                  <div class="flex-shrink-0">
+                    <.button phx-click={JS.navigate(~p"/users/membership")}>
+                      Manage membership
+                    </.button>
                   </div>
                 </div>
-                <div class="mt-4">
-                  <.link href="#" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                    Learn about cabin bookings →
-                  </.link>
+
+                <div class="w-full">
+                  <.membership_status current_membership={@current_membership} />
                 </div>
               </div>
-              <!-- Quick Links -->
-              <div class="bg-white rounded-lg border border-zinc-200 p-6">
-                <h3 class="text-lg font-semibold text-zinc-900 mb-3">Quick Links</h3>
-                <div class="space-y-2">
-                  <.link
-                    navigate={~p"/volunteer"}
-                    class="flex items-center text-sm text-zinc-600 hover:text-zinc-900"
-                  >
-                    <.icon name="hero-hand-raised" class="w-4 h-4 mr-2" /> Volunteer Opportunities
-                  </.link>
-                  <.link
-                    navigate={~p"/contact"}
-                    class="flex items-center text-sm text-zinc-600 hover:text-zinc-900"
-                  >
-                    <.icon name="hero-envelope" class="w-4 h-4 mr-2" /> Contact the Board
-                  </.link>
-                  <.link
-                    navigate={~p"/board"}
-                    class="flex items-center text-sm text-zinc-600 hover:text-zinc-900"
-                  >
-                    <.icon name="hero-users" class="w-4 h-4 mr-2" /> Meet the Board
-                  </.link>
-                  <.link
-                    navigate={~p"/code-of-conduct"}
-                    class="flex items-center text-sm text-zinc-600 hover:text-zinc-900"
-                  >
-                    <.icon name="hero-shield-check" class="w-4 h-4 mr-2" /> Code of Conduct
-                  </.link>
+              <!-- Upcoming Tickets Section -->
+              <div class="space-y-4 flex flex-col">
+                <div class="flex flex-row justify-between items-center space-x-4">
+                  <div class="flex-shrink-0">
+                    <h2 class="text-xl md:text-2xl font-semibold text-zinc-900">
+                      Your Upcoming Events
+                    </h2>
+                  </div>
+                  <div class="flex-shrink-0">
+                    <.button phx-click={JS.navigate(~p"/events")}>
+                      Browse all events
+                    </.button>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <!-- Membership Status (if applicable) -->
-            <div
-              :if={@current_user.state == :active}
-              class="bg-green-50 rounded-lg border border-green-200 p-6"
-            >
-              <div class="flex items-center">
-                <div class="flex-shrink-0">
-                  <.icon name="hero-check-circle" class="w-8 h-8 text-green-600" />
-                </div>
-                <div class="ml-3">
-                  <h3 class="text-lg font-medium text-green-900">Active Member</h3>
-                  <p class="text-sm text-green-700">
-                    You're all set to enjoy all YSC benefits and events!
+
+                <div :if={Enum.empty?(@upcoming_tickets)} class="text-center py-4">
+                  <div class="flex justify-center mb-4">
+                    <.icon name="hero-calendar-days" class="w-12 h-12 text-zinc-400" />
+                  </div>
+                  <h3 class="text-lg font-medium text-zinc-900 mb-2">No upcoming events</h3>
+                  <p class="text-zinc-600 mb-4">
+                    You don't have any tickets for upcoming events yet.
                   </p>
                 </div>
-              </div>
-            </div>
-            <!-- Pending Approval Message -->
-            <div
-              :if={@current_user.state == :pending_approval}
-              class="bg-yellow-50 rounded-lg border border-yellow-200 p-6"
-            >
-              <div class="flex items-center">
-                <div class="flex-shrink-0">
-                  <.icon name="hero-clock" class="w-8 h-8 text-yellow-600" />
-                </div>
-                <div class="ml-3">
-                  <h3 class="text-lg font-medium text-yellow-900">Application Under Review</h3>
-                  <p class="text-sm text-yellow-700">
-                    Your membership application is being reviewed. You'll receive an email once it's approved.
-                  </p>
+
+                <div :if={!Enum.empty?(@upcoming_tickets)} class="space-y-4">
+                  <%= for {event, grouped_tiers} <- group_tickets_by_event_and_tier(@upcoming_tickets) do %>
+                    <div class="border border-zinc-200 rounded-lg p-4">
+                      <div class="flex items-start justify-between mb-4">
+                        <div class="flex-1">
+                          <div class="flex items-center w-full justify-between">
+                            <h3 class="text-lg font-medium text-zinc-900 mb-1 flex-shrink-0">
+                              <%= event.title %>
+                            </h3>
+
+                            <div class="ml-4 flex-shrink-0">
+                              <.link
+                                navigate={~p"/events/#{event.id}"}
+                                class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                              >
+                                View Event →
+                              </.link>
+                            </div>
+                          </div>
+
+                          <div class="flex items-center text-sm text-zinc-600 mb-2">
+                            <.icon name="hero-calendar-days" class="w-4 h-4 mr-1" />
+                            <%= Calendar.strftime(event.start_date, "%B %d, %Y at %I:%M %p") %>
+                            <span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded inline-block">
+                              <%= case days_until_event(event) do
+                                0 -> "Today"
+                                1 -> "1 day left"
+                                days -> "#{days} days left"
+                              end %>
+                            </span>
+                          </div>
+                          <div
+                            :if={event.location_name}
+                            class="flex items-center text-sm text-zinc-600 mb-2"
+                          >
+                            <.icon name="hero-map-pin" class="w-4 h-4 mr-1" />
+                            <%= event.location_name %>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- Grouped Tickets by Tier -->
+                      <div class="space-y-2">
+                        <%= for {tier_name, tickets} <- grouped_tiers do %>
+                          <div class="flex justify-between items-center bg-zinc-50 rounded p-3 border border-zinc-200">
+                            <div>
+                              <p class="font-medium text-zinc-900">
+                                <%= length(tickets) %>x <%= tier_name %>
+                              </p>
+                              <p class="text-sm text-zinc-500">
+                                <%= if length(tickets) == 1 do %>
+                                  Ticket #<%= List.first(tickets).reference_id %>
+                                <% else %>
+                                  <%= length(tickets) %> confirmed tickets
+                                <% end %>
+                              </p>
+                            </div>
+                            <div class="text-right">
+                              <p class="font-semibold text-zinc-900">
+                                <%= if Money.zero?(List.first(tickets).ticket_tier.price) do %>
+                                  Free
+                                <% else %>
+                                  <%= case Money.to_string(List.first(tickets).ticket_tier.price) do
+                                    {:ok, amount} -> amount
+                                    {:error, _} -> "Error"
+                                  end %>
+                                <% end %>
+                              </p>
+                              <p class="text-xs text-green-600 font-medium">Confirmed</p>
+                            </div>
+                          </div>
+                        <% end %>
+                      </div>
+                    </div>
+                  <% end %>
                 </div>
               </div>
             </div>
@@ -327,5 +279,113 @@ defmodule YscWeb.HomeLive do
       </div>
     </div>
     """
+  end
+
+  # Helper functions
+
+  defp get_current_membership(user) do
+    # Get active subscriptions
+    active_subscriptions =
+      user.subscriptions
+      |> Enum.filter(&Subscriptions.valid?/1)
+      |> Enum.filter(&(&1.stripe_status == "active"))
+
+    case active_subscriptions do
+      [] ->
+        nil
+
+      [subscription | _] ->
+        # Get the first subscription item to determine membership type
+        case subscription.subscription_items do
+          [item | _] ->
+            membership_plans = Application.get_env(:ysc, :membership_plans)
+            plan = Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id))
+
+            if plan do
+              %{
+                plan: plan,
+                subscription: subscription,
+                renewal_date: subscription.current_period_end
+              }
+            else
+              nil
+            end
+
+          [] ->
+            nil
+        end
+    end
+  end
+
+  defp get_upcoming_tickets(user_id) do
+    # Get all confirmed tickets for the user
+    tickets = Events.list_tickets_for_user(user_id)
+
+    # Filter for upcoming events only and confirmed tickets
+    now = DateTime.utc_now()
+
+    tickets
+    |> Enum.filter(&(&1.status == :confirmed))
+    |> Enum.filter(fn ticket ->
+      case ticket.event do
+        %{start_date: start_date} when not is_nil(start_date) ->
+          DateTime.compare(start_date, now) == :gt
+
+        _ ->
+          false
+      end
+    end)
+    |> Enum.sort_by(fn ticket -> ticket.event.start_date end)
+  end
+
+  defp group_tickets_by_tier(tickets) do
+    tickets
+    |> Enum.group_by(& &1.ticket_tier.name)
+    |> Enum.sort_by(fn {_tier_name, tickets} -> length(tickets) end, :desc)
+  end
+
+  defp group_tickets_by_event_and_tier(tickets) do
+    tickets
+    |> Enum.group_by(& &1.event.id)
+    |> Enum.map(fn {_event_id, event_tickets} ->
+      event = List.first(event_tickets).event
+      grouped_tiers = group_tickets_by_tier(event_tickets)
+      {event, grouped_tiers}
+    end)
+    |> Enum.sort_by(fn {event, _tiers} -> event.start_date end)
+  end
+
+  defp days_until_event(event) do
+    now = DateTime.utc_now()
+
+    # Combine the date and time properly
+    event_datetime =
+      case {event.start_date, event.start_time} do
+        {%DateTime{} = date, %Time{} = time} ->
+          # Convert DateTime to NaiveDateTime, then combine with time
+          naive_date = DateTime.to_naive(date)
+          date_part = NaiveDateTime.to_date(naive_date)
+          naive_datetime = NaiveDateTime.new!(date_part, time)
+          DateTime.from_naive!(naive_datetime, "Etc/UTC")
+
+        {date, time} when not is_nil(date) and not is_nil(time) ->
+          # Handle other date/time combinations
+          NaiveDateTime.new!(date, time)
+          |> DateTime.from_naive!("Etc/UTC")
+
+        _ ->
+          # Fallback to just the date if time is nil
+          event.start_date
+      end
+
+    case DateTime.compare(now, event_datetime) do
+      # Event is in the past
+      :gt ->
+        0
+
+      _ ->
+        diff = DateTime.diff(event_datetime, now, :day)
+        max(0, diff)
+    end
   end
 end

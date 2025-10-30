@@ -13,21 +13,27 @@ defmodule YscWeb.Emails.Notifier do
     "change_email" => YscWeb.Emails.ChangeEmail,
     "admin_application_submitted" => YscWeb.Emails.AdminApplicationSubmitted,
     "conduct_violation_confirmation" => YscWeb.Emails.ConductViolationConfirmation,
-    "conduct_violation_board_notification" => YscWeb.Emails.ConductViolationBoardNotification
+    "conduct_violation_board_notification" => YscWeb.Emails.ConductViolationBoardNotification,
+    "ticket_purchase_confirmation" => YscWeb.Emails.TicketPurchaseConfirmation
   }
 
   def schedule_email(recipient, idempotency_key, subject, template, variables, text_body, user_id) do
-    %{
-      recipient: recipient,
-      idempotency_key: idempotency_key,
-      subject: subject,
-      template: template,
-      params: variables,
-      text_body: text_body,
-      user_id: user_id
-    }
-    |> YscWeb.Workers.EmailNotifier.new()
-    |> Oban.insert()
+    job =
+      %{
+        recipient: recipient,
+        idempotency_key: idempotency_key,
+        subject: subject,
+        template: template,
+        params: variables,
+        text_body: text_body,
+        user_id: user_id
+      }
+      |> YscWeb.Workers.EmailNotifier.new()
+
+    case Oban.insert(job) do
+      {:ok, %Oban.Job{} = inserted_job} -> inserted_job
+      {:error, _reason} = error -> error
+    end
   end
 
   def schedule_email(

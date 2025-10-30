@@ -10,7 +10,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
       <.form
         :let={_f}
         for={@form}
-        as={nil}
+        as="ticket_tier"
         id={@id}
         phx-submit="save"
         phx-target={@myself}
@@ -99,19 +99,26 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
 
   @impl true
   def update(assigns, socket) do
+    # Only create a new changeset if we don't already have one in the socket
     changeset =
-      if assigns[:ticket_tier] do
-        # Editing existing ticket tier
-        ticket_tier = assigns.ticket_tier
-
-        attrs = %{
-          unlimited_quantity: is_nil(ticket_tier.quantity) or ticket_tier.quantity == 0
-        }
-
-        TicketTier.changeset(ticket_tier, attrs)
+      if socket.assigns[:form] do
+        # Preserve existing form state
+        socket.assigns.form.source
       else
-        # Creating new ticket tier
-        TicketTier.changeset(%TicketTier{}, %{unlimited_quantity: false})
+        # Create new changeset only on initial load
+        if assigns[:ticket_tier] do
+          # Editing existing ticket tier
+          ticket_tier = assigns.ticket_tier
+
+          attrs = %{
+            unlimited_quantity: is_nil(ticket_tier.quantity) or ticket_tier.quantity == 0
+          }
+
+          TicketTier.changeset(ticket_tier, attrs)
+        else
+          # Creating new ticket tier
+          TicketTier.changeset(%TicketTier{}, %{unlimited_quantity: false})
+        end
       end
 
     {:ok,
@@ -121,18 +128,21 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
   end
 
   @impl true
-  def handle_event("toggle_quantity_limit", %{"ticket_tier" => params}, socket) do
-    params =
-      params
+  def handle_event("toggle_quantity_limit", params, socket) do
+    # Handle both expected and unexpected parameter formats
+    ticket_tier_params = params["ticket_tier"] || params
+
+    ticket_tier_params =
+      ticket_tier_params
       |> maybe_parse_price()
       |> maybe_set_free_price()
       |> maybe_set_unlimited_quantity()
 
     changeset =
       if socket.assigns[:ticket_tier] do
-        TicketTier.changeset(socket.assigns.ticket_tier, params)
+        TicketTier.changeset(socket.assigns.ticket_tier, ticket_tier_params)
       else
-        TicketTier.changeset(%TicketTier{}, params)
+        TicketTier.changeset(%TicketTier{}, ticket_tier_params)
       end
       |> Map.put(:action, :validate)
 
@@ -140,18 +150,21 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
   end
 
   @impl true
-  def handle_event("validate", %{"ticket_tier" => params}, socket) do
-    params =
-      params
+  def handle_event("validate", params, socket) do
+    # Handle cases where params might not have the expected structure
+    ticket_tier_params = params["ticket_tier"] || params
+
+    ticket_tier_params =
+      ticket_tier_params
       |> maybe_parse_price()
       |> maybe_set_free_price()
       |> maybe_set_unlimited_quantity()
 
     changeset =
       if socket.assigns[:ticket_tier] do
-        TicketTier.changeset(socket.assigns.ticket_tier, params)
+        TicketTier.changeset(socket.assigns.ticket_tier, ticket_tier_params)
       else
-        TicketTier.changeset(%TicketTier{}, params)
+        TicketTier.changeset(%TicketTier{}, ticket_tier_params)
       end
       |> Map.put(:action, :validate)
 
@@ -159,9 +172,12 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
   end
 
   @impl true
-  def handle_event("save", %{"ticket_tier" => params}, socket) do
-    params =
-      params
+  def handle_event("save", params, socket) do
+    # Handle both expected and unexpected parameter formats
+    ticket_tier_params = params["ticket_tier"] || params
+
+    ticket_tier_params =
+      ticket_tier_params
       |> maybe_parse_price()
       |> maybe_set_free_price()
       |> maybe_set_unlimited_quantity()
@@ -170,10 +186,10 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
     result =
       if socket.assigns[:ticket_tier] do
         # Updating existing ticket tier
-        Ysc.Events.update_ticket_tier(socket.assigns.ticket_tier, params)
+        Ysc.Events.update_ticket_tier(socket.assigns.ticket_tier, ticket_tier_params)
       else
         # Creating new ticket tier
-        Ysc.Events.create_ticket_tier(params)
+        Ysc.Events.create_ticket_tier(ticket_tier_params)
       end
 
     case result do

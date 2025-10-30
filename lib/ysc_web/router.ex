@@ -115,6 +115,7 @@ defmodule YscWeb.Router do
       live "/users/settings/confirm-email/:token", UserSettingsLive, :confirm_email
       live "/users/tickets", UserTicketsLive, :index
       live "/tickets/:order_id", UserTicketsLive, :show
+      live "/orders/:order_id/confirmation", OrderConfirmationLive, :index
     end
   end
 

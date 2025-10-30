@@ -149,7 +149,7 @@ defmodule Ysc.Events do
         inserted_at: e.inserted_at,
         updated_at: e.updated_at,
         recent_tickets_count: count(t.id),
-        selling_fast: fragment("count(?) >= 10", t.id)
+        selling_fast: fragment("count(?) >= 5", t.id)
       },
       order_by: [
         # First sort by state: non-cancelled events first, cancelled events last

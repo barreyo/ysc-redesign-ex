@@ -10,15 +10,20 @@ defmodule YscWeb.NewsLive do
   def render(assigns) do
     ~H"""
     <div class="py-6 md:py-10">
-      <div class="max-w-screen-lg mx-auto flex flex-wrap px-4">
+      <div class="max-w-screen-lg mx-auto px-4">
         <div class="prose prose-zinc pb-8">
           <h1>Club News</h1>
         </div>
+      </div>
 
-        <div :if={@featured != nil} id="featured" class="w-full flex flex-col md:flex-row mb-8">
+      <div :if={@featured != nil} class="max-w-screen-xl mx-auto px-4">
+        <div
+          id="featured"
+          class="w-full flex flex-col mb-2 md:mb-48 pb-2 md:pb-48 relative overflow-visible"
+        >
           <.link
             navigate={~p"/posts/#{@featured.url_name}"}
-            class="w-full md:w-1/2 hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
+            class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
           >
             <div class="relative max-h-[112rem]">
               <canvas
@@ -38,8 +43,18 @@ defmodule YscWeb.NewsLive do
               />
             </div>
           </.link>
-          <div class="py-4 md:py-0 px-2 md:pl-8 md:pr-0 flex flex-col justify-between w-full md:w-1/2">
+
+          <%!-- <div class="w-full bg-gradient-to-t opacity-50 from-white to-zinc-900 h-80 absolute bottom-0">
+          </div> --%>
+
+          <div class="py-4 md:py-6 px-2 md:px-8 max-w-screen-lg mx-auto flex flex-col justify-between w-full md:absolute md:bottom-0 md:left-0 md:right-0 md:translate-y-44 z-10 bg-white rounded-lg">
             <div>
+              <div class="flex items-center gap-1 mb-2">
+                <.badge type="yellow">
+                  <.icon name="hero-star-solid" class="w-4 h-4 text-yellow-500 me-1 -mt-1" />Pinned News
+                </.badge>
+              </div>
+
               <div class="text-sm leading-6 text-zinc-600">
                 <p class="sr-only">Date</p>
                 <p>
@@ -49,17 +64,17 @@ defmodule YscWeb.NewsLive do
 
               <.link
                 navigate={~p"/posts/#{@featured.url_name}"}
-                class="font-extrabold text-zinc-800 text-4xl leading-10"
+                class="font-extrabold text-zinc-800 text-4xl md:text-5xl leading-tight drop-shadow-sm"
               >
                 <%= @featured.title %>
               </.link>
 
-              <article class="text-zinc-600 mt-4 prose prose-zinc prose-base prose-a:text-blue-600 max-h-48 text-wrap overflow-hidden">
+              <article class="mx-auto max-w-none text-zinc-600 mt-3 md:mt-4 prose prose-invert prose-zinc prose-base md:prose-lg prose-a:text-blue-300 max-h-40 text-wrap overflow-hidden">
                 <%= raw(preview_text(@featured)) %>
               </article>
             </div>
 
-            <div class="pt-4">
+            <div class="pt-6">
               <.user_card
                 email={@featured.author.email}
                 title={@featured.author.board_position}
@@ -71,7 +86,9 @@ defmodule YscWeb.NewsLive do
             </div>
           </div>
         </div>
+      </div>
 
+      <div class="max-w-screen-lg mx-auto px-4">
         <div
           :if={@post_count > 0}
           id="news-grid"
@@ -145,7 +162,7 @@ defmodule YscWeb.NewsLive do
   end
 
   def mount(_params, _session, socket) do
-    featured_post = Posts.get_featured_post()
+    featured_post = Posts.get_featured_post() |> Ysc.Repo.preload([:author, :featured_image])
     post_count = Posts.count_published_posts()
 
     {:ok,

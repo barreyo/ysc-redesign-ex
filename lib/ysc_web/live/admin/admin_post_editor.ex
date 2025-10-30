@@ -5,8 +5,11 @@ defmodule YscWeb.AdminPostEditorLive do
 
   alias Ysc.Posts.Post
   alias Ysc.Posts
+  alias Ysc.Media
+  alias YscWeb.S3.SimpleS3Upload
 
   @save_debounce_timeout 2000
+  @s3_bucket "media"
 
   def render(assigns) do
     ~H"""
@@ -115,7 +118,137 @@ defmodule YscWeb.AdminPostEditorLive do
           <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-4">Post Settings</h2>
 
           <div class="rounded border border-1 border-zinc-100 px-3 py-4">
-            <p>Featured Image</p>
+            <p class="text-lg font-semibold mb-3">Featured Image</p>
+
+            <div class="flex flex-col gap-3">
+              <div :if={@post.image_id && @post.featured_image} class="flex items-center gap-3">
+                <img
+                  src={
+                    @post.featured_image.thumbnail_path || @post.featured_image.optimized_image_path ||
+                      @post.featured_image.raw_image_path
+                  }
+                  class="w-64 object-cover rounded border border-1 border-zinc-200"
+                  alt={@post.featured_image.alt_text}
+                  loading="lazy"
+                />
+              </div>
+
+              <div :if={!@post.image_id} class="text-sm text-red-600">No featured image set.</div>
+
+              <div class="mt-4">
+                <p class="text-xs text-zinc-500 mb-2">Choose from recent images</p>
+                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                  <%= for image <- @featured_image_choices do %>
+                    <button
+                      type="button"
+                      class="group relative w-full rounded aspect-video border border-1 border-zinc-200 cursor-pointer hover:border-zinc-300"
+                      phx-click="set-featured-image"
+                      phx-value-id={image.id}
+                    >
+                      <img
+                        class="w-full h-full rounded object-cover group-hover:opacity-80 transition-opacity duration-75 ease-in-out"
+                        src={
+                          image.thumbnail_path || image.optimized_image_path || image.raw_image_path
+                        }
+                        alt={image.alt_text}
+                        loading="lazy"
+                      />
+                    </button>
+                  <% end %>
+                </div>
+
+                <div class="flex justify-between items-center mt-3">
+                  <.button :if={!@featured_images_start?} phx-click="prev-featured-images">
+                    Previous
+                  </.button>
+                  <span class="flex-1"></span>
+                  <.button :if={!@featured_images_end?} phx-click="next-featured-images">
+                    Next
+                  </.button>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <p class="text-xs text-zinc-500 mb-2">Or upload a new image</p>
+                <form
+                  id="featured-upload-form"
+                  phx-submit="save-featured-upload"
+                  phx-change="validate-featured-upload"
+                >
+                  <label
+                    class="flex p-4 flex-col items-center justify-center w-full min-h-40 border-2 border-zinc-300 border-dashed rounded-lg cursor-pointer bg-zinc-50 hover:bg-zinc-100"
+                    phx-drop-target={@uploads.featured_image_upload.ref}
+                  >
+                    <.live_file_input upload={@uploads.featured_image_upload} class="hidden" />
+
+                    <div class="flex flex-row flex-wrap gap-2">
+                      <%= for entry <- @uploads.featured_image_upload.entries do %>
+                        <article class="upload-entry">
+                          <figure class="w-28 group relative">
+                            <button
+                              type="button"
+                              phx-click="cancel-featured-upload"
+                              phx-value-ref={entry.ref}
+                              aria-label="cancel"
+                            >
+                              <div class="hidden group-hover:block absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-red-500 z-10">
+                                <.icon name="hero-x-circle" class="w-10 h-10" />
+                              </div>
+                              <.live_img_preview
+                                entry={entry}
+                                class="group-hover:blur"
+                                width="120"
+                                height="120"
+                              />
+                              <figcaption class="text-xs truncate overflow-hidden bg-zinc-100 text-zinc-600 w-28 z-8 absolute inset-x-0 bottom-0 py-1">
+                                <%= entry.client_name %>
+                              </figcaption>
+                            </button>
+                          </figure>
+
+                          <%= for err <- upload_errors(@uploads.featured_image_upload, entry) do %>
+                            <p class="text-xs text-red-600 font-semibold mt-1">
+                              <.icon name="hero-exclamation-circle" class="-mt-0.5 h-4 w-4" /> <%= error_to_string(
+                                err
+                              ) %>
+                            </p>
+                          <% end %>
+                        </article>
+                      <% end %>
+                    </div>
+
+                    <%= for err <- upload_errors(@uploads.featured_image_upload) do %>
+                      <p class="text-xs text-red-600 font-semibold mt-1">
+                        <.icon name="hero-exclamation-circle" class="-mt-0.5 h-4 w-4" /> <%= error_to_string(
+                          err
+                        ) %>
+                      </p>
+                    <% end %>
+
+                    <div
+                      :if={length(@uploads.featured_image_upload.entries) == 0}
+                      class="flex flex-col items-center justify-center pt-2 pb-3"
+                    >
+                      <.icon name="hero-cloud-arrow-up" class="w-8 h-10 mb-2 text-zinc-500" />
+                      <p class="mb-1 text-sm text-zinc-500">
+                        <span class="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p class="text-xs text-zinc-500">SVG, PNG, JPG, JPEG or GIF</p>
+                    </div>
+                  </label>
+
+                  <div class="w-full flex justify-end pt-3">
+                    <.button
+                      type="submit"
+                      aria-disabled={length(@uploads.featured_image_upload.entries) == 0}
+                      disabled={length(@uploads.featured_image_upload.entries) == 0}
+                    >
+                      Upload and set as featured
+                    </.button>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>
         </div>
       </.modal>
@@ -271,7 +404,7 @@ defmodule YscWeb.AdminPostEditorLive do
   end
 
   def mount(%{"id" => id} = _params, _session, socket) do
-    post = Posts.get_post!(id)
+    post = Posts.get_post!(id) |> Ysc.Repo.preload(:featured_image)
     update_post_changeset = Post.update_post_changeset(post, %{})
 
     YscWeb.Endpoint.subscribe("post_saved:#{id}")
@@ -283,8 +416,28 @@ defmodule YscWeb.AdminPostEditorLive do
      |> assign(:saving?, false)
      |> assign(:post_id, post.id)
      |> assign(:post, post)
+     |> assign(:featured_image_choices, [])
+     |> assign(:featured_images_page, 1)
+     |> assign(:featured_images_per_page, 10)
+     |> assign(:featured_images_end?, false)
+     |> assign(:featured_images_start?, true)
      |> assign(:preview_device, :computer)
-     |> assign(form: to_form(update_post_changeset, as: "post"))}
+     |> assign(form: to_form(update_post_changeset, as: "post"))
+     |> allow_upload(:featured_image_upload,
+       accept: ~w(.jpg .jpeg .png .gif .webp),
+       max_entries: 1,
+       external: &presign_upload/2
+     )}
+  end
+
+  def handle_params(_params, _uri, socket) do
+    socket =
+      case socket.assigns[:live_action] do
+        :settings -> load_featured_image_choices(socket, 1)
+        _ -> socket
+      end
+
+    {:noreply, socket}
   end
 
   @spec handle_event(<<_::32, _::_*8>>, any(), atom() | map()) :: {:noreply, map()}
@@ -354,26 +507,33 @@ defmodule YscWeb.AdminPostEditorLive do
   def handle_event("publish-post", _params, socket) do
     post = socket.assigns[:post]
 
-    res =
-      Posts.update_post(
-        post,
-        %{state: :published, published_on: Timex.now()},
-        socket.assigns[:current_user]
-      )
+    if is_nil(post.image_id) do
+      {:noreply,
+       socket
+       |> put_flash(:info, "Please set a featured image before publishing.")
+       |> push_navigate(to: ~p"/admin/posts/#{post.id}/settings")}
+    else
+      res =
+        Posts.update_post(
+          post,
+          %{state: :published, published_on: Timex.now()},
+          socket.assigns[:current_user]
+        )
 
-    case res do
-      {:ok, new_post} ->
-        {:noreply,
-         socket
-         |> assign(:post, new_post)
-         |> put_flash(:info, "The post was published!")
-         |> redirect(to: ~p"/admin/posts/#{post.id}")}
+      case res do
+        {:ok, new_post} ->
+          {:noreply,
+           socket
+           |> assign(:post, new_post)
+           |> put_flash(:info, "The post was published!")
+           |> redirect(to: ~p"/admin/posts/#{post.id}")}
 
-      {:error, _changeset} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Something went wrong")
-         |> redirect(to: ~p"/admin/posts")}
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Something went wrong")
+           |> redirect(to: ~p"/admin/posts")}
+      end
     end
   end
 
@@ -441,9 +601,99 @@ defmodule YscWeb.AdminPostEditorLive do
     {:noreply, assign(socket, :preview_device, :computer)}
   end
 
+  def handle_event("set-featured-image", %{"id" => image_id}, socket) do
+    post_id = socket.assigns[:post_id]
+    current_user = socket.assigns[:current_user]
+
+    case Posts.update_post(%Post{id: post_id}, %{"image_id" => image_id}, current_user) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:post, Posts.get_post!(post_id) |> Ysc.Repo.preload(:featured_image))}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not set featured image")}
+    end
+  end
+
+  def handle_event("unset-featured-image", _params, socket) do
+    post_id = socket.assigns[:post_id]
+    current_user = socket.assigns[:current_user]
+
+    case Posts.update_post(%Post{id: post_id}, %{"image_id" => nil}, current_user) do
+      {:ok, _} ->
+        {:noreply,
+         assign(socket, :post, Posts.get_post!(post_id) |> Ysc.Repo.preload(:featured_image))}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not remove featured image")}
+    end
+  end
+
+  def handle_event("next-featured-images", _params, socket) do
+    {:noreply, load_featured_image_choices(socket, socket.assigns[:featured_images_page] + 1)}
+  end
+
+  def handle_event("prev-featured-images", _params, socket) do
+    new_page = max(1, socket.assigns[:featured_images_page] - 1)
+    {:noreply, load_featured_image_choices(socket, new_page)}
+  end
+
+  def handle_event("validate-featured-upload", _params, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel-featured-upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :featured_image_upload, ref)}
+  end
+
+  def handle_event("save-featured-upload", _params, socket) do
+    uploader = socket.assigns[:current_user]
+    post_id = socket.assigns[:post_id]
+
+    uploaded_files =
+      consume_uploaded_entries(socket, :featured_image_upload, fn details, _entry ->
+        raw_path = "#{details[:url]}/#{details[:key]}"
+
+        {:ok, new_image} =
+          Media.add_new_image(
+            %{
+              raw_image_path: URI.encode(raw_path),
+              user_id: uploader.id,
+              upload_data: details
+            },
+            uploader
+          )
+
+        %{id: new_image.id} |> YscWeb.Workers.ImageProcessor.new() |> Oban.insert()
+        {:ok, new_image}
+      end)
+
+    updated_socket =
+      case uploaded_files do
+        [new_image | _] ->
+          case Posts.update_post(%Post{id: post_id}, %{"image_id" => new_image.id}, uploader) do
+            {:ok, _} ->
+              assign(socket, :post, Posts.get_post!(post_id) |> Ysc.Repo.preload(:featured_image))
+
+            {:error, _} ->
+              put_flash(socket, :error, "Could not set featured image")
+          end
+
+        _ ->
+          socket
+      end
+
+    {:noreply, updated_socket}
+  end
+
   def handle_info(%Phoenix.Socket.Broadcast{event: "saved"}, socket) do
     {:noreply,
-     assign(socket, :saving?, false) |> assign(:post, Posts.get_post!(socket.assigns[:post_id]))}
+     assign(socket, :saving?, false)
+     |> assign(
+       :post,
+       Posts.get_post!(socket.assigns[:post_id]) |> Ysc.Repo.preload(:featured_image)
+     )}
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
@@ -455,6 +705,49 @@ defmodule YscWeb.AdminPostEditorLive do
       assign(socket, form: form)
     end
   end
+
+  defp load_featured_image_choices(socket, page) do
+    per_page = socket.assigns[:featured_images_per_page]
+    images = Media.list_images((page - 1) * per_page, per_page)
+
+    socket
+    |> assign(:featured_image_choices, images)
+    |> assign(:featured_images_page, page)
+    |> assign(:featured_images_start?, page <= 1)
+    |> assign(:featured_images_end?, length(images) < per_page)
+  end
+
+  defp presign_upload(entry, socket) do
+    uploads = socket.assigns.uploads
+    key = "public/#{entry.client_name}"
+
+    config = %{
+      region: "us-west-1",
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
+    }
+
+    {:ok, fields} =
+      SimpleS3Upload.sign_form_upload(config, @s3_bucket,
+        key: key,
+        content_type: entry.client_type,
+        max_file_size: uploads[entry.upload_config].max_file_size,
+        expires_in: :timer.hours(1)
+      )
+
+    meta = %{
+      uploader: "S3",
+      key: key,
+      url: "http://media.s3.localhost.localstack.cloud:4566",
+      fields: fields
+    }
+
+    {:ok, meta, socket}
+  end
+
+  defp error_to_string(:too_large), do: "Too large"
+  defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
+  defp error_to_string(:too_many_files), do: "You have selected too many files"
 
   defp post_state_to_badge_style(:draft), do: "yellow"
   defp post_state_to_badge_style(:published), do: "green"

@@ -137,6 +137,21 @@ defmodule YscWeb.AdminPostsLive do
             <%= Timex.format!(post.inserted_at, "{Mshort} {D}, {YYYY}") %>
           </:col>
 
+          <:action :let={{_, post}} label="Pinned">
+            <button
+              type="button"
+              class="rounded px-2 py-1 text-sm flex items-center gap-1 hover:bg-zinc-100"
+              phx-click="toggle-featured"
+              phx-value-id={post.id}
+            >
+              <.icon
+                name={if post.featured_post, do: "hero-star-solid", else: "hero-star"}
+                class={"w-4 h-4 #{if post.featured_post, do: "text-yellow-500", else: "text-zinc-600"}"}
+              />
+              <span class="sr-only">Toggle featured</span>
+            </button>
+          </:action>
+
           <:action :let={{_, post}} label="Action">
             <button
               phx-click={JS.navigate(~p"/admin/posts/#{post.id}")}
@@ -206,6 +221,48 @@ defmodule YscWeb.AdminPostsLive do
     end
   end
 
+  def handle_event("toggle-featured", %{"id" => id}, socket) do
+    current_user = socket.assigns[:current_user]
+
+    current_featured = Posts.get_featured_post()
+    {:ok, target_id} = Ecto.ULID.cast(id)
+    target = Posts.get_post(target_id)
+
+    result =
+      cond do
+        is_nil(target) ->
+          {:error, :not_found}
+
+        current_featured && current_featured.id == target_id ->
+          Posts.update_post(current_featured, %{"featured_post" => false}, current_user)
+
+        true ->
+          _ =
+            if current_featured,
+              do: Posts.update_post(current_featured, %{"featured_post" => false}, current_user)
+
+          Posts.update_post(target, %{"featured_post" => true}, current_user)
+      end
+
+    case result do
+      {:ok, _} ->
+        # Refresh the two possibly affected rows
+        updated = Posts.get_post(target_id, [:author])
+        socket = maybe_stream_update_post(socket, updated)
+
+        socket =
+          case current_featured do
+            nil -> socket
+            cf -> maybe_stream_update_post(socket, Posts.get_post(cf.id, [:author]))
+          end
+
+        {:noreply, socket}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not update featured post")}
+    end
+  end
+
   def handle_event("new-post", _params, socket) do
     url_name = title_to_url_name("")
     result = Posts.create_post(%{"url_name" => url_name}, socket.assigns[:current_user])
@@ -250,4 +307,10 @@ defmodule YscWeb.AdminPostsLive do
   defp post_state_to_badge_style(:published), do: "green"
   defp post_state_to_badge_style(:deleted), do: "red"
   defp post_state_to_badge_style(_), do: "default"
+
+  defp maybe_stream_update_post(socket, nil), do: socket
+
+  defp maybe_stream_update_post(socket, %Post{} = post) do
+    stream_insert(socket, :posts, post)
+  end
 end
