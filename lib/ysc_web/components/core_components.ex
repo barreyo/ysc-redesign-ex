@@ -1426,48 +1426,163 @@ defmodule YscWeb.CoreComponents do
   attr :selling_fast, :boolean, default: false
 
   def event_badge(assigns) do
-    assigns = assign(assigns, :event, assigns.event)
+    assigns =
+      assigns
+      |> assign(:event, assigns.event)
+      |> assign(:badges, get_event_badges(assigns.event, assigns.sold_out, assigns.selling_fast))
 
     ~H"""
-    <.badge
-      :if={event_badge_style(@event, @sold_out, @selling_fast) != nil}
-      type={event_badge_style(@event, @sold_out, @selling_fast)}
-      class="text-xs font-medium"
-    >
-      <%= event_badge_text(@event, @sold_out, @selling_fast) %>
-    </.badge>
+    <div class="flex flex-wrap gap-2">
+      <.badge :for={{type, text} <- @badges} type={type} class="text-xs font-medium">
+        <.icon
+          :if={text == "Selling Fast!"}
+          name="hero-bolt-solid"
+          class="w-3 h-3 inline-block me-1 -mt-0.5"
+        />
+        <%= text %>
+      </.badge>
+    </div>
     """
   end
 
-  defp event_badge_style(%Event{state: :cancelled}, _sold_out, _selling_fast), do: "red"
-  defp event_badge_style(%Event{published_at: nil}, _sold_out, _selling_fast), do: nil
-  defp event_badge_style(_event, true, _selling_fast), do: "red"
-  defp event_badge_style(_event, false, true), do: "yellow"
+  # Returns a list of {type, text} tuples for badges to display
+  # Handles both Event structs and maps from queries
+  defp get_event_badges(event, _sold_out, _selling_fast) when is_map(event) do
+    # Check for cancelled state (works for both structs and maps)
+    state = Map.get(event, :state) || Map.get(event, "state")
 
-  defp event_badge_style(%Event{published_at: date}, false, false) do
-    if DateTime.diff(DateTime.utc_now(), date, :hour) <= 48 do
-      "green"
+    if state == :cancelled or state == "cancelled" do
+      [{"red", "Cancelled"}]
     else
-      nil
+      get_event_badges_continue(event, _sold_out, _selling_fast)
     end
   end
 
-  defp event_badge_style(_, _, _), do: nil
+  defp get_event_badges(_event, true, _selling_fast) do
+    [{"red", "Sold Out"}]
+  end
 
-  defp event_badge_text(%Event{state: :cancelled}, _sold_out, _selling_fast), do: "Cancelled"
-  defp event_badge_text(%Event{published_at: nil}, _sold_out, _selling_fast), do: nil
-  defp event_badge_text(_event, true, _selling_fast), do: "Sold Out"
-  defp event_badge_text(_event, false, true), do: "Selling Fast!"
+  defp get_event_badges(event, false, selling_fast) do
+    get_event_badges_continue(event, false, selling_fast)
+  end
 
-  defp event_badge_text(%Event{published_at: date}, false, false) do
-    if DateTime.diff(DateTime.utc_now(), date, :hour) <= 48 do
-      "Just Added!"
+  defp get_event_badges(_, _, _), do: []
+
+  defp get_event_badges_continue(event, _sold_out, _selling_fast) do
+    # Check if published_at is nil (no badge for unpublished events)
+    published_at = Map.get(event, :published_at) || Map.get(event, "published_at")
+
+    if published_at == nil do
+      []
     else
-      nil
+      get_event_badges_active(event, _sold_out, _selling_fast)
     end
   end
 
-  defp event_badge_text(_, _, _), do: nil
+  defp get_event_badges_active(event, _sold_out, selling_fast) do
+    badges = []
+
+    # Add "Just Added" badge first if applicable (within 48 hours of publishing)
+    published_at = Map.get(event, :published_at) || Map.get(event, "published_at")
+
+    just_added_badge =
+      case published_at do
+        nil ->
+          []
+
+        pub_at ->
+          if DateTime.diff(DateTime.utc_now(), pub_at, :hour) <= 48 do
+            [{"green", "Just Added"}]
+          else
+            []
+          end
+      end
+
+    badges = badges ++ just_added_badge
+
+    # Add "Days Left" badge if applicable (1-3 days remaining)
+    days_left = days_until_event_start(event)
+
+    days_left_badge =
+      if days_left != nil and days_left >= 1 and days_left <= 3 do
+        text = "#{days_left} #{if days_left == 1, do: "day", else: "days"} left"
+        [{"sky", text}]
+      else
+        []
+      end
+
+    badges = badges ++ days_left_badge
+
+    # Add "Selling Fast!" badge if applicable (always show when true)
+    selling_fast_badge =
+      if selling_fast do
+        [{"yellow", "Selling Fast!"}]
+      else
+        []
+      end
+
+    badges = badges ++ selling_fast_badge
+    badges
+  end
+
+  # Helper function to calculate days until event starts
+  # Handles both Event structs and maps (structs are maps in Elixir)
+  defp days_until_event_start(event) when is_map(event) do
+    start_date = Map.get(event, :start_date)
+    start_time = Map.get(event, :start_time)
+
+    if start_date == nil do
+      nil
+    else
+      now = DateTime.utc_now()
+
+      # Combine start_date and start_time to get the event datetime
+      event_datetime = combine_date_time_for_event(start_date, start_time)
+
+      # If we couldn't combine the datetime, return nil
+      if event_datetime == nil do
+        nil
+      else
+        # If event is in the past, return nil
+        if DateTime.compare(now, event_datetime) == :gt do
+          nil
+        else
+          # Calculate days difference using calendar days
+          event_date_only = DateTime.to_date(event_datetime)
+          now_date_only = DateTime.to_date(now)
+          diff = Date.diff(event_date_only, now_date_only)
+          max(0, diff)
+        end
+      end
+    end
+  end
+
+  defp combine_date_time_for_event(date, time) do
+    case {date, time} do
+      {%DateTime{} = dt, %Time{} = t} ->
+        naive_date = DateTime.to_naive(dt)
+        date_part = NaiveDateTime.to_date(naive_date)
+        naive_datetime = NaiveDateTime.new!(date_part, t)
+        DateTime.from_naive!(naive_datetime, "Etc/UTC")
+
+      {%DateTime{} = dt, nil} ->
+        dt
+
+      {date, time} when not is_nil(date) and not is_nil(time) ->
+        NaiveDateTime.new!(date, time)
+        |> DateTime.from_naive!("Etc/UTC")
+
+      {date, nil} when not is_nil(date) ->
+        if match?(%DateTime{}, date) do
+          date
+        else
+          DateTime.from_naive!(NaiveDateTime.new!(date, ~T[00:00:00]), "Etc/UTC")
+        end
+
+      _ ->
+        nil
+    end
+  end
 
   attr :active_step, :integer, required: true
   attr :steps, :list, default: []
@@ -1972,12 +2087,10 @@ defmodule YscWeb.CoreComponents do
   ## Examples
 
       <.membership_status current_membership={@current_membership} />
-      <.membership_status current_membership={@current_membership} variant="detailed" />
 
   """
   attr :current_membership, :any, required: true
   attr :class, :string, default: ""
-  attr :variant, :string, default: "simple", values: ["simple", "detailed"]
 
   def membership_status(assigns) do
     ~H"""
@@ -1985,17 +2098,25 @@ defmodule YscWeb.CoreComponents do
       :if={@current_membership != nil && is_membership_active?(@current_membership)}
       class={["space-y-4", @class]}
     >
-      <.alert_box :if={is_membership_cancelled?(@current_membership)} color="red">
-        <p class="text-sm text-zinc-600">
-          <.icon name="hero-x-circle" class="me-1 w-5 h-5 text-red-600 -mt-0.5" />Your membership has been canceled.
-          You are still an active member until <strong>
+      <div :if={is_membership_cancelled?(@current_membership)}>
+        <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+          <p class="text-sm text-yellow-800 font-semibold">
+            <.icon name="hero-clock" class="w-5 h-5 text-yellow-600 inline-block -mt-0.5 me-2" />Your membership has been canceled.
+          </p>
+
+          <p
+            :if={get_membership_renewal_date(@current_membership) != nil}
+            class="text-sm text-yellow-900 mt-2"
+          >
+            You are still an active member until <strong>
             <%= Timex.format!(get_membership_ends_at(@current_membership), "{Mshort} {D}, {YYYY}") %>
-          </strong>, at which point you will no longer have access to the YSC membership features.
-        </p>
-      </.alert_box>
+            </strong>, at which point you will no longer have access to the YSC membership features.
+          </p>
+        </div>
+      </div>
 
       <div :if={!is_membership_cancelled?(@current_membership)}>
-        <div :if={@variant == "simple"} class="bg-green-50 border border-green-200 rounded-md p-4">
+        <div class="bg-green-50 border border-green-200 rounded-md p-4">
           <p class="text-sm text-green-800 font-semibold">
             <.icon name="hero-check-circle" class="w-5 h-5 text-green-600 inline-block -mt-0.5 me-2" />You have an
             active <strong><%= get_membership_type(@current_membership) %></strong> membership.
@@ -2010,34 +2131,17 @@ defmodule YscWeb.CoreComponents do
           </strong>.
           </p>
         </div>
-
-        <div :if={@variant == "detailed"} class="flex items-center justify-between">
-          <div class="flex items-center">
-            <div class="flex-shrink-0">
-              <.icon name="hero-check-circle" class="w-8 h-8 text-green-600" />
-            </div>
-            <div class="ml-3">
-              <h3 class="text-lg font-medium text-green-900">
-                <%= String.capitalize(to_string(@current_membership.plan.name)) %> Membership
-              </h3>
-              <p class="text-sm text-green-700">
-                Active • Renews on <%= Calendar.strftime(
-                  @current_membership.renewal_date,
-                  "%B %d, %Y"
-                ) %>
-              </p>
-            </div>
-          </div>
-          <div class="text-right">
-            <p class="text-sm font-medium text-green-900">
-              <%= Ysc.MoneyHelper.format_money!(Money.new(:USD, @current_membership.plan.amount)) %>/year
-            </p>
-          </div>
-        </div>
       </div>
     </div>
 
-    <div :if={@current_membership == nil} class="space-y-4">
+    <div
+      :if={
+        @current_membership == nil ||
+          (!is_membership_active?(@current_membership) &&
+             !is_membership_cancelled?(@current_membership))
+      }
+      class="space-y-4"
+    >
       <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
         <div class="flex items-center">
           <div class="flex-shrink-0">

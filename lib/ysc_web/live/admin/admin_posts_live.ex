@@ -253,6 +253,7 @@ defmodule YscWeb.AdminPostsLive do
         socket =
           case current_featured do
             nil -> socket
+            cf when cf.id == target_id -> socket
             cf -> maybe_stream_update_post(socket, Posts.get_post(cf.id, [:author]))
           end
 

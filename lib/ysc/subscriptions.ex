@@ -245,7 +245,16 @@ defmodule Ysc.Subscriptions do
 
   """
   def cancelled?(%Subscription{} = subscription) do
-    subscription.stripe_status == "cancelled"
+    case subscription do
+      %Subscription{stripe_status: "cancelled"} ->
+        true
+
+      %Subscription{ends_at: %DateTime{} = ends_at} ->
+        DateTime.compare(ends_at, DateTime.utc_now()) == :gt
+
+      _ ->
+        false
+    end
   end
 
   def cancelled?(nil), do: false
@@ -260,11 +269,14 @@ defmodule Ysc.Subscriptions do
 
   """
   def scheduled_for_cancellation?(%Subscription{} = subscription) do
-    # This would need to be tracked in the database or fetched from Stripe
-    # For now, we'll check if the subscription is active but has a cancellation flag
-    subscription.stripe_status == "active" &&
-      subscription.current_period_end &&
-      DateTime.compare(subscription.current_period_end, DateTime.utc_now()) == :gt
+    case subscription do
+      %Subscription{stripe_status: status, ends_at: %DateTime{} = ends_at}
+      when status in ["active", "trialing"] ->
+        DateTime.compare(ends_at, DateTime.utc_now()) == :gt
+
+      _ ->
+        false
+    end
   end
 
   def scheduled_for_cancellation?(nil), do: false
@@ -292,17 +304,29 @@ defmodule Ysc.Subscriptions do
       {:ok, %Subscription{}}
 
   """
-  def cancel(%Subscription{} = subscription) do
-    case Stripe.Subscription.update(subscription.stripe_id, %{cancel_at_period_end: true}) do
-      {:ok, stripe_subscription} ->
-        update_subscription(subscription, %{
-          stripe_status: stripe_subscription.status,
-          current_period_end: stripe_subscription.current_period_end
-        })
+  def cancel(%Subscription{} = subscription, opts \\ []) do
+    stripe_params = opts[:stripe] || %{}
+    params = Map.merge(stripe_params, %{cancel_at_period_end: true})
 
-      {:error, _error} ->
-        {:error, "Failed to cancel subscription in Stripe"}
-    end
+    {:ok, stripe_subscription} = Stripe.Subscription.update(subscription.stripe_id, params)
+
+    ends_at =
+      if subscription.trial_ends_at &&
+           DateTime.compare(subscription.trial_ends_at, DateTime.utc_now()) == :gt do
+        subscription.trial_ends_at
+      else
+        stripe_subscription.current_period_end
+        |> DateTime.from_unix!()
+        |> DateTime.truncate(:second)
+      end
+
+    subscription
+    |> Ecto.Changeset.change(%{
+      stripe_status: stripe_subscription.status,
+      ends_at: ends_at
+    })
+    |> Repo.update!()
+    |> Repo.preload(:subscription_items)
   end
 
   @doc """
@@ -339,7 +363,11 @@ defmodule Ysc.Subscriptions do
       {:ok, stripe_subscription} ->
         update_subscription(subscription, %{
           stripe_status: stripe_subscription.status,
-          current_period_end: stripe_subscription.current_period_end
+          current_period_end:
+            stripe_subscription.current_period_end
+            |> DateTime.from_unix!()
+            |> DateTime.truncate(:second),
+          ends_at: nil
         })
 
       {:error, _error} ->
@@ -380,6 +408,59 @@ defmodule Ysc.Subscriptions do
 
       {:error, _error} ->
         {:error, "Failed to change subscription prices in Stripe"}
+    end
+  end
+
+  @doc """
+  Change membership plan with correct billing behavior:
+  - Upgrades: charge proration delta immediately.
+  - Downgrades: take effect at next renewal (no immediate credit/refund).
+  """
+  def change_membership_plan(%Subscription{} = subscription, new_price_id, direction) do
+    with {:ok, stripe_sub} <- Stripe.Subscription.retrieve(subscription.stripe_id),
+         [%{id: stripe_item_id, price: %{id: current_price_id}} | _] <- stripe_sub.items.data do
+      # No-op if already on desired price
+      if current_price_id == new_price_id do
+        {:ok, subscription}
+      else
+        update_items = [%{id: stripe_item_id, price: new_price_id, quantity: 1}]
+
+        case direction do
+          :upgrade ->
+            case Stripe.Subscription.update(subscription.stripe_id, %{
+                   items: update_items,
+                   proration_behavior: "create_prorations"
+                 }) do
+              {:ok, stripe_subscription} ->
+                update_subscription(subscription, %{
+                  stripe_status: stripe_subscription.status,
+                  current_period_end: stripe_subscription.current_period_end
+                })
+
+              {:error, error} ->
+                {:error, error}
+            end
+
+          :downgrade ->
+            case Stripe.Subscription.update(subscription.stripe_id, %{
+                   items: update_items,
+                   proration_behavior: "none",
+                   billing_cycle_anchor: "unchanged"
+                 }) do
+              {:ok, stripe_subscription} ->
+                update_subscription(subscription, %{
+                  stripe_status: stripe_subscription.status,
+                  current_period_end: stripe_subscription.current_period_end
+                })
+
+              {:error, error} ->
+                {:error, error}
+            end
+        end
+      end
+    else
+      {:error, error} -> {:error, error}
+      _ -> {:error, :invalid_subscription_items}
     end
   end
 

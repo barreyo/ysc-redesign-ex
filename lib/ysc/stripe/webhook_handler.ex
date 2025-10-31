@@ -175,6 +175,7 @@ defmodule Ysc.Stripe.WebhookHandler do
 
         subscription_changeset =
           Subscriptions.subscription_struct_from_stripe_subscription(user, event)
+          |> maybe_put_cancellation_end(event)
 
         case Ysc.Repo.update(subscription_changeset) do
           {:ok, updated_subscription} ->
@@ -188,6 +189,34 @@ defmodule Ysc.Stripe.WebhookHandler do
       end
     end
   end
+
+  defp maybe_put_cancellation_end(changeset, %Stripe.Subscription{} = event) do
+    ends_at =
+      case Map.get(event, :cancel_at_period_end) do
+        true ->
+          event.current_period_end
+          |> DateTime.from_unix!()
+          |> DateTime.truncate(:second)
+
+        _ ->
+          nil
+      end
+
+    Ecto.Changeset.change(changeset, %{ends_at: ends_at})
+  end
+
+  # Grouped subscription_schedule handlers
+  defp handle("subscription_schedule.created", %Stripe.SubscriptionSchedule{} = _schedule),
+    do: :ok
+
+  defp handle("subscription_schedule.updated", %Stripe.SubscriptionSchedule{} = _schedule),
+    do: :ok
+
+  defp handle("subscription_schedule.released", %Stripe.SubscriptionSchedule{} = _schedule),
+    do: :ok
+
+  defp handle("subscription_schedule.canceled", %Stripe.SubscriptionSchedule{} = _schedule),
+    do: :ok
 
   defp handle("payment_method.attached", %Stripe.PaymentMethod{} = payment_method) do
     user = Ysc.Accounts.get_user_from_stripe_id(payment_method.customer)

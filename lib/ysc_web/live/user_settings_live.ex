@@ -3,6 +3,7 @@ defmodule YscWeb.UserSettingsLive do
 
   alias Ysc.Accounts
   alias Ysc.Customers
+  alias Ysc.Ledgers
   alias Ysc.Subscriptions
 
   alias Ysc.Subscriptions.Subscription
@@ -81,7 +82,7 @@ defmodule YscWeb.UserSettingsLive do
                         }
                         class="text-zinc-600 text-xs"
                       >
-                        Expires <%= payment_method.exp_month %> / <%= payment_method.exp_year %>
+                        Expires <%= String.pad_leading(to_string(payment_method.exp_month), 2, "0") %> / <%= payment_method.exp_year %>
                       </p>
                       <p
                         :if={payment_method.type == :bank_account && payment_method.account_type}
@@ -215,7 +216,7 @@ defmodule YscWeb.UserSettingsLive do
           </li>
           <li>
             <.link
-              navigate={~p"/users/tickets"}
+              navigate={~p"/users/payments"}
               class={[
                 "inline-flex items-center px-4 py-3 rounded w-full",
                 @live_action == :payments && "bg-blue-600 active text-zinc-100",
@@ -392,17 +393,22 @@ defmodule YscWeb.UserSettingsLive do
 
               <div class="space-y-4">
                 <.button
-                  :if={@current_membership != nil && !Subscriptions.cancelled?(@current_membership)}
+                  :if={
+                    @current_membership != nil &&
+                      !Subscriptions.scheduled_for_cancellation?(@current_membership)
+                  }
                   phx-click="cancel-membership"
                   color="red"
-                  disabled={!@user_is_active || Subscriptions.cancelled?(@current_membership)}
+                  disabled={
+                    !@user_is_active || Subscriptions.scheduled_for_cancellation?(@current_membership)
+                  }
                   data-confirm="Are you sure you want to cancel your membership?"
                 >
                   Cancel Membership
                 </.button>
 
                 <.button
-                  :if={Subscriptions.cancelled?(@current_membership)}
+                  :if={Subscriptions.scheduled_for_cancellation?(@current_membership)}
                   phx-click="reactivate-membership"
                   color="green"
                   disabled={!@user_is_active}
@@ -502,6 +508,7 @@ defmodule YscWeb.UserSettingsLive do
                       <.button
                         disabled={@default_payment_method == nil || !@user_is_active}
                         phx-click="change-membership"
+                        phx-value-membership_type={@membership_form.params["membership_type"]}
                         type="button"
                       >
                         <.icon name="hero-arrows-right-left" class="me-2 -mt-0.5" />Change Membership Plan
@@ -559,7 +566,11 @@ defmodule YscWeb.UserSettingsLive do
                               }
                               class="text-zinc-600 text-xs"
                             >
-                              Expires <%= @default_payment_method.exp_month %> / <%= @default_payment_method.exp_year %>
+                              Expires <%= String.pad_leading(
+                                to_string(@default_payment_method.exp_month),
+                                2,
+                                "0"
+                              ) %> / <%= @default_payment_method.exp_year %>
                             </p>
                             <p
                               :if={
@@ -631,6 +642,109 @@ defmodule YscWeb.UserSettingsLive do
               </div>
             </div> --%>
           </div>
+
+          <div :if={@live_action == :payments} class="space-y-6">
+            <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
+              <h2 class="text-zinc-900 font-bold text-xl">Payment History</h2>
+
+              <div :if={@payments_total > 0} id="payments-list" class="space-y-4">
+                <div
+                  :for={payment_info <- @payments}
+                  class="border border-zinc-200 rounded-lg p-4 hover:bg-zinc-50 transition-colors"
+                >
+                  <div class="flex flex-row justify-between items-start">
+                    <div class="flex-1">
+                      <div class="flex items-center space-x-3 mb-2">
+                        <.icon
+                          :if={payment_info.type == :membership}
+                          name="hero-heart"
+                          class="w-5 h-5 text-blue-600"
+                        />
+                        <.icon
+                          :if={payment_info.type == :ticket}
+                          name="hero-ticket"
+                          class="w-5 h-5 text-green-600"
+                        />
+                        <.icon
+                          :if={payment_info.type == :booking}
+                          name="hero-home"
+                          class="w-5 h-5 text-purple-600"
+                        />
+                        <.icon
+                          :if={payment_info.type == :donation}
+                          name="hero-gift"
+                          class="w-5 h-5 text-yellow-600"
+                        />
+                        <.icon
+                          :if={payment_info.type == :unknown}
+                          name="hero-credit-card"
+                          class="w-5 h-5 text-zinc-600"
+                        />
+                        <div class="flex-1">
+                          <h3 class="text-lg font-semibold text-zinc-900">
+                            <%= payment_info.description %>
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div class="flex items-center space-x-4 text-sm text-zinc-600">
+                        <p>
+                          <%= if payment_info.payment.payment_date do
+                            Timex.format!(payment_info.payment.payment_date, "{Mshort} {D}, {YYYY}")
+                          else
+                            Timex.format!(payment_info.payment.inserted_at, "{Mshort} {D}, {YYYY}")
+                          end %>
+                        </p>
+
+                        <p class="font-medium text-zinc-900">
+                          <%= Ysc.MoneyHelper.format_money!(payment_info.payment.amount) %>
+                        </p>
+
+                        <.badge :if={payment_info.payment.status == :completed} type="green">
+                          Completed
+                        </.badge>
+                        <.badge :if={payment_info.payment.status == :pending} type="yellow">
+                          Pending
+                        </.badge>
+                        <.badge :if={payment_info.payment.status == :refunded} type="red">
+                          Refunded
+                        </.badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <p :if={@payments_total == 0} class="text-zinc-600 text-sm">
+                No payments found.
+              </p>
+
+              <div
+                :if={@payments_total > 0}
+                class="flex items-center justify-between border-t border-zinc-200 pt-4 mt-6"
+              >
+                <div class="flex items-center space-x-2">
+                  <.button :if={@payments_page > 1} phx-click="prev-payments-page" variant="outline">
+                    <.icon name="hero-chevron-left" class="w-4 h-4 me-1" /> Previous
+                  </.button>
+                </div>
+
+                <div class="text-sm text-zinc-600">
+                  Page <%= @payments_page %> of <%= @payments_total_pages %>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  <.button
+                    :if={@payments_page < @payments_total_pages}
+                    phx-click="next-payments-page"
+                    variant="outline"
+                  >
+                    Next <.icon name="hero-chevron-right" class="w-4 h-4 ms-1" />
+                  </.button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -674,12 +788,9 @@ defmodule YscWeb.UserSettingsLive do
 
     # This is all very dumb, but it's just a quick way to get the current membership status
     current_membership = socket.assigns.current_membership
-    IO.inspect(current_membership)
     family_plan_active? = Customers.subscribed_to_price?(user, get_price_id(:family))
 
     active_plan = get_membership_plan(current_membership)
-
-    IO.inspect(Subscriptions.list_subscriptions(user))
 
     # Check if user is active to determine if they can manage membership
     user_is_active = user.state == :active
@@ -710,6 +821,22 @@ defmodule YscWeb.UserSettingsLive do
         to_form(%{"membership_type" => default_select(family_plan_active?)})
       )
       |> assign(:trigger_submit, false)
+
+    socket =
+      if live_action == :payments do
+        per_page = 20
+        {payments, total_count} = Ledgers.list_user_payments_paginated(user.id, 1, per_page)
+        total_pages = div(total_count + per_page - 1, per_page)
+
+        socket
+        |> assign(:payments_page, 1)
+        |> assign(:payments_per_page, per_page)
+        |> assign(:payments_total, total_count)
+        |> assign(:payments_total_pages, total_pages)
+        |> assign(:payments, payments)
+      else
+        socket
+      end
 
     {:ok, socket}
   end
@@ -890,7 +1017,10 @@ defmodule YscWeb.UserSettingsLive do
           assigns.active_plan_type !=
             membership_atom
 
-      {:noreply, socket |> assign(change_membership_button: change_membership_button)}
+      {:noreply,
+       socket
+       |> assign(change_membership_button: change_membership_button)
+       |> assign(:membership_form, to_form(%{"membership_type" => membership_type}))}
     end
   end
 
@@ -1166,8 +1296,7 @@ defmodule YscWeb.UserSettingsLive do
       {:noreply,
        put_flash(socket, :error, "You must have an approved account to cancel your membership.")}
     else
-      # TODO: Implement membership cancellation logic
-      IO.inspect(socket.assigns.current_membership)
+      # Schedule cancellation at end of current period in Stripe and persist locally
       Subscriptions.cancel(socket.assigns.current_membership)
 
       {:noreply,
@@ -1189,7 +1318,39 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
-  def handle_event("change-membership", _params, socket) do
+  def handle_event("next-payments-page", _, socket) do
+    current_page = socket.assigns.payments_page
+    total_pages = socket.assigns.payments_total_pages
+
+    if current_page < total_pages do
+      {:noreply, paginate_payments(socket, current_page + 1)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("prev-payments-page", _, socket) do
+    current_page = socket.assigns.payments_page
+
+    if current_page > 1 do
+      {:noreply, paginate_payments(socket, current_page - 1)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp paginate_payments(socket, new_page) when new_page >= 1 do
+    %{payments_per_page: per_page, payments_total: total_count, user: user} = socket.assigns
+    {payments, _total_count} = Ledgers.list_user_payments_paginated(user.id, new_page, per_page)
+    total_pages = div(total_count + per_page - 1, per_page)
+
+    socket
+    |> assign(:payments_page, new_page)
+    |> assign(:payments_total_pages, total_pages)
+    |> assign(:payments, payments)
+  end
+
+  def handle_event("change-membership", params, socket) do
     user = socket.assigns.user
 
     if user.state != :active do
@@ -1200,13 +1361,78 @@ defmodule YscWeb.UserSettingsLive do
          "You must have an approved account to change your membership plan."
        )}
     else
-      Subscriptions.change_prices(socket.assigns.current_membership,
-        prices: [{get_price_id(socket.assigns.membership_form.params["membership_type"]), 1}]
-      )
+      current_membership = socket.assigns.current_membership
 
-      {:noreply,
-       put_flash(socket, :info, "Your membership plan has been changed.")
-       |> redirect(to: ~p"/users/membership")}
+      new_type =
+        params["membership_type"] || socket.assigns.membership_form.params["membership_type"]
+
+      cond do
+        is_nil(new_type) or new_type == "" ->
+          {:noreply, put_flash(socket, :error, "Please select a membership type first.")}
+
+        is_nil(current_membership) ->
+          {:noreply, put_flash(socket, :error, "You do not have an active membership to change.")}
+
+        true ->
+          # Determine current and new plan info
+          current_type = get_membership_plan(current_membership)
+          new_atom = String.to_existing_atom(new_type)
+
+          if current_type == new_atom do
+            {:noreply, put_flash(socket, :info, "You are already on that plan.")}
+          else
+            plans = Application.get_env(:ysc, :membership_plans)
+            current_plan = Enum.find(plans, &(&1.id == current_type))
+            new_plan = Enum.find(plans, &(&1.id == new_atom))
+
+            new_price_id = new_plan[:stripe_price_id]
+
+            direction = if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
+
+            case Subscriptions.change_membership_plan(current_membership, new_price_id, direction) do
+              {:ok, _} ->
+                # Optimistically update UI to reflect new plan immediately
+                updated_membership =
+                  case current_membership.subscription_items do
+                    [first | rest] ->
+                      updated_first = %{first | stripe_price_id: new_price_id}
+                      %{current_membership | subscription_items: [updated_first | rest]}
+
+                    _ ->
+                      current_membership
+                  end
+
+                {:noreply,
+                 socket
+                 |> assign(:current_membership, updated_membership)
+                 |> assign(:active_plan_type, new_atom)
+                 |> assign(:change_membership_button, false)
+                 |> assign(
+                   :membership_form,
+                   to_form(%{"membership_type" => Atom.to_string(new_atom)})
+                 )
+                 |> put_flash(:info, "Your membership plan has been changed.")
+                 |> redirect(to: ~p"/users/membership")}
+
+              {:scheduled, _schedule} ->
+                {:noreply,
+                 put_flash(
+                   socket,
+                   :info,
+                   "Your membership plan will switch at your next renewal."
+                 )
+                 |> redirect(to: ~p"/users/membership")}
+
+              {:error, reason} ->
+                {:noreply,
+                 put_flash(
+                   socket,
+                   :error,
+                   "Failed to change membership: #{inspect(reason)}"
+                 )}
+            end
+          end
+      end
     end
   end
 
@@ -1353,6 +1579,28 @@ defmodule YscWeb.UserSettingsLive do
       {:error, error} -> {:error, error}
     end
   end
+
+  # Helper function to format ticket tiers for display
+  defp format_ticket_tiers(tickets) when is_list(tickets) and length(tickets) > 0 do
+    tickets
+    |> Enum.group_by(fn ticket ->
+      if ticket.ticket_tier && ticket.ticket_tier.id do
+        ticket.ticket_tier.id
+      else
+        nil
+      end
+    end)
+    |> Enum.map(fn {_tier_id, tier_tickets} ->
+      count = length(tier_tickets)
+      # Get tier name from first ticket's tier
+      tier = hd(tier_tickets).ticket_tier
+      tier_name = if tier && tier.name, do: tier.name, else: "Unknown Tier"
+      "#{count}x #{tier_name}"
+    end)
+    |> Enum.join(", ")
+  end
+
+  defp format_ticket_tiers(_), do: ""
 
   # Helper function to safely fetch user invoices
 end

@@ -13,30 +13,83 @@ defmodule Ysc.Messages do
   end
 
   def run_send_message_idempotent(email, attrs) do
-    Ecto.Multi.new()
-    |> Ecto.Multi.insert(
-      :message_idempotency,
-      MessageIdempotency.changeset(%MessageIdempotency{}, attrs)
+    require Logger
+
+    Logger.debug("run_send_message_idempotent called",
+      recipient: email.to,
+      idempotency_key: attrs[:idempotency_key],
+      message_template: attrs[:message_template]
     )
-    |> Ecto.Multi.run(:send_email, fn repo, _result ->
-      case Mailer.deliver(email) do
-        {:ok, _metadata} ->
-          {:ok, email}
 
-        _ ->
-          repo.rollback({:error, "failed to send email"})
-          {:error, "failed to send email"}
-      end
-    end)
-    |> Repo.transaction()
-    |> case do
+    result =
+      Ecto.Multi.new()
+      |> Ecto.Multi.insert(
+        :message_idempotency,
+        MessageIdempotency.changeset(%MessageIdempotency{}, attrs)
+      )
+      |> Ecto.Multi.run(:send_email, fn repo, _result ->
+        Logger.debug("Sending email via Mailer.deliver",
+          recipient: email.to,
+          idempotency_key: attrs[:idempotency_key]
+        )
+
+        case Mailer.deliver(email) do
+          {:ok, _metadata} ->
+            Logger.debug("Mailer.deliver succeeded",
+              recipient: email.to,
+              idempotency_key: attrs[:idempotency_key]
+            )
+
+            {:ok, email}
+
+          error ->
+            Logger.error("Mailer.deliver failed",
+              recipient: email.to,
+              idempotency_key: attrs[:idempotency_key],
+              error: inspect(error)
+            )
+
+            repo.rollback({:error, "failed to send email"})
+            {:error, "failed to send email"}
+        end
+      end)
+      |> Repo.transaction()
+
+    case result do
       {:ok, %{send_email: email}} ->
+        Logger.debug("Email transaction succeeded",
+          recipient: email.to,
+          idempotency_key: attrs[:idempotency_key]
+        )
+
         {:ok, email}
 
-      {:error, :message_idempotency, _, _} ->
+      {:error, :message_idempotency, changeset, _} ->
+        Logger.info("Duplicate message detected (idempotency), treating as success",
+          recipient: email.to,
+          idempotency_key: attrs[:idempotency_key],
+          errors: inspect(changeset.errors)
+        )
+
         {:ok, email}
 
-      _ ->
+      {:error, operation, reason, _changes} ->
+        Logger.error("Email transaction failed",
+          recipient: email.to,
+          idempotency_key: attrs[:idempotency_key],
+          operation: operation,
+          reason: inspect(reason)
+        )
+
+        {:error, "failed to send email"}
+
+      error ->
+        Logger.error("Email transaction failed with unexpected error",
+          recipient: email.to,
+          idempotency_key: attrs[:idempotency_key],
+          error: inspect(error)
+        )
+
         {:error, "failed to send email"}
     end
   end

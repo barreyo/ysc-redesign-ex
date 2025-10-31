@@ -420,13 +420,15 @@ defmodule YscWeb.EventDetailsLive do
               <% is_event_at_capacity = is_event_at_capacity?(@event) %>
               <% is_sold_out = available == 0 || is_event_at_capacity %>
               <% is_on_sale = is_tier_on_sale?(ticket_tier) %>
+              <% is_sale_ended = is_tier_sale_ended?(ticket_tier) %>
               <% days_until_sale = days_until_sale_starts(ticket_tier) %>
-              <% is_pre_sale = not is_on_sale %>
+              <% is_pre_sale = not is_on_sale && !is_sale_ended %>
               <% has_selected_tickets = get_ticket_quantity(@selected_tickets, ticket_tier.id) > 0 %>
               <div class={[
                 "border rounded-lg p-6 transition-all duration-200",
                 cond do
                   is_sold_out -> "border-zinc-200 bg-zinc-50 opacity-60"
+                  is_sale_ended -> "border-zinc-200 bg-zinc-50 opacity-60"
                   is_pre_sale -> "border-zinc-200 bg-zinc-50 opacity-70"
                   has_selected_tickets -> "border-blue-500 bg-blue-50"
                   true -> "border-zinc-200 bg-white"
@@ -459,11 +461,14 @@ defmodule YscWeb.EventDetailsLive do
                       "text-base text-sm",
                       cond do
                         is_sold_out -> "text-red-500 font-semibold"
+                        is_sale_ended -> "text-red-500 font-semibold"
                         is_pre_sale -> "text-blue-500 font-semibold"
                         true -> "text-zinc-500"
                       end
                     ]}>
                       <%= cond do %>
+                        <% is_sale_ended -> %>
+                          Sale ended
                         <% is_pre_sale -> %>
                           Sale starts in <%= days_until_sale %> <%= if days_until_sale == 1,
                             do: "day",
@@ -489,7 +494,7 @@ defmodule YscWeb.EventDetailsLive do
                       class={[
                         "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
                         if(
-                          is_sold_out or is_pre_sale or
+                          is_sold_out or is_sale_ended or is_pre_sale or
                             get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0
                         ) do
                           "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
@@ -498,7 +503,7 @@ defmodule YscWeb.EventDetailsLive do
                         end
                       ]}
                       disabled={
-                        is_sold_out or is_pre_sale or
+                        is_sold_out or is_sale_ended or is_pre_sale or
                           get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0
                       }
                     >
@@ -506,7 +511,10 @@ defmodule YscWeb.EventDetailsLive do
                     </button>
                     <span class={[
                       "w-12 text-center font-medium text-lg",
-                      if(is_sold_out or is_pre_sale, do: "text-zinc-400", else: "text-zinc-900")
+                      if(is_sold_out or is_sale_ended or is_pre_sale,
+                        do: "text-zinc-400",
+                        else: "text-zinc-900"
+                      )
                     ]}>
                       <%= get_ticket_quantity(@selected_tickets, ticket_tier.id) %>
                     </span>
@@ -516,7 +524,7 @@ defmodule YscWeb.EventDetailsLive do
                       class={[
                         "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-200 font-semibold",
                         if(
-                          is_sold_out or is_pre_sale or
+                          is_sold_out or is_sale_ended or is_pre_sale or
                             !can_increase_quantity?(
                               ticket_tier,
                               get_ticket_quantity(@selected_tickets, ticket_tier.id),
@@ -530,7 +538,7 @@ defmodule YscWeb.EventDetailsLive do
                         end
                       ]}
                       disabled={
-                        is_sold_out or is_pre_sale or
+                        is_sold_out or is_sale_ended or is_pre_sale or
                           !can_increase_quantity?(
                             ticket_tier,
                             get_ticket_quantity(@selected_tickets, ticket_tier.id),
@@ -551,6 +559,13 @@ defmodule YscWeb.EventDetailsLive do
                   </p>
                 </div>
 
+                <div :if={is_sale_ended} class="mt-2">
+                  <p class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
+                    <.icon name="hero-x-circle" class="w-4 h-4 inline me-1" />
+                    Sale ended on <%= Timex.format!(ticket_tier.end_date, "{Mshort} {D}, {YYYY}") %>
+                  </p>
+                </div>
+
                 <div :if={is_sold_out} class="mt-2">
                   <p class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
                     <.icon name="hero-x-circle" class="w-4 h-4 inline me-1" />
@@ -560,7 +575,7 @@ defmodule YscWeb.EventDetailsLive do
 
                 <div
                   :if={
-                    !is_sold_out && !is_pre_sale && available != :unlimited &&
+                    !is_sold_out && !is_pre_sale && !is_sale_ended && available != :unlimited &&
                       get_ticket_quantity(@selected_tickets, ticket_tier.id) >= available
                   }
                   class="mt-2"
@@ -573,7 +588,7 @@ defmodule YscWeb.EventDetailsLive do
 
                 <div
                   :if={
-                    !is_sold_out && !is_pre_sale && @event.max_attendees &&
+                    !is_sold_out && !is_pre_sale && !is_sale_ended && @event.max_attendees &&
                       calculate_total_selected_tickets(@selected_tickets) >= @event.max_attendees
                   }
                   class="mt-2"
@@ -1730,19 +1745,22 @@ defmodule YscWeb.EventDetailsLive do
   defp get_ticket_tiers(event_id) do
     Events.list_ticket_tiers_for_event(event_id)
     |> Enum.sort_by(fn tier ->
-      # Sort by status: available tiers first, then pre-sale tiers, then sold-out tiers
+      # Sort by status: available tiers first, then pre-sale tiers, then sold-out/ended tiers
       available = get_available_quantity(tier)
       on_sale = is_tier_on_sale?(tier)
+      sale_ended = is_tier_sale_ended?(tier)
 
       cond do
         # Available tiers
         on_sale and available > 0 -> {0, tier.inserted_at}
         # Pre-sale tiers
-        not on_sale -> {1, tier.inserted_at}
+        not on_sale and not sale_ended -> {1, tier.inserted_at}
+        # Sale-ended tiers
+        sale_ended -> {2, tier.inserted_at}
         # Sold-out tiers
-        on_sale and available == 0 -> {2, tier.inserted_at}
+        on_sale and available == 0 -> {3, tier.inserted_at}
         # Fallback
-        true -> {3, tier.inserted_at}
+        true -> {4, tier.inserted_at}
       end
     end)
   end
@@ -1786,10 +1804,31 @@ defmodule YscWeb.EventDetailsLive do
   defp is_tier_on_sale?(ticket_tier) do
     now = DateTime.utc_now()
 
-    case ticket_tier.start_date do
-      # No start date means always on sale
-      nil -> true
-      start_date -> DateTime.compare(now, start_date) != :lt
+    # Check if sale has started
+    sale_started =
+      case ticket_tier.start_date do
+        # No start date means sale has started
+        nil -> true
+        start_date -> DateTime.compare(now, start_date) != :lt
+      end
+
+    # Check if sale has ended
+    sale_ended =
+      case ticket_tier.end_date do
+        # No end date means sale hasn't ended
+        nil -> false
+        end_date -> DateTime.compare(now, end_date) == :gt
+      end
+
+    sale_started && !sale_ended
+  end
+
+  defp is_tier_sale_ended?(ticket_tier) do
+    now = DateTime.utc_now()
+
+    case ticket_tier.end_date do
+      nil -> false
+      end_date -> DateTime.compare(now, end_date) == :gt
     end
   end
 
@@ -1803,8 +1842,12 @@ defmodule YscWeb.EventDetailsLive do
         now = DateTime.utc_now()
 
         if DateTime.compare(now, start_date) == :lt do
-          # Calculate days difference
-          diff = DateTime.diff(start_date, now, :day)
+          # Convert to dates and calculate calendar day difference
+          start_date_only = DateTime.to_date(start_date)
+          now_date_only = DateTime.to_date(now)
+
+          # Calculate days difference using calendar days
+          diff = Date.diff(start_date_only, now_date_only)
           max(0, diff)
         else
           # Already on sale

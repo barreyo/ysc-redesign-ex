@@ -2,20 +2,72 @@ defmodule YscWeb.Workers.EmailNotifier do
   require Logger
   use Oban.Worker, queue: :mailers, max_attempts: 3
 
-  def perform(
-        %Oban.Job{
-          args:
-            %{
-              "recipient" => recipient,
-              "idempotency_key" => idempotency_key,
-              "subject" => subject,
-              "template" => template,
-              "params" => params,
-              "text_body" => text_body,
-              "user_id" => user_id
-            } = _args
-        } = job
-      ) do
+  @impl Oban.Worker
+  def perform(%Oban.Job{} = job) do
+    template = get_in(job.args, ["template"])
+    recipient = get_in(job.args, ["recipient"])
+
+    # Log immediately - this should ALWAYS appear if the function is called
+    Logger.info("EmailNotifier.perform called - JOB RECEIVED",
+      job_id: job.id,
+      worker: inspect(job.worker),
+      queue: job.queue,
+      template: template,
+      recipient: recipient,
+      state: job.state,
+      attempt: job.attempt
+    )
+
+    case job.args do
+      %{
+        "recipient" => recipient,
+        "idempotency_key" => idempotency_key,
+        "subject" => subject,
+        "template" => template,
+        "params" => params,
+        "text_body" => text_body,
+        "user_id" => user_id
+      } ->
+        perform_with_args(
+          job,
+          recipient,
+          idempotency_key,
+          subject,
+          template,
+          params,
+          text_body,
+          user_id
+        )
+
+      args ->
+        Logger.error("EmailNotifier job received invalid args",
+          job_id: job.id,
+          args: args,
+          expected_keys: [
+            "recipient",
+            "idempotency_key",
+            "subject",
+            "template",
+            "params",
+            "text_body",
+            "user_id"
+          ]
+        )
+
+        {:error, "Invalid job args: missing required fields"}
+    end
+  end
+
+  defp perform_with_args(
+         job,
+         recipient,
+         idempotency_key,
+         subject,
+         template,
+         params,
+         text_body,
+         user_id
+       ) do
     Logger.info("EmailNotifier job started",
       job_id: job.id,
       recipient: recipient,

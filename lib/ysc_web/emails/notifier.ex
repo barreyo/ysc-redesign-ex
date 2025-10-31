@@ -14,10 +14,14 @@ defmodule YscWeb.Emails.Notifier do
     "admin_application_submitted" => YscWeb.Emails.AdminApplicationSubmitted,
     "conduct_violation_confirmation" => YscWeb.Emails.ConductViolationConfirmation,
     "conduct_violation_board_notification" => YscWeb.Emails.ConductViolationBoardNotification,
-    "ticket_purchase_confirmation" => YscWeb.Emails.TicketPurchaseConfirmation
+    "ticket_purchase_confirmation" => YscWeb.Emails.TicketPurchaseConfirmation,
+    "volunteer_confirmation" => YscWeb.Emails.VolunteerConfirmation,
+    "volunteer_board_notification" => YscWeb.Emails.VolunteerBoardNotification
   }
 
   def schedule_email(recipient, idempotency_key, subject, template, variables, text_body, user_id) do
+    require Logger
+
     job =
       %{
         recipient: recipient,
@@ -31,8 +35,25 @@ defmodule YscWeb.Emails.Notifier do
       |> YscWeb.Workers.EmailNotifier.new()
 
     case Oban.insert(job) do
-      {:ok, %Oban.Job{} = inserted_job} -> inserted_job
-      {:error, _reason} = error -> error
+      {:ok, %Oban.Job{} = inserted_job} ->
+        Logger.debug("Email job inserted successfully",
+          job_id: inserted_job.id,
+          recipient: recipient,
+          template: template,
+          idempotency_key: idempotency_key
+        )
+
+        inserted_job
+
+      {:error, reason} = error ->
+        Logger.error("Failed to insert email job",
+          recipient: recipient,
+          template: template,
+          idempotency_key: idempotency_key,
+          error: inspect(reason)
+        )
+
+        error
     end
   end
 

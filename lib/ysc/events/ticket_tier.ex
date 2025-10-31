@@ -54,6 +54,7 @@ defmodule Ysc.Events.TicketTier do
       :type,
       :event_id
     ])
+    |> enforce_free_price()
     |> validate_required_price()
     |> validate_quantity()
     |> validate_datetime_order()
@@ -73,6 +74,15 @@ defmodule Ysc.Events.TicketTier do
       {"free", _} -> changeset
       {_, nil} -> add_error(changeset, :price, "is required for paid and donation tickets")
       {_, ""} -> add_error(changeset, :price, "is required for paid and donation tickets")
+      _ -> changeset
+    end
+  end
+
+  # Ensure FREE ticket tiers always have price set to 0 USD
+  defp enforce_free_price(changeset) do
+    case get_field(changeset, :type) do
+      :free -> put_change(changeset, :price, Money.new(0, :USD))
+      "free" -> put_change(changeset, :price, Money.new(0, :USD))
       _ -> changeset
     end
   end

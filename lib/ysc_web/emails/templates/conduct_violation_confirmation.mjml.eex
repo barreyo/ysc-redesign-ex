@@ -37,7 +37,7 @@
       <strong>Report Summary:</strong>
     </mj-text>
     <mj-spacer height="8px"></mj-spacer>
-    <mj-text align="left" font-size="16px" line-height="1.5" padding="0px" background-color="#f8f9fa" border-radius="4px" padding="16px">
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px" background-color="#f8f9fa" border-radius="4px" padding="16px">
       <%= @summary %>
     </mj-text>
     <mj-spacer height="24px"></mj-spacer>
@@ -73,8 +73,9 @@
       Thank you again for your report.
     </mj-text>
     <mj-spacer height="24px"></mj-spacer>
-    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
-      Best regards,<br/>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">Best regards</mj-text>
+    <mj-spacer height="18px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px" color="#666">
       The Young Scandinavians Club Board of Directors
     </mj-text>
     <mj-spacer height="12px"></mj-spacer>

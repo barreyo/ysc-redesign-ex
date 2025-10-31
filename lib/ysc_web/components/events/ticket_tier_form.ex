@@ -116,8 +116,8 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
 
           TicketTier.changeset(ticket_tier, attrs)
         else
-          # Creating new ticket tier
-          TicketTier.changeset(%TicketTier{}, %{unlimited_quantity: false})
+          # Creating new ticket tier - default to free so price starts hidden
+          TicketTier.changeset(%TicketTier{}, %{unlimited_quantity: false, type: :free})
         end
       end
 

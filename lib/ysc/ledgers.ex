@@ -648,6 +648,96 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
+  Gets paginated payments for a user with ticket order and membership information.
+  Returns payments ordered by payment_date descending.
+  """
+  def list_user_payments_paginated(user_id, page \\ 1, per_page \\ 20) do
+    offset = (page - 1) * per_page
+
+    payments =
+      from(p in Payment,
+        where: p.user_id == ^user_id,
+        preload: [:payment_method],
+        order_by: [desc: p.payment_date],
+        limit: ^per_page,
+        offset: ^offset
+      )
+      |> Repo.all()
+      |> Enum.map(&enrich_payment_with_details/1)
+
+    total_count =
+      from(p in Payment,
+        where: p.user_id == ^user_id,
+        select: count()
+      )
+      |> Repo.one()
+
+    {payments, total_count}
+  end
+
+  defp enrich_payment_with_details(payment) do
+    # Get the revenue ledger entry to determine payment type
+    revenue_entry = get_revenue_entry_for_payment(payment.id)
+    entity_type = if revenue_entry, do: revenue_entry.related_entity_type, else: nil
+
+    # Get ticket order if this is an event payment
+    ticket_order =
+      if entity_type == :event do
+        case from(to in Ysc.Tickets.TicketOrder,
+               where: to.payment_id == ^payment.id,
+               preload: [:event, tickets: :ticket_tier]
+             )
+             |> Repo.one() do
+          nil -> nil
+          order -> Repo.preload(order, [:event, tickets: :ticket_tier])
+        end
+      else
+        nil
+      end
+
+    payment_info = %{
+      payment: payment,
+      type: determine_payment_type(entity_type),
+      ticket_order: ticket_order,
+      event: if(ticket_order, do: ticket_order.event, else: nil),
+      description:
+        build_payment_description(%{
+          entity_type: entity_type,
+          ticket_order: ticket_order
+        })
+    }
+
+    payment_info
+  end
+
+  defp determine_payment_type(:membership), do: :membership
+  defp determine_payment_type(:event), do: :ticket
+  defp determine_payment_type(:booking), do: :booking
+  defp determine_payment_type(:donation), do: :donation
+  defp determine_payment_type(_), do: :unknown
+
+  defp build_payment_description(%{entity_type: :membership}) do
+    "Membership Payment"
+  end
+
+  defp build_payment_description(%{entity_type: :event, ticket_order: ticket_order})
+       when not is_nil(ticket_order) do
+    event = ticket_order.event
+    ticket_count = length(ticket_order.tickets || [])
+    ticket_text = if ticket_count == 1, do: "ticket", else: "tickets"
+
+    if event do
+      "#{event.title} - #{ticket_count} #{ticket_text}"
+    else
+      "Event Tickets - #{ticket_count} #{ticket_text}"
+    end
+  end
+
+  defp build_payment_description(%{entity_type: :booking}), do: "Cabin Booking"
+  defp build_payment_description(%{entity_type: :donation}), do: "Donation"
+  defp build_payment_description(_), do: "Payment"
+
+  @doc """
   Gets account balance for a specific account.
   """
   def get_account_balance(account_id) do

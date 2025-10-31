@@ -25,21 +25,20 @@ defmodule YscWeb.NewsLive do
             navigate={~p"/posts/#{@featured.url_name}"}
             class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
           >
-            <div class="relative max-h-[112rem]">
+            <div class="relative w-full aspect-video">
               <canvas
                 id={"blur-hash-image-#{@featured.id}"}
                 src={get_blur_hash(@featured.featured_image)}
-                class="absolute left-0 top-0 rounded-lg w-full h-full max-h-[112rem] object-center"
+                class="absolute inset-0 rounded-lg w-full h-full object-cover"
                 phx-hook="BlurHashCanvas"
               >
               </canvas>
-
               <img
                 src={featured_image_url(@featured.featured_image)}
                 id={"image-#{@featured.id}"}
-                loading="lazy"
                 phx-hook="BlurHashImage"
-                class="object-cover rounded-lg w-full object-center h-full max-h-[112rem]"
+                class="absolute inset-0 object-cover rounded-lg w-full h-full"
+                loading="eager"
               />
             </div>
           </.link>
@@ -47,7 +46,7 @@ defmodule YscWeb.NewsLive do
           <%!-- <div class="w-full bg-gradient-to-t opacity-50 from-white to-zinc-900 h-80 absolute bottom-0">
           </div> --%>
 
-          <div class="py-4 md:py-6 px-2 md:px-8 max-w-screen-lg mx-auto flex flex-col justify-between w-full md:absolute md:bottom-0 md:left-0 md:right-0 md:translate-y-44 z-10 bg-white rounded-lg">
+          <div class="py-4 md:py-6 px-2 md:px-6 max-w-screen-lg mx-auto flex flex-col justify-between w-full md:absolute md:bottom-0 md:left-0 md:right-0 md:translate-y-32 z-10 bg-white rounded">
             <div>
               <div class="flex items-center gap-1 mb-2">
                 <.badge type="yellow">

@@ -9,7 +9,7 @@ defmodule YscWeb.EventsLive do
     <div class="py-8 lg:py-10">
       <div class="max-w-screen-lg mx-auto flex flex-col px-4 space-y-6">
         <div class="prose prose-zinc">
-          <h1>Latest Events</h1>
+          <h1>Upcoming Events</h1>
           <p>
             Explore our upcoming events! New events are added regularly, so be sure to visit often and stay updated.
           </p>
