@@ -375,6 +375,26 @@ defmodule Ysc.Events do
   end
 
   @doc """
+  Get upcoming events with ticket tier counts for admin dashboard.
+  """
+  def get_upcoming_events_with_ticket_tier_counts() do
+    now = DateTime.utc_now()
+
+    events =
+      Repo.all(
+        from e in Event,
+          where: e.start_date > ^now,
+          where: e.state == :published,
+          order_by: [asc: e.start_date]
+      )
+
+    Enum.map(events, fn event ->
+      tiers = list_ticket_tiers_for_event(event.id)
+      %{event: event, ticket_tiers: tiers}
+    end)
+  end
+
+  @doc """
   Get a ticket tier by ID.
   """
   def get_ticket_tier!(id) do

@@ -221,6 +221,19 @@ defmodule Ysc.Accounts do
     |> Repo.all()
   end
 
+  @doc """
+  Gets all users that have signed up and need their application reviewed.
+  These are users with pending_approval state.
+  """
+  def get_pending_approval_users() do
+    Repo.all(
+      from u in User,
+        where: u.state == :pending_approval,
+        preload: [:registration_form],
+        order_by: [asc: u.inserted_at]
+    )
+  end
+
   def list_paginated_users(params) do
     # Extract membership_type filter if present
     {membership_filters, other_params} = extract_membership_filters(params)

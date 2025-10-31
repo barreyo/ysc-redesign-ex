@@ -106,6 +106,21 @@ defmodule Ysc.Posts do
     |> Repo.preload(preloads)
   end
 
+  @doc """
+  Gets the latest comments across all posts with author and post information.
+  """
+  def get_latest_comments(limit \\ 5) do
+    Repo.all(
+      from c in Comment,
+        join: p in Post,
+        on: c.post_id == p.id,
+        where: p.state == :published,
+        preload: [:author, post: [:author]],
+        order_by: [{:desc, c.inserted_at}],
+        limit: ^limit
+    )
+  end
+
   def sort_comments_for_render(comments) do
     replies =
       Enum.reduce(comments, %{}, fn entry, acc ->
