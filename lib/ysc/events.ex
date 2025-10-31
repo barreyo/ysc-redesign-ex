@@ -5,6 +5,7 @@ defmodule Ysc.Events do
   alias Ysc.Events.Event
   alias Ysc.Events.TicketTier
   alias Ysc.Events.Ticket
+  alias Ysc.Events.TicketDetail
 
   def subscribe() do
     Phoenix.PubSub.subscribe(Ysc.PubSub, topic())
@@ -186,8 +187,12 @@ defmodule Ysc.Events do
     # Check if there are any free tiers (handle both atom and string types)
     has_free_tiers = Enum.any?(ticket_tiers, &(&1.type == :free or &1.type == "free"))
 
-    # Get the lowest price from paid tiers (handle both atom and string types)
-    paid_tiers = Enum.filter(ticket_tiers, &(&1.type in [:paid, :donation, "paid", "donation"]))
+    # Get the lowest price from paid tiers only (exclude donation tiers)
+    # Filter out donation, free, and tiers with nil prices
+    paid_tiers =
+      Enum.filter(ticket_tiers, fn tier ->
+        (tier.type == :paid or tier.type == "paid") && tier.price != nil
+      end)
 
     case {has_free_tiers, paid_tiers} do
       {true, []} ->
@@ -618,6 +623,40 @@ defmodule Ysc.Events do
     |> preload([event: e, ticket_tier: tt], event: e, ticket_tier: tt)
     |> order_by([event: e], asc: e.start_date)
     |> Repo.all()
+  end
+
+  @doc """
+  Create a ticket detail for a ticket.
+  """
+  def create_ticket_detail(attrs \\ %{}) do
+    %TicketDetail{}
+    |> TicketDetail.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Create multiple ticket details for a list of tickets.
+  Returns {:ok, list} on success, {:error, reason} on failure.
+  """
+  def create_ticket_details(ticket_details_list) when is_list(ticket_details_list) do
+    Repo.transaction(fn ->
+      ticket_details_list
+      |> Enum.map(fn attrs ->
+        case %TicketDetail{}
+             |> TicketDetail.changeset(attrs)
+             |> Repo.insert() do
+          {:ok, ticket_detail} -> ticket_detail
+          {:error, changeset} -> Repo.rollback(changeset)
+        end
+      end)
+    end)
+  end
+
+  @doc """
+  Get ticket detail for a ticket.
+  """
+  def get_ticket_detail_for_ticket(ticket_id) do
+    Repo.get_by(TicketDetail, ticket_id: ticket_id)
   end
 
   defp broadcast(event) do

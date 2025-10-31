@@ -384,7 +384,11 @@ defmodule YscWeb.HomeLive do
         0
 
       _ ->
-        diff = DateTime.diff(event_datetime, now, :day)
+        # Calculate days difference using calendar days, not 24-hour periods
+        # This ensures that an event tomorrow shows as "1 day left" even if it's less than 24 hours away
+        event_date_only = DateTime.to_date(event_datetime)
+        now_date_only = DateTime.to_date(now)
+        diff = Date.diff(event_date_only, now_date_only)
         max(0, diff)
     end
   end

@@ -125,6 +125,109 @@ defmodule YscWeb.EventsListLive do
   end
 
   defp is_event_sold_out?(event) do
-    Tickets.is_event_at_capacity?(event)
+    # Get event ID (handle both structs and maps)
+    event_id = Map.get(event, :id) || Map.get(event, "id")
+
+    # Get all ticket tiers for the event
+    ticket_tiers = Events.list_ticket_tiers_for_event(event_id)
+
+    # Filter out donation tiers - donations don't count toward "sold out" status
+    non_donation_tiers =
+      Enum.filter(ticket_tiers, fn tier ->
+        tier_type = Map.get(tier, :type) || Map.get(tier, "type")
+        tier_type != "donation" && tier_type != :donation
+      end)
+
+    # If there are no non-donation tiers, event is not sold out
+    if Enum.empty?(non_donation_tiers) do
+      false
+    else
+      # Filter out pre-sale tiers (tiers that haven't started selling yet)
+      # We want to check tiers that are on sale OR have ended their sale
+      relevant_tiers =
+        Enum.filter(non_donation_tiers, fn tier ->
+          # Include tiers that are on sale OR have ended their sale
+          # Exclude tiers that haven't started their sale yet (pre-sale)
+          is_tier_on_sale?(tier) || is_tier_sale_ended?(tier)
+        end)
+
+      # If there are no relevant tiers (all are pre-sale), event is not sold out
+      if Enum.empty?(relevant_tiers) do
+        false
+      else
+        # Check if all relevant non-donation tiers are sold out
+        # A tier is sold out if available == 0 (unlimited tiers never count as sold out)
+        all_tiers_sold_out =
+          Enum.all?(relevant_tiers, fn tier ->
+            available = get_available_quantity(tier)
+            available == 0
+          end)
+
+        # Also check event capacity if max_attendees is set
+        # (Note: This includes all tickets including donations, but if capacity is reached,
+        #  all regular tickets are effectively sold out even if some tiers show availability)
+        event_at_capacity =
+          case Map.get(event, :max_attendees) || Map.get(event, "max_attendees") do
+            nil -> false
+            _ -> Tickets.is_event_at_capacity?(event)
+          end
+
+        all_tiers_sold_out || event_at_capacity
+      end
+    end
+  end
+
+  defp is_tier_on_sale?(ticket_tier) do
+    now = DateTime.utc_now()
+
+    start_date = Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
+    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+
+    # Check if sale has started
+    sale_started =
+      case start_date do
+        nil -> true
+        sd -> DateTime.compare(now, sd) != :lt
+      end
+
+    # Check if sale has ended
+    sale_ended =
+      case end_date do
+        nil -> false
+        ed -> DateTime.compare(now, ed) == :gt
+      end
+
+    sale_started && !sale_ended
+  end
+
+  defp is_tier_sale_ended?(ticket_tier) do
+    now = DateTime.utc_now()
+
+    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+
+    case end_date do
+      nil -> false
+      ed -> DateTime.compare(now, ed) == :gt
+    end
+  end
+
+  defp get_available_quantity(ticket_tier) do
+    quantity = Map.get(ticket_tier, :quantity) || Map.get(ticket_tier, "quantity")
+
+    sold_count =
+      Map.get(ticket_tier, :sold_tickets_count) || Map.get(ticket_tier, "sold_tickets_count") || 0
+
+    case quantity do
+      # Unlimited
+      nil ->
+        :unlimited
+
+      0 ->
+        :unlimited
+
+      qty ->
+        available = qty - sold_count
+        max(0, available)
+    end
   end
 end

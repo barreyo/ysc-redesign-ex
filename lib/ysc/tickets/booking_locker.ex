@@ -216,15 +216,38 @@ defmodule Ysc.Tickets.BookingLocker do
   defp calculate_total_amount(tiers, ticket_selections) do
     total =
       ticket_selections
-      |> Enum.reduce(Money.new(0, :USD), fn {tier_id, quantity}, acc ->
+      |> Enum.reduce(Money.new(0, :USD), fn {tier_id, amount_or_quantity}, acc ->
         tier = Enum.find(tiers, &(&1.id == tier_id))
 
         case tier.type do
           :free ->
             acc
 
+          :donation ->
+            # For donations, amount_or_quantity is already in cents
+            # Convert cents to dollars Decimal, then create Money
+            dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
+            donation_amount = Money.new(:USD, dollars_decimal)
+
+            case Money.add(acc, donation_amount) do
+              {:ok, new_total} -> new_total
+              {:error, _} -> acc
+            end
+
+          "donation" ->
+            # For donations, amount_or_quantity is already in cents
+            # Convert cents to dollars Decimal, then create Money
+            dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
+            donation_amount = Money.new(:USD, dollars_decimal)
+
+            case Money.add(acc, donation_amount) do
+              {:ok, new_total} -> new_total
+              {:error, _} -> acc
+            end
+
           _ ->
-            case Money.mult(tier.price, quantity) do
+            # For regular paid tiers, multiply price by quantity
+            case Money.mult(tier.price, amount_or_quantity) do
               {:ok, tier_total} ->
                 case Money.add(acc, tier_total) do
                   {:ok, new_total} -> new_total
@@ -264,10 +287,19 @@ defmodule Ysc.Tickets.BookingLocker do
   defp create_tickets_atomic(ticket_order, tiers, ticket_selections) do
     tickets =
       ticket_selections
-      |> Enum.flat_map(fn {tier_id, quantity} ->
-        _tier = Enum.find(tiers, &(&1.id == tier_id))
+      |> Enum.flat_map(fn {tier_id, amount_or_quantity} ->
+        tier = Enum.find(tiers, &(&1.id == tier_id))
 
-        Enum.map(1..quantity, fn _ ->
+        # For donation tiers, always create 1 ticket regardless of amount
+        # For other tiers, create tickets equal to quantity
+        ticket_count =
+          case tier.type do
+            :donation -> 1
+            "donation" -> 1
+            _ -> amount_or_quantity
+          end
+
+        Enum.map(1..ticket_count, fn _ ->
           %Ticket{}
           |> Ticket.changeset(%{
             event_id: ticket_order.event_id,

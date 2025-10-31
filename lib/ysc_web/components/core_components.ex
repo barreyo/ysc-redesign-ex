@@ -1384,6 +1384,17 @@ defmodule YscWeb.CoreComponents do
 
   attr :class, :string, default: nil
   attr :tooltip_text, :string, required: true
+
+  attr :max_width, :string,
+    default: "max-w-xl",
+    doc:
+      "Maximum width class (e.g., max-w-xs, max-w-sm, max-w-md, max-w-lg, max-w-xl, max-w-2xl, max-w-3xl, max-w-4xl)"
+
+  attr :text_align, :string,
+    default: "text-center",
+    values: ~w(text-left text-center text-right),
+    doc: "Text alignment for the tooltip content"
+
   slot :inner_block, required: true
 
   @spec tooltip(map()) :: Phoenix.LiveView.Rendered.t()
@@ -1394,7 +1405,11 @@ defmodule YscWeb.CoreComponents do
         <%= render_slot(@inner_block) %>
         <span
           role="tooltip"
-          class="absolute transition-opacity min-w-40 max-w-80 mt-10 mt-10 top-0 left-1/2 transform -translate-x-1/2 duration-200 opacity-0 z-50 text-xs font-medium text-zinc-100 bg-zinc-900 rounded-lg shadow-sm px-3 py-2 inline-block text-center rounded tooltip group-hover:opacity-100"
+          class={[
+            "absolute transition-opacity mt-10 top-0 left-1/2 transform -translate-x-1/2 duration-200 opacity-0 z-50 text-xs font-medium text-zinc-100 bg-zinc-900 rounded-lg shadow-sm px-4 py-2 block rounded tooltip group-hover:opacity-100 whitespace-normal",
+            @max_width,
+            @text_align
+          ]}
         >
           <%= @tooltip_text %>
         </span>
@@ -1447,23 +1462,42 @@ defmodule YscWeb.CoreComponents do
 
   # Returns a list of {type, text} tuples for badges to display
   # Handles both Event structs and maps from queries
-  defp get_event_badges(event, _sold_out, _selling_fast) when is_map(event) do
-    # Check for cancelled state (works for both structs and maps)
+  defp get_event_badges(event, sold_out, _selling_fast) when is_map(event) do
+    # Check for cancelled state first - if cancelled, only show "Cancelled" badge
     state = Map.get(event, :state) || Map.get(event, "state")
 
     if state == :cancelled or state == "cancelled" do
       [{"red", "Cancelled"}]
     else
-      get_event_badges_continue(event, _sold_out, _selling_fast)
+      # If sold out (and not cancelled), only show "Sold Out" badge
+      if sold_out do
+        [{"red", "Sold Out"}]
+      else
+        get_event_badges_continue(event, sold_out, _selling_fast)
+      end
     end
   end
 
-  defp get_event_badges(_event, true, _selling_fast) do
-    [{"red", "Sold Out"}]
+  defp get_event_badges(event, true, _selling_fast) do
+    # Check for cancelled state first - if cancelled, only show "Cancelled" badge
+    state = Map.get(event, :state) || Map.get(event, "state")
+
+    if state == :cancelled or state == "cancelled" do
+      [{"red", "Cancelled"}]
+    else
+      [{"red", "Sold Out"}]
+    end
   end
 
   defp get_event_badges(event, false, selling_fast) do
-    get_event_badges_continue(event, false, selling_fast)
+    # Check for cancelled state first - if cancelled, only show "Cancelled" badge
+    state = Map.get(event, :state) || Map.get(event, "state")
+
+    if state == :cancelled or state == "cancelled" do
+      [{"red", "Cancelled"}]
+    else
+      get_event_badges_continue(event, false, selling_fast)
+    end
   end
 
   defp get_event_badges(_, _, _), do: []

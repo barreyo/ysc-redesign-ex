@@ -2,9 +2,8 @@ defmodule YscWeb.Components.ImageUploadComponent do
   use YscWeb, :live_component
 
   alias Ysc.Media
+  alias Ysc.S3Config
   alias YscWeb.S3.SimpleS3Upload
-
-  @s3_bucket "media"
 
   @impl true
   def render(assigns) do
@@ -121,7 +120,7 @@ defmodule YscWeb.Components.ImageUploadComponent do
 
     uploaded_files =
       consume_uploaded_entries(socket, :media_uploads, fn details, _entry ->
-        raw_path = "#{details[:url]}/#{details[:key]}"
+        raw_path = S3Config.object_url(details[:key])
 
         {:ok, new_image} =
           Media.add_new_image(
@@ -152,13 +151,13 @@ defmodule YscWeb.Components.ImageUploadComponent do
     key = "public/#{entry.client_name}"
 
     config = %{
-      region: "us-west-1",
+      region: S3Config.region(),
       access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
       secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
     }
 
     {:ok, fields} =
-      SimpleS3Upload.sign_form_upload(config, @s3_bucket,
+      SimpleS3Upload.sign_form_upload(config, S3Config.bucket_name(),
         key: key,
         content_type: entry.client_type,
         max_file_size: uploads[entry.upload_config].max_file_size,
@@ -168,7 +167,7 @@ defmodule YscWeb.Components.ImageUploadComponent do
     meta = %{
       uploader: "S3",
       key: key,
-      url: "http://media.s3.localhost.localstack.cloud:4566",
+      url: S3Config.base_url(),
       fields: fields
     }
 

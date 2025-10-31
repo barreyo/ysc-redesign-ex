@@ -50,6 +50,10 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                         <%= case ticket_tier.type do %>
                           <% "free" -> %>
                             Free
+                          <% "donation" -> %>
+                            User sets amount
+                          <% :donation -> %>
+                            User sets amount
                           <% _ -> %>
                             <%= format_money_safe(ticket_tier.price) %>
                         <% end %>
@@ -350,10 +354,15 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
   defp format_date(date), do: Timex.format!(date, "{Mshort} {D}, {YYYY}")
 
-  defp format_money_safe(money) do
+  defp format_money_safe(nil), do: "—"
+  defp format_money_safe(""), do: "—"
+  defp format_money_safe(%Money{} = money) do
     case Ysc.MoneyHelper.format_money(money) do
-      {:ok, formatted} -> formatted
+      formatted when is_binary(formatted) and formatted != "" -> formatted
+      {:ok, formatted} when is_binary(formatted) -> formatted
       {:error, _} -> "Invalid amount"
+      _ -> "—"
     end
   end
+  defp format_money_safe(_), do: "—"
 end

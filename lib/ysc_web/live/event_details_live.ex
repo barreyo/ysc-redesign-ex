@@ -23,6 +23,14 @@ defmodule YscWeb.EventDetailsLive do
         <div class="relative flex flex-col md:flex-row flex-grow justify-center md:justify-between space-x-0 md:space-x-4">
           <div class="max-w-xl space-y-10 md:mx-0 mx-auto">
             <div class="space-y-1">
+              <p :if={@event.state == :cancelled} class="font-semibold text-red-600">
+                // This event has been cancelled //
+              </p>
+
+              <div :if={@event.state != :cancelled && is_event_at_capacity?(@event)}>
+                <.badge type="red">SOLD OUT</.badge>
+              </div>
+
               <p
                 :if={
                   @event.start_date != nil && @event.start_date != "" && @event.state != :cancelled
@@ -31,14 +39,6 @@ defmodule YscWeb.EventDetailsLive do
               >
                 <%= format_start_date(@event.start_date) %>
               </p>
-
-              <p :if={@event.state == :cancelled} class="font-semibold text-red-600">
-                // This event has been cancelled //
-              </p>
-
-              <div :if={@event.state != :cancelled && is_event_at_capacity?(@event)}>
-                <.badge type="red">SOLD OUT</.badge>
-              </div>
 
               <h2
                 :if={@event.title != nil && @event.title != ""}
@@ -79,13 +79,18 @@ defmodule YscWeb.EventDetailsLive do
                       </div>
                       <div class="text-right">
                         <p class="font-semibold text-zinc-900">
-                          <%= if Money.zero?(List.first(tickets).ticket_tier.price) do %>
-                            Free
-                          <% else %>
-                            <%= case Money.to_string(List.first(tickets).ticket_tier.price) do
-                              {:ok, amount} -> amount
-                              {:error, _} -> "Error"
-                            end %>
+                          <%= cond do %>
+                            <% List.first(tickets).ticket_tier.type == "donation" || List.first(tickets).ticket_tier.type == :donation -> %>
+                              Donation
+                            <% List.first(tickets).ticket_tier.price == nil -> %>
+                              Free
+                            <% Money.zero?(List.first(tickets).ticket_tier.price) -> %>
+                              Free
+                            <% true -> %>
+                              <%= case Money.to_string(List.first(tickets).ticket_tier.price) do
+                                {:ok, amount} -> amount
+                                {:error, _} -> "Error"
+                              end %>
                           <% end %>
                         </p>
                         <p class="text-xs text-green-600 font-medium">Confirmed</p>
@@ -416,13 +421,14 @@ defmodule YscWeb.EventDetailsLive do
 
           <div class="space-y-4 h-full lg:overflow-y-auto lg:max-h-[600px] lg:px-4">
             <%= for ticket_tier <- get_ticket_tiers(@event.id) do %>
+              <% is_donation = ticket_tier.type == "donation" || ticket_tier.type == :donation %>
               <% available = get_available_quantity(ticket_tier) %>
               <% is_event_at_capacity = is_event_at_capacity?(@event) %>
-              <% is_sold_out = available == 0 || is_event_at_capacity %>
-              <% is_on_sale = is_tier_on_sale?(ticket_tier) %>
-              <% is_sale_ended = is_tier_sale_ended?(ticket_tier) %>
-              <% days_until_sale = days_until_sale_starts(ticket_tier) %>
-              <% is_pre_sale = not is_on_sale && !is_sale_ended %>
+              <% is_sold_out = if is_donation, do: false, else: available == 0 || is_event_at_capacity %>
+              <% is_on_sale = if is_donation, do: true, else: is_tier_on_sale?(ticket_tier) %>
+              <% is_sale_ended = if is_donation, do: false, else: is_tier_sale_ended?(ticket_tier) %>
+              <% days_until_sale = if is_donation, do: nil, else: days_until_sale_starts(ticket_tier) %>
+              <% is_pre_sale = if is_donation, do: false, else: not is_on_sale && !is_sale_ended %>
               <% has_selected_tickets = get_ticket_quantity(@selected_tickets, ticket_tier.id) > 0 %>
               <div class={[
                 "border rounded-lg p-6 transition-all duration-200",
@@ -442,14 +448,17 @@ defmodule YscWeb.EventDetailsLive do
                     </p>
                   </div>
                   <div class="text-right">
-                    <p class={[
-                      "font-semibold text-xl",
-                      if is_event_at_capacity do
-                        "line-through"
-                      else
-                        ""
-                      end
-                    ]}>
+                    <p
+                      :if={ticket_tier.type != "donation" && ticket_tier.type != :donation}
+                      class={[
+                        "font-semibold text-xl",
+                        if is_event_at_capacity do
+                          "line-through"
+                        else
+                          ""
+                        end
+                      ]}
+                    >
                       <%= case ticket_tier.type do %>
                         <% "free" -> %>
                           Free
@@ -457,15 +466,18 @@ defmodule YscWeb.EventDetailsLive do
                           <%= format_price(ticket_tier.price) %>
                       <% end %>
                     </p>
-                    <p class={[
-                      "text-base text-sm",
-                      cond do
-                        is_sold_out -> "text-red-500 font-semibold"
-                        is_sale_ended -> "text-red-500 font-semibold"
-                        is_pre_sale -> "text-blue-500 font-semibold"
-                        true -> "text-zinc-500"
-                      end
-                    ]}>
+                    <p
+                      :if={ticket_tier.type != "donation" && ticket_tier.type != :donation}
+                      class={[
+                        "text-base text-sm",
+                        cond do
+                          is_sold_out -> "text-red-500 font-semibold"
+                          is_sale_ended -> "text-red-500 font-semibold"
+                          is_pre_sale -> "text-blue-500 font-semibold"
+                          true -> "text-zinc-500"
+                        end
+                      ]}
+                    >
                       <%= cond do %>
                         <% is_sale_ended -> %>
                           Sale ended
@@ -486,44 +498,120 @@ defmodule YscWeb.EventDetailsLive do
                   </div>
                 </div>
 
-                <div class="flex items-center justify-end mt-4">
-                  <div class="flex items-center space-x-3">
-                    <button
-                      phx-click="decrease-ticket-quantity"
-                      phx-value-tier-id={ticket_tier.id}
-                      class={[
-                        "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
-                        if(
+                <%= if ticket_tier.type == "donation" || ticket_tier.type == :donation do %>
+                  <!-- Donation Amount Input -->
+                  <div class="flex flex-col space-y-3 mt-4">
+                    <div class="flex items-center justify-end">
+                      <div class="flex items-center space-x-3 w-full sm:w-auto">
+                        <label class="text font-semibold text-zinc-700 whitespace-nowrap">
+                          Donation Amount:
+                        </label>
+                        <div class="flex items-center border border-zinc-300 rounded-lg px-3 py-2 flex-1 sm:flex-initial">
+                          <span class="text-zinc-800 me-2">$</span>
+                          <input
+                            type="text"
+                            id={"donation-amount-#{ticket_tier.id}"}
+                            name={"donation_amount_#{ticket_tier.id}"}
+                            phx-hook="MoneyInput"
+                            data-tier-id={ticket_tier.id}
+                            value={format_donation_amount(@selected_tickets, ticket_tier.id)}
+                            placeholder="0.00"
+                            disabled={false}
+                            class="w-full sm:w-32 border-0 focus:ring-0 focus:outline-none text-lg font-medium text-zinc-900 bg-transparent"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Quick Amount Buttons -->
+                    <div class="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        phx-click="set-donation-amount"
+                        phx-value-tier-id={ticket_tier.id}
+                        phx-value-amount="1000"
+                        class="px-3 py-1.5 text-sm font-medium rounded-md border transition-colors border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400"
+                      >
+                        $10
+                      </button>
+                      <button
+                        type="button"
+                        phx-click="set-donation-amount"
+                        phx-value-tier-id={ticket_tier.id}
+                        phx-value-amount="2500"
+                        class="px-3 py-1.5 text-sm font-medium rounded-md border transition-colors border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400"
+                      >
+                        $25
+                      </button>
+                      <button
+                        type="button"
+                        phx-click="set-donation-amount"
+                        phx-value-tier-id={ticket_tier.id}
+                        phx-value-amount="5000"
+                        class="px-3 py-1.5 text-sm font-medium rounded-md border transition-colors border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400"
+                      >
+                        $50
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Donation Disclaimer -->
+                  <div class="mt-2 items-center bg-zinc-50 px-3 py-2 rounded-md w-full flex flex-row border border-zinc-200">
+                    <.icon name="hero-exclamation-circle" class="text-zinc-600 w-5 h-5 me-1" />
+                    <p class="text-sm text-zinc-600">A donation is not a ticket to the event</p>
+                  </div>
+                <% else %>
+                  <!-- Regular Quantity Selector -->
+                  <div class="flex items-center justify-end mt-4">
+                    <div class="flex items-center space-x-3">
+                      <button
+                        phx-click="decrease-ticket-quantity"
+                        phx-value-tier-id={ticket_tier.id}
+                        class={[
+                          "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
+                          if(
+                            is_sold_out or is_sale_ended or is_pre_sale or
+                              get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0
+                          ) do
+                            "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
+                          else
+                            "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                          end
+                        ]}
+                        disabled={
                           is_sold_out or is_sale_ended or is_pre_sale or
                             get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0
-                        ) do
-                          "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
-                        else
-                          "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
-                        end
-                      ]}
-                      disabled={
-                        is_sold_out or is_sale_ended or is_pre_sale or
-                          get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0
-                      }
-                    >
-                      <.icon name="hero-minus" class="w-5 h-5" />
-                    </button>
-                    <span class={[
-                      "w-12 text-center font-medium text-lg",
-                      if(is_sold_out or is_sale_ended or is_pre_sale,
-                        do: "text-zinc-400",
-                        else: "text-zinc-900"
-                      )
-                    ]}>
-                      <%= get_ticket_quantity(@selected_tickets, ticket_tier.id) %>
-                    </span>
-                    <button
-                      phx-click="increase-ticket-quantity"
-                      phx-value-tier-id={ticket_tier.id}
-                      class={[
-                        "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-200 font-semibold",
-                        if(
+                        }
+                      >
+                        <.icon name="hero-minus" class="w-5 h-5" />
+                      </button>
+                      <span class={[
+                        "w-12 text-center font-medium text-lg",
+                        if(is_sold_out or is_sale_ended or is_pre_sale,
+                          do: "text-zinc-400",
+                          else: "text-zinc-900"
+                        )
+                      ]}>
+                        <%= get_ticket_quantity(@selected_tickets, ticket_tier.id) %>
+                      </span>
+                      <button
+                        phx-click="increase-ticket-quantity"
+                        phx-value-tier-id={ticket_tier.id}
+                        class={[
+                          "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-200 font-semibold",
+                          if(
+                            is_sold_out or is_sale_ended or is_pre_sale or
+                              !can_increase_quantity?(
+                                ticket_tier,
+                                get_ticket_quantity(@selected_tickets, ticket_tier.id),
+                                @selected_tickets,
+                                @event
+                              )
+                          ) do
+                            "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
+                          else
+                            "border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white"
+                          end
+                        ]}
+                        disabled={
                           is_sold_out or is_sale_ended or is_pre_sale or
                             !can_increase_quantity?(
                               ticket_tier,
@@ -531,42 +619,29 @@ defmodule YscWeb.EventDetailsLive do
                               @selected_tickets,
                               @event
                             )
-                        ) do
-                          "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
-                        else
-                          "border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white"
-                        end
-                      ]}
-                      disabled={
-                        is_sold_out or is_sale_ended or is_pre_sale or
-                          !can_increase_quantity?(
-                            ticket_tier,
-                            get_ticket_quantity(@selected_tickets, ticket_tier.id),
-                            @selected_tickets,
-                            @event
-                          )
-                      }
-                    >
-                      <.icon name="hero-plus" class="w-5 h-5" />
-                    </button>
+                        }
+                      >
+                        <.icon name="hero-plus" class="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <!-- Show message for different tier states -->
-                <div :if={is_pre_sale} class="mt-2">
+                <% end %>
+                <!-- Show message for different tier states (exclude donation tiers) -->
+                <div :if={!is_donation && is_pre_sale} class="mt-2">
                   <p class="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md border border-blue-200">
                     <.icon name="hero-clock" class="w-4 h-4 inline me-1" />
                     Sale starts <%= Timex.format!(ticket_tier.start_date, "{Mshort} {D}, {YYYY}") %>
                   </p>
                 </div>
 
-                <div :if={is_sale_ended} class="mt-2">
+                <div :if={!is_donation && is_sale_ended} class="mt-2">
                   <p class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
                     <.icon name="hero-x-circle" class="w-4 h-4 inline me-1" />
                     Sale ended on <%= Timex.format!(ticket_tier.end_date, "{Mshort} {D}, {YYYY}") %>
                   </p>
                 </div>
 
-                <div :if={is_sold_out} class="mt-2">
+                <div :if={!is_donation && is_sold_out} class="mt-2">
                   <p class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
                     <.icon name="hero-x-circle" class="w-4 h-4 inline me-1" />
                     This ticket tier is sold out
@@ -575,7 +650,8 @@ defmodule YscWeb.EventDetailsLive do
 
                 <div
                   :if={
-                    !is_sold_out && !is_pre_sale && !is_sale_ended && available != :unlimited &&
+                    !is_donation && !is_sold_out && !is_pre_sale && !is_sale_ended &&
+                      available != :unlimited &&
                       get_ticket_quantity(@selected_tickets, ticket_tier.id) >= available
                   }
                   class="mt-2"
@@ -588,7 +664,8 @@ defmodule YscWeb.EventDetailsLive do
 
                 <div
                   :if={
-                    !is_sold_out && !is_pre_sale && !is_sale_ended && @event.max_attendees &&
+                    !is_donation && !is_sold_out && !is_pre_sale && !is_sale_ended &&
+                      @event.max_attendees &&
                       calculate_total_selected_tickets(@selected_tickets) >= @event.max_attendees
                   }
                   class="mt-2"
@@ -599,7 +676,7 @@ defmodule YscWeb.EventDetailsLive do
                   </p>
                 </div>
 
-                <div :if={is_event_at_capacity} class="mt-2">
+                <div :if={!is_donation && is_event_at_capacity} class="mt-2">
                   <p class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
                     <.icon name="hero-users" class="w-4 h-4 inline me-1" />
                     Event is at capacity (<%= @event.max_attendees %> attendees). All tickets are sold out.
@@ -627,10 +704,15 @@ defmodule YscWeb.EventDetailsLive do
 
             <div class="bg-zinc-50 rounded-lg p-6 space-y-4 flex flex-col justify-between">
               <%= if has_any_tickets_selected?(@selected_tickets) do %>
-                <%= for {tier_id, quantity} <- @selected_tickets, quantity > 0 do %>
+                <%= for {tier_id, amount_or_quantity} <- @selected_tickets, amount_or_quantity > 0 do %>
                   <% ticket_tier = get_ticket_tier_by_id(@event.id, tier_id) %>
                   <div class="flex justify-between text-base">
-                    <span><%= ticket_tier.name %> × <%= quantity %></span>
+                    <span>
+                      <%= ticket_tier.name %>
+                      <%= if ticket_tier.type != "donation" && ticket_tier.type != :donation do %>
+                        × <%= amount_or_quantity %>
+                      <% end %>
+                    </span>
                     <span class={[
                       "font-medium",
                       if is_event_at_capacity?(@event) do
@@ -642,8 +724,12 @@ defmodule YscWeb.EventDetailsLive do
                       <%= case ticket_tier.type do %>
                         <% "free" -> %>
                           Free
+                        <% "donation" -> %>
+                          <%= format_price_from_cents(amount_or_quantity) %>
+                        <% :donation -> %>
+                          <%= format_price_from_cents(amount_or_quantity) %>
                         <% _ -> %>
-                          <%= case Money.mult(ticket_tier.price, quantity) do %>
+                          <%= case Money.mult(ticket_tier.price, amount_or_quantity) do %>
                             <% {:ok, total} -> %>
                               <%= format_price(total) %>
                             <% {:error, _} -> %>
@@ -804,16 +890,25 @@ defmodule YscWeb.EventDetailsLive do
 
               <div class="bg-zinc-50 rounded-lg p-6 space-y-4">
                 <%= if has_any_tickets_selected?(@selected_tickets) do %>
-                  <%= for {tier_id, quantity} <- @selected_tickets, quantity > 0 do %>
+                  <%= for {tier_id, amount_or_quantity} <- @selected_tickets, amount_or_quantity > 0 do %>
                     <% ticket_tier = get_ticket_tier_by_id(@event.id, tier_id) %>
                     <div class="flex justify-between text-base">
-                      <span><%= ticket_tier.name %> × <%= quantity %></span>
+                      <span>
+                        <%= ticket_tier.name %>
+                        <%= if ticket_tier.type != "donation" && ticket_tier.type != :donation do %>
+                          × <%= amount_or_quantity %>
+                        <% end %>
+                      </span>
                       <span class="font-medium">
                         <%= case ticket_tier.type do %>
                           <% "free" -> %>
                             Free
+                          <% "donation" -> %>
+                            <%= format_price_from_cents(amount_or_quantity) %>
+                          <% :donation -> %>
+                            <%= format_price_from_cents(amount_or_quantity) %>
                           <% _ -> %>
-                            <%= case Money.mult(ticket_tier.price, quantity) do %>
+                            <%= case Money.mult(ticket_tier.price, amount_or_quantity) do %>
                               <% {:ok, total} -> %>
                                 <%= format_price(total) %>
                               <% {:error, _} -> %>
@@ -843,6 +938,89 @@ defmodule YscWeb.EventDetailsLive do
           </div>
         </div>
       <% end %>
+    </.modal>
+    <!-- Registration Modal -->
+    <.modal
+      :if={@show_registration_modal}
+      id="registration-modal"
+      show
+      on_cancel={JS.push("close-registration-modal")}
+      max_width="max-w-4xl"
+    >
+      <div class="flex flex-col space-y-6">
+        <div class="text-center">
+          <h2 class="text-2xl font-semibold text-zinc-900 mb-2">Ticket Registration</h2>
+          <p class="text-zinc-600">
+            Please provide details for each ticket that requires registration.
+          </p>
+        </div>
+
+        <form phx-submit="submit-registration" class="space-y-6">
+          <%= for ticket <- @tickets_requiring_registration do %>
+            <% ticket_detail =
+              Map.get(@ticket_details_form, ticket.id, %{first_name: "", last_name: "", email: ""}) %>
+            <div class="border border-zinc-200 rounded-lg p-6 space-y-4">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="text-lg font-semibold text-zinc-900">
+                    Ticket #<%= ticket.reference_id %>
+                  </h3>
+                  <p class="text-sm text-zinc-600">
+                    <%= ticket.ticket_tier.name %>
+                  </p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <.input
+                    type="text"
+                    label="First Name"
+                    name={"ticket_#{ticket.id}_first_name"}
+                    value={ticket_detail.first_name}
+                    required
+                  />
+                </div>
+                <div>
+                  <.input
+                    type="text"
+                    label="Last Name"
+                    name={"ticket_#{ticket.id}_last_name"}
+                    value={ticket_detail.last_name}
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <.input
+                  type="email"
+                  label="Email"
+                  name={"ticket_#{ticket.id}_email"}
+                  value={ticket_detail.email}
+                  required
+                />
+              </div>
+            </div>
+          <% end %>
+
+          <div class="flex space-x-4 pt-4">
+            <.button
+              type="button"
+              class="flex-1 bg-zinc-200 text-zinc-800 hover:bg-zinc-300"
+              phx-click="close-registration-modal"
+            >
+              Cancel
+            </.button>
+            <.button type="submit" class="flex-1">
+              <%= if Money.zero?(@ticket_order.total_amount) do %>
+                Continue to Confirmation
+              <% else %>
+                Continue to Payment
+              <% end %>
+            </.button>
+          </div>
+        </form>
+      </div>
     </.modal>
     <!-- Free Ticket Confirmation Modal -->
     <.modal
@@ -954,13 +1132,18 @@ defmodule YscWeb.EventDetailsLive do
                 </div>
                 <div class="text-right">
                   <p class="font-semibold text-zinc-900">
-                    <%= if Money.zero?(ticket.ticket_tier.price) do %>
-                      Free
-                    <% else %>
-                      <%= case Money.to_string(ticket.ticket_tier.price) do
-                        {:ok, amount} -> amount
-                        {:error, _} -> "Error"
-                      end %>
+                    <%= cond do %>
+                      <% ticket.ticket_tier.type == "donation" || ticket.ticket_tier.type == :donation -> %>
+                        Donation
+                      <% ticket.ticket_tier.price == nil -> %>
+                        Free
+                      <% Money.zero?(ticket.ticket_tier.price) -> %>
+                        Free
+                      <% true -> %>
+                        <%= case Money.to_string(ticket.ticket_tier.price) do
+                          {:ok, amount} -> amount
+                          {:error, _} -> "Error"
+                        end %>
                     <% end %>
                   </p>
                 </div>
@@ -1052,6 +1235,9 @@ defmodule YscWeb.EventDetailsLive do
         []
       end
 
+    # Check if we're on the tickets route (live_action == :tickets)
+    show_ticket_modal = socket.assigns.live_action == :tickets
+
     {:ok,
      socket
      |> assign(:page_title, event.title)
@@ -1059,7 +1245,7 @@ defmodule YscWeb.EventDetailsLive do
      |> assign(:agendas, agendas)
      |> assign(:active_agenda, default_active_agenda(agendas))
      |> assign(:user_tickets, user_tickets)
-     |> assign(:show_ticket_modal, false)
+     |> assign(:show_ticket_modal, show_ticket_modal)
      |> assign(:show_payment_modal, false)
      |> assign(:show_free_ticket_confirmation, false)
      |> assign(:show_order_completion, false)
@@ -1067,7 +1253,9 @@ defmodule YscWeb.EventDetailsLive do
      |> assign(:public_key, Application.get_env(:stripity_stripe, :public_key))
      |> assign(:ticket_order, nil)
      |> assign(:selected_tickets, %{})
-     |> assign(:checkout_expired, false)}
+     |> assign(:checkout_expired, false)
+     |> assign(:show_registration_modal, false)
+     |> assign(:ticket_details_form, %{})}
   end
 
   @impl true
@@ -1314,15 +1502,24 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_event("open-ticket-modal", _params, socket) do
-    {:noreply, assign(socket, :show_ticket_modal, true)}
+    {:noreply, socket |> push_navigate(to: ~p"/events/#{socket.assigns.event.id}/tickets")}
   end
 
   @impl true
   def handle_event("close-ticket-modal", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_ticket_modal, false)
-     |> assign(:selected_tickets, %{})}
+    # If we're on the tickets route, navigate back to the event details page
+    if socket.assigns.live_action == :tickets do
+      {:noreply,
+       socket
+       |> push_navigate(to: ~p"/events/#{socket.assigns.event.id}")
+       |> assign(:show_ticket_modal, false)
+       |> assign(:selected_tickets, %{})}
+    else
+      {:noreply,
+       socket
+       |> assign(:show_ticket_modal, false)
+       |> assign(:selected_tickets, %{})}
+    end
   end
 
   @impl true
@@ -1338,6 +1535,75 @@ defmodule YscWeb.EventDetailsLive do
      |> assign(:checkout_expired, false)
      |> assign(:payment_intent, nil)
      |> assign(:ticket_order, nil)}
+  end
+
+  @impl true
+  def handle_event("close-registration-modal", _params, socket) do
+    # Cancel the ticket order to release reserved tickets
+    if socket.assigns.ticket_order do
+      Ysc.Tickets.cancel_ticket_order(
+        socket.assigns.ticket_order,
+        "User cancelled registration"
+      )
+    end
+
+    {:noreply,
+     socket
+     |> assign(:show_registration_modal, false)
+     |> assign(:ticket_order, nil)
+     |> assign(:tickets_requiring_registration, [])
+     |> assign(:ticket_details_form, %{})}
+  end
+
+  @impl true
+  def handle_event("submit-registration", params, socket) do
+    # Extract ticket details from form params
+    ticket_details_list =
+      socket.assigns.tickets_requiring_registration
+      |> Enum.map(fn ticket ->
+        %{
+          ticket_id: ticket.id,
+          first_name: params["ticket_#{ticket.id}_first_name"] || "",
+          last_name: params["ticket_#{ticket.id}_last_name"] || "",
+          email: params["ticket_#{ticket.id}_email"] || ""
+        }
+      end)
+
+    # Validate that all fields are filled
+    all_valid =
+      ticket_details_list
+      |> Enum.all?(fn detail ->
+        detail.first_name != "" &&
+          detail.last_name != "" &&
+          detail.email != ""
+      end)
+
+    if all_valid do
+      # Save ticket details
+      case Ysc.Events.create_ticket_details(ticket_details_list) do
+        {:ok, _ticket_details} ->
+          # Proceed to payment or free confirmation
+          proceed_to_payment_or_free(
+            socket
+            |> assign(:show_registration_modal, false)
+            |> assign(:tickets_requiring_registration, [])
+            |> assign(:ticket_details_form, %{}),
+            socket.assigns.ticket_order
+          )
+
+        {:error, _reason} ->
+          {:noreply,
+           socket
+           |> put_flash(
+             :error,
+             "Failed to save registration details. Please try again."
+           )}
+      end
+    else
+      {:noreply,
+       socket
+       |> put_flash(:error, "Please fill in all required fields for each ticket.")}
+    end
   end
 
   @impl true
@@ -1467,22 +1733,86 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_event("increase-ticket-quantity", %{"tier-id" => tier_id}, socket) do
-    current_quantity = get_ticket_quantity(socket.assigns.selected_tickets, tier_id)
     ticket_tier = get_ticket_tier_by_id(socket.assigns.event.id, tier_id)
 
-    # Check if we can increase the quantity before proceeding
-    if can_increase_quantity?(
-         ticket_tier,
-         current_quantity,
-         socket.assigns.selected_tickets,
-         socket.assigns.event
-       ) do
-      new_quantity = current_quantity + 1
-      updated_tickets = Map.put(socket.assigns.selected_tickets, tier_id, new_quantity)
-      {:noreply, assign(socket, :selected_tickets, updated_tickets)}
-    else
-      # Don't increase if we've reached the limit
+    # Only handle quantity changes for non-donation tiers
+    if ticket_tier.type == "donation" || ticket_tier.type == :donation do
       {:noreply, socket}
+    else
+      current_quantity = get_ticket_quantity(socket.assigns.selected_tickets, tier_id)
+
+      # Check if we can increase the quantity before proceeding
+      if can_increase_quantity?(
+           ticket_tier,
+           current_quantity,
+           socket.assigns.selected_tickets,
+           socket.assigns.event
+         ) do
+        new_quantity = current_quantity + 1
+        # Preserve all existing selected_tickets, only update this tier's quantity
+        updated_tickets = Map.put(socket.assigns.selected_tickets, tier_id, new_quantity)
+        {:noreply, assign(socket, :selected_tickets, updated_tickets)}
+      else
+        # Don't increase if we've reached the limit
+        {:noreply, socket}
+      end
+    end
+  end
+
+  @impl true
+  def handle_event("update-donation-amount", params, socket) do
+    tier_id = params["tier-id"] || params["tier_id"]
+
+    # The JavaScript hook pushes the value using the input's name attribute
+    # Try to get the value from params using the input name pattern
+    # The name is "donation_amount_#{tier_id}"
+    value =
+      if tier_id do
+        params["donation_amount_#{tier_id}"] ||
+          params["donation_amount"] ||
+          params["value"] ||
+          params["val"] ||
+          ""
+      else
+        # Fallback: try to find any donation_amount_* key
+        params
+        |> Map.keys()
+        |> Enum.find(&String.starts_with?(&1, "donation_amount_"))
+        |> case do
+          nil -> ""
+          key -> params[key] || ""
+        end
+      end
+
+    # Parse the donation amount from the input string (e.g., "10.99" -> 1099 cents)
+    donation_amount_cents = parse_donation_amount(value)
+
+    updated_tickets =
+      if donation_amount_cents > 0 and tier_id do
+        # Add or update the donation amount in selected_tickets
+        Map.put(socket.assigns.selected_tickets, tier_id, donation_amount_cents)
+      else
+        # Remove the donation tier from selected_tickets if amount is 0 or empty
+        if tier_id,
+          do: Map.delete(socket.assigns.selected_tickets, tier_id),
+          else: socket.assigns.selected_tickets
+      end
+
+    {:noreply, assign(socket, :selected_tickets, updated_tickets)}
+  end
+
+  @impl true
+  def handle_event("set-donation-amount", %{"tier-id" => tier_id, "amount" => amount_str}, socket) do
+    # Parse the amount string to integer (amount is in cents)
+    case Integer.parse(amount_str) do
+      {amount_cents, _} when amount_cents > 0 ->
+        # Set the donation amount in selected_tickets (amount is already in cents)
+        updated_tickets = Map.put(socket.assigns.selected_tickets, tier_id, amount_cents)
+        {:noreply, assign(socket, :selected_tickets, updated_tickets)}
+
+      _ ->
+        # Invalid amount, don't update
+        {:noreply, socket}
     end
   end
 
@@ -1509,35 +1839,28 @@ defmodule YscWeb.EventDetailsLive do
 
     case Ysc.Tickets.create_ticket_order(user_id, event_id, ticket_selections) do
       {:ok, ticket_order} ->
-        # Check if this is a free order (zero amount)
-        if Money.zero?(ticket_order.total_amount) do
-          # For free tickets, show confirmation modal instead of payment form
+        # Reload the ticket order with tickets and their tiers
+        ticket_order_with_tickets = Ysc.Tickets.get_ticket_order(ticket_order.id)
+
+        # Check if any tickets require registration
+        tickets_requiring_registration =
+          get_tickets_requiring_registration(ticket_order_with_tickets.tickets)
+
+        if Enum.any?(tickets_requiring_registration) do
+          # Show registration modal first
           {:noreply,
            socket
            |> assign(:show_ticket_modal, false)
-           |> assign(:show_free_ticket_confirmation, true)
-           |> assign(:ticket_order, ticket_order)}
+           |> assign(:show_registration_modal, true)
+           |> assign(:ticket_order, ticket_order_with_tickets)
+           |> assign(:tickets_requiring_registration, tickets_requiring_registration)
+           |> assign(
+             :ticket_details_form,
+             initialize_ticket_details_form(tickets_requiring_registration)
+           )}
         else
-          # For paid tickets, create Stripe payment intent
-          case Ysc.Tickets.StripeService.create_payment_intent(ticket_order,
-                 customer_id: socket.assigns.current_user.stripe_id
-               ) do
-            {:ok, payment_intent} ->
-              # Show payment form with Stripe Elements
-              {:noreply,
-               socket
-               |> assign(:show_ticket_modal, false)
-               |> assign(:show_payment_modal, true)
-               |> assign(:checkout_expired, false)
-               |> assign(:payment_intent, payment_intent)
-               |> assign(:ticket_order, ticket_order)}
-
-            {:error, reason} ->
-              {:noreply,
-               socket
-               |> put_flash(:error, "Failed to create payment: #{reason}")
-               |> assign(:show_ticket_modal, false)}
-          end
+          # No registration required, proceed directly to payment/free confirmation
+          proceed_to_payment_or_free(socket, ticket_order_with_tickets)
         end
 
       {:error, :overbooked} ->
@@ -1701,8 +2024,12 @@ defmodule YscWeb.EventDetailsLive do
     # Check if there are any free tiers (handle both atom and string types)
     has_free_tiers = Enum.any?(ticket_tiers, &(&1.type == :free or &1.type == "free"))
 
-    # Get the lowest price from paid tiers (handle both atom and string types)
-    paid_tiers = Enum.filter(ticket_tiers, &(&1.type in [:paid, :donation, "paid", "donation"]))
+    # Get the lowest price from paid tiers only (exclude donation tiers)
+    # Filter out donation, free, and tiers with nil prices
+    paid_tiers =
+      Enum.filter(ticket_tiers, fn tier ->
+        (tier.type == :paid or tier.type == "paid") && tier.price != nil
+      end)
 
     case {has_free_tiers, paid_tiers} do
       {true, []} ->
@@ -1775,7 +2102,12 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   defp get_available_quantity(ticket_tier) do
-    case ticket_tier.quantity do
+    quantity = Map.get(ticket_tier, :quantity) || Map.get(ticket_tier, "quantity")
+
+    sold_count =
+      Map.get(ticket_tier, :sold_tickets_count) || Map.get(ticket_tier, "sold_tickets_count") || 0
+
+    case quantity do
       # Unlimited
       nil ->
         :unlimited
@@ -1784,40 +2116,89 @@ defmodule YscWeb.EventDetailsLive do
       0 ->
         :unlimited
 
-      quantity ->
-        available = quantity - (ticket_tier.sold_tickets_count || 0)
+      qty ->
+        available = qty - sold_count
         max(0, available)
     end
   end
 
   defp is_event_at_capacity?(event) do
-    case event.max_attendees do
-      nil ->
-        false
+    # Get all ticket tiers for the event
+    ticket_tiers = Events.list_ticket_tiers_for_event(event.id)
 
-      max_attendees ->
-        total_sold = Events.count_total_tickets_sold_for_event(event.id)
-        total_sold >= max_attendees
+    # Filter out donation tiers - donations don't count toward "sold out" status
+    non_donation_tiers =
+      Enum.filter(ticket_tiers, fn tier ->
+        tier_type = Map.get(tier, :type) || Map.get(tier, "type")
+        tier_type != "donation" && tier_type != :donation
+      end)
+
+    # If there are no non-donation tiers, event is not sold out
+    if Enum.empty?(non_donation_tiers) do
+      false
+    else
+      # Filter out pre-sale tiers (tiers that haven't started selling yet)
+      # We want to check tiers that are on sale OR have ended their sale
+      relevant_tiers =
+        Enum.filter(non_donation_tiers, fn tier ->
+          is_tier_on_sale?(tier) || is_tier_sale_ended?(tier)
+        end)
+
+      # If there are no relevant tiers (all are pre-sale), check event capacity
+      if Enum.empty?(relevant_tiers) do
+        # Check event capacity if max_attendees is set
+        case event.max_attendees do
+          nil ->
+            false
+
+          max_attendees ->
+            total_sold = Events.count_total_tickets_sold_for_event(event.id)
+            total_sold >= max_attendees
+        end
+      else
+        # Check if all relevant non-donation tiers are sold out
+        all_tiers_sold_out =
+          Enum.all?(relevant_tiers, fn tier ->
+            available = get_available_quantity(tier)
+            available == 0
+          end)
+
+        # Also check event capacity if max_attendees is set
+        event_at_capacity =
+          case event.max_attendees do
+            nil ->
+              false
+
+            max_attendees ->
+              total_sold = Events.count_total_tickets_sold_for_event(event.id)
+              total_sold >= max_attendees
+          end
+
+        all_tiers_sold_out || event_at_capacity
+      end
     end
   end
 
   defp is_tier_on_sale?(ticket_tier) do
     now = DateTime.utc_now()
 
+    start_date = Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
+    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+
     # Check if sale has started
     sale_started =
-      case ticket_tier.start_date do
+      case start_date do
         # No start date means sale has started
         nil -> true
-        start_date -> DateTime.compare(now, start_date) != :lt
+        sd -> DateTime.compare(now, sd) != :lt
       end
 
     # Check if sale has ended
     sale_ended =
-      case ticket_tier.end_date do
+      case end_date do
         # No end date means sale hasn't ended
         nil -> false
-        end_date -> DateTime.compare(now, end_date) == :gt
+        ed -> DateTime.compare(now, ed) == :gt
       end
 
     sale_started && !sale_ended
@@ -1826,9 +2207,11 @@ defmodule YscWeb.EventDetailsLive do
   defp is_tier_sale_ended?(ticket_tier) do
     now = DateTime.utc_now()
 
-    case ticket_tier.end_date do
+    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+
+    case end_date do
       nil -> false
-      end_date -> DateTime.compare(now, end_date) == :gt
+      ed -> DateTime.compare(now, ed) == :gt
     end
   end
 
@@ -1922,15 +2305,38 @@ defmodule YscWeb.EventDetailsLive do
   defp calculate_total_price(selected_tickets, event_id) do
     total =
       selected_tickets
-      |> Enum.reduce(Money.new(0, :USD), fn {tier_id, quantity}, acc ->
+      |> Enum.reduce(Money.new(0, :USD), fn {tier_id, amount_or_quantity}, acc ->
         ticket_tier = get_ticket_tier_by_id(event_id, tier_id)
 
         case ticket_tier.type do
           "free" ->
             acc
 
+          "donation" ->
+            # amount_or_quantity is already in cents for donations
+            # Convert cents to dollars Decimal, then create Money
+            dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
+            donation_amount = Money.new(:USD, dollars_decimal)
+
+            case Money.add(acc, donation_amount) do
+              {:ok, new_total} -> new_total
+              {:error, _} -> acc
+            end
+
+          :donation ->
+            # amount_or_quantity is already in cents for donations
+            # Convert cents to dollars Decimal, then create Money
+            dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
+            donation_amount = Money.new(:USD, dollars_decimal)
+
+            case Money.add(acc, donation_amount) do
+              {:ok, new_total} -> new_total
+              {:error, _} -> acc
+            end
+
           _ ->
-            case Money.mult(ticket_tier.price, quantity) do
+            # Regular paid tiers: multiply price by quantity
+            case Money.mult(ticket_tier.price, amount_or_quantity) do
               {:ok, tier_total} ->
                 case Money.add(acc, tier_total) do
                   {:ok, new_total} -> new_total
@@ -1950,5 +2356,112 @@ defmodule YscWeb.EventDetailsLive do
     tickets
     |> Enum.group_by(& &1.ticket_tier.name)
     |> Enum.sort_by(fn {_tier_name, tickets} -> length(tickets) end, :desc)
+  end
+
+  defp format_donation_amount(selected_tickets, tier_id) do
+    case Map.get(selected_tickets, tier_id) do
+      nil ->
+        ""
+
+      amount_cents when is_integer(amount_cents) ->
+        # Convert cents to dollars and format
+        dollars = amount_cents / 100
+        :erlang.float_to_binary(dollars, [{:decimals, 2}])
+
+      _ ->
+        ""
+    end
+  end
+
+  defp format_price_from_cents(cents) when is_integer(cents) do
+    # Convert cents to dollars Decimal, then create Money
+    dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(cents)
+    money = Money.new(:USD, dollars_decimal)
+    format_price(money)
+  end
+
+  defp format_price_from_cents(_), do: "$0.00"
+
+  defp parse_donation_amount(value) when is_binary(value) do
+    # Handle empty strings explicitly
+    trimmed = String.trim(value)
+
+    if trimmed == "" || trimmed == "0" || trimmed == "0.00" do
+      0
+    else
+      # Remove any non-numeric characters except decimal point
+      cleaned = trimmed |> String.replace(~r/[^\d.]/, "")
+
+      if cleaned == "" do
+        0
+      else
+        case Decimal.parse(cleaned) do
+          {decimal, _} ->
+            # Convert to cents (multiply by 100)
+            decimal
+            |> Decimal.mult(Decimal.new(100))
+            |> Decimal.to_integer()
+
+          :error ->
+            0
+        end
+      end
+    end
+  end
+
+  defp parse_donation_amount(_), do: 0
+
+  # Helper function to get tickets that require registration
+  defp get_tickets_requiring_registration(tickets) do
+    tickets
+    |> Enum.filter(fn ticket ->
+      ticket.ticket_tier && ticket.ticket_tier.requires_registration == true
+    end)
+  end
+
+  # Initialize ticket details form with empty values for each ticket
+  defp initialize_ticket_details_form(tickets) do
+    tickets
+    |> Enum.reduce(%{}, fn ticket, acc ->
+      Map.put(acc, ticket.id, %{
+        first_name: "",
+        last_name: "",
+        email: ""
+      })
+    end)
+  end
+
+  # Proceed to payment or free ticket confirmation after registration (if needed)
+  defp proceed_to_payment_or_free(socket, ticket_order) do
+    # Check if this is a free order (zero amount)
+    if Money.zero?(ticket_order.total_amount) do
+      # For free tickets, show confirmation modal instead of payment form
+      {:noreply,
+       socket
+       |> assign(:show_ticket_modal, false)
+       |> assign(:show_free_ticket_confirmation, true)
+       |> assign(:ticket_order, ticket_order)}
+    else
+      # For paid tickets, create Stripe payment intent
+      case Ysc.Tickets.StripeService.create_payment_intent(ticket_order,
+             customer_id: socket.assigns.current_user.stripe_id
+           ) do
+        {:ok, payment_intent} ->
+          # Show payment form with Stripe Elements
+          {:noreply,
+           socket
+           |> assign(:show_ticket_modal, false)
+           |> assign(:show_payment_modal, true)
+           |> assign(:checkout_expired, false)
+           |> assign(:payment_intent, payment_intent)
+           |> assign(:ticket_order, ticket_order)}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Failed to create payment: #{reason}")
+           |> assign(:show_ticket_modal, false)}
+      end
+    end
   end
 end

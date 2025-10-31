@@ -3,10 +3,9 @@ defmodule Ysc.Media do
 
   alias Ysc.Repo
   alias Ysc.Media
+  alias Ysc.S3Config
   alias YscWeb.Authorization.Policy
   alias Ysc.Accounts.User
-
-  @bucket_name "media"
 
   @blur_hash_comp_x 4
   @blur_hash_comp_y 3
@@ -125,7 +124,7 @@ defmodule Ysc.Media do
 
     path
     |> ExAws.S3.Upload.stream_file()
-    |> ExAws.S3.upload(@bucket_name, file_name)
+    |> ExAws.S3.upload(S3Config.bucket_name(), file_name)
     |> ExAws.request!()
   end
 

@@ -83,13 +83,21 @@ defmodule YscWeb.OrderConfirmationLive do
               <div>
                 <dt class="text-sm font-medium text-zinc-500">Date</dt>
                 <dd class="mt-1 text-sm text-zinc-900">
-                  <%= Calendar.strftime(@event.start_date, "%B %d, %Y") %>
+                  <%= if @event.start_date do %>
+                    <%= Calendar.strftime(@event.start_date, "%B %d, %Y") %>
+                  <% else %>
+                    TBD
+                  <% end %>
                 </dd>
               </div>
               <div>
                 <dt class="text-sm font-medium text-zinc-500">Time</dt>
                 <dd class="mt-1 text-sm text-zinc-900">
-                  <%= Calendar.strftime(@event.start_time, "%I:%M %p") %>
+                  <%= if @event.start_time do %>
+                    <%= Calendar.strftime(@event.start_time, "%I:%M %p") %>
+                  <% else %>
+                    TBD
+                  <% end %>
                 </dd>
               </div>
             </div>
@@ -110,13 +118,18 @@ defmodule YscWeb.OrderConfirmationLive do
                   </div>
                   <div class="text-right">
                     <p class="font-semibold text-zinc-900">
-                      <%= if Money.zero?(ticket.ticket_tier.price) do %>
-                        Free
-                      <% else %>
-                        <%= case Money.to_string(ticket.ticket_tier.price) do
-                          {:ok, amount} -> amount
-                          {:error, _} -> "Error"
-                        end %>
+                      <%= cond do %>
+                        <% ticket.ticket_tier.type == "donation" || ticket.ticket_tier.type == :donation -> %>
+                          Donation
+                        <% ticket.ticket_tier.price == nil -> %>
+                          Free
+                        <% Money.zero?(ticket.ticket_tier.price) -> %>
+                          Free
+                        <% true -> %>
+                          <%= case Money.to_string(ticket.ticket_tier.price) do
+                            {:ok, amount} -> amount
+                            {:error, _} -> "Error"
+                          end %>
                       <% end %>
                     </p>
                   </div>

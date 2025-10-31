@@ -64,7 +64,8 @@ defmodule Ysc.Events.TicketTier do
     |> foreign_key_constraint(:event_id)
   end
 
-  # Custom validation for price field - required for paid and donation types
+  # Custom validation for price field - required for paid types only
+  # Donation types allow nil price (user sets arbitrary amount)
   defp validate_required_price(changeset) do
     type = get_field(changeset, :type)
     price = get_field(changeset, :price)
@@ -72,8 +73,10 @@ defmodule Ysc.Events.TicketTier do
     case {type, price} do
       {:free, _} -> changeset
       {"free", _} -> changeset
-      {_, nil} -> add_error(changeset, :price, "is required for paid and donation tickets")
-      {_, ""} -> add_error(changeset, :price, "is required for paid and donation tickets")
+      {:donation, _} -> changeset
+      {"donation", _} -> changeset
+      {_, nil} -> add_error(changeset, :price, "is required for paid tickets")
+      {_, ""} -> add_error(changeset, :price, "is required for paid tickets")
       _ -> changeset
     end
   end

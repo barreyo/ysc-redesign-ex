@@ -118,4 +118,51 @@ if config_env() == :prod do
   #     config :swoosh, :api_client, Swoosh.ApiClient.Hackney
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+
+  # ## S3 Configuration
+  #
+  # Configure S3 settings based on environment variables.
+  # For production: Set S3_BUCKET, S3_REGION, and optionally S3_BASE_URL
+  # For sandbox: Set S3_BUCKET (e.g., ysc-media-sandbox), S3_REGION, and optionally S3_BASE_URL
+  # If S3_BASE_URL is not set, it will be constructed from bucket and region.
+  s3_bucket = System.get_env("S3_BUCKET") || "media"
+  s3_region = System.get_env("S3_REGION") || "us-west-1"
+  s3_base_url = System.get_env("S3_BASE_URL")
+
+  config :ysc,
+    s3_bucket: s3_bucket,
+    s3_region: s3_region,
+    s3_base_url: s3_base_url
+
+  # Configure ExAws S3 endpoint if we're using localstack (dev/test)
+  # or a custom endpoint (sandbox/prod might use custom endpoints)
+  ex_aws_s3_config =
+    cond do
+      # Local development with localstack
+      config_env() in [:dev, :test] ->
+        [
+          scheme: "http://",
+          host: "media.s3.localhost.localstack.cloud",
+          port: "4566"
+        ]
+
+      # Production - may use custom endpoint or default AWS
+      s3_base_url != nil ->
+        uri = URI.parse(s3_base_url)
+
+        [
+          scheme: uri.scheme <> "://",
+          host: uri.host,
+          port: uri.port
+        ]
+        |> Enum.reject(fn {_, v} -> is_nil(v) end)
+
+      # Default AWS S3 endpoint
+      true ->
+        []
+    end
+
+  if ex_aws_s3_config != [] do
+    config :ex_aws, s3: ex_aws_s3_config
+  end
 end
