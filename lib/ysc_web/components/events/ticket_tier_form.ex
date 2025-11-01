@@ -19,10 +19,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
         class="space-y-4"
       >
         <.input type="hidden" value={@event_id} field={@form[:event_id]} />
-        <.input type="text" label="Name" field={@form[:name]} required />
-
-        <.input type="textarea" label="Description" field={@form[:description]} />
-
         <.input
           type="select"
           label="Type"
@@ -34,6 +30,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
           ]}
           required
         />
+        <.input type="text" label="Name" field={@form[:name]} required />
+
+        <.input type="textarea" label="Description" field={@form[:description]} />
 
         <.input
           :if={is_paid_type?(@form[:type].value)}
@@ -50,6 +49,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
           </div>
         </.input>
         <.input
+          :if={!is_donation_type?(@form[:type].value)}
           type="checkbox"
           label="Unlimited quantity"
           field={@form[:unlimited_quantity]}
@@ -58,13 +58,14 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
         />
 
         <.input
-          :if={!@form[:unlimited_quantity].value}
+          :if={!is_donation_type?(@form[:type].value) && !@form[:unlimited_quantity].value}
           type="number"
           label="Quantity"
           field={@form[:quantity]}
         />
 
         <.date_picker
+          :if={!is_donation_type?(@form[:type].value)}
           id="sales_start"
           label="Sale Starts"
           form={@form}
@@ -73,6 +74,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
           required={true}
         />
         <.date_picker
+          :if={!is_donation_type?(@form[:type].value)}
           id="sale_ends"
           label="Sale Ends"
           form={@form}
@@ -81,7 +83,10 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
           required={true}
         />
 
-        <div phx-feedback-for={@form[:requires_registration].name}>
+        <div
+          :if={!is_donation_type?(@form[:type].value)}
+          phx-feedback-for={@form[:requires_registration].name}
+        >
           <label class="flex items-center gap-4 text-sm leading-6 text-zinc-600">
             <input type="hidden" name={@form[:requires_registration].name} value="false" />
             <input
@@ -373,4 +378,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
   defp is_paid_type?("paid"), do: true
   defp is_paid_type?(:paid), do: true
   defp is_paid_type?(_), do: false
+
+  defp is_donation_type?(nil), do: false
+  defp is_donation_type?("donation"), do: true
+  defp is_donation_type?(:donation), do: true
+  defp is_donation_type?(_), do: false
 end
