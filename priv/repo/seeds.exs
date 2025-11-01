@@ -135,7 +135,19 @@ admin_user =
           }
         })
 
-      Repo.insert!(admin_changeset)
+      case Repo.insert(admin_changeset, on_conflict: :nothing) do
+        {:ok, user} when not is_nil(user) ->
+          user
+
+        {:ok, nil} ->
+          # Conflict occurred, fetch the existing user
+          Repo.get_by!(User, email: "admin@ysc.org")
+
+        {:error, _changeset} ->
+          # If insert fails, try to fetch again (might have been created by another process)
+          Repo.get_by!(User, email: "admin@ysc.org") ||
+            raise("Failed to create or find admin user")
+      end
 
     existing_user ->
       existing_user
@@ -172,51 +184,59 @@ Enum.each(0..n_approved_users, fn n ->
     end
 
   first_name = first_names |> Enum.shuffle() |> hd
+  email = String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org")
 
-  regular_user =
-    User.registration_changeset(%User{}, %{
-      email: String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org"),
-      password: "very_secure_password",
-      role: :member,
-      state: :active,
-      first_name: first_name,
-      last_name: last_name,
-      phone_number: "+1415900900#{n}",
-      confirmed_at: DateTime.utc_now(),
-      most_connected_country: countries |> Enum.shuffle() |> hd,
-      family_members: fam_members,
-      registration_form: %{
-        membership_type: membership_type,
-        membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
-        occupation: "Plumber",
-        birth_date: "1900-01-01",
-        address: "Dance St 2",
-        country: "USA",
-        city: "Dance Town",
-        region: "CA",
-        postal_code: "94700",
-        place_of_birth: "Sweden",
-        citizenship: "USA",
-        most_connected_nordic_country: "Sweden",
-        link_to_scandinavia: "Love it!",
-        lived_in_scandinavia: "For a few seconds.",
-        spoken_languages: "English and German",
-        hear_about_the_club: "On internet",
-        agreed_to_bylaws: "true",
-        agreed_to_bylaws_at: DateTime.utc_now(),
-        started: DateTime.utc_now(),
-        completed: DateTime.utc_now(),
-        browser_timezone: "America/Los_Angeles",
-        reviewed_at: DateTime.utc_now(),
-        review_outcome: "approved",
-        reviewed_by_user_id: admin_user.id
-      }
-    })
+  # Check if user already exists
+  existing_user = Repo.get_by(User, email: email)
 
-  Repo.insert!(
-    regular_user,
-    on_conflict: :nothing
-  )
+  if existing_user do
+    IO.puts("User already exists, skipping: #{email}")
+  else
+    regular_user =
+      User.registration_changeset(%User{}, %{
+        email: email,
+        password: "very_secure_password",
+        role: :member,
+        state: :active,
+        first_name: first_name,
+        last_name: last_name,
+        phone_number: "+1415900900#{n}",
+        confirmed_at: DateTime.utc_now(),
+        most_connected_country: countries |> Enum.shuffle() |> hd,
+        family_members: fam_members,
+        registration_form: %{
+          membership_type: membership_type,
+          membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
+          occupation: "Plumber",
+          birth_date: "1900-01-01",
+          address: "Dance St 2",
+          country: "USA",
+          city: "Dance Town",
+          region: "CA",
+          postal_code: "94700",
+          place_of_birth: "Sweden",
+          citizenship: "USA",
+          most_connected_nordic_country: "Sweden",
+          link_to_scandinavia: "Love it!",
+          lived_in_scandinavia: "For a few seconds.",
+          spoken_languages: "English and German",
+          hear_about_the_club: "On internet",
+          agreed_to_bylaws: "true",
+          agreed_to_bylaws_at: DateTime.utc_now(),
+          started: DateTime.utc_now(),
+          completed: DateTime.utc_now(),
+          browser_timezone: "America/Los_Angeles",
+          reviewed_at: DateTime.utc_now(),
+          review_outcome: "approved",
+          reviewed_by_user_id: admin_user.id
+        }
+      })
+
+    case Repo.insert(regular_user, on_conflict: :nothing) do
+      {:ok, _user} -> :ok
+      {:error, changeset} -> IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
+    end
+  end
 end)
 
 Enum.each(0..n_pending_users, fn n ->
@@ -250,144 +270,168 @@ Enum.each(0..n_pending_users, fn n ->
     end
 
   first_name = first_names |> Enum.shuffle() |> hd
+  email = String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org")
 
-  pending_user =
-    User.registration_changeset(%User{}, %{
-      email: String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org"),
-      password: "very_secure_password",
-      role: :member,
-      state: :pending_approval,
-      first_name: first_name,
-      last_name: last_name,
-      phone_number: "+1415900900#{n}",
-      confirmed_at: DateTime.utc_now(),
-      most_connected_country: countries |> Enum.shuffle() |> hd,
-      family_members: fam_members,
-      registration_form: %{
-        membership_type: membership_type,
-        membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
-        occupation: "Plumber",
-        birth_date: "1970-02-04",
-        address: "Dance St 2",
-        country: "USA",
-        city: "Dance Town",
-        region: "CA",
-        postal_code: "9470#{n}",
-        place_of_birth: "Sweden",
-        citizenship: "USA",
-        most_connected_nordic_country: "Sweden",
-        link_to_scandinavia: "Love it!",
-        lived_in_scandinavia: "For a few seconds.",
-        spoken_languages: "English and German",
-        hear_about_the_club: "On internet",
-        agreed_to_bylaws: "true",
-        agreed_to_bylaws_at: DateTime.utc_now(),
-        started: DateTime.utc_now(),
-        completed: DateTime.utc_now(),
-        browser_timezone: "America/Los_Angeles"
-      }
-    })
+  # Check if user already exists
+  existing_user = Repo.get_by(User, email: email)
 
-  Repo.insert!(
-    pending_user,
-    on_conflict: :nothing
-  )
+  if existing_user do
+    IO.puts("User already exists, skipping: #{email}")
+  else
+    pending_user =
+      User.registration_changeset(%User{}, %{
+        email: email,
+        password: "very_secure_password",
+        role: :member,
+        state: :pending_approval,
+        first_name: first_name,
+        last_name: last_name,
+        phone_number: "+1415900900#{n}",
+        confirmed_at: DateTime.utc_now(),
+        most_connected_country: countries |> Enum.shuffle() |> hd,
+        family_members: fam_members,
+        registration_form: %{
+          membership_type: membership_type,
+          membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
+          occupation: "Plumber",
+          birth_date: "1970-02-04",
+          address: "Dance St 2",
+          country: "USA",
+          city: "Dance Town",
+          region: "CA",
+          postal_code: "9470#{n}",
+          place_of_birth: "Sweden",
+          citizenship: "USA",
+          most_connected_nordic_country: "Sweden",
+          link_to_scandinavia: "Love it!",
+          lived_in_scandinavia: "For a few seconds.",
+          spoken_languages: "English and German",
+          hear_about_the_club: "On internet",
+          agreed_to_bylaws: "true",
+          agreed_to_bylaws_at: DateTime.utc_now(),
+          started: DateTime.utc_now(),
+          completed: DateTime.utc_now(),
+          browser_timezone: "America/Los_Angeles"
+        }
+      })
+
+    case Repo.insert(pending_user, on_conflict: :nothing) do
+      {:ok, _user} -> :ok
+      {:error, changeset} -> IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
+    end
+  end
 end)
 
 Enum.each(0..n_rejected_users, fn n ->
   first_name = first_names |> Enum.shuffle() |> hd
   last_name = last_names |> Enum.shuffle() |> hd
+  email = String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org")
 
-  rejected_user =
-    User.registration_changeset(%User{}, %{
-      email: String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org"),
-      password: "very_secure_password",
-      role: :member,
-      state: :rejected,
-      first_name: first_name,
-      last_name: last_name,
-      phone_number: "+1415900900#{n}",
-      most_connected_country: countries |> Enum.shuffle() |> hd,
-      registration_form: %{
-        membership_type: "family",
-        membership_eligibiltiy: [],
-        occupation: "Plumber",
-        birth_date: "1900-01-01",
-        address: "Dance St 2",
-        country: "USA",
-        city: "Dance Town",
-        region: "CA",
-        postal_code: "94700",
-        place_of_birth: "USA",
-        citizenship: "USA",
-        most_connected_nordic_country: "Iceland",
-        link_to_scandinavia: "Love it!",
-        lived_in_scandinavia: "For a few seconds.",
-        spoken_languages: "English",
-        hear_about_the_club: "On internet",
-        agreed_to_bylaws: "true",
-        agreed_to_bylaws_at: DateTime.utc_now(),
-        started: DateTime.utc_now(),
-        completed: DateTime.utc_now(),
-        browser_timezone: "America/Los_Angeles",
-        reviewed_at: DateTime.utc_now(),
-        review_outcome: "rejected",
-        reviewed_by_user_id: admin_user.id
-      }
-    })
+  # Check if user already exists
+  existing_user = Repo.get_by(User, email: email)
 
-  Repo.insert!(
-    rejected_user,
-    on_conflict: :nothing
-  )
+  if existing_user do
+    IO.puts("User already exists, skipping: #{email}")
+  else
+    rejected_user =
+      User.registration_changeset(%User{}, %{
+        email: email,
+        password: "very_secure_password",
+        role: :member,
+        state: :rejected,
+        first_name: first_name,
+        last_name: last_name,
+        phone_number: "+1415900900#{n}",
+        most_connected_country: countries |> Enum.shuffle() |> hd,
+        registration_form: %{
+          membership_type: "family",
+          membership_eligibiltiy: [],
+          occupation: "Plumber",
+          birth_date: "1900-01-01",
+          address: "Dance St 2",
+          country: "USA",
+          city: "Dance Town",
+          region: "CA",
+          postal_code: "94700",
+          place_of_birth: "USA",
+          citizenship: "USA",
+          most_connected_nordic_country: "Iceland",
+          link_to_scandinavia: "Love it!",
+          lived_in_scandinavia: "For a few seconds.",
+          spoken_languages: "English",
+          hear_about_the_club: "On internet",
+          agreed_to_bylaws: "true",
+          agreed_to_bylaws_at: DateTime.utc_now(),
+          started: DateTime.utc_now(),
+          completed: DateTime.utc_now(),
+          browser_timezone: "America/Los_Angeles",
+          reviewed_at: DateTime.utc_now(),
+          review_outcome: "rejected",
+          reviewed_by_user_id: admin_user.id
+        }
+      })
+
+    case Repo.insert(rejected_user, on_conflict: :nothing) do
+      {:ok, _user} -> :ok
+      {:error, changeset} -> IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
+    end
+  end
 end)
 
 Enum.each(0..n_deleted_users, fn n ->
   first_name = first_names |> Enum.shuffle() |> hd
   last_name = last_names |> Enum.shuffle() |> hd
+  email = String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org")
 
-  deleted_user =
-    User.registration_changeset(%User{}, %{
-      email: String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org"),
-      password: "very_secure_password",
-      role: :member,
-      state: :deleted,
-      first_name: first_name,
-      last_name: last_name,
-      phone_number: "+1415900900#{n}",
-      most_connected_country: countries |> Enum.shuffle() |> hd,
-      registration_form: %{
-        membership_type: "family",
-        membership_eligibility: [],
-        occupation: "Plumber",
-        birth_date: "1970-04-02",
-        address: "Dance St 2",
-        country: "USA",
-        city: "Dance Town",
-        region: "CA",
-        postal_code: "94700",
-        place_of_birth: "USA",
-        citizenship: "USA",
-        most_connected_nordic_country: "Iceland",
-        link_to_scandinavia: "Love it!",
-        lived_in_scandinavia: "For a few seconds.",
-        spoken_languages: "English",
-        hear_about_the_club: "On internet",
-        agreed_to_bylaws: "true",
-        agreed_to_bylaws_at: DateTime.utc_now(),
-        started: DateTime.utc_now(),
-        completed: DateTime.utc_now(),
-        browser_timezone: "America/Los_Angeles",
-        reviewed_at: DateTime.utc_now(),
-        review_outcome: "approved",
-        reviewed_by_user_id: admin_user.id
-      }
-    })
+  # Check if user already exists
+  existing_user = Repo.get_by(User, email: email)
 
-  Repo.insert!(
-    deleted_user,
-    on_conflict: :nothing
-  )
+  if existing_user do
+    IO.puts("User already exists, skipping: #{email}")
+  else
+    deleted_user =
+      User.registration_changeset(%User{}, %{
+        email: email,
+        password: "very_secure_password",
+        role: :member,
+        state: :deleted,
+        first_name: first_name,
+        last_name: last_name,
+        phone_number: "+1415900900#{n}",
+        most_connected_country: countries |> Enum.shuffle() |> hd,
+        registration_form: %{
+          membership_type: "family",
+          membership_eligibility: [],
+          occupation: "Plumber",
+          birth_date: "1970-04-02",
+          address: "Dance St 2",
+          country: "USA",
+          city: "Dance Town",
+          region: "CA",
+          postal_code: "94700",
+          place_of_birth: "USA",
+          citizenship: "USA",
+          most_connected_nordic_country: "Iceland",
+          link_to_scandinavia: "Love it!",
+          lived_in_scandinavia: "For a few seconds.",
+          spoken_languages: "English",
+          hear_about_the_club: "On internet",
+          agreed_to_bylaws: "true",
+          agreed_to_bylaws_at: DateTime.utc_now(),
+          started: DateTime.utc_now(),
+          completed: DateTime.utc_now(),
+          browser_timezone: "America/Los_Angeles",
+          reviewed_at: DateTime.utc_now(),
+          review_outcome: "approved",
+          reviewed_by_user_id: admin_user.id
+        }
+      })
+
+    case Repo.insert(deleted_user, on_conflict: :nothing) do
+      {:ok, _user} -> :ok
+      {:error, changeset} -> IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
+    end
+  end
 end)
 
 # Seed Posts and Events with Images
@@ -396,6 +440,7 @@ alias Ysc.Posts
 alias Ysc.Posts.Post
 alias Ysc.Events
 alias Ysc.Events.Event
+alias Ysc.Events.TicketTier
 alias Ysc.Media
 alias Ysc.Media.Image
 
@@ -416,52 +461,96 @@ if length(active_users) > 0 do
       |> Enum.with_index()
       |> Enum.map(fn {filename, index} ->
         image_path = Path.join(seed_assets_dir, filename)
+        image_title =
+          String.replace(filename, ~r/[_-]/, " ") |> String.replace(~r/\.[^.]*$/, "")
 
-        # Upload raw file to S3
-        upload_result = Media.upload_file_to_s3(image_path)
-        raw_s3_path = upload_result[:body][:location]
+        # Check if image already exists by title
+        existing_image =
+          Repo.one(
+            from i in Image,
+              where: i.title == ^image_title,
+              limit: 1
+          )
 
-        # Create image record (must use admin_user for authorization)
-        case Media.add_new_image(
-               %{
-                 raw_image_path: URI.encode(raw_s3_path),
-                 user_id: admin_user.id,
-                 title:
-                   String.replace(filename, ~r/[_-]/, " ") |> String.replace(~r/\.[^.]*$/, ""),
-                 processing_state: "unprocessed"
-               },
-               admin_user
-             ) do
-          {:ok, new_image} ->
-            # Process the image (create thumbnails, optimized versions, blur hash)
-            temp_dir = "/tmp/image_processor"
-            File.mkdir_p!(temp_dir)
-            tmp_output_file = "#{temp_dir}/#{new_image.id}"
-            optimized_output_path = "#{tmp_output_file}_optimized.png"
-            thumbnail_output_path = "#{tmp_output_file}_thumb.png"
+        if existing_image do
+          IO.puts("Image already exists, skipping: #{filename}")
+          existing_image
+        else
+          # Upload raw file to S3
+          upload_result =
+            try do
+              Media.upload_file_to_s3(image_path)
+            rescue
+              e ->
+                IO.puts("Failed to upload #{filename} to S3: #{inspect(e)}")
+                nil
+            end
 
-            processed_image =
-              try do
-                Media.process_image_upload(
-                  new_image,
-                  image_path,
-                  thumbnail_output_path,
-                  optimized_output_path
-                )
-              rescue
-                _ ->
-                  # If image processing fails, at least we have the raw image
-                  new_image
+          if upload_result do
+            raw_s3_path = upload_result[:body][:location]
+
+            # Check if image with this raw_image_path already exists
+            existing_by_path =
+              Repo.one(
+                from i in Image,
+                  where: i.raw_image_path == ^URI.encode(raw_s3_path),
+                  limit: 1
+              )
+
+            if existing_by_path do
+              IO.puts("Image with path already exists, skipping: #{filename}")
+              existing_by_path
+            else
+              # Create image record (must use admin_user for authorization)
+              case Media.add_new_image(
+                     %{
+                       raw_image_path: URI.encode(raw_s3_path),
+                       user_id: admin_user.id,
+                       title: image_title,
+                       processing_state: "unprocessed"
+                     },
+                     admin_user
+                   ) do
+                {:ok, new_image} ->
+                  # Process the image (create thumbnails, optimized versions, blur hash)
+                  temp_dir = "/tmp/image_processor"
+                  File.mkdir_p!(temp_dir)
+                  tmp_output_file = "#{temp_dir}/#{new_image.id}"
+                  optimized_output_path = "#{tmp_output_file}_optimized.png"
+                  thumbnail_output_path = "#{tmp_output_file}_thumb.png"
+
+                  processed_image =
+                    try do
+                      Media.process_image_upload(
+                        new_image,
+                        image_path,
+                        thumbnail_output_path,
+                        optimized_output_path
+                      )
+                    rescue
+                      e ->
+                        # If image processing fails, at least we have the raw image
+                        IO.puts("Failed to process image #{filename}: #{inspect(e)}")
+                        new_image
+                    end
+
+                  # Clean up temp files
+                  try do
+                    File.rm_rf(temp_dir)
+                  rescue
+                    _ -> :ok
+                  end
+
+                  processed_image
+
+                {:error, reason} ->
+                  IO.puts("Failed to create image record for #{filename}: #{inspect(reason)}")
+                  nil
               end
-
-            # Clean up temp files
-            File.rm_rf(temp_dir)
-
-            processed_image
-
-          {:error, reason} ->
-            IO.puts("Failed to create image record for #{filename}: #{inspect(reason)}")
+            end
+          else
             nil
+          end
         end
       end)
       |> Enum.filter(&(&1 != nil))
@@ -530,46 +619,51 @@ if length(active_users) > 0 do
     Enum.each(0..(length(post_titles) - 1), fn index ->
       title = Enum.at(post_titles, index)
 
-      # Check if post already exists by title
-      existing_post = Repo.one(from p in Post, where: p.title == ^title, limit: 1)
+      try do
+        # Check if post already exists by title
+        existing_post = Repo.one(from p in Post, where: p.title == ^title, limit: 1)
 
-      if existing_post do
-        IO.puts("Post already exists, skipping: #{title}")
-      else
-        content = Enum.at(post_contents, index)
-        # Use admin_user for post creation since it requires admin role
-        user = admin_user
-        image = Enum.at(uploaded_images, rem(index, length(uploaded_images)))
+        if existing_post do
+          IO.puts("Post already exists, skipping: #{title}")
+        else
+          content = Enum.at(post_contents, index)
+          # Use admin_user for post creation since it requires admin role
+          user = admin_user
+          image = Enum.at(uploaded_images, rem(index, length(uploaded_images)))
 
-        url_name =
-          title
-          |> String.downcase()
-          |> String.replace(~r/[^a-z0-9]+/, "-")
-          |> String.trim("-")
-          |> then(fn name -> "#{name}-#{System.system_time(:second) - index}" end)
+          url_name =
+            title
+            |> String.downcase()
+            |> String.replace(~r/[^a-z0-9]+/, "-")
+            |> String.trim("-")
+            |> then(fn name -> "#{name}-#{System.system_time(:second) - index}" end)
 
-        published_on = DateTime.add(DateTime.utc_now(), -index * 2, :day)
+          published_on = DateTime.add(DateTime.utc_now(), -index * 2, :day)
 
-        case Posts.create_post(
-               %{
-                 "title" => title,
-                 "url_name" => url_name,
-                 "raw_body" => content,
-                 "rendered_body" => content,
-                 "preview_text" => String.slice(content, 0..150) <> "...",
-                 "state" => "published",
-                 "image_id" => image.id,
-                 "featured_post" => index == 0,
-                 "published_on" => published_on
-               },
-               user
-             ) do
-          {:ok, post} ->
-            IO.puts("Created post: #{post.title}")
+          case Posts.create_post(
+                 %{
+                   "title" => title,
+                   "url_name" => url_name,
+                   "raw_body" => content,
+                   "rendered_body" => content,
+                   "preview_text" => String.slice(content, 0..150) <> "...",
+                   "state" => "published",
+                   "image_id" => image.id,
+                   "featured_post" => index == 0,
+                   "published_on" => published_on
+                 },
+                 user
+               ) do
+            {:ok, post} ->
+              IO.puts("Created post: #{post.title}")
 
-          {:error, changeset} ->
-            IO.puts("Failed to create post: #{title} - #{inspect(changeset.errors)}")
+            {:error, changeset} ->
+              IO.puts("Failed to create post: #{title} - #{inspect(changeset.errors)}")
+          end
         end
+      rescue
+        e ->
+          IO.puts("Error creating post '#{title}': #{inspect(e)}")
       end
     end)
 
@@ -729,81 +823,100 @@ if length(active_users) > 0 do
     ]
 
     Enum.each(event_data, fn event_attrs ->
-      # Check if event already exists by title
-      existing_event = Repo.one(from e in Event, where: e.title == ^event_attrs.title, limit: 1)
+      try do
+        # Check if event already exists by title
+        existing_event = Repo.one(from e in Event, where: e.title == ^event_attrs.title, limit: 1)
 
-      if existing_event do
-        IO.puts("Event already exists, skipping: #{event_attrs.title}")
-      else
-        # Use admin_user for event creation since it requires admin role
-        organizer = admin_user
-        image = Enum.random(uploaded_images)
+        if existing_event do
+          IO.puts("Event already exists, skipping: #{event_attrs.title}")
+        else
+          # Use admin_user for event creation since it requires admin role
+          organizer = admin_user
+          image = Enum.random(uploaded_images)
 
-        # Calculate publish_at (before start_date)
-        publish_at = DateTime.add(event_attrs.start_date, -7, :day)
+          # Calculate publish_at (before start_date)
+          publish_at = DateTime.add(event_attrs.start_date, -7, :day)
 
-        case Events.create_event(%{
-               state: "published",
-               organizer_id: organizer.id,
-               title: event_attrs.title,
-               description: event_attrs.description,
-               image_id: image.id,
-               start_date: event_attrs.start_date,
-               start_time: event_attrs.start_time,
-               end_date: event_attrs.end_date,
-               end_time: event_attrs.end_time,
-               location_name: event_attrs.location_name,
-               address: event_attrs.address,
-               latitude: event_attrs.latitude,
-               longitude: event_attrs.longitude,
-               max_attendees: event_attrs.max_attendees,
-               unlimited_capacity: false,
-               published_at: publish_at,
-               publish_at: publish_at,
-               raw_details: """
-               ## #{event_attrs.title}
+          case Events.create_event(%{
+                 state: "published",
+                 organizer_id: organizer.id,
+                 title: event_attrs.title,
+                 description: event_attrs.description,
+                 image_id: image.id,
+                 start_date: event_attrs.start_date,
+                 start_time: event_attrs.start_time,
+                 end_date: event_attrs.end_date,
+                 end_time: event_attrs.end_time,
+                 location_name: event_attrs.location_name,
+                 address: event_attrs.address,
+                 latitude: event_attrs.latitude,
+                 longitude: event_attrs.longitude,
+                 max_attendees: event_attrs.max_attendees,
+                 unlimited_capacity: false,
+                 published_at: publish_at,
+                 publish_at: publish_at,
+                 raw_details: """
+                 ## #{event_attrs.title}
 
-               #{event_attrs.description}
+                 #{event_attrs.description}
 
-               ### Event Details
+                 ### Event Details
 
-               **Location:** #{event_attrs.location_name}
-               **Address:** #{event_attrs.address}
-               **Date:** #{Calendar.strftime(event_attrs.start_date, "%B %d, %Y")}
-               **Time:** #{Time.to_string(event_attrs.start_time)} - #{Time.to_string(event_attrs.end_time)}
+                 **Location:** #{event_attrs.location_name}
+                 **Address:** #{event_attrs.address}
+                 **Date:** #{Calendar.strftime(event_attrs.start_date, "%B %d, %Y")}
+                 **Time:** #{Time.to_string(event_attrs.start_time)} - #{Time.to_string(event_attrs.end_time)}
 
-               We hope to see you there!
-               """,
-               rendered_details: """
-               <h2>#{event_attrs.title}</h2>
-               <p>#{event_attrs.description}</p>
-               <h3>Event Details</h3>
-               <p><strong>Location:</strong> #{event_attrs.location_name}<br>
-               <strong>Address:</strong> #{event_attrs.address}<br>
-               <strong>Date:</strong> #{Calendar.strftime(event_attrs.start_date, "%B %d, %Y")}<br>
-               <strong>Time:</strong> #{Time.to_string(event_attrs.start_time)} - #{Time.to_string(event_attrs.end_time)}</p>
-               <p>We hope to see you there!</p>
-               """
-             }) do
-          {:ok, event} ->
-            # Create ticket tiers for the event
-            Enum.each(event_attrs.ticket_tiers, fn tier_attrs ->
-              case Events.create_ticket_tier(Map.merge(tier_attrs, %{event_id: event.id})) do
-                {:ok, _tier} ->
-                  :ok
+                 We hope to see you there!
+                 """,
+                 rendered_details: """
+                 <h2>#{event_attrs.title}</h2>
+                 <p>#{event_attrs.description}</p>
+                 <h3>Event Details</h3>
+                 <p><strong>Location:</strong> #{event_attrs.location_name}<br>
+                 <strong>Address:</strong> #{event_attrs.address}<br>
+                 <strong>Date:</strong> #{Calendar.strftime(event_attrs.start_date, "%B %d, %Y")}<br>
+                 <strong>Time:</strong> #{Time.to_string(event_attrs.start_time)} - #{Time.to_string(event_attrs.end_time)}</p>
+                 <p>We hope to see you there!</p>
+                 """
+               }) do
+            {:ok, event} ->
+              # Create ticket tiers for the event
+              Enum.each(event_attrs.ticket_tiers, fn tier_attrs ->
+                tier_name = tier_attrs.name
 
-                {:error, changeset} ->
-                  IO.puts("Failed to create ticket tier: #{inspect(changeset.errors)}")
-              end
-            end)
+                # Check if ticket tier already exists for this event
+                existing_tier =
+                  Repo.one(
+                    from tt in Ysc.Events.TicketTier,
+                      where: tt.event_id == ^event.id and tt.name == ^tier_name,
+                      limit: 1
+                  )
 
-            IO.puts(
-              "Created event: #{event.title} (#{length(event_attrs.ticket_tiers)} ticket tier(s))"
-            )
+                if existing_tier do
+                  IO.puts("Ticket tier '#{tier_name}' already exists for event '#{event.title}', skipping")
+                else
+                  case Events.create_ticket_tier(Map.merge(tier_attrs, %{event_id: event.id})) do
+                    {:ok, _tier} ->
+                      :ok
 
-          {:error, changeset} ->
-            IO.puts("Failed to create event: #{event_attrs.title} - #{inspect(changeset.errors)}")
+                    {:error, changeset} ->
+                      IO.puts("Failed to create ticket tier '#{tier_name}': #{inspect(changeset.errors)}")
+                  end
+                end
+              end)
+
+              IO.puts(
+                "Created event: #{event.title} (#{length(event_attrs.ticket_tiers)} ticket tier(s))"
+              )
+
+            {:error, changeset} ->
+              IO.puts("Failed to create event: #{event_attrs.title} - #{inspect(changeset.errors)}")
+          end
         end
+      rescue
+        e ->
+          IO.puts("Error creating event '#{event_attrs.title}': #{inspect(e)}")
       end
     end)
 
