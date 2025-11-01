@@ -356,6 +356,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
   defp format_money_safe(nil), do: "—"
   defp format_money_safe(""), do: "—"
+
   defp format_money_safe(%Money{} = money) do
     case Ysc.MoneyHelper.format_money(money) do
       formatted when is_binary(formatted) and formatted != "" -> formatted
@@ -364,5 +365,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
       _ -> "—"
     end
   end
+
   defp format_money_safe(_), do: "—"
 end

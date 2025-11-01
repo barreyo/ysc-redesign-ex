@@ -8,9 +8,9 @@ let MoneyInput = {
 
         // Push value to LiveView (only for donation inputs)
         const pushValue = (value) => {
-            const tierId = input.getAttribute("data-tier-id") ||
-                input.getAttribute("phx-value-tier-id") ||
-                (input.closest("[data-tier-id]") ? input.closest("[data-tier-id]").getAttribute("data-tier-id"));
+        const tierId = input.getAttribute("data-tier-id") ||
+            input.getAttribute("phx-value-tier-id") ||
+            input.closest("[data-tier-id]")?.getAttribute("data-tier-id");
 
             // Only push event if this is a donation input (has data-tier-id)
             // Regular price inputs in admin forms should not trigger this event
@@ -20,7 +20,7 @@ let MoneyInput = {
 
             const name = input.getAttribute("name");
 
-            // Get the value without formatting (remove commas)
+            // Get the value without formatting (remove commas)ke
             const cleanValue = value.replace(/,/g, "");
 
             // Build the event payload with the input name as a dynamic key
