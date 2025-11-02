@@ -233,8 +233,11 @@ Enum.each(0..n_approved_users, fn n ->
       })
 
     case Repo.insert(regular_user, on_conflict: :nothing) do
-      {:ok, _user} -> :ok
-      {:error, changeset} -> IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
+      {:ok, _user} ->
+        :ok
+
+      {:error, changeset} ->
+        IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
     end
   end
 end)
@@ -316,8 +319,11 @@ Enum.each(0..n_pending_users, fn n ->
       })
 
     case Repo.insert(pending_user, on_conflict: :nothing) do
-      {:ok, _user} -> :ok
-      {:error, changeset} -> IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
+      {:ok, _user} ->
+        :ok
+
+      {:error, changeset} ->
+        IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
     end
   end
 end)
@@ -372,8 +378,11 @@ Enum.each(0..n_rejected_users, fn n ->
       })
 
     case Repo.insert(rejected_user, on_conflict: :nothing) do
-      {:ok, _user} -> :ok
-      {:error, changeset} -> IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
+      {:ok, _user} ->
+        :ok
+
+      {:error, changeset} ->
+        IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
     end
   end
 end)
@@ -428,8 +437,11 @@ Enum.each(0..n_deleted_users, fn n ->
       })
 
     case Repo.insert(deleted_user, on_conflict: :nothing) do
-      {:ok, _user} -> :ok
-      {:error, changeset} -> IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
+      {:ok, _user} ->
+        :ok
+
+      {:error, changeset} ->
+        IO.puts("Failed to create user #{email}: #{inspect(changeset.errors)}")
     end
   end
 end)
@@ -461,6 +473,7 @@ if length(active_users) > 0 do
       |> Enum.with_index()
       |> Enum.map(fn {filename, index} ->
         image_path = Path.join(seed_assets_dir, filename)
+
         image_title =
           String.replace(filename, ~r/[_-]/, " ") |> String.replace(~r/\.[^.]*$/, "")
 
@@ -894,14 +907,18 @@ if length(active_users) > 0 do
                   )
 
                 if existing_tier do
-                  IO.puts("Ticket tier '#{tier_name}' already exists for event '#{event.title}', skipping")
+                  IO.puts(
+                    "Ticket tier '#{tier_name}' already exists for event '#{event.title}', skipping"
+                  )
                 else
                   case Events.create_ticket_tier(Map.merge(tier_attrs, %{event_id: event.id})) do
                     {:ok, _tier} ->
                       :ok
 
                     {:error, changeset} ->
-                      IO.puts("Failed to create ticket tier '#{tier_name}': #{inspect(changeset.errors)}")
+                      IO.puts(
+                        "Failed to create ticket tier '#{tier_name}': #{inspect(changeset.errors)}"
+                      )
                   end
                 end
               end)
@@ -911,7 +928,9 @@ if length(active_users) > 0 do
               )
 
             {:error, changeset} ->
-              IO.puts("Failed to create event: #{event_attrs.title} - #{inspect(changeset.errors)}")
+              IO.puts(
+                "Failed to create event: #{event_attrs.title} - #{inspect(changeset.errors)}"
+              )
           end
         end
       rescue

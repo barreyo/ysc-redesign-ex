@@ -43,8 +43,8 @@ dev-setup:  ## Set up local dev environment
 	@docker-compose -f $(DOCKER_COMPOSE_FILE) up -d
 	@./etc/scripts/_wait_db_connection.sh
 	@if [ "$($(reset-db))" = "true" ]; then $(MAKE) reset-db; fi
-	@$(MAKE) setup-dev-db
 	@$(MAKE) setup-s3
+	@$(MAKE) setup-dev-db
 	@echo "$(GREEN)Your local dev env is ready!$(RESET)"
 	@echo "Run $(BOLD)make dev$(RESET) to start the server and then visit $(BOLD)http://localhost:4000/$(RESET)"
 

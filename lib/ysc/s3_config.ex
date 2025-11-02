@@ -57,17 +57,17 @@ defmodule Ysc.S3Config do
   """
   def object_url(key) do
     base = base_url()
-    bucket = bucket_name()
 
     case base do
       url when is_binary(url) and url != "" ->
-        # Localstack or custom endpoint
+        # Localstack or custom endpoint - bucket is already in hostname
         base_url = String.trim_trailing(base, "/")
         key = String.trim_leading(key, "/")
-        "#{base_url}/#{bucket}/#{key}"
+        "#{base_url}/#{key}"
 
       _ ->
         # Production AWS S3 - construct from bucket and region
+        bucket = bucket_name()
         region = region()
         key = String.trim_leading(key, "/")
         "https://#{bucket}.s3.#{region}.amazonaws.com/#{key}"

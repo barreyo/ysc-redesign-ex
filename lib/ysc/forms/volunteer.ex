@@ -2,6 +2,8 @@ defmodule Ysc.Forms.Volunteer do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Ysc.Accounts.User
+
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]
@@ -15,6 +17,8 @@ defmodule Ysc.Forms.Volunteer do
     field :interest_tahoe, :boolean
     field :interest_marketing, :boolean
     field :interest_website, :boolean
+
+    belongs_to :user, User, foreign_key: :user_id, references: :id
 
     timestamps()
   end
@@ -30,7 +34,8 @@ defmodule Ysc.Forms.Volunteer do
       :interest_clear_lake,
       :interest_tahoe,
       :interest_marketing,
-      :interest_website
+      :interest_website,
+      :user_id
     ])
     |> validate_required([:email, :name])
     # Basic email validation

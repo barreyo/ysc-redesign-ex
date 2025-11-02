@@ -16,6 +16,8 @@ defmodule YscWeb.ConductViolationReportLive do
           <.link
             navigate={~p"/code-of-conduct"}
             class="text-blue-600 hover:text-blue-700 transition ease-in-out"
+            target="_blank"
+            rel="noopener noreferrer"
           >
             YSC Code of Conduct
           </.link>
@@ -55,7 +57,12 @@ defmodule YscWeb.ConductViolationReportLive do
     current_user = socket.assigns[:current_user]
 
     params = starting_params(current_user)
-    changeset = Ysc.Forms.Volunteer.changeset(%Ysc.Forms.Volunteer{}, params)
+
+    changeset =
+      Ysc.Forms.ConductViolationReport.changeset(
+        %Ysc.Forms.ConductViolationReport{},
+        params
+      )
 
     {:ok,
      socket
@@ -68,20 +75,24 @@ defmodule YscWeb.ConductViolationReportLive do
 
   @impl true
   def handle_event("validate", %{"conduct_form" => volunteer_params}, socket) do
+    params = add_user_id(volunteer_params, socket.assigns[:current_user])
+
     changeset =
       Ysc.Forms.ConductViolationReport.changeset(
         %Ysc.Forms.ConductViolationReport{},
-        volunteer_params
+        params
       )
 
     {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_event("save", %{"conduct_form" => form_values} = values, socket) do
+    params = add_user_id(form_values, socket.assigns[:current_user])
+
     changeset =
       Ysc.Forms.ConductViolationReport.changeset(
         %Ysc.Forms.ConductViolationReport{},
-        form_values
+        params
       )
 
     if !socket.assigns.logged_in? do
@@ -137,7 +148,11 @@ defmodule YscWeb.ConductViolationReportLive do
       first_name: user.first_name,
       last_name: user.last_name,
       email: user.email,
-      phone: user.phone_number
+      phone: user.phone_number,
+      user_id: user.id
     }
   end
+
+  defp add_user_id(params, nil), do: params
+  defp add_user_id(params, user), do: Map.put(params, "user_id", user.id)
 end

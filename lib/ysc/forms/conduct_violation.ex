@@ -2,6 +2,8 @@ defmodule Ysc.Forms.ConductViolationReport do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Ysc.Accounts.User
+
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]
@@ -15,6 +17,8 @@ defmodule Ysc.Forms.ConductViolationReport do
 
     field :status, ViolationFormStatus
 
+    belongs_to :user, User, foreign_key: :user_id, references: :id
+
     timestamps()
   end
 
@@ -27,7 +31,8 @@ defmodule Ysc.Forms.ConductViolationReport do
       :last_name,
       :phone,
       :summary,
-      :status
+      :status,
+      :user_id
     ])
     |> validate_required([:email, :first_name, :last_name, :phone, :summary])
     # Basic email validation
