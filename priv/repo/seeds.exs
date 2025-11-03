@@ -455,6 +455,7 @@ alias Ysc.Events.Event
 alias Ysc.Events.TicketTier
 alias Ysc.Media
 alias Ysc.Media.Image
+alias Ysc.Agendas
 
 # Get active users for creating posts and events
 active_users = Repo.all(from u in User, where: u.state == :active, limit: 10)
@@ -680,6 +681,281 @@ if length(active_users) > 0 do
       end
     end)
 
+    # Helper function to generate agenda items based on event type
+    generate_agenda_items = fn event_title, start_time, end_time ->
+      # Extract hour from start_time
+      start_hour = start_time.hour
+      start_minute = start_time.minute
+      end_hour = end_time.hour
+      end_minute = end_time.minute
+
+      # Calculate total duration in minutes
+      total_minutes = end_hour * 60 + end_minute - (start_hour * 60 + start_minute)
+
+      # Generate agenda items based on event type
+      items =
+        cond do
+          String.contains?(String.downcase(event_title), "gala") or
+              String.contains?(String.downcase(event_title), "dinner") ->
+            [
+              %{title: "Welcome Reception", description: "Cocktails and mingling", duration: 30},
+              %{
+                title: "Opening Remarks",
+                description: "Welcome address from club leadership",
+                duration: 15
+              },
+              %{title: "First Course", description: "Traditional appetizers", duration: 25},
+              %{title: "Main Course", description: "Scandinavian specialties", duration: 45},
+              %{title: "Entertainment", description: "Live music and performances", duration: 40},
+              %{
+                title: "Dessert & Coffee",
+                description: "Traditional desserts and coffee service",
+                duration: 30
+              },
+              %{
+                title: "Closing Remarks",
+                description: "Thank you and announcements",
+                duration: 10
+              }
+            ]
+
+          String.contains?(String.downcase(event_title), "book") ->
+            [
+              %{
+                title: "Welcome & Introductions",
+                description: "Meet fellow readers",
+                duration: 15
+              },
+              %{
+                title: "Book Discussion",
+                description: "Deep dive into this month's selection",
+                duration: 60
+              },
+              %{title: "Q&A Session", description: "Questions and sharing", duration: 20},
+              %{
+                title: "Next Month Preview",
+                description: "Introduction to next month's book",
+                duration: 10
+              }
+            ]
+
+          String.contains?(String.downcase(event_title), "cultural") ->
+            [
+              %{
+                title: "Welcome & Registration",
+                description: "Check-in and welcome refreshments",
+                duration: 30
+              },
+              %{
+                title: "Opening Presentation",
+                description: "Introduction to Scandinavian culture",
+                duration: 20
+              },
+              %{
+                title: "Food & Drink Tasting",
+                description: "Sample traditional Scandinavian cuisine",
+                duration: 45
+              },
+              %{
+                title: "Cultural Activities",
+                description: "Interactive workshops and demonstrations",
+                duration: 60
+              },
+              %{
+                title: "Music & Dancing",
+                description: "Traditional music and folk dancing",
+                duration: 40
+              },
+              %{
+                title: "Closing & Networking",
+                description: "Final remarks and networking",
+                duration: 15
+              }
+            ]
+
+          String.contains?(String.downcase(event_title), "festival") ->
+            [
+              %{
+                title: "Opening Ceremony",
+                description: "Welcome and festival kickoff",
+                duration: 20
+              },
+              %{
+                title: "Morning Activities",
+                description: "Games, crafts, and activities for all ages",
+                duration: 120
+              },
+              %{title: "Lunch Break", description: "Food vendors and picnic areas", duration: 60},
+              %{
+                title: "Afternoon Entertainment",
+                description: "Live music and performances",
+                duration: 150
+              },
+              %{title: "Evening Program", description: "Main stage performances", duration: 120},
+              %{
+                title: "Closing Celebration",
+                description: "Final remarks and fireworks",
+                duration: 30
+              }
+            ]
+
+          String.contains?(String.downcase(event_title), "wine") ->
+            [
+              %{
+                title: "Welcome Reception",
+                description: "Registration and welcome wine",
+                duration: 20
+              },
+              %{
+                title: "Introduction to Scandinavian Wines",
+                description: "Overview of Nordic wine regions",
+                duration: 30
+              },
+              %{
+                title: "First Flight Tasting",
+                description: "Three white wines with tasting notes",
+                duration: 30
+              },
+              %{
+                title: "Second Flight Tasting",
+                description: "Three red wines with pairing suggestions",
+                duration: 30
+              },
+              %{
+                title: "Cheese & Charcuterie Pairing",
+                description: "Small plates paired with wines",
+                duration: 40
+              },
+              %{
+                title: "Q&A with Sommelier",
+                description: "Questions and final recommendations",
+                duration: 20
+              }
+            ]
+
+          String.contains?(String.downcase(event_title), "hiking") ->
+            [
+              %{
+                title: "Meet & Greet",
+                description: "Meet at trailhead, introductions",
+                duration: 15
+              },
+              %{
+                title: "Trail Briefing",
+                description: "Safety briefing and route overview",
+                duration: 10
+              },
+              %{
+                title: "Hike to First Viewpoint",
+                description: "Moderate hike with scenic views",
+                duration: 90
+              },
+              %{
+                title: "Rest & Snack Break",
+                description: "Break time with provided snacks",
+                duration: 20
+              },
+              %{
+                title: "Continue to Summit",
+                description: "Continue to main viewpoint",
+                duration: 60
+              },
+              %{title: "Lunch Break", description: "Lunch at scenic location", duration: 45},
+              %{title: "Return Hike", description: "Return to trailhead", duration: 90},
+              %{
+                title: "Closing & Departure",
+                description: "Final remarks and departure",
+                duration: 10
+              }
+            ]
+
+          String.contains?(String.downcase(event_title), "language") ->
+            [
+              %{
+                title: "Welcome & Introductions",
+                description: "Meet fellow language learners",
+                duration: 20
+              },
+              %{
+                title: "Swedish Conversation Circle",
+                description: "Practice Swedish with native speakers",
+                duration: 30
+              },
+              %{
+                title: "Norwegian Conversation Circle",
+                description: "Practice Norwegian with native speakers",
+                duration: 30
+              },
+              %{
+                title: "Danish Conversation Circle",
+                description: "Practice Danish with native speakers",
+                duration: 30
+              },
+              %{
+                title: "Language Exchange Mixer",
+                description: "Open conversation time",
+                duration: 30
+              },
+              %{
+                title: "Closing & Next Steps",
+                description: "Resources and next meeting info",
+                duration: 10
+              }
+            ]
+
+          true ->
+            # Generic agenda for other events
+            [
+              %{
+                title: "Welcome & Registration",
+                description: "Check-in and welcome",
+                duration: 15
+              },
+              %{title: "Opening Remarks", description: "Introduction and overview", duration: 10},
+              %{
+                title: "Main Program",
+                description: "Featured activities and presentations",
+                duration: max(30, div(total_minutes - 50, 2))
+              },
+              %{title: "Break", description: "Networking and refreshments", duration: 15},
+              %{
+                title: "Continued Program",
+                description: "Additional activities",
+                duration: max(30, div(total_minutes - 50, 2))
+              },
+              %{title: "Closing", description: "Final remarks and announcements", duration: 10}
+            ]
+        end
+
+      # Convert to time-based agenda items
+      current_minute = start_hour * 60 + start_minute
+
+      items
+      |> Enum.filter(fn item -> item.duration <= total_minutes end)
+      |> Enum.reduce_while({[], current_minute}, fn item, {acc, current} ->
+        if current + item.duration <= end_hour * 60 + end_minute do
+          item_start_hour = div(current, 60)
+          item_start_minute = rem(current, 60)
+          item_end_minute = current + item.duration
+          item_end_hour = div(item_end_minute, 60)
+          item_end_minute = rem(item_end_minute, 60)
+
+          agenda_item = %{
+            title: item.title,
+            description: item.description,
+            start_time: Time.new!(item_start_hour, item_start_minute, 0),
+            end_time: Time.new!(item_end_hour, item_end_minute, 0)
+          }
+
+          {:cont, {[agenda_item | acc], current + item.duration}}
+        else
+          {:halt, {acc, current}}
+        end
+      end)
+      |> elem(0)
+      |> Enum.reverse()
+    end
+
     # Create example events
     # Mix of free events and events with paid tickets
     event_data = [
@@ -842,6 +1118,52 @@ if length(active_users) > 0 do
 
         if existing_event do
           IO.puts("Event already exists, skipping: #{event_attrs.title}")
+
+          # Still try to create agenda if it doesn't exist
+          try do
+            existing_agendas = Agendas.list_agendas_for_event(existing_event.id)
+
+            if length(existing_agendas) == 0 do
+              # Use existing event's times if available, fallback to event_attrs
+              start_time = existing_event.start_time || event_attrs.start_time
+              end_time = existing_event.end_time || event_attrs.end_time
+              agenda_items = generate_agenda_items.(existing_event.title, start_time, end_time)
+
+              if length(agenda_items) > 0 do
+                case Agendas.create_agenda(existing_event, %{title: "Event Agenda"}) do
+                  {:ok, agenda} ->
+                    items_created =
+                      Enum.reduce(agenda_items, 0, fn item_attrs, count ->
+                        case Agendas.create_agenda_item(existing_event.id, agenda, item_attrs) do
+                          {:ok, _agenda_item} ->
+                            count + 1
+
+                          {:error, changeset} ->
+                            IO.puts(
+                              "  Failed to create agenda item '#{item_attrs.title}': #{inspect(changeset.errors)}"
+                            )
+
+                            count
+                        end
+                      end)
+
+                    IO.puts(
+                      "  Created agenda with #{items_created} agenda item(s) for existing event '#{existing_event.title}'"
+                    )
+
+                  {:error, changeset} ->
+                    IO.puts(
+                      "  Failed to create agenda for existing event '#{existing_event.title}': #{inspect(changeset.errors)}"
+                    )
+                end
+              end
+            end
+          rescue
+            e ->
+              IO.puts(
+                "  Error creating agenda for existing event '#{existing_event.title}': #{inspect(e)}"
+              )
+          end
         else
           # Use admin_user for event creation since it requires admin role
           organizer = admin_user
@@ -869,27 +1191,15 @@ if length(active_users) > 0 do
                  published_at: publish_at,
                  publish_at: publish_at,
                  raw_details: """
-                 ## #{event_attrs.title}
-
-                 #{event_attrs.description}
-
-                 ### Event Details
-
-                 **Location:** #{event_attrs.location_name}
-                 **Address:** #{event_attrs.address}
-                 **Date:** #{Calendar.strftime(event_attrs.start_date, "%B %d, %Y")}
-                 **Time:** #{Time.to_string(event_attrs.start_time)} - #{Time.to_string(event_attrs.end_time)}
-
-                 We hope to see you there!
+                 <p>A wonderful serenity has taken possession of my entire soul, like these sweet mornings of spring which I enjoy with my whole heart. I am alone, and feel the charm of existence in this spot, which was created for the bliss of souls like mine.</p>
+                 <p>I am so happy, my dear friend, so absorbed in the exquisite sense of mere tranquil existence, that I neglect my talents. I should be incapable of drawing a single stroke at the present moment; and yet I feel that I never was a greater artist than now.</p>
+                 <p>When, while the lovely valley teems with vapour around me, and the meridian sun strikes the upper surface of the impenetrable foliage of my trees, and but a few stray gleams steal into the inner sanctuary, I throw myself down among the tall grass by the trickling stream; and, as I lie close to the earth, a thousand unknown plants are noticed by me: when I hear the buzz of the little world among the stalks, and grow familiar with the countless indescribable forms of the insects and flies, then I feel the presence of the Almighty, who formed us in his own image, and the breath</p>
+                 <p>We hope to see you there!</p>
                  """,
                  rendered_details: """
-                 <h2>#{event_attrs.title}</h2>
-                 <p>#{event_attrs.description}</p>
-                 <h3>Event Details</h3>
-                 <p><strong>Location:</strong> #{event_attrs.location_name}<br>
-                 <strong>Address:</strong> #{event_attrs.address}<br>
-                 <strong>Date:</strong> #{Calendar.strftime(event_attrs.start_date, "%B %d, %Y")}<br>
-                 <strong>Time:</strong> #{Time.to_string(event_attrs.start_time)} - #{Time.to_string(event_attrs.end_time)}</p>
+                 <p>A wonderful serenity has taken possession of my entire soul, like these sweet mornings of spring which I enjoy with my whole heart. I am alone, and feel the charm of existence in this spot, which was created for the bliss of souls like mine.</p>
+                 <p>I am so happy, my dear friend, so absorbed in the exquisite sense of mere tranquil existence, that I neglect my talents. I should be incapable of drawing a single stroke at the present moment; and yet I feel that I never was a greater artist than now.</p>
+                 <p>When, while the lovely valley teems with vapour around me, and the meridian sun strikes the upper surface of the impenetrable foliage of my trees, and but a few stray gleams steal into the inner sanctuary, I throw myself down among the tall grass by the trickling stream; and, as I lie close to the earth, a thousand unknown plants are noticed by me: when I hear the buzz of the little world among the stalks, and grow familiar with the countless indescribable forms of the insects and flies, then I feel the presence of the Almighty, who formed us in his own image, and the breath</p>
                  <p>We hope to see you there!</p>
                  """
                }) do
@@ -922,6 +1232,60 @@ if length(active_users) > 0 do
                   end
                 end
               end)
+
+              # Create agenda with agenda items
+              try do
+                # Check if agenda already exists for this event
+                existing_agendas = Agendas.list_agendas_for_event(event.id)
+
+                if length(existing_agendas) > 0 do
+                  IO.puts("  Agenda already exists for '#{event.title}', skipping")
+                else
+                  # Generate agenda items based on event type
+                  agenda_items =
+                    generate_agenda_items.(
+                      event.title,
+                      event_attrs.start_time,
+                      event_attrs.end_time
+                    )
+
+                  if length(agenda_items) > 0 do
+                    # Create the agenda
+                    case Agendas.create_agenda(event, %{title: "Event Agenda"}) do
+                      {:ok, agenda} ->
+                        # Create agenda items
+                        items_created =
+                          Enum.reduce(agenda_items, 0, fn item_attrs, count ->
+                            case Agendas.create_agenda_item(event.id, agenda, item_attrs) do
+                              {:ok, _agenda_item} ->
+                                count + 1
+
+                              {:error, changeset} ->
+                                IO.puts(
+                                  "  Failed to create agenda item '#{item_attrs.title}': #{inspect(changeset.errors)}"
+                                )
+
+                                count
+                            end
+                          end)
+
+                        IO.puts(
+                          "  Created agenda with #{items_created} agenda item(s) for '#{event.title}'"
+                        )
+
+                      {:error, changeset} ->
+                        IO.puts(
+                          "  Failed to create agenda for '#{event.title}': #{inspect(changeset.errors)}"
+                        )
+                    end
+                  else
+                    IO.puts("  No agenda items generated for '#{event.title}' (event too short)")
+                  end
+                end
+              rescue
+                e ->
+                  IO.puts("  Error creating agenda for '#{event.title}': #{inspect(e)}")
+              end
 
               IO.puts(
                 "Created event: #{event.title} (#{length(event_attrs.ticket_tiers)} ticket tier(s))"
