@@ -3,6 +3,7 @@ defmodule YscWeb.UserResetPasswordLive do
 
   alias Ysc.Accounts
   alias Ysc.Accounts.AuthService
+  alias Ysc.Accounts.UserNotifier
 
   def render(assigns) do
     ~H"""
@@ -66,9 +67,12 @@ defmodule YscWeb.UserResetPasswordLive do
   # leaked token giving the user access to the account.
   def handle_event("reset_password", %{"user" => user_params}, socket) do
     case Accounts.reset_user_password(socket.assigns.user, user_params) do
-      {:ok, _} ->
+      {:ok, user} ->
         # Log successful password reset
         AuthService.log_password_reset_success(socket.assigns.user, socket)
+
+        # Send password changed notification
+        UserNotifier.deliver_password_changed_notification(user)
 
         {:noreply,
          socket

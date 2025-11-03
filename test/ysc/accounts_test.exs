@@ -242,12 +242,13 @@ defmodule Ysc.AccountsTest do
     end
 
     test "updates the email with a valid token", %{user: user, token: token, email: email} do
-      assert Accounts.update_user_email(user, token) == :ok
+      assert {:ok, updated_user, ^email} = Accounts.update_user_email(user, token)
+      assert updated_user.email != user.email
+      assert updated_user.email == email
+      assert updated_user.confirmed_at
+      assert updated_user.confirmed_at != user.confirmed_at
       changed_user = Repo.get!(User, user.id)
-      assert changed_user.email != user.email
       assert changed_user.email == email
-      assert changed_user.confirmed_at
-      assert changed_user.confirmed_at != user.confirmed_at
       refute Repo.get_by(UserToken, user_id: user.id)
     end
 

@@ -93,4 +93,58 @@ defmodule Ysc.Accounts.UserNotifier do
 
     url
   end
+
+  @doc """
+  Deliver password changed notification to a user.
+  """
+  def deliver_password_changed_notification(user) do
+    Notifier.schedule_email(
+      user.email,
+      UUID.uuid4(),
+      "Your YSC Password Has Been Changed",
+      "password_changed",
+      %{first_name: String.capitalize(user.first_name)},
+      """
+      ==============================
+
+      Hi #{user.email},
+
+      This is to confirm that your password for the Young Scandinavians Club account has been successfully changed.
+
+      If you did not make this change, please contact us immediately at info@ysc.org so we can secure your account.
+
+      If you did change your password, you can safely ignore this notification.
+
+      ==============================
+      """,
+      user.id
+    )
+  end
+
+  @doc """
+  Deliver email changed notification to a user.
+  """
+  def deliver_email_changed_notification(user, new_email) do
+    Notifier.schedule_email(
+      new_email,
+      UUID.uuid4(),
+      "Your YSC Email Has Been Changed",
+      "email_changed",
+      %{first_name: String.capitalize(user.first_name), new_email: new_email},
+      """
+      ==============================
+
+      Hi #{new_email},
+
+      This is to confirm that the email address for your Young Scandinavians Club account has been successfully changed to #{new_email}.
+
+      If you did not make this change, please contact us immediately at info@ysc.org so we can secure your account.
+
+      If you did change your email, you can safely ignore this notification.
+
+      ==============================
+      """,
+      user.id
+    )
+  end
 end

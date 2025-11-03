@@ -341,8 +341,9 @@ defmodule Ysc.Accounts do
 
     with {:ok, query} <- UserToken.verify_change_email_token_query(token, context),
          %UserToken{sent_to: email} <- Repo.one(query),
-         {:ok, _} <- Repo.transaction(user_email_multi(user, email, context)) do
-      :ok
+         {:ok, %{user: updated_user}} <- Repo.transaction(user_email_multi(user, email, context)),
+         reloaded_user <- Repo.get!(User, updated_user.id) do
+      {:ok, reloaded_user, email}
     else
       _ -> :error
     end

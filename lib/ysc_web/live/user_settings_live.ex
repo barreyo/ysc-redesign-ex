@@ -2,6 +2,7 @@ defmodule YscWeb.UserSettingsLive do
   use YscWeb, :live_view
 
   alias Ysc.Accounts
+  alias Ysc.Accounts.UserNotifier
   alias Ysc.Customers
   alias Ysc.Ledgers
   alias Ysc.Subscriptions
@@ -750,7 +751,8 @@ defmodule YscWeb.UserSettingsLive do
   def mount(%{"token" => token}, _session, socket) do
     socket =
       case Accounts.update_user_email(socket.assigns.current_user, token) do
-        :ok ->
+        {:ok, updated_user, new_email} ->
+          UserNotifier.deliver_email_changed_notification(updated_user, new_email)
           put_flash(socket, :info, "Email changed successfully.")
 
         :error ->
@@ -887,6 +889,8 @@ defmodule YscWeb.UserSettingsLive do
 
     case Accounts.update_user_password(user, password, user_params) do
       {:ok, user} ->
+        UserNotifier.deliver_password_changed_notification(user)
+
         password_form =
           user
           |> Accounts.change_user_password(user_params)
