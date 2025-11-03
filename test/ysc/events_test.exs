@@ -40,7 +40,7 @@ defmodule Ysc.EventsTest do
       end
 
       # Test the function
-      assert Events.is_event_selling_fast?(event.id) == true
+      assert Events.event_selling_fast?(event.id) == true
     end
 
     test "is_event_selling_fast? returns false when less than 10 tickets sold in last 3 days" do
@@ -77,7 +77,7 @@ defmodule Ysc.EventsTest do
       end
 
       # Test the function
-      assert Events.is_event_selling_fast?(event.id) == false
+      assert Events.event_selling_fast?(event.id) == false
     end
 
     test "is_event_selling_fast? returns false when tickets are older than 3 days" do
@@ -114,7 +114,7 @@ defmodule Ysc.EventsTest do
       end
 
       # Test the function
-      assert Events.is_event_selling_fast?(event.id) == false
+      assert Events.event_selling_fast?(event.id) == false
     end
 
     test "count_recent_tickets_sold returns correct count" do

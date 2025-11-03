@@ -93,14 +93,14 @@ defmodule Ysc.Accounts.AuthEventTest do
     test "identifies suspicious activity" do
       # Not suspicious
       normal_attrs = %{threat_indicators: []}
-      refute AuthEvent.is_suspicious?(normal_attrs)
+      refute AuthEvent.suspicious?(normal_attrs)
 
       # Suspicious
       suspicious_attrs = %{
         threat_indicators: ["new_device", "unusual_location", "rapid_attempts", "suspicious_ip"]
       }
 
-      assert AuthEvent.is_suspicious?(suspicious_attrs)
+      assert AuthEvent.suspicious?(suspicious_attrs)
     end
 
     test "handles invalid UTF-8 in user agent" do

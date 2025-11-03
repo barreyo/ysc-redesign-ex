@@ -4,25 +4,34 @@ defmodule Ysc.SettingsTest do
   alias Ysc.SiteSettings.SiteSetting
 
   setup do
-    # Clear out any existing settings before each test
+    # Clear out any existing settings and cache before each test
     Repo.delete_all(SiteSetting)
+    Settings.clear_cache()
     :ok
   end
 
   describe "settings/0" do
     test "returns all settings ordered by id desc" do
+      # Clear cache before test to ensure fresh state
+      Settings.clear_cache()
+
       setting1 = %SiteSetting{name: "setting1", value: "value1"} |> Repo.insert!()
       setting2 = %SiteSetting{name: "setting2", value: "value2"} |> Repo.insert!()
 
+      # Clear cache again to force fresh query from DB
+      Settings.clear_cache()
+
       settings = Settings.settings()
       assert length(settings) == 2
+      # Since setting2 was created after setting1, its ID should be "greater" (newer ULID)
+      # and thus come first when ordered by desc
       assert Enum.map(settings, & &1.id) == [setting2.id, setting1.id]
-
-      # Clear cache after test
-      Settings.clear_cache()
     end
 
     test "uses cache when available" do
+      # Clear cache before test to ensure clean state
+      Settings.clear_cache()
+
       setting = %SiteSetting{name: "test", value: "test"} |> Repo.insert!()
 
       # First call populates cache
@@ -32,9 +41,6 @@ defmodule Ysc.SettingsTest do
       # Delete from DB but should still return from cache
       Repo.delete!(setting)
       assert [^cached_setting] = Settings.settings()
-
-      # Clear cache after test
-      Settings.clear_cache()
     end
   end
 
@@ -42,9 +48,6 @@ defmodule Ysc.SettingsTest do
     test "returns setting value" do
       %SiteSetting{name: "test_setting", value: "test_value"} |> Repo.insert!()
       assert Settings.get_setting("test_setting") == "test_value"
-
-      # Clear cache after test
-      Settings.clear_cache()
     end
 
     test "raises if setting not found" do
@@ -54,9 +57,6 @@ defmodule Ysc.SettingsTest do
     end
 
     test "uses cache when available" do
-      # Clear cache first to ensure clean state
-      Settings.clear_cache()
-
       setting = %SiteSetting{name: "cached", value: "old"} |> Repo.insert!()
 
       # First call populates cache
@@ -64,14 +64,11 @@ defmodule Ysc.SettingsTest do
 
       # Update DB directly (bypassing Settings.update_setting which would update cache)
       setting
-      |> Ecto.Changeset.change(value: "updated")
+      |> Ecto.Changeset.change(value: "new")
       |> Repo.update!()
 
       # Should still return cached value since we didn't use Settings.update_setting
       assert Settings.get_setting("cached") == "old"
-
-      # Clear cache after test
-      Settings.clear_cache()
     end
   end
 
@@ -84,9 +81,6 @@ defmodule Ysc.SettingsTest do
 
       # Verify DB was updated
       assert Repo.get!(SiteSetting, setting.id).value == "new"
-
-      # Clear cache after test
-      Settings.clear_cache()
     end
 
     test "raises if setting not found" do
@@ -107,9 +101,6 @@ defmodule Ysc.SettingsTest do
 
       assert Settings.get_setting("cached") == "new"
       assert [%{value: "new"}] = Settings.settings()
-
-      # Clear cache after test
-      Settings.clear_cache()
     end
   end
 end
