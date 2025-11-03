@@ -135,6 +135,21 @@ config :ysc,
         "plan_type" => "membership",
         "interval" => "year"
       }
+    },
+    %{
+      id: :lifetime,
+      name: "Lifetime",
+      interval: "lifetime",
+      amount: 0,
+      currency: "usd",
+      trial_period_days: 0,
+      stripe_price_id: nil,
+      statement_descriptor: "Lifetime Membership",
+      description: "Lifetime membership with all Family membership perks - never expires",
+      metadata: %{
+        "plan_type" => "membership",
+        "interval" => "lifetime"
+      }
     }
   ]
 

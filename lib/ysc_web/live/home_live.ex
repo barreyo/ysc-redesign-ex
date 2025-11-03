@@ -284,36 +284,50 @@ defmodule YscWeb.HomeLive do
   # Helper functions
 
   defp get_current_membership(user) do
-    # Get active subscriptions
-    active_subscriptions =
-      user.subscriptions
-      |> Enum.filter(&Subscriptions.valid?/1)
-      |> Enum.filter(&(&1.stripe_status == "active"))
+    # Check for lifetime membership first
+    if Accounts.has_lifetime_membership?(user) do
+      lifetime_plan =
+        Application.get_env(:ysc, :membership_plans)
+        |> Enum.find(&(&1.id == :lifetime))
 
-    case active_subscriptions do
-      [] ->
-        nil
+      %{
+        plan: lifetime_plan,
+        type: :lifetime,
+        awarded_at: user.lifetime_membership_awarded_at,
+        renewal_date: nil
+      }
+    else
+      # Get active subscriptions
+      active_subscriptions =
+        user.subscriptions
+        |> Enum.filter(&Subscriptions.valid?/1)
+        |> Enum.filter(&(&1.stripe_status == "active"))
 
-      [subscription | _] ->
-        # Get the first subscription item to determine membership type
-        case subscription.subscription_items do
-          [item | _] ->
-            membership_plans = Application.get_env(:ysc, :membership_plans)
-            plan = Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id))
+      case active_subscriptions do
+        [] ->
+          nil
 
-            if plan do
-              %{
-                plan: plan,
-                subscription: subscription,
-                renewal_date: subscription.current_period_end
-              }
-            else
+        [subscription | _] ->
+          # Get the first subscription item to determine membership type
+          case subscription.subscription_items do
+            [item | _] ->
+              membership_plans = Application.get_env(:ysc, :membership_plans)
+              plan = Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id))
+
+              if plan do
+                %{
+                  plan: plan,
+                  subscription: subscription,
+                  renewal_date: subscription.current_period_end
+                }
+              else
+                nil
+              end
+
+            [] ->
               nil
-            end
-
-          [] ->
-            nil
-        end
+          end
+      end
     end
   end
 

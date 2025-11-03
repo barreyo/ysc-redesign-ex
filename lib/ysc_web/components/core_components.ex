@@ -1452,7 +1452,7 @@ defmodule YscWeb.CoreComponents do
         <.icon
           :if={text == "Selling Fast!"}
           name="hero-bolt-solid"
-          class="w-3 h-3 inline-block me-1 -mt-0.5"
+          class="w-3 h-3 inline-block me-0.5 -mt-0.5"
         />
         <%= text %>
       </.badge>
@@ -2164,6 +2164,13 @@ defmodule YscWeb.CoreComponents do
             <%= Timex.format!(get_membership_renewal_date(@current_membership), "{Mshort} {D}, {YYYY}") %>
           </strong>.
           </p>
+
+          <p
+            :if={get_membership_type(@current_membership) == "Lifetime"}
+            class="text-sm text-green-900 mt-2 font-medium"
+          >
+            Your lifetime membership never expires and includes all Family membership perks.
+          </p>
         </div>
       </div>
     </div>
@@ -2193,6 +2200,8 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  defp get_membership_type(%{type: :lifetime}), do: "Lifetime"
+
   defp get_membership_type(%{subscription: subscription}) when is_map(subscription) do
     get_membership_type_from_subscription(subscription)
   end
@@ -2201,19 +2210,31 @@ defmodule YscWeb.CoreComponents do
     get_membership_type_from_subscription(subscription)
   end
 
+  defp get_membership_type(%{type: type}) when type == :lifetime, do: "Lifetime"
+  defp get_membership_type(_), do: "Unknown"
+
   defp get_membership_type_from_subscription(subscription) do
     item = Enum.at(subscription.subscription_items, 0)
 
-    get_membership_type_from_price_id(item.stripe_price_id)
+    if item do
+      get_membership_type_from_price_id(item.stripe_price_id)
+    else
+      "Unknown"
+    end
   end
 
   defp get_membership_type_from_price_id(price_id) do
     plans = Application.get_env(:ysc, :membership_plans)
 
-    Enum.find(plans, &(&1.stripe_price_id == price_id))[:id]
+    case Enum.find(plans, &(&1.stripe_price_id == price_id)) do
+      %{id: id} -> String.capitalize("#{id}")
+      _ -> "Unknown"
+    end
   end
 
   # Helper functions to handle different membership data structures
+  defp is_membership_active?(%{type: :lifetime}), do: true
+
   defp is_membership_active?(%{subscription: subscription}) when is_map(subscription) do
     Ysc.Subscriptions.active?(subscription)
   end
@@ -2221,6 +2242,10 @@ defmodule YscWeb.CoreComponents do
   defp is_membership_active?(subscription) when is_struct(subscription) do
     Ysc.Subscriptions.active?(subscription)
   end
+
+  defp is_membership_active?(_), do: false
+
+  defp is_membership_cancelled?(%{type: :lifetime}), do: false
 
   defp is_membership_cancelled?(%{subscription: subscription}) when is_map(subscription) do
     Ysc.Subscriptions.cancelled?(subscription)
@@ -2230,6 +2255,10 @@ defmodule YscWeb.CoreComponents do
     Ysc.Subscriptions.cancelled?(subscription)
   end
 
+  defp is_membership_cancelled?(_), do: false
+
+  defp get_membership_ends_at(%{type: :lifetime}), do: nil
+
   defp get_membership_ends_at(%{subscription: subscription}) when is_map(subscription) do
     subscription.ends_at
   end
@@ -2237,6 +2266,10 @@ defmodule YscWeb.CoreComponents do
   defp get_membership_ends_at(subscription) when is_struct(subscription) do
     subscription.ends_at
   end
+
+  defp get_membership_ends_at(_), do: nil
+
+  defp get_membership_renewal_date(%{type: :lifetime}), do: nil
 
   defp get_membership_renewal_date(%{renewal_date: renewal_date}) when not is_nil(renewal_date) do
     renewal_date

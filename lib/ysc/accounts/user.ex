@@ -44,6 +44,8 @@ defmodule Ysc.Accounts.User do
 
     field :most_connected_country, :string
 
+    field :lifetime_membership_awarded_at, :utc_datetime
+
     field :stripe_id, :string
 
     has_one :default_membership_payment_method, Ysc.Payments.PaymentMethod,
@@ -143,7 +145,8 @@ defmodule Ysc.Accounts.User do
       :phone_number,
       :most_connected_country,
       :board_position,
-      :stripe_id
+      :stripe_id,
+      :lifetime_membership_awarded_at
     ])
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)

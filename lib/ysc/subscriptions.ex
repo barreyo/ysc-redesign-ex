@@ -412,6 +412,112 @@ defmodule Ysc.Subscriptions do
   end
 
   @doc """
+  Updates the subscription period end date using subscription schedules.
+  This creates a schedule that overrides when the current subscription period ends.
+
+  ## Examples
+
+      iex> update_period_end(subscription, ~U[2024-12-31 23:59:59Z])
+      {:ok, %Subscription{}}
+
+  """
+  def update_period_end(%Subscription{} = subscription, %DateTime{} = new_end_date) do
+    # Convert DateTime to Unix timestamp for Stripe
+    end_timestamp = DateTime.to_unix(new_end_date)
+
+    # First, retrieve the current subscription to get its items and current period
+    with {:ok, stripe_sub} <- Stripe.Subscription.retrieve(subscription.stripe_id),
+         # Cancel any existing schedules first
+         :ok <- cancel_existing_schedules(stripe_sub.id),
+         # Create new subscription schedule with the desired end date
+         {:ok, _schedule} <- create_subscription_schedule(stripe_sub, end_timestamp) do
+      # The schedule will automatically apply. Retrieve updated subscription to sync
+      case Stripe.Subscription.retrieve(subscription.stripe_id) do
+        {:ok, updated_stripe_subscription} ->
+          # Update local subscription with new period dates
+          # The schedule will control the actual period end
+          update_subscription(subscription, %{
+            stripe_status: updated_stripe_subscription.status,
+            current_period_start:
+              updated_stripe_subscription.current_period_start &&
+                DateTime.from_unix!(updated_stripe_subscription.current_period_start),
+            # Use the schedule's end date or the subscription's current_period_end
+            current_period_end: DateTime.from_unix!(end_timestamp)
+          })
+
+        {:error, error} ->
+          {:error, error}
+      end
+    else
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  # Helper function to cancel any existing schedules
+  defp cancel_existing_schedules(subscription_id) do
+    case Stripe.SubscriptionSchedule.list(%{subscription: subscription_id}) do
+      {:ok, %{data: schedules}} when schedules != [] ->
+        # Cancel all existing schedules
+        Enum.each(schedules, fn schedule ->
+          if schedule.status != "canceled" do
+            Stripe.SubscriptionSchedule.cancel(schedule.id)
+          end
+        end)
+
+        :ok
+
+      {:ok, %{data: []}} ->
+        :ok
+
+      _ ->
+        :ok
+    end
+  end
+
+  # Helper function to create subscription schedule
+  defp create_subscription_schedule(stripe_sub, end_timestamp) do
+    # Prepare subscription items for the schedule phase
+    items =
+      Enum.map(stripe_sub.items.data, fn item ->
+        %{
+          price: item.price.id,
+          quantity: item.quantity
+        }
+      end)
+
+    # Create a single phase that starts now and ends at the desired date
+    phase = %{
+      items: items,
+      start_date: DateTime.to_unix(DateTime.utc_now()),
+      end_date: end_timestamp
+    }
+
+    # Create the schedule
+    Stripe.SubscriptionSchedule.create(%{
+      subscription: stripe_sub.id,
+      phases: [phase]
+    })
+  end
+
+  @doc """
+  Gets the active subscription for a user (if any).
+
+  ## Examples
+
+      iex> get_active_subscription(user)
+      %Subscription{}
+
+      iex> get_active_subscription(user)
+      nil
+
+  """
+  def get_active_subscription(%Ysc.Accounts.User{} = user) do
+    user
+    |> list_subscriptions()
+    |> Enum.find(&active?/1)
+  end
+
+  @doc """
   Change membership plan with correct billing behavior:
   - Upgrades: charge proration delta immediately.
   - Downgrades: take effect at next renewal (no immediate credit/refund).

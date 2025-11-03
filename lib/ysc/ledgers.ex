@@ -648,6 +648,23 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
+  Gets all payments for a specific subscription.
+  Returns payments ordered by payment_date descending.
+  """
+  def get_payments_for_subscription(subscription_id) do
+    from(p in Payment,
+      join: e in LedgerEntry,
+      on: e.payment_id == p.id,
+      where: e.related_entity_type == "membership",
+      where: e.related_entity_id == ^subscription_id,
+      preload: [:payment_method],
+      order_by: [desc: p.payment_date],
+      distinct: true
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Gets paginated payments for a user with ticket order and membership information.
   Returns payments ordered by payment_date descending.
   """

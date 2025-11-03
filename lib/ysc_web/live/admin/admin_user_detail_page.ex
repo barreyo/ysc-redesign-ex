@@ -2,6 +2,9 @@ defmodule YscWeb.AdminUserDetailsLive do
   use YscWeb, :live_view
 
   alias Ysc.Accounts
+  alias Ysc.Ledgers
+  alias Ysc.Repo
+  alias Ysc.Subscriptions
 
   def render(assigns) do
     ~H"""
@@ -84,6 +87,19 @@ defmodule YscWeb.AdminUserDetailsLive do
                   ]}
                 >
                   Application
+                </.link>
+              </li>
+              <li class="me-2">
+                <.link
+                  navigate={~p"/admin/users/#{@user_id}/details/membership"}
+                  class={[
+                    "inline-block p-4 border-b-2 rounded-t-lg",
+                    @live_action == :membership && "text-blue-600 border-blue-600 active",
+                    @live_action != :membership &&
+                      "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
+                  ]}
+                >
+                  Membership
                 </.link>
               </li>
             </ul>
@@ -285,6 +301,252 @@ defmodule YscWeb.AdminUserDetailsLive do
             </ul>
           </div>
         </div>
+
+        <div :if={@live_action == :membership} class="max-w-lg py-8 px-2">
+          <div class="space-y-6">
+            <div
+              :if={@has_lifetime_membership}
+              class="bg-blue-50 border border-blue-200 rounded-lg p-4"
+            >
+              <h3 class="text-lg font-semibold text-blue-900 mb-3">Lifetime Membership</h3>
+              <div class="space-y-2 text-sm text-blue-800">
+                <p>
+                  <span class="font-semibold">Status:</span>
+                  <.badge class="bg-blue-600 text-white">
+                    Active - Never Expires
+                  </.badge>
+                </p>
+                <p>
+                  <span class="font-semibold">Awarded on:</span>
+                  <%= if @selected_user.lifetime_membership_awarded_at do
+                    Timex.format!(
+                      @selected_user.lifetime_membership_awarded_at,
+                      "{YYYY}-{0M}-{0D} {h12}:{m} {AM}"
+                    )
+                  else
+                    "N/A"
+                  end %>
+                </p>
+                <p class="text-xs text-blue-700 pt-2">
+                  Lifetime membership provides all Family membership perks and never expires.
+                </p>
+              </div>
+            </div>
+
+            <div
+              :if={@active_subscription == nil && !@has_lifetime_membership}
+              class="bg-zinc-50 border border-zinc-200 rounded-lg p-4"
+            >
+              <p class="text-sm text-zinc-800">No active membership subscription found</p>
+              <p class="text-xs text-zinc-600 mt-2">You can award lifetime membership below.</p>
+            </div>
+
+            <div :if={@active_subscription != nil} class="space-y-6">
+              <div>
+                <h3 class="text-lg font-semibold text-zinc-800 mb-4">Current Membership</h3>
+                <div class="space-y-2 text-sm text-zinc-800">
+                  <p>
+                    <span class="font-semibold">Plan:</span>
+                    <%= get_membership_plan_name(@active_subscription) %>
+                  </p>
+                  <p>
+                    <span class="font-semibold">Status:</span>
+                    <.badge>
+                      <%= String.capitalize(@active_subscription.stripe_status) %>
+                    </.badge>
+                  </p>
+                  <p>
+                    <span class="font-semibold">Current Period Start:</span>
+                    <%= if @active_subscription.current_period_start do
+                      Timex.format!(
+                        @active_subscription.current_period_start,
+                        "{YYYY}-{0M}-{0D} {h12}:{m} {AM}"
+                      )
+                    else
+                      "N/A"
+                    end %>
+                  </p>
+                  <p>
+                    <span class="font-semibold">Current Period End:</span>
+                    <%= if @active_subscription.current_period_end do
+                      Timex.format!(
+                        @active_subscription.current_period_end,
+                        "{YYYY}-{0M}-{0D} {h12}:{m} {AM}"
+                      )
+                    else
+                      "N/A"
+                    end %>
+                  </p>
+                  <p :if={@active_subscription.ends_at}>
+                    <span class="font-semibold">Scheduled Cancellation:</span>
+                    <%= Timex.format!(@active_subscription.ends_at, "{YYYY}-{0M}-{0D} {h12}:{m} {AM}") %>
+                  </p>
+                  <p>
+                    <span class="font-semibold">Stripe Subscription ID:</span>
+                    <code class="text-xs bg-zinc-100 px-2 py-1 rounded">
+                      <%= @active_subscription.stripe_id %>
+                    </code>
+                  </p>
+                </div>
+              </div>
+
+              <div class="border-t border-zinc-200 pt-6">
+                <h3 class="text-lg font-semibold text-zinc-800 mb-4">Override Membership Length</h3>
+                <p class="text-sm text-zinc-600 mb-4">
+                  Set a new period end date for this subscription. This will update the billing cycle anchor in Stripe.
+                </p>
+                <.simple_form
+                  for={@membership_form}
+                  phx-change="validate_membership"
+                  phx-submit="update_membership_period"
+                >
+                  <.input
+                    field={@membership_form[:period_end_date]}
+                    type="datetime-local"
+                    label="New Period End Date"
+                    value={
+                      if @membership_form[:period_end_date].value do
+                        format_datetime_local(@membership_form[:period_end_date].value)
+                      else
+                        format_datetime_local(@active_subscription.current_period_end)
+                      end
+                    }
+                  />
+                  <div class="flex flex-row justify-end w-full pt-4">
+                    <button class="phx-submit-loading:opacity-75 rounded bg-green-700 hover:bg-green-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80 text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80">
+                      <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" /> Update Period End
+                    </button>
+                  </div>
+                </.simple_form>
+              </div>
+
+              <div class="border-t border-zinc-200 pt-6">
+                <h3 class="text-lg font-semibold text-zinc-800 mb-4">Payment History</h3>
+
+                <div :if={length(@subscription_payments) == 0} class="text-sm text-zinc-600">
+                  <p>No payment history found for this subscription.</p>
+                </div>
+
+                <div :if={length(@subscription_payments) > 0} class="overflow-x-auto">
+                  <table class="min-w-full divide-y divide-zinc-200">
+                    <thead class="bg-zinc-50">
+                      <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                          Amount
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                          Invoice ID
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                          Payment Method
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-zinc-200">
+                      <tr :for={payment <- @subscription_payments} class="hover:bg-zinc-50">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-800">
+                          <%= if payment.payment_date do
+                            Timex.format!(payment.payment_date, "{YYYY}-{0M}-{0D} {h12}:{m} {AM}")
+                          else
+                            "N/A"
+                          end %>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-zinc-900">
+                          $<%= Ysc.MoneyHelper.format_money!(payment.amount) %>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          <.badge>
+                            <%= String.capitalize("#{payment.status}") %>
+                          </.badge>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-600">
+                          <code class="text-xs bg-zinc-100 px-2 py-1 rounded">
+                            <%= if payment.external_payment_id do
+                              String.slice(payment.external_payment_id, 0..20) <>
+                                if(String.length(payment.external_payment_id) > 20,
+                                  do: "...",
+                                  else: ""
+                                )
+                            else
+                              "N/A"
+                            end %>
+                          </code>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-600">
+                          <%= if payment.payment_method do
+                            case payment.payment_method.type do
+                              "card" ->
+                                if payment.payment_method.last4 do
+                                  "Card ending in #{payment.payment_method.last4}"
+                                else
+                                  "Card"
+                                end
+
+                              "us_bank_account" ->
+                                if payment.payment_method.last4 do
+                                  "Bank ending in #{payment.payment_method.last4}"
+                                else
+                                  "Bank account"
+                                end
+
+                              _ ->
+                                "Payment method"
+                            end
+                          else
+                            "N/A"
+                          end %>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="border-t border-zinc-200 pt-6">
+              <h3 class="text-lg font-semibold text-zinc-800 mb-4">Lifetime Membership Management</h3>
+              <p class="text-sm text-zinc-600 mb-4">
+                Award or revoke lifetime membership. Lifetime members never need to pay and have all Family membership perks.
+                <strong>This works regardless of subscription status.</strong>
+              </p>
+              <.simple_form
+                for={@lifetime_form}
+                phx-change="validate_lifetime"
+                phx-submit="update_lifetime_membership"
+              >
+                <.input
+                  field={@lifetime_form[:has_lifetime]}
+                  type="checkbox"
+                  label="User has lifetime membership"
+                />
+                <.input
+                  :if={@lifetime_form[:has_lifetime].value}
+                  field={@lifetime_form[:awarded_at]}
+                  type="datetime-local"
+                  label="Awarded Date (can be in the past)"
+                  value={
+                    if @lifetime_form[:awarded_at].value do
+                      format_datetime_local(@lifetime_form[:awarded_at].value)
+                    else
+                      format_datetime_local(DateTime.utc_now())
+                    end
+                  }
+                />
+                <div class="flex flex-row justify-end w-full pt-4">
+                  <button class="phx-submit-loading:opacity-75 rounded bg-green-700 hover:bg-green-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80 text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80">
+                    <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" /> Save Lifetime Membership
+                  </button>
+                </div>
+              </.simple_form>
+            </div>
+          </div>
+        </div>
       </div>
     </.side_menu>
     """
@@ -297,6 +559,43 @@ defmodule YscWeb.AdminUserDetailsLive do
     application = Accounts.get_signup_application_from_user_id!(id, current_user, [:reviewed_by])
     user_changeset = Accounts.User.update_user_changeset(selected_user, %{})
 
+    # Load active subscription
+    active_subscription = Subscriptions.get_active_subscription(selected_user)
+
+    # Preload subscription items if subscription exists
+    active_subscription =
+      if active_subscription do
+        Repo.preload(active_subscription, :subscription_items)
+      else
+        nil
+      end
+
+    # Load subscription payments if subscription exists
+    subscription_payments =
+      if active_subscription do
+        Ledgers.get_payments_for_subscription(active_subscription.id)
+      else
+        []
+      end
+
+    # Check for lifetime membership
+    has_lifetime = Accounts.has_lifetime_membership?(selected_user)
+
+    # Create membership form changeset
+    membership_changeset =
+      %{
+        period_end_date: active_subscription && active_subscription.current_period_end
+      }
+      |> membership_changeset()
+
+    # Create lifetime membership form changeset
+    lifetime_changeset =
+      %{
+        has_lifetime: has_lifetime,
+        awarded_at: selected_user.lifetime_membership_awarded_at || DateTime.utc_now()
+      }
+      |> lifetime_membership_changeset()
+
     {:ok,
      socket
      |> assign(:user_id, id)
@@ -307,6 +606,11 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:active_page, :members)
      |> assign(:selected_user, selected_user)
      |> assign(:selected_user_application, application)
+     |> assign(:active_subscription, active_subscription)
+     |> assign(:subscription_payments, subscription_payments)
+     |> assign(:has_lifetime_membership, has_lifetime)
+     |> assign(:membership_form, to_form(membership_changeset, as: "membership"))
+     |> assign(:lifetime_form, to_form(lifetime_changeset, as: "lifetime"))
      |> assign(form: to_form(user_changeset, as: "user"))}
   end
 
@@ -337,6 +641,113 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:role, user_params["role"])}
   end
 
+  def handle_event("validate_lifetime", %{"lifetime" => lifetime_params}, socket) do
+    changeset = lifetime_params |> lifetime_membership_changeset()
+
+    {:noreply, assign(socket, lifetime_form: to_form(changeset, as: "lifetime"))}
+  end
+
+  def handle_event("update_lifetime_membership", %{"lifetime" => lifetime_params}, socket) do
+    selected_user = socket.assigns[:selected_user]
+
+    has_lifetime =
+      lifetime_params["has_lifetime"] == "true" || lifetime_params["has_lifetime"] == true
+
+    update_params =
+      if has_lifetime do
+        case parse_datetime(lifetime_params["awarded_at"]) do
+          {:ok, awarded_at} ->
+            %{lifetime_membership_awarded_at: awarded_at}
+
+          {:error, _} ->
+            # Use current time if date parsing fails
+            %{lifetime_membership_awarded_at: DateTime.utc_now()}
+        end
+      else
+        %{lifetime_membership_awarded_at: nil}
+      end
+
+    case Accounts.update_user(selected_user, update_params, socket.assigns[:current_user]) do
+      {:ok, updated_user} ->
+        # Reload user to get updated lifetime membership status
+        updated_user = Accounts.get_user!(updated_user.id)
+
+        lifetime_changeset =
+          %{
+            has_lifetime: Accounts.has_lifetime_membership?(updated_user),
+            awarded_at: updated_user.lifetime_membership_awarded_at || DateTime.utc_now()
+          }
+          |> lifetime_membership_changeset()
+
+        {:noreply,
+         socket
+         |> assign(:selected_user, updated_user)
+         |> assign(:has_lifetime_membership, Accounts.has_lifetime_membership?(updated_user))
+         |> assign(:lifetime_form, to_form(lifetime_changeset, as: "lifetime"))
+         |> put_flash(
+           :info,
+           if(has_lifetime,
+             do: "Lifetime membership awarded",
+             else: "Lifetime membership revoked"
+           )
+         )}
+
+      {:error, changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Failed to update lifetime membership: #{inspect(changeset.errors)}"
+         )}
+    end
+  end
+
+  def handle_event("validate_membership", %{"membership" => membership_params}, socket) do
+    changeset = membership_params |> membership_changeset()
+
+    {:noreply, assign(socket, membership_form: to_form(changeset, as: "membership"))}
+  end
+
+  def handle_event("update_membership_period", %{"membership" => membership_params}, socket) do
+    active_subscription = socket.assigns[:active_subscription]
+
+    if active_subscription == nil do
+      {:noreply, socket |> put_flash(:error, "No active subscription found")}
+    else
+      case parse_datetime(membership_params["period_end_date"]) do
+        {:ok, new_end_date} ->
+          case Subscriptions.update_period_end(active_subscription, new_end_date) do
+            {:ok, updated_subscription} ->
+              # Reload the subscription with items
+              updated_subscription = Repo.preload(updated_subscription, :subscription_items)
+
+              # Reload payments for the subscription
+              subscription_payments =
+                Ledgers.get_payments_for_subscription(updated_subscription.id)
+
+              membership_changeset =
+                %{period_end_date: updated_subscription.current_period_end}
+                |> membership_changeset()
+
+              {:noreply,
+               socket
+               |> assign(:active_subscription, updated_subscription)
+               |> assign(:subscription_payments, subscription_payments)
+               |> assign(:membership_form, to_form(membership_changeset, as: "membership"))
+               |> put_flash(:info, "Membership period updated successfully")}
+
+            {:error, error} ->
+              {:noreply,
+               socket
+               |> put_flash(:error, "Failed to update membership period: #{inspect(error)}")}
+          end
+
+        {:error, _reason} ->
+          {:noreply, socket |> put_flash(:error, "Invalid date format")}
+      end
+    end
+  end
+
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     form = to_form(changeset, as: "user")
 
@@ -345,5 +756,57 @@ defmodule YscWeb.AdminUserDetailsLive do
     else
       assign(socket, form: form)
     end
+  end
+
+  defp membership_changeset(params) do
+    types = %{period_end_date: :utc_datetime}
+
+    {%{}, types}
+    |> Ecto.Changeset.cast(params, [:period_end_date])
+    |> Ecto.Changeset.validate_required([:period_end_date])
+  end
+
+  defp get_membership_plan_name(subscription) do
+    case subscription.subscription_items do
+      [item | _] ->
+        membership_plans = Application.get_env(:ysc, :membership_plans, [])
+
+        case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
+          %{name: name} -> "#{name} Membership"
+          _ -> "Unknown Membership"
+        end
+
+      _ ->
+        "Unknown Membership"
+    end
+  end
+
+  defp format_datetime_local(%DateTime{} = datetime) do
+    datetime
+    |> DateTime.to_naive()
+    |> NaiveDateTime.truncate(:second)
+    |> Calendar.strftime("%Y-%m-%dT%H:%M")
+  end
+
+  defp format_datetime_local(nil), do: ""
+  defp format_datetime_local(datetime) when is_binary(datetime), do: datetime
+
+  defp parse_datetime(datetime_string) when is_binary(datetime_string) do
+    case NaiveDateTime.from_iso8601("#{datetime_string}:00") do
+      {:ok, naive_dt} ->
+        {:ok, DateTime.from_naive!(naive_dt, "Etc/UTC")}
+
+      error ->
+        error
+    end
+  end
+
+  defp parse_datetime(_), do: {:error, :invalid_format}
+
+  defp lifetime_membership_changeset(params) do
+    types = %{has_lifetime: :boolean, awarded_at: :utc_datetime}
+
+    {%{}, types}
+    |> Ecto.Changeset.cast(params, [:has_lifetime, :awarded_at])
   end
 end

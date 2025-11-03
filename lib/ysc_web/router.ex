@@ -165,6 +165,7 @@ defmodule YscWeb.Router do
       live "/users/:id/details/orders", AdminUserDetailsLive, :orders
       live "/users/:id/details/bookings", AdminUserDetailsLive, :bookings
       live "/users/:id/details/application", AdminUserDetailsLive, :application
+      live "/users/:id/details/membership", AdminUserDetailsLive, :membership
 
       # Money
       live "/money", AdminMoneyLive, :index

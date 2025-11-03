@@ -352,25 +352,35 @@ defmodule YscWeb.UserAuth do
 
   # Helper function to get the most expensive active membership
   defp get_active_membership(user) do
-    # Get all subscriptions for the user
-    subscriptions = Customers.subscriptions(user)
+    # Check for lifetime membership first (highest priority)
+    if Accounts.has_lifetime_membership?(user) do
+      # Return a special struct representing lifetime membership
+      %{
+        type: :lifetime,
+        awarded_at: user.lifetime_membership_awarded_at,
+        user_id: user.id
+      }
+    else
+      # Get all subscriptions for the user
+      subscriptions = Customers.subscriptions(user)
 
-    # Filter for active subscriptions only
-    active_subscriptions =
-      Enum.filter(subscriptions, fn subscription ->
-        Subscriptions.valid?(subscription)
-      end)
+      # Filter for active subscriptions only
+      active_subscriptions =
+        Enum.filter(subscriptions, fn subscription ->
+          Subscriptions.valid?(subscription)
+        end)
 
-    case active_subscriptions do
-      [] ->
-        nil
+      case active_subscriptions do
+        [] ->
+          nil
 
-      [single_subscription] ->
-        single_subscription
+        [single_subscription] ->
+          single_subscription
 
-      multiple_subscriptions ->
-        # If multiple active subscriptions, pick the most expensive one
-        get_most_expensive_subscription(multiple_subscriptions)
+        multiple_subscriptions ->
+          # If multiple active subscriptions, pick the most expensive one
+          get_most_expensive_subscription(multiple_subscriptions)
+      end
     end
   end
 

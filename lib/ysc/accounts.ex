@@ -94,24 +94,37 @@ defmodule Ysc.Accounts do
 
   @doc """
   Checks if a user has an active membership.
+  Includes lifetime membership which never expires.
   """
   def has_active_membership?(user) do
-    # Get all subscriptions for the user and check if any are valid (active or trialing)
-    case user.subscriptions do
-      %Ecto.Association.NotLoaded{} ->
-        # If subscriptions aren't loaded, fetch them
-        user_with_subscriptions = get_user!(user.id, [:subscriptions])
+    # Check for lifetime membership first
+    if has_lifetime_membership?(user) do
+      true
+    else
+      # Get all subscriptions for the user and check if any are valid (active or trialing)
+      case user.subscriptions do
+        %Ecto.Association.NotLoaded{} ->
+          # If subscriptions aren't loaded, fetch them
+          user_with_subscriptions = get_user!(user.id, [:subscriptions])
 
-        user_with_subscriptions.subscriptions
-        |> Enum.any?(&Ysc.Subscriptions.valid?/1)
+          user_with_subscriptions.subscriptions
+          |> Enum.any?(&Ysc.Subscriptions.valid?/1)
 
-      subscriptions when is_list(subscriptions) ->
-        subscriptions
-        |> Enum.any?(&Ysc.Subscriptions.valid?/1)
+        subscriptions when is_list(subscriptions) ->
+          subscriptions
+          |> Enum.any?(&Ysc.Subscriptions.valid?/1)
 
-      _ ->
-        false
+        _ ->
+          false
+      end
     end
+  end
+
+  @doc """
+  Checks if a user has a lifetime membership.
+  """
+  def has_lifetime_membership?(user) do
+    not is_nil(user.lifetime_membership_awarded_at)
   end
 
   def get_signup_application_from_user_id!(id, current_user, preloads \\ []) do
@@ -819,31 +832,36 @@ defmodule Ysc.Accounts do
 
   # Helper function to get membership type for filtering
   defp get_active_membership_type_for_filter(user, price_to_type) do
-    # Get all subscriptions for the user
-    subscriptions =
-      case user.subscriptions do
-        %Ecto.Association.NotLoaded{} -> []
-        subscriptions when is_list(subscriptions) -> subscriptions
-        _ -> []
+    # Check for lifetime membership first (highest priority)
+    if has_lifetime_membership?(user) do
+      :lifetime
+    else
+      # Get all subscriptions for the user
+      subscriptions =
+        case user.subscriptions do
+          %Ecto.Association.NotLoaded{} -> []
+          subscriptions when is_list(subscriptions) -> subscriptions
+          _ -> []
+        end
+
+      # Filter for active subscriptions only
+      active_subscriptions =
+        Enum.filter(subscriptions, fn subscription ->
+          Ysc.Subscriptions.valid?(subscription)
+        end)
+
+      case active_subscriptions do
+        [] ->
+          :none
+
+        [single_subscription] ->
+          get_membership_type_from_subscription_for_filter(single_subscription, price_to_type)
+
+        multiple_subscriptions ->
+          # If multiple active subscriptions, pick the most expensive one
+          most_expensive = get_most_expensive_subscription_for_filter(multiple_subscriptions)
+          get_membership_type_from_subscription_for_filter(most_expensive, price_to_type)
       end
-
-    # Filter for active subscriptions only
-    active_subscriptions =
-      Enum.filter(subscriptions, fn subscription ->
-        Ysc.Subscriptions.valid?(subscription)
-      end)
-
-    case active_subscriptions do
-      [] ->
-        :none
-
-      [single_subscription] ->
-        get_membership_type_from_subscription_for_filter(single_subscription, price_to_type)
-
-      multiple_subscriptions ->
-        # If multiple active subscriptions, pick the most expensive one
-        most_expensive = get_most_expensive_subscription_for_filter(multiple_subscriptions)
-        get_membership_type_from_subscription_for_filter(most_expensive, price_to_type)
     end
   end
 
