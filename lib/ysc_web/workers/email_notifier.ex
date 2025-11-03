@@ -1,4 +1,9 @@
 defmodule YscWeb.Workers.EmailNotifier do
+  @moduledoc """
+  Oban worker for sending email notifications.
+
+  Processes email templates and sends them to recipients asynchronously.
+  """
   require Logger
   use Oban.Worker, queue: :mailers, max_attempts: 3
 

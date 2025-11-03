@@ -1,4 +1,9 @@
 defmodule YscWeb.UserAuth do
+  @moduledoc """
+  Authentication and authorization functions for web requests.
+
+  Handles user login, logout, session management, and authentication plugs.
+  """
   use YscWeb, :verified_routes
 
   import Plug.Conn

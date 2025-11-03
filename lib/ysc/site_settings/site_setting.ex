@@ -1,4 +1,10 @@
 defmodule Ysc.SiteSettings.SiteSetting do
+  @moduledoc """
+  Site setting schema and changesets.
+
+  Defines the SiteSetting database schema, validations, and changeset functions
+  for site setting data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

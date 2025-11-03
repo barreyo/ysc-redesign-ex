@@ -1,4 +1,10 @@
 defmodule Ysc.Events.TicketTier do
+  @moduledoc """
+  Ticket tier schema and changesets.
+
+  Defines the TicketTier database schema, validations, and changeset functions
+  for ticket tier data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

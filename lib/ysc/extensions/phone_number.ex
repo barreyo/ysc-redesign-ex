@@ -28,7 +28,7 @@ defmodule Ysc.Extensions.PhoneNumber do
   Checks whether a given phone number is possible.
   Returns true or false.
   """
-  def is_possible_phone_number(phone_number) do
+  def possible_phone_number?(phone_number) do
     ExPhoneNumber.is_possible_number?(phone_number)
   end
 
@@ -36,7 +36,7 @@ defmodule Ysc.Extensions.PhoneNumber do
   Checks whether a given phone number is valid.
   Returns true or false.
   """
-  def is_valid_phone_number(phone_number) do
+  def valid_phone_number?(phone_number) do
     ExPhoneNumber.is_valid_number?(phone_number)
   end
 

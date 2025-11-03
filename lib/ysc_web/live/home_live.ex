@@ -1,7 +1,7 @@
 defmodule YscWeb.HomeLive do
   use YscWeb, :live_view
 
-  alias Ysc.{Accounts, Events, Subscriptions, Repo}
+  alias Ysc.{Accounts, Events, Subscriptions}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -300,8 +300,7 @@ defmodule YscWeb.HomeLive do
       # Get active subscriptions
       active_subscriptions =
         user.subscriptions
-        |> Enum.filter(&Subscriptions.valid?/1)
-        |> Enum.filter(&(&1.stripe_status == "active"))
+        |> Enum.filter(fn sub -> Subscriptions.valid?(sub) and sub.stripe_status == "active" end)
 
       case active_subscriptions do
         [] ->
@@ -339,15 +338,15 @@ defmodule YscWeb.HomeLive do
     now = DateTime.utc_now()
 
     tickets
-    |> Enum.filter(&(&1.status == :confirmed))
     |> Enum.filter(fn ticket ->
-      case ticket.event do
-        %{start_date: start_date} when not is_nil(start_date) ->
-          DateTime.compare(start_date, now) == :gt
+      ticket.status == :confirmed and
+        case ticket.event do
+          %{start_date: start_date} when not is_nil(start_date) ->
+            DateTime.compare(start_date, now) == :gt
 
-        _ ->
-          false
-      end
+          _ ->
+            false
+        end
     end)
     |> Enum.sort_by(fn ticket -> ticket.event.start_date end)
   end

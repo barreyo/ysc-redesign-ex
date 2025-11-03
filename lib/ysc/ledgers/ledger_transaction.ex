@@ -1,4 +1,10 @@
 defmodule Ysc.Ledgers.LedgerTransaction do
+  @moduledoc """
+  Ledger transaction schema and changesets.
+
+  Defines the LedgerTransaction database schema, validations, and changeset functions
+  for ledger transaction data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

@@ -1,4 +1,9 @@
 defmodule YscWeb.Components.GalleryComponent do
+  @moduledoc """
+  LiveView component for displaying image galleries.
+
+  Provides an interactive gallery view for displaying multiple images.
+  """
   use YscWeb, :live_component
 
   alias Ysc.Media.Image

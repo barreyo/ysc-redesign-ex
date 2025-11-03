@@ -1,4 +1,10 @@
 defmodule Ysc.Accounts.UserNotifier do
+  @moduledoc """
+  User notification service.
+
+  Handles sending various notification emails to users including confirmation,
+  password reset, and account-related notifications.
+  """
   alias YscWeb.Emails.Notifier
 
   @doc """

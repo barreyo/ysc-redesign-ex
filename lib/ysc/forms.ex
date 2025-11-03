@@ -1,4 +1,9 @@
 defmodule Ysc.Forms do
+  @moduledoc """
+  Context module for managing form submissions.
+
+  Handles creation and processing of volunteer applications and conduct violation reports.
+  """
   require Logger
   import Ecto.Query, warn: false
   alias Ysc.Repo
@@ -18,7 +23,6 @@ defmodule Ysc.Forms do
     case Repo.insert(changeset) do
       {:ok, report} ->
         send_conduct_violation_emails(report)
-        IO.inspect(report)
         {:ok, report}
 
       {:error, changeset} ->

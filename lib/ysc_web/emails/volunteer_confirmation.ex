@@ -1,4 +1,9 @@
 defmodule YscWeb.Emails.VolunteerConfirmation do
+  @moduledoc """
+  Email template for volunteer confirmation.
+
+  Sends a confirmation email to users after submitting a volunteer application.
+  """
   use MjmlEEx,
     mjml_template: "templates/volunteer_confirmation.mjml.eex",
     layout: YscWeb.Emails.BaseLayout

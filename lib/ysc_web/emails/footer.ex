@@ -1,4 +1,9 @@
 defmodule YscWeb.Emails.FooterBlock do
+  @moduledoc """
+  Email footer component.
+
+  Reusable footer component for email templates with social links and settings.
+  """
   use MjmlEEx.Component, mode: :runtime
 
   alias Ysc.Settings

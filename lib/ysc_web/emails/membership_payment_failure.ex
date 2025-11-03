@@ -1,4 +1,9 @@
 defmodule YscWeb.Emails.MembershipPaymentFailure do
+  @moduledoc """
+  Email template for membership payment failure notification.
+
+  Notifies users when a membership payment fails.
+  """
   use MjmlEEx,
     mjml_template: "templates/membership_payment_failure.mjml.eex",
     layout: YscWeb.Emails.BaseLayout

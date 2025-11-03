@@ -1,4 +1,10 @@
 defmodule Ysc.Stripe.WebhookHandler do
+  @moduledoc """
+  Handles incoming webhook events from Stripe.
+
+  Processes various Stripe webhook event types including subscriptions,
+  payments, invoices, and customer updates.
+  """
   alias Ysc.Customers
   alias Ysc.Subscriptions
   alias Ysc.Ledgers
@@ -45,7 +51,7 @@ defmodule Ysc.Stripe.WebhookHandler do
           :ok
       end
     rescue
-      DuplicateWebhookEventError ->
+      Ysc.Webhooks.DuplicateWebhookEventError ->
         # Event already exists, try to lock and process it
         case Ysc.Webhooks.lock_webhook_event_by_provider_and_event_id("stripe", event.id) do
           {:ok, webhook_event} ->
@@ -109,15 +115,13 @@ defmodule Ysc.Stripe.WebhookHandler do
   defp handle("customer.deleted", %Stripe.Customer{} = event) do
     user = Ysc.Accounts.get_user_from_stripe_id(event.id)
 
-    if !user do
-      :ok
-    else
+    if user do
       user
       |> Customers.subscriptions()
       |> Enum.each(&Subscriptions.mark_as_cancelled/1)
-
-      :ok
     end
+
+    :ok
   end
 
   defp handle("customer.updated", %Stripe.Customer{} = event) do
@@ -148,27 +152,21 @@ defmodule Ysc.Stripe.WebhookHandler do
   defp handle("customer.subscription.deleted", %Stripe.Subscription{} = event) do
     subscription = Subscriptions.get_subscription_by_stripe_id(event.id)
 
-    if !subscription do
-      :ok
-    else
+    if subscription do
       Subscriptions.mark_as_cancelled(subscription)
-
-      :ok
     end
+
+    :ok
   end
 
   defp handle("customer.subscription.updated", %Stripe.Subscription{} = event) do
     subscription = Subscriptions.get_subscription_by_stripe_id(event.id)
 
-    if !subscription do
-      nil
-    else
+    if subscription do
       status = event.status
 
       if status == "incomplete_expired" do
         Subscriptions.delete_subscription(subscription)
-
-        :ok
       else
         # Update subscription
         user = Ysc.Accounts.get_user_from_stripe_id(event.customer)
@@ -181,28 +179,14 @@ defmodule Ysc.Stripe.WebhookHandler do
           {:ok, updated_subscription} ->
             # Update subscription items
             update_subscription_items(updated_subscription, event.items.data)
-            :ok
 
           {:error, _changeset} ->
             :ok
         end
       end
     end
-  end
 
-  defp maybe_put_cancellation_end(changeset, %Stripe.Subscription{} = event) do
-    ends_at =
-      case Map.get(event, :cancel_at_period_end) do
-        true ->
-          event.current_period_end
-          |> DateTime.from_unix!()
-          |> DateTime.truncate(:second)
-
-        _ ->
-          nil
-      end
-
-    Ecto.Changeset.change(changeset, %{ends_at: ends_at})
+    :ok
   end
 
   # Grouped subscription_schedule handlers
@@ -500,6 +484,21 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp handle(_event_name, _event_object), do: :ok
+
+  defp maybe_put_cancellation_end(changeset, %Stripe.Subscription{} = event) do
+    ends_at =
+      case Map.get(event, :cancel_at_period_end) do
+        true ->
+          event.current_period_end
+          |> DateTime.from_unix!()
+          |> DateTime.truncate(:second)
+
+        _ ->
+          nil
+      end
+
+    Ecto.Changeset.change(changeset, %{ends_at: ends_at})
+  end
 
   @doc """
   Public function to handle webhook events by type and data object.

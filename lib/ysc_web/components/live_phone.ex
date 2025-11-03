@@ -1,4 +1,10 @@
 defmodule LivePhone do
+  @moduledoc """
+  LiveView component for phone number input with country selection.
+
+  Provides an interactive phone number input field with country code selection
+  and validation.
+  """
   use Phoenix.LiveComponent
   import Phoenix.HTML.Form
   use PhoenixHTMLHelpers

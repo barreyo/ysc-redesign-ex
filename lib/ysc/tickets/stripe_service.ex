@@ -93,10 +93,8 @@ defmodule Ysc.Tickets.StripeService do
   def process_successful_payment(payment_intent_id) do
     with {:ok, payment_intent} <- Stripe.PaymentIntent.retrieve(payment_intent_id, %{}),
          {:ok, ticket_order} <- get_ticket_order_from_payment_intent(payment_intent),
-         :ok <- validate_payment_intent(payment_intent, ticket_order),
-         {:ok, completed_order} <-
-           Tickets.process_ticket_order_payment(ticket_order, payment_intent_id) do
-      {:ok, completed_order}
+         :ok <- validate_payment_intent(payment_intent, ticket_order) do
+      Tickets.process_ticket_order_payment(ticket_order, payment_intent_id)
     end
   end
 
@@ -177,6 +175,7 @@ defmodule Ysc.Tickets.StripeService do
     end
   end
 
+  @doc false
   defp process_ticket_order_payment(ticket_order, payment_intent) do
     with {:ok, {payment, _transaction, _entries}} <-
            process_ledger_payment(ticket_order, payment_intent),
@@ -186,6 +185,7 @@ defmodule Ysc.Tickets.StripeService do
     end
   end
 
+  @doc false
   defp process_ledger_payment(ticket_order, payment_intent) do
     Ledgers.process_payment(%{
       user_id: ticket_order.user_id,
@@ -200,6 +200,7 @@ defmodule Ysc.Tickets.StripeService do
     })
   end
 
+  @doc false
   defp extract_stripe_fee(payment_intent) do
     # Get the actual Stripe fee from the charge
     case get_charge_from_payment_intent(payment_intent) do
@@ -225,6 +226,7 @@ defmodule Ysc.Tickets.StripeService do
     end
   end
 
+  @doc false
   defp get_charge_from_payment_intent(payment_intent) do
     case payment_intent.charges do
       %Stripe.List{data: [charge | _]} ->
@@ -235,6 +237,7 @@ defmodule Ysc.Tickets.StripeService do
     end
   end
 
+  @doc false
   defp get_balance_transaction(balance_transaction_id) do
     case Stripe.BalanceTransaction.retrieve(balance_transaction_id) do
       {:ok, balance_transaction} ->
@@ -248,6 +251,7 @@ defmodule Ysc.Tickets.StripeService do
     end
   end
 
+  @doc false
   defp extract_payment_method_id(_payment_intent) do
     # For ticket payments, we don't currently track payment methods in our database
     # The payment method ID from Stripe is not mapped to our internal payment method records
@@ -255,6 +259,7 @@ defmodule Ysc.Tickets.StripeService do
     nil
   end
 
+  @doc false
   defp confirm_tickets(tickets) do
     tickets
     |> Enum.each(fn ticket ->

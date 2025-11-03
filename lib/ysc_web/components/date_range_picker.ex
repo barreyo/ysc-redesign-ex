@@ -1,4 +1,9 @@
 defmodule YscWeb.Components.DateRangePicker do
+  @moduledoc """
+  LiveView component for selecting date ranges.
+
+  Provides an interactive calendar interface for selecting start and end dates.
+  """
   use YscWeb, :live_component
 
   @week_start_at :sunday
@@ -408,9 +413,8 @@ defmodule YscWeb.Components.DateRangePicker do
   defp from_str!(""), do: nil
 
   defp from_str!(date_time_str) when is_binary(date_time_str) do
-    with {:ok, date_time, _} <- DateTime.from_iso8601(date_time_str) do
-      date_time
-    else
+    case DateTime.from_iso8601(date_time_str) do
+      {:ok, date_time, _} -> date_time
       _ -> nil
     end
   end
@@ -425,29 +429,11 @@ defmodule YscWeb.Components.DateRangePicker do
     "Select Date"
   end
 
-  defp select_button_text(_start_date, _end_date) do
-    "Select Dates"
-  end
-
-  defp select_button_text(nil, nil) do
-    "Close"
-  end
-
-  defp select_button_text("", nil) do
-    "Close"
-  end
-
-  defp select_button_text(nil, "") do
-    "Close"
-  end
-
-  defp select_button_text("", "") do
-    "Close"
-  end
-
-  defp select_button_text(_, _) do
-    "Select Dates"
-  end
+  defp select_button_text(nil, nil), do: "Close"
+  defp select_button_text("", nil), do: "Close"
+  defp select_button_text(nil, ""), do: "Close"
+  defp select_button_text("", ""), do: "Close"
+  defp select_button_text(_start_date, _end_date), do: "Select Dates"
 
   defp date_range_display(start_date, nil) when start_date in [nil, ""] do
     "MM/DD/YYYY - MM/DD/YYYY"

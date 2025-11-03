@@ -1,4 +1,10 @@
 defmodule Ysc.Events do
+  @moduledoc """
+  Context module for managing events and tickets.
+
+  Provides functions for creating, updating, and querying events, ticket tiers,
+  tickets, and related data.
+  """
   import Ecto.Query, warn: false
 
   alias Ysc.Repo
@@ -493,7 +499,7 @@ defmodule Ysc.Events do
   - `true` if the event is selling fast
   - `false` otherwise
   """
-  def is_event_selling_fast?(event_id) do
+  def event_selling_fast?(event_id) do
     three_days_ago = DateTime.add(DateTime.utc_now(), -3, :day)
 
     recent_ticket_count =

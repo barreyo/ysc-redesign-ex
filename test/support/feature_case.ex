@@ -1,4 +1,9 @@
 defmodule YscWeb.FeatureCase do
+  @moduledoc """
+  Test support module for feature tests.
+
+  Provides helpers and setup functions for end-to-end feature testing.
+  """
   use ExUnit.CaseTemplate
 
   using do

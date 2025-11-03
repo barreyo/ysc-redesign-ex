@@ -1,4 +1,10 @@
 defmodule Ysc.Subscriptions.SubscriptionItem do
+  @moduledoc """
+  Subscription item schema and changesets.
+
+  Defines the SubscriptionItem database schema, validations, and changeset functions
+  for subscription item data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

@@ -1,4 +1,10 @@
 defmodule Ysc.Accounts.FamilyMember do
+  @moduledoc """
+  Family member schema and changesets.
+
+  Defines the FamilyMember database schema, validations, and changeset functions
+  for family member data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

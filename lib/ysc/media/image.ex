@@ -3,6 +3,12 @@ import EctoEnum
 defenum(ImageProcessingState, ["unprocessed", "processing", "completed", "failed"])
 
 defmodule Ysc.Media.Image do
+  @moduledoc """
+  Image schema and changesets.
+
+  Defines the Image database schema, validations, and changeset functions
+  for image data manipulation.
+  """
   use Ecto.Schema
 
   import Ecto.Changeset

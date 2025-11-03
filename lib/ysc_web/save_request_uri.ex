@@ -1,4 +1,9 @@
 defmodule YscWeb.SaveRequestUri do
+  @moduledoc """
+  LiveView mount hook for saving request URIs.
+
+  Saves the current request URI to allow redirecting users back after authentication.
+  """
   def on_mount(:save_request_uri, _params, _session, socket),
     do:
       {:cont,

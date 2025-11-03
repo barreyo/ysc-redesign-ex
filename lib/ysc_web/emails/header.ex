@@ -1,4 +1,9 @@
 defmodule YscWeb.Emails.HeaderBlock do
+  @moduledoc """
+  Email header component.
+
+  Reusable header component for email templates with logo and branding.
+  """
   use MjmlEEx.Component, mode: :runtime
 
   @impl MjmlEEx.Component

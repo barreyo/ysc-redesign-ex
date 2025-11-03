@@ -1,4 +1,10 @@
 defmodule Ysc.Accounts.SignupApplication do
+  @moduledoc """
+  Signup application schema and changesets.
+
+  Defines the SignupApplication database schema, validations, and changeset functions
+  for user registration application data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
   import Ysc.ChangesetHelpers

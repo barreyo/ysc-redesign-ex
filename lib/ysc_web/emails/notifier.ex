@@ -1,4 +1,9 @@
 defmodule YscWeb.Emails.Notifier do
+  @moduledoc """
+  Email notification service.
+
+  Routes email templates to appropriate email modules based on template names.
+  """
   import Swoosh.Email
 
   @from_email "info@ysc.org"

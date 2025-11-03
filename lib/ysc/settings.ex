@@ -1,4 +1,9 @@
 defmodule Ysc.Settings do
+  @moduledoc """
+  Context module for managing site settings.
+
+  Provides functions for retrieving and caching application-wide site settings.
+  """
   import Ecto.Query, warn: false
 
   alias Ysc.Repo

@@ -1,4 +1,9 @@
 defmodule YscWeb.Emails.ConductViolationConfirmation do
+  @moduledoc """
+  Email template for conduct violation report confirmation.
+
+  Sends a confirmation email to users after submitting a conduct violation report.
+  """
   use MjmlEEx,
     mjml_template: "templates/conduct_violation_confirmation.mjml.eex",
     layout: YscWeb.Emails.BaseLayout

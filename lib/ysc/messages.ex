@@ -1,4 +1,9 @@
 defmodule Ysc.Messages do
+  @moduledoc """
+  Context module for managing messages and idempotency.
+
+  Handles creation and tracking of messages with idempotency guarantees.
+  """
   import Ecto.Query, warn: false
 
   alias Ysc.Repo

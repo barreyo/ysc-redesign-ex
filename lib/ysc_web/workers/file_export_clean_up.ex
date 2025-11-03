@@ -1,4 +1,9 @@
 defmodule YscWeb.Workers.FileExportCleanUp do
+  @moduledoc """
+  Oban worker for cleaning up old export files.
+
+  Removes export files that are older than a specified retention period.
+  """
   require Logger
   use Oban.Worker, queue: :default, max_attempts: 1
 

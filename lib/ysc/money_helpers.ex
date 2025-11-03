@@ -1,4 +1,9 @@
 defmodule Ysc.MoneyHelper do
+  @moduledoc """
+  Utility module for working with monetary values.
+
+  Provides functions for parsing, formatting, and converting money values.
+  """
   @doc """
   Converts string input to Money type for changesets.
 

@@ -1,4 +1,9 @@
 defmodule YscWeb.Authorization.Policy do
+  @moduledoc """
+  Authorization policy definitions.
+
+  Defines access control policies for various resources and actions using LetMe.
+  """
   use LetMe.Policy
 
   object :post do

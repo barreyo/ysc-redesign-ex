@@ -1,4 +1,9 @@
 defmodule YscWeb.UploadComponent do
+  @moduledoc """
+  LiveView component for file uploads.
+
+  Provides an interface for uploading files with drag-and-drop support.
+  """
   use YscWeb, :live_component
 
   @impl true

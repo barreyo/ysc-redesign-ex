@@ -1,4 +1,10 @@
 defmodule LivePhone.Util do
+  @moduledoc """
+  Utility functions for phone number validation and formatting.
+
+  Provides helper functions for validating and formatting phone numbers
+  using the ExPhoneNumber library.
+  """
   alias LivePhone.Country
 
   @doc ~S"""

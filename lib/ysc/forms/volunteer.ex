@@ -1,4 +1,10 @@
 defmodule Ysc.Forms.Volunteer do
+  @moduledoc """
+  Volunteer signup schema and changesets.
+
+  Defines the Volunteer database schema, validations, and changeset functions
+  for volunteer application data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

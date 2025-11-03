@@ -29,7 +29,7 @@ defmodule YscWeb.EventsListLive do
             <div>
               <.event_badge
                 event={event}
-                sold_out={is_event_sold_out?(event)}
+                sold_out={event_sold_out?(event)}
                 selling_fast={Map.get(event, :selling_fast, false)}
               />
             </div>
@@ -63,7 +63,7 @@ defmodule YscWeb.EventsListLive do
             <div :if={event.state != :cancelled} class="flex flex-row space-x-2 pt-2 items-center">
               <p class={[
                 "text-sm font-semibold",
-                if is_event_sold_out?(event) do
+                if event_sold_out?(event) do
                   "text-zinc-800 line-through"
                 else
                   "text-zinc-800"
@@ -124,7 +124,7 @@ defmodule YscWeb.EventsListLive do
     Timex.format!(time, "{h12}:{m} {AM}")
   end
 
-  defp is_event_sold_out?(event) do
+  defp event_sold_out?(event) do
     # Get event ID (handle both structs and maps)
     event_id = Map.get(event, :id) || Map.get(event, "id")
 
@@ -148,7 +148,7 @@ defmodule YscWeb.EventsListLive do
         Enum.filter(non_donation_tiers, fn tier ->
           # Include tiers that are on sale OR have ended their sale
           # Exclude tiers that haven't started their sale yet (pre-sale)
-          is_tier_on_sale?(tier) || is_tier_sale_ended?(tier)
+          tier_on_sale?(tier) || tier_sale_ended?(tier)
         end)
 
       # If there are no relevant tiers (all are pre-sale), event is not sold out
@@ -169,7 +169,7 @@ defmodule YscWeb.EventsListLive do
         event_at_capacity =
           case Map.get(event, :max_attendees) || Map.get(event, "max_attendees") do
             nil -> false
-            _ -> Tickets.is_event_at_capacity?(event)
+            _ -> Tickets.event_at_capacity?(event)
           end
 
         all_tiers_sold_out || event_at_capacity
@@ -177,7 +177,7 @@ defmodule YscWeb.EventsListLive do
     end
   end
 
-  defp is_tier_on_sale?(ticket_tier) do
+  defp tier_on_sale?(ticket_tier) do
     now = DateTime.utc_now()
 
     start_date = Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
@@ -200,7 +200,7 @@ defmodule YscWeb.EventsListLive do
     sale_started && !sale_ended
   end
 
-  defp is_tier_sale_ended?(ticket_tier) do
+  defp tier_sale_ended?(ticket_tier) do
     now = DateTime.utc_now()
 
     end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")

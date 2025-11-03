@@ -1,4 +1,9 @@
 defmodule Ysc.Media do
+  @moduledoc """
+  Context module for managing media files and images.
+
+  Handles image upload, storage, processing, and retrieval operations.
+  """
   import Ecto.Query, warn: false
 
   alias Ysc.Repo

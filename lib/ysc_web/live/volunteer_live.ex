@@ -82,7 +82,15 @@ defmodule YscWeb.VolunteerLive do
     params = add_user_id(volunteer_params, socket.assigns[:current_user])
     changeset = Ysc.Forms.Volunteer.changeset(%Ysc.Forms.Volunteer{}, params)
 
-    if !socket.assigns.logged_in? do
+    if socket.assigns.logged_in? do
+      case Ysc.Forms.create_volunteer(changeset) do
+        {:ok, _volunteer} ->
+          {:noreply, socket |> put_flash(:info, "Volunteer application submitted")}
+
+        {:error, changeset} ->
+          {:noreply, assign_form(socket, changeset)}
+      end
+    else
       case Turnstile.verify(values, socket.assigns.remote_ip) do
         {:ok, _} ->
           case Ysc.Forms.create_volunteer(changeset) do
@@ -101,16 +109,6 @@ defmodule YscWeb.VolunteerLive do
             |> put_flash(:error, "Please try submitting again")
             |> Turnstile.refresh()
 
-          {:noreply, assign_form(socket, changeset)}
-      end
-    else
-      case Ysc.Forms.create_volunteer(changeset) do
-        {:ok, _volunteer} ->
-          {:noreply,
-           assign(socket, submitted: true)
-           |> put_flash(:info, "Thank you for your interest in volunteering with the YSC!")}
-
-        {:error, changeset} ->
           {:noreply, assign_form(socket, changeset)}
       end
     end

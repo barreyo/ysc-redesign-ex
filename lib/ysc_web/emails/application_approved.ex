@@ -1,4 +1,9 @@
 defmodule YscWeb.Emails.ApplicationApproved do
+  @moduledoc """
+  Email template for application approval notification.
+
+  Notifies users when their membership application has been approved.
+  """
   use MjmlEEx,
     mjml_template: "templates/application_approved.mjml.eex",
     layout: YscWeb.Emails.BaseLayout

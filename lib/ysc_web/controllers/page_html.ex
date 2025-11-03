@@ -6,15 +6,13 @@ defmodule YscWeb.PageHTML do
   defp atom_to_readable(atom) when is_binary(atom) do
     atom
     |> String.split("_")
-    |> Enum.map(&String.capitalize/1)
-    |> Enum.join(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 
   defp atom_to_readable(atom) do
     atom
     |> Atom.to_string()
     |> String.split("_")
-    |> Enum.map(&String.capitalize/1)
-    |> Enum.join(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 end

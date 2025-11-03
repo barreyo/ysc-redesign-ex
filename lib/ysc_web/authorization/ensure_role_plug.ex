@@ -1,4 +1,9 @@
 defmodule YscWeb.Authorization.EnsureRolePlug do
+  @moduledoc """
+  Plug for ensuring user has required role.
+
+  Restricts access to routes based on user roles, redirecting unauthorized users.
+  """
   import Plug.Conn
   alias Ysc.Accounts.User
   alias Phoenix.Controller

@@ -20,8 +20,6 @@ defmodule YscWeb.CoreComponents do
   import Flop.Phoenix
   alias Phoenix.LiveView.JS
 
-  alias Ysc.Events.Event
-
   @doc """
   Renders a modal.
 
@@ -1462,7 +1460,7 @@ defmodule YscWeb.CoreComponents do
 
   # Returns a list of {type, text} tuples for badges to display
   # Handles both Event structs and maps from queries
-  defp get_event_badges(event, sold_out, _selling_fast) when is_map(event) do
+  defp get_event_badges(event, sold_out, selling_fast) when is_map(event) do
     # Check for cancelled state first - if cancelled, only show "Cancelled" badge
     state = Map.get(event, :state) || Map.get(event, "state")
 
@@ -1473,7 +1471,7 @@ defmodule YscWeb.CoreComponents do
       if sold_out do
         [{"red", "Sold Out"}]
       else
-        get_event_badges_continue(event, sold_out, _selling_fast)
+        get_event_badges_continue(event, sold_out, selling_fast)
       end
     end
   end
@@ -1502,14 +1500,14 @@ defmodule YscWeb.CoreComponents do
 
   defp get_event_badges(_, _, _), do: []
 
-  defp get_event_badges_continue(event, _sold_out, _selling_fast) do
+  defp get_event_badges_continue(event, sold_out, selling_fast) do
     # Check if published_at is nil (no badge for unpublished events)
     published_at = Map.get(event, :published_at) || Map.get(event, "published_at")
 
     if published_at == nil do
       []
     else
-      get_event_badges_active(event, _sold_out, _selling_fast)
+      get_event_badges_active(event, sold_out, selling_fast)
     end
   end
 
@@ -2129,10 +2127,10 @@ defmodule YscWeb.CoreComponents do
   def membership_status(assigns) do
     ~H"""
     <div
-      :if={@current_membership != nil && is_membership_active?(@current_membership)}
+      :if={@current_membership != nil && membership_active?(@current_membership)}
       class={["space-y-4", @class]}
     >
-      <div :if={is_membership_cancelled?(@current_membership)}>
+      <div :if={membership_cancelled?(@current_membership)}>
         <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
           <p class="text-sm text-yellow-800 font-semibold">
             <.icon name="hero-clock" class="w-5 h-5 text-yellow-600 inline-block -mt-0.5 me-2" />Your membership has been canceled.
@@ -2149,7 +2147,7 @@ defmodule YscWeb.CoreComponents do
         </div>
       </div>
 
-      <div :if={!is_membership_cancelled?(@current_membership)}>
+      <div :if={!membership_cancelled?(@current_membership)}>
         <div class="bg-green-50 border border-green-200 rounded-md p-4">
           <p class="text-sm text-green-800 font-semibold">
             <.icon name="hero-check-circle" class="w-5 h-5 text-green-600 inline-block -mt-0.5 me-2" />You have an
@@ -2178,8 +2176,8 @@ defmodule YscWeb.CoreComponents do
     <div
       :if={
         @current_membership == nil ||
-          (!is_membership_active?(@current_membership) &&
-             !is_membership_cancelled?(@current_membership))
+          (!membership_active?(@current_membership) &&
+             !membership_cancelled?(@current_membership))
       }
       class="space-y-4"
     >
@@ -2233,29 +2231,29 @@ defmodule YscWeb.CoreComponents do
   end
 
   # Helper functions to handle different membership data structures
-  defp is_membership_active?(%{type: :lifetime}), do: true
+  defp membership_active?(%{type: :lifetime}), do: true
 
-  defp is_membership_active?(%{subscription: subscription}) when is_map(subscription) do
+  defp membership_active?(%{subscription: subscription}) when is_map(subscription) do
     Ysc.Subscriptions.active?(subscription)
   end
 
-  defp is_membership_active?(subscription) when is_struct(subscription) do
+  defp membership_active?(subscription) when is_struct(subscription) do
     Ysc.Subscriptions.active?(subscription)
   end
 
-  defp is_membership_active?(_), do: false
+  defp membership_active?(_), do: false
 
-  defp is_membership_cancelled?(%{type: :lifetime}), do: false
+  defp membership_cancelled?(%{type: :lifetime}), do: false
 
-  defp is_membership_cancelled?(%{subscription: subscription}) when is_map(subscription) do
+  defp membership_cancelled?(%{subscription: subscription}) when is_map(subscription) do
     Ysc.Subscriptions.cancelled?(subscription)
   end
 
-  defp is_membership_cancelled?(subscription) when is_struct(subscription) do
+  defp membership_cancelled?(subscription) when is_struct(subscription) do
     Ysc.Subscriptions.cancelled?(subscription)
   end
 
-  defp is_membership_cancelled?(_), do: false
+  defp membership_cancelled?(_), do: false
 
   defp get_membership_ends_at(%{type: :lifetime}), do: nil
 

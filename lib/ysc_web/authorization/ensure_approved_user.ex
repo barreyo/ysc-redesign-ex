@@ -1,4 +1,9 @@
 defmodule YscWeb.Authorization.EnsureApprovedUserPlug do
+  @moduledoc """
+  Plug for ensuring user account is approved.
+
+  Restricts access to routes for users whose accounts are not yet approved.
+  """
   import Plug.Conn
   alias Phoenix.Controller
 
@@ -8,11 +13,11 @@ defmodule YscWeb.Authorization.EnsureApprovedUserPlug do
     user = conn.assigns[:current_user]
 
     user
-    |> is_approved?()
+    |> approved?()
     |> maybe_halt(conn)
   end
 
-  def is_approved?(user) do
+  def approved?(user) do
     user.state == :active
   end
 

@@ -1,4 +1,10 @@
 defmodule Ysc.Posts.Post do
+  @moduledoc """
+  Post schema and changesets.
+
+  Defines the Post database schema, validations, and changeset functions
+  for post data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

@@ -1,4 +1,9 @@
 defmodule YscWeb.Components.MapComponent do
+  @moduledoc """
+  LiveView component for displaying maps.
+
+  Provides an interactive map display component for showing event locations.
+  """
   use YscWeb, :live_component
 
   def render(assigns) do

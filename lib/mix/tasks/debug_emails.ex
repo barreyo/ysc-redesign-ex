@@ -41,34 +41,7 @@ defmodule Mix.Tasks.DebugEmails do
     if Enum.empty?(recent_jobs) do
       Logger.info("No recent jobs found in #{queue} queue")
     else
-      Enum.each(recent_jobs, fn job ->
-        Logger.info("Job ID: #{job.id}")
-        Logger.info("  State: #{job.state}")
-        Logger.info("  Queue: #{job.queue}")
-        Logger.info("  Worker: #{job.worker}")
-        Logger.info("  Attempt: #{job.attempt}/#{job.max_attempts}")
-        Logger.info("  Scheduled at: #{job.scheduled_at}")
-        Logger.info("  Inserted at: #{job.inserted_at}")
-
-        if Map.has_key?(job, :processed_at) && job.processed_at do
-          Logger.info("  Processed at: #{job.processed_at}")
-        end
-
-        if job.discarded_at do
-          Logger.info("  Discarded at: #{job.discarded_at}")
-        end
-
-        if job.cancelled_at do
-          Logger.info("  Cancelled at: #{job.cancelled_at}")
-        end
-
-        if job.errors do
-          Logger.info("  Errors: #{inspect(job.errors)}")
-        end
-
-        Logger.info("  Args: #{inspect(job.args, limit: :infinity)}")
-        Logger.info("")
-      end)
+      Enum.each(recent_jobs, fn job -> log_job_details(job) end)
     end
 
     # Check job counts by state
@@ -91,6 +64,35 @@ defmodule Mix.Tasks.DebugEmails do
       {:error, reason} ->
         Logger.error("Oban has issues: #{inspect(reason)}")
     end
+  end
+
+  defp log_job_details(job) do
+    Logger.info("Job ID: #{job.id}")
+    Logger.info("  State: #{job.state}")
+    Logger.info("  Queue: #{job.queue}")
+    Logger.info("  Worker: #{job.worker}")
+    Logger.info("  Attempt: #{job.attempt}/#{job.max_attempts}")
+    Logger.info("  Scheduled at: #{job.scheduled_at}")
+    Logger.info("  Inserted at: #{job.inserted_at}")
+
+    if Map.has_key?(job, :processed_at) && job.processed_at do
+      Logger.info("  Processed at: #{job.processed_at}")
+    end
+
+    if job.discarded_at do
+      Logger.info("  Discarded at: #{job.discarded_at}")
+    end
+
+    if job.cancelled_at do
+      Logger.info("  Cancelled at: #{job.cancelled_at}")
+    end
+
+    if job.errors do
+      Logger.info("  Errors: #{inspect(job.errors)}")
+    end
+
+    Logger.info("  Args: #{inspect(job.args, limit: :infinity)}")
+    Logger.info("")
   end
 
   defp get_recent_jobs(queue, limit) do

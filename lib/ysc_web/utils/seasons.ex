@@ -1,4 +1,10 @@
 defmodule YscWeb.Seasons do
+  @moduledoc """
+  Utility module for determining seasons based on dates.
+
+  Defines winter and summer seasons and provides functions to determine
+  which season a given date falls into.
+  """
   @doc """
   Determines the current season based on the date.
   """
@@ -13,9 +19,10 @@ defmodule YscWeb.Seasons do
   def get_season(date) do
     {month, day} = {date.month, date.day}
 
-    cond do
-      {month, day} >= @winter_start or {month, day} <= @winter_end -> :winter
-      true -> :summer
+    if {month, day} >= @winter_start or {month, day} <= @winter_end do
+      :winter
+    else
+      :summer
     end
   end
 end

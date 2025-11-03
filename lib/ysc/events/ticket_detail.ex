@@ -1,4 +1,10 @@
 defmodule Ysc.Events.TicketDetail do
+  @moduledoc """
+  Ticket detail schema and changesets.
+
+  Defines the TicketDetail database schema, validations, and changeset functions
+  for ticket detail data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

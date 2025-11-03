@@ -1,4 +1,9 @@
 defmodule Ysc.Events.DateTimeFormatter do
+  @moduledoc """
+  Utility module for formatting date and time values for display.
+
+  Provides functions to format date-time combinations in a human-readable format.
+  """
   @doc """
   Nicely formats and concatenates start_date, start_time, end_date, and end_time for display.
 

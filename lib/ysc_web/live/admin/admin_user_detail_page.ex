@@ -163,9 +163,9 @@ defmodule YscWeb.AdminUserDetailsLive do
             />
 
             <div class="flex flex-row justify-end w-full pt-8">
-              <button class="phx-submit-loading:opacity-75 rounded bg-green-700 hover:bg-green-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80 text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80">
-                <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" /> Save changes
-              </button>
+              <.button phx-disable-with="Saving..." type="submit">
+                <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" />Save changes
+              </.button>
             </div>
           </.simple_form>
         </div>
@@ -187,7 +187,16 @@ defmodule YscWeb.AdminUserDetailsLive do
             <p class="leading-6 text-sm text-zinc-800 mb-4 font-semibold">
               Submitted:
               <.badge>
-                <%= "#{Timex.format!(Timex.Timezone.convert(@selected_user_application.completed, "America/Los_Angeles"), "{YYYY}-{0M}-{0D}")} (#{Timex.from_now(@selected_user_application.completed)})" %>
+                <%= if @selected_user_application.completed do
+                  date_str =
+                    @selected_user_application.completed
+                    |> DateTime.shift_zone!("America/Los_Angeles")
+                    |> Timex.format!("{YYYY}-{0M}-{0D}")
+
+                  "#{date_str} (#{Timex.from_now(@selected_user_application.completed)})"
+                else
+                  "N/A"
+                end %>
               </.badge>
             </p>
 
@@ -214,10 +223,11 @@ defmodule YscWeb.AdminUserDetailsLive do
             >
               <span class="font-semibold">Reviewed at:</span>
               <.badge>
-                <%= Timex.format!(
-                  @selected_user_application.reviewed_at,
-                  "{YYYY}-{0M}-{0D} {h12}:{m}:{s} {AM}"
-                ) %>
+                <%= if @selected_user_application.reviewed_at do
+                  format_datetime_for_display(@selected_user_application.reviewed_at)
+                else
+                  "N/A"
+                end %>
               </.badge>
             </p>
 
@@ -319,10 +329,7 @@ defmodule YscWeb.AdminUserDetailsLive do
                 <p>
                   <span class="font-semibold">Awarded on:</span>
                   <%= if @selected_user.lifetime_membership_awarded_at do
-                    Timex.format!(
-                      @selected_user.lifetime_membership_awarded_at,
-                      "{YYYY}-{0M}-{0D} {h12}:{m} {AM}"
-                    )
+                    format_datetime_for_display(@selected_user.lifetime_membership_awarded_at)
                   else
                     "N/A"
                   end %>
@@ -358,10 +365,7 @@ defmodule YscWeb.AdminUserDetailsLive do
                   <p>
                     <span class="font-semibold">Current Period Start:</span>
                     <%= if @active_subscription.current_period_start do
-                      Timex.format!(
-                        @active_subscription.current_period_start,
-                        "{YYYY}-{0M}-{0D} {h12}:{m} {AM}"
-                      )
+                      format_datetime_for_display(@active_subscription.current_period_start)
                     else
                       "N/A"
                     end %>
@@ -369,17 +373,14 @@ defmodule YscWeb.AdminUserDetailsLive do
                   <p>
                     <span class="font-semibold">Current Period End:</span>
                     <%= if @active_subscription.current_period_end do
-                      Timex.format!(
-                        @active_subscription.current_period_end,
-                        "{YYYY}-{0M}-{0D} {h12}:{m} {AM}"
-                      )
+                      format_datetime_for_display(@active_subscription.current_period_end)
                     else
                       "N/A"
                     end %>
                   </p>
                   <p :if={@active_subscription.ends_at}>
                     <span class="font-semibold">Scheduled Cancellation:</span>
-                    <%= Timex.format!(@active_subscription.ends_at, "{YYYY}-{0M}-{0D} {h12}:{m} {AM}") %>
+                    <%= format_datetime_for_display(@active_subscription.ends_at) %>
                   </p>
                   <p>
                     <span class="font-semibold">Stripe Subscription ID:</span>
@@ -388,6 +389,31 @@ defmodule YscWeb.AdminUserDetailsLive do
                     </code>
                   </p>
                 </div>
+              </div>
+
+              <div class="border-t border-zinc-200 pt-6">
+                <h3 class="text-lg font-semibold text-zinc-800 mb-4">Change Membership Type</h3>
+                <p class="text-sm text-zinc-600 mb-4">
+                  Change the user's membership plan. Upgrades will be charged immediately, downgrades will take effect at the next renewal.
+                </p>
+                <.simple_form
+                  for={@membership_type_form}
+                  phx-change="validate_membership_type"
+                  phx-submit="update_membership_type"
+                >
+                  <.input
+                    field={@membership_type_form[:membership_type]}
+                    type="select"
+                    label="New Membership Type"
+                    options={get_membership_type_options(@active_subscription)}
+                  />
+                  <div class="flex flex-row justify-end w-full pt-4">
+                    <.button phx-disable-with="Changing..." type="submit">
+                      <.icon name="hero-arrows-right-left" class="w-5 h-5 mb-0.5 me-1" />
+                      Change Membership Type
+                    </.button>
+                  </div>
+                </.simple_form>
               </div>
 
               <div class="border-t border-zinc-200 pt-6">
@@ -413,9 +439,9 @@ defmodule YscWeb.AdminUserDetailsLive do
                     }
                   />
                   <div class="flex flex-row justify-end w-full pt-4">
-                    <button class="phx-submit-loading:opacity-75 rounded bg-green-700 hover:bg-green-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80 text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80">
+                    <.button phx-disable-with="Updating..." type="submit">
                       <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" /> Update Period End
-                    </button>
+                    </.button>
                   </div>
                 </.simple_form>
               </div>
@@ -452,13 +478,13 @@ defmodule YscWeb.AdminUserDetailsLive do
                       <tr :for={payment <- @subscription_payments} class="hover:bg-zinc-50">
                         <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-800">
                           <%= if payment.payment_date do
-                            Timex.format!(payment.payment_date, "{YYYY}-{0M}-{0D} {h12}:{m} {AM}")
+                            format_datetime_for_display(payment.payment_date)
                           else
                             "N/A"
                           end %>
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-zinc-900">
-                          $<%= Ysc.MoneyHelper.format_money!(payment.amount) %>
+                          <%= Ysc.MoneyHelper.format_money!(payment.amount) %>
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap">
                           <.badge>
@@ -539,9 +565,9 @@ defmodule YscWeb.AdminUserDetailsLive do
                   }
                 />
                 <div class="flex flex-row justify-end w-full pt-4">
-                  <button class="phx-submit-loading:opacity-75 rounded bg-green-700 hover:bg-green-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80 text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80">
+                  <.button phx-disable-with="Saving..." type="submit">
                     <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" /> Save Lifetime Membership
-                  </button>
+                  </.button>
                 </div>
               </.simple_form>
             </div>
@@ -596,6 +622,15 @@ defmodule YscWeb.AdminUserDetailsLive do
       }
       |> lifetime_membership_changeset()
 
+    # Create membership type form changeset
+    current_membership_type = get_current_membership_type_from_subscription(active_subscription)
+
+    membership_type_changeset =
+      %{
+        membership_type: current_membership_type
+      }
+      |> membership_type_changeset()
+
     {:ok,
      socket
      |> assign(:user_id, id)
@@ -610,6 +645,7 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:subscription_payments, subscription_payments)
      |> assign(:has_lifetime_membership, has_lifetime)
      |> assign(:membership_form, to_form(membership_changeset, as: "membership"))
+     |> assign(:membership_type_form, to_form(membership_type_changeset, as: "membership_type"))
      |> assign(:lifetime_form, to_form(lifetime_changeset, as: "lifetime"))
      |> assign(form: to_form(user_changeset, as: "user"))}
   end
@@ -708,6 +744,101 @@ defmodule YscWeb.AdminUserDetailsLive do
     {:noreply, assign(socket, membership_form: to_form(changeset, as: "membership"))}
   end
 
+  def handle_event(
+        "validate_membership_type",
+        %{"membership_type" => membership_type_params},
+        socket
+      ) do
+    changeset = membership_type_params |> membership_type_changeset()
+
+    {:noreply, assign(socket, membership_type_form: to_form(changeset, as: "membership_type"))}
+  end
+
+  def handle_event(
+        "update_membership_type",
+        %{"membership_type" => membership_type_params},
+        socket
+      ) do
+    active_subscription = socket.assigns[:active_subscription]
+
+    if is_nil(active_subscription) do
+      {:noreply,
+       socket
+       |> put_flash(:error, "User does not have an active subscription to change")}
+    else
+      new_membership_type_str = membership_type_params["membership_type"]
+
+      if is_nil(new_membership_type_str) or new_membership_type_str == "" do
+        {:noreply, socket |> put_flash(:error, "Please select a membership type")}
+      else
+        new_membership_type = String.to_existing_atom(new_membership_type_str)
+
+        # Get membership plans
+        membership_plans = Application.get_env(:ysc, :membership_plans, [])
+
+        # Find current and new plans
+        current_type = get_current_membership_type_from_subscription(active_subscription)
+        current_plan = Enum.find(membership_plans, &(&1.id == current_type))
+        new_plan = Enum.find(membership_plans, &(&1.id == new_membership_type))
+
+        cond do
+          is_nil(new_plan) ->
+            {:noreply, socket |> put_flash(:error, "Invalid membership type selected")}
+
+          current_type == new_membership_type ->
+            {:noreply, socket |> put_flash(:info, "User is already on that membership plan")}
+
+          is_nil(current_plan) ->
+            {:noreply, socket |> put_flash(:error, "Could not determine current membership plan")}
+
+          true ->
+            new_price_id = new_plan.stripe_price_id
+            direction = if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
+
+            case Subscriptions.change_membership_plan(
+                   active_subscription,
+                   new_price_id,
+                   direction
+                 ) do
+              {:ok, updated_subscription} ->
+                # Reload subscription with items
+                updated_subscription =
+                  updated_subscription
+                  |> Repo.preload(:subscription_items)
+
+                # Update membership type form
+                membership_type_changeset =
+                  %{membership_type: new_membership_type}
+                  |> membership_type_changeset()
+
+                {:noreply,
+                 socket
+                 |> assign(:active_subscription, updated_subscription)
+                 |> assign(
+                   :membership_type_form,
+                   to_form(membership_type_changeset, as: "membership_type")
+                 )
+                 |> put_flash(
+                   :info,
+                   "Membership type changed from #{String.capitalize("#{current_type}")} to #{String.capitalize("#{new_membership_type}")}"
+                 )}
+
+              {:error, error} ->
+                error_message =
+                  case error do
+                    %{message: msg} -> msg
+                    msg when is_binary(msg) -> msg
+                    _ -> "Failed to change membership type"
+                  end
+
+                {:noreply,
+                 socket |> put_flash(:error, "Failed to change membership type: #{error_message}")}
+            end
+        end
+      end
+    end
+  end
+
   def handle_event("update_membership_period", %{"membership" => membership_params}, socket) do
     active_subscription = socket.assigns[:active_subscription]
 
@@ -781,8 +912,20 @@ defmodule YscWeb.AdminUserDetailsLive do
     end
   end
 
-  defp format_datetime_local(%DateTime{} = datetime) do
+  defp format_datetime_for_display(nil), do: "N/A"
+
+  defp format_datetime_for_display(%DateTime{} = datetime) do
+    # Convert UTC datetime to America/Los_Angeles timezone
     datetime
+    |> DateTime.shift_zone!("America/Los_Angeles")
+    |> Timex.format!("{YYYY}-{0M}-{0D} {h12}:{m} {AM} {Zabbr}")
+  end
+
+  defp format_datetime_local(%DateTime{} = datetime) do
+    # Convert UTC datetime to America/Los_Angeles for datetime-local input
+    # datetime-local inputs expect a naive datetime string in local timezone
+    datetime
+    |> DateTime.shift_zone!("America/Los_Angeles")
     |> DateTime.to_naive()
     |> NaiveDateTime.truncate(:second)
     |> Calendar.strftime("%Y-%m-%dT%H:%M")
@@ -792,9 +935,14 @@ defmodule YscWeb.AdminUserDetailsLive do
   defp format_datetime_local(datetime) when is_binary(datetime), do: datetime
 
   defp parse_datetime(datetime_string) when is_binary(datetime_string) do
+    # Parse datetime-local string (assumed to be in America/Los_Angeles timezone)
+    # and convert to UTC for storage
     case NaiveDateTime.from_iso8601("#{datetime_string}:00") do
       {:ok, naive_dt} ->
-        {:ok, DateTime.from_naive!(naive_dt, "Etc/UTC")}
+        # Create DateTime in America/Los_Angeles timezone
+        local_dt = DateTime.from_naive!(naive_dt, "America/Los_Angeles")
+        # Convert to UTC for storage
+        {:ok, DateTime.shift_zone!(local_dt, "Etc/UTC")}
 
       error ->
         error
@@ -808,5 +956,43 @@ defmodule YscWeb.AdminUserDetailsLive do
 
     {%{}, types}
     |> Ecto.Changeset.cast(params, [:has_lifetime, :awarded_at])
+  end
+
+  defp membership_type_changeset(params) do
+    types = %{membership_type: :string}
+
+    {%{}, types}
+    |> Ecto.Changeset.cast(params, [:membership_type])
+    |> Ecto.Changeset.validate_required([:membership_type])
+  end
+
+  defp get_current_membership_type_from_subscription(nil), do: nil
+
+  defp get_current_membership_type_from_subscription(subscription) do
+    case subscription.subscription_items do
+      [item | _] ->
+        membership_plans = Application.get_env(:ysc, :membership_plans, [])
+
+        case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
+          %{id: id} -> id
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp get_membership_type_options(_subscription) do
+    membership_plans = Application.get_env(:ysc, :membership_plans, [])
+
+    # Filter out lifetime membership (it's handled separately)
+    available_plans = Enum.filter(membership_plans, &(&1.id != :lifetime))
+
+    Enum.map(available_plans, fn plan ->
+      label = "#{plan.name} - $#{plan.amount}/year"
+      value = Atom.to_string(plan.id)
+      {label, value}
+    end)
   end
 end

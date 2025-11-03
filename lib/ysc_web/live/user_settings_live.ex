@@ -724,7 +724,7 @@ defmodule YscWeb.UserSettingsLive do
                 class="flex items-center justify-between border-t border-zinc-200 pt-4 mt-6"
               >
                 <div class="flex items-center space-x-2">
-                  <.button :if={@payments_page > 1} phx-click="prev-payments-page" variant="outline">
+                  <.button :if={@payments_page > 1} phx-click="prev-payments-page">
                     <.icon name="hero-chevron-left" class="w-4 h-4 me-1" /> Previous
                   </.button>
                 </div>
@@ -734,11 +734,7 @@ defmodule YscWeb.UserSettingsLive do
                 </div>
 
                 <div class="flex items-center space-x-2">
-                  <.button
-                    :if={@payments_page < @payments_total_pages}
-                    phx-click="next-payments-page"
-                    variant="outline"
-                  >
+                  <.button :if={@payments_page < @payments_total_pages} phx-click="next-payments-page">
                     Next <.icon name="hero-chevron-right" class="w-4 h-4 ms-1" />
                   </.button>
                 </div>
@@ -1026,10 +1022,9 @@ defmodule YscWeb.UserSettingsLive do
 
   def handle_event(
         "payment-method-set",
-        %{"payment_method_id" => payment_method_id} = params,
+        %{"payment_method_id" => payment_method_id},
         socket
       ) do
-    IO.inspect(params)
     user = socket.assigns.user
 
     if user.state != :active do
@@ -1549,25 +1544,23 @@ defmodule YscWeb.UserSettingsLive do
 
   # Helper function to ensure Stripe customer exists
   defp ensure_stripe_customer_exists(user) do
-    cond do
+    if user.stripe_id == nil do
       # No stripe_id - create new customer
-      user.stripe_id == nil ->
-        Customers.create_stripe_customer(user)
-        # Reload user to get updated stripe_id
-        Ysc.Repo.get!(Ysc.Accounts.User, user.id)
-
+      Customers.create_stripe_customer(user)
+      # Reload user to get updated stripe_id
+      Ysc.Repo.get!(Ysc.Accounts.User, user.id)
+    else
       # Has stripe_id - verify customer exists in Stripe
-      true ->
-        case verify_stripe_customer_exists(user.stripe_id) do
-          :ok ->
-            user
+      case verify_stripe_customer_exists(user.stripe_id) do
+        :ok ->
+          user
 
-          {:error, _} ->
-            # Customer doesn't exist in Stripe, create a new one
-            Customers.create_stripe_customer(user)
-            # Reload user to get updated stripe_id
-            Ysc.Repo.get!(Ysc.Accounts.User, user.id)
-        end
+        {:error, _} ->
+          # Customer doesn't exist in Stripe, create a new one
+          Customers.create_stripe_customer(user)
+          # Reload user to get updated stripe_id
+          Ysc.Repo.get!(Ysc.Accounts.User, user.id)
+      end
     end
   end
 
@@ -1581,6 +1574,7 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   # Helper function to format ticket tiers for display
+  @doc false
   defp format_ticket_tiers(tickets) when is_list(tickets) and length(tickets) > 0 do
     tickets
     |> Enum.group_by(fn ticket ->
@@ -1590,14 +1584,13 @@ defmodule YscWeb.UserSettingsLive do
         nil
       end
     end)
-    |> Enum.map(fn {_tier_id, tier_tickets} ->
+    |> Enum.map_join(", ", fn {_tier_id, tier_tickets} ->
       count = length(tier_tickets)
       # Get tier name from first ticket's tier
       tier = hd(tier_tickets).ticket_tier
       tier_name = if tier && tier.name, do: tier.name, else: "Unknown Tier"
       "#{count}x #{tier_name}"
     end)
-    |> Enum.join(", ")
   end
 
   defp format_ticket_tiers(_), do: ""

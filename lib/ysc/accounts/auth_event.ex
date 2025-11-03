@@ -1,4 +1,10 @@
 defmodule Ysc.Accounts.AuthEvent do
+  @moduledoc """
+  Authentication event schema and changesets.
+
+  Defines the AuthEvent database schema for tracking user authentication events,
+  including login attempts, device information, and suspicious activity detection.
+  """
   use Ecto.Schema
   import Ecto.Changeset
   import Ecto.Query
@@ -305,7 +311,7 @@ defmodule Ysc.Accounts.AuthEvent do
   @doc """
   Determines if an event is suspicious based on various factors.
   """
-  def is_suspicious?(attrs) do
+  def suspicious?(attrs) do
     risk_score = calculate_risk_score(attrs)
     risk_score > 70
   end

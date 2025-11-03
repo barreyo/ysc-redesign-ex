@@ -1,4 +1,9 @@
 defmodule YscWeb.Components.Image do
+  @moduledoc """
+  LiveView component for displaying images with blur hash placeholders.
+
+  Renders images with progressive loading using blur hash placeholders.
+  """
   use YscWeb, :live_component
 
   alias Ysc.Media.Image

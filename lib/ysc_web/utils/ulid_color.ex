@@ -1,4 +1,10 @@
 defmodule ULIDColor do
+  @moduledoc """
+  Utility module for generating colors from ULIDs.
+
+  Provides functions to generate consistent, light pastel colors from ULID strings
+  using Tailwind color palettes.
+  """
   @doc """
   Generates a light pastel color from a given ULID using the lightest Tailwind colors (*-100).
   """

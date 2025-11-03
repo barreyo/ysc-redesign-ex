@@ -1,4 +1,9 @@
 defmodule YscWeb.Plugs.SiteSettingsPlugs do
+  @moduledoc """
+  Plug for mounting site settings in LiveView.
+
+  Loads and makes site settings available in LiveView socket assigns.
+  """
   use YscWeb, :verified_routes
 
   import Plug.Conn

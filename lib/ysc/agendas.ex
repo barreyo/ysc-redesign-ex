@@ -1,4 +1,9 @@
 defmodule Ysc.Agendas do
+  @moduledoc """
+  Context module for managing event agendas and agenda items.
+
+  Provides functions for creating, updating, and organizing agenda items for events.
+  """
   alias Ysc.Events.AgendaItem
   alias Ysc.Events.Agenda
 

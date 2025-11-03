@@ -58,9 +58,9 @@ defmodule YscWeb.AdminUsersLive do
               Cancel
             </button>
 
-            <button class="phx-submit-loading:opacity-75 rounded bg-green-700 hover:bg-green-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80 text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80">
+            <.button phx-disable-with="Saving..." type="submit">
               <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" /> Save changes
-            </button>
+            </.button>
           </div>
         </.simple_form>
       </.modal>
@@ -369,6 +369,7 @@ defmodule YscWeb.AdminUsersLive do
                       options: [
                         {"Single", :single},
                         {"Family", :family},
+                        {"Lifetime", :lifetime},
                         {"No Active Membership", :none}
                       ]
                     ]
@@ -768,31 +769,36 @@ defmodule YscWeb.AdminUsersLive do
   defp user_state_to_readable(state), do: String.capitalize("#{state}")
 
   defp get_active_membership_type(user) do
-    # Get all subscriptions for the user
-    subscriptions =
-      case user.subscriptions do
-        %Ecto.Association.NotLoaded{} -> []
-        subscriptions when is_list(subscriptions) -> subscriptions
-        _ -> []
+    # Check for lifetime membership first (highest priority)
+    if Accounts.has_lifetime_membership?(user) do
+      :lifetime
+    else
+      # Get all subscriptions for the user
+      subscriptions =
+        case user.subscriptions do
+          %Ecto.Association.NotLoaded{} -> []
+          subscriptions when is_list(subscriptions) -> subscriptions
+          _ -> []
+        end
+
+      # Filter for active subscriptions only
+      active_subscriptions =
+        Enum.filter(subscriptions, fn subscription ->
+          Ysc.Subscriptions.valid?(subscription)
+        end)
+
+      case active_subscriptions do
+        [] ->
+          nil
+
+        [single_subscription] ->
+          get_membership_type_from_subscription(single_subscription)
+
+        multiple_subscriptions ->
+          # If multiple active subscriptions, pick the most expensive one
+          most_expensive = get_most_expensive_subscription(multiple_subscriptions)
+          get_membership_type_from_subscription(most_expensive)
       end
-
-    # Filter for active subscriptions only
-    active_subscriptions =
-      Enum.filter(subscriptions, fn subscription ->
-        Ysc.Subscriptions.valid?(subscription)
-      end)
-
-    case active_subscriptions do
-      [] ->
-        nil
-
-      [single_subscription] ->
-        get_membership_type_from_subscription(single_subscription)
-
-      multiple_subscriptions ->
-        # If multiple active subscriptions, pick the most expensive one
-        most_expensive = get_most_expensive_subscription(multiple_subscriptions)
-        get_membership_type_from_subscription(most_expensive)
     end
   end
 

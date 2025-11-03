@@ -1,4 +1,9 @@
 defmodule YscWeb.Components.ImageUploadComponent do
+  @moduledoc """
+  LiveView component for image upload functionality.
+
+  Provides an interactive interface for uploading images with preview and progress tracking.
+  """
   use YscWeb, :live_component
 
   alias Ysc.Media

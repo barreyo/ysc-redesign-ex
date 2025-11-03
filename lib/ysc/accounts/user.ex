@@ -1,4 +1,10 @@
 defmodule Ysc.Accounts.User do
+  @moduledoc """
+  User schema and changesets.
+
+  Defines the User database schema, validations, and changeset functions
+  for user data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -189,8 +195,8 @@ defmodule Ysc.Accounts.User do
       changeset
     else
       with {:ok, phone_number} <- PhoneNumber.parse_phone_number(phone_number),
-           true <- PhoneNumber.is_possible_phone_number(phone_number),
-           true <- PhoneNumber.is_valid_phone_number(phone_number) do
+           true <- PhoneNumber.possible_phone_number?(phone_number),
+           true <- PhoneNumber.valid_phone_number?(phone_number) do
         phone_number = PhoneNumber.format_phone_number(phone_number, :e164)
         put_change(changeset, :phone_number, phone_number)
       else

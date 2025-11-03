@@ -1,4 +1,9 @@
 defmodule Ysc.Events.FaqQuestion do
+  @moduledoc """
+  FAQ question schema.
+
+  Defines the FaqQuestion database schema for event frequently asked questions.
+  """
   use Ecto.Schema
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}

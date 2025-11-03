@@ -1,4 +1,10 @@
 defmodule Ysc.Ledgers.Payment do
+  @moduledoc """
+  Payment schema and changesets.
+
+  Defines the Payment database schema, validations, and changeset functions
+  for payment data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

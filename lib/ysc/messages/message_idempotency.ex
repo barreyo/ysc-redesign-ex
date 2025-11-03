@@ -1,4 +1,10 @@
 defmodule Ysc.Messages.MessageIdempotency do
+  @moduledoc """
+  Message idempotency schema and changesets.
+
+  Defines the MessageIdempotency database schema for ensuring message delivery
+  idempotency and preventing duplicate message processing.
+  """
   use Ecto.Schema
 
   import Ecto.Changeset

@@ -1,4 +1,10 @@
 defmodule YscWeb.Authorization.Policy.Checks do
+  @moduledoc """
+  Authorization policy check functions.
+
+  Provides helper functions for checking authorization policies, such as
+  resource ownership and role-based access.
+  """
   alias Ysc.Accounts.User
 
   def own_resource(%User{id: id}, %{user_id: id}) when is_binary(id), do: true

@@ -1,4 +1,10 @@
 defmodule Ysc.Ledgers.LedgerAccount do
+  @moduledoc """
+  Ledger account schema and changesets.
+
+  Defines the LedgerAccount database schema, validations, and changeset functions
+  for ledger account data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

@@ -1,4 +1,9 @@
 defmodule YscWeb.Workers.ImageProcessor do
+  @moduledoc """
+  Oban worker for processing and optimizing images.
+
+  Handles image transformations, resizing, and optimization tasks asynchronously.
+  """
   require Logger
 
   use Oban.Worker, queue: :media

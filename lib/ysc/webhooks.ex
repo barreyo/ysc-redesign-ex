@@ -1,8 +1,13 @@
-defmodule DuplicateWebhookEventError do
+defmodule Ysc.Webhooks.DuplicateWebhookEventError do
   defexception message: "Webhook event already exists"
 end
 
 defmodule Ysc.Webhooks do
+  @moduledoc """
+  Context module for managing webhook events.
+
+  Handles creation, retrieval, and processing of webhook events from external services.
+  """
   alias Ysc.Webhooks.WebhookEvent
   alias Ysc.Repo
   import Ecto.Query
@@ -16,11 +21,12 @@ defmodule Ysc.Webhooks do
     |> WebhookEvent.changeset(attrs)
     |> Repo.insert!()
   rescue
-    Ecto.ConstraintError ->
-      raise DuplicateWebhookEventError, "Webhook event already exists"
+    _error ->
+      exception = %Ysc.Webhooks.DuplicateWebhookEventError{
+        message: "Webhook event already exists"
+      }
 
-    Ecto.InvalidChangesetError ->
-      raise DuplicateWebhookEventError, "Webhook event already exists"
+      reraise exception, __STACKTRACE__
   end
 
   @doc """

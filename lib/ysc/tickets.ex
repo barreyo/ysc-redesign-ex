@@ -251,7 +251,7 @@ defmodule Ysc.Tickets do
     event = Ysc.Events.get_event!(event_id)
 
     # Check if event is at capacity
-    if is_event_at_capacity?(event) do
+    if event_at_capacity?(event) do
       {:error, :event_at_capacity}
     else
       # Check each ticket tier capacity
@@ -279,17 +279,17 @@ defmodule Ysc.Tickets do
   @doc """
   Checks if an event is at its maximum capacity.
   """
-  def is_event_at_capacity?(%Event{max_attendees: nil}), do: false
+  def event_at_capacity?(%Event{max_attendees: nil}), do: false
 
-  def is_event_at_capacity?(%Event{max_attendees: max_attendees} = event) do
+  def event_at_capacity?(%Event{max_attendees: max_attendees} = event) do
     current_attendees = count_confirmed_tickets_for_event(event.id)
     current_attendees >= max_attendees
   end
 
   # Handle maps (from our custom query)
-  def is_event_at_capacity?(%{max_attendees: nil}), do: false
+  def event_at_capacity?(%{max_attendees: nil}), do: false
 
-  def is_event_at_capacity?(%{max_attendees: max_attendees, id: event_id}) do
+  def event_at_capacity?(%{max_attendees: max_attendees, id: event_id}) do
     current_attendees = count_confirmed_tickets_for_event(event_id)
     current_attendees >= max_attendees
   end

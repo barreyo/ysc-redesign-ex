@@ -1,4 +1,9 @@
 defmodule YscWeb.Emails.ApplicationSubmitted do
+  @moduledoc """
+  Email template for application submission confirmation.
+
+  Sends a confirmation email to users after submitting their membership application.
+  """
   use MjmlEEx,
     mjml_template: "templates/application_submitted.mjml.eex",
     layout: YscWeb.Emails.BaseLayout

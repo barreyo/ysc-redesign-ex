@@ -1,4 +1,9 @@
 defmodule YscWeb.FileComponent do
+  @moduledoc """
+  LiveView component for displaying uploaded files.
+
+  Provides a display component for uploaded files with progress tracking.
+  """
   use YscWeb, :live_component
 
   @impl true

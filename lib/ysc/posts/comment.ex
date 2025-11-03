@@ -1,4 +1,10 @@
 defmodule Ysc.Posts.Comment do
+  @moduledoc """
+  Comment schema and changesets.
+
+  Defines the Comment database schema, validations, and changeset functions
+  for comment data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

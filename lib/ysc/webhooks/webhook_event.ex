@@ -1,4 +1,10 @@
 defmodule Ysc.Webhooks.WebhookEvent do
+  @moduledoc """
+  Webhook event schema and changesets.
+
+  Defines the WebhookEvent database schema, validations, and changeset functions
+  for webhook event data manipulation.
+  """
   use Ecto.Schema
 
   import Ecto.Changeset

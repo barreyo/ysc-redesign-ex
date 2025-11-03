@@ -485,18 +485,22 @@ defmodule Ysc.Subscriptions do
         }
       end)
 
-    # Create a single phase that starts now and ends at the desired date
+    # Create a single phase that ends at the desired date
+    # When using 'from_subscription', Stripe automatically sets the start_date
+    # from the subscription's current period, so we only specify end_date
     phase = %{
       items: items,
-      start_date: DateTime.to_unix(DateTime.utc_now()),
       end_date: end_timestamp
     }
 
-    # Create the schedule
-    Stripe.SubscriptionSchedule.create(%{
-      subscription: stripe_sub.id,
+    # Create the schedule from the existing subscription
+    # The 'from_subscription' parameter will inherit the subscription's settings
+    params = %{
+      from_subscription: stripe_sub.id,
       phases: [phase]
-    })
+    }
+
+    Stripe.SubscriptionSchedule.create(params)
   end
 
   @doc """
@@ -524,30 +528,48 @@ defmodule Ysc.Subscriptions do
   """
   def change_membership_plan(%Subscription{} = subscription, new_price_id, direction) do
     with {:ok, stripe_sub} <- Stripe.Subscription.retrieve(subscription.stripe_id),
-         [%{id: stripe_item_id, price: %{id: current_price_id}} | _] <- stripe_sub.items.data do
+         [first_item | _] when first_item != nil <- stripe_sub.items.data do
+      current_price_id = first_item.price.id
+      stripe_item_id = first_item.id
+
       # No-op if already on desired price
       if current_price_id == new_price_id do
         {:ok, subscription}
       else
-        update_items = [%{id: stripe_item_id, price: new_price_id, quantity: 1}]
+        # Use SubscriptionItem.update to directly update the existing item
+        # This avoids the error about adding a duplicate price
+        update_params = %{
+          price: new_price_id,
+          quantity: 1
+        }
 
         case direction do
           :upgrade ->
-            case Stripe.Subscription.update(subscription.stripe_id, %{
-                   items: update_items,
-                   proration_behavior: "create_prorations"
-                 }) do
-              {:ok, stripe_subscription} ->
-                update_subscription(subscription, %{
-                  stripe_status: stripe_subscription.status,
-                  current_period_end: stripe_subscription.current_period_end
-                })
+            case Stripe.SubscriptionItem.update(stripe_item_id, update_params) do
+              {:ok, _updated_item} ->
+                # Retrieve updated subscription to get new period end
+                case Stripe.Subscription.retrieve(subscription.stripe_id) do
+                  {:ok, updated_stripe_subscription} ->
+                    update_subscription(subscription, %{
+                      stripe_status: updated_stripe_subscription.status,
+                      current_period_end:
+                        updated_stripe_subscription.current_period_end &&
+                          DateTime.from_unix!(updated_stripe_subscription.current_period_end)
+                    })
+
+                  {:error, error} ->
+                    {:error, error}
+                end
 
               {:error, error} ->
                 {:error, error}
             end
 
           :downgrade ->
+            # For downgrades, we still need to update the item, but also ensure proration is handled
+            # We'll update via subscription to set proration_behavior
+            update_items = [%{id: stripe_item_id, price: new_price_id, quantity: 1}]
+
             case Stripe.Subscription.update(subscription.stripe_id, %{
                    items: update_items,
                    proration_behavior: "none",
@@ -556,7 +578,9 @@ defmodule Ysc.Subscriptions do
               {:ok, stripe_subscription} ->
                 update_subscription(subscription, %{
                   stripe_status: stripe_subscription.status,
-                  current_period_end: stripe_subscription.current_period_end
+                  current_period_end:
+                    stripe_subscription.current_period_end &&
+                      DateTime.from_unix!(stripe_subscription.current_period_end)
                 })
 
               {:error, error} ->

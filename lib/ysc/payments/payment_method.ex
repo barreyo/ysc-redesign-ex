@@ -1,4 +1,10 @@
 defmodule Ysc.Payments.PaymentMethod do
+  @moduledoc """
+  Payment method schema and changesets.
+
+  Defines the PaymentMethod database schema, validations, and changeset functions
+  for payment method data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

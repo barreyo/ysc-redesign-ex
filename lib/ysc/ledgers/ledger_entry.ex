@@ -1,4 +1,10 @@
 defmodule Ysc.Ledgers.LedgerEntry do
+  @moduledoc """
+  Ledger entry schema and changesets.
+
+  Defines the LedgerEntry database schema, validations, and changeset functions
+  for ledger entry data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

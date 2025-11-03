@@ -181,9 +181,11 @@ defmodule Ysc.Accounts.AuthService do
           )
           |> Repo.all()
 
-        if auth_event.device_type not in recent_devices,
-          do: ["new_device" | threat_indicators],
-          else: threat_indicators
+        if auth_event.device_type in recent_devices do
+          threat_indicators
+        else
+          ["new_device" | threat_indicators]
+        end
       else
         threat_indicators
       end

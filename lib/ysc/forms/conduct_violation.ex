@@ -1,4 +1,10 @@
 defmodule Ysc.Forms.ConductViolationReport do
+  @moduledoc """
+  Conduct violation report schema and changesets.
+
+  Defines the ConductViolationReport database schema, validations, and changeset functions
+  for conduct violation report data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

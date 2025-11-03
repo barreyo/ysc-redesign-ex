@@ -2,7 +2,6 @@ defmodule Ysc.Accounts do
   @moduledoc """
   The Accounts context.
   """
-  @behaviour Ysc.Accounts.Behaviour
 
   import Ecto.Query, warn: false
 

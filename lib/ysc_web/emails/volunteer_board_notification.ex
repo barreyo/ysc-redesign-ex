@@ -1,4 +1,9 @@
 defmodule YscWeb.Emails.VolunteerBoardNotification do
+  @moduledoc """
+  Email template for volunteer board notification.
+
+  Notifies board members when a new volunteer application is submitted.
+  """
   use MjmlEEx,
     mjml_template: "templates/volunteer_board_notification.mjml.eex",
     layout: YscWeb.Emails.BaseLayout

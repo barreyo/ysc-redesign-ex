@@ -1,4 +1,10 @@
 defmodule Ysc.Events.Agenda do
+  @moduledoc """
+  Agenda schema and changesets.
+
+  Defines the Agenda database schema, validations, and changeset functions
+  for agenda data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

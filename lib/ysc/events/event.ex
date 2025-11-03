@@ -1,4 +1,10 @@
 defmodule Ysc.Events.Event do
+  @moduledoc """
+  Event schema and changesets.
+
+  Defines the Event database schema, validations, and changeset functions
+  for event data manipulation.
+  """
   use Ecto.Schema
 
   import Ecto.Changeset

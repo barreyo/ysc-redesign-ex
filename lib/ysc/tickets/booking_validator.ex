@@ -32,9 +32,8 @@ defmodule Ysc.Tickets.BookingValidator do
     with :ok <- validate_user(user_id),
          :ok <- validate_event(event_id),
          :ok <- validate_ticket_selections(event_id, ticket_selections),
-         :ok <- validate_capacity(event_id, ticket_selections),
-         :ok <- validate_concurrent_booking(user_id, event_id) do
-      :ok
+         :ok <- validate_capacity(event_id, ticket_selections) do
+      validate_concurrent_booking(user_id, event_id)
     end
   end
 
@@ -103,14 +102,14 @@ defmodule Ysc.Tickets.BookingValidator do
   - `true` if event is at capacity
   - `false` if event has available capacity
   """
-  def is_event_at_capacity?(event_id) when is_binary(event_id) do
+  def event_at_capacity?(event_id) when is_binary(event_id) do
     event = Events.get_event!(event_id)
-    is_event_at_capacity?(event)
+    event_at_capacity?(event)
   end
 
-  def is_event_at_capacity?(%Event{max_attendees: nil}), do: false
+  def event_at_capacity?(%Event{max_attendees: nil}), do: false
 
-  def is_event_at_capacity?(%Event{max_attendees: max_attendees} = event) do
+  def event_at_capacity?(%Event{max_attendees: max_attendees} = event) do
     current_attendees = count_confirmed_tickets_for_event(event.id)
     current_attendees >= max_attendees
   end
@@ -140,7 +139,7 @@ defmodule Ysc.Tickets.BookingValidator do
         {:error, :event_cancelled}
 
       %Event{} = event ->
-        if is_event_in_past?(event) do
+        if event_in_past?(event) do
           {:error, :event_in_past}
         else
           :ok
@@ -177,7 +176,7 @@ defmodule Ysc.Tickets.BookingValidator do
           tier.event_id != event_id ->
             {:error, :tier_not_for_event}
 
-          not is_tier_on_sale?(tier) ->
+          not tier_on_sale?(tier) ->
             {:error, :tier_not_on_sale}
 
           quantity <= 0 ->
@@ -193,7 +192,7 @@ defmodule Ysc.Tickets.BookingValidator do
     event = Events.get_event!(event_id)
 
     # Check if event is already at capacity
-    if is_event_at_capacity?(event) do
+    if event_at_capacity?(event) do
       {:error, :event_at_capacity}
     else
       # Check each tier capacity
@@ -265,7 +264,7 @@ defmodule Ysc.Tickets.BookingValidator do
       total_quantity: tier.quantity,
       available: available,
       sold: get_sold_tier_quantity(tier),
-      on_sale: is_tier_on_sale?(tier),
+      on_sale: tier_on_sale?(tier),
       start_date: tier.start_date,
       end_date: tier.end_date
     }
@@ -302,20 +301,20 @@ defmodule Ysc.Tickets.BookingValidator do
     current_attendees + requested_quantity <= max_attendees
   end
 
-  defp is_tier_on_sale?(%TicketTier{start_date: nil}), do: true
+  defp tier_on_sale?(%TicketTier{start_date: nil}), do: true
 
-  defp is_tier_on_sale?(%TicketTier{start_date: start_date}) do
+  defp tier_on_sale?(%TicketTier{start_date: start_date}) do
     now = DateTime.utc_now()
     DateTime.compare(now, start_date) != :lt
   end
 
-  defp is_event_in_past?(%Event{start_date: nil}), do: false
+  defp event_in_past?(%Event{start_date: nil}), do: false
 
-  defp is_event_in_past?(%Event{start_date: start_date, start_time: nil}) do
+  defp event_in_past?(%Event{start_date: start_date, start_time: nil}) do
     DateTime.compare(DateTime.utc_now(), start_date) == :gt
   end
 
-  defp is_event_in_past?(%Event{start_date: start_date, start_time: start_time}) do
+  defp event_in_past?(%Event{start_date: start_date, start_time: start_time}) do
     event_datetime = combine_date_time(start_date, start_time)
     DateTime.compare(DateTime.utc_now(), event_datetime) == :gt
   end

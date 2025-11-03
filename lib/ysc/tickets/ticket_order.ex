@@ -1,4 +1,10 @@
 defmodule Ysc.Tickets.TicketOrder do
+  @moduledoc """
+  Ticket order schema and changesets.
+
+  Defines the TicketOrder database schema, validations, and changeset functions
+  for ticket order data manipulation.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

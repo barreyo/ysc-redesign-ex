@@ -95,7 +95,17 @@ defmodule YscWeb.ConductViolationReportLive do
         params
       )
 
-    if !socket.assigns.logged_in? do
+    if socket.assigns.logged_in? do
+      case Ysc.Forms.create_conduct_violation_report(changeset) do
+        {:ok, _conduct_report} ->
+          {:noreply,
+           assign(socket, submitted: true)
+           |> put_flash(:info, "Your report has been submitted")}
+
+        {:error, changeset} ->
+          {:noreply, assign_form(socket, changeset)}
+      end
+    else
       case Turnstile.verify(values, socket.assigns.remote_ip) do
         {:ok, _} ->
           case Ysc.Forms.create_conduct_violation_report(changeset) do
@@ -114,16 +124,6 @@ defmodule YscWeb.ConductViolationReportLive do
             |> put_flash(:error, "Please try submitting again")
             |> Turnstile.refresh()
 
-          {:noreply, assign_form(socket, changeset)}
-      end
-    else
-      case Ysc.Forms.create_conduct_violation_report(changeset) do
-        {:ok, _conduct_report} ->
-          {:noreply,
-           assign(socket, submitted: true)
-           |> put_flash(:info, "Your report has been submitted")}
-
-        {:error, changeset} ->
           {:noreply, assign_form(socket, changeset)}
       end
     end

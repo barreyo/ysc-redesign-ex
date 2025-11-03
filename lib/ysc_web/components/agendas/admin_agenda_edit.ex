@@ -1,4 +1,9 @@
 defmodule YscWeb.AgendaEditComponent do
+  @moduledoc """
+  LiveView component for editing event agendas.
+
+  Provides an interface for admins to create and edit agenda items for events.
+  """
   use YscWeb, :live_component
 
   alias Ysc.Events.AgendaItem
@@ -216,17 +221,16 @@ defmodule YscWeb.AgendaEditComponent do
         %{"id" => id, "new" => new_idx, "old" => _} = params,
         socket
       ) do
-    case params do
-      %{"agenda_id" => _old_agenda_id} ->
-        agenda_item = Agendas.get_agenda_item!(id)
-        Agendas.update_agenda_item_position(agenda_item.agenda.event_id, agenda_item, new_idx)
-        {:noreply, socket}
-
-      %{"agenda_id" => _old_agenda_id, "to" => %{"agenda_id" => new_agenda_id}} ->
-        agenda_item = Agendas.get_agenda_item!(id)
-        agenda = Agendas.get_agenda!(new_agenda_id)
-        Agendas.move_agenda_item_to_agenda(agenda.event_id, agenda_item, agenda, new_idx)
-        {:noreply, socket}
+    if Map.has_key?(params, "to") and is_map(params["to"]) do
+      new_agenda_id = params["to"]["agenda_id"]
+      agenda_item = Agendas.get_agenda_item!(id)
+      agenda = Agendas.get_agenda!(new_agenda_id)
+      Agendas.move_agenda_item_to_agenda(agenda.event_id, agenda_item, agenda, new_idx)
+      {:noreply, socket}
+    else
+      agenda_item = Agendas.get_agenda_item!(id)
+      Agendas.update_agenda_item_position(agenda_item.agenda.event_id, agenda_item, new_idx)
+      {:noreply, socket}
     end
   end
 

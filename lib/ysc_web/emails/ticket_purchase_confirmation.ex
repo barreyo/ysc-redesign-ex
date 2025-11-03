@@ -1,4 +1,9 @@
 defmodule YscWeb.Emails.TicketPurchaseConfirmation do
+  @moduledoc """
+  Email template for ticket purchase confirmation.
+
+  Sends a confirmation email to users after successful ticket purchase.
+  """
   use MjmlEEx,
     mjml_template: "templates/ticket_purchase_confirmation.mjml.eex",
     layout: YscWeb.Emails.BaseLayout

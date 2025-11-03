@@ -1,4 +1,10 @@
 defmodule Ysc.Accounts.SignupApplicationEvent do
+  @moduledoc """
+  Signup application event schema and changesets.
+
+  Defines the SignupApplicationEvent database schema for tracking
+  application review and status change events.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

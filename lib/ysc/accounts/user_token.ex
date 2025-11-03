@@ -1,4 +1,10 @@
 defmodule Ysc.Accounts.UserToken do
+  @moduledoc """
+  User token schema and utilities.
+
+  Defines the UserToken database schema for authentication tokens including
+  remember me tokens and email confirmation tokens.
+  """
   use Ecto.Schema
   import Ecto.Query
   alias Ysc.Accounts.UserToken

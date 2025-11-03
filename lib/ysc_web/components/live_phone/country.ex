@@ -104,7 +104,7 @@ defmodule LivePhone.Country do
 
   ```
   """
-  @spec get(%PhoneNumber{} | String.t()) :: {:ok, t()} | {:error, :not_found}
+  @spec get(phone() | String.t()) :: {:ok, t()} | {:error, :not_found}
   def get(%PhoneNumber{} = phone) do
     phone
     |> ExPhoneNumber.Metadata.get_region_code_for_number()

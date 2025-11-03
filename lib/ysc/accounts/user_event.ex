@@ -1,4 +1,9 @@
 defmodule Ysc.Accounts.UserEvent do
+  @moduledoc """
+  User event schema and changesets.
+
+  Defines the UserEvent database schema for tracking user-related events and changes.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

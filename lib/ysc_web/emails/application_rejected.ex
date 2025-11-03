@@ -1,4 +1,9 @@
 defmodule YscWeb.Emails.ApplicationRejected do
+  @moduledoc """
+  Email template for application rejection notification.
+
+  Notifies users when their membership application has been rejected.
+  """
   use MjmlEEx,
     mjml_template: "templates/application_rejected.mjml.eex",
     layout: YscWeb.Emails.BaseLayout
