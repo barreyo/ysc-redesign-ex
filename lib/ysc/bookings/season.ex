@@ -1,0 +1,185 @@
+defmodule Ysc.Bookings.Season do
+  @moduledoc """
+  Season schema and changesets.
+
+  Defines the Season database schema for booking seasons (e.g., peak season, off-season).
+  Seasons define time periods during which different pricing rules may apply.
+
+  ## Recurring Seasons
+
+  Seasons automatically recur every year based on their month/day pattern. For example:
+  - Winter season: Nov 1 to Apr 30 (spans two calendar years but recurs annually)
+  - Summer season: May 1 to Oct 31 (recurring annually)
+
+  Use `for_date/2` to find which season applies to any date, regardless of the year.
+  """
+  use Ecto.Schema
+  import Ecto.Changeset
+  import Ecto.Query, warn: false
+
+  alias Ysc.Repo
+
+  @primary_key {:id, Ecto.ULID, autogenerate: true}
+  @foreign_key_type Ecto.ULID
+  @timestamps_opts [type: :utc_datetime]
+
+  schema "seasons" do
+    field :name, :string
+    field :description, :string
+
+    # Property this season applies to
+    field :property, Ysc.Bookings.BookingProperty
+
+    # Season date range
+    field :start_date, :date
+    field :end_date, :date
+
+    # Whether this is the default season for the property
+    field :is_default, :boolean, default: false
+
+    # Relationships
+    has_many :pricing_rules, Ysc.Bookings.PricingRule, foreign_key: :season_id
+    has_many :rooms, Ysc.Bookings.Room, foreign_key: :default_season_id
+
+    timestamps()
+  end
+
+  @doc """
+  Creates a changeset for the Season schema.
+  """
+  def changeset(season, attrs \\ %{}) do
+    season
+    |> cast(attrs, [
+      :name,
+      :description,
+      :property,
+      :start_date,
+      :end_date,
+      :is_default
+    ])
+    |> validate_required([
+      :name,
+      :property,
+      :start_date,
+      :end_date
+    ])
+    |> validate_length(:name, max: 255)
+    |> validate_length(:description, max: 1000)
+    |> validate_date_range()
+    |> validate_default_season_uniqueness()
+  end
+
+  # Validates date range - allows year-spanning ranges (e.g., Nov 1 to Apr 30)
+  defp validate_date_range(changeset) do
+    start_date = get_field(changeset, :start_date)
+    end_date = get_field(changeset, :end_date)
+
+    if start_date && end_date do
+      # Check if it's a year-spanning range (e.g., winter: Nov 1 to Apr 30)
+      start_month = start_date.month
+      end_month = end_date.month
+
+      if start_month > end_month do
+        # Year-spanning range (e.g., Nov to Apr) - this is valid
+        changeset
+      else
+        # Same-year range - end must be after start
+        if Date.compare(end_date, start_date) != :gt do
+          add_error(changeset, :end_date, "must be after start date")
+        else
+          changeset
+        end
+      end
+    else
+      changeset
+    end
+  end
+
+  # Validates that only one default season exists per property
+  defp validate_default_season_uniqueness(changeset) do
+    is_default = get_field(changeset, :is_default)
+    property = get_field(changeset, :property)
+    season_id = get_field(changeset, :id)
+
+    if is_default && property do
+      # Check if there's another default season for this property
+      query =
+        if season_id do
+          from s in Ysc.Bookings.Season,
+            where: s.property == ^property and s.is_default == true and s.id != ^season_id
+        else
+          from s in Ysc.Bookings.Season,
+            where: s.property == ^property and s.is_default == true
+        end
+
+      case Ysc.Repo.one(query) do
+        nil ->
+          changeset
+
+        _existing ->
+          add_error(changeset, :is_default, "only one default season allowed per property")
+      end
+    else
+      changeset
+    end
+  end
+
+  @doc """
+  Finds the season that applies to a given date for a property.
+
+  Seasons are recurring annually. For year-spanning seasons (e.g., Nov 1 - Apr 30),
+  the function checks if the date falls within the month/day range, regardless of year.
+
+  ## Parameters
+  - `property`: The property to find seasons for (:tahoe or :clear_lake)
+  - `date`: The date to check (Date struct)
+
+  ## Returns
+  - `%Season{}` if a matching season is found
+  - `nil` if no season matches
+  """
+  def for_date(property, date) when is_atom(property) do
+    query =
+      from s in __MODULE__,
+        where: s.property == ^property
+
+    seasons = Repo.all(query)
+
+    Enum.find(seasons, fn season ->
+      date_in_season?(date, season.start_date, season.end_date)
+    end)
+  end
+
+  @doc """
+  Finds the default season for a property.
+
+  ## Parameters
+  - `property`: The property to find the default season for
+
+  ## Returns
+  - `%Season{}` if found
+  - `nil` if no default season exists
+  """
+  def default_for_property(property) when is_atom(property) do
+    Repo.get_by(__MODULE__, property: property, is_default: true)
+  end
+
+  # Checks if a date falls within a recurring season pattern
+  # Handles year-spanning ranges (e.g., Nov 1 to Apr 30)
+  defp date_in_season?(date, start_date, end_date) do
+    {date_month, date_day} = {date.month, date.day}
+    {start_month, start_day} = {start_date.month, start_date.day}
+    {end_month, end_day} = {end_date.month, end_date.day}
+
+    # If season spans years (e.g., Nov to Apr)
+    if start_month > end_month do
+      # Date is in season if it's >= start (Nov 1) OR <= end (Apr 30)
+      {date_month, date_day} >= {start_month, start_day} or
+        {date_month, date_day} <= {end_month, end_day}
+    else
+      # Same-year range (e.g., May to Oct)
+      {date_month, date_day} >= {start_month, start_day} and
+        {date_month, date_day} <= {end_month, end_day}
+    end
+  end
+end

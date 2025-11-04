@@ -144,22 +144,31 @@ defmodule YscWeb.PostLive do
         :error -> Posts.get_post_by_url_name(id, [:author, :featured_image])
       end
 
-    new_comment_changeset = Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
-    comments = Posts.get_comments_for_post(post.id, [:author])
-    sorted_comments = Posts.sort_comments_for_render(comments)
+    case post do
+      nil ->
+        {:ok,
+         socket
+         |> put_flash(:error, "Article not found")
+         |> redirect(to: ~p"/news")}
 
-    YscWeb.Endpoint.subscribe(Posts.post_topic(post.id))
+      post ->
+        new_comment_changeset = Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
+        comments = Posts.get_comments_for_post(post.id, [:author])
+        sorted_comments = Posts.sort_comments_for_render(comments)
 
-    {:ok,
-     socket
-     |> assign(:post_id, id)
-     |> assign(:post, post)
-     |> assign(:page_title, post.title)
-     |> assign(:animate_insert, false)
-     |> assign(:n_comments, post.comment_count)
-     |> assign(:loading, false)
-     |> assign_form(new_comment_changeset)
-     |> stream(:comments, sorted_comments), temporary_assigns: [form: nil]}
+        YscWeb.Endpoint.subscribe(Posts.post_topic(post.id))
+
+        {:ok,
+         socket
+         |> assign(:post_id, id)
+         |> assign(:post, post)
+         |> assign(:page_title, post.title)
+         |> assign(:animate_insert, false)
+         |> assign(:n_comments, post.comment_count)
+         |> assign(:loading, false)
+         |> assign_form(new_comment_changeset)
+         |> stream(:comments, sorted_comments), temporary_assigns: [form: nil]}
+    end
   end
 
   def handle_event("save", %{"comment" => comment}, socket) do

@@ -506,8 +506,8 @@ defmodule YscWeb.EventDetailsLive do
                         <label class="text font-semibold text-zinc-700 whitespace-nowrap">
                           Donation Amount:
                         </label>
-                        <div class="flex items-center border border-zinc-300 rounded-lg px-3 py-2 flex-1 sm:flex-initial">
-                          <span class="text-zinc-800 me-2">$</span>
+                        <div class="flex items-center border border-zinc-300 rounded-lg px-3 py-1 flex-1 sm:flex-initial bg-white">
+                          <span class="text-zinc-800">$</span>
                           <input
                             type="text"
                             id={"donation-amount-#{ticket_tier.id}"}
@@ -517,7 +517,7 @@ defmodule YscWeb.EventDetailsLive do
                             value={format_donation_amount(@selected_tickets, ticket_tier.id)}
                             placeholder="0.00"
                             disabled={false}
-                            class="w-full sm:w-32 border-0 focus:ring-0 focus:outline-none text-lg font-medium text-zinc-900 bg-transparent"
+                            class="w-full sm:w-32 border-0 focus:ring-0 focus:outline-none font-medium text-zinc-900"
                           />
                         </div>
                       </div>
@@ -1204,58 +1204,68 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def mount(%{"id" => event_id}, _session, socket) do
-    if connected?(socket) do
-      Events.subscribe()
-      Agendas.subscribe(event_id)
-      # Subscribe to ticket events for the current user
-      if socket.assigns.current_user != nil do
-        require Logger
+    case Repo.get(Event, event_id) do
+      nil ->
+        {:ok,
+         socket
+         |> put_flash(:error, "Event not found")
+         |> redirect(to: ~p"/events")}
 
-        Logger.info("Subscribing to ticket events for user",
-          user_id: socket.assigns.current_user.id,
-          event_id: event_id,
-          topic: "tickets:user:#{socket.assigns.current_user.id}"
-        )
+      event ->
+        event = Repo.preload(event, :ticket_tiers)
 
-        Ysc.Tickets.subscribe(socket.assigns.current_user.id)
-      end
+        if connected?(socket) do
+          Events.subscribe()
+          Agendas.subscribe(event_id)
+          # Subscribe to ticket events for the current user
+          if socket.assigns.current_user != nil do
+            require Logger
+
+            Logger.info("Subscribing to ticket events for user",
+              user_id: socket.assigns.current_user.id,
+              event_id: event_id,
+              topic: "tickets:user:#{socket.assigns.current_user.id}"
+            )
+
+            Ysc.Tickets.subscribe(socket.assigns.current_user.id)
+          end
+        end
+
+        agendas = Agendas.list_agendas_for_event(event_id)
+
+        # Add pricing info to the event using the same logic as events list
+        event_with_pricing = add_pricing_info(event)
+
+        # Get user's tickets for this event if user is logged in
+        user_tickets =
+          if socket.assigns.current_user do
+            Ysc.Tickets.list_user_tickets_for_event(socket.assigns.current_user.id, event_id)
+          else
+            []
+          end
+
+        # Check if we're on the tickets route (live_action == :tickets)
+        show_ticket_modal = socket.assigns.live_action == :tickets
+
+        {:ok,
+         socket
+         |> assign(:page_title, event.title)
+         |> assign(:event, event_with_pricing)
+         |> assign(:agendas, agendas)
+         |> assign(:active_agenda, default_active_agenda(agendas))
+         |> assign(:user_tickets, user_tickets)
+         |> assign(:show_ticket_modal, show_ticket_modal)
+         |> assign(:show_payment_modal, false)
+         |> assign(:show_free_ticket_confirmation, false)
+         |> assign(:show_order_completion, false)
+         |> assign(:payment_intent, nil)
+         |> assign(:public_key, Application.get_env(:stripity_stripe, :public_key))
+         |> assign(:ticket_order, nil)
+         |> assign(:selected_tickets, %{})
+         |> assign(:checkout_expired, false)
+         |> assign(:show_registration_modal, false)
+         |> assign(:ticket_details_form, %{})}
     end
-
-    event = Repo.get!(Event, event_id) |> Repo.preload(:ticket_tiers)
-    agendas = Agendas.list_agendas_for_event(event_id)
-
-    # Add pricing info to the event using the same logic as events list
-    event_with_pricing = add_pricing_info(event)
-
-    # Get user's tickets for this event if user is logged in
-    user_tickets =
-      if socket.assigns.current_user do
-        Ysc.Tickets.list_user_tickets_for_event(socket.assigns.current_user.id, event_id)
-      else
-        []
-      end
-
-    # Check if we're on the tickets route (live_action == :tickets)
-    show_ticket_modal = socket.assigns.live_action == :tickets
-
-    {:ok,
-     socket
-     |> assign(:page_title, event.title)
-     |> assign(:event, event_with_pricing)
-     |> assign(:agendas, agendas)
-     |> assign(:active_agenda, default_active_agenda(agendas))
-     |> assign(:user_tickets, user_tickets)
-     |> assign(:show_ticket_modal, show_ticket_modal)
-     |> assign(:show_payment_modal, false)
-     |> assign(:show_free_ticket_confirmation, false)
-     |> assign(:show_order_completion, false)
-     |> assign(:payment_intent, nil)
-     |> assign(:public_key, Application.get_env(:stripity_stripe, :public_key))
-     |> assign(:ticket_order, nil)
-     |> assign(:selected_tickets, %{})
-     |> assign(:checkout_expired, false)
-     |> assign(:show_registration_modal, false)
-     |> assign(:ticket_details_form, %{})}
   end
 
   @impl true

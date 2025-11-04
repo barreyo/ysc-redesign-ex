@@ -118,6 +118,9 @@ defmodule YscWeb.Router do
       live "/users/tickets", UserTicketsLive, :index
       live "/tickets/:order_id", UserTicketsLive, :show
       live "/orders/:order_id/confirmation", OrderConfirmationLive, :index
+
+      live "/bookings/tahoe", TahoeBookingLive, :index
+      live "/bookings/clear-lake", ClearLakeBookingLive, :index
     end
   end
 
@@ -178,6 +181,11 @@ defmodule YscWeb.Router do
 
       # Tahoe and Clear Lake settings etc, see bookings
       live "/bookings", AdminBookingsLive, :index
+      live "/bookings/:id", AdminBookingsLive, :view_booking
+      live "/bookings/pricing-rules/new", AdminBookingsLive, :new_pricing_rule
+      live "/bookings/pricing-rules/:id/edit", AdminBookingsLive, :edit_pricing_rule
+      live "/bookings/blackouts/new", AdminBookingsLive, :new_blackout
+      live "/bookings/blackouts/:id/edit", AdminBookingsLive, :edit_blackout
 
       # News and notices
       live "/posts", AdminPostsLive, :index

@@ -66,6 +66,7 @@ setup-dev-db:  ## Create, migrate and seed the local dev database
 	@mix ecto.create
 	@mix ecto.migrate
 	@mix run priv/repo/seeds.exs || true
+	@mix run priv/repo/seeds_bookings.exs || true
 
 .PHONY: tests
 tests:  ## Run the test suite

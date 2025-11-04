@@ -17,9 +17,13 @@ function hideBlurHash(imageElement, force) {
     const elementId = imageElement.id
     const blurHashCanvas = document.getElementById("blur-hash-" + elementId)
     if (force) {
-        blurHashCanvas.classList.add("hidden")
+        blurHashCanvas.classList.add("opacity-0")
+        imageElement.classList.remove("opacity-0")
     } else {
-        blurHashCanvas.classList.add("transition-opacity", "ease-out", "duration-50", "opacity-0")
+        // Fade out blur hash and fade in image simultaneously
+        blurHashCanvas.classList.add("transition-opacity", "duration-300", "ease-out", "opacity-0")
+        imageElement.classList.remove("opacity-0")
+        imageElement.classList.add("opacity-100")
     }
 }
 

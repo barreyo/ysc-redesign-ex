@@ -1,0 +1,202 @@
+defmodule Ysc.Bookings.PricingRule do
+  @moduledoc """
+  PricingRule schema and changesets.
+
+  Defines pricing rules with hierarchical specificity:
+  - Most specific: room_id (applies to one room)
+  - Medium: room_category_id (applies to all rooms in a category)
+  - Least specific: property + season (default fallback)
+
+  The system uses "most-specific wins" lookup logic.
+  """
+  use Ecto.Schema
+  import Ecto.Changeset
+  import Ecto.Query, warn: false
+
+  alias Ysc.Repo
+
+  @primary_key {:id, Ecto.ULID, autogenerate: true}
+  @foreign_key_type Ecto.ULID
+  @timestamps_opts [type: :utc_datetime]
+
+  schema "pricing_rules" do
+    # Price amount (stored as Money)
+    field :amount, Money.Ecto.Composite.Type, default_currency: :USD
+
+    # Booking mode (room, day, buyout)
+    field :booking_mode, Ysc.Bookings.BookingMode
+
+    # Price unit (per_person_per_night, per_guest_per_day, buyout_fixed)
+    field :price_unit, Ysc.Bookings.PriceUnit
+
+    # Hierarchical specificity (most specific first):
+    # 1. room_id - applies to specific room
+    # 2. room_category_id - applies to category
+    # 3. property + season - default fallback
+    belongs_to :room, Ysc.Bookings.Room, foreign_key: :room_id, references: :id
+
+    belongs_to :room_category, Ysc.Bookings.RoomCategory,
+      foreign_key: :room_category_id,
+      references: :id
+
+    field :property, Ysc.Bookings.BookingProperty
+    belongs_to :season, Ysc.Bookings.Season, foreign_key: :season_id, references: :id
+
+    timestamps()
+  end
+
+  @doc """
+  Creates a changeset for the PricingRule schema.
+  """
+  def changeset(pricing_rule, attrs \\ %{}) do
+    pricing_rule
+    |> cast(attrs, [
+      :amount,
+      :booking_mode,
+      :price_unit,
+      :room_id,
+      :room_category_id,
+      :property,
+      :season_id
+    ])
+    |> validate_required([
+      :amount,
+      :booking_mode,
+      :price_unit
+    ])
+    |> validate_money(:amount)
+    |> validate_specificity()
+    |> validate_room_and_category()
+    |> unique_constraint(
+      [:room_id, :room_category_id, :property, :season_id, :booking_mode, :price_unit],
+      name: :uq_pricing_rules_specificity
+    )
+    |> foreign_key_constraint(:room_id)
+    |> foreign_key_constraint(:room_category_id)
+    |> foreign_key_constraint(:season_id)
+  end
+
+  # Custom validation for money field
+  defp validate_money(changeset, field) do
+    validate_change(changeset, field, fn _field, value ->
+      case value do
+        %Money{currency: :USD} = money when money.amount >= 0 ->
+          []
+
+        %Money{currency: currency} when currency != :USD ->
+          [{field, "must be in USD"}]
+
+        %Money{amount: amount} when amount < 0 ->
+          [{field, "must be greater than or equal to 0"}]
+
+        nil ->
+          []
+
+        _ ->
+          [{field, "invalid money format"}]
+      end
+    end)
+  end
+
+  # Validates that at least one of room_id, room_category_id, or property is set
+  defp validate_specificity(changeset) do
+    room_id = get_field(changeset, :room_id)
+    room_category_id = get_field(changeset, :room_category_id)
+    property = get_field(changeset, :property)
+
+    if room_id || room_category_id || property do
+      changeset
+    else
+      add_error(
+        changeset,
+        :base,
+        "must specify at least one of: room_id, room_category_id, or property"
+      )
+    end
+  end
+
+  # Validates that if room_id is set, room_category_id should not conflict
+  defp validate_room_and_category(changeset) do
+    room_id = get_field(changeset, :room_id)
+    room_category_id = get_field(changeset, :room_category_id)
+
+    # If room_id is set, ensure the room's category matches room_category_id (if both set)
+    if room_id && room_category_id do
+      # This could be enhanced to check the room's actual category
+      # For now, we allow it but warn that room-level rules take precedence
+      changeset
+    else
+      changeset
+    end
+  end
+
+  @doc """
+  Finds the most specific pricing rule for the given criteria.
+
+  Returns the rule matching with highest specificity:
+  1. room_id (most specific)
+  2. room_category_id (medium)
+  3. property + season (least specific)
+
+  ## Parameters
+  - `property`: Property to search for
+  - `season_id`: Season ID (optional)
+  - `room_id`: Room ID (optional, for room-specific pricing)
+  - `room_category_id`: Room category ID (optional, for category pricing)
+  - `booking_mode`: Booking mode (room, day, buyout)
+  - `price_unit`: Price unit to search for
+
+  ## Returns
+  - `%PricingRule{}` if found
+  - `nil` if not found
+  """
+  def find_most_specific(property, season_id, room_id, room_category_id, booking_mode, price_unit) do
+    alias Ysc.Bookings.PricingRule
+
+    base_query =
+      from pr in PricingRule,
+        where: pr.booking_mode == ^booking_mode,
+        where: pr.price_unit == ^price_unit,
+        where: pr.property == ^property or is_nil(pr.property)
+
+    # Add season filter if provided
+    query =
+      if season_id do
+        from pr in base_query,
+          where: is_nil(pr.season_id) or pr.season_id == ^season_id
+      else
+        from pr in base_query, where: is_nil(pr.season_id)
+      end
+
+    # Add room/category filters
+    query =
+      cond do
+        room_id ->
+          # Most specific: room_id match
+          from pr in query,
+            where: pr.room_id == ^room_id
+
+        room_category_id ->
+          # Medium specificity: category match (no room_id set)
+          from pr in query,
+            where: is_nil(pr.room_id) and pr.room_category_id == ^room_category_id
+
+        true ->
+          # Least specific: property only (no room_id or category_id)
+          from pr in query,
+            where: is_nil(pr.room_id) and is_nil(pr.room_category_id)
+      end
+
+    # Order by specificity (room_id > category_id > season_id)
+    query =
+      from pr in query,
+        order_by: [
+          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_id),
+          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_category_id),
+          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.season_id)
+        ],
+        limit: 1
+
+    Ysc.Repo.one(query)
+  end
+end

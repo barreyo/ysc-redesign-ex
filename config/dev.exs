@@ -22,7 +22,7 @@ config :ysc, YscWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4000],
   check_origin: false,
   code_reloader: true,
-  debug_errors: false,
+  debug_errors: true,
   secret_key_base: "HVfMgcL35fAJz7aiwv581CSXDiPTWHDuSQcqIL4gkkPomNfXjUo4MENFgQ1U4sZF",
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
