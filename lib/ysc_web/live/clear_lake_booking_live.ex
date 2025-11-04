@@ -183,7 +183,9 @@ defmodule YscWeb.ClearLakeBookingLive do
               <li>Book by number of guests (not rooms)</li>
               <li>Priced per guest per day</li>
               <li>Maximum <%= @max_guests %> guests per day</li>
-              <li>Children up to and including 5 years old can join for free (do not include in guest count)</li>
+              <li>
+                Children up to and including 5 years old can join for free (do not include in guest count)
+              </li>
               <li>Option available for full buyout</li>
             </ul>
           </div>

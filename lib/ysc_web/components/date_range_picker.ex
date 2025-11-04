@@ -98,11 +98,14 @@ defmodule YscWeb.Components.DateRangePicker do
               phx-target={@myself}
               phx-click="pick-date"
               phx-value-date={Calendar.strftime(day, "%Y-%m-%d") <> "T00:00:00Z"}
+              disabled={is_date_disabled?(day, @min, @range_start, @state, @max)}
               class={[
                 "calendar-day overflow-hidden py-1.5 h-10 rounded w-auto focus:z-10 w-full transition duration-300",
                 today?(day) && "font-bold border border-zinc-400 rounded",
-                before_min_date?(day, @min) && "text-zinc-300 cursor-not-allowed",
-                !before_min_date?(day, @min) &&
+                is_date_disabled?(day, @min, @range_start, @state, @max) &&
+                  "text-zinc-300 cursor-not-allowed opacity-50",
+                !is_date_disabled?(day, @min, @range_start, @state, @max) &&
+                  !before_min_date?(day, @min) &&
                   "hover:bg-blue-300 hover:border hover:border-blue-500",
                 other_month?(day, @current.date) && "text-zinc-500",
                 selected_range?(day, @range_start, @hover_range_end || @range_end) &&
@@ -152,7 +155,14 @@ defmodule YscWeb.Components.DateRangePicker do
   def update(assigns, socket) do
     range_start = from_str!(assigns.start_date_field.value)
     range_end = from_str!(end_value(assigns))
-    current_date = socket.assigns.current.date
+
+    # Preserve current date if we have one, otherwise use today
+    current_date =
+      if socket.assigns[:current] && socket.assigns.current[:date] do
+        socket.assigns.current.date
+      else
+        Date.utc_today()
+      end
 
     {
       :ok,
@@ -161,7 +171,15 @@ defmodule YscWeb.Components.DateRangePicker do
       |> assign(:current, format_date(current_date))
       |> assign(:range_start, range_start)
       |> assign(:range_end, range_end)
-      |> assign(:state, @initial_state)
+      |> assign(:max, assigns[:max])
+      # Only reset state if we don't have a range yet, otherwise preserve it
+      |> assign(
+        :state,
+        if(range_start && range_end,
+          do: socket.assigns[:state] || @initial_state,
+          else: @initial_state
+        )
+      )
     }
   end
 
@@ -197,6 +215,8 @@ defmodule YscWeb.Components.DateRangePicker do
       :noreply,
       socket
       |> assign(:calendar?, false)
+      |> assign(:range_start, range_start)
+      |> assign(:range_end, range_end)
       |> assign(:end_date_field, set_field_value(socket.assigns, :end_date_field, range_end))
       |> assign(
         :start_date_field,
@@ -228,42 +248,77 @@ defmodule YscWeb.Components.DateRangePicker do
   @impl true
   def handle_event("pick-date", %{"date" => date_str}, socket) do
     date_time = from_str!(date_str)
+    date = DateTime.to_date(date_time)
 
-    if Date.compare(socket.assigns.min, DateTime.to_date(date_time)) == :gt do
+    # Check minimum date
+    if Date.compare(socket.assigns.min, date) == :gt do
       {:noreply, socket}
     else
-      ranges = calculate_date_ranges(socket.assigns.state, date_time)
+      # Check maximum date (if set)
+      if socket.assigns[:max] && Date.compare(date, socket.assigns.max) == :gt do
+        {:noreply, socket}
+      else
+        # Validate date based on current state and rules
+        if valid_date_selection?(socket, date) do
+          ranges = calculate_date_ranges(socket.assigns.state, date_time)
 
-      state =
-        if socket.assigns.is_range? do
-          @fsm[socket.assigns.state]
+          state =
+            if socket.assigns.is_range? do
+              @fsm[socket.assigns.state]
+            else
+              @initial_state
+            end
+
+          {
+            :noreply,
+            socket
+            |> assign(ranges)
+            |> assign(:state, state)
+          }
         else
-          @initial_state
+          {:noreply, socket}
         end
-
-      {
-        :noreply,
-        socket
-        |> assign(ranges)
-        |> assign(:state, state)
-      }
+      end
     end
   end
 
   @impl true
   def handle_event("cursor-move", date_str, socket) do
     date = from_str!(date_str)
+    day = DateTime.to_date(date)
 
-    if Date.compare(socket.assigns.min, DateTime.to_date(date)) == :gt do
+    if Date.compare(socket.assigns.min, day) == :gt do
       {:noreply, socket}
     else
+      # Only show hover if date is valid (not disabled)
       hover_range_end =
         case socket.assigns.state do
-          :set_end -> date
-          _ -> nil
+          :set_end ->
+            if not is_date_disabled?(
+                 day,
+                 socket.assigns.min,
+                 socket.assigns.range_start,
+                 socket.assigns.state,
+                 socket.assigns[:max]
+               ) do
+              date
+            else
+              nil
+            end
+
+          _ ->
+            nil
         end
 
       {:noreply, socket |> assign(:hover_range_end, hover_range_end)}
+    end
+  end
+
+  defp end_value(assigns) when is_map_key(assigns, :end_date_field) do
+    case assigns.end_date_field.value do
+      nil -> nil
+      "" -> nil
+      _ -> assigns.end_date_field.value
     end
   end
 
@@ -378,6 +433,110 @@ defmodule YscWeb.Components.DateRangePicker do
 
   defp before_min_date?(day, min) do
     Date.compare(day, min) == :lt
+  end
+
+  # Check if a date should be disabled based on booking rules
+  defp is_date_disabled?(day, min, range_start, state, max \\ nil) do
+    # Always disable dates before minimum
+    if Date.compare(day, min) == :lt do
+      true
+    else
+      # Check if date is after maximum (if max is set)
+      if max && Date.compare(day, max) == :gt do
+        true
+      else
+        # Cannot check in on Saturday (day 6)
+        if Date.day_of_week(day) == 6 do
+          true
+        else
+          # When selecting end date (state is :set_end), validate against start date
+          case state do
+            :set_end when not is_nil(range_start) ->
+              start_date = DateTime.to_date(range_start)
+              nights = Date.diff(day, start_date)
+
+              # Disable if:
+              # 1. More than 4 nights
+              # 2. Less than 1 night (end date before or same as start)
+              # 3. Ends on Saturday (can never end on Saturday)
+              # 4. If range includes Saturday, must end on Sunday or later
+              cond do
+                nights > 4 ->
+                  true
+
+                nights < 1 ->
+                  true
+
+                # Cannot end on Saturday
+                Date.day_of_week(day) == 6 ->
+                  true
+
+                true ->
+                  # Check if range includes Saturday - if so, must also include Sunday
+                  date_range = Date.range(start_date, day) |> Enum.to_list()
+                  day_of_weeks = Enum.map(date_range, &Date.day_of_week/1)
+                  has_saturday = 6 in day_of_weeks
+                  has_sunday = 7 in day_of_weeks
+
+                  if has_saturday && not has_sunday do
+                    # Range includes Saturday but not Sunday - invalid
+                    true
+                  else
+                    false
+                  end
+              end
+
+            _ ->
+              false
+          end
+        end
+      end
+    end
+  end
+
+  # Validate date selection based on booking rules
+  defp valid_date_selection?(socket, date) do
+    # Check if date is after maximum (if max is set)
+    if socket.assigns[:max] && Date.compare(date, socket.assigns.max) == :gt do
+      false
+    else
+      # Cannot check in on Saturday (day 6)
+      if Date.day_of_week(date) == 6 do
+        false
+      else
+        case socket.assigns.state do
+          :set_end when not is_nil(socket.assigns.range_start) ->
+            start_date = DateTime.to_date(socket.assigns.range_start)
+            nights = Date.diff(date, start_date)
+
+            # Must be between 1 and 4 nights
+            if nights < 1 or nights > 4 do
+              false
+            else
+              # Cannot end on Saturday (day 6)
+              if Date.day_of_week(date) == 6 do
+                false
+              else
+                # If range includes Saturday, must also include Sunday
+                date_range = Date.range(start_date, date) |> Enum.to_list()
+                day_of_weeks = Enum.map(date_range, &Date.day_of_week/1)
+                has_saturday = 6 in day_of_weeks
+                has_sunday = 7 in day_of_weeks
+
+                if has_saturday && not has_sunday do
+                  # Range includes Saturday but not Sunday - invalid
+                  false
+                else
+                  true
+                end
+              end
+            end
+
+          _ ->
+            true
+        end
+      end
+    end
   end
 
   defp today?(day), do: day == Date.utc_today()

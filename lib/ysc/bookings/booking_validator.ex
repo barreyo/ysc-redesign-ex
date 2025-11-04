@@ -6,9 +6,9 @@ defmodule Ysc.Bookings.BookingValidator do
   - Winter: Only individual rooms
   - Summer: Individual rooms OR full buyout
   - If booking contains Saturday, must also reserve Sunday (full weekend)
-  - Winter: Only one active booking per user at a time
+  - Only one active booking per user at a time (all seasons)
   - Maximum 4 nights per booking
-  - Family membership: Up to 2 rooms in single booking (same timeframe)
+  - Family membership: Up to 2 rooms in same time period (same or overlapping dates)
   - Single membership: Only 1 room per booking
 
   ## Clear Lake Rules:
@@ -35,9 +35,10 @@ defmodule Ysc.Bookings.BookingValidator do
 
     changeset
     |> validate_booking_mode(property)
+    |> validate_advance_booking_limit(property)
     |> validate_weekend_requirement()
     |> validate_max_nights()
-    |> validate_winter_single_booking(user, property)
+    |> validate_single_active_booking(user, property)
     |> validate_membership_room_limits(user, property)
     |> validate_clear_lake_guest_limits(property)
     |> validate_room_capacity()
@@ -81,6 +82,30 @@ defmodule Ysc.Bookings.BookingValidator do
   end
 
   defp validate_booking_mode(changeset, _property), do: changeset
+
+  # Tahoe: Bookings can only be made up to 45 days in advance
+  defp validate_advance_booking_limit(changeset, :tahoe) do
+    checkin_date = Ecto.Changeset.get_field(changeset, :checkin_date)
+
+    if checkin_date do
+      today = Date.utc_today()
+      max_booking_date = Date.add(today, 45)
+
+      if Date.compare(checkin_date, max_booking_date) == :gt do
+        Ecto.Changeset.add_error(
+          changeset,
+          :checkin_date,
+          "Bookings can only be made up to 45 days in advance. Maximum check-in date is #{Calendar.strftime(max_booking_date, "%B %d, %Y")}"
+        )
+      else
+        changeset
+      end
+    else
+      changeset
+    end
+  end
+
+  defp validate_advance_booking_limit(changeset, _property), do: changeset
 
   # If booking contains Saturday, must also reserve Sunday
   defp validate_weekend_requirement(changeset) do
@@ -143,56 +168,43 @@ defmodule Ysc.Bookings.BookingValidator do
     end
   end
 
-  # Winter season: Only one active booking per user at a time
-  defp validate_winter_single_booking(changeset, user, :tahoe) do
+  # Only one active booking per user at a time (all seasons)
+  defp validate_single_active_booking(changeset, user, :tahoe) do
     checkin_date = Ecto.Changeset.get_field(changeset, :checkin_date)
     checkout_date = Ecto.Changeset.get_field(changeset, :checkout_date)
     booking_id = Ecto.Changeset.get_field(changeset, :id)
     user_id = Ecto.Changeset.get_field(changeset, :user_id) || (user && user.id)
 
     if checkin_date && checkout_date && user_id do
-      season = Season.for_date(:tahoe, checkin_date)
+      # Check for overlapping active bookings for this user
+      overlapping_query =
+        from b in Booking,
+          where: b.user_id == ^user_id,
+          where: b.property == :tahoe,
+          where:
+            fragment(
+              "? < ? AND ? > ?",
+              b.checkin_date,
+              ^checkout_date,
+              b.checkout_date,
+              ^checkin_date
+            )
 
-      if season && season.name == "Winter" do
-        # Check for overlapping active bookings for this user in winter
-        overlapping_query =
-          from b in Booking,
-            where: b.user_id == ^user_id,
-            where: b.property == :tahoe,
-            where:
-              fragment(
-                "? < ? AND ? > ?",
-                b.checkin_date,
-                ^checkout_date,
-                b.checkout_date,
-                ^checkin_date
-              )
-
-        overlapping_query =
-          if booking_id do
-            from b in overlapping_query, where: b.id != ^booking_id
-          else
-            overlapping_query
-          end
-
-        # Check if any overlapping booking is in winter season
-        overlapping_bookings = Repo.all(overlapping_query)
-
-        winter_overlaps =
-          Enum.filter(overlapping_bookings, fn booking ->
-            booking_season = Season.for_date(:tahoe, booking.checkin_date)
-            booking_season && booking_season.name == "Winter"
-          end)
-
-        if Enum.any?(winter_overlaps) do
-          Ecto.Changeset.add_error(
-            changeset,
-            :checkin_date,
-            "Winter season allows only one active booking at a time. Please complete your existing booking first."
-          )
+      overlapping_query =
+        if booking_id do
+          from b in overlapping_query, where: b.id != ^booking_id
         else
-          changeset
+          overlapping_query
         end
+
+      overlapping_count = Repo.aggregate(overlapping_query, :count, :id)
+
+      if overlapping_count > 0 do
+        Ecto.Changeset.add_error(
+          changeset,
+          :checkin_date,
+          "You can only have one active booking at a time. Please complete your existing booking first."
+        )
       else
         changeset
       end
@@ -201,9 +213,10 @@ defmodule Ysc.Bookings.BookingValidator do
     end
   end
 
-  defp validate_winter_single_booking(changeset, _user, _property), do: changeset
+  defp validate_single_active_booking(changeset, _user, _property), do: changeset
 
   # Membership-based room limits: Family = 2 rooms, Single = 1 room
+  # Family memberships can book 2 rooms with overlapping dates (same timeframe)
   defp validate_membership_room_limits(changeset, user, :tahoe) do
     checkin_date = Ecto.Changeset.get_field(changeset, :checkin_date)
     checkout_date = Ecto.Changeset.get_field(changeset, :checkout_date)
@@ -220,29 +233,47 @@ defmodule Ysc.Bookings.BookingValidator do
           _ -> 1
         end
 
-      # Count existing bookings for this user with the same dates
-      same_date_bookings_query =
-        from b in Booking,
-          where: b.user_id == ^user_id,
-          where: b.property == :tahoe,
-          where: b.checkin_date == ^checkin_date,
-          where: b.checkout_date == ^checkout_date,
-          where: not is_nil(b.room_id)
-
-      same_date_bookings_query =
-        if booking_id do
-          from b in same_date_bookings_query, where: b.id != ^booking_id
+      # For family memberships, check for overlapping dates (same timeframe)
+      # For single memberships, check for exact same dates
+      overlapping_bookings_query =
+        if membership_type in [:family, :lifetime] do
+          # Family: Allow overlapping dates (same timeframe)
+          from b in Booking,
+            where: b.user_id == ^user_id,
+            where: b.property == :tahoe,
+            where: not is_nil(b.room_id),
+            where:
+              fragment(
+                "? < ? AND ? > ?",
+                b.checkin_date,
+                ^checkout_date,
+                b.checkout_date,
+                ^checkin_date
+              )
         else
-          same_date_bookings_query
+          # Single: Only exact same dates
+          from b in Booking,
+            where: b.user_id == ^user_id,
+            where: b.property == :tahoe,
+            where: b.checkin_date == ^checkin_date,
+            where: b.checkout_date == ^checkout_date,
+            where: not is_nil(b.room_id)
         end
 
-      existing_room_count = Repo.aggregate(same_date_bookings_query, :count, :id)
+      overlapping_bookings_query =
+        if booking_id do
+          from b in overlapping_bookings_query, where: b.id != ^booking_id
+        else
+          overlapping_bookings_query
+        end
+
+      existing_room_count = Repo.aggregate(overlapping_bookings_query, :count, :id)
 
       if existing_room_count >= max_rooms do
         Ecto.Changeset.add_error(
           changeset,
           :room_id,
-          "#{String.capitalize("#{membership_type}")} membership allows maximum #{max_rooms} room(s) per booking"
+          "#{String.capitalize("#{membership_type}")} membership allows maximum #{max_rooms} room(s) in the same time period"
         )
       else
         changeset

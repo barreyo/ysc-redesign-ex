@@ -600,68 +600,114 @@ defmodule Ysc.Bookings do
          children_count,
          nights
        ) do
-    room = get_room!(room_id)
-    billable_people = Room.billable_people(room, guests_count)
+    # Validate inputs before proceeding
+    cond do
+      not (is_integer(guests_count) && guests_count > 0) ->
+        {:error, :invalid_guests_count}
 
-    if not billable_people do
-      {:error, :invalid_guests_count}
-    else
-      # Calculate price per night and sum
-      date_range = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+      not (is_integer(children_count) && children_count >= 0) ->
+        {:error, :invalid_children_count}
 
-      total =
-        Enum.reduce(date_range, Money.new(0, :USD), fn date, acc ->
-          season = Season.for_date(property, date)
-          season_id = if season, do: season.id, else: nil
+      not is_struct(checkin_date, Date) ->
+        {:error, :invalid_checkin_date}
 
-          pricing_rule =
-            PricingRule.find_most_specific(
-              property,
-              season_id,
-              room_id,
-              room.room_category_id,
-              :room,
-              :per_person_per_night
-            )
+      not is_struct(checkout_date, Date) ->
+        {:error, :invalid_checkout_date}
 
-          if pricing_rule do
-            # Calculate base price for adults (billable_people)
-            base_price =
-              case Money.mult(pricing_rule.amount, billable_people) do
-                {:ok, price} -> price
-                {:error, _} -> Money.new(0, :USD)
-              end
+      Date.compare(checkout_date, checkin_date) != :gt ->
+        {:error, :invalid_date_range}
 
-            # For Tahoe: add children pricing ($25/night for children 5-17, free under 5)
-            # children_count represents children 5-17
-            children_price =
-              if property == :tahoe && children_count > 0 do
-                children_rate = Money.new(25, :USD)
+      true ->
+        room = get_room!(room_id)
 
-                case Money.mult(children_rate, children_count) do
-                  {:ok, price} -> price
-                  {:error, _} -> Money.new(0, :USD)
-                end
-              else
-                Money.new(0, :USD)
-              end
-
-            night_total =
-              case Money.add(base_price, children_price) do
-                {:ok, total} -> total
-                {:error, _} -> base_price
-              end
-
-            case Money.add(acc, night_total) do
-              {:ok, new_total} -> new_total
-              {:error, _} -> acc
-            end
-          else
-            acc
+        # Safely call billable_people with error handling
+        billable_people =
+          try do
+            Room.billable_people(room, guests_count)
+          rescue
+            e ->
+              # Log the error and return nil
+              require Logger
+              Logger.error("Error in billable_people for room #{room_id}: #{inspect(e)}")
+              Logger.error("Room: #{inspect(room)}")
+              Logger.error("guests_count: #{inspect(guests_count)}")
+              nil
           end
-        end)
 
-      {:ok, total}
+        if not billable_people do
+          {:error, :invalid_guests_count}
+        else
+          # Calculate price per night and sum
+          # Validate dates before using Date functions
+          try do
+            date_range = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+
+            total =
+              Enum.reduce(date_range, Money.new(0, :USD), fn date, acc ->
+                season = Season.for_date(property, date)
+                season_id = if season, do: season.id, else: nil
+
+                pricing_rule =
+                  PricingRule.find_most_specific(
+                    property,
+                    season_id,
+                    room_id,
+                    room.room_category_id,
+                    :room,
+                    :per_person_per_night
+                  )
+
+                if pricing_rule do
+                  # Calculate base price for adults (billable_people)
+                  base_price =
+                    case Money.mult(pricing_rule.amount, billable_people) do
+                      {:ok, price} -> price
+                      {:error, _} -> Money.new(0, :USD)
+                    end
+
+                  # For Tahoe: add children pricing ($25/night for children 5-17, free under 5)
+                  # children_count represents children 5-17
+                  children_price =
+                    if property == :tahoe && children_count > 0 do
+                      children_rate = Money.new(25, :USD)
+
+                      case Money.mult(children_rate, children_count) do
+                        {:ok, price} -> price
+                        {:error, _} -> Money.new(0, :USD)
+                      end
+                    else
+                      Money.new(0, :USD)
+                    end
+
+                  night_total =
+                    case Money.add(base_price, children_price) do
+                      {:ok, total} -> total
+                      {:error, _} -> base_price
+                    end
+
+                  case Money.add(acc, night_total) do
+                    {:ok, new_total} -> new_total
+                    {:error, _} -> acc
+                  end
+                else
+                  acc
+                end
+              end)
+
+            {:ok, total}
+          rescue
+            e ->
+              # Log date-related errors
+              require Logger
+              Logger.error("Error calculating date range for room #{room_id}: #{inspect(e)}")
+
+              Logger.error(
+                "checkin_date: #{inspect(checkin_date)}, checkout_date: #{inspect(checkout_date)}"
+              )
+
+              {:error, :date_calculation_error}
+          end
+        end
     end
   end
 
