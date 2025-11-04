@@ -30,7 +30,7 @@ defmodule YscWeb.Components.DateRangePicker do
           label={@label}
           value={date_range_display(@range_start, @range_end)}
         />
-        <.icon name="hero-calendar" class="absolute top-10 right-3 flex text-zinc-600" />
+        <.icon name="hero-calendar" class="absolute top-10 right-3 mt-0.5 flex text-zinc-600" />
       </div>
 
       <div
