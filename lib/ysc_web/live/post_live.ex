@@ -48,12 +48,12 @@ defmodule YscWeb.PostLive do
       <div
         :if={@post != nil && @post.image_id != nil}
         id="post-featured-image"
-        class="mt-8 relative mx-auto rounded max-w-5xl"
+        class="mt-8 relative mx-auto rounded max-w-5xl aspect-video"
       >
         <canvas
           id={"blur-hash-image-#{@post.image_id}"}
           src={get_blur_hash(@post.featured_image)}
-          class="absolute m-auto left-0 right-0 w-full h-full z-0 rounded"
+          class="absolute inset-0 z-0 rounded-lg w-full h-full object-cover"
           phx-hook="BlurHashCanvas"
         >
         </canvas>
@@ -62,7 +62,7 @@ defmodule YscWeb.PostLive do
           src={featured_image_url(@post.featured_image)}
           id={"image-#{@post.image_id}"}
           loading="lazy"
-          class="object-cover h-full mx-auto z-[1] rounded"
+          class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover"
           phx-hook="BlurHashImage"
         />
       </div>

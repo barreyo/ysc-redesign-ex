@@ -29,6 +29,7 @@ import BlurHashImage from "./blur_hash_image";
 import GrowingInput from "./growing_input_field";
 import TrixHook from "./trix_hook";
 import DaterangeHover from "./daterange-hover";
+import CalendarHover from "./calendar_hover";
 import Sortable from "./sortable";
 import RadarMap from "./radar";
 import MoneyInput from "./money_input";
@@ -44,6 +45,7 @@ let Hooks = {
     GrowingInput,
     TrixHook,
     DaterangeHover,
+    CalendarHover,
     Sortable,
     RadarMap,
     MoneyInput,

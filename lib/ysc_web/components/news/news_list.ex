@@ -13,12 +13,12 @@ defmodule YscWeb.NewsListLive do
           class="flex flex-col md:flex-row gap-4 p-4 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
           id={id}
         >
-          <div :if={post.featured_image} class="flex-shrink-0">
+          <div :if={post.featured_image} class="flex-shrink-0 w-full md:w-32">
             <.live_component
               id={"news-image-#{post.id}"}
               module={YscWeb.Components.Image}
               image_id={post.featured_image.id}
-              class="w-full md:w-32 h-24 object-cover rounded"
+              aspect_class="aspect-[4/3]"
             />
           </div>
 

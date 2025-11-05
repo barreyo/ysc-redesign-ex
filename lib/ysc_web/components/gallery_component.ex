@@ -26,13 +26,13 @@ defmodule YscWeb.Components.GalleryComponent do
             <canvas
               id={"blur-hash-image-#{image.id}"}
               src={get_blur_hash(image)}
-              class="absolute left-0 top-0 aspect-square rounded w-full "
+              class="absolute inset-0 z-0 rounded w-full h-full object-cover"
               phx-hook="BlurHashCanvas"
             >
             </canvas>
 
             <img
-              class="w-full h-auto rounded aspect-square object-cover group-hover:opacity-75 transition-opacity duration-75 ease-in-out"
+              class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded w-full h-full object-cover group-hover:opacity-75"
               id={"image-#{image.id}"}
               src={get_image_path(image)}
               loading="lazy"

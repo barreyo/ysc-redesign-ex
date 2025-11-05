@@ -3,6 +3,9 @@ defmodule YscWeb.AdminBookingsLive do
 
   alias Ysc.Bookings
   alias Ysc.MoneyHelper
+  alias Ysc.Accounts
+  alias Ysc.Repo
+  import Ecto.Query
   require Logger
 
   def render(assigns) do
@@ -282,6 +285,99 @@ defmodule YscWeb.AdminBookingsLive do
           </.button>
         </div>
       </.modal>
+      <!-- New Booking Modal -->
+      <.modal
+        :if={@live_action == :new_booking}
+        id="booking-form-modal"
+        on_cancel={
+          JS.navigate(
+            ~p"/admin/bookings?property=#{@selected_property}&from_date=#{Date.to_string(@calendar_start_date)}&to_date=#{Date.to_string(@calendar_end_date)}"
+          )
+        }
+        show
+      >
+        <.header>
+          New Booking
+        </.header>
+
+        <.simple_form
+          for={@booking_form}
+          id="booking-form"
+          phx-submit="save-booking"
+          phx-change="validate-booking"
+        >
+          <.input
+            type="hidden"
+            field={@booking_form[:property]}
+            value={Atom.to_string(@selected_property)}
+          />
+
+          <.input
+            type="select"
+            field={@booking_form[:user_id]}
+            label="User"
+            options={Enum.map(@users, &format_user_option/1)}
+            required
+          />
+
+          <.input type="date" field={@booking_form[:checkin_date]} label="Check-in Date" required />
+
+          <.input type="date" field={@booking_form[:checkout_date]} label="Check-out Date" required />
+
+          <.input
+            type="number"
+            field={@booking_form[:guests_count]}
+            label="Number of Guests"
+            value={@booking_form[:guests_count].value || 1}
+            min="1"
+            required
+          />
+
+          <.input
+            type="number"
+            field={@booking_form[:children_count]}
+            label="Number of Children"
+            value={@booking_form[:children_count].value || 0}
+            min="0"
+          />
+
+          <.input
+            :if={@booking_type == :room}
+            type="hidden"
+            field={@booking_form[:room_id]}
+            value={@booking_form[:room_id].value}
+          />
+
+          <.input
+            :if={@booking_type == :room}
+            type="hidden"
+            field={@booking_form[:booking_mode]}
+            value="room"
+          />
+
+          <.input :if={@booking_type == :buyout} type="hidden" field={@booking_form[:room_id]} />
+
+          <.input
+            :if={@booking_type == :buyout}
+            type="hidden"
+            field={@booking_form[:booking_mode]}
+            value="buyout"
+          />
+
+          <:actions>
+            <div class="flex justify-end gap-2">
+              <.button phx-click={
+                JS.navigate(
+                  ~p"/admin/bookings?property=#{@selected_property}&from_date=#{Date.to_string(@calendar_start_date)}&to_date=#{Date.to_string(@calendar_end_date)}"
+                )
+              }>
+                Cancel
+              </.button>
+              <.button type="submit">Create Booking</.button>
+            </div>
+          </:actions>
+        </.simple_form>
+      </.modal>
 
       <div class="flex justify-between py-6">
         <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
@@ -422,7 +518,7 @@ defmodule YscWeb.AdminBookingsLive do
             </div>
           </div>
 
-          <div class="overflow-x-auto relative">
+          <div class="overflow-x-auto relative" id="calendar-container" phx-hook="CalendarHover">
             <% total_days = length(@calendar_dates)
             total_cols = total_days * 2 %>
             <div class="grid" style="grid-template-columns: 220px minmax(640px, 1fr)">
@@ -461,9 +557,29 @@ defmodule YscWeb.AdminBookingsLive do
                 style={"grid-template-columns: repeat(#{total_cols}, minmax(56px, 1fr));"}
               >
                 <%= for i <- 0..(total_cols - 1) do %>
+                  <% date = get_date_from_col(i, @calendar_dates) %>
+                  <% is_selected_start =
+                    @date_selection_type == :blackout && @date_selection_start && date &&
+                      Date.compare(date, @date_selection_start) == :eq %>
+                  <% hover_end =
+                    if @date_selection_type == :blackout, do: @date_selection_hover_end, else: nil %>
+                  <% is_in_range =
+                    @date_selection_type == :blackout && @date_selection_start && date &&
+                      date_selection_in_range?(date, @date_selection_start, hover_end) %>
                   <div
-                    class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{if is_today_col(i, @calendar_dates, @today), do: "bg-blue-50", else: "bg-white"} #{if rem(i + 1, 2) == 0, do: "relative", else: ""}"}
+                    class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{if is_today_col(i, @calendar_dates, @today), do: "bg-blue-50", else: "bg-white"} #{if rem(i + 1, 2) == 0, do: "relative", else: ""} cursor-pointer hover:bg-red-50 transition-colors #{if is_selected_start, do: "bg-red-200", else: ""} #{if is_in_range && !is_selected_start && hover_end, do: "bg-red-100/60", else: ""}"}
                     style={"grid-column: #{i + 1}; grid-row: 1;"}
+                    phx-click="select-date-blackout"
+                    phx-value-date={if date, do: Date.to_string(date), else: ""}
+                    data-date={if date, do: Date.to_string(date), else: ""}
+                    data-selection-type={
+                      if @date_selection_type == :blackout, do: "blackout", else: ""
+                    }
+                    title={
+                      if date,
+                        do: "Click to select date range for blackout",
+                        else: ""
+                    }
                   >
                     <%= if rem(i + 1, 2) == 0 do %>
                       <div class={"absolute right-0 top-0 bottom-0 w-px bg-zinc-200 #{if is_today_col(i, @calendar_dates, @today), do: "bg-blue-200", else: ""}"}>
@@ -485,7 +601,28 @@ defmodule YscWeb.AdminBookingsLive do
                 style={"grid-template-columns: repeat(#{total_cols}, minmax(56px, 1fr));"}
               >
                 <%= for i <- 0..(total_cols - 1) do %>
-                  <div class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{if is_today_col(i, @calendar_dates, @today), do: "bg-blue-50", else: "bg-white"} #{if rem(i + 1, 2) == 0, do: "relative", else: ""}"}>
+                  <% date = get_date_from_col(i, @calendar_dates) %>
+                  <% is_selected_start =
+                    @date_selection_type == :buyout && @date_selection_start && date &&
+                      Date.compare(date, @date_selection_start) == :eq %>
+                  <% hover_end =
+                    if @date_selection_type == :buyout, do: @date_selection_hover_end, else: nil %>
+                  <% is_in_range =
+                    @date_selection_type == :buyout && @date_selection_start && date &&
+                      date_selection_in_range?(date, @date_selection_start, hover_end) %>
+                  <div
+                    class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{if is_today_col(i, @calendar_dates, @today), do: "bg-blue-50", else: "bg-white"} #{if rem(i + 1, 2) == 0, do: "relative", else: ""} cursor-pointer hover:bg-green-50 transition-colors #{if is_selected_start, do: "bg-green-200", else: ""} #{if is_in_range && !is_selected_start && hover_end, do: "bg-green-100/60", else: ""}"}
+                    style={"grid-column: #{i + 1}; grid-row: 1;"}
+                    phx-click="select-date-buyout"
+                    phx-value-date={if date, do: Date.to_string(date), else: ""}
+                    data-date={if date, do: Date.to_string(date), else: ""}
+                    data-selection-type={if @date_selection_type == :buyout, do: "buyout", else: ""}
+                    title={
+                      if date,
+                        do: "Click to select date range for buyout booking",
+                        else: ""
+                    }
+                  >
                     <%= if rem(i + 1, 2) == 0 do %>
                       <div class={"absolute right-0 top-0 bottom-0 w-px bg-zinc-200 #{if is_today_col(i, @calendar_dates, @today), do: "bg-blue-200", else: ""}"}>
                       </div>
@@ -512,9 +649,50 @@ defmodule YscWeb.AdminBookingsLive do
                   style={"grid-template-columns: repeat(#{total_cols}, minmax(56px, 1fr));"}
                 >
                   <%= for i <- 0..(total_cols - 1) do %>
+                    <% date = get_date_from_col(i, @calendar_dates) %>
+                    <% room_id_str = to_string(room.id) %>
+                    <% is_selected_start =
+                      @date_selection_type == :room && @date_selection_start &&
+                        @date_selection_room_id == room_id_str && date &&
+                        Date.compare(date, @date_selection_start) == :eq %>
+                    <% hover_end =
+                      if @date_selection_type == :room && @date_selection_room_id == room_id_str,
+                        do: @date_selection_hover_end,
+                        else: nil %>
+                    <% is_in_range =
+                      @date_selection_type == :room && @date_selection_start &&
+                        @date_selection_room_id == room_id_str && date &&
+                        date_selection_in_range?(date, @date_selection_start, hover_end) %>
+                    <% base_bg =
+                      if is_selected_start,
+                        do: "bg-blue-200",
+                        else:
+                          if(is_today_col(i, @calendar_dates, @today),
+                            do: "bg-blue-50",
+                            else: "bg-white"
+                          ) %>
+                    <% range_bg =
+                      if is_in_range && !is_selected_start && hover_end,
+                        do: "bg-blue-100/60",
+                        else: "" %>
                     <div
-                      class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{if is_today_col(i, @calendar_dates, @today), do: "bg-blue-50", else: "bg-white"} #{if rem(i + 1, 2) == 0, do: "relative", else: ""}"}
+                      class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{base_bg} #{if rem(i + 1, 2) == 0, do: "relative", else: ""} cursor-pointer hover:bg-blue-50 transition-colors #{range_bg}"}
                       style={"grid-column: #{i + 1}; grid-row: 1;"}
+                      phx-click="select-date-room"
+                      phx-value-date={if date, do: Date.to_string(date), else: ""}
+                      phx-value-room-id={room.id}
+                      data-date={if date, do: Date.to_string(date), else: ""}
+                      data-selection-type={
+                        if @date_selection_type == :room && @date_selection_room_id == room_id_str,
+                          do: "room",
+                          else: ""
+                      }
+                      data-room-id={room_id_str}
+                      title={
+                        if date,
+                          do: "Click to select date range for #{room.name} booking",
+                          else: ""
+                      }
                     >
                       <%= if rem(i + 1, 2) == 0 do %>
                         <div class={"absolute right-0 top-0 bottom-0 w-px bg-zinc-200 #{if is_today_col(i, @calendar_dates, @today), do: "bg-blue-200", else: ""}"}>
@@ -697,6 +875,15 @@ defmodule YscWeb.AdminBookingsLive do
     room_categories = Bookings.list_room_categories()
     rooms = Bookings.list_rooms()
 
+    # Load all active users for booking creation
+    users =
+      Repo.all(
+        from u in Accounts.User,
+          where: u.state == :active,
+          order_by: [asc: u.last_name, asc: u.first_name],
+          select: {u.id, u.first_name, u.last_name, u.email}
+      )
+
     # Note: blackouts and bookings are loaded on-demand in update_calendar_view with date range filtering
 
     today = Date.utc_today()
@@ -744,6 +931,11 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:room_bookings, [])
      |> assign(:buyout_bookings, [])
      |> assign(:calendar_range_form, changeset)
+     |> assign(:users, users)
+     |> assign(:date_selection_type, nil)
+     |> assign(:date_selection_start, nil)
+     |> assign(:date_selection_room_id, nil)
+     |> assign(:date_selection_hover_end, nil)
      |> assign_filtered_data(selected_property, seasons, pricing_rules)
      |> update_calendar_view(selected_property)}
   end
@@ -954,13 +1146,41 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:form, form)
   end
 
-  defp apply_action(socket, :new_blackout, _params) do
+  defp apply_action(socket, :new_blackout, params) do
+    # Get initial dates from params if provided (from two-click selection)
+    {start_date, end_date} =
+      if params["start_date"] && params["end_date"] do
+        try do
+          start = Date.from_iso8601!(params["start_date"])
+          ending = Date.from_iso8601!(params["end_date"])
+          {start, ending}
+        rescue
+          _ ->
+            initial = socket.assigns.calendar_start_date
+            {initial, initial}
+        end
+      else
+        # Fallback to single date or current date
+        initial_date =
+          if params["date"] do
+            try do
+              Date.from_iso8601!(params["date"])
+            rescue
+              _ -> socket.assigns.calendar_start_date
+            end
+          else
+            socket.assigns.calendar_start_date
+          end
+
+        {initial_date, initial_date}
+      end
+
     form =
       %Ysc.Bookings.Blackout{}
       |> Ysc.Bookings.Blackout.changeset(%{
         property: socket.assigns.selected_property,
-        start_date: socket.assigns.calendar_start_date,
-        end_date: socket.assigns.calendar_start_date
+        start_date: start_date,
+        end_date: end_date
       })
       |> to_form(as: "blackout")
 
@@ -1039,6 +1259,69 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:booking, booking)
   end
 
+  defp apply_action(socket, :new_booking, params) do
+    # Determine booking type from params
+    booking_type =
+      cond do
+        params["type"] == "buyout" -> :buyout
+        params["type"] == "room" -> :room
+        params["room_id"] -> :room
+        true -> :buyout
+      end
+
+    # Get initial dates from params (from two-click selection)
+    {checkin_date, checkout_date} =
+      if params["start_date"] && params["end_date"] do
+        try do
+          start = Date.from_iso8601!(params["start_date"])
+          ending = Date.from_iso8601!(params["end_date"])
+          {start, ending}
+        rescue
+          _ ->
+            initial = socket.assigns.calendar_start_date
+            {initial, initial}
+        end
+      else
+        # Fallback to single date or current date
+        initial_checkin =
+          if params["date"] do
+            try do
+              Date.from_iso8601!(params["date"])
+            rescue
+              _ -> socket.assigns.calendar_start_date
+            end
+          else
+            socket.assigns.calendar_start_date
+          end
+
+        {initial_checkin, initial_checkin}
+      end
+
+    # Get room_id if provided
+    room_id = if params["room_id"], do: params["room_id"], else: nil
+
+    form_data = %{
+      "property" => Atom.to_string(socket.assigns.selected_property),
+      "checkin_date" => Date.to_string(checkin_date),
+      "checkout_date" => Date.to_string(checkout_date),
+      "guests_count" => "1",
+      "children_count" => "0",
+      "booking_mode" => Atom.to_string(booking_type),
+      "room_id" => room_id
+    }
+
+    form =
+      %Ysc.Bookings.Booking{}
+      |> Ysc.Bookings.Booking.changeset(form_data, skip_validation: true)
+      |> to_form(as: "booking")
+
+    socket
+    |> assign(:page_title, "New Booking")
+    |> assign(:booking_type, booking_type)
+    |> assign(:booking_form, form)
+    |> assign(:booking, nil)
+  end
+
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Bookings")
@@ -1047,6 +1330,8 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:blackout, nil)
     |> assign(:blackout_form, nil)
     |> assign(:booking, nil)
+    |> assign(:booking_form, nil)
+    |> assign(:booking_type, nil)
   end
 
   def handle_event("select-property", %{"property" => property}, socket) do
@@ -1146,13 +1431,12 @@ defmodule YscWeb.AdminBookingsLive do
       to_date: Date.to_string(end_date)
     ]
 
-    # Build URL properly - use URI struct to avoid double-encoding
+    # Build URL properly - combine path and query string
     base_path = ~p"/admin/bookings/#{booking_id}"
     query_string = URI.encode_query(query_params)
 
-    # Use URI struct to properly combine path and query
-    uri = %URI{path: to_string(base_path), query: query_string}
-    full_path = URI.to_string(uri)
+    # Combine path and query string for navigation
+    full_path = "#{base_path}?#{query_string}"
 
     {:noreply, push_navigate(socket, to: full_path)}
   end
@@ -1168,15 +1452,198 @@ defmodule YscWeb.AdminBookingsLive do
       to_date: Date.to_string(end_date)
     ]
 
-    # Build URL properly - use URI struct to avoid double-encoding
+    # Build URL properly - combine path and query string
     base_path = ~p"/admin/bookings/blackouts/#{blackout_id}/edit"
     query_string = URI.encode_query(query_params)
 
-    # Use URI struct to properly combine path and query
-    uri = %URI{path: to_string(base_path), query: query_string}
-    full_path = URI.to_string(uri)
+    # Combine path and query string for navigation
+    full_path = "#{base_path}?#{query_string}"
 
     {:noreply, push_navigate(socket, to: full_path)}
+  end
+
+  def handle_event("select-date-blackout", %{"date" => date_str}, socket) do
+    date = Date.from_iso8601!(date_str)
+
+    # If we already have a start date selected, this is the end date
+    if socket.assigns[:date_selection_type] == :blackout && socket.assigns[:date_selection_start] do
+      start_date_selected = socket.assigns.date_selection_start
+      # Ensure end date is after start date
+      {final_start, final_end} =
+        if Date.compare(date, start_date_selected) == :lt do
+          {date, start_date_selected}
+        else
+          {start_date_selected, date}
+        end
+
+      # Navigate to form with date range
+      calendar_start = socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
+      calendar_end = socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
+
+      query_params = [
+        property: socket.assigns.selected_property,
+        from_date: Date.to_string(calendar_start),
+        to_date: Date.to_string(calendar_end),
+        start_date: Date.to_string(final_start),
+        end_date: Date.to_string(final_end)
+      ]
+
+      {:noreply,
+       socket
+       |> assign(:date_selection_type, nil)
+       |> assign(:date_selection_start, nil)
+       |> push_navigate(to: ~p"/admin/bookings/blackouts/new?#{URI.encode_query(query_params)}")}
+    else
+      # First click - set start date
+      {:noreply,
+       socket
+       |> assign(:date_selection_type, :blackout)
+       |> assign(:date_selection_start, date)
+       |> assign(:date_selection_hover_end, nil)}
+    end
+  end
+
+  def handle_event("select-date-buyout", %{"date" => date_str}, socket) do
+    date = Date.from_iso8601!(date_str)
+
+    # If we already have a start date selected, this is the end date
+    if socket.assigns[:date_selection_type] == :buyout && socket.assigns[:date_selection_start] do
+      start_date_selected = socket.assigns.date_selection_start
+      # Ensure end date is after start date
+      {final_start, final_end} =
+        if Date.compare(date, start_date_selected) == :lt do
+          {date, start_date_selected}
+        else
+          {start_date_selected, date}
+        end
+
+      # Navigate to form with date range
+      calendar_start = socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
+      calendar_end = socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
+
+      query_params = [
+        property: socket.assigns.selected_property,
+        from_date: Date.to_string(calendar_start),
+        to_date: Date.to_string(calendar_end),
+        type: "buyout",
+        start_date: Date.to_string(final_start),
+        end_date: Date.to_string(final_end)
+      ]
+
+      {:noreply,
+       socket
+       |> assign(:date_selection_type, nil)
+       |> assign(:date_selection_start, nil)
+       |> assign(:date_selection_hover_end, nil)
+       |> push_navigate(to: ~p"/admin/bookings/bookings/new?#{URI.encode_query(query_params)}")}
+    else
+      # First click - set start date
+      {:noreply,
+       socket
+       |> assign(:date_selection_type, :buyout)
+       |> assign(:date_selection_start, date)
+       |> assign(:date_selection_hover_end, nil)}
+    end
+  end
+
+  def handle_event("select-date-room", %{"date" => date_str, "room-id" => room_id}, socket) do
+    date = Date.from_iso8601!(date_str)
+
+    # If we already have a start date selected for this room, this is the end date
+    if socket.assigns[:date_selection_type] == :room &&
+         socket.assigns[:date_selection_start] &&
+         socket.assigns[:date_selection_room_id] == room_id do
+      start_date_selected = socket.assigns.date_selection_start
+      # Ensure end date is after start date
+      {final_start, final_end} =
+        if Date.compare(date, start_date_selected) == :lt do
+          {date, start_date_selected}
+        else
+          {start_date_selected, date}
+        end
+
+      # Navigate to form with date range
+      calendar_start = socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
+      calendar_end = socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
+
+      query_params = [
+        property: socket.assigns.selected_property,
+        from_date: Date.to_string(calendar_start),
+        to_date: Date.to_string(calendar_end),
+        type: "room",
+        room_id: room_id,
+        start_date: Date.to_string(final_start),
+        end_date: Date.to_string(final_end)
+      ]
+
+      {:noreply,
+       socket
+       |> assign(:date_selection_type, nil)
+       |> assign(:date_selection_start, nil)
+       |> assign(:date_selection_room_id, nil)
+       |> assign(:date_selection_hover_end, nil)
+       |> push_navigate(to: ~p"/admin/bookings/bookings/new?#{URI.encode_query(query_params)}")}
+    else
+      # First click - set start date and room
+      {:noreply,
+       socket
+       |> assign(:date_selection_type, :room)
+       |> assign(:date_selection_start, date)
+       |> assign(:date_selection_room_id, room_id)
+       |> assign(:date_selection_hover_end, nil)}
+    end
+  end
+
+  # Cancel selection by clicking outside or pressing escape
+  def handle_event("cancel-date-selection", _, socket) do
+    {:noreply,
+     socket
+     |> assign(:date_selection_type, nil)
+     |> assign(:date_selection_start, nil)
+     |> assign(:date_selection_room_id, nil)
+     |> assign(:date_selection_hover_end, nil)}
+  end
+
+  # Handle hover over calendar cells to show ghost preview
+  def handle_event(
+        "hover-date",
+        %{"date" => date_str, "selection_type" => selection_type, "room_id" => room_id},
+        socket
+      ) do
+    # Only show hover if we have a start date selected and the selection type matches
+    if socket.assigns[:date_selection_type] &&
+         String.to_existing_atom(selection_type) == socket.assigns.date_selection_type &&
+         (socket.assigns[:date_selection_type] != :room ||
+            socket.assigns[:date_selection_room_id] == room_id) do
+      date = Date.from_iso8601!(date_str)
+      {:noreply, assign(socket, :date_selection_hover_end, date)}
+    else
+      {:noreply, assign(socket, :date_selection_hover_end, nil)}
+    end
+  end
+
+  def handle_event(
+        "hover-date",
+        %{"date" => date_str, "selection_type" => selection_type},
+        socket
+      ) do
+    # For blackout and buyout (no room_id)
+    if socket.assigns[:date_selection_type] &&
+         String.to_existing_atom(selection_type) == socket.assigns.date_selection_type do
+      date = Date.from_iso8601!(date_str)
+      {:noreply, assign(socket, :date_selection_hover_end, date)}
+    else
+      {:noreply, assign(socket, :date_selection_hover_end, nil)}
+    end
+  end
+
+  def handle_event("hover-date", _params, socket) do
+    {:noreply, socket}
+  end
+
+  # Clear hover when mouse leaves calendar area
+  def handle_event("clear-hover", _, socket) do
+    {:noreply, assign(socket, :date_selection_hover_end, nil)}
   end
 
   def handle_event("select-section", %{"section" => section}, socket) do
@@ -1321,6 +1788,83 @@ defmodule YscWeb.AdminBookingsLive do
       |> Map.put(:action, :validate)
 
     {:noreply, assign(socket, :form, to_form(changeset, as: "pricing_rule"))}
+  end
+
+  def handle_event("validate-booking", %{"booking" => booking_params}, socket) do
+    changeset =
+      %Ysc.Bookings.Booking{}
+      |> Ysc.Bookings.Booking.changeset(booking_params, skip_validation: true)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :booking_form, to_form(changeset, as: "booking"))}
+  end
+
+  def handle_event("save-booking", %{"booking" => booking_params}, socket) do
+    # Convert property string to atom
+    booking_params =
+      if property_str = booking_params["property"] do
+        property_atom = String.to_existing_atom(property_str)
+        Map.put(booking_params, "property", property_atom)
+      else
+        booking_params
+      end
+
+    # Convert booking_mode string to atom
+    booking_params =
+      if booking_mode_str = booking_params["booking_mode"] do
+        booking_mode_atom = String.to_existing_atom(booking_mode_str)
+        Map.put(booking_params, "booking_mode", booking_mode_atom)
+      else
+        booking_params
+      end
+
+    # Convert user_id string to proper format if needed
+    booking_params =
+      if user_id_str = booking_params["user_id"] do
+        Map.put(booking_params, "user_id", user_id_str)
+      else
+        booking_params
+      end
+
+    # Convert room_id to nil if empty string
+    booking_params =
+      if booking_params["room_id"] == "" do
+        Map.put(booking_params, "room_id", nil)
+      else
+        booking_params
+      end
+
+    # Create booking with validation skipped (admin override)
+    changeset =
+      %Ysc.Bookings.Booking{}
+      |> Ysc.Bookings.Booking.changeset(booking_params, skip_validation: true)
+
+    result = Ysc.Repo.insert(changeset)
+
+    case result do
+      {:ok, _booking} ->
+        # Preserve date range if available
+        query_params = %{property: socket.assigns.selected_property}
+
+        query_params =
+          if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+            Map.merge(query_params, %{
+              from_date: Date.to_string(socket.assigns.calendar_start_date),
+              to_date: Date.to_string(socket.assigns.calendar_end_date)
+            })
+          else
+            query_params
+          end
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Booking created successfully")
+         |> push_navigate(to: ~p"/admin/bookings?#{URI.encode_query(query_params)}")
+         |> update_calendar_view(socket.assigns.selected_property)}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :booking_form, to_form(changeset, as: "booking"))}
+    end
   end
 
   def handle_event("save-pricing-rule", %{"pricing_rule" => pricing_rule_params}, socket) do
@@ -1769,5 +2313,46 @@ defmodule YscWeb.AdminBookingsLive do
     start_date = Date.add(today, -2)
     end_date = Date.add(today, 14)
     {start_date, end_date}
+  end
+
+  # Get date from column index (0-based)
+  # Each day has 2 columns, so day_index = col_idx / 2
+  defp get_date_from_col(col_idx, calendar_dates) do
+    day_idx = div(col_idx, 2)
+    Enum.at(calendar_dates, day_idx)
+  end
+
+  # Format user for dropdown
+  defp format_user_option({id, first_name, last_name, email}) do
+    name =
+      if first_name && last_name do
+        "#{first_name} #{last_name}"
+      else
+        email || "Unknown"
+      end
+
+    {name, id}
+  end
+
+  # Check if a date is in the selected range (for visual feedback)
+  defp date_selection_in_range?(date, start_date, hover_end) when is_nil(start_date), do: false
+
+  defp date_selection_in_range?(date, start_date, hover_end) do
+    # Use hover_end if available (for ghost preview), otherwise show all dates after start
+    end_date = hover_end || start_date
+
+    if end_date do
+      # Ensure we have valid dates to compare - swap if end is before start
+      {actual_start, actual_end} =
+        if Date.compare(end_date, start_date) == :lt do
+          {end_date, start_date}
+        else
+          {start_date, end_date}
+        end
+
+      Date.compare(date, actual_start) != :lt && Date.compare(date, actual_end) != :gt
+    else
+      false
+    end
   end
 end

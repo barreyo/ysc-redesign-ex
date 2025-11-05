@@ -29,7 +29,7 @@ defmodule YscWeb.NewsLive do
               <canvas
                 id={"blur-hash-image-#{@featured.id}"}
                 src={get_blur_hash(@featured.featured_image)}
-                class="absolute inset-0 rounded-lg w-full h-full object-cover"
+                class="absolute inset-0 z-0 rounded-lg w-full h-full object-cover"
                 phx-hook="BlurHashCanvas"
               >
               </canvas>
@@ -37,7 +37,7 @@ defmodule YscWeb.NewsLive do
                 src={featured_image_url(@featured.featured_image)}
                 id={"image-#{@featured.id}"}
                 phx-hook="BlurHashImage"
-                class="absolute inset-0 object-cover rounded-lg w-full h-full"
+                class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover rounded-lg w-full h-full"
                 loading="eager"
               />
             </div>
@@ -102,11 +102,11 @@ defmodule YscWeb.NewsLive do
               navigate={~p"/posts/#{post.url_name}"}
               class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
             >
-              <div class="relative">
+              <div class="relative aspect-video">
                 <canvas
                   id={"blur-hash-image-#{post.id}"}
                   src={get_blur_hash(post.featured_image)}
-                  class="absolute left-0 top-0 rounded-lg w-full h-full object-center aspect-video"
+                  class="absolute inset-0 z-0 rounded-lg w-full h-full object-cover"
                   phx-hook="BlurHashCanvas"
                 >
                 </canvas>
@@ -116,7 +116,7 @@ defmodule YscWeb.NewsLive do
                   id={"image-#{post.id}"}
                   loading="lazy"
                   phx-hook="BlurHashImage"
-                  class="object-cover rounded-lg w-full object-center aspect-video"
+                  class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover"
                 />
               </div>
             </.link>

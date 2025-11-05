@@ -419,6 +419,206 @@ else
       |> Repo.insert(on_conflict: :nothing)
     end
 
+    # Buyout bookings
+    IO.puts("Creating buyout bookings...")
+
+    # Get users that don't have active bookings yet (to avoid single active booking conflicts)
+    # Use different users than the room bookings (indices 5+ to avoid conflicts)
+    all_users = Repo.all(from u in User, where: u.state == :active, limit: 15)
+
+    if Enum.count(all_users) >= 8 do
+      # Tahoe Buyout 1: Summer buyout (2 nights, no weekend)
+      # Must be in summer season (May 1 - Oct 31)
+      today = Date.utc_today()
+      current_year = today.year
+
+      # Find a summer date that's within 45 days and doesn't conflict
+      summer_start = Date.new!(current_year, 5, 1)
+      summer_end = Date.new!(current_year, 10, 31)
+
+      # Use a date that's in summer and within 45 days
+      tahoe_buyout_checkin =
+        if Date.compare(today, summer_start) == :lt do
+          # If we're before summer, use summer start
+          summer_start
+        else
+          # If we're in summer, use a date soon
+          max_date = Date.add(today, 45)
+          if Date.compare(summer_end, max_date) == :lt do
+            Date.add(summer_end, -2)  # 2 days before summer ends
+          else
+            Date.add(today, 10)  # 10 days from now
+          end
+        end
+
+      # Ensure it's a valid summer date
+      tahoe_buyout_checkin =
+        if Date.compare(tahoe_buyout_checkin, summer_start) == :lt do
+          summer_start
+        else
+          if Date.compare(tahoe_buyout_checkin, summer_end) == :gt do
+            Date.add(summer_end, -2)
+          else
+            tahoe_buyout_checkin
+          end
+        end
+
+      tahoe_buyout_checkout = Date.add(tahoe_buyout_checkin, 2)  # 2 nights (max 4 allowed)
+
+      # Make sure checkout is still in summer
+      tahoe_buyout_checkout =
+        if Date.compare(tahoe_buyout_checkout, summer_end) == :gt do
+          summer_end
+        else
+          tahoe_buyout_checkout
+        end
+
+      # Use a user that doesn't have overlapping bookings (skip first 5 used for room bookings)
+      tahoe_buyout_user = Enum.at(all_users, 5)
+
+      Booking.changeset(%Booking{}, %{
+        checkin_date: tahoe_buyout_checkin,
+        checkout_date: tahoe_buyout_checkout,
+        guests_count: 8,  # Can be any number for buyouts
+        property: :tahoe,
+        booking_mode: :buyout,
+        room_id: nil,  # Buyouts don't have a specific room
+        user_id: tahoe_buyout_user.id
+      })
+      |> BookingValidator.validate(user: tahoe_buyout_user)
+      |> Repo.insert(on_conflict: :nothing)
+
+      # Tahoe Buyout 2: Summer buyout with weekend (Saturday + Sunday)
+      # Find a Saturday that's in summer and within 45 days
+      tahoe_weekend_checkin =
+        Enum.reduce_while(1..45, nil, fn days_ahead, _acc ->
+          candidate_date = Date.add(today, days_ahead)
+          day_of_week = Date.day_of_week(candidate_date, :monday)
+
+          # Check if it's Saturday (6) and in summer
+          if day_of_week == 6 and
+             Date.compare(candidate_date, summer_start) != :lt and
+             Date.compare(candidate_date, summer_end) != :gt do
+            {:halt, candidate_date}
+          else
+            {:cont, nil}
+          end
+        end)
+
+      if tahoe_weekend_checkin do
+        # Saturday check-in, Sunday check-out (1 night, but includes both weekend days)
+        tahoe_weekend_checkout = Date.add(tahoe_weekend_checkin, 1)  # Sunday
+
+        # Ensure checkout is still in summer
+        tahoe_weekend_checkout =
+          if Date.compare(tahoe_weekend_checkout, summer_end) == :gt do
+            # If checkout would be outside summer, adjust to stay within summer
+            # But wait - if Saturday is the last day of summer, we can't have a valid weekend booking
+            # In that case, skip this booking
+            nil
+          else
+            tahoe_weekend_checkout
+          end
+
+        if tahoe_weekend_checkout do
+          # Use a different user (skip first 5 used for room bookings)
+          tahoe_weekend_user = Enum.at(all_users, 6)
+
+          Booking.changeset(%Booking{}, %{
+            checkin_date: tahoe_weekend_checkin,
+            checkout_date: tahoe_weekend_checkout,
+            guests_count: 10,
+            property: :tahoe,
+            booking_mode: :buyout,
+            room_id: nil,
+            user_id: tahoe_weekend_user.id
+          })
+          |> BookingValidator.validate(user: tahoe_weekend_user)
+          |> Repo.insert(on_conflict: :nothing)
+        end
+      end
+
+      # Tahoe Buyout 3: Maximum length buyout (4 nights)
+      tahoe_max_checkin = Date.add(today, 15)  # 15 days ahead
+
+      # Ensure it's in summer
+      tahoe_max_checkin =
+        if Date.compare(tahoe_max_checkin, summer_start) == :lt do
+          summer_start
+        else
+          if Date.compare(tahoe_max_checkin, summer_end) == :gt do
+            Date.add(summer_end, -4)  # 4 days before summer ends
+          else
+            tahoe_max_checkin
+          end
+        end
+
+      tahoe_max_checkout = Date.add(tahoe_max_checkin, 4)  # 4 nights (max allowed)
+
+      # Ensure checkout is still in summer
+      tahoe_max_checkout =
+        if Date.compare(tahoe_max_checkout, summer_end) == :gt do
+          summer_end
+        else
+          tahoe_max_checkout
+        end
+
+      # Use a different user (skip first 5 used for room bookings)
+      tahoe_max_user = Enum.at(all_users, 7)
+
+      Booking.changeset(%Booking{}, %{
+        checkin_date: tahoe_max_checkin,
+        checkout_date: tahoe_max_checkout,
+        guests_count: 12,
+        property: :tahoe,
+        booking_mode: :buyout,
+        room_id: nil,
+        user_id: tahoe_max_user.id
+      })
+      |> BookingValidator.validate(user: tahoe_max_user)
+      |> Repo.insert(on_conflict: :nothing)
+
+      # Clear Lake Buyout 1: Simple buyout
+      clear_lake_buyout_checkin = Date.add(today, 12)
+      clear_lake_buyout_checkout = Date.add(clear_lake_buyout_checkin, 2)  # 2 nights
+
+      # Use a different user (skip first 5 used for room bookings)
+      clear_lake_buyout_user = Enum.at(all_users, 5)
+
+      Booking.changeset(%Booking{}, %{
+        checkin_date: clear_lake_buyout_checkin,
+        checkout_date: clear_lake_buyout_checkout,
+        guests_count: 15,  # Can exceed 12 since it's a buyout
+        property: :clear_lake,
+        booking_mode: :buyout,
+        room_id: nil,
+        user_id: clear_lake_buyout_user.id
+      })
+      |> BookingValidator.validate(user: clear_lake_buyout_user)
+      |> Repo.insert(on_conflict: :nothing)
+
+      # Clear Lake Buyout 2: Longer buyout
+      clear_lake_buyout2_checkin = Date.add(today, 20)
+      clear_lake_buyout2_checkout = Date.add(clear_lake_buyout2_checkin, 5)  # 5 nights
+
+      # Use a different user (skip first 5 used for room bookings)
+      clear_lake_buyout2_user = Enum.at(all_users, 6)
+
+      Booking.changeset(%Booking{}, %{
+        checkin_date: clear_lake_buyout2_checkin,
+        checkout_date: clear_lake_buyout2_checkout,
+        guests_count: 20,
+        property: :clear_lake,
+        booking_mode: :buyout,
+        room_id: nil,
+        user_id: clear_lake_buyout2_user.id
+      })
+      |> BookingValidator.validate(user: clear_lake_buyout2_user)
+      |> Repo.insert(on_conflict: :nothing)
+
+      IO.puts("Created buyout bookings")
+    end
+
     IO.puts("Created sample bookings")
   end
 end
@@ -429,4 +629,5 @@ IO.puts("  - 3 room categories")
 IO.puts("  - 4 seasons (2 per property)")
 IO.puts("  - 8 Tahoe rooms")
 IO.puts("  - 6 pricing rules")
-IO.puts("  - Sample bookings for visualization")
+IO.puts("  - Sample room bookings for visualization")
+IO.puts("  - Sample buyout bookings (Tahoe and Clear Lake)")

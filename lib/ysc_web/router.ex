@@ -186,6 +186,7 @@ defmodule YscWeb.Router do
       live "/bookings/pricing-rules/:id/edit", AdminBookingsLive, :edit_pricing_rule
       live "/bookings/blackouts/new", AdminBookingsLive, :new_blackout
       live "/bookings/blackouts/:id/edit", AdminBookingsLive, :edit_blackout
+      live "/bookings/bookings/new", AdminBookingsLive, :new_booking
 
       # News and notices
       live "/posts", AdminPostsLive, :index

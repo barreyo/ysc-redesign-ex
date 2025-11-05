@@ -28,20 +28,28 @@ defmodule Ysc.Bookings.BookingValidator do
 
   @doc """
   Validates a booking changeset according to all business rules.
+
+  ## Options
+  - `:skip_validation` - If true, skips all business rule validations (useful for admin-created bookings)
   """
   def validate(changeset, opts \\ []) do
-    user = opts[:user] || get_user_from_changeset(changeset)
-    property = Ecto.Changeset.get_field(changeset, :property)
+    # Skip all validation if requested (for admin-created bookings)
+    if opts[:skip_validation] do
+      changeset
+    else
+      user = opts[:user] || get_user_from_changeset(changeset)
+      property = Ecto.Changeset.get_field(changeset, :property)
 
-    changeset
-    |> validate_booking_mode(property)
-    |> validate_advance_booking_limit(property)
-    |> validate_weekend_requirement()
-    |> validate_max_nights()
-    |> validate_single_active_booking(user, property)
-    |> validate_membership_room_limits(user, property)
-    |> validate_clear_lake_guest_limits(property)
-    |> validate_room_capacity()
+      changeset
+      |> validate_booking_mode(property)
+      |> validate_advance_booking_limit(property)
+      |> validate_weekend_requirement()
+      |> validate_max_nights()
+      |> validate_single_active_booking(user, property)
+      |> validate_membership_room_limits(user, property)
+      |> validate_clear_lake_guest_limits(property)
+      |> validate_room_capacity()
+    end
   end
 
   # Tahoe: During winter, only individual rooms; during summer, rooms or buyout
