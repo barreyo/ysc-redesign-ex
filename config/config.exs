@@ -78,7 +78,8 @@ config :ysc, Oban,
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 5},
     {Oban.Plugins.Cron,
      crontab: [
-       {"0 * * * *", YscWeb.Workers.FileExportCleanUp}
+       {"0 * * * *", YscWeb.Workers.FileExportCleanUp},
+       {"*/30 * * * *", Ysc.PropertyOutages.OutageScraperWorker}
      ]}
   ]
 

@@ -23,7 +23,8 @@ defmodule YscWeb.Emails.Notifier do
     "conduct_violation_board_notification" => YscWeb.Emails.ConductViolationBoardNotification,
     "ticket_purchase_confirmation" => YscWeb.Emails.TicketPurchaseConfirmation,
     "volunteer_confirmation" => YscWeb.Emails.VolunteerConfirmation,
-    "volunteer_board_notification" => YscWeb.Emails.VolunteerBoardNotification
+    "volunteer_board_notification" => YscWeb.Emails.VolunteerBoardNotification,
+    "outage_notification" => YscWeb.Emails.OutageNotification
   }
 
   def schedule_email(recipient, idempotency_key, subject, template, variables, text_body, user_id) do

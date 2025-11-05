@@ -35,6 +35,9 @@ defmodule Ysc.Application do
     # Start the ticket timeout scheduler
     Ysc.Tickets.Scheduler.start_scheduler()
 
+    # Start the outage scraper scheduler
+    Ysc.PropertyOutages.Scheduler.start_scheduler()
+
     {:ok, supervisor}
   end
 

@@ -262,14 +262,14 @@ IO.puts("Creating sample bookings...")
 
 import Ecto.Query
 
-# Get some users for bookings
-users = Repo.all(from u in User, where: u.state == :active, limit: 5)
+# Get some users for bookings (need more for active + future bookings)
+users = Repo.all(from u in User, where: u.state == :active, limit: 10)
 
 if Enum.empty?(users) do
   IO.puts("Warning: No active users found. Please run seeds.exs first to create users.")
 else
-  # Get Tahoe rooms
-  tahoe_rooms = Repo.all(from r in Room, where: r.property == :tahoe and r.is_active == true, limit: 5)
+  # Get Tahoe rooms (need more for active + future bookings)
+  tahoe_rooms = Repo.all(from r in Room, where: r.property == :tahoe and r.is_active == true)
 
   if Enum.empty?(tahoe_rooms) do
     IO.puts("Warning: No Tahoe rooms found.")
@@ -278,13 +278,76 @@ else
     # Create bookings for the current and next month
     base_date = Date.beginning_of_month(today)
 
-    # Booking 1: One-night booking (minimum stay)
+    # Active Booking 1: Currently active booking (started before today, ends after today)
     if Enum.count(users) > 0 && Enum.count(tahoe_rooms) > 0 do
-      checkin = Date.add(base_date, 5)
-      checkout = Date.add(checkin, 1)  # At least 1 night (checkin < checkout)
+      checkin = Date.add(today, -2)  # Started 2 days ago
+      checkout = Date.add(today, 2)  # Ends 2 days from now
 
       user = Enum.at(users, 0)
       room = Enum.at(tahoe_rooms, 0)
+
+      Booking.changeset(%Booking{}, %{
+        checkin_date: checkin,
+        checkout_date: checkout,
+        guests_count: min(2, room.capacity_max || 4),  # Respect room capacity
+        property: :tahoe,
+        booking_mode: :room,
+        room_id: room.id,
+        user_id: user.id
+      })
+      |> BookingValidator.validate(user: user, skip_validation: true)
+      |> Repo.insert(on_conflict: :nothing)
+    end
+
+    # Active Booking 2: Currently active booking (started yesterday, ends tomorrow)
+    if Enum.count(users) > 1 && Enum.count(tahoe_rooms) > 1 do
+      checkin = Date.add(today, -1)  # Started yesterday
+      checkout = Date.add(today, 1)  # Ends tomorrow
+
+      user = Enum.at(users, 1)
+      room = Enum.at(tahoe_rooms, 1)
+
+      Booking.changeset(%Booking{}, %{
+        checkin_date: checkin,
+        checkout_date: checkout,
+        guests_count: min(2, room.capacity_max || 4),
+        property: :tahoe,
+        booking_mode: :room,
+        room_id: room.id,
+        user_id: user.id
+      })
+      |> BookingValidator.validate(user: user, skip_validation: true)
+      |> Repo.insert(on_conflict: :nothing)
+    end
+
+    # Active Booking 3: Currently active booking (started 3 days ago, ends in 1 day)
+    if Enum.count(users) > 2 && Enum.count(tahoe_rooms) > 2 do
+      checkin = Date.add(today, -3)  # Started 3 days ago
+      checkout = Date.add(today, 1)  # Ends tomorrow
+
+      user = Enum.at(users, 2)
+      room = Enum.at(tahoe_rooms, 2)
+
+      Booking.changeset(%Booking{}, %{
+        checkin_date: checkin,
+        checkout_date: checkout,
+        guests_count: min(3, room.capacity_max || 4),
+        property: :tahoe,
+        booking_mode: :room,
+        room_id: room.id,
+        user_id: user.id
+      })
+      |> BookingValidator.validate(user: user, skip_validation: true)
+      |> Repo.insert(on_conflict: :nothing)
+    end
+
+    # Booking 4: One-night booking (minimum stay) - future booking
+    if Enum.count(users) > 3 && Enum.count(tahoe_rooms) > 3 do
+      checkin = Date.add(base_date, 5)
+      checkout = Date.add(checkin, 1)  # At least 1 night (checkin < checkout)
+
+      user = Enum.at(users, 3)
+      room = Enum.at(tahoe_rooms, 3)
 
       Booking.changeset(%Booking{}, %{
         checkin_date: checkin,
@@ -299,13 +362,13 @@ else
       |> Repo.insert(on_conflict: :nothing)
     end
 
-    # Booking 2: Multi-day booking (3 nights, max 4 for Tahoe)
-    if Enum.count(users) > 1 && Enum.count(tahoe_rooms) > 1 do
+    # Booking 5: Multi-day booking (3 nights, max 4 for Tahoe) - future booking
+    if Enum.count(users) > 4 && Enum.count(tahoe_rooms) > 4 do
       checkin = Date.add(base_date, 8)
       checkout = Date.add(checkin, 3)  # 3 nights
 
-      user = Enum.at(users, 1)
-      room = Enum.at(tahoe_rooms, 1)
+      user = Enum.at(users, 4)
+      room = Enum.at(tahoe_rooms, 4)
 
       Booking.changeset(%Booking{}, %{
         checkin_date: checkin,
@@ -320,15 +383,15 @@ else
       |> Repo.insert(on_conflict: :nothing)
     end
 
-    # Booking 3: Same-day turnaround (ends on date X, another starts on date X)
-    if Enum.count(users) > 2 && Enum.count(tahoe_rooms) > 2 do
-      room = Enum.at(tahoe_rooms, 2)
+    # Booking 6: Same-day turnaround (ends on date X, another starts on date X) - future booking
+    if Enum.count(users) > 5 && Enum.count(tahoe_rooms) > 5 do
+      room = Enum.at(tahoe_rooms, 5)
 
       # First booking ends on day 15
       checkin1 = Date.add(base_date, 13)
       checkout1 = Date.add(checkin1, 2)  # 2 nights (checkin < checkout)
 
-      user1 = Enum.at(users, 2)
+      user1 = Enum.at(users, 5)
       Booking.changeset(%Booking{}, %{
         checkin_date: checkin1,
         checkout_date: checkout1,
@@ -359,52 +422,13 @@ else
       |> Repo.insert(on_conflict: :nothing)
     end
 
-    # Booking 4: Overlapping booking (to show conflicts - these will fail validation)
-    # Note: These are intentionally overlapping to demonstrate validation errors
-    if Enum.count(users) > 3 && Enum.count(tahoe_rooms) > 3 do
-      room = Enum.at(tahoe_rooms, 3)
-
-      checkin1 = Date.add(base_date, 20)
-      checkout1 = Date.add(checkin1, 3)  # 3 nights (checkin < checkout)
-
-      user1 = Enum.at(users, 3)
-      Booking.changeset(%Booking{}, %{
-        checkin_date: checkin1,
-        checkout_date: checkout1,
-        guests_count: min(2, room.capacity_max || 4),
-        property: :tahoe,
-        booking_mode: :room,
-        room_id: room.id,
-        user_id: user1.id
-      })
-      |> Ysc.Bookings.BookingValidator.validate(user: user1)
-      |> Repo.insert(on_conflict: :nothing)
-
-      # Overlapping booking (conflicts with the one above - this will fail validation)
-      checkin2 = Date.add(base_date, 22)
-      checkout2 = Date.add(checkin2, 3)  # 3 nights (checkin < checkout)
-
-      user2 = Enum.at(users, 0)
-      Booking.changeset(%Booking{}, %{
-        checkin_date: checkin2,
-        checkout_date: checkout2,
-        guests_count: min(1, room.capacity_max || 4),
-        property: :tahoe,
-        booking_mode: :room,
-        room_id: room.id,
-        user_id: user2.id
-      })
-      |> Ysc.Bookings.BookingValidator.validate(user: user2)
-      |> Repo.insert(on_conflict: :nothing)
-    end
-
-    # Booking 5: Different room, same dates
-    if Enum.count(users) > 4 && Enum.count(tahoe_rooms) > 4 do
+    # Booking 7: Different room, same dates - future booking
+    if Enum.count(users) > 6 && Enum.count(tahoe_rooms) > 6 do
       checkin = Date.add(base_date, 25)
       checkout = Date.add(checkin, 3)  # 3 nights (checkin < checkout)
 
-      user = Enum.at(users, 4)
-      room = Enum.at(tahoe_rooms, 4)
+      user = Enum.at(users, 6)
+      room = Enum.at(tahoe_rooms, 6)
 
       Booking.changeset(%Booking{}, %{
         checkin_date: checkin,
