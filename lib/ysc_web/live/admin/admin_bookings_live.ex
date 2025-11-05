@@ -460,15 +460,6 @@ defmodule YscWeb.AdminBookingsLive do
               </p>
             </div>
             <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4">
-              <.button
-                phx-click={
-                  JS.navigate(~p"/admin/bookings/blackouts/new?property=#{@selected_property}")
-                }
-                class="w-full sm:w-auto mt-2"
-              >
-                <.icon name="hero-x-circle" class="w-5 h-5 -mt-0.5" />
-                <span class="ms-1">New Blackout</span>
-              </.button>
               <!-- Date Range Inputs -->
               <form
                 phx-change="update-calendar-range"
