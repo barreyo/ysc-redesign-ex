@@ -61,6 +61,7 @@ defmodule Mix.Tasks.DebugEmails do
 
     if is_list(queues) and length(queues) > 0 do
       Logger.info("Oban is running with #{length(queues)} queue(s)")
+
       Enum.each(queues, fn queue_status ->
         Logger.info("  Queue: #{queue_status.queue}")
         Logger.info("    Limit: #{queue_status.limit}")

@@ -165,6 +165,7 @@ defmodule Mix.Tasks.TestOutageEmail do
 
       # Get cabin master information for the property
       cabin_master = OutageNotification.get_cabin_master(outage.property)
+
       cabin_master_name =
         if cabin_master do
           "#{cabin_master.first_name || ""} #{cabin_master.last_name || ""}"
@@ -210,10 +211,7 @@ defmodule Mix.Tasks.TestOutageEmail do
       - Check-out: #{Calendar.strftime(booking.checkout_date, "%B %d, %Y")}
 
       #{if cabin_master_name || cabin_master_email do
-        "If you have any issues or need help, please reach out to the cabin master:\n\n" <>
-        (if cabin_master_name, do: "- Cabin Master: #{cabin_master_name}\n", else: "") <>
-        (if cabin_master_phone, do: "- Phone: #{cabin_master_phone}\n", else: "") <>
-        (if cabin_master_email, do: "- Email: #{cabin_master_email}\n", else: "")
+        "If you have any issues or need help, please reach out to the cabin master:\n\n" <> if(cabin_master_name, do: "- Cabin Master: #{cabin_master_name}\n", else: "") <> if(cabin_master_phone, do: "- Phone: #{cabin_master_phone}\n", else: "") <> if cabin_master_email, do: "- Email: #{cabin_master_email}\n", else: ""
       else
         ""
       end}
