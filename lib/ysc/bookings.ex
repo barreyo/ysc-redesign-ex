@@ -921,7 +921,8 @@ defmodule Ysc.Bookings do
   def list_door_codes(property) do
     from(dc in DoorCode,
       where: dc.property == ^property,
-      order_by: [desc: dc.active_from, desc: dc.inserted_at]
+      order_by: [desc: dc.active_from, desc: dc.inserted_at],
+      limit: 10
     )
     |> Repo.all()
   end

@@ -622,8 +622,15 @@ defmodule YscWeb.AdminBookingsLive do
                   <% is_in_range =
                     @date_selection_type == :blackout && @date_selection_start && date &&
                       date_selection_in_range?(date, @date_selection_start, hover_end) %>
+                  <% base_bg =
+                    cond do
+                      is_selected_start -> "bg-red-200"
+                      is_in_range && !is_selected_start -> "bg-red-100/60"
+                      is_today_col(i, @calendar_dates, @today) -> "bg-blue-50"
+                      true -> "bg-white"
+                    end %>
                   <div
-                    class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{if is_today_col(i, @calendar_dates, @today), do: "bg-blue-50", else: "bg-white"} #{if rem(i + 1, 2) == 0, do: "relative", else: ""} cursor-pointer hover:bg-red-50 transition-colors #{if is_selected_start, do: "bg-red-200", else: ""} #{if is_in_range && !is_selected_start && hover_end, do: "bg-red-100/60", else: ""}"}
+                    class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{base_bg} #{if rem(i + 1, 2) == 0, do: "relative", else: ""} cursor-pointer hover:bg-red-50 transition-colors"}
                     style={"grid-column: #{i + 1}; grid-row: 1;"}
                     phx-click="select-date-blackout"
                     phx-value-date={if date, do: Date.to_string(date), else: ""}
@@ -666,8 +673,15 @@ defmodule YscWeb.AdminBookingsLive do
                   <% is_in_range =
                     @date_selection_type == :buyout && @date_selection_start && date &&
                       date_selection_in_range?(date, @date_selection_start, hover_end) %>
+                  <% base_bg =
+                    cond do
+                      is_selected_start -> "bg-green-200"
+                      is_in_range && !is_selected_start -> "bg-green-100/60"
+                      is_today_col(i, @calendar_dates, @today) -> "bg-blue-50"
+                      true -> "bg-white"
+                    end %>
                   <div
-                    class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{if is_today_col(i, @calendar_dates, @today), do: "bg-blue-50", else: "bg-white"} #{if rem(i + 1, 2) == 0, do: "relative", else: ""} cursor-pointer hover:bg-green-50 transition-colors #{if is_selected_start, do: "bg-green-200", else: ""} #{if is_in_range && !is_selected_start && hover_end, do: "bg-green-100/60", else: ""}"}
+                    class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{base_bg} #{if rem(i + 1, 2) == 0, do: "relative", else: ""} cursor-pointer hover:bg-green-50 transition-colors"}
                     style={"grid-column: #{i + 1}; grid-row: 1;"}
                     phx-click="select-date-buyout"
                     phx-value-date={if date, do: Date.to_string(date), else: ""}
@@ -720,19 +734,14 @@ defmodule YscWeb.AdminBookingsLive do
                         @date_selection_room_id == room_id_str && date &&
                         date_selection_in_range?(date, @date_selection_start, hover_end) %>
                     <% base_bg =
-                      if is_selected_start,
-                        do: "bg-blue-200",
-                        else:
-                          if(is_today_col(i, @calendar_dates, @today),
-                            do: "bg-blue-50",
-                            else: "bg-white"
-                          ) %>
-                    <% range_bg =
-                      if is_in_range && !is_selected_start && hover_end,
-                        do: "bg-blue-100/60",
-                        else: "" %>
+                      cond do
+                        is_selected_start -> "bg-blue-200"
+                        is_in_range && !is_selected_start -> "bg-blue-100/60"
+                        is_today_col(i, @calendar_dates, @today) -> "bg-blue-50"
+                        true -> "bg-white"
+                      end %>
                     <div
-                      class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{base_bg} #{if rem(i + 1, 2) == 0, do: "relative", else: ""} cursor-pointer hover:bg-blue-50 transition-colors #{range_bg}"}
+                      class={"h-12 border-b #{if is_today_col(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{base_bg} #{if rem(i + 1, 2) == 0, do: "relative", else: ""} cursor-pointer hover:bg-blue-50 transition-colors"}
                       style={"grid-column: #{i + 1}; grid-row: 1;"}
                       phx-click="select-date-room"
                       phx-value-date={if date, do: Date.to_string(date), else: ""}
