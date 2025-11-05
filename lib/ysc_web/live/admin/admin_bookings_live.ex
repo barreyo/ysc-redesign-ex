@@ -433,7 +433,7 @@ defmodule YscWeb.AdminBookingsLive do
 
       <div class="flex justify-between py-6">
         <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
-          Bookings Configuration
+          <%= atom_to_readable(@selected_property) %> Bookings
         </h1>
       </div>
       <!-- Property Tabs -->
@@ -574,40 +574,61 @@ defmodule YscWeb.AdminBookingsLive do
             </div>
           </div>
 
-          <div class="overflow-x-auto relative" id="calendar-container" phx-hook="CalendarHover">
+          <div class="flex relative" id="calendar-container" phx-hook="CalendarHover">
             <% total_days = length(@calendar_dates)
             total_cols = total_days * 2 %>
-            <div class="grid" style="grid-template-columns: 220px minmax(640px, 1fr)">
+            <!-- Fixed Left Column: Row Titles -->
+            <div class="flex-shrink-0 w-[220px] border-r border-zinc-200 bg-white">
               <!-- Header: Room label -->
-              <div class="sticky left-0 z-30 bg-white border-b border-r border-zinc-200 px-3 py-2 text-left font-semibold text-zinc-700 shadow-sm">
+              <div class="border-b border-zinc-200 px-3 py-2 text-left font-semibold text-zinc-700 bg-white">
                 Room
               </div>
+              <!-- Blackouts Row Title -->
+              <div class="border-b border-zinc-200 flex items-center gap-2 px-3 h-12 bg-white">
+                <div class="h-2 w-2 rounded-full bg-red-500"></div>
+                <div class="text-sm font-medium text-zinc-800">Blackouts</div>
+              </div>
+              <!-- Full Buyout Row Title -->
+              <div class="border-b border-zinc-200 flex items-center gap-2 px-3 h-12 bg-white">
+                <div class="h-2 w-2 rounded-full bg-green-500"></div>
+                <div class="text-sm font-medium text-zinc-800">Full Buyout</div>
+              </div>
+              <!-- Room Row Titles -->
+              <%= for room <- @filtered_rooms do %>
+                <div class="border-b border-zinc-200 flex items-center gap-2 px-3 h-12 bg-white">
+                  <div class="h-2 w-2 rounded-full bg-blue-500"></div>
+                  <div class="text-sm font-medium text-zinc-800">
+                    <%= room.name %>
+                    <span :if={room.room_category} class="text-xs text-zinc-500">
+                      (<%= atom_to_readable(room.room_category.name) %>)
+                    </span>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+            <!-- Scrollable Right Area: Date Columns -->
+            <div class="flex-1 overflow-x-auto">
               <!-- Header: Date columns -->
-              <div class="relative">
+              <div>
                 <div
                   class="grid text-xs text-zinc-600 select-none"
                   style={"grid-template-columns: repeat(#{total_cols}, minmax(56px, 1fr));"}
                 >
                   <%= for date <- @calendar_dates do %>
-                    <div class="col-span-2 flex items-center justify-center border-b border-zinc-200">
-                      <div class={"flex flex-col items-center justify-center h-10 w-full relative #{if Date.compare(date, @today) == :eq, do: "bg-blue-50", else: ""}"}>
+                    <div class="col-span-2 flex items-center justify-center border-r border-zinc-200 border-b">
+                      <div class={"flex flex-col items-center justify-center h-10 w-full relative #{if Date.compare(date, @today) == :eq, do: "bg-blue-100/20", else: ""}"}>
                         <span class="font-medium text-center">
                           <%= Calendar.strftime(date, "%a") %>
                         </span>
                         <span class="text-zinc-500 text-center">
                           <%= Calendar.strftime(date, "%m/%d") %>
                         </span>
-                        <div class="absolute right-0 top-0 bottom-0 w-px"></div>
                       </div>
                     </div>
                   <% end %>
                 </div>
               </div>
               <!-- Blackouts Row -->
-              <div class="sticky left-0 z-30 bg-white border-b border-r border-zinc-200 flex items-center gap-2 px-3 py-2 shadow-sm">
-                <div class="h-2 w-2 rounded-full bg-red-500"></div>
-                <div class="text-sm font-medium text-zinc-800">Blackouts</div>
-              </div>
               <div
                 class="relative grid"
                 style={"grid-template-columns: repeat(#{total_cols}, minmax(56px, 1fr));"}
@@ -626,7 +647,7 @@ defmodule YscWeb.AdminBookingsLive do
                     cond do
                       is_selected_start -> "bg-red-200"
                       is_in_range && !is_selected_start -> "bg-red-100/60"
-                      is_today_col(i, @calendar_dates, @today) -> "bg-blue-50"
+                      is_today_col(i, @calendar_dates, @today) -> "bg-blue-100/20"
                       true -> "bg-white"
                     end %>
                   <div
@@ -655,10 +676,6 @@ defmodule YscWeb.AdminBookingsLive do
                 end %>
               </div>
               <!-- Full Buyout Row -->
-              <div class="sticky left-0 z-30 bg-white border-b border-r border-zinc-200 flex items-center gap-2 px-3 py-2 shadow-sm">
-                <div class="h-2 w-2 rounded-full bg-green-500"></div>
-                <div class="text-sm font-medium text-zinc-800">Full Buyout</div>
-              </div>
               <div
                 class="relative grid"
                 style={"grid-template-columns: repeat(#{total_cols}, minmax(56px, 1fr));"}
@@ -677,7 +694,7 @@ defmodule YscWeb.AdminBookingsLive do
                     cond do
                       is_selected_start -> "bg-green-200"
                       is_in_range && !is_selected_start -> "bg-green-100/60"
-                      is_today_col(i, @calendar_dates, @today) -> "bg-blue-50"
+                      is_today_col(i, @calendar_dates, @today) -> "bg-blue-100/20"
                       true -> "bg-white"
                     end %>
                   <div
@@ -705,15 +722,6 @@ defmodule YscWeb.AdminBookingsLive do
               </div>
               <!-- Room Rows -->
               <%= for room <- @filtered_rooms do %>
-                <div class="sticky left-0 z-30 bg-white border-b border-r border-zinc-200 flex items-center gap-2 px-3 py-2 shadow-sm">
-                  <div class="h-2 w-2 rounded-full bg-blue-500"></div>
-                  <div class="text-sm font-medium text-zinc-800">
-                    <%= room.name %>
-                    <span :if={room.room_category} class="text-xs text-zinc-500">
-                      (<%= atom_to_readable(room.room_category.name) %>)
-                    </span>
-                  </div>
-                </div>
                 <div
                   class="relative grid"
                   style={"grid-template-columns: repeat(#{total_cols}, minmax(56px, 1fr));"}
@@ -737,7 +745,7 @@ defmodule YscWeb.AdminBookingsLive do
                       cond do
                         is_selected_start -> "bg-blue-200"
                         is_in_range && !is_selected_start -> "bg-blue-100/60"
-                        is_today_col(i, @calendar_dates, @today) -> "bg-blue-50"
+                        is_today_col(i, @calendar_dates, @today) -> "bg-blue-100/20"
                         true -> "bg-white"
                       end %>
                     <div
