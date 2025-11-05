@@ -15,19 +15,10 @@ defmodule Ysc.PropertyOutages.OutageScraperWorker do
   def perform(%Oban.Job{} = job) do
     Logger.info("Starting outage scraper job", job_id: job.id)
 
-    case Scraper.scrape_all() do
-      {:ok, results} ->
-        Logger.info("Outage scraper job completed successfully", job_id: job.id)
-        :ok
+    {:ok, _results} = Scraper.scrape_all()
 
-      {:error, reason} ->
-        Logger.error("Outage scraper job failed",
-          job_id: job.id,
-          error: inspect(reason)
-        )
-
-        {:error, reason}
-    end
+    Logger.info("Outage scraper job completed successfully", job_id: job.id)
+    :ok
   end
 
   @impl Oban.Worker

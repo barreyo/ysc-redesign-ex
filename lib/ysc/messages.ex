@@ -12,6 +12,12 @@ defmodule Ysc.Messages do
 
   alias Ysc.Mailer
 
+  # Helper function to safely convert email recipient to string
+  defp email_recipient_to_string(recipient) when is_binary(recipient), do: recipient
+  defp email_recipient_to_string({_name, email}) when is_binary(email), do: email
+  defp email_recipient_to_string([recipient | _]), do: email_recipient_to_string(recipient)
+  defp email_recipient_to_string(other), do: inspect(other)
+
   def create_message_idempotency(attrs) do
     %MessageIdempotency{}
     |> MessageIdempotency.changeset(attrs)
@@ -67,6 +73,17 @@ defmodule Ysc.Messages do
             idempotency_key: attrs[:idempotency_key]
           )
 
+          # Emit telemetry event for successful email send
+          :telemetry.execute(
+            [:ysc, :email, :sent],
+            %{count: 1},
+            %{
+              template: attrs[:message_template] || "unknown",
+              recipient: email_recipient_to_string(email.to),
+              idempotency_key: attrs[:idempotency_key] || nil
+            }
+          )
+
           {:ok, email}
 
         {:error, :message_idempotency, changeset, _} ->
@@ -74,6 +91,18 @@ defmodule Ysc.Messages do
             recipient: email.to,
             idempotency_key: attrs[:idempotency_key],
             errors: inspect(changeset.errors)
+          )
+
+          # Emit telemetry event for duplicate email (idempotency - treat as success)
+          :telemetry.execute(
+            [:ysc, :email, :sent],
+            %{count: 1},
+            %{
+              template: attrs[:message_template] || "unknown",
+              recipient: email_recipient_to_string(email.to),
+              idempotency_key: attrs[:idempotency_key] || nil,
+              duplicate: true
+            }
           )
 
           {:ok, email}
@@ -86,6 +115,19 @@ defmodule Ysc.Messages do
             reason: inspect(reason)
           )
 
+          # Emit telemetry event for email send failure
+          :telemetry.execute(
+            [:ysc, :email, :send_failed],
+            %{count: 1},
+            %{
+              template: attrs[:message_template] || "unknown",
+              recipient: email_recipient_to_string(email.to),
+              idempotency_key: attrs[:idempotency_key] || nil,
+              operation: to_string(operation),
+              reason: inspect(reason)
+            }
+          )
+
           {:error, "failed to send email"}
 
         error ->
@@ -93,6 +135,18 @@ defmodule Ysc.Messages do
             recipient: email.to,
             idempotency_key: attrs[:idempotency_key],
             error: inspect(error)
+          )
+
+          # Emit telemetry event for email send failure
+          :telemetry.execute(
+            [:ysc, :email, :send_failed],
+            %{count: 1},
+            %{
+              template: attrs[:message_template] || "unknown",
+              recipient: email_recipient_to_string(email.to),
+              idempotency_key: attrs[:idempotency_key] || nil,
+              error: inspect(error)
+            }
           )
 
           {:error, "failed to send email"}
@@ -117,6 +171,18 @@ defmodule Ysc.Messages do
               constraint: constraint_string
             )
 
+            # Emit telemetry event for duplicate email (idempotency - treat as success)
+            :telemetry.execute(
+              [:ysc, :email, :sent],
+              %{count: 1},
+              %{
+                template: attrs[:message_template] || "unknown",
+                recipient: to_string(email.to),
+                idempotency_key: attrs[:idempotency_key] || nil,
+                duplicate: true
+              }
+            )
+
             {:ok, email}
           else
             Logger.error("Email transaction raised unique constraint error (not idempotency)",
@@ -124,6 +190,19 @@ defmodule Ysc.Messages do
               idempotency_key: attrs[:idempotency_key],
               constraint: constraint_string,
               error: inspect(error)
+            )
+
+            # Emit telemetry event for email send failure
+            :telemetry.execute(
+              [:ysc, :email, :send_failed],
+              %{count: 1},
+              %{
+                template: attrs[:message_template] || "unknown",
+                recipient: to_string(email.to),
+                idempotency_key: attrs[:idempotency_key] || nil,
+                constraint: constraint_string,
+                error: inspect(error)
+              }
             )
 
             {:error, "failed to send email"}
@@ -137,6 +216,19 @@ defmodule Ysc.Messages do
             error: inspect(error)
           )
 
+          # Emit telemetry event for email send failure
+          :telemetry.execute(
+            [:ysc, :email, :send_failed],
+            %{count: 1},
+            %{
+              template: attrs[:message_template] || "unknown",
+              recipient: email_recipient_to_string(email.to),
+              idempotency_key: attrs[:idempotency_key] || nil,
+              constraint: to_string(error.constraint),
+              error: inspect(error)
+            }
+          )
+
           {:error, "failed to send email"}
         end
 
@@ -146,6 +238,18 @@ defmodule Ysc.Messages do
           idempotency_key: attrs[:idempotency_key],
           error: inspect(error),
           stacktrace: Exception.format_stacktrace(__STACKTRACE__)
+        )
+
+        # Emit telemetry event for email send failure
+        :telemetry.execute(
+          [:ysc, :email, :send_failed],
+          %{count: 1},
+          %{
+            template: attrs[:message_template] || "unknown",
+            recipient: to_string(email.to),
+            idempotency_key: attrs[:idempotency_key] || nil,
+            error: inspect(error)
+          }
         )
 
         {:error, "failed to send email"}

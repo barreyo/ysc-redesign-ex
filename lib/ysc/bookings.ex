@@ -19,7 +19,7 @@ defmodule Ysc.Bookings do
   import Ecto.Query, warn: false
 
   alias Ysc.Repo
-  alias Ysc.Bookings.{Season, PricingRule, Room, RoomCategory, Blackout, Booking}
+  alias Ysc.Bookings.{Season, PricingRule, Room, RoomCategory, Blackout, Booking, DoorCode}
 
   # Check-in and check-out times
   @checkin_time ~T[15:00:00]
@@ -207,6 +207,175 @@ defmodule Ysc.Bookings do
 
     Repo.all(query)
   end
+
+  @doc """
+  Lists bookings with pagination, filtering, and search support.
+
+  Supports fuzzy search by user name, email, or booking reference.
+  Supports date range filtering by booking dates.
+  """
+  def list_paginated_bookings(params) do
+    # Extract date range filters if present
+    {date_range_filters, other_params} = extract_date_range_filters(params)
+    # Extract property filter if present
+    {property_filter, other_params} = extract_property_filter(other_params)
+
+    base_query = from(b in Booking, preload: [:user, room: :room_category])
+
+    # Apply property filter
+    base_query =
+      if property_filter do
+        from b in base_query, where: b.property == ^property_filter
+      else
+        base_query
+      end
+
+    # Apply date range filters
+    base_query =
+      if date_range_filters[:filter_start_date] && date_range_filters[:filter_end_date] do
+        from b in base_query,
+          where:
+            fragment(
+              "(? <= ? AND ? >= ?)",
+              b.checkin_date,
+              ^date_range_filters[:filter_end_date],
+              b.checkout_date,
+              ^date_range_filters[:filter_start_date]
+            )
+      else
+        base_query
+      end
+
+    case Flop.validate_and_run(base_query, other_params, for: Booking) do
+      {:ok, {bookings, meta}} ->
+        {:ok, {bookings, meta}}
+
+      error ->
+        error
+    end
+  end
+
+  def list_paginated_bookings(params, nil), do: list_paginated_bookings(params)
+
+  def list_paginated_bookings(params, search_term) when search_term == "",
+    do: list_paginated_bookings(params)
+
+  @spec list_paginated_bookings(
+          %{optional(:__struct__) => Flop, optional(atom() | binary()) => any()},
+          any()
+        ) :: {:error, Flop.Meta.t()} | {:ok, {list(), Flop.Meta.t()}}
+  def list_paginated_bookings(params, search_term) do
+    # Extract date range filters if present
+    {date_range_filters, other_params} = extract_date_range_filters(params)
+    # Extract property filter if present
+    {property_filter, other_params} = extract_property_filter(other_params)
+
+    base_query = fuzzy_search_booking(search_term)
+
+    # Apply property filter
+    base_query =
+      if property_filter do
+        from b in base_query, where: b.property == ^property_filter
+      else
+        base_query
+      end
+
+    # Apply date range filters
+    base_query =
+      if date_range_filters[:filter_start_date] && date_range_filters[:filter_end_date] do
+        from b in base_query,
+          where:
+            fragment(
+              "(? <= ? AND ? >= ?)",
+              b.checkin_date,
+              ^date_range_filters[:filter_end_date],
+              b.checkout_date,
+              ^date_range_filters[:filter_start_date]
+            )
+      else
+        base_query
+      end
+
+    case Flop.validate_and_run(base_query, other_params, for: Booking) do
+      {:ok, {bookings, meta}} ->
+        {:ok, {bookings, meta}}
+
+      error ->
+        error
+    end
+  end
+
+  defp fuzzy_search_booking(search_term) do
+    search_like = "%#{search_term}%"
+
+    from(b in Booking,
+      left_join: u in assoc(b, :user),
+      where:
+        fragment("SIMILARITY(?, ?) > 0.2", u.email, ^search_term) or
+          fragment("SIMILARITY(?, ?) > 0.2", u.first_name, ^search_term) or
+          fragment("SIMILARITY(?, ?) > 0.2", u.last_name, ^search_term) or
+          ilike(b.reference_id, ^search_like),
+      preload: [:user, room: :room_category]
+    )
+  end
+
+  defp extract_property_filter(params) do
+    if params["filter"] && params["filter"]["property"] do
+      property_str = params["filter"]["property"]
+      property_atom = String.to_existing_atom(property_str)
+      filtered_params = delete_in(params, ["filter", "property"])
+      {property_atom, filtered_params}
+    else
+      {nil, params}
+    end
+  end
+
+  defp extract_date_range_filters(params) do
+    filter_start_date =
+      if params["filter"] && params["filter"]["filter_start_date"] do
+        case Date.from_iso8601(params["filter"]["filter_start_date"]) do
+          {:ok, date} -> date
+          _ -> nil
+        end
+      else
+        nil
+      end
+
+    filter_end_date =
+      if params["filter"] && params["filter"]["filter_end_date"] do
+        case Date.from_iso8601(params["filter"]["filter_end_date"]) do
+          {:ok, date} -> date
+          _ -> nil
+        end
+      else
+        nil
+      end
+
+    filtered_params =
+      params
+      |> delete_in(["filter", "filter_start_date"])
+      |> delete_in(["filter", "filter_end_date"])
+
+    {%{filter_start_date: filter_start_date, filter_end_date: filter_end_date}, filtered_params}
+  end
+
+  defp delete_in(map, [key | rest]) when is_map(map) do
+    case rest do
+      [] ->
+        Map.delete(map, key)
+
+      [next_key | remaining] ->
+        if is_map(map[key]) do
+          Map.update(map, key, %{}, fn nested_map ->
+            delete_in(nested_map, [next_key | remaining])
+          end)
+        else
+          map
+        end
+    end
+  end
+
+  defp delete_in(map, _), do: map
 
   @doc """
   Gets a single booking.
@@ -728,5 +897,119 @@ defmodule Ysc.Bookings do
     else
       {:error, :pricing_rule_not_found}
     end
+  end
+
+  ## Door Codes
+
+  @doc """
+  Gets the currently active door code for a property.
+  Returns nil if no active code exists.
+  """
+  def get_active_door_code(property) do
+    from(dc in DoorCode,
+      where: dc.property == ^property,
+      where: is_nil(dc.active_to),
+      order_by: [desc: dc.active_from],
+      limit: 1
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Lists all door codes for a property, ordered by most recent first.
+  """
+  def list_door_codes(property) do
+    from(dc in DoorCode,
+      where: dc.property == ^property,
+      order_by: [desc: dc.active_from, desc: dc.inserted_at]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets the last 3 door codes (excluding the current one if it matches) for a property.
+  Used to check for code reuse warnings.
+  """
+  def get_recent_door_codes(property, exclude_code \\ nil) do
+    query =
+      from(dc in DoorCode,
+        where: dc.property == ^property,
+        order_by: [desc: dc.active_from, desc: dc.inserted_at],
+        limit: 3
+      )
+
+    query =
+      if exclude_code do
+        from(dc in query, where: dc.code != ^exclude_code)
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Creates a new door code and invalidates all previous codes for the property.
+
+  Sets active_from to the current datetime and active_to to nil (making it active).
+  Sets active_to to the current datetime for all other door codes for this property.
+  """
+  def create_door_code(attrs \\ %{}) do
+    property = attrs[:property] || attrs["property"]
+    code = attrs[:code] || attrs["code"]
+
+    if is_nil(property) or is_nil(code) do
+      {:error, :invalid_attributes}
+    else
+      case Repo.transaction(fn ->
+             now = DateTime.utc_now()
+
+             # Invalidate all previous door codes for this property
+             from(dc in DoorCode,
+               where: dc.property == ^property,
+               where: is_nil(dc.active_to)
+             )
+             |> Repo.update_all(set: [active_to: now])
+
+             # Create the new door code - normalize all keys to strings
+             door_code_attrs =
+               attrs
+               |> Enum.map(fn
+                 {k, v} when is_atom(k) -> {Atom.to_string(k), v}
+                 {k, v} -> {k, v}
+               end)
+               |> Enum.into(%{})
+               |> Map.put("active_from", now)
+               |> Map.put("active_to", nil)
+               |> Map.put("property", property)
+               |> Map.put("code", code)
+
+             case %DoorCode{}
+                  |> DoorCode.changeset(door_code_attrs)
+                  |> Repo.insert() do
+               {:ok, door_code} ->
+                 door_code
+
+               {:error, changeset} ->
+                 Repo.rollback(changeset)
+             end
+           end) do
+        {:ok, door_code} ->
+          {:ok, door_code}
+
+        {:error, changeset} ->
+          {:error, changeset}
+
+        error ->
+          error
+      end
+    end
+  end
+
+  @doc """
+  Gets a single door code.
+  """
+  def get_door_code!(id) do
+    Repo.get!(DoorCode, id)
   end
 end

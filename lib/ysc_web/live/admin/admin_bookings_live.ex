@@ -179,9 +179,61 @@ defmodule YscWeb.AdminBookingsLive do
         :if={@live_action == :view_booking}
         id="booking-modal"
         on_cancel={
-          JS.navigate(
-            ~p"/admin/bookings?property=#{@selected_property}&from_date=#{Date.to_string(@calendar_start_date)}&to_date=#{Date.to_string(@calendar_end_date)}"
-          )
+          query_params = %{
+            "property" => Atom.to_string(@selected_property),
+            "from_date" => Date.to_string(@calendar_start_date),
+            "to_date" => Date.to_string(@calendar_end_date)
+          }
+
+          query_params =
+            if @current_section == :reservations,
+              do: Map.put(query_params, "section", "reservations"),
+              else: query_params
+
+          # Preserve search and filter parameters from reservation_params if on reservations tab
+          query_params =
+            if @current_section == :reservations && @reservation_params do
+              reservation_params = @reservation_params
+
+              # Preserve search query if it exists
+              query_params =
+                if reservation_params["search"],
+                  do: Map.put(query_params, "search", reservation_params["search"]),
+                  else: query_params
+
+              # Preserve date range filters if they exist
+              query_params =
+                if reservation_params["filter"] do
+                  filter_params = reservation_params["filter"]
+                  filter_map = %{}
+
+                  filter_map =
+                    if filter_params["filter_start_date"],
+                      do:
+                        Map.put(filter_map, "filter_start_date", filter_params["filter_start_date"]),
+                      else: filter_map
+
+                  filter_map =
+                    if filter_params["filter_end_date"],
+                      do: Map.put(filter_map, "filter_end_date", filter_params["filter_end_date"]),
+                      else: filter_map
+
+                  if map_size(filter_map) > 0 do
+                    Map.put(query_params, "filter", filter_map)
+                  else
+                    query_params
+                  end
+                else
+                  query_params
+                end
+
+              query_params
+            else
+              query_params
+            end
+
+          query_string = URI.encode_query(flatten_query_params(query_params))
+          JS.navigate("/admin/bookings?#{query_string}")
         }
         show
       >
@@ -431,6 +483,19 @@ defmodule YscWeb.AdminBookingsLive do
           </button>
           <button
             phx-click="select-section"
+            phx-value-section="reservations"
+            class={[
+              "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
+              if(@current_section == :reservations,
+                do: "border-blue-500 text-blue-600",
+                else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+              )
+            ]}
+          >
+            Reservations
+          </button>
+          <button
+            phx-click="select-section"
             phx-value-section="config"
             class={[
               "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
@@ -445,7 +510,7 @@ defmodule YscWeb.AdminBookingsLive do
         </nav>
       </div>
       <!-- Calendar View -->
-      <div :if={@current_section == :calendar} class="space-y-6">
+      <div :if={@current_section == :calendar} class="space-y-6 pb-16">
         <div class="bg-white rounded border p-3 sm:p-6">
           <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-4 sm:mb-6 gap-4">
             <div>
@@ -700,8 +765,310 @@ defmodule YscWeb.AdminBookingsLive do
           </div>
         </div>
       </div>
+      <!-- Reservations View -->
+      <div :if={@current_section == :reservations} class="space-y-6 pb-16">
+        <div class="bg-white rounded border p-3 sm:p-6">
+          <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-4 sm:mb-6 gap-4">
+            <div>
+              <h2 class="text-base sm:text-lg font-semibold text-zinc-800">
+                All Reservations
+              </h2>
+              <p class="text-xs sm:text-sm text-zinc-500 mt-1">
+                Search and filter reservations for <%= atom_to_readable(@selected_property) %>
+              </p>
+            </div>
+          </div>
+
+          <div class="w-full pt-4">
+            <div>
+              <form
+                action=""
+                novalidate=""
+                role="search"
+                phx-change="change-reservation-search"
+                phx-submit="change-reservation-search"
+                phx-submit-disable
+                class="relative"
+              >
+                <div class="absolute inset-y-0 rtl:inset-r-0 start-0 flex items-center ps-3 pointer-events-none">
+                  <.icon name="hero-magnifying-glass" class="w-5 h-5 text-zinc-500" />
+                </div>
+                <input
+                  id="reservation-search"
+                  type="search"
+                  name="search[query]"
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  enterkeyhint="search"
+                  spellcheck="false"
+                  placeholder="Search by name, email or booking reference"
+                  value={
+                    case @reservation_params["search"] do
+                      %{"query" => query} -> query
+                      query when is_binary(query) -> query
+                      _ -> ""
+                    end
+                  }
+                  tabindex="0"
+                  phx-debounce="200"
+                  class="block pt-3 pb-3 ps-10 text-sm text-zinc-800 border border-zinc-200 rounded w-full bg-zinc-50 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </form>
+            </div>
+            <div class="py-6 w-full">
+              <Flop.Phoenix.table
+                id="admin_reservations_list"
+                items={@streams.reservations}
+                meta={@reservation_meta}
+                path={~p"/admin/bookings"}
+              >
+                <:col :let={{_, booking}} label="Reference" field={:reference_id}>
+                  <.badge type="default">
+                    <span class="font-mono text-xs"><%= booking.reference_id %></span>
+                  </.badge>
+                </:col>
+                <:col :let={{_, booking}} label="Guest" field={:user_name}>
+                  <%= if booking.user do %>
+                    <div>
+                      <div class="text-sm font-semibold text-zinc-800">
+                        <%= if booking.user.first_name && booking.user.last_name do
+                          "#{booking.user.first_name} #{booking.user.last_name}"
+                        else
+                          booking.user.email || "Unknown User"
+                        end %>
+                      </div>
+                      <%= if booking.user.email && (booking.user.first_name || booking.user.last_name) do %>
+                        <div class="text-xs text-zinc-500 mt-0.5">
+                          <%= booking.user.email %>
+                        </div>
+                      <% end %>
+                    </div>
+                  <% else %>
+                    <span class="text-zinc-400">—</span>
+                  <% end %>
+                </:col>
+                <:col :let={{_, booking}} label="Check-in" field={:checkin_date}>
+                  <span class="text-sm text-zinc-800">
+                    <%= Calendar.strftime(booking.checkin_date, "%b %d, %Y") %>
+                  </span>
+                </:col>
+                <:col :let={{_, booking}} label="Check-out" field={:checkout_date}>
+                  <span class="text-sm text-zinc-800">
+                    <%= Calendar.strftime(booking.checkout_date, "%b %d, %Y") %>
+                  </span>
+                </:col>
+                <:col :let={{_, booking}} label="Nights">
+                  <span class="text-sm text-zinc-600">
+                    <%= Date.diff(booking.checkout_date, booking.checkin_date) %>
+                  </span>
+                </:col>
+                <:col :let={{_, booking}} label="Guests" field={:guests_count}>
+                  <span class="text-sm text-zinc-600">
+                    <%= booking.guests_count %>
+                  </span>
+                </:col>
+                <:col :let={{_, booking}} label="Room" field={:booking_mode}>
+                  <%= if booking.room do %>
+                    <div>
+                      <div class="text-sm font-medium text-zinc-800">
+                        <%= booking.room.name %>
+                      </div>
+                      <%= if booking.room.room_category do %>
+                        <div class="text-xs text-zinc-500 mt-0.5">
+                          <%= atom_to_readable(booking.room.room_category.name) %>
+                        </div>
+                      <% end %>
+                    </div>
+                  <% else %>
+                    <.badge type="green">Full Buyout</.badge>
+                  <% end %>
+                </:col>
+                <:col :let={{_, booking}} label="Booked" field={:inserted_at}>
+                  <span class="text-sm text-zinc-600">
+                    <%= Calendar.strftime(booking.inserted_at, "%b %d, %Y") %>
+                  </span>
+                </:col>
+                <:action :let={{_, booking}} label="Action">
+                  <button
+                    phx-click="view-booking"
+                    phx-value-booking-id={booking.id}
+                    class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
+                  >
+                    View
+                  </button>
+                </:action>
+              </Flop.Phoenix.table>
+
+              <div :if={@reservation_empty} class="py-16">
+                <.empty_viking_state
+                  title="No reservations found"
+                  suggestion="Try adjusting your search term and filters."
+                />
+
+                <div class="px-4 py-4 flex items-center align-center justify-center">
+                  <button
+                    class="rounded mx-auto hover:bg-zinc-100 w-36 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-100/80"
+                    phx-click="clear-reservation-filters"
+                  >
+                    <.icon name="hero-x-circle" class="w-5 h-5 -mt-1" /> Clear filters
+                  </button>
+                </div>
+              </div>
+
+              <Flop.Phoenix.pagination
+                meta={@reservation_meta}
+                path={~p"/admin/bookings"}
+                opts={[
+                  wrapper_attrs: [class: "flex items-center justify-center py-10 h-10 text-base"],
+                  pagination_list_attrs: [
+                    class: [
+                      "flex gap-0 order-2 justify-center items-center"
+                    ]
+                  ],
+                  previous_link_attrs: [
+                    class:
+                      "order-1 flex justify-center items-center px-3 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                  ],
+                  next_link_attrs: [
+                    class:
+                      "order-3 flex justify-center items-center px-3 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                  ],
+                  page_links: {:ellipsis, 5}
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
       <!-- Configuration View -->
-      <div :if={@current_section == :config} class="space-y-8">
+      <div :if={@current_section == :config} class="space-y-8 pb-16 max-w-screen-lg">
+        <!-- Door Codes Section -->
+        <div class="bg-white rounded border p-6">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h2 class="text-lg font-semibold text-zinc-800">Door Codes</h2>
+              <p class="text-sm text-zinc-500">
+                Manage door codes for <%= atom_to_readable(@selected_property) %>
+              </p>
+            </div>
+          </div>
+          <!-- Active Door Code -->
+          <div class="mb-6 p-4 bg-blue-50 rounded border border-blue-200">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-semibold text-zinc-700 mb-1">Current Active Code</p>
+                <p :if={@active_door_code} class="text-2xl font-mono font-bold text-blue-700">
+                  <%= @active_door_code.code %>
+                </p>
+                <p :if={!@active_door_code} class="text-sm text-zinc-500 italic">
+                  No active code set
+                </p>
+                <p :if={@active_door_code} class="text-xs text-zinc-500 mt-1">
+                  Active since <%= format_datetime(@active_door_code.active_from) %>
+                </p>
+              </div>
+            </div>
+          </div>
+          <!-- New Door Code Form -->
+          <div class="mb-6">
+            <h3 class="text-md font-semibold text-zinc-800 mb-3">Set New Door Code</h3>
+            <.simple_form
+              for={@door_code_form}
+              id="door-code-form"
+              phx-submit="save-door-code"
+              phx-change="validate-door-code"
+            >
+              <div class="flex gap-4 items-end">
+                <div class="flex-1">
+                  <.input
+                    type="text"
+                    field={@door_code_form[:code]}
+                    label="Door Code"
+                    placeholder="Enter 4-5 character code"
+                    maxlength="5"
+                    pattern="[A-Za-z0-9]{4,5}"
+                    required
+                    class="font-mono"
+                  />
+                </div>
+                <input
+                  type="hidden"
+                  name="door_code[property]"
+                  value={Atom.to_string(@selected_property)}
+                />
+                <div>
+                  <.button type="submit" phx-disable-with="Setting...">
+                    Set New Code
+                  </.button>
+                </div>
+              </div>
+            </.simple_form>
+            <!-- Warning if code matches recent codes -->
+            <div
+              :if={@door_code_warning}
+              class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800"
+            >
+              <div class="flex items-start">
+                <.icon name="hero-exclamation-triangle" class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p class="font-semibold mb-1">Warning: Code Reuse Detected</p>
+                  <p><%= @door_code_warning %></p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Previous Door Codes List -->
+          <div>
+            <h3 class="text-md font-semibold text-zinc-800 mb-3">Previous Door Codes</h3>
+            <div :if={@door_codes == []} class="text-sm text-zinc-500 italic py-4">
+              No previous door codes
+            </div>
+            <div :if={@door_codes != []} class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="text-left border-b border-zinc-200">
+                  <tr>
+                    <th class="pb-3 pr-6 font-semibold text-zinc-700">Code</th>
+                    <th class="pb-3 pr-6 font-semibold text-zinc-700">Active From</th>
+                    <th class="pb-3 pr-6 font-semibold text-zinc-700">Active To</th>
+                    <th class="pb-3 font-semibold text-zinc-700">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-100">
+                  <tr :for={door_code <- @door_codes} class="hover:bg-zinc-50">
+                    <td class="py-3 pr-6 font-mono font-semibold text-zinc-800">
+                      <%= door_code.code %>
+                    </td>
+                    <td class="py-3 pr-6 text-zinc-600">
+                      <%= format_datetime(door_code.active_from) %>
+                    </td>
+                    <td class="py-3 pr-6 text-zinc-600">
+                      <%= if door_code.active_to do
+                        format_datetime(door_code.active_to)
+                      else
+                        "—"
+                      end %>
+                    </td>
+                    <td class="py-3">
+                      <span
+                        :if={is_nil(door_code.active_to)}
+                        class="text-xs font-semibold text-green-600"
+                      >
+                        Active
+                      </span>
+                      <span
+                        :if={!is_nil(door_code.active_to)}
+                        class="text-xs font-semibold text-zinc-400"
+                      >
+                        Inactive
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
         <!-- Seasons Table -->
         <div class="bg-white rounded border p-6">
           <div class="flex justify-between items-center mb-4">
@@ -860,7 +1227,17 @@ defmodule YscWeb.AdminBookingsLive do
         :tahoe
       end
 
-    current_section = :calendar
+    current_section =
+      if parsed_params["section"] do
+        try do
+          String.to_existing_atom(parsed_params["section"])
+        rescue
+          _ -> :calendar
+        end
+      else
+        :calendar
+      end
+
     seasons = Bookings.list_seasons()
     pricing_rules = Bookings.list_pricing_rules()
     room_categories = Bookings.list_room_categories()
@@ -906,6 +1283,16 @@ defmodule YscWeb.AdminBookingsLive do
       |> Ecto.Changeset.cast(form_data, [:from_date, :to_date])
       |> to_form(as: "calendar_range")
 
+    # Load door codes for the selected property
+    door_codes = Bookings.list_door_codes(selected_property)
+    active_door_code = Bookings.get_active_door_code(selected_property)
+
+    # Create initial door code form
+    door_code_form =
+      %Ysc.Bookings.DoorCode{}
+      |> Ysc.Bookings.DoorCode.changeset(%{})
+      |> to_form(as: "door_code")
+
     {:ok,
      socket
      |> assign(:page_title, "Bookings")
@@ -927,6 +1314,19 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:date_selection_start, nil)
      |> assign(:date_selection_room_id, nil)
      |> assign(:date_selection_hover_end, nil)
+     |> assign(:reservation_params, %{})
+     |> assign(:reservation_meta, nil)
+     |> assign(:reservation_empty, false)
+     |> assign(:reservation_filter_start_date, nil)
+     |> assign(:reservation_filter_end_date, nil)
+     |> assign(:door_codes, door_codes)
+     |> assign(:active_door_code, active_door_code)
+     |> assign(:door_code_form, door_code_form)
+     |> assign(:door_code_warning, nil)
+     |> assign(
+       :reservations_path,
+       ~p"/admin/bookings?property=#{selected_property}&section=reservations"
+     )
      |> assign_filtered_data(selected_property, seasons, pricing_rules)
      |> update_calendar_view(selected_property)}
   end
@@ -982,6 +1382,21 @@ defmodule YscWeb.AdminBookingsLive do
           |> assign(:calendar_end_date, end_date)
       end
 
+    # Update section if provided in params
+    socket =
+      if params["section"] do
+        section_atom =
+          try do
+            String.to_existing_atom(params["section"])
+          rescue
+            _ -> socket.assigns[:current_section] || :calendar
+          end
+
+        assign(socket, :current_section, section_atom)
+      else
+        socket
+      end
+
     # Update selected_property if provided in params
     socket =
       if params["property"] do
@@ -1003,6 +1418,14 @@ defmodule YscWeb.AdminBookingsLive do
     socket =
       if socket.assigns.live_action == :index do
         update_calendar_view(socket, socket.assigns.selected_property)
+      else
+        socket
+      end
+
+    # Load reservations for the table only if on reservations section
+    socket =
+      if socket.assigns[:current_section] == :reservations do
+        load_reservations(socket, params)
       else
         socket
       end
@@ -1328,9 +1751,16 @@ defmodule YscWeb.AdminBookingsLive do
   def handle_event("select-property", %{"property" => property}, socket) do
     property_atom = String.to_existing_atom(property)
 
+    # Reload door codes for the new property
+    door_codes = Bookings.list_door_codes(property_atom)
+    active_door_code = Bookings.get_active_door_code(property_atom)
+
     {:noreply,
      socket
      |> assign(:selected_property, property_atom)
+     |> assign(:door_codes, door_codes)
+     |> assign(:active_door_code, active_door_code)
+     |> assign(:door_code_warning, nil)
      |> assign_filtered_data(property_atom, socket.assigns.seasons, socket.assigns.pricing_rules)
      |> update_calendar_view(property_atom)}
   end
@@ -1416,15 +1846,71 @@ defmodule YscWeb.AdminBookingsLive do
     start_date = socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
     end_date = socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
 
-    query_params = [
-      property: socket.assigns.selected_property,
-      from_date: Date.to_string(start_date),
-      to_date: Date.to_string(end_date)
-    ]
+    # Start with base query params
+    base_query_params = %{
+      "property" => Atom.to_string(socket.assigns.selected_property),
+      "from_date" => Date.to_string(start_date),
+      "to_date" => Date.to_string(end_date)
+    }
+
+    # Preserve section if on reservations tab
+    query_params =
+      if socket.assigns[:current_section] == :reservations do
+        Map.put(base_query_params, "section", "reservations")
+      else
+        base_query_params
+      end
+
+    # Preserve search and filter parameters from reservation_params if on reservations tab
+    query_params =
+      if socket.assigns[:current_section] == :reservations && socket.assigns[:reservation_params] do
+        reservation_params = socket.assigns[:reservation_params]
+
+        # Preserve search query if it exists
+        query_params =
+          if reservation_params["search"] do
+            Map.put(query_params, "search", reservation_params["search"])
+          else
+            query_params
+          end
+
+        # Preserve date range filters if they exist
+        query_params =
+          if reservation_params["filter"] do
+            filter_params = reservation_params["filter"]
+            filter_map = %{}
+
+            filter_map =
+              if filter_params["filter_start_date"] do
+                Map.put(filter_map, "filter_start_date", filter_params["filter_start_date"])
+              else
+                filter_map
+              end
+
+            filter_map =
+              if filter_params["filter_end_date"] do
+                Map.put(filter_map, "filter_end_date", filter_params["filter_end_date"])
+              else
+                filter_map
+              end
+
+            if map_size(filter_map) > 0 do
+              Map.put(query_params, "filter", filter_map)
+            else
+              query_params
+            end
+          else
+            query_params
+          end
+
+        query_params
+      else
+        query_params
+      end
 
     # Build URL properly - combine path and query string
     base_path = ~p"/admin/bookings/#{booking_id}"
-    query_string = URI.encode_query(query_params)
+    query_string = URI.encode_query(flatten_query_params(query_params))
 
     # Combine path and query string for navigation
     full_path = "#{base_path}?#{query_string}"
@@ -1640,9 +2126,85 @@ defmodule YscWeb.AdminBookingsLive do
   def handle_event("select-section", %{"section" => section}, socket) do
     section_atom = String.to_existing_atom(section)
 
-    {:noreply,
-     socket
-     |> assign(:current_section, section_atom)}
+    # Build query params preserving property and calendar dates
+    query_params = %{
+      "property" => Atom.to_string(socket.assigns.selected_property),
+      "section" => section
+    }
+
+    query_params =
+      if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+        Map.merge(query_params, %{
+          "from_date" => Date.to_string(socket.assigns.calendar_start_date),
+          "to_date" => Date.to_string(socket.assigns.calendar_end_date)
+        })
+      else
+        query_params
+      end
+
+    # Preserve reservation params if switching to reservations section
+    query_params =
+      if section_atom == :reservations && socket.assigns[:reservation_params] do
+        reservation_params = socket.assigns[:reservation_params]
+
+        # Preserve search if it exists
+        query_params =
+          if reservation_params["search"] do
+            Map.put(query_params, "search", reservation_params["search"])
+          else
+            query_params
+          end
+
+        # Preserve date range filters if they exist
+        query_params =
+          if reservation_params["filter"] do
+            filter_params = reservation_params["filter"]
+            filter_map = %{}
+
+            filter_map =
+              if filter_params["filter_start_date"] do
+                Map.put(filter_map, "filter_start_date", filter_params["filter_start_date"])
+              else
+                filter_map
+              end
+
+            filter_map =
+              if filter_params["filter_end_date"] do
+                Map.put(filter_map, "filter_end_date", filter_params["filter_end_date"])
+              else
+                filter_map
+              end
+
+            if map_size(filter_map) > 0 do
+              Map.put(query_params, "filter", filter_map)
+            else
+              query_params
+            end
+          else
+            query_params
+          end
+
+        query_params
+      else
+        query_params
+      end
+
+    socket =
+      socket
+      |> assign(:current_section, section_atom)
+      |> then(fn s ->
+        if section_atom == :reservations do
+          assign(s, :reservations_path, build_reservations_path(s, query_params))
+        else
+          s
+        end
+      end)
+
+    # Flatten nested maps before encoding
+    flattened_params = flatten_query_params(query_params)
+    query_string = URI.encode_query(flattened_params)
+
+    {:noreply, push_patch(socket, to: "/admin/bookings?#{query_string}")}
   end
 
   def handle_event("prev-month", _, socket) do
@@ -1858,6 +2420,113 @@ defmodule YscWeb.AdminBookingsLive do
     end
   end
 
+  def handle_event("change-reservation-search", %{"search" => %{"query" => search_query}}, socket) do
+    # Prevent default form submission
+    new_reservation_params =
+      if search_query == "" do
+        # Remove search from params if empty
+        Map.delete(socket.assigns[:reservation_params] || %{}, "search")
+      else
+        Map.put(socket.assigns[:reservation_params] || %{}, "search", %{"query" => search_query})
+      end
+
+    updated_params = build_reservation_query_params(socket, new_reservation_params)
+    query_string = URI.encode_query(updated_params)
+
+    {:noreply,
+     socket
+     |> assign(:reservation_params, new_reservation_params)
+     |> assign(:reservations_path, build_reservations_path(socket, updated_params))
+     |> push_patch(to: "/admin/bookings?#{query_string}")}
+  end
+
+  def handle_event("change-reservation-search", %{"search" => search_query}, socket)
+      when is_binary(search_query) do
+    # Prevent default form submission
+    new_reservation_params =
+      if search_query == "" do
+        # Remove search from params if empty
+        Map.delete(socket.assigns[:reservation_params] || %{}, "search")
+      else
+        Map.put(socket.assigns[:reservation_params] || %{}, "search", %{"query" => search_query})
+      end
+
+    updated_params = build_reservation_query_params(socket, new_reservation_params)
+    query_string = URI.encode_query(updated_params)
+
+    {:noreply,
+     socket
+     |> assign(:reservation_params, new_reservation_params)
+     |> assign(:reservations_path, build_reservations_path(socket, updated_params))
+     |> push_patch(to: "/admin/bookings?#{query_string}")}
+  end
+
+  def handle_event("update-reservation-date-range", params, socket) do
+    filter_start_date_str = Map.get(params, "filter_start_date")
+    filter_end_date_str = Map.get(params, "filter_end_date")
+
+    filter_start_date =
+      if filter_start_date_str && filter_start_date_str != "" do
+        case Date.from_iso8601(filter_start_date_str) do
+          {:ok, date} -> date
+          _ -> nil
+        end
+      else
+        nil
+      end
+
+    filter_end_date =
+      if filter_end_date_str && filter_end_date_str != "" do
+        case Date.from_iso8601(filter_end_date_str) do
+          {:ok, date} -> date
+          _ -> nil
+        end
+      else
+        nil
+      end
+
+    new_params = socket.assigns[:reservation_params] || %{}
+    filter_params = new_params["filter"] || %{}
+
+    filter_params =
+      filter_params
+      |> (fn f ->
+            if filter_start_date,
+              do: Map.put(f, "filter_start_date", Date.to_string(filter_start_date)),
+              else: Map.delete(f, "filter_start_date")
+          end).()
+      |> (fn f ->
+            if filter_end_date,
+              do: Map.put(f, "filter_end_date", Date.to_string(filter_end_date)),
+              else: Map.delete(f, "filter_end_date")
+          end).()
+
+    new_params = Map.put(new_params, "filter", filter_params)
+    updated_params = build_reservation_query_params(socket, new_params)
+    query_string = URI.encode_query(updated_params)
+
+    {:noreply,
+     socket
+     |> assign(:reservation_params, new_params)
+     |> assign(:reservation_filter_start_date, filter_start_date)
+     |> assign(:reservation_filter_end_date, filter_end_date)
+     |> assign(:reservations_path, build_reservations_path(socket, updated_params))
+     |> push_patch(to: "/admin/bookings?#{query_string}")}
+  end
+
+  def handle_event("clear-reservation-filters", _, socket) do
+    updated_params = build_reservation_query_params(socket, %{})
+    query_string = URI.encode_query(updated_params)
+
+    {:noreply,
+     socket
+     |> assign(:reservation_params, %{})
+     |> assign(:reservation_filter_start_date, nil)
+     |> assign(:reservation_filter_end_date, nil)
+     |> assign(:reservations_path, build_reservations_path(socket, updated_params))
+     |> push_patch(to: "/admin/bookings?#{query_string}")}
+  end
+
   def handle_event("save-pricing-rule", %{"pricing_rule" => pricing_rule_params}, socket) do
     # Convert amount string to Money struct
     pricing_rule_params =
@@ -1905,6 +2574,96 @@ defmodule YscWeb.AdminBookingsLive do
       {:error, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset, as: "pricing_rule"))}
     end
+  end
+
+  def handle_event("validate-door-code", %{"door_code" => door_code_params}, socket) do
+    code = String.trim(door_code_params["code"] || "")
+    property = socket.assigns.selected_property
+
+    # Check for code reuse warning
+    warning =
+      if code != "" && String.length(code) >= 4 do
+        # Get the last 3 codes (without excluding the current code)
+        recent_codes = Bookings.get_recent_door_codes(property, nil)
+        recent_codes_list = Enum.map(recent_codes, & &1.code)
+
+        if code in recent_codes_list do
+          "This code matches one of the last 3 used codes for this property. Are you sure you want to reuse it?"
+        else
+          nil
+        end
+      else
+        nil
+      end
+
+    # Create a simple changeset for validation
+    changeset =
+      %Ysc.Bookings.DoorCode{}
+      |> Ysc.Bookings.DoorCode.changeset(door_code_params)
+
+    form = to_form(changeset, as: "door_code")
+
+    {:noreply,
+     socket
+     |> assign(:door_code_form, form)
+     |> assign(:door_code_warning, warning)}
+  end
+
+  def handle_event("save-door-code", %{"door_code" => door_code_params}, socket) do
+    property = socket.assigns.selected_property
+    code = String.trim(door_code_params["code"] || "")
+
+    # Convert property to atom if it's a string
+    door_code_params =
+      door_code_params
+      |> Map.put("property", property)
+      |> Map.put("code", code)
+
+    case Bookings.create_door_code(door_code_params) do
+      {:ok, _door_code} ->
+        # Reload door codes
+        door_codes = Bookings.list_door_codes(property)
+        active_door_code = Bookings.get_active_door_code(property)
+
+        # Reset form
+        door_code_form =
+          %Ysc.Bookings.DoorCode{}
+          |> Ysc.Bookings.DoorCode.changeset(%{})
+          |> to_form(as: "door_code")
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Door code set successfully")
+         |> assign(:door_codes, door_codes)
+         |> assign(:active_door_code, active_door_code)
+         |> assign(:door_code_form, door_code_form)
+         |> assign(:door_code_warning, nil)}
+
+      {:error, :invalid_attributes} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Invalid door code. Please enter a 4-5 character alphanumeric code."
+         )}
+
+      {:error, changeset} ->
+        errors = translate_errors(changeset)
+
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to set door code: #{errors}")}
+    end
+  end
+
+  defp translate_errors(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {key, value}, acc ->
+        String.replace(acc, "%{#{key}}", to_string(value))
+      end)
+    end)
+    |> Enum.map(fn {field, errors} -> "#{field}: #{Enum.join(errors, ", ")}" end)
+    |> Enum.join("; ")
   end
 
   defp maybe_convert_atom(params, key) do
@@ -2029,6 +2788,14 @@ defmodule YscWeb.AdminBookingsLive do
 
   defp atom_to_readable(nil), do: "—"
   defp atom_to_readable(_), do: "—"
+
+  defp format_datetime(%DateTime{} = datetime) do
+    datetime
+    |> DateTime.shift_zone!("America/Los_Angeles")
+    |> Calendar.strftime("%b %d, %Y at %I:%M %p")
+  end
+
+  defp format_datetime(nil), do: "—"
 
   # Helper to check if today is within a date range (for cells with colspan > 1)
   # Calculate day index in calendar (0-based)
@@ -2346,4 +3113,201 @@ defmodule YscWeb.AdminBookingsLive do
       false
     end
   end
+
+  # Load reservations for the table
+  defp load_reservations(socket, params) do
+    # Extract search term from params
+    search = params["search"]
+
+    search_term =
+      case search do
+        %{"query" => query} when is_binary(query) -> query
+        query when is_binary(query) -> query
+        _ -> nil
+      end
+
+    # Extract date range filters from params
+    filter_start_date =
+      if params["filter"] && params["filter"]["filter_start_date"] do
+        case Date.from_iso8601(params["filter"]["filter_start_date"]) do
+          {:ok, date} -> date
+          _ -> nil
+        end
+      else
+        nil
+      end
+
+    filter_end_date =
+      if params["filter"] && params["filter"]["filter_end_date"] do
+        case Date.from_iso8601(params["filter"]["filter_end_date"]) do
+          {:ok, date} -> date
+          _ -> nil
+        end
+      else
+        nil
+      end
+
+    # Add property filter to params
+    params_with_property =
+      params
+      |> Map.put(
+        "filter",
+        (params["filter"] || %{})
+        |> Map.put("property", Atom.to_string(socket.assigns.selected_property))
+      )
+
+    case Bookings.list_paginated_bookings(params_with_property, search_term) do
+      {:ok, {reservations, meta}} ->
+        socket
+        |> assign(:reservation_params, params)
+        |> assign(:reservation_meta, meta)
+        |> assign(:reservation_empty, no_results?(reservations))
+        |> assign(:reservation_filter_start_date, filter_start_date)
+        |> assign(:reservation_filter_end_date, filter_end_date)
+        |> assign(:reservations_path, build_reservations_path(socket, params))
+        |> stream(:reservations, reservations, reset: true)
+
+      {:error, _meta} ->
+        socket
+        |> assign(:reservation_params, params)
+        |> assign(:reservation_meta, nil)
+        |> assign(:reservation_empty, true)
+        |> assign(:reservation_filter_start_date, filter_start_date)
+        |> assign(:reservation_filter_end_date, filter_end_date)
+        |> assign(:reservations_path, build_reservations_path(socket, params))
+    end
+  end
+
+  # Build query params for reservations while preserving calendar params
+  defp build_reservation_query_params(socket, reservation_params) do
+    base_params = %{
+      "property" => Atom.to_string(socket.assigns.selected_property),
+      "section" => "reservations"
+    }
+
+    # Add calendar date range if available
+    params_with_calendar =
+      if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+        Map.merge(base_params, %{
+          "from_date" => Date.to_string(socket.assigns.calendar_start_date),
+          "to_date" => Date.to_string(socket.assigns.calendar_end_date)
+        })
+      else
+        base_params
+      end
+
+    # Flatten nested maps before merging
+    flattened_reservation_params = flatten_query_params(reservation_params)
+    Map.merge(params_with_calendar, flattened_reservation_params)
+  end
+
+  # Build path for Flop table/pagination that preserves all query params
+  # Accepts either complete params (already includes property, section, etc.) or just reservation params
+  defp build_reservations_path(socket, params \\ %{}) do
+    # Check if params already includes base keys (means it's already complete)
+    has_base_keys = Map.has_key?(params, "property") || Map.has_key?(params, :property)
+
+    final_params =
+      if has_base_keys && params != %{} do
+        # Params are already complete (from build_reservation_query_params)
+        # Just ensure they're flattened if needed
+        flatten_query_params(params)
+      else
+        # Build base params and merge with reservation params
+        base_params = %{
+          "property" => Atom.to_string(socket.assigns.selected_property),
+          "section" => "reservations"
+        }
+
+        # Add calendar date range if available
+        params_with_calendar =
+          if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+            Map.merge(base_params, %{
+              from_date: Date.to_string(socket.assigns.calendar_start_date),
+              to_date: Date.to_string(socket.assigns.calendar_end_date)
+            })
+          else
+            base_params
+          end
+
+        # Use params if provided, otherwise use socket assigns
+        reservation_params =
+          if params != %{}, do: params, else: socket.assigns[:reservation_params] || %{}
+
+        # Flatten nested maps before merging
+        flattened_params = flatten_query_params(reservation_params)
+        Map.merge(params_with_calendar, flattened_params)
+      end
+
+    ~p"/admin/bookings?#{URI.encode_query(final_params)}"
+  end
+
+  # Flatten nested maps for URI encoding
+  # Converts %{"search" => %{"query" => "test"}} to %{"search[query]" => "test"}
+  # Filters out list values that have indexed equivalents (e.g., order_by list when order_by[0] exists)
+  defp flatten_query_params(params, prefix \\ "") when is_map(params) do
+    # First, filter out list values that have indexed equivalents
+    filtered_params =
+      Enum.reduce(params, %{}, fn {key, value}, acc ->
+        # If value is a list and we have indexed keys for it, skip the list version
+        if is_list(value) do
+          has_indexed_keys =
+            Enum.any?(params, fn {k, _v} ->
+              is_binary(k) && String.starts_with?(k, "#{key}[") && String.contains?(k, "]")
+            end)
+
+          if has_indexed_keys do
+            # Skip the list, keep indexed versions
+            acc
+          else
+            Map.put(acc, key, value)
+          end
+        else
+          Map.put(acc, key, value)
+        end
+      end)
+
+    Enum.reduce(filtered_params, %{}, fn {key, value}, acc ->
+      flat_key = if prefix == "", do: key, else: "#{prefix}[#{key}]"
+
+      flattened =
+        cond do
+          is_map(value) ->
+            flatten_query_params(value, flat_key)
+
+          is_list(value) ->
+            # Handle lists - convert to indexed keys
+            value
+            |> Enum.with_index()
+            |> Enum.reduce(%{}, fn {item, idx}, list_acc ->
+              item_key = "#{flat_key}[#{idx}]"
+
+              if is_map(item) do
+                Map.merge(list_acc, flatten_query_params(item, item_key))
+              else
+                Map.put(list_acc, item_key, to_string(item))
+              end
+            end)
+
+          true ->
+            # Convert atoms to strings and ensure values are strings
+            string_value =
+              cond do
+                is_atom(value) -> Atom.to_string(value)
+                is_binary(value) -> value
+                true -> to_string(value)
+              end
+
+            %{flat_key => string_value}
+        end
+
+      Map.merge(acc, flattened)
+    end)
+  end
+
+  defp flatten_query_params(params, _prefix), do: params
+
+  # Check if there are no results
+  defp no_results?([]), do: true
+  defp no_results?(_), do: false
 end

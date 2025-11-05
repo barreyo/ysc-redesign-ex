@@ -397,13 +397,22 @@ defmodule YscWeb.AdminUsersLive do
             path={~p"/admin/users"}
           >
             <:col :let={{_, user}} label="Name" field={:first_name}>
-              <.user_card
-                email={user.email}
-                user_id={user.id}
-                most_connected_country={user.most_connected_country}
-                first_name={user.first_name}
-                last_name={user.last_name}
-              />
+              <.link
+                navigate={
+                  if user.state == :pending_approval,
+                    do: ~p"/admin/users/#{user.id}/review?#{@params}",
+                    else: ~p"/admin/users/#{user.id}/details"
+                }
+                class="cursor-pointer hover:opacity-80 transition-opacity"
+              >
+                <.user_card
+                  email={user.email}
+                  user_id={user.id}
+                  most_connected_country={user.most_connected_country}
+                  first_name={user.first_name}
+                  last_name={user.last_name}
+                />
+              </.link>
             </:col>
             <:col :let={{_, user}} label="Phone" field={:phone_number}>
               <%= format_phone_number(user.phone_number) %>

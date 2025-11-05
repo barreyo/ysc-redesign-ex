@@ -78,7 +78,53 @@ defmodule YscWeb.Telemetry do
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),
       summary("vm.total_run_queue_lengths.cpu"),
-      summary("vm.total_run_queue_lengths.io")
+      summary("vm.total_run_queue_lengths.io"),
+
+      # Oban Metrics
+      summary("oban.job.stop.duration",
+        unit: {:native, :millisecond},
+        tags: [:worker, :queue, :state],
+        description: "Time spent executing an Oban job"
+      ),
+      counter("oban.job.start",
+        tags: [:worker, :queue],
+        description: "Number of Oban jobs started"
+      ),
+      summary("oban.job.exception.duration",
+        unit: {:native, :millisecond},
+        tags: [:worker, :queue, :kind],
+        description: "Duration of failed Oban jobs"
+      ),
+      counter("oban.job.exception",
+        tags: [:worker, :queue, :kind],
+        description: "Number of Oban job exceptions"
+      ),
+      counter("oban.circuit.trip",
+        tags: [:queue],
+        description: "Number of Oban circuit breaker trips"
+      ),
+      counter("oban.queue.error",
+        tags: [:queue],
+        description: "Number of Oban queue errors"
+      ),
+      summary("oban.producer.poll.count",
+        tags: [:queue],
+        description: "Number of jobs polled by Oban producer"
+      ),
+      counter("oban.supervisor.scaled",
+        tags: [:queue],
+        description: "Number of Oban supervisor scale events"
+      ),
+
+      # Email Metrics
+      counter("ysc.email.sent",
+        tags: [:template],
+        description: "Number of emails sent successfully"
+      ),
+      counter("ysc.email.send_failed",
+        tags: [:template],
+        description: "Number of email send failures"
+      )
     ]
   end
 

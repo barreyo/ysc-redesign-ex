@@ -11,6 +11,48 @@ defmodule Ysc.Bookings.Booking do
 
   @reference_prefix "BKG"
 
+  @derive {
+    Flop.Schema,
+    filterable: [:property, :booking_mode],
+    sortable: [
+      :reference_id,
+      :checkin_date,
+      :checkout_date,
+      :guests_count,
+      :property,
+      :booking_mode,
+      :inserted_at
+    ],
+    default_limit: 50,
+    max_limit: 200,
+    default_order: %{
+      order_by: [:inserted_at],
+      order_directions: [:desc]
+    },
+    adapter_opts: [
+      join_fields: [
+        user_first: [
+          binding: :user,
+          field: :first_name,
+          ecto_type: :string
+        ],
+        user_last: [
+          binding: :user,
+          field: :last_name,
+          ecto_type: :string
+        ],
+        user_email: [
+          binding: :user,
+          field: :email,
+          ecto_type: :string
+        ]
+      ],
+      compound_fields: [
+        user_name: [:user_first, :user_last]
+      ]
+    ]
+  }
+
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]
