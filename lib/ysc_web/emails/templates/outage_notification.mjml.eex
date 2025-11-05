@@ -69,6 +69,31 @@
       <strong>Check-out:</strong> <%= format_date(@checkout_date) %>
     </mj-text>
     <mj-spacer height="24px"></mj-spacer>
+    <!-- Contact Information -->
+    <%= if @cabin_master_name || @cabin_master_email do %>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      If you have any issues or need help, please reach out to the cabin master:
+    </mj-text>
+    <mj-spacer height="12px"></mj-spacer>
+    <%= if @cabin_master_name do %>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      <strong>Cabin Master:</strong> <%= @cabin_master_name %>
+    </mj-text>
+    <% end %>
+    <%= if @cabin_master_phone do %>
+    <mj-spacer height="4px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      <strong>Phone:</strong> <%= @cabin_master_phone %>
+    </mj-text>
+    <% end %>
+    <%= if @cabin_master_email do %>
+    <mj-spacer height="4px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
+      <strong>Email:</strong> <%= @cabin_master_email %>
+    </mj-text>
+    <% end %>
+    <mj-spacer height="24px"></mj-spacer>
+    <% end %>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
       We recommend checking the provider's outage map for the latest status and estimated restoration time.
     </mj-text>

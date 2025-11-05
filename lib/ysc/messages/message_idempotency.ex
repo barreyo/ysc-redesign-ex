@@ -42,8 +42,8 @@ defmodule Ysc.Messages.MessageIdempotency do
     ])
     |> validate_required([:message_type, :idempotency_key, :message_template])
     |> unique_constraint(
-      :unique_message_idempotency,
-      name: :message_idempotency_entries_message_type_idempotency_key_messag
+      [:message_type, :idempotency_key, :message_template],
+      name: :message_idempotency_entries_unique_index
     )
   end
 end

@@ -57,12 +57,18 @@ defmodule Mix.Tasks.DebugEmails do
     # Check if Oban is running
     Logger.info("=== Oban Status ===")
 
-    case Oban.check_all_queues() do
-      :ok ->
-        Logger.info("Oban is running normally")
+    queues = Oban.check_all_queues()
 
-      {:error, reason} ->
-        Logger.error("Oban has issues: #{inspect(reason)}")
+    if is_list(queues) and length(queues) > 0 do
+      Logger.info("Oban is running with #{length(queues)} queue(s)")
+      Enum.each(queues, fn queue_status ->
+        Logger.info("  Queue: #{queue_status.queue}")
+        Logger.info("    Limit: #{queue_status.limit}")
+        Logger.info("    Running: #{length(queue_status.running)}")
+        Logger.info("    Paused: #{queue_status.paused}")
+      end)
+    else
+      Logger.info("Oban is running (no queues found)")
     end
   end
 

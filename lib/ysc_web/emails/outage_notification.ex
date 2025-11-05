@@ -8,6 +8,10 @@ defmodule YscWeb.Emails.OutageNotification do
     mjml_template: "templates/outage_notification.mjml.eex",
     layout: YscWeb.Emails.BaseLayout
 
+  alias Ysc.Accounts.User
+  alias Ysc.Repo
+  import Ecto.Query
+
   def get_template_name() do
     "outage_notification"
   end
@@ -100,4 +104,70 @@ defmodule YscWeb.Emails.OutageNotification do
   def format_date(_) do
     "Unknown date"
   end
+
+  @doc """
+  Gets the cabin master for a given property.
+  Returns the most recently updated user with the cabin master position.
+  """
+  def get_cabin_master(property) when is_atom(property) do
+    board_position =
+      case property do
+        :tahoe -> :tahoe_cabin_master
+        :clear_lake -> :clear_lake_cabin_master
+        _ -> nil
+      end
+
+    if board_position do
+      from(u in User,
+        where: u.board_position == ^board_position,
+        order_by: [desc: u.updated_at],
+        limit: 1
+      )
+      |> Repo.one()
+    else
+      nil
+    end
+  end
+
+  def get_cabin_master(property) when is_binary(property) do
+    property
+    |> String.to_existing_atom()
+    |> get_cabin_master()
+  rescue
+    ArgumentError ->
+      case property do
+        "tahoe" -> get_cabin_master(:tahoe)
+        "clear_lake" -> get_cabin_master(:clear_lake)
+        _ -> nil
+      end
+  end
+
+  def get_cabin_master(_), do: nil
+
+  @doc """
+  Gets the cabin master email for a given property.
+  Returns the specific email address for the property.
+  """
+  def get_cabin_master_email(property) when is_atom(property) do
+    case property do
+      :tahoe -> "tahoe@ysc.org"
+      :clear_lake -> "clearlake@ysc.org"
+      _ -> nil
+    end
+  end
+
+  def get_cabin_master_email(property) when is_binary(property) do
+    property
+    |> String.to_existing_atom()
+    |> get_cabin_master_email()
+  rescue
+    ArgumentError ->
+      case property do
+        "tahoe" -> "tahoe@ysc.org"
+        "clear_lake" -> "clearlake@ysc.org"
+        _ -> nil
+      end
+  end
+
+  def get_cabin_master_email(_), do: nil
 end

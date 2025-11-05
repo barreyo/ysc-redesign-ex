@@ -916,11 +916,27 @@ defmodule Ysc.PropertyOutages.Scraper do
     booking = Repo.preload(booking, :user)
 
     if booking.user && booking.user.email do
-      # Use booking ID as idempotency key to prevent duplicate emails
-      idempotency_key = "outage_alert_#{booking.id}_#{outage.incident_id}"
+      # Use booking ID and incident type as idempotency key to prevent duplicate emails
+      # This ensures we only send one email per booking per incident type per day
+      # even if multiple incidents of the same type are detected
+      idempotency_key = "outage_alert_#{booking.id}_#{outage.incident_type}"
 
       # Get user's first name or fallback to email
       first_name = booking.user.first_name || booking.user.email
+
+      # Get cabin master information for the property
+      cabin_master = OutageNotification.get_cabin_master(outage.property)
+
+      cabin_master_name =
+        if cabin_master do
+          "#{cabin_master.first_name || ""} #{cabin_master.last_name || ""}"
+          |> String.trim()
+        else
+          nil
+        end
+
+      cabin_master_phone = if cabin_master, do: cabin_master.phone_number, else: nil
+      cabin_master_email = OutageNotification.get_cabin_master_email(outage.property)
 
       # Build email variables
       variables = %{
@@ -931,7 +947,10 @@ defmodule Ysc.PropertyOutages.Scraper do
         incident_date: outage.incident_date,
         description: outage.description,
         checkin_date: booking.checkin_date,
-        checkout_date: booking.checkout_date
+        checkout_date: booking.checkout_date,
+        cabin_master_name: cabin_master_name,
+        cabin_master_phone: cabin_master_phone,
+        cabin_master_email: cabin_master_email
       }
 
       subject = "Property Outage Alert - #{OutageNotification.property_name(outage.property)}"
@@ -951,6 +970,12 @@ defmodule Ysc.PropertyOutages.Scraper do
       Your Booking:
       - Check-in: #{Calendar.strftime(booking.checkin_date, "%B %d, %Y")}
       - Check-out: #{Calendar.strftime(booking.checkout_date, "%B %d, %Y")}
+
+      #{if cabin_master_name || cabin_master_email do
+        "If you have any issues or need help, please reach out to the cabin master:\n\n" <> if(cabin_master_name, do: "- Cabin Master: #{cabin_master_name}\n", else: "") <> if(cabin_master_phone, do: "- Phone: #{cabin_master_phone}\n", else: "") <> if cabin_master_email, do: "- Email: #{cabin_master_email}\n", else: ""
+      else
+        ""
+      end}
 
       We recommend checking the provider's outage map for the latest status and estimated restoration time.
 
