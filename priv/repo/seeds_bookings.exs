@@ -65,7 +65,8 @@ tahoe_winter =
     property: :tahoe,
     start_date: winter_start,
     end_date: winter_end,
-    is_default: false
+    is_default: false,
+    advance_booking_days: 45 # Winter enforces 45-day limit
   }, [:name, :property])
 
 # Note: We'll set summer as default since it's longer, but you can adjust
@@ -76,7 +77,8 @@ tahoe_summer =
     property: :tahoe,
     start_date: summer_start,
     end_date: summer_end,
-    is_default: true
+    is_default: true,
+    advance_booking_days: nil # Summer allows booking as far out as desired (no limit)
   }, [:name, :property])
 
 # Clear Lake seasons
@@ -87,7 +89,8 @@ clear_lake_winter =
     property: :clear_lake,
     start_date: winter_start,
     end_date: winter_end,
-    is_default: false
+    is_default: false,
+    advance_booking_days: nil # Clear Lake allows booking as far out as desired (no limit)
   }, [:name, :property])
 
 clear_lake_summer =
@@ -97,7 +100,8 @@ clear_lake_summer =
     property: :clear_lake,
     start_date: summer_start,
     end_date: summer_end,
-    is_default: true
+    is_default: true,
+    advance_booking_days: nil # Clear Lake allows booking as far out as desired (no limit)
   }, [:name, :property])
 
 # 3. Create Tahoe rooms
@@ -109,15 +113,35 @@ tahoe_rooms =
   Enum.map(room_names, fn name ->
     room_attrs =
       cond do
-        name in ["Room 5a", "Room 5b"] ->
-          # Single bed rooms
+        name == "Room 5a" ->
+          # Single bed room
           %{
             name: name,
-            description: "Single bed room (max 1 person)",
+            description: "Cozy single bed room with 1 single bed. Perfect for solo travelers.",
             property: :tahoe,
             capacity_max: 1,
             min_billable_occupancy: 1,
             is_single_bed: true,
+            single_beds: 1,
+            queen_beds: 0,
+            king_beds: 0,
+            is_active: true,
+            room_category_id: single_category.id,
+            default_season_id: tahoe_summer.id
+          }
+
+        name == "Room 5b" ->
+          # Single bed room
+          %{
+            name: name,
+            description: "Cozy single bed room with 1 single bed. Perfect for solo travelers.",
+            property: :tahoe,
+            capacity_max: 1,
+            min_billable_occupancy: 1,
+            is_single_bed: true,
+            single_beds: 1,
+            queen_beds: 0,
+            king_beds: 0,
             is_active: true,
             room_category_id: single_category.id,
             default_season_id: tahoe_summer.id
@@ -127,25 +151,116 @@ tahoe_rooms =
           # Family room
           %{
             name: name,
-            description: "Family room (2 person minimum)",
+            description: "Spacious family room with 1 queen bed and 3 single beds. Accommodates up to 5 guests. Minimum 2 guests required.",
             property: :tahoe,
-            capacity_max: 4,
+            capacity_max: 5,
             min_billable_occupancy: 2,
             is_single_bed: false,
+            single_beds: 3,
+            queen_beds: 1,
+            king_beds: 0,
             is_active: true,
             room_category_id: family_category.id,
             default_season_id: tahoe_summer.id
           }
 
+        name == "Room 1" ->
+          # Standard room - 2 guests
+          %{
+            name: name,
+            description: "Comfortable room with 2 single beds. Perfect for two guests.",
+            property: :tahoe,
+            capacity_max: 2,
+            min_billable_occupancy: 1,
+            is_single_bed: false,
+            single_beds: 2,
+            queen_beds: 0,
+            king_beds: 0,
+            is_active: true,
+            room_category_id: standard_category.id,
+            default_season_id: tahoe_summer.id
+          }
+
+        name == "Room 2" ->
+          # Standard room - 2 guests
+          %{
+            name: name,
+            description: "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
+            property: :tahoe,
+            capacity_max: 2,
+            min_billable_occupancy: 1,
+            is_single_bed: false,
+            single_beds: 0,
+            queen_beds: 1,
+            king_beds: 0,
+            is_active: true,
+            room_category_id: standard_category.id,
+            default_season_id: tahoe_summer.id
+          }
+
+        name == "Room 3" ->
+          # Standard room - 2 guests
+          %{
+            name: name,
+            description: "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
+            property: :tahoe,
+            capacity_max: 2,
+            min_billable_occupancy: 1,
+            is_single_bed: false,
+            single_beds: 0,
+            queen_beds: 1,
+            king_beds: 0,
+            is_active: true,
+            room_category_id: standard_category.id,
+            default_season_id: tahoe_summer.id
+          }
+
+        name == "Room 6" ->
+          # Standard room - 3 guests
+          %{
+            name: name,
+            description: "Spacious room with 1 queen bed and 1 single bed. Accommodates up to 3 guests.",
+            property: :tahoe,
+            capacity_max: 3,
+            min_billable_occupancy: 1,
+            is_single_bed: false,
+            single_beds: 1,
+            queen_beds: 1,
+            king_beds: 0,
+            is_active: true,
+            room_category_id: standard_category.id,
+            default_season_id: tahoe_summer.id
+          }
+
+        name == "Room 7" ->
+          # Standard room - 2 guests
+          %{
+            name: name,
+            description: "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
+            property: :tahoe,
+            capacity_max: 2,
+            min_billable_occupancy: 1,
+            is_single_bed: false,
+            single_beds: 0,
+            queen_beds: 1,
+            king_beds: 0,
+            is_active: true,
+            room_category_id: standard_category.id,
+            default_season_id: tahoe_summer.id
+          }
+
         true ->
-          # Standard rooms
+          # Default fallback (should not be reached)
           %{
             name: name,
             description: "Standard room",
             property: :tahoe,
-            capacity_max: 4,
+            capacity_max: 2,
             min_billable_occupancy: 1,
             is_single_bed: false,
+            single_beds: 0,
+            queen_beds: 0,
+            king_beds: 0,
             is_active: true,
             room_category_id: standard_category.id,
             default_season_id: tahoe_summer.id

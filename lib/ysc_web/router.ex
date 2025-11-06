@@ -62,6 +62,9 @@ defmodule YscWeb.Router do
       live "/report-conduct-violation", ConductViolationReportLive, :index
 
       live "/news", NewsLive, :index
+
+      live "/bookings/tahoe", TahoeBookingLive, :index
+      live "/bookings/clear-lake", ClearLakeBookingLive, :index
     end
   end
 
@@ -118,9 +121,6 @@ defmodule YscWeb.Router do
       live "/users/tickets", UserTicketsLive, :index
       live "/tickets/:order_id", UserTicketsLive, :show
       live "/orders/:order_id/confirmation", OrderConfirmationLive, :index
-
-      live "/bookings/tahoe", TahoeBookingLive, :index
-      live "/bookings/clear-lake", ClearLakeBookingLive, :index
     end
   end
 
@@ -187,6 +187,7 @@ defmodule YscWeb.Router do
       live "/bookings/blackouts/new", AdminBookingsLive, :new_blackout
       live "/bookings/blackouts/:id/edit", AdminBookingsLive, :edit_blackout
       live "/bookings/bookings/new", AdminBookingsLive, :new_booking
+      live "/bookings/seasons/:id/edit", AdminBookingsLive, :edit_season
 
       # News and notices
       live "/posts", AdminPostsLive, :index

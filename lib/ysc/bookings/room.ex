@@ -30,6 +30,11 @@ defmodule Ysc.Bookings.Room do
     # Whether this is a single bed room (max 1 person)
     field :is_single_bed, :boolean, default: false
 
+    # Bed counts
+    field :single_beds, :integer, default: 0
+    field :queen_beds, :integer, default: 0
+    field :king_beds, :integer, default: 0
+
     # Active/inactive status
     field :is_active, :boolean, default: true
 
@@ -39,6 +44,8 @@ defmodule Ysc.Bookings.Room do
       references: :id
 
     belongs_to :season, Ysc.Bookings.Season, foreign_key: :default_season_id, references: :id
+
+    belongs_to :image, Ysc.Media.Image, foreign_key: :image_id, references: :id
 
     has_many :pricing_rules, Ysc.Bookings.PricingRule, foreign_key: :room_id
 
@@ -57,9 +64,13 @@ defmodule Ysc.Bookings.Room do
       :capacity_max,
       :min_billable_occupancy,
       :is_single_bed,
+      :single_beds,
+      :queen_beds,
+      :king_beds,
       :is_active,
       :room_category_id,
-      :default_season_id
+      :default_season_id,
+      :image_id
     ])
     |> validate_required([
       :name,
@@ -70,8 +81,12 @@ defmodule Ysc.Bookings.Room do
     |> validate_single_bed_consistency()
     |> validate_length(:name, max: 255)
     |> validate_length(:description, max: 1000)
+    |> validate_number(:single_beds, greater_than_or_equal_to: 0)
+    |> validate_number(:queen_beds, greater_than_or_equal_to: 0)
+    |> validate_number(:king_beds, greater_than_or_equal_to: 0)
     |> foreign_key_constraint(:room_category_id)
     |> foreign_key_constraint(:default_season_id)
+    |> foreign_key_constraint(:image_id)
   end
 
   # Validates capacity constraints

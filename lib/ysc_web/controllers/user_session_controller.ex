@@ -26,17 +26,23 @@ defmodule YscWeb.UserSessionController do
       # Log successful login
       AuthService.log_login_success(user, conn, user_params)
 
+      # Reset failed login attempts on successful login
       conn
       |> put_flash(:info, info)
+      |> delete_session(:failed_login_attempts)
       |> UserAuth.log_in_user(user, user_params)
     else
       # Log failed login attempt
       AuthService.log_login_failure(email, conn, "invalid_credentials", user_params)
 
+      # Track failed login attempts in session
+      failed_attempts = (get_session(conn, :failed_login_attempts) || 0) + 1
+
       # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
       conn
       |> put_flash(:error, "Invalid email or password")
       |> put_flash(:email, String.slice(email, 0, 160))
+      |> put_session(:failed_login_attempts, failed_attempts)
       |> redirect(to: ~p"/users/log-in")
     end
   end

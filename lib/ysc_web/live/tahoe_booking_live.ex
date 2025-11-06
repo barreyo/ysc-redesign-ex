@@ -2,7 +2,7 @@ defmodule YscWeb.TahoeBookingLive do
   use YscWeb, :live_view
 
   alias Ysc.Bookings
-  alias Ysc.Bookings.{Season, Booking}
+  alias Ysc.Bookings.{Season, Booking, PricingRule}
   alias Ysc.MoneyHelper
   alias Ysc.Accounts
   alias Ysc.Subscriptions
@@ -14,78 +14,95 @@ defmodule YscWeb.TahoeBookingLive do
   def mount(params, _session, socket) do
     user = socket.assigns.current_user
 
-    if is_nil(user) do
-      {:ok,
-       socket
-       |> put_flash(:error, "You must be logged in to make a booking")
-       |> push_navigate(to: ~p"/users/log-in")}
-    else
-      # Load user with subscriptions for validation
-      user_with_subs =
+    today = Date.utc_today()
+    max_booking_date = calculate_max_booking_date(today)
+
+    # Parse query parameters, handling malformed/double-encoded URLs
+    parsed_params = parse_mount_params(params)
+
+    # Parse dates and guest counts from URL params if present
+    {checkin_date, checkout_date} = parse_dates_from_params(parsed_params)
+    guests_count = parse_guests_from_params(parsed_params)
+    children_count = parse_children_from_params(parsed_params)
+    requested_tab = parse_tab_from_params(parsed_params)
+
+    date_form =
+      to_form(
+        %{
+          "checkin_date" => date_to_datetime_string(checkin_date),
+          "checkout_date" => date_to_datetime_string(checkout_date)
+        },
+        as: "booking_dates"
+      )
+
+    # Check if user can book
+    {can_book, booking_disabled_reason} = check_booking_eligibility(user)
+
+    # If user can't book, default to information tab
+    active_tab =
+      if !can_book do
+        :information
+      else
+        requested_tab
+      end
+
+    # Load user with subscriptions if logged in
+    user_with_subs =
+      if user do
         Accounts.get_user!(user.id)
         |> Ysc.Repo.preload(:subscriptions)
+      else
+        nil
+      end
 
-      today = Date.utc_today()
-      max_booking_date = Date.add(today, 45)
+    # Calculate membership type once and cache it (if user exists)
+    membership_type =
+      if user_with_subs do
+        get_membership_type(user_with_subs)
+      else
+        :none
+      end
 
-      # Parse query parameters, handling malformed/double-encoded URLs
-      parsed_params = parse_mount_params(params)
+    socket =
+      assign(socket,
+        page_title: "YSC Tahoe Cabin",
+        property: :tahoe,
+        user: user_with_subs,
+        checkin_date: checkin_date,
+        checkout_date: checkout_date,
+        today: today,
+        max_booking_date: max_booking_date,
+        selected_room_id: nil,
+        selected_room_ids: [],
+        selected_booking_mode: :room,
+        guests_count: guests_count,
+        children_count: children_count,
+        guests_dropdown_open: false,
+        available_rooms: [],
+        calculated_price: nil,
+        price_error: nil,
+        form_errors: %{},
+        date_validation_errors: %{},
+        date_form: date_form,
+        membership_type: membership_type,
+        active_tab: active_tab,
+        can_book: can_book,
+        booking_disabled_reason: booking_disabled_reason
+      )
 
-      # Parse dates and guest counts from URL params if present
-      {checkin_date, checkout_date} = parse_dates_from_params(parsed_params)
-      guests_count = parse_guests_from_params(parsed_params)
-      children_count = parse_children_from_params(parsed_params)
+    # If dates are present and user can book, initialize validation and room availability
+    socket =
+      if checkin_date && checkout_date && can_book do
+        socket
+        |> enforce_season_booking_mode()
+        |> validate_dates()
+        |> update_available_rooms()
+        |> calculate_price_if_ready()
+      else
+        socket
+      end
 
-      date_form =
-        to_form(
-          %{
-            "checkin_date" => date_to_datetime_string(checkin_date),
-            "checkout_date" => date_to_datetime_string(checkout_date)
-          },
-          as: "booking_dates"
-        )
-
-      # Calculate membership type once and cache it
-      membership_type = get_membership_type(user_with_subs)
-
-      socket =
-        assign(socket,
-          page_title: "Book Tahoe Cabin",
-          property: :tahoe,
-          user: user_with_subs,
-          checkin_date: checkin_date,
-          checkout_date: checkout_date,
-          today: today,
-          max_booking_date: max_booking_date,
-          selected_room_id: nil,
-          selected_room_ids: [],
-          selected_booking_mode: :room,
-          guests_count: guests_count,
-          children_count: children_count,
-          guests_dropdown_open: false,
-          available_rooms: [],
-          calculated_price: nil,
-          price_error: nil,
-          form_errors: %{},
-          date_validation_errors: %{},
-          date_form: date_form,
-          membership_type: membership_type
-        )
-
-      # If dates are present, initialize validation and room availability
-      socket =
-        if checkin_date && checkout_date do
-          socket
-          |> enforce_season_booking_mode()
-          |> validate_dates()
-          |> update_available_rooms()
-          |> calculate_price_if_ready()
-        else
-          socket
-        end
-
-      {:ok, socket}
-    end
+    {:ok, socket}
   end
 
   @impl true
@@ -97,14 +114,31 @@ defmodule YscWeb.TahoeBookingLive do
     {checkin_date, checkout_date} = parse_dates_from_params(params)
     guests_count = parse_guests_from_params(params)
     children_count = parse_children_from_params(params)
+    requested_tab = parse_tab_from_params(params)
 
-    # Only update if dates or guest counts have changed
+    # Check if user can book (re-check in case user state changed)
+    user = socket.assigns.current_user
+    {can_book, booking_disabled_reason} = check_booking_eligibility(user)
+
+    # If user can't book and requested booking tab, switch to information tab
+    active_tab =
+      if requested_tab == :booking && !can_book do
+        :information
+      else
+        requested_tab
+      end
+
+    # Check if tab changed (but nothing else)
+    tab_changed = active_tab != socket.assigns.active_tab
+
+    # Update if dates, guest counts, or tab have changed
     if checkin_date != socket.assigns.checkin_date ||
          checkout_date != socket.assigns.checkout_date ||
          guests_count != socket.assigns.guests_count ||
-         children_count != socket.assigns.children_count do
+         children_count != socket.assigns.children_count ||
+         tab_changed do
       today = Date.utc_today()
-      max_booking_date = Date.add(today, 45)
+      max_booking_date = calculate_max_booking_date(today)
 
       date_form =
         to_form(
@@ -132,12 +166,26 @@ defmodule YscWeb.TahoeBookingLive do
           price_error: nil,
           form_errors: %{},
           date_form: date_form,
-          date_validation_errors: %{}
+          date_validation_errors: %{},
+          active_tab: active_tab,
+          can_book: can_book,
+          booking_disabled_reason: booking_disabled_reason
         )
-        |> enforce_season_booking_mode()
-        |> validate_dates()
-        |> update_available_rooms()
-        |> calculate_price_if_ready()
+        |> then(fn s ->
+          # Only run validation/room updates if dates changed, not just tab
+          if checkin_date != socket.assigns.checkin_date ||
+               checkout_date != socket.assigns.checkout_date ||
+               guests_count != socket.assigns.guests_count ||
+               children_count != socket.assigns.children_count do
+            s
+            |> enforce_season_booking_mode()
+            |> validate_dates()
+            |> update_available_rooms()
+            |> calculate_price_if_ready()
+          else
+            s
+          end
+        end)
 
       {:noreply, socket}
     else
@@ -192,15 +240,77 @@ defmodule YscWeb.TahoeBookingLive do
     <div class="py-8 lg:py-10">
       <div class="max-w-screen-lg mx-auto flex flex-col px-4 space-y-6">
         <div class="prose prose-zinc">
-          <h1>Book Tahoe Cabin</h1>
+          <h1>YSC Lake Tahoe Cabin</h1>
           <p>
             Select your dates and room(s) to make a reservation at our Lake Tahoe cabin.
           </p>
         </div>
 
         <.flash_group flash={@flash} />
-
-        <div class="bg-white rounded-lg border border-zinc-200 p-6 space-y-6">
+        <!-- Booking Eligibility Banner -->
+        <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-amber-600" />
+            </div>
+            <div class="ms-2 flex-1">
+              <h3 class="text-sm font-semibold text-amber-900">Booking Not Available</h3>
+              <div class="mt-2 text-sm text-amber-800">
+                <p><%= @booking_disabled_reason %></p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Tabs Navigation -->
+        <div class="border-b border-zinc-200">
+          <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button
+              phx-click="switch-tab"
+              phx-value-tab="booking"
+              disabled={!@can_book}
+              class={[
+                "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
+                if(!@can_book,
+                  do: "border-transparent text-zinc-400 cursor-not-allowed opacity-50",
+                  else:
+                    if(@active_tab == :booking,
+                      do: "border-blue-500 text-blue-600",
+                      else:
+                        "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                    )
+                )
+              ]}
+            >
+              Make a Reservation
+            </button>
+            <button
+              phx-click="switch-tab"
+              phx-value-tab="information"
+              class={[
+                "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
+                if(@active_tab == :information,
+                  do: "border-blue-500 text-blue-600",
+                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                )
+              ]}
+            >
+              Cabin Information & Rules
+            </button>
+          </nav>
+        </div>
+        <!-- Booking Tab Content -->
+        <div
+          :if={@active_tab == :booking}
+          class={[
+            "bg-white rounded-lg border border-zinc-200 p-6 space-y-6",
+            if(!@can_book, do: "relative opacity-60", else: "")
+          ]}
+        >
+          <div
+            :if={!@can_book}
+            class="absolute inset-0 bg-white bg-opacity-50 rounded-lg pointer-events-none z-10"
+          >
+          </div>
           <!-- Date Selection and Guest Counters (Inline) -->
           <div class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -217,10 +327,7 @@ defmodule YscWeb.TahoeBookingLive do
                 />
               </div>
               <!-- Guests and Children Selection (Dropdown) -->
-              <div
-                :if={@checkin_date && @checkout_date && @selected_booking_mode == :room}
-                class="md:col-span-1 py-1 ms-0 md:ms-4"
-              >
+              <div class="md:col-span-1 py-1 ms-0 md:ms-4">
                 <label class="block text-sm font-semibold text-zinc-700 mb-2">
                   Guests
                 </label>
@@ -424,12 +531,6 @@ defmodule YscWeb.TahoeBookingLive do
                     <%= Date.diff(@checkout_date, @checkin_date) %> night(s)
                   </p>
                 </div>
-                <button
-                  phx-click="clear-dates"
-                  class="text-xs text-zinc-600 hover:text-zinc-900 underline"
-                >
-                  Change dates
-                </button>
               </div>
             </div>
             <label class="block text-sm font-semibold text-zinc-700 mb-2">
@@ -485,13 +586,58 @@ defmodule YscWeb.TahoeBookingLive do
                               • Minimum <%= room.min_billable_occupancy %> guests
                             </span>
                           </div>
+                          <div
+                            :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
+                            class="flex items-center gap-3 mt-2 text-xs text-zinc-500"
+                          >
+                            <span :if={room.single_beds > 0} class="flex items-center gap-1">
+                              <%= raw(bed_icon_svg(:single, "w-8 h-8 -mt-1")) %>
+                              <span><%= room.single_beds %> Twin</span>
+                            </span>
+                            <span :if={room.queen_beds > 0} class="flex items-center gap-1">
+                              <%= raw(bed_icon_svg(:queen, "w-8 h-8 -mt-1")) %>
+                              <span><%= room.queen_beds %> Queen</span>
+                            </span>
+                            <span :if={room.king_beds > 0} class="flex items-center gap-1">
+                              <%= raw(bed_icon_svg(:king, "w-8 h-8 -mt-1")) %>
+                              <span><%= room.king_beds %> King</span>
+                            </span>
+                          </div>
+                          <div
+                            :if={is_unavailable && reason}
+                            class="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-3"
+                          >
+                            <div class="flex items-center">
+                              <div class="flex-shrink-0">
+                                <.icon
+                                  name="hero-exclamation-triangle"
+                                  class="h-5 w-5 text-amber-600"
+                                />
+                              </div>
+                              <div class="ms-2 flex-1">
+                                <p class="text-sm text-amber-800 mt-0.5"><%= reason %></p>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                         <div class="ml-4 text-right">
-                          <div :if={room.calculated_price} class="text-lg font-semibold text-blue-600">
-                            <%= MoneyHelper.format_money!(room.calculated_price) %>
-                          </div>
-                          <div :if={!room.calculated_price} class="text-sm text-zinc-400">
-                            Price unavailable
+                          <div class="text-sm text-zinc-600">
+                            <div :if={room.minimum_price}>
+                              <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
+                              <span class="text-xs text-zinc-500">
+                                (<%= room.min_billable_occupancy %> guest min)
+                              </span>
+                            </div>
+                            <div :if={!room.minimum_price}>
+                              <%= MoneyHelper.format_money!(
+                                room.adult_price_per_night || Money.new(45, :USD)
+                              ) %> per adult
+                            </div>
+                            <div class="text-xs text-zinc-500">
+                              <%= MoneyHelper.format_money!(
+                                room.children_price_per_night || Money.new(25, :USD)
+                              ) %> per child
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -519,18 +665,57 @@ defmodule YscWeb.TahoeBookingLive do
                             </span>
                           </div>
                           <div
-                            :if={is_unavailable && reason}
-                            class="text-sm text-amber-600 mt-1 font-medium"
+                            :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
+                            class="flex items-center gap-3 mt-2 text-xs text-zinc-400"
                           >
-                            ⚠️ <%= reason %>
+                            <span :if={room.single_beds > 0} class="flex items-center gap-1">
+                              <%= raw(bed_icon_svg(:single, "w-8 h-8 -mt-1")) %>
+                              <span><%= room.single_beds %> Twin</span>
+                            </span>
+                            <span :if={room.queen_beds > 0} class="flex items-center gap-1">
+                              <%= raw(bed_icon_svg(:queen, "w-8 h-8 -mt-1")) %>
+                              <span><%= room.queen_beds %> Queen</span>
+                            </span>
+                            <span :if={room.king_beds > 0} class="flex items-center gap-1">
+                              <%= raw(bed_icon_svg(:king, "w-8 h-8 -mt-1")) %>
+                              <span><%= room.king_beds %> King</span>
+                            </span>
+                          </div>
+                          <div
+                            :if={is_unavailable && reason}
+                            class="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-3"
+                          >
+                            <div class="flex items-center">
+                              <div class="flex-shrink-0">
+                                <.icon
+                                  name="hero-exclamation-triangle"
+                                  class="h-5 w-5 text-amber-600"
+                                />
+                              </div>
+                              <div class="ms-2 flex-1">
+                                <p class="text-sm text-amber-800 mt-0.5"><%= reason %></p>
+                              </div>
+                            </div>
                           </div>
                         </div>
                         <div class="ml-4 text-right">
-                          <div :if={room.calculated_price} class="text-lg font-semibold text-zinc-400">
-                            <%= MoneyHelper.format_money!(room.calculated_price) %>
-                          </div>
-                          <div :if={!room.calculated_price} class="text-sm text-zinc-400">
-                            Price unavailable
+                          <div class="text-sm text-zinc-400">
+                            <div :if={room.minimum_price}>
+                              <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
+                              <span class="text-xs text-zinc-400">
+                                (<%= room.min_billable_occupancy %> guest min)
+                              </span>
+                            </div>
+                            <div :if={!room.minimum_price}>
+                              <%= MoneyHelper.format_money!(
+                                room.adult_price_per_night || Money.new(45, :USD)
+                              ) %> per adult
+                            </div>
+                            <div class="text-xs text-zinc-400">
+                              <%= MoneyHelper.format_money!(
+                                room.children_price_per_night || Money.new(25, :USD)
+                              ) %> per child
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -591,38 +776,457 @@ defmodule YscWeb.TahoeBookingLive do
           <p :if={@price_error} class="text-red-600 text-sm">
             <%= @price_error %>
           </p>
-          <!-- Booking Rules Info -->
-          <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
-            <h3 class="font-semibold text-blue-900 mb-2">Booking Rules for Tahoe:</h3>
-            <ul class="text-sm text-blue-800 space-y-1 list-disc list-inside">
-              <li>Check-in: 3:00 PM | Check-out: 11:00 AM</li>
-              <li>Maximum 4 nights per booking</li>
-              <li>If booking contains Saturday, must also include Sunday (full weekend required)</li>
-              <li>Only one active booking per user at a time (all seasons)</li>
-              <li>Winter: Only individual rooms allowed</li>
-              <li>Summer: Individual rooms or full buyout available</li>
-              <li>Family/Lifetime membership: Can book up to 2 rooms in the same time period</li>
-              <li>Single membership: Only 1 room per booking</li>
-              <li>Reservations must adhere to accommodation limits for each room</li>
-              <li>Children 5-17 years: $25/night. Children under 5 stay for free.</li>
-            </ul>
-          </div>
           <!-- Submit Button -->
           <div>
             <button
               :if={
-                can_submit_booking?(
-                  @selected_booking_mode,
-                  @checkin_date,
-                  @checkout_date,
-                  get_selected_rooms_for_submit(assigns)
-                )
+                @can_book &&
+                  can_submit_booking?(
+                    @selected_booking_mode,
+                    @checkin_date,
+                    @checkout_date,
+                    get_selected_rooms_for_submit(assigns)
+                  )
               }
               phx-click="create-booking"
               class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-md transition duration-200"
             >
               Create Booking
             </button>
+            <div
+              :if={!@can_book}
+              class="w-full bg-zinc-300 text-zinc-600 font-semibold py-3 px-4 rounded-md text-center cursor-not-allowed"
+            >
+              Booking Unavailable
+            </div>
+          </div>
+        </div>
+        <!-- Information Tab Content -->
+        <div
+          :if={@active_tab == :information}
+          class="space-y-6 prose prose-zinc px-4 lg:px-0 mx-auto lg:mx-0"
+        >
+          <!-- About the Cabin -->
+          <div>
+            <h2>🏡 About the Cabin</h2>
+            <p>
+              Since <strong>1993</strong>, the <strong>YSC</strong>
+              has proudly owned its very own cabin just minutes from the west shore of the <strong>famous and beautiful Lake Tahoe</strong>.
+            </p>
+            <p>
+              The Lake Tahoe area offers an endless list of outdoor activities:
+            </p>
+            <ul>
+              <li>⛷️ <em>World-class skiing</em> in the winter</li>
+              <li>🚴 <em>Spectacular hiking and biking</em> in the summer</li>
+              <li>🌅 <em>Breathtaking views</em> all year long</li>
+            </ul>
+            <p>
+              The YSC cabin offers <strong>members and guests affordable, comfortable accommodations</strong>.
+            </p>
+            <p>
+              It's a <strong>fully equipped modern cabin</strong> with:
+            </p>
+            <ul>
+              <li><strong>7 bedrooms</strong></li>
+              <li><strong>3 bathrooms</strong></li>
+              <li><strong>Sleeps up to 15 people</strong></li>
+            </ul>
+            <p>
+              📍 <strong>Location:</strong>
+              Just south of <strong>Tahoe City</strong>, near the lake's west shore and very close to <strong>Homewood Ski Resort</strong>.
+            </p>
+            <p>
+              <strong>Palisades Tahoe</strong>
+              (site of the 1960 Winter Olympics) and <strong>Alpine Meadows</strong>
+              ski resorts are about a <strong>20-minute drive away</strong>.
+            </p>
+            <blockquote>
+              <p>
+                <strong>Tip:</strong>
+                Take advantage of this wonderfully located cabin and explore the year-round recreation Lake Tahoe has to offer!
+              </p>
+            </blockquote>
+            <hr />
+          </div>
+          <!-- Important Notice -->
+          <div class="bg-amber-50 border border-amber-200 rounded-md p-4 prose prose-amber">
+            <h2 class="text-amber-900">⚠️ Please Remember</h2>
+            <p class="text-amber-800">
+              The Tahoe Cabin is <strong>your cabin — not a hotel.</strong>
+            </p>
+            <p class="text-amber-800">
+              To ensure everyone enjoys their stay at a reasonable rate, please follow the guidelines below.
+            </p>
+          </div>
+          <!-- Arrival & Departure -->
+          <div>
+            <h3>🕒 Arrival & Departure</h3>
+            <ul>
+              <li><strong>Check-In:</strong> 3:00 PM</li>
+              <li><strong>Check-Out:</strong> 11:00 AM</li>
+            </ul>
+            <p>
+              👉 Everyone must <strong>sign the guest book</strong> upon arrival.
+            </p>
+          </div>
+          <!-- Reservation System -->
+          <div>
+            <h3>🗓️ Reservation System</h3>
+            <ul>
+              <li>
+                Use the <strong>Reservation Page</strong>
+                to search for available rooms by date (via the date picker).
+              </li>
+              <li>
+                Visit the <strong>Accommodations Page</strong>
+                to view the 7 rooms and initiate a booking.
+              </li>
+              <li>All reservations must be made through the <strong>website</strong>.</li>
+              <li>
+                To cancel, use the <strong>"Cancel My Booking"</strong>
+                link in your confirmation email.
+              </li>
+              <li>See the <strong>Cancellation Policy</strong> below for full details.</li>
+            </ul>
+          </div>
+          <!-- Directions -->
+          <div>
+            <h2>🚗 Directions</h2>
+            <p><strong>Address:</strong></p>
+            <p>2685 Cedar Lane<br />Homewood, CA 96141</p>
+            <h3>Getting There</h3>
+            <p>
+              Public transportation is very limited, so driving is recommended.
+            </p>
+            <p>
+              Carpooling is encouraged — it's better for the planet <em>and</em> for parking!
+            </p>
+            <h3>From the Bay Area</h3>
+            <ol>
+              <li>Take <strong>I-80 East</strong> toward Reno.</li>
+              <li>At <strong>Truckee</strong>, exit onto <strong>Highway 89 South</strong>.</li>
+              <li>
+                In <strong>Tahoe City</strong>, continue on Hwy 89 (turn right at the first light).
+              </li>
+              <li>
+                After 3 miles, turn <strong>right onto Timberland Lane</strong>
+                (look for the Timberland totem pole).
+              </li>
+              <li>Turn <strong>left onto Cedar Lane</strong> — the cabin will be on your left.</li>
+            </ol>
+          </div>
+          <!-- Winter Driving Notice -->
+          <div class="bg-blue-50 border border-blue-200 rounded-md p-4 prose prose-blue">
+            <h3>❄️ Winter Driving Notice</h3>
+            <ul>
+              <li>
+                Carry <strong>snow chains</strong>
+                or drive a <strong>4WD vehicle with snow tires</strong>.
+              </li>
+              <li>Always <strong>check weather and road conditions</strong> before traveling.</li>
+            </ul>
+            <p><strong>Helpful Resources:</strong></p>
+            <ul>
+              <li>
+                <a
+                  href="https://dot.ca.gov/travel/winter-driving-tips"
+                  target="_blank"
+                  class="text-blue-700 hover:text-blue-900 underline"
+                >
+                  California Winter Driving Tips
+                </a>
+              </li>
+              <li>
+                Caltrans Road Info:
+                <a href="tel:8004277623" class="text-blue-700 hover:text-blue-900 underline">
+                  (800) 427-7623
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://twitter.com/CHP_Truckee"
+                  target="_blank"
+                  class="text-blue-700 hover:text-blue-900 underline"
+                >
+                  @CHP_Truckee
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://quickmap.dot.ca.gov/"
+                  target="_blank"
+                  class="text-blue-700 hover:text-blue-900 underline"
+                >
+                  Caltrans QuickMap
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://twitter.com/CaltransDist3"
+                  target="_blank"
+                  class="text-blue-700 hover:text-blue-900 underline"
+                >
+                  @CaltransDist3
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://twitter.com/NWSReno"
+                  target="_blank"
+                  class="text-blue-700 hover:text-blue-900 underline"
+                >
+                  @NWSReno
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://twitter.com/NWSSacramento"
+                  target="_blank"
+                  class="text-blue-700 hover:text-blue-900 underline"
+                >
+                  @NWSSacramento
+                </a>
+              </li>
+            </ul>
+          </div>
+          <!-- Transportation -->
+          <div>
+            <h3>🚐 Transportation</h3>
+            <ul>
+              <li><strong>Tahoe Bus Transit:</strong> <a href="tel:5305816365">(530) 581-6365</a></li>
+              <li><strong>Tahoe Taxi:</strong> <a href="tel:5305463181">(530) 546-3181</a></li>
+            </ul>
+          </div>
+          <!-- Parking -->
+          <div>
+            <h3>🚘 Parking</h3>
+            <ul>
+              <li><strong>Parking is limited!</strong> Carpool if possible.</li>
+              <li>Expect to move cars around during your stay.</li>
+              <li>
+                🚫 <strong>No street parking between Nov 1 – May 1</strong>
+                — cars will be <strong>towed</strong>
+                for snow removal.
+              </li>
+              <li>Do not block neighbors' driveways — violators may be towed.</li>
+            </ul>
+          </div>
+          <!-- Bear Wire Notice -->
+          <div class="bg-red-50 border border-red-200 rounded-md p-4 prose prose-red">
+            <h2>🐻 Important Notice: Bear Wire</h2>
+            <p>
+              The cabin is equipped with <strong>electric bear wire</strong>. It won't harm you but must be handled carefully.
+            </p>
+            <h3>To Enter:</h3>
+            <ol>
+              <li>
+                Grab the <strong>top black handle</strong>
+                and disconnect — this disables the other two wires.
+              </li>
+              <li>Remove the <strong>second</strong>, then <strong>third</strong> wire.</li>
+            </ol>
+            <h3>When Leaving or at Night:</h3>
+            <ol>
+              <li>Replace wires from <strong>bottom to top</strong>.</li>
+              <li>
+                Connect <strong>lowest wire first</strong>, then second, then
+                <strong>top wire</strong>
+                (this re-activates the barrier).
+              </li>
+            </ol>
+          </div>
+          <!-- Cancellation Policy -->
+          <div>
+            <h2>🧾 Cancellation Policy</h2>
+            <h3>Full Cabin Bookings</h3>
+            <ul>
+              <li>
+                Cancel <strong>21–14 days before arrival</strong>
+                → Forfeit <strong>50%</strong>
+                of total cost
+              </li>
+              <li>
+                Cancel <strong>less than 14 days</strong>
+                → Forfeit <strong>100%</strong>
+                of total cost
+              </li>
+            </ul>
+            <h3>Individual Rooms</h3>
+            <ul>
+              <li>
+                Cancel <strong>14–7 days before arrival</strong>
+                → Forfeit <strong>50%</strong>
+                of total cost
+              </li>
+              <li>
+                Cancel <strong>less than 7 days</strong> → Forfeit <strong>100%</strong> of total cost
+              </li>
+            </ul>
+            <blockquote>
+              <p>Members are responsible for payments and behavior of their guests.</p>
+              <p>
+                Cancellations due to road closures may be credited for a future stay (contact the Cabin Master).
+              </p>
+            </blockquote>
+            <p>
+              💵 <strong>Refunds:</strong>
+            </p>
+            <p>
+              Cash refunds incur a <strong>3% processing fee</strong> to cover credit card costs.
+            </p>
+          </div>
+          <!-- Common Area & Storage -->
+          <div>
+            <h2>🧳 Common Area & Storage</h2>
+            <ul>
+              <li>Keep personal belongings <strong>out of common areas</strong>.</li>
+              <li><strong>Ski boots</strong> → store in laundry room racks</li>
+              <li><strong>Other ski gear</strong> → store in outside stairwell</li>
+            </ul>
+          </div>
+          <!-- Pets -->
+          <div>
+            <h2>🐾 Pets</h2>
+            <p>
+              No pets are allowed in the Tahoe Cabin.
+            </p>
+          </div>
+          <!-- Smoking -->
+          <div>
+            <h2>🚭 Smoking</h2>
+            <p>
+              Smoking or vaping is <strong>not allowed</strong> inside the cabin.
+            </p>
+          </div>
+          <!-- What to Bring -->
+          <div>
+            <h2>🧺 What to Bring</h2>
+            <ul>
+              <li>
+                Your own <strong>sheets, towels, sleeping bags, and pillowcases</strong>
+                <ul>
+                  <li><em>(No linens or towels are provided!)</em></li>
+                </ul>
+              </li>
+              <li>
+                <strong>Food</strong>
+                (kitchen is fully equipped and includes microwave + basic spices)
+              </li>
+              <li><strong>Fire starters or kindling</strong> (some firewood usually available)</li>
+            </ul>
+            <blockquote>
+              <p>
+                Wood under the deck may be damp — best for keeping a fire going, not starting one.
+              </p>
+            </blockquote>
+          </div>
+          <!-- Pricing -->
+          <div>
+            <h2>💰 Pricing</h2>
+            <p>
+              Per-person, per-night rates:
+            </p>
+            <ul>
+              <li><strong>Adults:</strong> $45</li>
+              <li><strong>Children (5–17):</strong> $25</li>
+              <li><strong>Children under 5:</strong> Free</li>
+            </ul>
+            <h3>Seasonal Rules</h3>
+            <ul>
+              <li>
+                <strong>Summer (May 1 – Nov 30, 2025):</strong>
+                <br /> Full-cabin reservations available (up to 17 people)
+              </li>
+              <li>
+                <strong>Winter (Dec – Apr):</strong>
+                <br /> Only <strong>individual rooms</strong> available (no full-cabin rentals)
+              </li>
+            </ul>
+          </div>
+          <!-- Quiet Hours -->
+          <div>
+            <h2>🌙 Quiet Hours</h2>
+            <p>
+              <strong>10:00 PM – 7:00 AM</strong>
+            </p>
+            <p>
+              Please be mindful — the stairs can be noisy for those in nearby rooms!
+            </p>
+          </div>
+          <!-- Children -->
+          <div>
+            <h2>👶 Children</h2>
+            <p>
+              Children should <strong>not play on the stairs</strong> for safety and noise reasons.
+            </p>
+          </div>
+          <!-- Chores -->
+          <div>
+            <h2>🧹 Chores & Cleanliness</h2>
+            <p>
+              Remember — this is <strong>your cabin</strong>, not a hotel!
+            </p>
+            <p>
+              Keeping rates low depends on everyone pitching in.
+            </p>
+            <h3>Guests must:</h3>
+            <ul>
+              <li>Clean up after themselves</li>
+              <li>Strip and clean their rooms</li>
+              <li>Wash, dry, and store any used club bedding</li>
+              <li>Leave the <strong>kitchen spotless</strong> and remove all food from the fridge</li>
+              <li>Always secure <strong>bear-proof lids</strong> on garbage cans</li>
+            </ul>
+            <blockquote>
+              <p>Cabin rates can stay low with everyone's help!</p>
+            </blockquote>
+          </div>
+          <!-- Booking Rules Summary -->
+          <div class="bg-blue-50 border border-blue-200 rounded-md p-4 prose prose-blue">
+            <h2>📋 Quick Booking Rules Reference</h2>
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-blue-300">
+                  <th class="text-left py-2 pr-4 font-semibold text-blue-900">Rule</th>
+                  <th class="text-left py-2 font-semibold text-blue-900">Details</th>
+                </tr>
+              </thead>
+              <tbody class="text-blue-800">
+                <tr class="border-b border-blue-200">
+                  <td class="py-2 pr-4 font-semibold">Check-In / Out</td>
+                  <td class="py-2">3:00 PM / 11:00 AM</td>
+                </tr>
+                <tr class="border-b border-blue-200">
+                  <td class="py-2 pr-4 font-semibold">Max Stay</td>
+                  <td class="py-2">4 nights per booking</td>
+                </tr>
+                <tr class="border-b border-blue-200">
+                  <td class="py-2 pr-4 font-semibold">Weekend Policy</td>
+                  <td class="py-2">Saturday bookings must include Sunday</td>
+                </tr>
+                <tr class="border-b border-blue-200">
+                  <td class="py-2 pr-4 font-semibold">Active Bookings</td>
+                  <td class="py-2">Only one active booking per user</td>
+                </tr>
+                <tr class="border-b border-blue-200">
+                  <td class="py-2 pr-4 font-semibold">Winter</td>
+                  <td class="py-2">Individual rooms only</td>
+                </tr>
+                <tr class="border-b border-blue-200">
+                  <td class="py-2 pr-4 font-semibold">Summer</td>
+                  <td class="py-2">Rooms or full cabin allowed</td>
+                </tr>
+                <tr class="border-b border-blue-200">
+                  <td class="py-2 pr-4 font-semibold">Membership Limits</td>
+                  <td class="py-2">Family/Lifetime: up to 2 rooms<br />Single: 1 room</td>
+                </tr>
+                <tr>
+                  <td class="py-2 pr-4 font-semibold">Children Pricing</td>
+                  <td class="py-2">5–17 years: $25/night<br />Under 5: Free</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -806,6 +1410,7 @@ defmodule YscWeb.TahoeBookingLive do
             calculated_price: nil,
             price_error: nil
           )
+          |> update_available_rooms()
           |> calculate_price_if_ready()
 
         {:noreply, socket}
@@ -819,6 +1424,7 @@ defmodule YscWeb.TahoeBookingLive do
             calculated_price: nil,
             price_error: nil
           )
+          |> update_available_rooms()
           |> calculate_price_if_ready()
 
         {:noreply, socket}
@@ -840,6 +1446,7 @@ defmodule YscWeb.TahoeBookingLive do
         calculated_price: nil,
         price_error: nil
       )
+      |> update_available_rooms()
       |> calculate_price_if_ready()
 
     {:noreply, socket}
@@ -971,6 +1578,47 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
+  def handle_event("switch-tab", %{"tab" => tab}, socket) do
+    active_tab =
+      case tab do
+        "information" ->
+          :information
+
+        "booking" ->
+          # Prevent switching to booking tab if user can't book
+          if socket.assigns.can_book do
+            :booking
+          else
+            socket.assigns.active_tab
+          end
+
+        _ ->
+          socket.assigns.active_tab
+      end
+
+    # Only update if tab actually changed
+    if active_tab != socket.assigns.active_tab do
+      # Update URL with the new tab
+      query_params =
+        build_query_params(
+          socket.assigns.checkin_date,
+          socket.assigns.checkout_date,
+          socket.assigns.guests_count,
+          socket.assigns.children_count,
+          active_tab
+        )
+
+      socket =
+        socket
+        |> assign(active_tab: active_tab)
+        |> push_patch(to: ~p"/bookings/tahoe?#{URI.encode_query(query_params)}")
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
   # Helper functions
 
   defp parse_date(""), do: nil
@@ -984,6 +1632,13 @@ defmodule YscWeb.TahoeBookingLive do
   defp update_available_rooms(socket) do
     if socket.assigns.checkin_date && socket.assigns.checkout_date &&
          socket.assigns.selected_booking_mode == :room do
+      Logger.info(
+        "[TahoeBookingLive] update_available_rooms called. " <>
+          "Check-in: #{socket.assigns.checkin_date}, " <>
+          "Check-out: #{socket.assigns.checkout_date}, " <>
+          "Property: #{socket.assigns.property}"
+      )
+
       # Ensure valid guest/children counts for filtering
       # Get values from assigns with fallback, then parse to ensure valid integers
       raw_guests = Map.get(socket.assigns, :guests_count, 1)
@@ -992,6 +1647,11 @@ defmodule YscWeb.TahoeBookingLive do
       # Parse and validate - these functions always return valid integers
       guests_count = parse_guests_count(raw_guests)
       children_count = parse_children_count(raw_children)
+
+      Logger.info(
+        "[TahoeBookingLive] Guest counts - Raw: guests=#{inspect(raw_guests)}, children=#{inspect(raw_children)}. " <>
+          "Parsed: guests=#{guests_count}, children=#{children_count}"
+      )
 
       # Final safety check - ensure we have valid integers before using
       guests_count =
@@ -1011,6 +1671,10 @@ defmodule YscWeb.TahoeBookingLive do
       # Get ALL rooms for the property, not just available ones
       all_rooms = Bookings.list_rooms(socket.assigns.property)
 
+      Logger.info(
+        "[TahoeBookingLive] Found #{length(all_rooms)} rooms for property #{socket.assigns.property}"
+      )
+
       # Get available rooms for comparison
       available_room_ids =
         Bookings.get_available_rooms(
@@ -1024,19 +1688,45 @@ defmodule YscWeb.TahoeBookingLive do
       # Check if user can select multiple rooms (family/lifetime members)
       can_select_multiple = can_select_multiple_rooms?(socket.assigns)
 
+      # Calculate total capacity of already selected rooms
+      selected_room_ids = socket.assigns.selected_room_ids || []
+
+      total_selected_capacity =
+        selected_room_ids
+        |> Enum.map(fn room_id ->
+          case Enum.find(all_rooms, &(&1.id == room_id)) do
+            nil -> 0
+            selected_room -> selected_room.capacity_max
+          end
+        end)
+        |> Enum.sum()
+
       rooms_with_status =
         all_rooms
         |> Enum.map(fn room ->
           # Determine availability status and reason
           is_available = MapSet.member?(available_room_ids, room.id)
           is_active = room.is_active
+          room_already_selected = room.id in selected_room_ids
 
-          # For users who can select multiple rooms, don't check capacity against total_people
-          # because they can distribute guests across multiple rooms
+          # Check capacity based on selection mode
           capacity_ok =
             if can_select_multiple do
-              # If user can select multiple rooms, capacity is always OK (they can split guests)
-              true
+              # Multiple room selection: guests can be spread across multiple rooms
+              if room_already_selected do
+                # If room is already selected, allow it (user can unselect it)
+                true
+              else
+                # Room is not selected yet
+                if total_selected_capacity == 0 do
+                  # First room selection: allow any room (guests can be spread across multiple rooms)
+                  true
+                else
+                  # Subsequent room selection: check if adding it would satisfy total capacity
+                  # Total capacity after adding this room must be >= total_people
+                  total_selected_capacity + room.capacity_max >= total_people
+                end
+              end
             else
               # Single room selection: capacity must accommodate all guests
               if total_people > 0, do: room.capacity_max >= total_people, else: true
@@ -1051,8 +1741,13 @@ defmodule YscWeb.TahoeBookingLive do
                 {:unavailable, "Already booked for selected dates"}
 
               not capacity_ok ->
-                {:unavailable,
-                 "Room capacity (#{room.capacity_max}) is less than number of guests (#{total_people})"}
+                if can_select_multiple do
+                  {:unavailable,
+                   "Adding this room would not provide enough total capacity. Selected rooms: #{total_selected_capacity} guests, need #{total_people} total. This room: #{room.capacity_max} guests."}
+                else
+                  {:unavailable,
+                   "Room capacity (#{room.capacity_max}) is less than number of guests (#{total_people})"}
+                end
 
               true ->
                 {:available, nil}
@@ -1061,48 +1756,68 @@ defmodule YscWeb.TahoeBookingLive do
           Map.put(room, :availability_status, availability_status)
         end)
         |> Enum.map(fn room ->
-          # Calculate price for each room
-          # Ensure we have valid integers before calling calculate_booking_price
-          # Use try-catch to handle any unexpected errors
-          try do
-            # Final validation - ensure we have proper integers
-            final_guests =
-              cond do
-                is_integer(guests_count) && guests_count > 0 -> guests_count
-                is_number(guests_count) && guests_count > 0 -> trunc(guests_count)
-                true -> 1
-              end
+          # Load pricing from database for display
+          # Get adult price per person per night
+          adult_price =
+            if socket.assigns.checkin_date do
+              season = Season.for_date(socket.assigns.property, socket.assigns.checkin_date)
+              season_id = if season, do: season.id, else: nil
 
-            final_children =
-              cond do
-                is_integer(children_count) && children_count >= 0 -> children_count
-                is_number(children_count) && children_count >= 0 -> trunc(children_count)
-                true -> 0
-              end
+              # Try room-specific pricing first, then fall back to category pricing
+              # Fall back to category-based pricing if no room-specific rule
+              pricing_rule =
+                PricingRule.find_most_specific(
+                  socket.assigns.property,
+                  season_id,
+                  room.id,
+                  # Don't pass category_id when checking room-specific
+                  nil,
+                  :room,
+                  :per_person_per_night
+                ) ||
+                  PricingRule.find_most_specific(
+                    socket.assigns.property,
+                    season_id,
+                    # No room_id for category lookup
+                    nil,
+                    room.room_category_id,
+                    :room,
+                    :per_person_per_night
+                  )
 
-            case Bookings.calculate_booking_price(
-                   socket.assigns.property,
-                   socket.assigns.checkin_date,
-                   socket.assigns.checkout_date,
-                   :room,
-                   room.id,
-                   final_guests,
-                   final_children
-                 ) do
-              {:ok, price} -> Map.put(room, :calculated_price, price)
-              {:error, _} -> Map.put(room, :calculated_price, nil)
+              if pricing_rule && pricing_rule.amount do
+                pricing_rule.amount
+              else
+                # Fallback to default if no pricing rule found
+                Money.new(45, :USD)
+              end
+            else
+              # Fallback if no checkin date
+              Money.new(45, :USD)
             end
-          rescue
-            e ->
-              # Log the error and return room without price
-              Logger.error("Error calculating price for room #{room.id}: #{inspect(e)}")
 
-              Logger.error(
-                "guests_count: #{inspect(guests_count)}, children_count: #{inspect(children_count)}"
-              )
+          # Children pricing is $25/night for Tahoe (ages 5-17)
+          children_price = Money.new(25, :USD)
 
-              Map.put(room, :calculated_price, nil)
-          end
+          # Calculate minimum price if room has min_billable_occupancy > 1
+          min_occupancy = room.min_billable_occupancy || 1
+
+          minimum_price =
+            if min_occupancy > 1 do
+              # Calculate minimum price: adult_price * min_occupancy
+              case Money.mult(adult_price, min_occupancy) do
+                {:ok, total} -> total
+                {:error, _} -> adult_price
+              end
+            else
+              nil
+            end
+
+          room
+          |> Map.put(:adult_price_per_night, adult_price)
+          |> Map.put(:children_price_per_night, children_price)
+          |> Map.put(:minimum_price, minimum_price)
+          |> Map.put(:min_billable_occupancy, min_occupancy)
         end)
 
       assign(socket, available_rooms: rooms_with_status)
@@ -1462,10 +2177,21 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
+  defp parse_tab_from_params(params) do
+    case Map.get(params, "tab") do
+      "information" -> :information
+      "booking" -> :booking
+      _ -> :booking
+    end
+  end
+
   defp update_url_with_dates(socket, checkin_date, checkout_date) do
     guests_count = socket.assigns.guests_count || 1
     children_count = socket.assigns.children_count || 0
-    query_params = build_query_params(checkin_date, checkout_date, guests_count, children_count)
+    active_tab = socket.assigns.active_tab || :booking
+
+    query_params =
+      build_query_params(checkin_date, checkout_date, guests_count, children_count, active_tab)
 
     if map_size(query_params) > 0 do
       push_patch(socket, to: ~p"/bookings/tahoe?#{URI.encode_query(query_params)}")
@@ -1481,7 +2207,10 @@ defmodule YscWeb.TahoeBookingLive do
          guests_count,
          children_count
        ) do
-    query_params = build_query_params(checkin_date, checkout_date, guests_count, children_count)
+    active_tab = socket.assigns.active_tab || :booking
+
+    query_params =
+      build_query_params(checkin_date, checkout_date, guests_count, children_count, active_tab)
 
     if map_size(query_params) > 0 do
       push_patch(socket, to: ~p"/bookings/tahoe?#{URI.encode_query(query_params)}")
@@ -1490,7 +2219,13 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
-  defp build_query_params(checkin_date, checkout_date, guests_count \\ 1, children_count \\ 0) do
+  defp build_query_params(
+         checkin_date,
+         checkout_date,
+         guests_count \\ 1,
+         children_count \\ 0,
+         active_tab \\ :booking
+       ) do
     params = %{}
 
     params =
@@ -1509,14 +2244,23 @@ defmodule YscWeb.TahoeBookingLive do
 
     params =
       if guests_count && guests_count > 0 do
+        # Always include guests_count in URL, even if it's the default value of 1
         Map.put(params, "guests_count", Integer.to_string(guests_count))
       else
         params
       end
 
     params =
-      if children_count && children_count > 0 do
+      if children_count && children_count >= 0 do
+        # Always include children_count in URL, even if it's 0
         Map.put(params, "children_count", Integer.to_string(children_count))
+      else
+        params
+      end
+
+    params =
+      if active_tab && active_tab != :booking do
+        Map.put(params, "tab", Atom.to_string(active_tab))
       else
         params
       end
@@ -1576,27 +2320,34 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   defp validate_advance_booking_limit(errors, checkin_date, checkout_date) do
-    today = Date.utc_today()
-    max_booking_date = Date.add(today, 45)
+    season = Season.for_date(:tahoe, checkin_date)
 
-    # Check if check-in date is more than 45 days out
-    if Date.compare(checkin_date, max_booking_date) == :gt do
-      Map.put(
-        errors,
-        :advance_booking_limit,
-        "Bookings can only be made up to 45 days in advance. Maximum check-in date is #{Calendar.strftime(max_booking_date, "%B %d, %Y")}"
-      )
-    else
-      # Also check checkout date in case it extends beyond the limit
-      if Date.compare(checkout_date, max_booking_date) == :gt do
+    # Only enforce limit if season exists and has advance_booking_days set
+    if season && season.advance_booking_days && season.advance_booking_days > 0 do
+      today = Date.utc_today()
+      max_booking_date = Date.add(today, season.advance_booking_days)
+
+      # Check if check-in date is more than the configured days out
+      if Date.compare(checkin_date, max_booking_date) == :gt do
         Map.put(
           errors,
           :advance_booking_limit,
-          "Bookings can only be made up to 45 days in advance. Maximum check-out date is #{Calendar.strftime(max_booking_date, "%B %d, %Y")}"
+          "Bookings can only be made up to #{season.advance_booking_days} days in advance. Maximum check-in date is #{Calendar.strftime(max_booking_date, "%B %d, %Y")}"
         )
       else
-        errors
+        # Also check checkout date in case it extends beyond the limit
+        if Date.compare(checkout_date, max_booking_date) == :gt do
+          Map.put(
+            errors,
+            :advance_booking_limit,
+            "Bookings can only be made up to #{season.advance_booking_days} days in advance. Maximum check-out date is #{Calendar.strftime(max_booking_date, "%B %d, %Y")}"
+          )
+        else
+          errors
+        end
       end
+    else
+      errors
     end
   end
 
@@ -1686,6 +2437,43 @@ defmodule YscWeb.TahoeBookingLive do
       end
     else
       errors
+    end
+  end
+
+  defp check_booking_eligibility(nil) do
+    {
+      false,
+      "You must be logged in to make a booking. Please log in to continue."
+    }
+  end
+
+  defp check_booking_eligibility(user) do
+    # Check if user account is approved
+    if user.state != :active do
+      {
+        false,
+        "Your membership application is pending approval. You will be able to make bookings once your application has been approved."
+      }
+    else
+      # Check if user has active membership
+      user_with_subs =
+        case user.subscriptions do
+          %Ecto.Association.NotLoaded{} ->
+            Accounts.get_user!(user.id)
+            |> Ysc.Repo.preload(:subscriptions)
+
+          _ ->
+            user
+        end
+
+      if Accounts.has_active_membership?(user_with_subs) do
+        {true, nil}
+      else
+        {
+          false,
+          "You need an active membership to make bookings. Please activate or renew your membership to continue."
+        }
+      end
     end
   end
 
@@ -1926,5 +2714,69 @@ defmodule YscWeb.TahoeBookingLive do
         1
       end
     end
+  end
+
+  # Calculate max booking date based on the most restrictive season's configuration
+  # This ensures users can't select dates in restricted seasons (e.g., winter with 45-day limit)
+  # even when currently in an unrestricted season (e.g., summer with no limit)
+  defp calculate_max_booking_date(today) do
+    # Get all seasons for the property
+    seasons = Bookings.list_seasons(:tahoe)
+
+    # Find the most restrictive advance_booking_days limit
+    most_restrictive_limit =
+      seasons
+      |> Enum.filter(fn season ->
+        season.advance_booking_days && season.advance_booking_days > 0
+      end)
+      |> Enum.map(fn season -> season.advance_booking_days end)
+      |> Enum.min(fn -> nil end)
+
+    if most_restrictive_limit do
+      # Apply the most restrictive limit to prevent booking dates in restricted seasons
+      Date.add(today, most_restrictive_limit)
+    else
+      # No restrictions - return a far future date (effectively no limit)
+      # Using 10 years from now as a practical maximum
+      Date.add(today, 365 * 10)
+    end
+  end
+
+  # Bed icon SVG helpers
+  defp bed_icon_svg(bed_type, class \\ "w-4 h-4")
+
+  defp bed_icon_svg(:single, class) do
+    """
+    <svg class="#{class}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="twinBedTitle">
+      <path d="M6 9h12" />
+      <rect x="6" y="9" width="12" height="8" rx="2" />
+      <path d="M8 17v2m8-2v2" />
+      <rect x="9.75" y="10.25" width="4.5" height="2.5" rx="1" />
+    </svg>
+    """
+  end
+
+  defp bed_icon_svg(:queen, class) do
+    """
+    <svg class="#{class}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="queenBedTitle">
+      <path d="M4 9h16" />
+      <rect x="4" y="9" width="16" height="8" rx="2" />
+      <path d="M7 17v2m10-2v2" />
+      <rect x="7.5" y="10.25" width="5" height="2.5" rx="1" />
+      <rect x="11.5" y="10.25" width="5" height="2.5" rx="1" />
+    </svg>
+    """
+  end
+
+  defp bed_icon_svg(:king, class) do
+    """
+    <svg class="#{class}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="kingBedTitle">
+      <path d="M3 9h18" />
+      <rect x="3" y="9" width="18" height="8" rx="2" />
+      <path d="M6 17v2m12-2v2" />
+      <rect x="6.25" y="10.25" width="6" height="2.5" rx="1" />
+      <rect x="11.75" y="10.25" width="6" height="2.5" rx="1" />
+    </svg>
+    """
   end
 end

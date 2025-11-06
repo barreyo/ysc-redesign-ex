@@ -152,6 +152,14 @@ defmodule Ysc.Bookings.PricingRule do
   """
   def find_most_specific(property, season_id, room_id, room_category_id, booking_mode, price_unit) do
     alias Ysc.Bookings.PricingRule
+    require Logger
+
+    Logger.debug(
+      "[PricingRule] find_most_specific called. " <>
+        "Property: #{property}, Season ID: #{inspect(season_id)}, " <>
+        "Room ID: #{inspect(room_id)}, Room Category ID: #{inspect(room_category_id)}, " <>
+        "Booking Mode: #{booking_mode}, Price Unit: #{price_unit}"
+    )
 
     base_query =
       from pr in PricingRule,
@@ -197,6 +205,47 @@ defmodule Ysc.Bookings.PricingRule do
         ],
         limit: 1
 
-    Ysc.Repo.one(query)
+    result = Ysc.Repo.one(query)
+
+    if result do
+      Logger.debug(
+        "[PricingRule] Found pricing rule: ID=#{result.id}, " <>
+          "Amount=#{inspect(result.amount)}, " <>
+          "Room ID=#{inspect(result.room_id)}, " <>
+          "Category ID=#{inspect(result.room_category_id)}, " <>
+          "Season ID=#{inspect(result.season_id)}"
+      )
+    else
+      Logger.debug(
+        "[PricingRule] No pricing rule found matching criteria. " <>
+          "Checking if any rules exist for property #{property}..."
+      )
+
+      # Check if any pricing rules exist at all for this property
+      count_query =
+        from pr in PricingRule,
+          where: pr.property == ^property or is_nil(pr.property),
+          select: count(pr.id)
+
+      total_count = Ysc.Repo.one(count_query)
+      Logger.debug("[PricingRule] Total pricing rules for property #{property}: #{total_count}")
+
+      # Check rules matching booking_mode and price_unit
+      matching_count_query =
+        from pr in PricingRule,
+          where: pr.booking_mode == ^booking_mode,
+          where: pr.price_unit == ^price_unit,
+          where: pr.property == ^property or is_nil(pr.property),
+          select: count(pr.id)
+
+      matching_count = Ysc.Repo.one(matching_count_query)
+
+      Logger.debug(
+        "[PricingRule] Pricing rules matching booking_mode=#{booking_mode}, " <>
+          "price_unit=#{price_unit}, property=#{property}: #{matching_count}"
+      )
+    end
+
+    result
   end
 end

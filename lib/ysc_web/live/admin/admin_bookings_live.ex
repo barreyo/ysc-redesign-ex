@@ -174,6 +174,86 @@ defmodule YscWeb.AdminBookingsLive do
           </:actions>
         </.simple_form>
       </.modal>
+      <!-- Edit Season Modal -->
+      <.modal
+        :if={@live_action == :edit_season}
+        id="season-modal"
+        on_cancel={JS.navigate(~p"/admin/bookings?property=#{@selected_property}&section=config")}
+        show
+      >
+        <.header>
+          Edit Season
+        </.header>
+
+        <.simple_form
+          for={@season_form}
+          id="season-form"
+          phx-submit="save-season"
+          phx-change="validate-season"
+        >
+          <.input
+            type="text"
+            field={@season_form[:name]}
+            label="Name"
+            placeholder="e.g., Winter, Summer"
+            required
+          />
+
+          <.input
+            type="textarea"
+            field={@season_form[:description]}
+            label="Description"
+            placeholder="Optional description of this season"
+          />
+
+          <.input
+            type="select"
+            field={@season_form[:property]}
+            label="Property"
+            options={[
+              {"Lake Tahoe", "tahoe"},
+              {"Clear Lake", "clear_lake"}
+            ]}
+            required
+          />
+
+          <.input type="date" field={@season_form[:start_date]} label="Start Date" required />
+
+          <.input type="date" field={@season_form[:end_date]} label="End Date" required />
+
+          <.input
+            type="number"
+            field={@season_form[:advance_booking_days]}
+            label="Advance Booking Days"
+            placeholder="Leave empty for no limit"
+            min="0"
+          >
+            <p class="text-xs text-zinc-500 mt-1">
+              Number of days in advance bookings can be made for this season. Leave empty or set to 0 for no limit.
+            </p>
+          </.input>
+
+          <.input type="checkbox" field={@season_form[:is_default]} label="Default Season">
+            <p class="text-xs text-zinc-500 mt-1">
+              Only one default season allowed per property
+            </p>
+          </.input>
+
+          <:actions>
+            <div class="flex justify-between w-full">
+              <div></div>
+              <div class="flex gap-2">
+                <.button phx-click={
+                  JS.navigate(~p"/admin/bookings?property=#{@selected_property}&section=config")
+                }>
+                  Cancel
+                </.button>
+                <.button type="submit">Update</.button>
+              </div>
+            </div>
+          </:actions>
+        </.simple_form>
+      </.modal>
       <!-- View Booking Modal -->
       <.modal
         :if={@live_action == :view_booking}
@@ -1106,6 +1186,7 @@ defmodule YscWeb.AdminBookingsLive do
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Property</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Name</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Date Range</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Advance Booking</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Default</th>
                   <th class="pb-3 font-semibold text-zinc-700">Actions</th>
                 </tr>
@@ -1129,6 +1210,13 @@ defmodule YscWeb.AdminBookingsLive do
                       "—"
                     end %>
                   </td>
+                  <td class="py-3 pr-6 text-zinc-600">
+                    <%= if season.advance_booking_days && season.advance_booking_days > 0 do
+                      "#{season.advance_booking_days} days"
+                    else
+                      "No limit"
+                    end %>
+                  </td>
                   <td class="py-3 pr-6">
                     <span :if={season.is_default} class="text-xs font-semibold text-green-600">
                       Default
@@ -1136,7 +1224,16 @@ defmodule YscWeb.AdminBookingsLive do
                     <span :if={!season.is_default} class="text-zinc-400">—</span>
                   </td>
                   <td class="py-3">
-                    <span class="text-zinc-400 text-sm">Coming soon</span>
+                    <button
+                      phx-click={
+                        JS.navigate(
+                          ~p"/admin/bookings/seasons/#{season.id}/edit?property=#{@selected_property}&section=config"
+                        )
+                      }
+                      class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
+                    >
+                      Edit
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -1342,6 +1439,8 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:active_door_code, active_door_code)
      |> assign(:door_code_form, door_code_form)
      |> assign(:door_code_warning, nil)
+     |> assign(:season, nil)
+     |> assign(:season_form, nil)
      |> assign(
        :reservations_path,
        ~p"/admin/bookings?property=#{selected_property}&section=reservations"
@@ -1755,6 +1854,28 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:booking, nil)
   end
 
+  defp apply_action(socket, :edit_season, %{"id" => id}) do
+    season = Bookings.get_season!(id)
+
+    form =
+      season
+      |> Ysc.Bookings.Season.changeset(%{})
+      |> to_form(as: "season")
+
+    # Ensure selected_property matches the season's property
+    socket =
+      if socket.assigns.selected_property != season.property do
+        assign(socket, :selected_property, season.property)
+      else
+        socket
+      end
+
+    socket
+    |> assign(:page_title, "Edit Season")
+    |> assign(:season, season)
+    |> assign(:season_form, form)
+  end
+
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Bookings")
@@ -1765,6 +1886,8 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:booking, nil)
     |> assign(:booking_form, nil)
     |> assign(:booking_type, nil)
+    |> assign(:season, nil)
+    |> assign(:season_form, nil)
   end
 
   def handle_event("select-property", %{"property" => property}, socket) do
@@ -2626,6 +2749,67 @@ defmodule YscWeb.AdminBookingsLive do
      socket
      |> assign(:door_code_form, form)
      |> assign(:door_code_warning, warning)}
+  end
+
+  def handle_event("validate-season", %{"season" => season_params}, socket) do
+    changeset =
+      (socket.assigns.season || %Ysc.Bookings.Season{})
+      |> Ysc.Bookings.Season.changeset(season_params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :season_form, to_form(changeset, as: "season"))}
+  end
+
+  def handle_event("save-season", %{"season" => season_params}, socket) do
+    # Convert property string to atom
+    season_params =
+      if property_str = season_params["property"] do
+        property_atom = String.to_existing_atom(property_str)
+        Map.put(season_params, "property", property_atom)
+      else
+        season_params
+      end
+
+    # Convert advance_booking_days to integer or nil
+    season_params =
+      if advance_days_str = season_params["advance_booking_days"] do
+        advance_days_str = String.trim(advance_days_str)
+
+        if advance_days_str == "" do
+          Map.put(season_params, "advance_booking_days", nil)
+        else
+          case Integer.parse(advance_days_str) do
+            {days, _} when days > 0 -> Map.put(season_params, "advance_booking_days", days)
+            _ -> Map.put(season_params, "advance_booking_days", nil)
+          end
+        end
+      else
+        Map.put(season_params, "advance_booking_days", nil)
+      end
+
+    result = Bookings.update_season(socket.assigns.season, season_params)
+
+    case result do
+      {:ok, _season} ->
+        # Reload seasons to reflect changes
+        seasons = Bookings.list_seasons()
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Season updated successfully")
+         |> assign(:seasons, seasons)
+         |> assign_filtered_data(
+           socket.assigns.selected_property,
+           seasons,
+           socket.assigns.pricing_rules
+         )
+         |> push_navigate(
+           to: ~p"/admin/bookings?property=#{socket.assigns.selected_property}&section=config"
+         )}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :season_form, to_form(changeset, as: "season"))}
+    end
   end
 
   def handle_event("save-door-code", %{"door_code" => door_code_params}, socket) do

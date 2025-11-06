@@ -19,6 +19,40 @@ defmodule YscWeb.UserLoginLive do
           </.link>
         </:subtitle>
       </.header>
+      <!-- Failed Login Attempts Banner -->
+      <div
+        :if={@failed_login_attempts >= 3}
+        class="bg-amber-50 border border-amber-200 rounded-lg p-4 my-6"
+      >
+        <div class="flex items-start">
+          <div class="flex-shrink-0">
+            <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-amber-600" />
+          </div>
+          <div class="ml-3 flex-1">
+            <h3 class="text-sm font-semibold text-amber-900">Having trouble signing in?</h3>
+            <div class="mt-2 text-sm text-amber-800">
+              <p class="mb-2">
+                You've had multiple failed login attempts. You may want to reset your password.
+              </p>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <.link
+                  href={~p"/users/reset-password"}
+                  class="font-semibold text-amber-900 hover:text-amber-950 underline"
+                >
+                  Reset your password
+                </.link>
+                <span class="hidden sm:inline">•</span>
+                <a
+                  href="mailto:info@ysc.org"
+                  class="font-semibold text-amber-900 hover:text-amber-950 underline"
+                >
+                  Contact us for help
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <.simple_form for={@form} id="login_form" action={~p"/users/log-in"} phx-update="ignore">
         <.input field={@form[:email]} type="email" label="Email" required />
@@ -43,11 +77,20 @@ defmodule YscWeb.UserLoginLive do
     """
   end
 
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     email = Phoenix.Flash.get(socket.assigns.flash, :email)
     form = to_form(%{"email" => email}, as: "user")
 
-    {:ok, assign(socket, form: form) |> assign(:page_title, "Login"),
-     temporary_assigns: [form: form]}
+    # Get failed login attempts from session (handle both atom and string keys)
+    failed_login_attempts =
+      session
+      |> Map.get(:failed_login_attempts)
+      |> Kernel.||(Map.get(session, "failed_login_attempts"))
+      |> Kernel.||(0)
+
+    {:ok,
+     assign(socket, form: form)
+     |> assign(:page_title, "Login")
+     |> assign(:failed_login_attempts, failed_login_attempts), temporary_assigns: [form: form]}
   end
 end

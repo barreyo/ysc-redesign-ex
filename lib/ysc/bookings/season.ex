@@ -37,6 +37,10 @@ defmodule Ysc.Bookings.Season do
     # Whether this is the default season for the property
     field :is_default, :boolean, default: false
 
+    # Number of days in advance bookings can be made for this season
+    # nil or 0 means no limit, otherwise it's the number of days (e.g., 45)
+    field :advance_booking_days, :integer, default: nil
+
     # Relationships
     has_many :pricing_rules, Ysc.Bookings.PricingRule, foreign_key: :season_id
     has_many :rooms, Ysc.Bookings.Room, foreign_key: :default_season_id
@@ -55,8 +59,10 @@ defmodule Ysc.Bookings.Season do
       :property,
       :start_date,
       :end_date,
-      :is_default
+      :is_default,
+      :advance_booking_days
     ])
+    |> validate_number(:advance_booking_days, greater_than_or_equal_to: 0)
     |> validate_required([
       :name,
       :property,

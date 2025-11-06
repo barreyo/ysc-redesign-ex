@@ -27,7 +27,7 @@ defmodule YscWeb.UserForgotPasswordLive do
         </:actions>
       </.simple_form>
 
-      <.back navigate={~p"/"}>Back</.back>
+      <.back navigate={~p"/users/log-in"}>Back</.back>
     </div>
     """
   end
