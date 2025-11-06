@@ -841,8 +841,10 @@ defmodule YscWeb.AdminBookingsLive do
                 path={~p"/admin/bookings"}
               >
                 <:col :let={{_, booking}} label="Reference" field={:reference_id}>
-                  <.badge type="default">
-                    <span class="font-mono text-xs"><%= booking.reference_id %></span>
+                  <.badge type="default" class="whitespace-nowrap">
+                    <span class="font-mono text-xs flex-shrink-0 whitespace-nowrap">
+                      <%= booking.reference_id %>
+                    </span>
                   </.badge>
                 </:col>
                 <:col :let={{_, booking}} label="Guest" field={:user_name}>
