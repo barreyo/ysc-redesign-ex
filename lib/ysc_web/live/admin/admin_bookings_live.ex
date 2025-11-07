@@ -91,7 +91,9 @@ defmodule YscWeb.AdminBookingsLive do
       <.modal
         :if={@live_action in [:new_pricing_rule, :edit_pricing_rule]}
         id="pricing-rule-modal"
-        on_cancel={JS.navigate(~p"/admin/bookings")}
+        on_cancel={
+          JS.navigate(~p"/admin/bookings?property=#{@selected_property}&section=#{@current_section}")
+        }
         show
       >
         <.header>
@@ -167,7 +169,13 @@ defmodule YscWeb.AdminBookingsLive do
           />
 
           <:actions>
-            <.button phx-click={JS.navigate(~p"/admin/bookings")}>Cancel</.button>
+            <.button phx-click={
+              JS.navigate(
+                ~p"/admin/bookings?property=#{@selected_property}&section=#{@current_section}"
+              )
+            }>
+              Cancel
+            </.button>
             <.button type="submit">
               <%= if @live_action == :new_pricing_rule, do: "Create", else: "Update" %>
             </.button>
@@ -1249,7 +1257,11 @@ defmodule YscWeb.AdminBookingsLive do
                 Pricing rules use hierarchical specificity (room → category → property)
               </p>
             </div>
-            <.button phx-click={JS.navigate(~p"/admin/bookings/pricing-rules/new")}>
+            <.button phx-click={
+              JS.navigate(
+                ~p"/admin/bookings/pricing-rules/new?property=#{@selected_property}&section=#{@current_section}"
+              )
+            }>
               <.icon name="hero-plus" class="w-5 h-5 -mt-1" />
               <span class="ms-1">
                 New Pricing Rule
@@ -1311,7 +1323,11 @@ defmodule YscWeb.AdminBookingsLive do
                   </td>
                   <td class="py-3">
                     <button
-                      phx-click={JS.navigate(~p"/admin/bookings/pricing-rules/#{rule.id}/edit")}
+                      phx-click={
+                        JS.navigate(
+                          ~p"/admin/bookings/pricing-rules/#{rule.id}/edit?property=#{@selected_property}&section=#{@current_section}"
+                        )
+                      }
                       class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
                     >
                       Edit
@@ -2711,7 +2727,10 @@ defmodule YscWeb.AdminBookingsLive do
         {:noreply,
          socket
          |> put_flash(:info, "Pricing rule saved successfully")
-         |> push_navigate(to: ~p"/admin/bookings")}
+         |> push_navigate(
+           to:
+             ~p"/admin/bookings?property=#{socket.assigns.selected_property}&section=#{socket.assigns.current_section}"
+         )}
 
       {:error, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset, as: "pricing_rule"))}
