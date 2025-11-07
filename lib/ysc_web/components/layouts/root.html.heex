@@ -10,28 +10,19 @@
       <%= assigns[:page_title] || "YSC" %>
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-    <link
-      :if={assigns[:load_radar]}
-      href="https://js.radar.com/v4.4.8/radar.css"
-      rel="stylesheet"
-    />
+    <link href="https://js.radar.com/v4.4.8/radar.css" rel="stylesheet" />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
-    <script
-      :if={assigns[:load_calendar]}
-      src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2"
-      async
-      defer
-    >
+    <script src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2" async defer>
     </script>
-    <script :if={assigns[:load_radar]} src="https://js.radar.com/v4.4.8/radar.min.js" defer>
+    <script src="https://js.radar.com/v4.4.8/radar.min.js" defer>
     </script>
-    <script :if={assigns[:load_stripe]} src="https://js.stripe.com/v3/" defer>
+    <script src="https://js.stripe.com/v3/" defer>
     </script>
-    <script :if={assigns[:load_stripe]}>
+    <script>
       window.stripePublishableKey = "<%= Application.get_env(:stripity_stripe, :public_key) %>";
     </script>
-    <Turnstile.script :if={assigns[:load_turnstile]} />
+    <Turnstile.script />
   </head>
   <body class="antialiased bg-white">
     <div id="content-wrapper" class="flex flex-col min-h-screen">

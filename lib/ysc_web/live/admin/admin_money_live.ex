@@ -259,7 +259,7 @@ defmodule YscWeb.AdminMoneyLive do
             <h3 class="font-medium text-zinc-900"><%= account_data.account.name %></h3>
             <p class="text-sm text-zinc-600"><%= account_data.account.description %></p>
             <p class="text-lg font-semibold mt-2">
-              <%= Money.to_string!(account_data.balance || Money.new(0, :USD)) %>
+              <%= Money.to_string!(account_data.balance || Money.new(:USD, 0)) %>
             </p>
             <p class="text-xs text-zinc-500 capitalize"><%= account_data.account.account_type %></p>
           </div>
@@ -368,7 +368,7 @@ defmodule YscWeb.AdminMoneyLive do
             <strong>Payment:</strong> {@selected_payment.reference_id}
           </p>
           <p class="text-sm text-zinc-600">
-            <strong>Amount:</strong> {Money.to_string(@selected_payment.amount)}
+            <strong>Amount:</strong> {Money.to_string!(@selected_payment.amount)}
           </p>
           <p class="text-sm text-zinc-600">
             <strong>User:</strong> {@selected_payment.user.email}

@@ -32,8 +32,37 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
   - Map with all necessary data for the email template
   """
   def prepare_email_data(ticket_order) do
+    # Validate input
+    if is_nil(ticket_order) do
+      raise ArgumentError, "Ticket order cannot be nil"
+    end
+
+    if is_nil(ticket_order.id) do
+      raise ArgumentError, "Ticket order missing id: #{inspect(ticket_order)}"
+    end
+
     # Ensure we have all necessary preloaded data
-    ticket_order = Tickets.get_ticket_order(ticket_order.id)
+    ticket_order =
+      case Tickets.get_ticket_order(ticket_order.id) do
+        nil ->
+          raise ArgumentError, "Ticket order not found: #{ticket_order.id}"
+
+        loaded_order ->
+          loaded_order
+      end
+
+    # Validate required associations
+    if is_nil(ticket_order.user) do
+      raise ArgumentError, "Ticket order missing user association: #{ticket_order.id}"
+    end
+
+    if is_nil(ticket_order.event) do
+      raise ArgumentError, "Ticket order missing event association: #{ticket_order.id}"
+    end
+
+    if is_nil(ticket_order.tickets) or length(ticket_order.tickets) == 0 do
+      raise ArgumentError, "Ticket order missing tickets: #{ticket_order.id}"
+    end
 
     # Group tickets by tier for summary
     ticket_summaries = prepare_ticket_summaries(ticket_order.tickets)
@@ -55,7 +84,9 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
     total_amount = format_money(ticket_order.total_amount)
 
     # Prepare agenda data if available
-    agenda_data = prepare_agenda_data(ticket_order.event.agendas)
+    # Handle case where event.agendas might be nil
+    agendas = if ticket_order.event, do: ticket_order.event.agendas || [], else: []
+    agenda_data = prepare_agenda_data(agendas)
 
     %{
       first_name: ticket_order.user.first_name || "Valued Member",
@@ -91,9 +122,16 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
       ticket_summaries: ticket_summaries,
       tickets:
         Enum.map(ticket_order.tickets, fn ticket ->
+          ticket_tier_name =
+            if ticket.ticket_tier do
+              ticket.ticket_tier.name
+            else
+              "Unknown Tier"
+            end
+
           %{
             reference_id: ticket.reference_id,
-            ticket_tier_name: ticket.ticket_tier.name,
+            ticket_tier_name: ticket_tier_name,
             status: ticket.status
           }
         end)
@@ -105,6 +143,12 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
     |> Enum.group_by(& &1.ticket_tier_id)
     |> Enum.map(fn {_tier_id, tier_tickets} ->
       first_ticket = List.first(tier_tickets)
+
+      if is_nil(first_ticket.ticket_tier) do
+        raise ArgumentError,
+              "Ticket missing ticket_tier association: ticket_id=#{first_ticket.id}, tier_id=#{first_ticket.ticket_tier_id}"
+      end
+
       quantity = length(tier_tickets)
       price_per_ticket = format_money(first_ticket.ticket_tier.price)
       total_price = format_money(calculate_tier_total(first_ticket.ticket_tier.price, quantity))
@@ -293,9 +337,7 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
   end
 
   defp format_money(%Money{} = money) do
-    money
-    |> Money.to_string(separator: ".", delimiter: ",", fractional_digits: 2)
-    |> then(&"$#{&1}")
+    Money.to_string!(money, separator: ".", delimiter: ",", fractional_digits: 2)
   end
 
   defp format_money(_), do: "$0.00"

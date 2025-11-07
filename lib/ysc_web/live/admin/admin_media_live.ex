@@ -198,6 +198,7 @@ defmodule YscWeb.AdminMediaLive do
     {:ok,
      socket
      |> assign(:media_count, media_count)
+     |> assign(:page_title, "Media")
      |> assign(form: form)
      |> assign(:active_image, image)
      |> assign(:image_uploader, image_uploader)

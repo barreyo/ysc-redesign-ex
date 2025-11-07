@@ -145,6 +145,7 @@ defmodule YscWeb.ClearLakeBookingLive do
       socket =
         socket
         |> assign(
+          page_title: "Clear Lake Cabin",
           checkin_date: checkin_date,
           checkout_date: checkout_date,
           today: today,
