@@ -427,13 +427,13 @@ defmodule YscWeb.ClearLakeBookingLive do
               id="about-the-clear-lake-cabin-carousel"
               images={[
                 %{
-                  src: ~p"/images/clear_lake/clear_lake_main.jpg",
+                  src: ~p"/images/clear_lake/clear_lake_main.webp",
                   alt: "Clear Lake Cabin Exterior"
                 },
-                %{src: ~p"/images/clear_lake/clear_lake_dock.jpg", alt: "Clear Lake Dock"},
-                %{src: ~p"/images/clear_lake/clear_lake_dock_2.jpg", alt: "Clear Lake Dock"},
-                %{src: ~p"/images/clear_lake/clear_lake_sweep.jpeg", alt: "Clear Lake"},
-                %{src: ~p"/images/clear_lake/clear_lake_cabin.png", alt: "Clear Lake Cabin"}
+                %{src: ~p"/images/clear_lake/clear_lake_dock.webp", alt: "Clear Lake Dock"},
+                %{src: ~p"/images/clear_lake/clear_lake_dock_2.webp", alt: "Clear Lake Dock"},
+                %{src: ~p"/images/clear_lake/clear_lake_sweep.webp", alt: "Clear Lake"},
+                %{src: ~p"/images/clear_lake/clear_lake_cabin.webp", alt: "Clear Lake Cabin"}
               ]}
               class="my-8"
             />

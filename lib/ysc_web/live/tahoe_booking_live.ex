@@ -866,13 +866,13 @@ defmodule YscWeb.TahoeBookingLive do
             <YscWeb.Components.ImageCarousel.image_carousel
               id="about-the-tahoe-cabin-carousel"
               images={[
-                %{src: ~p"/images/tahoe/tahoe_cabin_main.jpg", alt: "Tahoe Cabin Exterior"},
-                %{src: ~p"/images/tahoe/tahoe_room_1.jpg", alt: "Tahoe Cabin Room 1"},
-                %{src: ~p"/images/tahoe/tahoe_room_2.jpg", alt: "Tahoe Cabin Room 2"},
-                %{src: ~p"/images/tahoe/tahoe_room_4.jpg", alt: "Tahoe Cabin Room 4"},
-                %{src: ~p"/images/tahoe/tahoe_room_5.jpg", alt: "Tahoe Cabin Room 5"},
-                %{src: ~p"/images/tahoe/tahoe_room_6.jpg", alt: "Tahoe Cabin Room 6"},
-                %{src: ~p"/images/tahoe/tahoe_room_7.jpg", alt: "Tahoe Cabin Room 7"}
+                %{src: ~p"/images/tahoe/tahoe_cabin_main.webp", alt: "Tahoe Cabin Exterior"},
+                %{src: ~p"/images/tahoe/tahoe_room_1.webp", alt: "Tahoe Cabin Room 1"},
+                %{src: ~p"/images/tahoe/tahoe_room_2.webp", alt: "Tahoe Cabin Room 2"},
+                %{src: ~p"/images/tahoe/tahoe_room_4.webp", alt: "Tahoe Cabin Room 4"},
+                %{src: ~p"/images/tahoe/tahoe_room_5.webp", alt: "Tahoe Cabin Room 5"},
+                %{src: ~p"/images/tahoe/tahoe_room_6.webp", alt: "Tahoe Cabin Room 6"},
+                %{src: ~p"/images/tahoe/tahoe_room_7.webp", alt: "Tahoe Cabin Room 7"}
               ]}
               class="my-8"
             />
