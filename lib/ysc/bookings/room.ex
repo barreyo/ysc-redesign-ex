@@ -162,7 +162,8 @@ defmodule Ysc.Bookings.Room do
         },
         num_people
       )
-      when is_integer(num_people) and num_people > 0 do
+      when is_integer(num_people) and num_people > 0 and not is_nil(min_billable) and
+             not is_nil(capacity_max) do
     num_people
     |> max(min_billable)
     |> min(capacity_max)

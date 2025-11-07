@@ -16,14 +16,11 @@ defmodule YscWeb.NewsLive do
         </div>
       </div>
 
-      <div :if={@featured != nil} class="max-w-screen-xl mx-auto px-4">
-        <div
-          id="featured"
-          class="w-full flex flex-col mb-2 md:mb-48 pb-2 md:pb-48 relative overflow-visible"
-        >
+      <div :if={@featured != nil} class="max-w-screen-lg mx-auto px-4">
+        <div id="featured" class="w-full flex flex-col pb-2">
           <.link
             navigate={~p"/posts/#{@featured.url_name}"}
-            class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
+            class="w-full hover:opacity-80 transition-opacity duration-200 ease-in-out"
           >
             <div class="relative w-full aspect-video">
               <canvas
@@ -46,7 +43,7 @@ defmodule YscWeb.NewsLive do
           <%!-- <div class="w-full bg-gradient-to-t opacity-50 from-white to-zinc-900 h-80 absolute bottom-0">
           </div> --%>
 
-          <div class="py-4 md:py-6 px-2 md:px-6 max-w-screen-lg mx-auto flex flex-col justify-between w-full md:absolute md:bottom-0 md:left-0 md:right-0 md:translate-y-32 z-10 bg-white rounded">
+          <div class="py-4 md:py-6 px-2 lg:px-4 max-w-screen-lg mx-auto flex flex-col justify-between w-full">
             <div>
               <div class="flex items-center gap-1 mb-2">
                 <.badge type="yellow">

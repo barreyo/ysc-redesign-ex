@@ -396,7 +396,8 @@ defmodule YscWeb.UserSettingsLive do
                 <.button
                   :if={
                     @current_membership != nil &&
-                      !Subscriptions.scheduled_for_cancellation?(@current_membership)
+                      !Subscriptions.scheduled_for_cancellation?(@current_membership) &&
+                      @active_plan_type != :lifetime
                   }
                   phx-click="cancel-membership"
                   color="red"
@@ -425,6 +426,27 @@ defmodule YscWeb.UserSettingsLive do
               </div>
 
               <div
+                :if={@active_plan_type == :lifetime}
+                class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4"
+              >
+                <div class="flex">
+                  <div class="flex-shrink-0">
+                    <.icon name="hero-star" class="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div class="ml-3">
+                    <h3 class="text-sm font-medium text-blue-800">
+                      Lifetime Membership
+                    </h3>
+                    <div class="mt-2 text-sm text-blue-700">
+                      <p>
+                        You have a lifetime membership that never expires. Your membership cannot be cancelled or changed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
                 :if={!@user_is_active}
                 class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4"
               >
@@ -446,7 +468,7 @@ defmodule YscWeb.UserSettingsLive do
                 </div>
               </div>
 
-              <div>
+              <div :if={@active_plan_type != :lifetime}>
                 <.form
                   for={@membership_form}
                   id="membership_form"
@@ -1296,10 +1318,18 @@ defmodule YscWeb.UserSettingsLive do
        put_flash(socket, :error, "You must have an approved account to cancel your membership.")}
     else
       # Schedule cancellation at end of current period in Stripe and persist locally
-      Subscriptions.cancel(socket.assigns.current_membership)
+      case Subscriptions.cancel(socket.assigns.current_membership) do
+        {:ok, _subscription} ->
+          {:noreply,
+           put_flash(socket, :info, "Membership cancelled.")
+           |> redirect(to: ~p"/users/membership")}
 
-      {:noreply,
-       put_flash(socket, :info, "Membership cancelled.") |> redirect(to: ~p"/users/membership")}
+        {:error, reason} when is_binary(reason) ->
+          {:noreply, put_flash(socket, :error, reason)}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to cancel membership. Please try again.")}
+      end
     end
   end
 
@@ -1310,10 +1340,20 @@ defmodule YscWeb.UserSettingsLive do
       {:noreply,
        put_flash(socket, :error, "You must have an approved account to cancel your membership.")}
     else
-      Subscriptions.resume(socket.assigns.current_membership)
+      case Subscriptions.resume(socket.assigns.current_membership) do
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, reason)}
 
-      {:noreply,
-       put_flash(socket, :info, "Membership reactivated.") |> redirect(to: ~p"/users/membership")}
+        {:ok, _subscription} ->
+          {:noreply,
+           put_flash(socket, :info, "Membership reactivated.")
+           |> redirect(to: ~p"/users/membership")}
+
+        _subscription ->
+          {:noreply,
+           put_flash(socket, :info, "Membership reactivated.")
+           |> redirect(to: ~p"/users/membership")}
+      end
     end
   end
 
@@ -1377,58 +1417,66 @@ defmodule YscWeb.UserSettingsLive do
           current_type = get_membership_plan(current_membership)
           new_atom = String.to_existing_atom(new_type)
 
-          if current_type == new_atom do
-            {:noreply, put_flash(socket, :info, "You are already on that plan.")}
+          if current_type == :lifetime do
+            {:noreply, put_flash(socket, :error, "Lifetime memberships cannot be changed.")}
           else
-            plans = Application.get_env(:ysc, :membership_plans)
-            current_plan = Enum.find(plans, &(&1.id == current_type))
-            new_plan = Enum.find(plans, &(&1.id == new_atom))
+            if current_type == new_atom do
+              {:noreply, put_flash(socket, :info, "You are already on that plan.")}
+            else
+              plans = Application.get_env(:ysc, :membership_plans)
+              current_plan = Enum.find(plans, &(&1.id == current_type))
+              new_plan = Enum.find(plans, &(&1.id == new_atom))
 
-            new_price_id = new_plan[:stripe_price_id]
+              new_price_id = new_plan[:stripe_price_id]
 
-            direction = if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
+              direction = if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
 
-            case Subscriptions.change_membership_plan(current_membership, new_price_id, direction) do
-              {:ok, _} ->
-                # Optimistically update UI to reflect new plan immediately
-                updated_membership =
-                  case current_membership.subscription_items do
-                    [first | rest] ->
-                      updated_first = %{first | stripe_price_id: new_price_id}
-                      %{current_membership | subscription_items: [updated_first | rest]}
+              case Subscriptions.change_membership_plan(
+                     current_membership,
+                     new_price_id,
+                     direction
+                   ) do
+                {:ok, _} ->
+                  # Optimistically update UI to reflect new plan immediately
+                  updated_membership =
+                    case current_membership.subscription_items do
+                      [first | rest] ->
+                        updated_first = %{first | stripe_price_id: new_price_id}
+                        %{current_membership | subscription_items: [updated_first | rest]}
 
-                    _ ->
-                      current_membership
-                  end
+                      _ ->
+                        current_membership
+                    end
 
-                {:noreply,
-                 socket
-                 |> assign(:current_membership, updated_membership)
-                 |> assign(:active_plan_type, new_atom)
-                 |> assign(:change_membership_button, false)
-                 |> assign(
-                   :membership_form,
-                   to_form(%{"membership_type" => Atom.to_string(new_atom)})
-                 )
-                 |> put_flash(:info, "Your membership plan has been changed.")
-                 |> redirect(to: ~p"/users/membership")}
+                  {:noreply,
+                   socket
+                   |> assign(:current_membership, updated_membership)
+                   |> assign(:active_plan_type, new_atom)
+                   |> assign(:change_membership_button, false)
+                   |> assign(
+                     :membership_form,
+                     to_form(%{"membership_type" => Atom.to_string(new_atom)})
+                   )
+                   |> put_flash(:info, "Your membership plan has been changed.")
+                   |> redirect(to: ~p"/users/membership")}
 
-              {:scheduled, _schedule} ->
-                {:noreply,
-                 put_flash(
-                   socket,
-                   :info,
-                   "Your membership plan will switch at your next renewal."
-                 )
-                 |> redirect(to: ~p"/users/membership")}
+                {:scheduled, _schedule} ->
+                  {:noreply,
+                   put_flash(
+                     socket,
+                     :info,
+                     "Your membership plan will switch at your next renewal."
+                   )
+                   |> redirect(to: ~p"/users/membership")}
 
-              {:error, reason} ->
-                {:noreply,
-                 put_flash(
-                   socket,
-                   :error,
-                   "Failed to change membership: #{inspect(reason)}"
-                 )}
+                {:error, reason} ->
+                  {:noreply,
+                   put_flash(
+                     socket,
+                     :error,
+                     "Failed to change membership: #{inspect(reason)}"
+                   )}
+              end
             end
           end
       end
@@ -1442,6 +1490,8 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   defp get_membership_plan(nil), do: nil
+
+  defp get_membership_plan(%{type: :lifetime}), do: :lifetime
 
   defp get_membership_plan(%Subscription{stripe_status: "active"} = subscription) do
     item = Enum.at(subscription.subscription_items, 0)

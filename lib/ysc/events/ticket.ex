@@ -9,6 +9,7 @@ defmodule Ysc.Events.Ticket do
 
   import Ecto.Changeset
 
+  alias Ysc.Accounts
   alias Ysc.ReferenceGenerator
 
   @reference_prefix "TKT"
@@ -107,25 +108,35 @@ defmodule Ysc.Events.Ticket do
 
   # Helper function to get the most expensive active membership (same logic as user_auth.ex)
   defp get_active_membership(user) do
-    # Get all subscriptions for the user
-    subscriptions = Ysc.Customers.subscriptions(user)
+    # Check for lifetime membership first (highest priority)
+    if Accounts.has_lifetime_membership?(user) do
+      # Return a special struct representing lifetime membership
+      %{
+        type: :lifetime,
+        awarded_at: user.lifetime_membership_awarded_at,
+        user_id: user.id
+      }
+    else
+      # Get all subscriptions for the user
+      subscriptions = Ysc.Customers.subscriptions(user)
 
-    # Filter for active subscriptions only
-    active_subscriptions =
-      Enum.filter(subscriptions, fn subscription ->
-        Ysc.Subscriptions.valid?(subscription)
-      end)
+      # Filter for active subscriptions only
+      active_subscriptions =
+        Enum.filter(subscriptions, fn subscription ->
+          Ysc.Subscriptions.valid?(subscription)
+        end)
 
-    case active_subscriptions do
-      [] ->
-        nil
+      case active_subscriptions do
+        [] ->
+          nil
 
-      [single_subscription] ->
-        single_subscription
+        [single_subscription] ->
+          single_subscription
 
-      multiple_subscriptions ->
-        # If multiple active subscriptions, pick the most expensive one
-        get_most_expensive_subscription(multiple_subscriptions)
+        multiple_subscriptions ->
+          # If multiple active subscriptions, pick the most expensive one
+          get_most_expensive_subscription(multiple_subscriptions)
+      end
     end
   end
 

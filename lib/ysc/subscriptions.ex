@@ -279,6 +279,8 @@ defmodule Ysc.Subscriptions do
     end
   end
 
+  def scheduled_for_cancellation?(%{type: :lifetime}), do: false
+
   def scheduled_for_cancellation?(nil), do: false
 
   @doc """
@@ -304,30 +306,45 @@ defmodule Ysc.Subscriptions do
       {:ok, %Subscription{}}
 
   """
-  def cancel(%Subscription{} = subscription, opts \\ []) do
+  def cancel(subscription_or_map, opts \\ [])
+
+  def cancel(%Subscription{} = subscription, opts) do
     stripe_params = opts[:stripe] || %{}
     params = Map.merge(stripe_params, %{cancel_at_period_end: true})
 
-    {:ok, stripe_subscription} = Stripe.Subscription.update(subscription.stripe_id, params)
+    case Stripe.Subscription.update(subscription.stripe_id, params) do
+      {:ok, stripe_subscription} ->
+        ends_at =
+          if subscription.trial_ends_at &&
+               DateTime.compare(subscription.trial_ends_at, DateTime.utc_now()) == :gt do
+            subscription.trial_ends_at
+          else
+            stripe_subscription.current_period_end
+            |> DateTime.from_unix!()
+            |> DateTime.truncate(:second)
+          end
 
-    ends_at =
-      if subscription.trial_ends_at &&
-           DateTime.compare(subscription.trial_ends_at, DateTime.utc_now()) == :gt do
-        subscription.trial_ends_at
-      else
-        stripe_subscription.current_period_end
-        |> DateTime.from_unix!()
-        |> DateTime.truncate(:second)
-      end
+        case subscription
+             |> Ecto.Changeset.change(%{
+               stripe_status: stripe_subscription.status,
+               ends_at: ends_at
+             })
+             |> Repo.update() do
+          {:ok, updated_subscription} ->
+            {:ok, Repo.preload(updated_subscription, :subscription_items)}
 
-    subscription
-    |> Ecto.Changeset.change(%{
-      stripe_status: stripe_subscription.status,
-      ends_at: ends_at
-    })
-    |> Repo.update!()
-    |> Repo.preload(:subscription_items)
+          {:error, changeset} ->
+            {:error, changeset}
+        end
+
+      {:error, error} ->
+        {:error, "Failed to cancel subscription in Stripe: #{inspect(error)}"}
+    end
   end
+
+  def cancel(%{type: :lifetime}, _opts), do: {:error, "Lifetime memberships cannot be cancelled"}
+
+  def cancel(nil, _opts), do: {:error, "No subscription to cancel"}
 
   @doc """
   Immediately cancels a subscription in Stripe (permanent deletion).
@@ -374,6 +391,10 @@ defmodule Ysc.Subscriptions do
         {:error, "Failed to resume subscription in Stripe"}
     end
   end
+
+  def resume(%{type: :lifetime}), do: {:error, "Lifetime memberships cannot be resumed"}
+
+  def resume(nil), do: {:error, "No subscription to resume"}
 
   @doc """
   Changes the prices/items for a subscription.
@@ -593,6 +614,12 @@ defmodule Ysc.Subscriptions do
       _ -> {:error, :invalid_subscription_items}
     end
   end
+
+  def change_membership_plan(%{type: :lifetime}, _new_price_id, _direction),
+    do: {:error, "Lifetime memberships cannot be changed"}
+
+  def change_membership_plan(nil, _new_price_id, _direction),
+    do: {:error, "No subscription to change"}
 
   # Stripe integration functions
 

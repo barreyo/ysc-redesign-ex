@@ -610,8 +610,7 @@ defmodule Ysc.Tickets do
   end
 
   defp has_active_membership?(user) do
-    user.subscriptions
-    |> Enum.any?(&Ysc.Subscriptions.valid?/1)
+    Accounts.has_active_membership?(user)
   end
 
   defp validate_tier_capacity(tier_id, requested_quantity, _event) do
