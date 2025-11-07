@@ -40,7 +40,7 @@ defmodule YscWeb.VolunteerLive do
             </div>
 
             <.button :if={!@submitted} type="submit">Submit</.button>
-            <div :if={@submitted} clas="items-center">
+            <div :if={@submitted} class="flex items-center">
               <.icon name="hero-check-circle" class="text-green-600 w-6 h-6 -mt-1 me-1" />
               <span class="text-zinc-600">
                 Submitted! Thank you for your interest in volunteering!
@@ -86,7 +86,10 @@ defmodule YscWeb.VolunteerLive do
     if socket.assigns.logged_in? do
       case Ysc.Forms.create_volunteer(changeset) do
         {:ok, _volunteer} ->
-          {:noreply, socket |> put_flash(:info, "Volunteer application submitted")}
+          {:noreply,
+           socket
+           |> assign(:submitted, true)
+           |> put_flash(:info, "Volunteer application submitted")}
 
         {:error, changeset} ->
           {:noreply, assign_form(socket, changeset)}
