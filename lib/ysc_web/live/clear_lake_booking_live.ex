@@ -66,7 +66,7 @@ defmodule YscWeb.ClearLakeBookingLive do
 
     socket =
       assign(socket,
-        page_title: "YSC Clear Lake Cabin",
+        page_title: "Clear Lake Cabin",
         property: :clear_lake,
         user: user_with_subs,
         checkin_date: checkin_date,
@@ -183,13 +183,11 @@ defmodule YscWeb.ClearLakeBookingLive do
     <div class="py-8 lg:py-10">
       <div class="max-w-screen-lg mx-auto flex flex-col px-4 space-y-6">
         <div class="prose prose-zinc">
-          <h1>YSC Clear Lake Cabin</h1>
+          <h1>Clear Lake Cabin</h1>
           <p>
             Select your dates and number of guests to make a reservation at our Clear Lake cabin.
           </p>
         </div>
-
-        <.flash_group flash={@flash} />
         <!-- Booking Eligibility Banner -->
         <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div class="flex items-start">
@@ -404,7 +402,7 @@ defmodule YscWeb.ClearLakeBookingLive do
           </style>
           <!-- Welcome Header -->
           <div class="mb-8 prose prose-zinc">
-            <h1>YSC Clear Lake Cabin</h1>
+            <h1>Clear Lake Cabin</h1>
             <p>
               Welcome to the <strong>Young Scandinavians Club Clear Lake Cabin</strong>, a slice of paradise on the shores of
               <strong>Clear Lake</strong>

@@ -33,7 +33,6 @@ defmodule YscWeb.HomeLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <.flash_group flash={@flash} />
     <div class="max-w-screen-lg mx-auto px-4 py-8 lg:py-10">
       <div class="max-w-xl mx-auto lg:mx-0 prose prose-zinc prose-base">
         <div :if={@current_user == nil} class="pb-10">

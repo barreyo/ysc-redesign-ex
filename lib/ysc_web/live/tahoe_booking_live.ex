@@ -65,7 +65,7 @@ defmodule YscWeb.TahoeBookingLive do
 
     socket =
       assign(socket,
-        page_title: "YSC Tahoe Cabin",
+        page_title: "Tahoe Cabin",
         property: :tahoe,
         user: user_with_subs,
         checkin_date: checkin_date,
@@ -246,8 +246,6 @@ defmodule YscWeb.TahoeBookingLive do
             Select your dates and room(s) to make a reservation at our Lake Tahoe cabin.
           </p>
         </div>
-
-        <.flash_group flash={@flash} />
         <!-- Booking Eligibility Banner -->
         <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div class="flex items-start">
@@ -820,7 +818,7 @@ defmodule YscWeb.TahoeBookingLive do
           </style>
           <!-- Welcome Header -->
           <div class="mb-8 prose prose-zinc">
-            <h1>YSC Tahoe Cabin</h1>
+            <h1>Tahoe Cabin</h1>
             <p>
               Welcome to the <strong>YSC Tahoe Cabin</strong>
               — your year-round retreat in the heart of Lake Tahoe!
