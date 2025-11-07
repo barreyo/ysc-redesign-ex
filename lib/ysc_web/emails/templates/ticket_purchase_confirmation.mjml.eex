@@ -109,7 +109,7 @@
         <td style="padding: 12px 0; font-size:16px; text-align:center;"><%= ticket_summary.quantity %></td>
         <td style="padding: 12px 0; font-size:16px; text-align:right;"><%= ticket_summary.price_per_ticket %></td>
         <td style="padding: 12px 0; font-size:16px; text-align:right;"><%= ticket_summary.total_price %></td>
-      </tr> <% end %> <tr style="border-top:2px solid #000; background-color:#f8f9fa; padding-left: 12p; padding-right: 12p;">
+      </tr> <% end %> <tr style="border-top:2px solid #000; background-color:#f8f9fa; padding-left: 8px; padding-right: 8px;">
         <td colspan="3" style="padding: 12px 0; font-weight:bold; font-size:18px;">Total</td>
         <td style="padding: 12px 0; font-weight:bold; font-size:18px; text-align:right;"><%= @total_amount %></td>
       </tr>

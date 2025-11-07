@@ -292,10 +292,9 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
     Enum.at(palette, rem(index, length(palette)))
   end
 
-  defp format_money(%Money{amount: amount, currency: :USD}) do
-    amount
-    |> Decimal.to_float()
-    |> :erlang.float_to_binary(decimals: 2)
+  defp format_money(%Money{} = money) do
+    money
+    |> Money.to_string(separator: ".", delimiter: ",", fractional_digits: 2)
     |> then(&"$#{&1}")
   end
 

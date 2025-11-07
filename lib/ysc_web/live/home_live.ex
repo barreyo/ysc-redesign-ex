@@ -348,7 +348,7 @@ defmodule YscWeb.HomeLive do
             false
         end
     end)
-    |> Enum.sort_by(fn ticket -> ticket.event.start_date end)
+    |> Enum.sort_by(fn ticket -> ticket.event.start_date end, :asc)
   end
 
   defp group_tickets_by_tier(tickets) do
@@ -365,7 +365,7 @@ defmodule YscWeb.HomeLive do
       grouped_tiers = group_tickets_by_tier(event_tickets)
       {event, grouped_tiers}
     end)
-    |> Enum.sort_by(fn {event, _tiers} -> event.start_date end)
+    |> Enum.sort_by(fn {event, _tiers} -> event.start_date end, :asc)
   end
 
   defp days_until_event(event) do
