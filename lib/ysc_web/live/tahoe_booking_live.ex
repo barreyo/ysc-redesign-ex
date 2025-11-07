@@ -87,7 +87,8 @@ defmodule YscWeb.TahoeBookingLive do
         membership_type: membership_type,
         active_tab: active_tab,
         can_book: can_book,
-        booking_disabled_reason: booking_disabled_reason
+        booking_disabled_reason: booking_disabled_reason,
+        load_radar: true
       )
 
     # If dates are present and user can book, initialize validation and room availability
@@ -249,7 +250,7 @@ defmodule YscWeb.TahoeBookingLive do
         <.flash_group flash={@flash} />
         <!-- Booking Eligibility Banner -->
         <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div class="flex items-center">
+          <div class="flex items-start">
             <div class="flex-shrink-0">
               <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-amber-600" />
             </div>
@@ -804,430 +805,543 @@ defmodule YscWeb.TahoeBookingLive do
         <!-- Information Tab Content -->
         <div
           :if={@active_tab == :information}
-          class="space-y-6 prose prose-zinc px-4 lg:px-0 mx-auto lg:mx-0"
+          class="space-y-8 prose prose-zinc px-4 lg:px-0 mx-auto lg:mx-0"
         >
-          <!-- About the Cabin -->
-          <div>
-            <h2>🏡 About the Cabin</h2>
+          <style>
+            details summary::-webkit-details-marker {
+              display: none;
+            }
+            details summary .chevron-icon {
+              transition: transform 0.2s ease-in-out;
+            }
+            details[open] summary .chevron-icon {
+              transform: rotate(180deg);
+            }
+          </style>
+          <!-- Welcome Header -->
+          <div class="mb-8 prose prose-zinc">
+            <h1>YSC Tahoe Cabin</h1>
             <p>
-              Since <strong>1993</strong>, the <strong>YSC</strong>
-              has proudly owned its very own cabin just minutes from the west shore of the <strong>famous and beautiful Lake Tahoe</strong>.
+              Welcome to the <strong>YSC Tahoe Cabin</strong>
+              — your year-round retreat in the heart of Lake Tahoe!
             </p>
             <p>
-              The Lake Tahoe area offers an endless list of outdoor activities:
+              Since <strong>1993</strong>, the YSC has proudly owned this beautiful cabin, located just minutes from the
+              <strong>west shore</strong>
+              of Lake Tahoe.
             </p>
-            <ul>
-              <li>⛷️ <em>World-class skiing</em> in the winter</li>
-              <li>🚴 <em>Spectacular hiking and biking</em> in the summer</li>
-              <li>🌅 <em>Breathtaking views</em> all year long</li>
-            </ul>
-            <p>
-              The YSC cabin offers <strong>members and guests affordable, comfortable accommodations</strong>.
-            </p>
-            <p>
-              It's a <strong>fully equipped modern cabin</strong> with:
-            </p>
-            <ul>
-              <li><strong>7 bedrooms</strong></li>
-              <li><strong>3 bathrooms</strong></li>
-              <li><strong>Sleeps up to 15 people</strong></li>
-            </ul>
-            <p>
-              📍 <strong>Location:</strong>
-              Just south of <strong>Tahoe City</strong>, near the lake's west shore and very close to <strong>Homewood Ski Resort</strong>.
-            </p>
-            <p>
-              <strong>Palisades Tahoe</strong>
-              (site of the 1960 Winter Olympics) and <strong>Alpine Meadows</strong>
-              ski resorts are about a <strong>20-minute drive away</strong>.
-            </p>
-            <blockquote>
-              <p>
-                <strong>Tip:</strong>
-                Take advantage of this wonderfully located cabin and explore the year-round recreation Lake Tahoe has to offer!
-              </p>
-            </blockquote>
-            <hr />
           </div>
           <!-- Important Notice -->
-          <div class="bg-amber-50 border border-amber-200 rounded-md p-4 prose prose-amber">
+          <div class="bg-amber-50 border border-amber-200 rounded-md p-4 prose prose-amber max-w-none">
             <h2 class="text-amber-900">⚠️ Please Remember</h2>
             <p class="text-amber-800">
               The Tahoe Cabin is <strong>your cabin — not a hotel.</strong>
-            </p>
-            <p class="text-amber-800">
               To ensure everyone enjoys their stay at a reasonable rate, please follow the guidelines below.
             </p>
           </div>
-          <!-- Arrival & Departure -->
+          <!-- About the Cabin -->
           <div>
-            <h3>🕒 Arrival & Departure</h3>
+            <h2>🌲 About the Cabin</h2>
+            <p>
+              The Lake Tahoe region offers endless outdoor opportunities:
+            </p>
             <ul>
-              <li><strong>Check-In:</strong> 3:00 PM</li>
-              <li><strong>Check-Out:</strong> 11:00 AM</li>
+              <li><strong>Winter:</strong> Ski and snowboard at nearby resorts</li>
+              <li><strong>Summer:</strong> Hike, bike, and enjoy the lake</li>
+              <li><strong>Year-Round:</strong> Experience stunning mountain and lake views</li>
+            </ul>
+            <p class="font-semibold">Cabin Features:</p>
+            <ul>
+              <li>7 bedrooms</li>
+              <li>3 bathrooms</li>
+              <li>Sleeps up to 15 guests</li>
+              <li>Fully equipped kitchen</li>
+              <li>Modern amenities with rustic charm</li>
             </ul>
             <p>
-              👉 Everyone must <strong>sign the guest book</strong> upon arrival.
+              <strong>📍 Location:</strong>
+              South of Tahoe City, near the lake's west shore and just minutes from <strong>Homewood Ski Resort</strong>. Palisades Tahoe (site of the 1960 Winter Olympics) and Alpine Meadows are ~20 minutes away.
             </p>
+
+            <YscWeb.Components.ImageCarousel.image_carousel
+              id="about-the-tahoe-cabin-carousel"
+              images={[
+                %{src: ~p"/images/tahoe/tahoe_cabin_main.jpg", alt: "Tahoe Cabin Exterior"},
+                %{src: ~p"/images/tahoe/tahoe_room_1.jpg", alt: "Tahoe Cabin Room 1"},
+                %{src: ~p"/images/tahoe/tahoe_room_2.jpg", alt: "Tahoe Cabin Room 2"},
+                %{src: ~p"/images/tahoe/tahoe_room_4.jpg", alt: "Tahoe Cabin Room 4"},
+                %{src: ~p"/images/tahoe/tahoe_room_5.jpg", alt: "Tahoe Cabin Room 5"},
+                %{src: ~p"/images/tahoe/tahoe_room_6.jpg", alt: "Tahoe Cabin Room 6"},
+                %{src: ~p"/images/tahoe/tahoe_room_7.jpg", alt: "Tahoe Cabin Room 7"}
+              ]}
+              class="my-8"
+            />
           </div>
-          <!-- Reservation System -->
-          <div>
-            <h3>🗓️ Reservation System</h3>
-            <ul>
-              <li>
-                Use the <strong>Reservation Page</strong>
-                to search for available rooms by date (via the date picker).
-              </li>
-              <li>
-                Visit the <strong>Accommodations Page</strong>
-                to view the 7 rooms and initiate a booking.
-              </li>
-              <li>All reservations must be made through the <strong>website</strong>.</li>
-              <li>
-                To cancel, use the <strong>"Cancel My Booking"</strong>
-                link in your confirmation email.
-              </li>
-              <li>See the <strong>Cancellation Policy</strong> below for full details.</li>
-            </ul>
-          </div>
-          <!-- Directions -->
-          <div>
-            <h2>🚗 Directions</h2>
-            <p><strong>Address:</strong></p>
-            <p>2685 Cedar Lane<br />Homewood, CA 96141</p>
-            <h3>Getting There</h3>
-            <p>
-              Public transportation is very limited, so driving is recommended.
-            </p>
-            <p>
-              Carpooling is encouraged — it's better for the planet <em>and</em> for parking!
-            </p>
-            <h3>From the Bay Area</h3>
-            <ol>
-              <li>Take <strong>I-80 East</strong> toward Reno.</li>
-              <li>At <strong>Truckee</strong>, exit onto <strong>Highway 89 South</strong>.</li>
-              <li>
-                In <strong>Tahoe City</strong>, continue on Hwy 89 (turn right at the first light).
-              </li>
-              <li>
-                After 3 miles, turn <strong>right onto Timberland Lane</strong>
-                (look for the Timberland totem pole).
-              </li>
-              <li>Turn <strong>left onto Cedar Lane</strong> — the cabin will be on your left.</li>
-            </ol>
-          </div>
-          <!-- Winter Driving Notice -->
-          <div class="bg-blue-50 border border-blue-200 rounded-md p-4 prose prose-blue">
-            <h3>❄️ Winter Driving Notice</h3>
-            <ul>
-              <li>
-                Carry <strong>snow chains</strong>
-                or drive a <strong>4WD vehicle with snow tires</strong>.
-              </li>
-              <li>Always <strong>check weather and road conditions</strong> before traveling.</li>
-            </ul>
-            <p><strong>Helpful Resources:</strong></p>
-            <ul>
-              <li>
-                <a
-                  href="https://dot.ca.gov/travel/winter-driving-tips"
-                  target="_blank"
-                  class="text-blue-700 hover:text-blue-900 underline"
-                >
-                  California Winter Driving Tips
-                </a>
-              </li>
-              <li>
-                Caltrans Road Info:
-                <a href="tel:8004277623" class="text-blue-700 hover:text-blue-900 underline">
-                  (800) 427-7623
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://twitter.com/CHP_Truckee"
-                  target="_blank"
-                  class="text-blue-700 hover:text-blue-900 underline"
-                >
-                  @CHP_Truckee
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://quickmap.dot.ca.gov/"
-                  target="_blank"
-                  class="text-blue-700 hover:text-blue-900 underline"
-                >
-                  Caltrans QuickMap
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://twitter.com/CaltransDist3"
-                  target="_blank"
-                  class="text-blue-700 hover:text-blue-900 underline"
-                >
-                  @CaltransDist3
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://twitter.com/NWSReno"
-                  target="_blank"
-                  class="text-blue-700 hover:text-blue-900 underline"
-                >
-                  @NWSReno
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://twitter.com/NWSSacramento"
-                  target="_blank"
-                  class="text-blue-700 hover:text-blue-900 underline"
-                >
-                  @NWSSacramento
-                </a>
-              </li>
-            </ul>
-          </div>
-          <!-- Transportation -->
-          <div>
-            <h3>🚐 Transportation</h3>
-            <ul>
-              <li><strong>Tahoe Bus Transit:</strong> <a href="tel:5305816365">(530) 581-6365</a></li>
-              <li><strong>Tahoe Taxi:</strong> <a href="tel:5305463181">(530) 546-3181</a></li>
-            </ul>
-          </div>
-          <!-- Parking -->
-          <div>
-            <h3>🚘 Parking</h3>
-            <ul>
-              <li><strong>Parking is limited!</strong> Carpool if possible.</li>
-              <li>Expect to move cars around during your stay.</li>
-              <li>
-                🚫 <strong>No street parking between Nov 1 – May 1</strong>
-                — cars will be <strong>towed</strong>
-                for snow removal.
-              </li>
-              <li>Do not block neighbors' driveways — violators may be towed.</li>
-            </ul>
-          </div>
-          <!-- Bear Wire Notice -->
-          <div class="bg-red-50 border border-red-200 rounded-md p-4 prose prose-red">
-            <h2>🐻 Important Notice: Bear Wire</h2>
-            <p>
-              The cabin is equipped with <strong>electric bear wire</strong>. It won't harm you but must be handled carefully.
-            </p>
-            <h3>To Enter:</h3>
-            <ol>
-              <li>
-                Grab the <strong>top black handle</strong>
-                and disconnect — this disables the other two wires.
-              </li>
-              <li>Remove the <strong>second</strong>, then <strong>third</strong> wire.</li>
-            </ol>
-            <h3>When Leaving or at Night:</h3>
-            <ol>
-              <li>Replace wires from <strong>bottom to top</strong>.</li>
-              <li>
-                Connect <strong>lowest wire first</strong>, then second, then
-                <strong>top wire</strong>
-                (this re-activates the barrier).
-              </li>
-            </ol>
-          </div>
-          <!-- Cancellation Policy -->
-          <div>
-            <h2>🧾 Cancellation Policy</h2>
-            <h3>Full Cabin Bookings</h3>
-            <ul>
-              <li>
-                Cancel <strong>21–14 days before arrival</strong>
-                → Forfeit <strong>50%</strong>
-                of total cost
-              </li>
-              <li>
-                Cancel <strong>less than 14 days</strong>
-                → Forfeit <strong>100%</strong>
-                of total cost
-              </li>
-            </ul>
-            <h3>Individual Rooms</h3>
-            <ul>
-              <li>
-                Cancel <strong>14–7 days before arrival</strong>
-                → Forfeit <strong>50%</strong>
-                of total cost
-              </li>
-              <li>
-                Cancel <strong>less than 7 days</strong> → Forfeit <strong>100%</strong> of total cost
-              </li>
-            </ul>
-            <blockquote>
-              <p>Members are responsible for payments and behavior of their guests.</p>
-              <p>
-                Cancellations due to road closures may be credited for a future stay (contact the Cabin Master).
-              </p>
-            </blockquote>
-            <p>
-              💵 <strong>Refunds:</strong>
-            </p>
-            <p>
-              Cash refunds incur a <strong>3% processing fee</strong> to cover credit card costs.
-            </p>
-          </div>
-          <!-- Common Area & Storage -->
-          <div>
-            <h2>🧳 Common Area & Storage</h2>
-            <ul>
-              <li>Keep personal belongings <strong>out of common areas</strong>.</li>
-              <li><strong>Ski boots</strong> → store in laundry room racks</li>
-              <li><strong>Other ski gear</strong> → store in outside stairwell</li>
-            </ul>
-          </div>
-          <!-- Pets -->
-          <div>
-            <h2>🐾 Pets</h2>
-            <p>
-              No pets are allowed in the Tahoe Cabin.
-            </p>
-          </div>
-          <!-- Smoking -->
-          <div>
-            <h2>🚭 Smoking</h2>
-            <p>
-              Smoking or vaping is <strong>not allowed</strong> inside the cabin.
-            </p>
-          </div>
-          <!-- What to Bring -->
-          <div>
-            <h2>🧺 What to Bring</h2>
-            <ul>
-              <li>
-                Your own <strong>sheets, towels, sleeping bags, and pillowcases</strong>
+          <!-- Reservations & Booking (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🗓️</span>
+                <span>Reservations & Booking</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <div>
+                <h3 class="font-semibold text-zinc-900 mb-2">How to Reserve</h3>
                 <ul>
-                  <li><em>(No linens or towels are provided!)</em></li>
+                  <li>Use the <strong>Reservation Page</strong> to check availability.</li>
+                  <li>View rooms on the <strong>Accommodations Page</strong> before booking.</li>
+                  <li>All bookings must be made <strong>through the website</strong>.</li>
+                  <li>
+                    To cancel, use the <strong>"Cancel My Booking"</strong>
+                    link in your confirmation email.
+                  </li>
+                  <li>See the Cancellation Policy below for details.</li>
                 </ul>
-              </li>
-              <li>
-                <strong>Food</strong>
-                (kitchen is fully equipped and includes microwave + basic spices)
-              </li>
-              <li><strong>Fire starters or kindling</strong> (some firewood usually available)</li>
-            </ul>
-            <blockquote>
+              </div>
+              <div>
+                <h3>Booking Rules (Quick Reference)</h3>
+                <div class="overflow-x-auto px-4">
+                  <table class="w-full border-collapse">
+                    <thead>
+                      <tr class="border-b border-zinc-300">
+                        <th class="text-left py-2 pr-4 font-semibold text-zinc-900">Rule</th>
+                        <th class="text-left py-2 font-semibold text-zinc-900">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody class="text-zinc-700">
+                      <tr class="border-b border-zinc-200">
+                        <td class="py-2 pr-4 font-semibold">Check-In / Out</td>
+                        <td class="py-2">3:00 PM / 11:00 AM</td>
+                      </tr>
+                      <tr class="border-b border-zinc-200">
+                        <td class="py-2 pr-4 font-semibold">Maximum Stay</td>
+                        <td class="py-2">4 nights per booking</td>
+                      </tr>
+                      <tr class="border-b border-zinc-200">
+                        <td class="py-2 pr-4 font-semibold">Weekend Policy</td>
+                        <td class="py-2">Saturday bookings must include Sunday</td>
+                      </tr>
+                      <tr class="border-b border-zinc-200">
+                        <td class="py-2 pr-4 font-semibold">Active Bookings</td>
+                        <td class="py-2">One active booking per member</td>
+                      </tr>
+                      <tr class="border-b border-zinc-200">
+                        <td class="py-2 pr-4 font-semibold">Winter</td>
+                        <td class="py-2">Individual rooms only</td>
+                      </tr>
+                      <tr class="border-b border-zinc-200">
+                        <td class="py-2 pr-4 font-semibold">Summer</td>
+                        <td class="py-2">Rooms or full cabin allowed</td>
+                      </tr>
+                      <tr class="border-b border-zinc-200">
+                        <td class="py-2 pr-4 font-semibold">Membership Limits</td>
+                        <td class="py-2">Family/Lifetime: 2 rooms<br />Single: 1 room</td>
+                      </tr>
+                      <tr>
+                        <td class="py-2 pr-4 font-semibold">Children Pricing</td>
+                        <td class="py-2">5–17 years: $25/night<br />Under 5: Free</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </details>
+          <!-- Getting There (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🚗</span>
+                <span>Getting There</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <div>
+                <p class="font-semibold mb-2">Address:</p>
+                <p class="mb-4">2685 Cedar Lane<br />Homewood, CA 96141</p>
+              </div>
+
+              <div class="flex flex-col items-center not-prose my-6">
+                <.live_component
+                  id="tahoe-cabin-map"
+                  module={YscWeb.Components.MapComponent}
+                  latitude={39.12591794747629}
+                  longitude={-120.16648676079016}
+                  locked={true}
+                  class="my-4"
+                />
+
+                <YscWeb.Components.MapNavigationButtons.map_navigation_buttons
+                  latitude={39.12591794747629}
+                  longitude={-120.16648676079016}
+                  class="w-full"
+                />
+              </div>
+
+              <div>
+                <h3 class="font-semibold text-zinc-900 mb-2">From the Bay Area</h3>
+                <ol class="list-decimal list-inside space-y-2">
+                  <li>Take <strong>I-80 East</strong> toward Reno.</li>
+                  <li>Exit at <strong>Truckee</strong>, onto <strong>Highway 89 South</strong>.</li>
+                  <li>
+                    In <strong>Tahoe City</strong>, turn right at the first light to stay on Hwy 89.
+                  </li>
+                  <li>
+                    After ~3 miles, turn <strong>right onto Timberland Lane</strong>
+                    (look for the Timberland totem pole).
+                  </li>
+                  <li>Turn <strong>left onto Cedar Lane</strong> — the cabin is on your left.</li>
+                </ol>
+              </div>
+              <div>
+                <p class="text-sm text-zinc-600">
+                  <strong>Transportation Notes:</strong>
+                  Public transportation is limited — <strong>driving is recommended.</strong>
+                  <strong>Carpooling</strong>
+                  is encouraged to reduce parking strain and environmental impact.
+                </p>
+              </div>
+            </div>
+          </details>
+          <!-- Winter Driving & Weather Tips (Collapsible) -->
+          <details class="border border-blue-200 rounded-lg p-4 bg-blue-50">
+            <summary class="cursor-pointer font-semibold text-lg text-blue-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">❄️</span>
+                <span>Winter Driving & Weather Tips</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-blue-600 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <ul class="list-disc list-inside space-y-2">
+                <li>
+                  Always carry <strong>snow chains</strong>
+                  or use a <strong>4WD vehicle with snow tires</strong>.
+                </li>
+                <li>Check <strong>road and weather conditions</strong> before traveling.</li>
+              </ul>
+              <div>
+                <p class="font-semibold mb-2">Helpful Resources:</p>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>
+                    <a
+                      href="https://dot.ca.gov/travel/winter-driving-tips"
+                      target="_blank"
+                      class="text-blue-700 hover:text-blue-900 underline"
+                    >
+                      California Winter Driving Tips
+                    </a>
+                  </li>
+                  <li>
+                    Caltrans Road Info:
+                    <a href="tel:8004277623" class="text-blue-700 hover:text-blue-900 underline">
+                      (800) 427-7623
+                    </a>
+                  </li>
+                  <li>
+                    Twitter:
+                    <a
+                      href="https://twitter.com/CHP_Truckee"
+                      target="_blank"
+                      class="text-blue-700 hover:text-blue-900 underline"
+                    >
+                      @CHP_Truckee
+                    </a>
+                    ,
+                    <a
+                      href="https://twitter.com/CaltransDist3"
+                      target="_blank"
+                      class="text-blue-700 hover:text-blue-900 underline"
+                    >
+                      @CaltransDist3
+                    </a>
+                    ,
+                    <a
+                      href="https://twitter.com/NWSReno"
+                      target="_blank"
+                      class="text-blue-700 hover:text-blue-900 underline"
+                    >
+                      @NWSReno
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </details>
+          <!-- Parking & Transportation (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🚙</span>
+                <span>Parking & Transportation</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <div>
+                <p class="font-semibold mb-2">Local Services:</p>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>
+                    <strong>Tahoe Bus Transit:</strong>
+                    <a href="tel:5305816365" class="text-blue-600 hover:text-blue-800 underline">
+                      (530) 581-6365
+                    </a>
+                  </li>
+                  <li>
+                    <strong>Tahoe Taxi:</strong>
+                    <a href="tel:5305463181" class="text-blue-600 hover:text-blue-800 underline">
+                      (530) 546-3181
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <p class="font-semibold mb-2">Parking Rules:</p>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>Limited parking — <strong>carpool if possible.</strong></li>
+                  <li>You may need to move vehicles to accommodate others.</li>
+                  <li>
+                    <strong>No street parking Nov 1 – May 1</strong>
+                    (towing enforced for snow removal).
+                  </li>
+                  <li>Do not block driveways or neighbors' access.</li>
+                </ul>
+              </div>
+            </div>
+          </details>
+          <!-- Bear Safety Instructions (Collapsible) -->
+          <details class="border border-red-200 rounded-lg p-4 bg-red-50">
+            <summary class="cursor-pointer font-semibold text-lg text-red-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🐻</span>
+                <span>Bear Safety Instructions</span>
+              </span>
+              <.icon name="hero-chevron-down" class="w-5 h-5 text-red-600 chevron-icon flex-shrink-0" />
+            </summary>
+            <div>
               <p>
-                Wood under the deck may be damp — best for keeping a fire going, not starting one.
+                The cabin's deck is surrounded by <strong>electric bear wire</strong>
+                — it won't harm you but must be handled properly.
               </p>
-            </blockquote>
-          </div>
-          <!-- Pricing -->
-          <div>
-            <h2>💰 Pricing</h2>
-            <p>
-              Per-person, per-night rates:
-            </p>
-            <ul>
-              <li><strong>Adults:</strong> $45</li>
-              <li><strong>Children (5–17):</strong> $25</li>
-              <li><strong>Children under 5:</strong> Free</li>
-            </ul>
-            <h3>Seasonal Rules</h3>
-            <ul>
-              <li>
-                <strong>Summer (May 1 – Nov 30, 2025):</strong>
-                <br /> Full-cabin reservations available (up to 17 people)
-              </li>
-              <li>
-                <strong>Winter (Dec – Apr):</strong>
-                <br /> Only <strong>individual rooms</strong> available (no full-cabin rentals)
-              </li>
-            </ul>
-          </div>
-          <!-- Quiet Hours -->
-          <div>
-            <h2>🌙 Quiet Hours</h2>
-            <p>
-              <strong>10:00 PM – 7:00 AM</strong>
-            </p>
-            <p>
-              Please be mindful — the stairs can be noisy for those in nearby rooms!
-            </p>
-          </div>
-          <!-- Children -->
-          <div>
-            <h2>👶 Children</h2>
-            <p>
-              Children should <strong>not play on the stairs</strong> for safety and noise reasons.
-            </p>
-          </div>
-          <!-- Chores -->
-          <div>
-            <h2>🧹 Chores & Cleanliness</h2>
-            <p>
-              Remember — this is <strong>your cabin</strong>, not a hotel!
-            </p>
-            <p>
-              Keeping rates low depends on everyone pitching in.
-            </p>
-            <h3>Guests must:</h3>
-            <ul>
-              <li>Clean up after themselves</li>
-              <li>Strip and clean their rooms</li>
-              <li>Wash, dry, and store any used club bedding</li>
-              <li>Leave the <strong>kitchen spotless</strong> and remove all food from the fridge</li>
-              <li>Always secure <strong>bear-proof lids</strong> on garbage cans</li>
-            </ul>
-            <blockquote>
-              <p>Cabin rates can stay low with everyone's help!</p>
-            </blockquote>
-          </div>
-          <!-- Booking Rules Summary -->
-          <div class="bg-blue-50 border border-blue-200 rounded-md p-4 prose prose-blue">
-            <h2>📋 Quick Booking Rules Reference</h2>
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="border-b border-blue-300">
-                  <th class="text-left py-2 pr-4 font-semibold text-blue-900">Rule</th>
-                  <th class="text-left py-2 font-semibold text-blue-900">Details</th>
-                </tr>
-              </thead>
-              <tbody class="text-blue-800">
-                <tr class="border-b border-blue-200">
-                  <td class="py-2 pr-4 font-semibold">Check-In / Out</td>
-                  <td class="py-2">3:00 PM / 11:00 AM</td>
-                </tr>
-                <tr class="border-b border-blue-200">
-                  <td class="py-2 pr-4 font-semibold">Max Stay</td>
-                  <td class="py-2">4 nights per booking</td>
-                </tr>
-                <tr class="border-b border-blue-200">
-                  <td class="py-2 pr-4 font-semibold">Weekend Policy</td>
-                  <td class="py-2">Saturday bookings must include Sunday</td>
-                </tr>
-                <tr class="border-b border-blue-200">
-                  <td class="py-2 pr-4 font-semibold">Active Bookings</td>
-                  <td class="py-2">Only one active booking per user</td>
-                </tr>
-                <tr class="border-b border-blue-200">
-                  <td class="py-2 pr-4 font-semibold">Winter</td>
-                  <td class="py-2">Individual rooms only</td>
-                </tr>
-                <tr class="border-b border-blue-200">
-                  <td class="py-2 pr-4 font-semibold">Summer</td>
-                  <td class="py-2">Rooms or full cabin allowed</td>
-                </tr>
-                <tr class="border-b border-blue-200">
-                  <td class="py-2 pr-4 font-semibold">Membership Limits</td>
-                  <td class="py-2">Family/Lifetime: up to 2 rooms<br />Single: 1 room</td>
-                </tr>
-                <tr>
-                  <td class="py-2 pr-4 font-semibold">Children Pricing</td>
-                  <td class="py-2">5–17 years: $25/night<br />Under 5: Free</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+              <div>
+                <h3 class="font-semibold mb-2">To Enter</h3>
+                <ol class="list-decimal list-inside space-y-1">
+                  <li>
+                    Grab the <strong>top black handle</strong>
+                    and disconnect it (disables the circuit).
+                  </li>
+                  <li>Remove the second and third wires.</li>
+                </ol>
+              </div>
+              <div>
+                <h3 class="font-semibold mb-2">When Leaving or at Night</h3>
+                <ol class="list-decimal list-inside space-y-1">
+                  <li>Replace the wires <strong>from bottom to top</strong>.</li>
+                  <li>Connect lowest wire first, then middle, then top (reactivates barrier).</li>
+                </ol>
+              </div>
+              <p class="text-sm">
+                Always secure garbage cans and remove all food waste from outdoor areas.
+              </p>
+            </div>
+          </details>
+          <!-- Cancellation Policy (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🧾</span>
+                <span>Cancellation Policy</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <div>
+                <h3 class="font-semibold text-zinc-900 mb-2">Full Cabin Bookings</h3>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>Cancel 21–14 days before arrival → <strong>50% forfeited</strong></li>
+                  <li>Cancel less than 14 days → <strong>100% forfeited</strong></li>
+                </ul>
+              </div>
+              <div>
+                <h3 class="font-semibold text-zinc-900 mb-2">Individual Rooms</h3>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>Cancel 14–7 days before arrival → <strong>50% forfeited</strong></li>
+                  <li>Cancel less than 7 days → <strong>100% forfeited</strong></li>
+                </ul>
+              </div>
+              <div class="bg-zinc-100 rounded p-3 text-sm">
+                <p class="mb-2"><strong>Notes:</strong></p>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>Members are responsible for the behavior and payments of their guests.</li>
+                  <li>
+                    <strong>Road closure cancellations</strong>
+                    may be credited for a future stay (contact the Cabin Master).
+                  </li>
+                  <li>
+                    <strong>Cash refunds</strong>
+                    incur a <strong>3% processing fee</strong>
+                    to cover credit card costs.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </details>
+          <!-- Cabin Rules & Etiquette (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🧺</span>
+                <span>Cabin Rules & Etiquette</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <div>
+                <h3 class="font-semibold text-zinc-900 mb-2">General Guidelines</h3>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>Treat the cabin as your own — it's <strong>not a hotel</strong>.</li>
+                  <li>Respect quiet hours (<strong>10:00 PM – 7:00 AM</strong>).</li>
+                  <li>Be considerate — stairs and hallways carry sound easily.</li>
+                </ul>
+              </div>
+              <div>
+                <h3 class="font-semibold text-zinc-900 mb-2">Common Areas & Storage</h3>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>Keep personal items out of shared spaces.</li>
+                  <li>Store <strong>ski boots</strong> in the laundry room racks.</li>
+                  <li>Store other gear in the <strong>outside stairwell</strong>.</li>
+                </ul>
+              </div>
+              <div>
+                <h3 class="font-semibold text-zinc-900 mb-2">Pets</h3>
+                <p>No pets are allowed — <strong>no exceptions.</strong></p>
+              </div>
+              <div>
+                <h3 class="font-semibold text-zinc-900 mb-2">Smoking & Vaping</h3>
+                <p><strong>Prohibited</strong> indoors and on covered decks.</p>
+              </div>
+              <div>
+                <h3 class="font-semibold text-zinc-900 mb-2">Children</h3>
+                <p>For safety, children should not play on or near the stairs.</p>
+              </div>
+            </div>
+          </details>
+          <!-- What to Bring (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🎒</span>
+                <span>What to Bring</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p class="font-semibold">
+                Please note: <strong>linens and towels are not provided.</strong>
+              </p>
+              <p class="font-semibold mb-2">Bring:</p>
+              <ul class="list-disc list-inside space-y-1">
+                <li>Sheets, towels, sleeping bags, and pillowcases</li>
+                <li>Food (kitchen includes microwave & basic spices)</li>
+                <li>Fire starters or kindling</li>
+              </ul>
+              <div class="bg-zinc-100 rounded p-3 text-sm mt-3">
+                <p>
+                  Firewood under the deck may be damp — best for sustaining fires, not starting them.
+                </p>
+              </div>
+            </div>
+          </details>
+          <!-- Rates & Seasonal Rules (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">💰</span>
+                <span>Rates & Seasonal Rules</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <div>
+                <p class="font-semibold mb-2">Per-Person, Per-Night Rates</p>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>Adults: <strong>$45</strong></li>
+                  <li>Children (5–17): <strong>$25</strong></li>
+                  <li>Children under 5: <strong>Free</strong></li>
+                </ul>
+              </div>
+              <div>
+                <p class="font-semibold mb-2">Seasonal Availability</p>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>
+                    <strong>Summer (May 1 – Nov 30):</strong>
+                    Full-cabin or room reservations allowed (up to 17 guests)
+                  </li>
+                  <li><strong>Winter (Dec – Apr):</strong> Individual room bookings only</li>
+                </ul>
+              </div>
+            </div>
+          </details>
+          <!-- Cleanliness & Chores (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🧹</span>
+                <span>Cleanliness & Chores</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>
+                Keeping the cabin affordable depends on everyone pitching in!
+              </p>
+              <div>
+                <p class="font-semibold mb-2">Guests must:</p>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>Clean up after themselves</li>
+                  <li>Strip and clean their rooms</li>
+                  <li>Wash, dry, and store any used club bedding</li>
+                  <li>Leave the kitchen spotless and remove all food</li>
+                  <li>Secure bear-proof garbage lids</li>
+                </ul>
+              </div>
+              <div class="bg-zinc-100 rounded p-3 text-sm mt-3">
+                <p>
+                  <strong>Your cooperation helps keep cabin rates low for all members.</strong>
+                </p>
+              </div>
+            </div>
+          </details>
         </div>
       </div>
     </div>

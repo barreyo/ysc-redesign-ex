@@ -70,7 +70,8 @@ defmodule YscWeb.ConductViolationReportLive do
      |> assign(:logged_in?, current_user != nil)
      |> assign(:remote_ip, remote_ip)
      |> assign(:submitted, false)
-     |> assign_form(changeset)}
+     |> assign_form(changeset)
+     |> assign(:load_turnstile, true)}
   end
 
   @impl true

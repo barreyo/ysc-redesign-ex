@@ -796,6 +796,102 @@ defmodule YscWeb.CoreComponents do
   end
 
   @doc ~S"""
+  Renders an alert banner with icon, message, and optional action button.
+
+  ## Examples
+
+      <.alert_banner
+        type="warning"
+        icon="hero-exclamation-triangle"
+        title="Application Under Review"
+      >
+        Your membership application is currently being reviewed.
+      </.alert_banner>
+
+      <.alert_banner
+        type="warning"
+        icon="hero-exclamation-triangle"
+        title="Membership Required"
+        action_label="Manage Membership"
+        action_path={~p"/users/membership"}
+      >
+        To access events, you need an active membership.
+      </.alert_banner>
+  """
+  attr :type, :string, default: "info", doc: "alert type: info, warning, error, success, orange"
+  attr :icon, :string, required: true, doc: "heroicon name"
+  attr :title, :string, default: nil, doc: "optional title text"
+  attr :action_label, :string, default: nil, doc: "optional action button label"
+  attr :action_path, :string, default: nil, doc: "optional action button path"
+  attr :action_class, :string, default: nil, doc: "optional action button custom classes"
+  slot :inner_block, required: true, doc: "the main message content"
+
+  def alert_banner(assigns) do
+    type_classes = %{
+      "info" => "bg-blue-50 border-blue-400 text-blue-700",
+      "warning" => "bg-yellow-50 border-yellow-400 text-yellow-700",
+      "error" => "bg-red-50 border-red-400 text-red-700",
+      "success" => "bg-green-50 border-green-400 text-green-700",
+      "orange" => "bg-orange-50 border-orange-400 text-orange-700"
+    }
+
+    icon_classes = %{
+      "info" => "text-blue-400",
+      "warning" => "text-yellow-400",
+      "error" => "text-red-400",
+      "success" => "text-green-400",
+      "orange" => "text-orange-400"
+    }
+
+    button_classes = %{
+      "info" => "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500",
+      "warning" => "bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500",
+      "error" => "bg-red-600 hover:bg-red-700 focus:ring-red-500",
+      "success" => "bg-green-600 hover:bg-green-700 focus:ring-green-500",
+      "orange" => "bg-orange-600 hover:bg-orange-700 focus:ring-orange-500"
+    }
+
+    base_classes = type_classes[assigns.type] || type_classes["info"]
+    icon_color = icon_classes[assigns.type] || icon_classes["info"]
+    button_color = button_classes[assigns.type] || button_classes["info"]
+
+    assigns =
+      assigns
+      |> assign(:base_classes, base_classes)
+      |> assign(:icon_color, icon_color)
+      |> assign(:button_color, button_color)
+
+    ~H"""
+    <div class={"border-l-4 p-4 #{@base_classes}"}>
+      <div class={"flex items-start max-w-screen-lg mx-auto md:px-4 #{if @action_label, do: "", else: "items-center"}"}>
+        <div class="flex-shrink-0 pt-1">
+          <.icon name={@icon} class={"h-8 w-8 #{@icon_color}"} />
+        </div>
+        <div class="px-4 flex-1">
+          <p class="text-sm">
+            <strong :if={@title}><%= @title %>:</strong>
+            <%= render_slot(@inner_block) %>
+          </p>
+          <div :if={@action_label} class="flex flex-col sm:flex-row gap-2 mt-3">
+            <.link
+              navigate={@action_path}
+              class={[
+                "inline-flex items-center px-4 py-2 text-sm font-semibold text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200",
+                @button_color,
+                @action_class
+              ]}
+            >
+              <.icon name="hero-credit-card" class="w-5 h-5 me-2" />
+              <%= @action_label %>
+            </.link>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc ~S"""
   Renders a table with generic styling.
 
   ## Examples

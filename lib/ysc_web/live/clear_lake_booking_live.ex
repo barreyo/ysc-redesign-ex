@@ -84,7 +84,8 @@ defmodule YscWeb.ClearLakeBookingLive do
         membership_type: membership_type,
         active_tab: active_tab,
         can_book: can_book,
-        booking_disabled_reason: booking_disabled_reason
+        booking_disabled_reason: booking_disabled_reason,
+        load_radar: true
       )
 
     # If dates are present and user can book, initialize validation and price calculation
@@ -195,7 +196,7 @@ defmodule YscWeb.ClearLakeBookingLive do
             <div class="flex-shrink-0">
               <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-amber-600" />
             </div>
-            <div class="ml-3 flex-1">
+            <div class="ms-2 flex-1">
               <h3 class="text-sm font-semibold text-amber-900">Booking Not Available</h3>
               <div class="mt-2 text-sm text-amber-800">
                 <p><%= @booking_disabled_reason %></p>
@@ -388,189 +389,587 @@ defmodule YscWeb.ClearLakeBookingLive do
         <!-- Information Tab Content -->
         <div
           :if={@active_tab == :information}
-          class="space-y-6 prose prose-zinc px-4 lg:px-0 mx-auto lg:mx-0"
+          class="space-y-8 prose prose-zinc px-4 lg:px-0 mx-auto lg:mx-0"
         >
-          <!-- About the Cabin -->
-          <div>
-            <h2>About the Cabin</h2>
+          <style>
+            details summary::-webkit-details-marker {
+              display: none;
+            }
+            details summary .chevron-icon {
+              transition: transform 0.2s ease-in-out;
+            }
+            details[open] summary .chevron-icon {
+              transform: rotate(180deg);
+            }
+          </style>
+          <!-- Welcome Header -->
+          <div class="mb-8 prose prose-zinc">
+            <h1>YSC Clear Lake Cabin</h1>
             <p>
-              The Young Scandinavians Club owns a slice of paradise on the shores of Clear Lake, California's largest natural lake. Located 2 1/2 hours north of San Francisco, the Clear Lake cabin is open as a weekend destination for YSC members from May through September, featuring the perfect climate for this camping-style lakeside location. During the winter season the cabin is available for full buyout, and will be setup with beds in the two front rooms and in the ladies' locker room.
+              Welcome to the <strong>Young Scandinavians Club Clear Lake Cabin</strong>, a slice of paradise on the shores of
+              <strong>Clear Lake</strong>
+              — California's largest natural lake.
             </p>
             <p>
-              Many of the events the YSC organizes at the cabin throughout the summer include meals. If you are going up to the cabin for an event, please see the event description for information on what will be provided.
+              Located about <strong>2½ hours north of San Francisco</strong>, the cabin is open as a <strong>weekend destination from May through September</strong>, offering the perfect climate for lakeside relaxation and recreation.
             </p>
+            <p>
+              During the <strong>winter season</strong>, the cabin is available for <strong>full buyout only</strong>, set up with beds in the two front rooms and in the ladies' locker room.
+            </p>
+            <blockquote>
+              <p>
+                <strong>💡 Tip:</strong>
+                Many YSC summer events at Clear Lake include shared meals — check the event description for details on what's provided.
+              </p>
+            </blockquote>
+
+            <YscWeb.Components.ImageCarousel.image_carousel
+              id="about-the-clear-lake-cabin-carousel"
+              images={[
+                %{
+                  src: ~p"/images/clear_lake/clear_lake_main.jpg",
+                  alt: "Clear Lake Cabin Exterior"
+                },
+                %{src: ~p"/images/clear_lake/clear_lake_dock.jpg", alt: "Clear Lake Dock"},
+                %{src: ~p"/images/clear_lake/clear_lake_dock_2.jpg", alt: "Clear Lake Dock"},
+                %{src: ~p"/images/clear_lake/clear_lake_sweep.jpeg", alt: "Clear Lake"},
+                %{src: ~p"/images/clear_lake/clear_lake_cabin.png", alt: "Clear Lake Cabin"}
+              ]}
+              class="my-8"
+            />
           </div>
-          <!-- Location -->
+          <!-- Location & Directions (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">📍</span>
+                <span>Location & Directions</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <div>
+                <p class="font-semibold mb-2">Address:</p>
+                <p class="mb-4">9325 Bass Road<br />Kelseyville, CA 95451</p>
+                <p>
+                  Public transportation options are very limited — <strong>driving is essential</strong>.
+                </p>
+              </div>
+
+              <div class="flex flex-col items-center not-prose my-6">
+                <.live_component
+                  id="clear-lake-cabin-map"
+                  module={YscWeb.Components.MapComponent}
+                  latitude={38.98087180833886}
+                  longitude={-122.73563627025182}
+                  locked={true}
+                  class="my-4"
+                />
+                <YscWeb.Components.MapNavigationButtons.map_navigation_buttons
+                  latitude={38.98087180833886}
+                  longitude={-122.73563627025182}
+                  class="w-full"
+                />
+              </div>
+
+              <div>
+                <h3 class="font-semibold text-zinc-900 mb-2">Directions from San Francisco</h3>
+                <ol class="list-decimal list-inside space-y-2">
+                  <li>Take <strong>HWY 101 North</strong> past Santa Rosa.</li>
+                  <li>Exit at <strong>River Road / Guerneville (Exit 494)</strong>.</li>
+                  <li>
+                    Turn <strong>right onto Mark West Springs Rd</strong>
+                    (becomes Porter Creek Rd) — go 10.5 miles until it ends.
+                  </li>
+                  <li>
+                    Turn <strong>left</strong>
+                    at the stop sign onto <strong>Petrified Forest Rd</strong>
+                    toward Calistoga — continue 4.6 miles.
+                  </li>
+                  <li>
+                    Turn <strong>left</strong>
+                    at the stop sign onto <strong>Foothill Blvd / HWY 128</strong>
+                    — go 0.8 miles.
+                  </li>
+                  <li>
+                    Turn <strong>right</strong>
+                    onto <strong>Tubbs Lane</strong>
+                    — go 1.3 miles to the end.
+                  </li>
+                  <li>
+                    Turn <strong>left</strong>
+                    onto <strong>HWY 29</strong>
+                    — go 28 miles over Mt. St. Helena through Middletown to the stoplight in Lower Lake.
+                  </li>
+                  <li>
+                    Turn <strong>left</strong>
+                    onto <strong>HWY 29</strong>
+                    at Lower Lake (Shell Station on left) — go 7.5 miles.
+                  </li>
+                  <li>
+                    Turn <strong>right</strong>
+                    onto <strong>Soda Bay Road / HWY 281</strong>
+                    (Kits Corner Store on right) — go 4.3 miles.
+                  </li>
+                  <li>
+                    Turn <strong>right</strong>
+                    onto <strong>Bass Road</strong>
+                    (just after Montezuma Way and a church) — go 0.3 miles.
+                  </li>
+                  <li>
+                    Turn <strong>right</strong>
+                    at the <strong>third driveway with the YSC sign</strong>.
+                  </li>
+                </ol>
+                <blockquote class="mt-4">
+                  <p>
+                    <strong>Note:</strong>
+                    If you reach Konocti Harbor Inn, you've gone too far — turn around.
+                  </p>
+                </blockquote>
+              </div>
+            </div>
+          </details>
+          <!-- Parking (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🅿️</span>
+                <span>Parking</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>Parking is limited, so please:</p>
+              <ul>
+                <li>Park as close to the next car as possible.</li>
+                <li>
+                  Choose your spot based on <strong>when you plan to leave</strong>
+                  — otherwise you may be blocked in on Sunday morning.
+                </li>
+              </ul>
+            </div>
+          </details>
+          <!-- Accommodations (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🏕️</span>
+                <span>Accommodations</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>Enjoy a true <strong>lakeside camping experience</strong>!</p>
+              <p class="font-semibold mt-4 mb-2">You can:</p>
+              <ul>
+                <li>
+                  <strong>Sleep under the stars</strong> on the main lawn (mattresses provided)
+                </li>
+                <li>
+                  <strong>Pitch a tent</strong> on the back lawn
+                </li>
+              </ul>
+              <blockquote class="mt-4">
+                <p>
+                  <strong>⛺ Tent space is limited</strong>
+                  — please avoid bringing large tents on busy weekends.
+                </p>
+              </blockquote>
+              <p>
+                California's dry, mosquito-free summer nights make sleeping outdoors a treat.
+              </p>
+              <p class="text-sm mt-2">
+                <strong>Note:</strong>
+                Lawn sprinklers run at 4 AM on Mondays, Tuesdays, and Wednesdays.
+              </p>
+            </div>
+          </details>
+          <!-- Water (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">💧</span>
+                <span>Water</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>
+                Tap water at the cabin is <strong>safe to drink</strong>.
+              </p>
+              <p>
+                Many members bring a cooler with <strong>ice, bottled water, and drinks</strong>, as the nearest store is about
+                <strong>5 miles (8 km)</strong>
+                away.
+              </p>
+              <p class="mt-4">
+                <a href="#" target="_blank" class="text-blue-600 hover:text-blue-800 underline">
+                  Water System Operations Manual
+                </a>
+                <span class="text-sm text-zinc-500"> (link if available)</span>
+              </p>
+            </div>
+          </details>
+          <!-- What to Bring (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🎒</span>
+                <span>What to Bring</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p class="font-semibold mb-2">Bring these essentials:</p>
+              <ul>
+                <li>Sleeping bag and pillow</li>
+                <li>Towel and swimsuit</li>
+                <li>Sunscreen and flip-flops</li>
+                <li>Cooler with ice and beverages</li>
+                <li>Anything else you need for lakeside fun!</li>
+              </ul>
+              <p class="font-semibold mt-4 mb-2">
+                If you're attending a <strong>YSC event</strong>, you might also want:
+              </p>
+              <ul>
+                <li>
+                  <strong>Dancing shoes</strong> 💃
+                </li>
+                <li>
+                  <strong>Earplugs</strong> (if you're turning in early)
+                </li>
+              </ul>
+            </div>
+          </details>
+          <!-- Boating (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🛶</span>
+                <span>Boating</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>Private boats are welcome!</p>
+              <ul>
+                <li>No overnight mooring fee.</li>
+                <li>
+                  Please <strong>notify the Cabin Master in advance</strong> so space can be arranged.
+                </li>
+                <li>
+                  Boat trailers <strong>cannot be parked</strong> on YSC grounds.
+                </li>
+              </ul>
+              <p class="mt-4">
+                All boats must comply with the <strong>Invasive Mussel Prevention Program</strong>
+                — fines up to <strong>$1,000</strong>
+                apply for non-compliance.
+              </p>
+            </div>
+          </details>
+          <!-- Quiet Hours (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🌙</span>
+                <span>Quiet Hours</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <ul>
+                <li>
+                  <strong>All lights and music must be turned off by midnight.</strong>
+                </li>
+                <li>
+                  This rule may be waived for <strong>special party weekends</strong>
+                  — see event details for exceptions.
+                </li>
+              </ul>
+            </div>
+          </details>
+          <!-- General Responsibilities (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🧹</span>
+                <span>General Responsibilities</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>Everyone helps make each stay a success!</p>
+              <ul>
+                <li>
+                  Upon arrival, all guests must <strong>sign up for a chore</strong>.
+                </li>
+                <li>
+                  Clear Lake events rely on <strong>every member contributing</strong>.
+                </li>
+              </ul>
+            </div>
+          </details>
+          <!-- Code of Conduct (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">📜</span>
+                <span>Code of Conduct</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>
+                Everyone attending YSC events or visiting club properties should enjoy a <strong>safe, welcoming, and inclusive environment</strong>.
+              </p>
+              <p>
+                Any behavior that is discriminatory, harassing, or threatening is <strong>strictly prohibited</strong>.
+              </p>
+              <p class="mt-4">
+                The <strong>Cabin Master</strong>
+                or <strong>event host</strong>
+                may determine if conduct violates this policy.
+              </p>
+              <ul class="mt-4">
+                <li>
+                  <a
+                    href="https://ysc.org/non-discrimination-code-of-conduct/"
+                    target="_blank"
+                    class="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    View the YSC Code of Conduct
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://ysc.org/conduct-violation-report-form/"
+                    target="_blank"
+                    class="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Report a Conduct Violation
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </details>
+          <!-- Children (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">👨‍👩‍👧</span>
+                <span>Children</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>
+                Clear Lake is <strong>family-friendly</strong>
+                and ideal for children on most weekends.
+              </p>
+              <p>
+                However, <strong>some party weekends may not be suitable</strong>
+                for kids — refer to event descriptions for guidance.
+              </p>
+            </div>
+          </details>
+          <!-- Pets (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🐾</span>
+                <span>Pets</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>
+                Dogs and other pets are <strong>not allowed</strong>
+                anywhere on YSC properties, including the <strong>Clear Lake campground</strong>.
+              </p>
+            </div>
+          </details>
+          <!-- Non-Member Guests (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🧍‍♂️</span>
+                <span>Non-Member Guests</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>Guests are welcome on general visits, but:</p>
+              <ul>
+                <li>
+                  All guests must be <strong>included in and paid for</strong>
+                  by the member making the reservation.
+                </li>
+                <li>
+                  Certain events may have <strong>guest restrictions</strong>
+                  — check event details for specifics.
+                </li>
+              </ul>
+            </div>
+          </details>
+          <!-- Cabin Facilities (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🏡</span>
+                <span>Cabin Facilities</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>The Clear Lake cabin includes:</p>
+              <ul>
+                <li>A large <strong>kitchen</strong></li>
+                <li>
+                  <strong>Men's and women's bathrooms</strong> and changing rooms
+                </li>
+                <li>
+                  A <strong>living room / dance floor</strong> for gatherings and events
+                </li>
+              </ul>
+            </div>
+          </details>
+          <!-- Things to Do Nearby (Collapsible) -->
+          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+              <span class="flex items-center">
+                <span class="mr-2">🌄</span>
+                <span>Things to Do Nearby</span>
+              </span>
+              <.icon
+                name="hero-chevron-down"
+                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+              />
+            </summary>
+            <div>
+              <p>
+                While the cabin offers plenty of on-site fun, consider exploring these local attractions:
+              </p>
+              <ul>
+                <li>
+                  <a
+                    href="https://lakecounty.com"
+                    target="_blank"
+                    class="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Lake County Tourism Board
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.konoctitrails.com"
+                    target="_blank"
+                    class="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Konocti Trails – Hiking Mount Konocti
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.parks.ca.gov/?page_id=473"
+                    target="_blank"
+                    class="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Clear Lake State Park
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://lakecountywineries.org"
+                    target="_blank"
+                    class="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Lake County Wine Tasting
+                  </a>
+                  — visit one of a dozen nearby wineries!
+                </li>
+              </ul>
+            </div>
+          </details>
+          <!-- Quick Booking Reference -->
           <div>
-            <h3>Location</h3>
-            <p><strong>Address</strong></p>
-            <p>9325 Bass Road, Kelseyville, CA 95451</p>
-            <p>
-              You will nearly certainly arrive by car, as the public transportation possibilities are almost non-existent.
-            </p>
-          </div>
-          <!-- Directions -->
-          <div>
-            <h3>Directions from San Francisco</h3>
-            <ol>
-              <li>Take HWY 101 North past Santa Rosa</li>
-              <li>Take the River Road/Guerneville Exit (exit 494)</li>
-              <li>
-                Turn Right onto Mark West Springs Rd (becomes Porter Creek Rd) and go 10.5 miles until it ends
-              </li>
-              <li>
-                Turn Left at the stop sign onto Petrified Forrest Rd towards Calistoga and go 4.6 miles until it ends
-              </li>
-              <li>Turn Left at the stop sign onto Foothill Blvd/HWY 128 and go for 0.8 miles</li>
-              <li>Turn Right onto Tubbs Lane and go for 1.3 miles until it ends</li>
-              <li>
-                Turn Left onto Hwy 29 and go for 28 miles over Mt. Saint Helena through Middletown to the stoplight in Lower Lake
-              </li>
-              <li>
-                Turn Left onto Hwy 29 at Lower Lake (Shell Station on left) and go for 7.5 miles
-              </li>
-              <li>
-                Turn Right onto Soda Bay Road/Hwy 281 (Kits Corner Store on right) and go for 4.3 miles
-              </li>
-              <li>
-                Turn Right onto Bass Road (just after Montezuma Way and a church) and go for 0.3 miles
-              </li>
-              <li>Turn Right at the third driveway with the YSC sign</li>
-            </ol>
-            <p>
-              <strong>Note:</strong> If you come to Konocti Harbor Inn, you've just missed Bass Road.
-            </p>
-          </div>
-          <!-- Parking -->
-          <div>
-            <h3>Parking</h3>
-            <p>
-              Parking is limited, so please try to park as close to the next car as possible, and choose a parking spot according to when you plan to leave. Otherwise you may find yourself blocked in on Sunday morning.
-            </p>
-          </div>
-          <!-- Accommodations -->
-          <div>
-            <h3>Accommodations</h3>
-            <p>
-              Sleep under the stars on the main lawn (mattresses are provided), or pitch a tent on the back lawn. Tent space is limited, so please do not bring a large tent to a busy weekend. To sleep outside in California's dry, mosquito-free climate is wonderful. Please note that the lawn sprinklers run at 4am on Mondays, Tuesdays and Wednesdays.
-            </p>
-          </div>
-          <!-- Water -->
-          <div>
-            <h3>Water</h3>
-            <p>
-              <a href="#" target="_blank">Water System Operations Manual</a>
-            </p>
-          </div>
-          <!-- What to Bring -->
-          <div>
-            <h3>What to Bring</h3>
-            <p>
-              Bring a sleeping bag, pillow, towel, swimsuit, sunscreen, flip-flops, and anything else you may need for fun activities at the lake. If you are going up for a YSC event, you may want to bring your dancing shoes, or earplugs depending on when you plan on turning in for the night. Tap water at the cabin is safe to drink, but many members bring a cooler full of ice, bottled water, and other necessities. The nearest store is 5 miles (8km) away.
-            </p>
-          </div>
-          <!-- Boating -->
-          <div>
-            <h3>Boating</h3>
-            <p>
-              Private boats are welcome. There is no fee for boats being moored overnight but please let the cabin master know in advance so that we can make sure there is room for everyone. Please note that boat trailers cannot be parked on the YSC grounds. All boats must comply with the new Invasive Mussel Program. There is a $1,000 fine for non-compliance.
-            </p>
-          </div>
-          <!-- Quiet Hours -->
-          <div>
-            <h3>Quiet Hours</h3>
-            <p>
-              All lights and music must be turned off at midnight. This does not apply to specially denoted party weekends. Please see the description of specific events for additional information.
-            </p>
-          </div>
-          <!-- General Responsibilities -->
-          <div>
-            <h3>General Responsibilities</h3>
-            <p>
-              We have a list of chores, and ALL guests are expected to sign up for these upon arrival. The success of any Clear Lake event relies on EVERYONE helping out.
-            </p>
-          </div>
-          <!-- Code of Conduct -->
-          <div>
-            <h3>Code of Conduct</h3>
-            <p>
-              Everyone who attends events hosted by the Club, including stays at the Tahoe or Clear Lake properties, should always experience a safe and positive environment. Any displays or behaviors that can be perceived as discriminating or threatening are not allowed, and the cabin master or event host have the right to determine whether something goes against our policy of making everyone feel welcome.
-            </p>
-            <p>
-              <a href="https://ysc.org/non-discrimination-code-of-conduct/" target="_blank">
-                Link to our code of conduct
-              </a>
-            </p>
-            <p>
-              <a href="https://ysc.org/conduct-violation-report-form/" target="_blank">
-                Link to our conduct violation report
-              </a>
-            </p>
-          </div>
-          <!-- Children -->
-          <div>
-            <h3>Children</h3>
-            <p>
-              For general visits, Clear Lake is perfectly suitable for families with children. The cabin is paradise for kids. Some dedicated party weekends may however not be suitable for children. Please refer to the description of specific events for guidance.
-            </p>
-          </div>
-          <!-- Pets -->
-          <div>
-            <h3>Pets</h3>
-            <p>
-              Dogs and other pets are <strong>NOT</strong>
-              allowed anywhere on YSC properties. This includes the campground outside the Clear Lake cabin.
-            </p>
-          </div>
-          <!-- Non Member Guests -->
-          <div>
-            <h3>Non Member Guests</h3>
-            <p>
-              For general visits, guests are welcome. Please note that all guests must be included and paid for in the reservation made by the member that is bringing them. Certain events may have additional capacity restrictions on non-member guests. Please refer the event description for details.
-            </p>
-          </div>
-          <!-- Cabin -->
-          <div>
-            <h3>Cabin</h3>
-            <p>
-              The cabin has a large kitchen, men's and women's bathrooms and changing rooms, and a living room/dance floor.
-            </p>
-          </div>
-          <!-- Things to Do Nearby -->
-          <div>
-            <h3>Things to Do Nearby</h3>
-            <p>
-              While most people find plenty to do at the Cabin, these nearby attractions may appeal to some members:
-            </p>
-            <ul>
-              <li>
-                <strong>Lake County Tourism Board</strong>
-                - <a href="#" target="_blank">Click here for more info</a>
-              </li>
-              <li>
-                <strong>Konocti Trails</strong> - <a href="#" target="_blank">Hiking Mount Konocti</a>
-              </li>
-              <li>
-                <strong>Clear Lake State Park</strong>
-              </li>
-              <li>
-                <strong>Wine Tasting</strong> - Visit one of more than a dozen Lake County wineries
-              </li>
-            </ul>
-          </div>
-          <!-- Booking Rules Summary -->
-          <div class="bg-blue-50 border border-blue-200 rounded-md p-4 prose prose-blue">
-            <h2 class="text-blue-900 mb-3">📋 Quick Booking Rules Reference</h2>
-            <ul class="text-sm text-blue-800 space-y-1 list-disc list-inside">
-              <li>Check-in: 3:00 PM | Check-out: 11:00 AM</li>
-              <li>Book by number of guests (not rooms)</li>
-              <li>Priced per guest per day</li>
-              <li>Maximum <%= @max_guests %> guests per day</li>
-              <li>
-                Children up to and including 5 years old can join for free (do not include in guest count)
-              </li>
-              <li>Option available for full buyout</li>
-            </ul>
+            <h2>📋 Quick Booking Reference</h2>
+            <div class="overflow-x-auto px-4">
+              <table class="w-full border-collapse">
+                <thead>
+                  <tr class="border-b border-zinc-300">
+                    <th class="text-left py-2 pr-4 font-semibold text-zinc-900">Rule</th>
+                    <th class="text-left py-2 font-semibold text-zinc-900">Details</th>
+                  </tr>
+                </thead>
+                <tbody class="text-zinc-700">
+                  <tr class="border-b border-zinc-200">
+                    <td class="py-2 pr-4 font-semibold">Check-In / Out</td>
+                    <td class="py-2">3:00 PM / 11:00 AM</td>
+                  </tr>
+                  <tr class="border-b border-zinc-200">
+                    <td class="py-2 pr-4 font-semibold">Booking Type</td>
+                    <td class="py-2">By number of guests (not rooms)</td>
+                  </tr>
+                  <tr class="border-b border-zinc-200">
+                    <td class="py-2 pr-4 font-semibold">Pricing</td>
+                    <td class="py-2">Per guest, per day</td>
+                  </tr>
+                  <tr class="border-b border-zinc-200">
+                    <td class="py-2 pr-4 font-semibold">Maximum Capacity</td>
+                    <td class="py-2"><%= @max_guests %> guests per day</td>
+                  </tr>
+                  <tr class="border-b border-zinc-200">
+                    <td class="py-2 pr-4 font-semibold">Children (≤5 years)</td>
+                    <td class="py-2">Free (do not include in guest count)</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 pr-4 font-semibold">Full Buyout Option</td>
+                    <td class="py-2">Available during winter season</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

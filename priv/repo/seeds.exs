@@ -530,8 +530,9 @@ if length(active_users) > 0 do
                   temp_dir = "/tmp/image_processor"
                   File.mkdir_p!(temp_dir)
                   tmp_output_file = "#{temp_dir}/#{new_image.id}"
-                  optimized_output_path = "#{tmp_output_file}_optimized.png"
-                  thumbnail_output_path = "#{tmp_output_file}_thumb.png"
+                  # Format will be determined dynamically in process_image_upload
+                  optimized_output_path = "#{tmp_output_file}_optimized"
+                  thumbnail_output_path = "#{tmp_output_file}_thumb"
 
                   processed_image =
                     try do
@@ -548,11 +549,36 @@ if length(active_users) > 0 do
                         new_image
                     end
 
-                  # Clean up temp files
+                  # Clean up temp files (including any format extensions)
                   try do
-                    File.rm_rf(temp_dir)
+                    # Clean up the downloaded file
+                    File.rm(tmp_output_file)
+                    # Clean up processed files with any extension
+                    ["_optimized", "_thumb"]
+                    |> Enum.each(fn suffix ->
+                      [".jpg", ".jpeg", ".png", ".webp"]
+                      |> Enum.each(fn ext ->
+                        path = "#{tmp_output_file}#{suffix}#{ext}"
+                        if File.exists?(path), do: File.rm(path)
+                      end)
+                    end)
+
+                    File.rmdir(temp_dir)
                   rescue
                     _ -> :ok
+                  end
+
+                  # Clean up any PNG files that might have been created in the seed directory
+                  # (Blurhash might create temporary PNG files)
+                  seed_png_path = String.replace(image_path, ~r/\.[^.]+$/, ".png")
+
+                  if File.exists?(seed_png_path) and seed_png_path != image_path do
+                    try do
+                      File.rm(seed_png_path)
+                      IO.puts("Cleaned up temporary PNG file: #{Path.basename(seed_png_path)}")
+                    rescue
+                      _ -> :ok
+                    end
                   end
 
                   processed_image

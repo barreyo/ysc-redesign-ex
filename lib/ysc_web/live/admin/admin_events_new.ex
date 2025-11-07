@@ -161,16 +161,17 @@ defmodule YscWeb.AdminEventsNewLive do
           <div class="border max-w-3xl rounded border-zinc-200 py-6 px-4 space-y-4">
             <h2 class="text-xl font-bold">Cover Image</h2>
 
-            <div :if={@form[:image_id].value != nil && @form[:image_id].value != ""}>
-              <button class="group relative" phx-click="clear-cover-image">
+            <div :if={@form[:image_id].value != nil && @form[:image_id].value != ""} class="w-full">
+              <button class="group relative w-full" phx-click="clear-cover-image">
                 <div class="absolute flex items-center justify-center opacity-0 w-full h-full z-10 m-auto left-0 right-0 group-hover:opacity-100 transition duration-200 ease-in-out">
                   <.icon name="hero-x-circle" class="w-20 h-20 text-red-500 fill-red-500" />
                 </div>
-                <div class="w-full h-full group-hover:opacity-50 transition duration-200 ease-in-out">
+                <div class="w-full group-hover:opacity-50 transition duration-200 ease-in-out">
                   <.live_component
                     id="cover-preview"
                     module={YscWeb.Components.Image}
                     image_id={@form[:image_id].value}
+                    preferred_type={:optimized}
                   />
                 </div>
               </button>

@@ -25,7 +25,11 @@ defmodule YscWeb.AdminMediaLive do
           Edit Image
         </h2>
 
-        <img src={@active_image.optimized_image_path} class="w-full object-cover rounded max-h-100" />
+        <img
+          src={get_image_path(@active_image)}
+          class="w-full object-cover rounded max-h-100"
+          alt={@active_image.alt_text || @active_image.title || "Image"}
+        />
         <p class="leading-6 text-sm text-zinc-600 mt-2">
           Uploaded by <%= "#{String.capitalize(@image_uploader.first_name)} #{String.capitalize(@image_uploader.last_name)} (#{@image_uploader.email}) on #{Timex.format!(@image_uploader.inserted_at, "%Y-%m-%d", :strftime)}" %>
         </p>
@@ -143,17 +147,22 @@ defmodule YscWeb.AdminMediaLive do
         </div>
       </.modal>
 
-      <div class="flex justify-between py-6">
-        <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
-          Media Library
-        </h1>
+      <div class="flex justify-between items-center py-6 border-b border-zinc-200">
+        <div>
+          <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
+            Media Library
+          </h1>
+          <p :if={@media_count > 0} class="text-sm text-zinc-600 mt-1">
+            <%= @media_count %> <%= if @media_count == 1, do: "image", else: "images" %>
+          </p>
+        </div>
 
         <.button phx-click={JS.navigate(~p"/admin/media/upload")}>
           <.icon name="hero-photo" class="w-5 h-5 -mt-1" /><span class="ms-1">New Image</span>
         </.button>
       </div>
 
-      <section>
+      <section class="py-6">
         <.live_component
           :if={@media_count > 0}
           module={GalleryComponent}
@@ -162,8 +171,18 @@ defmodule YscWeb.AdminMediaLive do
           page={@page}
         />
 
-        <div :if={@media_count == 0} class="mx-auto py-10 text-center">
-          <p class="text-zinc-700">No images</p>
+        <div :if={@media_count == 0} class="mx-auto py-20 text-center">
+          <div class="flex flex-col items-center">
+            <.icon name="hero-photo" class="w-16 h-16 text-zinc-300 mb-4" />
+            <p class="text-lg font-medium text-zinc-700 mb-2">No images yet</p>
+            <p class="text-sm text-zinc-500 mb-6">Upload your first image to get started</p>
+            <.button phx-click={JS.navigate(~p"/admin/media/upload")}>
+              <.icon name="hero-cloud-arrow-up" class="w-5 h-5 -mt-1" />
+              <span class="ms-1">
+                Upload Image
+              </span>
+            </.button>
+          </div>
         </div>
       </section>
     </.side_menu>
@@ -206,26 +225,14 @@ defmodule YscWeb.AdminMediaLive do
   end
 
   defp paginate_images(socket, new_page) when new_page >= 1 do
-    %{per_page: per_page, page: cur_page} = socket.assigns
+    %{per_page: per_page} = socket.assigns
     images = Media.list_images((new_page - 1) * per_page, per_page)
 
-    {images, at, limit} =
-      if new_page >= cur_page do
-        {images, -1, per_page * 3 * -1}
-      else
-        {Enum.reverse(images), 0, per_page * 3}
-      end
-
-    case images do
-      [] ->
-        assign(socket, end_of_timeline?: at == -1)
-
-      [_ | _] = images ->
-        socket
-        |> assign(end_of_timeline?: false)
-        |> assign(:page, new_page)
-        |> stream(:images, images, at: at, limit: limit)
-    end
+    # Replace the entire stream with new page's images to prevent shifting
+    socket
+    |> assign(end_of_timeline?: length(images) < per_page)
+    |> assign(:page, new_page)
+    |> stream(:images, images)
   end
 
   def handle_event("next-page", _, socket) do
@@ -337,4 +344,17 @@ defmodule YscWeb.AdminMediaLive do
   defp error_to_string(:too_many_files), do: "You have selected too many files"
   defp error_to_string(:external_client_failure), do: "External client failure"
   defp error_to_string(_), do: "An error occurred"
+
+  # Helper function to get the best available image path with fallbacks
+  # Priority: thumbnail_path > optimized_image_path > raw_image_path
+  defp get_image_path(%Media.Image{thumbnail_path: thumbnail_path})
+       when not is_nil(thumbnail_path),
+       do: thumbnail_path
+
+  defp get_image_path(%Media.Image{optimized_image_path: optimized_path})
+       when not is_nil(optimized_path),
+       do: optimized_path
+
+  defp get_image_path(%Media.Image{raw_image_path: raw_path}),
+    do: raw_path
 end

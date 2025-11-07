@@ -15,36 +15,49 @@ defmodule YscWeb.Components.GalleryComponent do
       <div
         id={@id}
         phx-update="stream"
-        class="gap-x-2 md:gap-x-4 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-7 4xl:grid-cols-9"
+        class="gap-3 md:gap-4 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-7 4xl:grid-cols-9"
       >
         <%= for {id, image} <- @images do %>
           <button
             phx-click={JS.navigate(~p"/admin/media/upload/#{image.id}")}
             id={id}
-            class="mb-4 group relative w-full rounded aspect-square border border-1 border-zinc-200 cursor-pointer hover:border-zinc-300"
+            class="mb-4 group relative w-full rounded-lg aspect-square border border-zinc-200 cursor-pointer hover:border-zinc-400 hover:shadow-md transition-all duration-200 overflow-hidden"
           >
             <canvas
               id={"blur-hash-image-#{image.id}"}
               src={get_blur_hash(image)}
-              class="absolute inset-0 z-0 rounded w-full h-full object-cover"
+              class="absolute inset-0 z-0 rounded-lg w-full h-full object-cover"
               phx-hook="BlurHashCanvas"
             >
             </canvas>
 
             <img
-              class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded w-full h-full object-cover group-hover:opacity-75"
+              class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover group-hover:opacity-100"
               id={"image-#{image.id}"}
               src={get_image_path(image)}
               loading="lazy"
               phx-hook="BlurHashImage"
-              alt={image.alt_text}
+              alt={image.alt_text || image.title || "Image"}
             />
 
             <div
-              :if={image.title != nil}
-              class="absolute hidden border-t px-1 py-1 border-1 border-zinc-300 group-hover:block inset-x-0 bottom-0 text-xs text-zinc-600 bg-zinc-100 bg-opacity-80"
+              :if={image.title != nil or image.alt_text != nil}
+              class="absolute z-[2] hidden group-hover:block inset-x-0 bottom-0 px-2 py-2 bg-gradient-to-t from-zinc-900/90 via-zinc-900/80 to-transparent"
             >
-              <%= image.title %>
+              <p
+                :if={image.title != nil}
+                class="text-xs font-medium text-white truncate"
+                title={image.title}
+              >
+                <%= image.title %>
+              </p>
+              <p
+                :if={image.title == nil and image.alt_text != nil}
+                class="text-xs font-medium text-white/90 truncate"
+                title={image.alt_text}
+              >
+                <%= image.alt_text %>
+              </p>
             </div>
           </button>
         <% end %>

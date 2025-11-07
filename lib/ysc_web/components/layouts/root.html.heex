@@ -4,28 +4,34 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-
     <link rel="manifest" href={~p"/site.webmanifest"} />
     <link rel="preload" as="image" href={~p"/images/tahoe-cabin-feature.jpg"} />
-
     <.live_title suffix=" · The Young Scandinavians Club">
       <%= assigns[:page_title] || "YSC" %>
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+    <link
+      :if={assigns[:load_radar]}
+      href="https://js.radar.com/v4.4.8/radar.css"
+      rel="stylesheet"
+    />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2" async defer>
+    <script
+      :if={assigns[:load_calendar]}
+      src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2"
+      async
+      defer
+    >
     </script>
-    <link href="https://js.radar.com/v4.4.8/radar.css" rel="stylesheet" />
-    <script src="https://js.radar.com/v4.4.8/radar.min.js" defer>
+    <script :if={assigns[:load_radar]} src="https://js.radar.com/v4.4.8/radar.min.js" defer>
     </script>
-    <script src="https://js.stripe.com/v3/" defer>
+    <script :if={assigns[:load_stripe]} src="https://js.stripe.com/v3/" defer>
     </script>
-    <script>
+    <script :if={assigns[:load_stripe]}>
       window.stripePublishableKey = "<%= Application.get_env(:stripity_stripe, :public_key) %>";
     </script>
-    <Turnstile.script />
+    <Turnstile.script :if={assigns[:load_turnstile]} />
   </head>
   <body class="antialiased bg-white">
     <div id="content-wrapper" class="flex flex-col min-h-screen">
@@ -306,51 +312,28 @@
           </div>
         </nav>
       </header>
-      <!-- Pending approval flash message -->
-      <div
+      <.alert_banner
         :if={@current_user && @current_user.state == :pending_approval}
-        class="bg-yellow-50 border-l-4 border-yellow-400 p-4"
+        type="warning"
+        icon="hero-exclamation-triangle"
+        title="Application Under Review"
       >
-        <div class="flex items-center max-w-screen-lg mx-auto md:px-4">
-          <div class="flex-shrink-0">
-            <.icon name="hero-exclamation-triangle" class="h-8 w-8 text-yellow-400" />
-          </div>
-          <div class="px-4">
-            <p class="text-sm text-yellow-700">
-              <strong>Application Under Review:</strong>
-              Your membership application is currently being reviewed by our board. You will be able to access all features of the website once your application has been approved. For more details <.link
-                navigate={~p"/pending-review"}
-                class="text-yellow-700 hover:underline font-bold"
-              >click here</.link>.
-            </p>
-          </div>
-        </div>
-      </div>
-      <!-- Inactive membership banner -->
-      <div
+        Your membership application is currently being reviewed by our board. You will be able to access all features of the website once your application has been approved. For more details <.link
+          navigate={~p"/pending-review"}
+          class="hover:underline font-bold"
+        >click here</.link>.
+      </.alert_banner>
+
+      <.alert_banner
         :if={@current_user && @current_user.state == :active && !@active_membership?}
-        class="bg-orange-50 border-l-4 border-orange-400 p-4"
+        type="orange"
+        icon="hero-exclamation-triangle"
+        title="Membership Required"
+        action_label="Manage Membership"
+        action_path={~p"/users/membership"}
       >
-        <div class="flex items-center max-w-screen-lg mx-auto md:px-4">
-          <div class="flex-shrink-0">
-            <.icon name="hero-exclamation-triangle" class="h-8 w-8 text-orange-400" />
-          </div>
-          <div class="px-4 flex-1">
-            <p class="text-sm text-orange-700 mb-3">
-              <strong>Membership Required:</strong>
-              To access events and the cabin booking system, you need a paying member of the club. Click the button below to activate your membership plan.
-            </p>
-            <div class="flex flex-col sm:flex-row gap-2">
-              <.link
-                navigate={~p"/users/membership"}
-                class="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-orange-600 rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors duration-200"
-              >
-                <.icon name="hero-credit-card" class="w-5 h-5 me-2" /> Manage Membership
-              </.link>
-            </div>
-          </div>
-        </div>
-      </div>
+        To access events and the cabin booking system, you need to be a paying member of the club. Click the button below to activate your membership plan.
+      </.alert_banner>
 
       <main class="flex-1 w-full">
         <%= @inner_content %>

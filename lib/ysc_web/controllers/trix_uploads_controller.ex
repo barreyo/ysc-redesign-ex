@@ -50,8 +50,9 @@ defmodule YscWeb.TrixUploadsController do
 
     make_temp_dir(@temp_dir)
     tmp_output_file = "#{@temp_dir}/#{new_image.id}"
-    optimized_output_path = "#{tmp_output_file}_optimized.png"
-    thumbnail_output_path = "#{tmp_output_file}_thumb.png"
+    # Format will be determined dynamically in process_image_upload
+    optimized_output_path = "#{tmp_output_file}_optimized"
+    thumbnail_output_path = "#{tmp_output_file}_thumb"
 
     updated_image =
       Media.process_image_upload(
@@ -60,6 +61,16 @@ defmodule YscWeb.TrixUploadsController do
         thumbnail_output_path,
         optimized_output_path
       )
+
+    # Clean up processed files with any extension
+    ["_optimized", "_thumb"]
+    |> Enum.each(fn suffix ->
+      [".jpg", ".jpeg", ".png", ".webp"]
+      |> Enum.each(fn ext ->
+        path = "#{tmp_output_file}#{suffix}#{ext}"
+        if File.exists?(path), do: File.rm(path)
+      end)
+    end)
 
     updated_image
   end

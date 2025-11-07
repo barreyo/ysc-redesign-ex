@@ -15,6 +15,9 @@ defmodule Ysc.Media do
   @blur_hash_comp_x 4
   @blur_hash_comp_y 3
   @thumbnail_size 500
+  @max_optimized_width 1920
+  @max_optimized_height 1920
+  @optimized_quality 85
 
   def list_images() do
     {:ok, Media.Image |> order_by(desc: :id) |> Repo.all()}
@@ -97,13 +100,43 @@ defmodule Ysc.Media do
     {:ok, parsed_image} = Image.open(path)
     {:ok, meta_free_image} = Image.remove_metadata(parsed_image)
 
-    Image.write(meta_free_image, optimized_output_path, minimize_file_size: true)
+    # Get original dimensions
+    original_width = Image.width(parsed_image)
+    original_height = Image.height(parsed_image)
 
+    # Detect original format from file extension
+    original_format = detect_image_format(path)
+
+    # Determine output format - prefer WEBP for better compression, fallback to original format
+    output_format = determine_output_format(original_format)
+
+    # Ensure optimized output path uses correct extension
+    optimized_output_path = ensure_format_extension(optimized_output_path, output_format)
+    thumbnail_output_path = ensure_format_extension(thumbnail_output_path, output_format)
+
+    # Create optimized version: maintain aspect ratio, cap at max dimensions, preserve quality
+    optimized_image =
+      if original_width > @max_optimized_width or original_height > @max_optimized_height do
+        # Resize if too large, maintaining aspect ratio
+        # Image.resize/3 signature: resize(image, scale, options)
+        # scale is a float scale factor, not width/height
+        scale =
+          min(@max_optimized_width / original_width, @max_optimized_height / original_height)
+
+        {:ok, resized} = Image.resize(meta_free_image, scale)
+        resized
+      else
+        # Keep original size if within limits
+        meta_free_image
+      end
+
+    # Write optimized image with quality settings
+    write_options = get_write_options(output_format, @optimized_quality)
+    Image.write(optimized_image, optimized_output_path, write_options)
+
+    # Create thumbnail (always 500px on longest side)
     {:ok, thumbnail_image} = Image.thumbnail(meta_free_image, @thumbnail_size)
-    Image.write(thumbnail_image, thumbnail_output_path)
-
-    width = Image.width(parsed_image)
-    height = Image.height(parsed_image)
+    Image.write(thumbnail_image, thumbnail_output_path, write_options)
 
     upload_result =
       upload_files_to_s3(
@@ -112,16 +145,67 @@ defmodule Ysc.Media do
       )
 
     # Downscale to very small and generate blurhash
-    blur_hash = generate_blur_hash(path)
+    # Use the optimized image we just created (it's already in temp directory)
+    # This ensures we don't create files in the seed directory
+    blur_hash = generate_blur_hash_safely(optimized_output_path, path)
 
+    # Use original dimensions for database (not resized dimensions)
     update_processed_image(image, %{
       optimized_image_path: upload_result[:optimized],
       thumbnail_path: upload_result[:thumbnail],
       blur_hash: blur_hash,
-      width: width,
-      height: height,
+      width: original_width,
+      height: original_height,
       processing_state: "completed"
     })
+  end
+
+  # Detect image format from file extension
+  defp detect_image_format(path) do
+    ext = Path.extname(path) |> String.downcase()
+
+    case ext do
+      ".jpg" -> :jpg
+      ".jpeg" -> :jpeg
+      ".png" -> :png
+      ".webp" -> :webp
+      # Default fallback
+      _ -> :jpg
+    end
+  end
+
+  # Determine best output format (WEBP for modern browsers, fallback to original)
+  defp determine_output_format(original_format) do
+    # Prefer WEBP for better compression, but keep original format for compatibility
+    # You can change this to :webp if you want to always convert to WEBP
+    case original_format do
+      :jpeg -> :jpg
+      _ -> original_format
+    end
+  end
+
+  # Ensure file path has correct extension for the format
+  defp ensure_format_extension(path, format) do
+    base_path = String.replace(path, ~r/\.[^.]+$/, "")
+    extension = format_to_extension(format)
+    "#{base_path}#{extension}"
+  end
+
+  # Convert format atom to file extension
+  defp format_to_extension(format) do
+    case format do
+      :jpg -> ".jpg"
+      :jpeg -> ".jpg"
+      :png -> ".png"
+      :webp -> ".webp"
+      _ -> ".jpg"
+    end
+  end
+
+  # Get write options based on format
+  # Format is determined by file extension, so we mainly need quality settings
+  defp get_write_options(_format, quality) do
+    [quality: quality]
   end
 
   def upload_file_to_s3(path) do
@@ -139,8 +223,30 @@ defmodule Ysc.Media do
     end)
   end
 
-  defp generate_blur_hash(path) do
-    {:ok, blur_hash} = Blurhash.downscale_and_encode(path, @blur_hash_comp_x, @blur_hash_comp_y)
+  # Generate blurhash safely, ensuring we don't create files in source directories
+  defp generate_blur_hash_safely(temp_image_path, original_path) do
+    # Use the temp image file (optimized_output_path) which is already in /tmp
+    # This ensures Blurhash won't create files in the seed directory
+
+    # Generate blurhash from the temp file
+    {:ok, blur_hash} =
+      Blurhash.downscale_and_encode(temp_image_path, @blur_hash_comp_x, @blur_hash_comp_y)
+
+    # Clean up any PNG file that Blurhash might have created in the original directory
+    # (Blurhash.downscale_and_encode may create a temporary PNG file in the source directory)
+    original_dir = Path.dirname(original_path)
+    original_base = Path.basename(original_path, Path.extname(original_path))
+    potential_png = Path.join(original_dir, "#{original_base}.png")
+
+    # Only clean up if the PNG exists and is in a seed/assets directory (to be safe)
+    if File.exists?(potential_png) and String.contains?(original_path, "seed/assets") do
+      try do
+        File.rm(potential_png)
+      rescue
+        _ -> :ok
+      end
+    end
+
     blur_hash
   end
 end
