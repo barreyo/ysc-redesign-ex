@@ -63,7 +63,7 @@ defmodule YscWeb.UserResetPasswordLive do
      temporary_assigns: [form: nil]}
   end
 
-  # Do not log in the user after reset password to avoid a
+  # Do not sign in the user after reset password to avoid a
   # leaked token giving the user access to the account.
   def handle_event("reset_password", %{"user" => user_params}, socket) do
     case Accounts.reset_user_password(socket.assigns.user, user_params) do

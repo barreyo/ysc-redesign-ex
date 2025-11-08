@@ -24,7 +24,7 @@ defmodule YscWeb.UserConfirmationLive do
       </.simple_form>
 
       <p class="text-center mt-4">
-        <.link href={~p"/users/log-in"}>Log in</.link>
+        <.link href={~p"/users/log-in"}>Sign in</.link>
       </p>
     </div>
     """
@@ -38,7 +38,7 @@ defmodule YscWeb.UserConfirmationLive do
      temporary_assigns: [form: nil]}
   end
 
-  # Do not log in the user after confirmation to avoid a
+  # Do not sign in the user after confirmation to avoid a
   # leaked token giving the user access to the account.
   @spec handle_event(<<_::120>>, map(), Phoenix.LiveView.Socket.t()) ::
           {:noreply, Phoenix.LiveView.Socket.t()}

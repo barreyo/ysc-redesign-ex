@@ -19,7 +19,7 @@ defmodule YscWeb.UserLoginLive do
           </.link>
         </:subtitle>
       </.header>
-      <!-- Failed Login Attempts Banner -->
+      <!-- Failed Sign-in Attempts Banner -->
       <div
         :if={@failed_login_attempts >= 3}
         class="bg-amber-50 border border-amber-200 rounded-lg p-4 my-6"
@@ -32,7 +32,7 @@ defmodule YscWeb.UserLoginLive do
             <h3 class="text-sm font-semibold text-amber-900">Having trouble signing in?</h3>
             <div class="mt-2 text-sm text-amber-800">
               <p class="mb-2">
-                You've had multiple failed login attempts. You may want to reset your password.
+                You've had multiple failed sign-in attempts. You may want to reset your password.
               </p>
               <div class="flex flex-col sm:flex-row gap-2">
                 <.link
@@ -90,7 +90,7 @@ defmodule YscWeb.UserLoginLive do
 
     {:ok,
      assign(socket, form: form)
-     |> assign(:page_title, "Login")
+     |> assign(:page_title, "Sign in")
      |> assign(:failed_login_attempts, failed_login_attempts), temporary_assigns: [form: form]}
   end
 end

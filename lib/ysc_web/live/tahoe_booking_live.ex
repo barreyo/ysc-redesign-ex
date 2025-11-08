@@ -49,7 +49,7 @@ defmodule YscWeb.TahoeBookingLive do
         requested_tab
       end
 
-    # Load user with subscriptions if logged in
+    # Load user with subscriptions if signed in
     user_with_subs =
       if user do
         Accounts.get_user!(user.id)
@@ -2890,7 +2890,7 @@ defmodule YscWeb.TahoeBookingLive do
   defp check_booking_eligibility(nil) do
     {
       false,
-      "You must be logged in to make a booking. Please log in to continue."
+      "You must be signed in to make a booking. Please sign in to continue."
     }
   end
 

@@ -23,19 +23,19 @@ defmodule YscWeb.UserSessionController do
     %{"email" => email, "password" => password} = user_params
 
     if user = Accounts.get_user_by_email_and_password(email, password) do
-      # Log successful login
+      # Log successful sign-in
       AuthService.log_login_success(user, conn, user_params)
 
-      # Reset failed login attempts on successful login
+      # Reset failed sign-in attempts on successful sign-in
       conn
       |> put_flash(:info, info)
       |> delete_session(:failed_login_attempts)
       |> UserAuth.log_in_user(user, user_params)
     else
-      # Log failed login attempt
+      # Log failed sign-in attempt
       AuthService.log_login_failure(email, conn, "invalid_credentials", user_params)
 
-      # Track failed login attempts in session
+      # Track failed sign-in attempts in session
       failed_attempts = (get_session(conn, :failed_login_attempts) || 0) + 1
 
       # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
@@ -48,7 +48,7 @@ defmodule YscWeb.UserSessionController do
   end
 
   def delete(conn, _params) do
-    # Log logout event if user is authenticated
+    # Log sign-out event if user is authenticated
     if current_user = conn.assigns[:current_user] do
       AuthService.log_logout(current_user, conn)
     end

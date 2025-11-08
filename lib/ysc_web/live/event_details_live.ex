@@ -1167,7 +1167,7 @@ defmodule YscWeb.EventDetailsLive do
         # Add pricing info to the event using the same logic as events list
         event_with_pricing = add_pricing_info(event)
 
-        # Get user's tickets for this event if user is logged in
+        # Get user's tickets for this event if user is signed in
         user_tickets =
           if socket.assigns.current_user do
             Ysc.Tickets.list_user_tickets_for_event(socket.assigns.current_user.id, event_id)

@@ -76,7 +76,7 @@ defmodule Ysc.Events.Event do
     # if null or 0 then no age restriction
     field :age_restriction, :integer
 
-    # If true, the participants list will be shown on the event page to logged in and approved members
+    # If true, the participants list will be shown on the event page to signed-in and approved members
     field :show_participants, :boolean, default: false
 
     # Detailed information about the event

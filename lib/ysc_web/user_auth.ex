@@ -2,7 +2,7 @@ defmodule YscWeb.UserAuth do
   @moduledoc """
   Authentication and authorization functions for web requests.
 
-  Handles user login, logout, session management, and authentication plugs.
+  Handles user sign-in, sign-out, session management, and authentication plugs.
   """
   use YscWeb, :verified_routes
 
@@ -29,7 +29,7 @@ defmodule YscWeb.UserAuth do
 
   It also sets a `:live_socket_id` key in the session,
   so LiveView sessions are identified and automatically
-  disconnected on log out. The line can be safely removed
+  disconnected on sign out. The line can be safely removed
   if you are not using LiveView.
   """
   def log_in_user(conn, user, params \\ %{}) do
@@ -53,7 +53,7 @@ defmodule YscWeb.UserAuth do
 
   # This function renews the session ID and erases the whole
   # session to avoid fixation attacks. If there is any data
-  # in the session you may want to preserve after log in/log out,
+  # in the session you may want to preserve after sign in/sign out,
   # you must explicitly fetch the session data before clearing
   # and then immediately set it after clearing, for example:
   #
@@ -136,10 +136,10 @@ defmodule YscWeb.UserAuth do
     * `:ensure_authenticated` - Authenticates the user from the session,
       and assigns the current_user to socket assigns based
       on user_token.
-      Redirects to login page if there's no logged user.
+      Redirects to sign-in page if there's no signed-in user.
 
     * `:redirect_if_user_is_authenticated` - Authenticates the user from the session.
-      Redirects to signed_in_path if there's a logged user.
+      Redirects to signed_in_path if there's a signed-in user.
 
   ## Examples
 
@@ -173,7 +173,7 @@ defmodule YscWeb.UserAuth do
     else
       socket =
         socket
-        |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+        |> Phoenix.LiveView.put_flash(:error, "You must sign in to access this page.")
         |> Phoenix.LiveView.redirect(to: ~p"/users/log-in")
 
       {:halt, socket}
@@ -285,7 +285,7 @@ defmodule YscWeb.UserAuth do
       conn
     else
       conn
-      |> put_flash(:error, "You must log in to access this page.")
+      |> put_flash(:error, "You must sign in to access this page.")
       |> maybe_store_return_to()
       |> redirect(to: ~p"/users/log-in")
       |> halt()
