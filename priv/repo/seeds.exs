@@ -108,7 +108,7 @@ admin_user =
           first_name: "Admin",
           last_name: "User",
           phone_number: "+14159009009",
-          most_connected_country: countries |> Enum.shuffle() |> hd,
+          most_connected_country: countries |> Enum.shuffle() |> hd(),
           confirmed_at: DateTime.utc_now(),
           registration_form: %{
             membership_type: "family",
@@ -161,19 +161,19 @@ Enum.each(0..n_approved_users, fn n ->
       "family"
     end
 
-  last_name = last_names |> Enum.shuffle() |> hd
+  last_name = last_names |> Enum.shuffle() |> hd()
 
   fam_members =
     if membership_type == "family" do
       [
         %{
-          first_name: first_names |> Enum.shuffle() |> hd,
+          first_name: first_names |> Enum.shuffle() |> hd(),
           last_name: last_name,
           birth_date: "1990-06-06",
           type: "spouse"
         },
         %{
-          first_name: first_names |> Enum.shuffle() |> hd,
+          first_name: first_names |> Enum.shuffle() |> hd(),
           last_name: last_name,
           birth_date: "1999-08-08",
           type: "child"
@@ -183,7 +183,7 @@ Enum.each(0..n_approved_users, fn n ->
       []
     end
 
-  first_name = first_names |> Enum.shuffle() |> hd
+  first_name = first_names |> Enum.shuffle() |> hd()
   email = String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org")
 
   # Check if user already exists
@@ -202,7 +202,7 @@ Enum.each(0..n_approved_users, fn n ->
         last_name: last_name,
         phone_number: "+1415900900#{n}",
         confirmed_at: DateTime.utc_now(),
-        most_connected_country: countries |> Enum.shuffle() |> hd,
+        most_connected_country: countries |> Enum.shuffle() |> hd(),
         family_members: fam_members,
         registration_form: %{
           membership_type: membership_type,
@@ -250,19 +250,19 @@ Enum.each(0..n_pending_users, fn n ->
       "family"
     end
 
-  last_name = last_names |> Enum.shuffle() |> hd
+  last_name = last_names |> Enum.shuffle() |> hd()
 
   fam_members =
     if membership_type == "family" do
       [
         %{
-          first_name: first_names |> Enum.shuffle() |> hd,
+          first_name: first_names |> Enum.shuffle() |> hd(),
           last_name: last_name,
           birth_date: "1990-06-06",
           type: "spouse"
         },
         %{
-          first_name: first_names |> Enum.shuffle() |> hd,
+          first_name: first_names |> Enum.shuffle() |> hd(),
           last_name: last_name,
           birth_date: "1999-08-08",
           type: "child"
@@ -272,7 +272,7 @@ Enum.each(0..n_pending_users, fn n ->
       []
     end
 
-  first_name = first_names |> Enum.shuffle() |> hd
+  first_name = first_names |> Enum.shuffle() |> hd()
   email = String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org")
 
   # Check if user already exists
@@ -291,7 +291,7 @@ Enum.each(0..n_pending_users, fn n ->
         last_name: last_name,
         phone_number: "+1415900900#{n}",
         confirmed_at: DateTime.utc_now(),
-        most_connected_country: countries |> Enum.shuffle() |> hd,
+        most_connected_country: countries |> Enum.shuffle() |> hd(),
         family_members: fam_members,
         registration_form: %{
           membership_type: membership_type,
@@ -329,8 +329,8 @@ Enum.each(0..n_pending_users, fn n ->
 end)
 
 Enum.each(0..n_rejected_users, fn n ->
-  first_name = first_names |> Enum.shuffle() |> hd
-  last_name = last_names |> Enum.shuffle() |> hd
+  first_name = first_names |> Enum.shuffle() |> hd()
+  last_name = last_names |> Enum.shuffle() |> hd()
   email = String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org")
 
   # Check if user already exists
@@ -348,7 +348,7 @@ Enum.each(0..n_rejected_users, fn n ->
         first_name: first_name,
         last_name: last_name,
         phone_number: "+1415900900#{n}",
-        most_connected_country: countries |> Enum.shuffle() |> hd,
+        most_connected_country: countries |> Enum.shuffle() |> hd(),
         registration_form: %{
           membership_type: "family",
           membership_eligibiltiy: [],
@@ -388,8 +388,8 @@ Enum.each(0..n_rejected_users, fn n ->
 end)
 
 Enum.each(0..n_deleted_users, fn n ->
-  first_name = first_names |> Enum.shuffle() |> hd
-  last_name = last_names |> Enum.shuffle() |> hd
+  first_name = first_names |> Enum.shuffle() |> hd()
+  last_name = last_names |> Enum.shuffle() |> hd()
   email = String.downcase("#{first_name}_#{last_name}_#{n}@ysc.org")
 
   # Check if user already exists
@@ -407,7 +407,7 @@ Enum.each(0..n_deleted_users, fn n ->
         first_name: first_name,
         last_name: last_name,
         phone_number: "+1415900900#{n}",
-        most_connected_country: countries |> Enum.shuffle() |> hd,
+        most_connected_country: countries |> Enum.shuffle() |> hd(),
         registration_form: %{
           membership_type: "family",
           membership_eligibility: [],

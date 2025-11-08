@@ -51,7 +51,7 @@ defmodule YscWeb.UserRegistrationLive do
               Oops, something went wrong! Please check the errors below.
             </.error>
 
-            <div class={unless @current_step === 0, do: "hidden"}>
+            <div class={if @current_step !== 0, do: "hidden"}>
               <div class="py-4 space">
                 <!-- TODO: Label instead of <p> -->
                 <p class="mb-4 text-sm font-semibold leading-6 text-zinc-800">
@@ -89,7 +89,7 @@ defmodule YscWeb.UserRegistrationLive do
               </div>
             </div>
 
-            <div class={unless @current_step === 1, do: "hidden", else: "flex flex-col space-y-3"}>
+            <div class={if @current_step !== 1, do: "hidden", else: "flex flex-col space-y-3"}>
               <.header class="text-left">Account Information</.header>
               <.input
                 field={@form[:email]}
@@ -176,7 +176,7 @@ defmodule YscWeb.UserRegistrationLive do
               </.inputs_for>
             </div>
 
-            <div class={unless @current_step === 2, do: "hidden", else: "flex flex-col space-y-3"}>
+            <div class={if @current_step !== 2, do: "hidden", else: "flex flex-col space-y-3"}>
               <.header class="text-left">Additional Questions</.header>
               <.inputs_for :let={rf} field={@form[:registration_form]}>
                 <.input

@@ -2185,7 +2185,7 @@ defmodule YscWeb.EventDetailsLive do
 
   defp can_increase_quantity?(ticket_tier, current_quantity, _selected_tickets, event) do
     # Can't increase if not on sale
-    unless tier_on_sale?(ticket_tier) do
+    if !tier_on_sale?(ticket_tier) do
       false
     else
       # Use the atomic booking locker for real-time availability
