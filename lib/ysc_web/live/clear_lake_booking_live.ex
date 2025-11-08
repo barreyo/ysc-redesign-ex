@@ -403,7 +403,6 @@ defmodule YscWeb.ClearLakeBookingLive do
           </style>
           <!-- Welcome Header -->
           <div class="mb-8 prose prose-zinc">
-            <h1>Clear Lake Cabin</h1>
             <p>
               Welcome to the <strong>Young Scandinavians Club Clear Lake Cabin</strong>, a slice of paradise on the shores of
               <strong>Clear Lake</strong>

@@ -694,7 +694,8 @@ defmodule Ysc.Bookings do
         room_id \\ nil,
         guests_count \\ 1,
         children_count \\ 0,
-        exclude_booking_id \\ nil
+        exclude_booking_id \\ nil,
+        use_actual_guests \\ false
       ) do
     # Validate dates before using Date.diff
     cond do
@@ -713,55 +714,37 @@ defmodule Ysc.Bookings do
         {:error, :invalid_checkout_date}
 
       true ->
-        try do
-          nights = Date.diff(checkout_date, checkin_date)
+        nights = Date.diff(checkout_date, checkin_date)
 
-          if nights <= 0 do
-            {:error, :invalid_date_range}
-          else
-            case booking_mode do
-              :buyout ->
-                calculate_buyout_price(property, checkin_date, checkout_date, nights)
+        if nights <= 0 do
+          {:error, :invalid_date_range}
+        else
+          case booking_mode do
+            :buyout ->
+              calculate_buyout_price(property, checkin_date, checkout_date, nights)
 
-              :room ->
-                if room_id do
-                  calculate_room_price(
-                    property,
-                    checkin_date,
-                    checkout_date,
-                    room_id,
-                    guests_count,
-                    children_count,
-                    nights
-                  )
-                else
-                  {:error, :room_id_required}
-                end
+            :room ->
+              if room_id do
+                calculate_room_price(
+                  property,
+                  checkin_date,
+                  checkout_date,
+                  room_id,
+                  guests_count,
+                  children_count,
+                  nights,
+                  use_actual_guests
+                )
+              else
+                {:error, :room_id_required}
+              end
 
-              :day ->
-                calculate_day_price(property, checkin_date, checkout_date, guests_count, nights)
+            :day ->
+              calculate_day_price(property, checkin_date, checkout_date, guests_count, nights)
 
-              _ ->
-                {:error, :invalid_booking_mode}
-            end
+            _ ->
+              {:error, :invalid_booking_mode}
           end
-        rescue
-          e ->
-            Logger.error(
-              "[Bookings] calculate_booking_price: Error in Date.diff or price calculation: #{inspect(e)}"
-            )
-
-            Logger.error("Exception type: #{inspect(e.__struct__)}")
-            Logger.error("Exception message: #{Exception.message(e)}")
-
-            Logger.error(
-              "checkin_date: #{inspect(checkin_date)}, checkout_date: #{inspect(checkout_date)}, " <>
-                "property: #{inspect(property)}, booking_mode: #{inspect(booking_mode)}, " <>
-                "room_id: #{inspect(room_id)}, guests_count: #{inspect(guests_count)}, " <>
-                "children_count: #{inspect(children_count)}"
-            )
-
-            {:error, :calculation_error}
         end
     end
   end
@@ -806,10 +789,14 @@ defmodule Ysc.Bookings do
          room_id,
          guests_count,
          children_count,
-         nights
+         nights,
+         use_actual_guests \\ false
        ) do
-    # Validate inputs before proceeding
+    # Basic validation
     cond do
+      not is_atom(property) ->
+        {:error, :invalid_property}
+
       not (is_integer(guests_count) && guests_count > 0) ->
         {:error, :invalid_guests_count}
 
@@ -822,279 +809,150 @@ defmodule Ysc.Bookings do
       not is_struct(checkout_date, Date) ->
         {:error, :invalid_checkout_date}
 
-      true ->
-        # Safely compare dates
-        date_comparison =
-          try do
-            Date.compare(checkout_date, checkin_date)
-          rescue
-            e ->
-              Logger.error(
-                "[Bookings] Error in Date.compare: #{inspect(e)}. " <>
-                  "checkin_date: #{inspect(checkin_date)}, checkout_date: #{inspect(checkout_date)}"
-              )
+      Date.compare(checkout_date, checkin_date) != :gt ->
+        {:error, :invalid_date_range}
 
-              nil
+      true ->
+        calculate_room_price_impl(
+          property,
+          checkin_date,
+          checkout_date,
+          room_id,
+          guests_count,
+          children_count,
+          nights,
+          use_actual_guests
+        )
+    end
+  end
+
+  defp calculate_room_price_impl(
+         property,
+         checkin_date,
+         checkout_date,
+         room_id,
+         guests_count,
+         children_count,
+         nights,
+         use_actual_guests \\ false
+       ) do
+    room = get_room!(room_id)
+
+    # For multiple rooms, use actual guests_count; for single room, use billable_people (capped by capacity)
+    billable_people =
+      if use_actual_guests do
+        guests_count
+      else
+        Room.billable_people(room, guests_count) || guests_count
+      end
+
+    if is_nil(billable_people) or billable_people <= 0 do
+      {:error, :invalid_guests_count}
+    else
+      date_range = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+
+      {total, base_total, children_total, adult_price_per_night, children_price_per_night,
+       found_pricing_rules} =
+        Enum.reduce(
+          date_range,
+          {Money.new(0, :USD), Money.new(0, :USD), Money.new(0, :USD), nil, Money.new(25, :USD),
+           false},
+          fn date, {acc, base_acc, children_acc, adult_price, children_price, found_any} ->
+            season = Season.for_date(property, date)
+            season_id = if season, do: season.id, else: nil
+
+            # Simple fallback hierarchy:
+            # 1. Try room-specific pricing rule (booking_mode = :room)
+            # 2. Try category-level pricing rule (booking_mode = :room)
+            # 3. Try property-level buyout pricing (as fallback)
+            pricing_rule =
+              PricingRule.find_most_specific(
+                property,
+                season_id,
+                room_id,
+                room.room_category_id,
+                :room,
+                :per_person_per_night
+              ) ||
+                PricingRule.find_most_specific(
+                  property,
+                  season_id,
+                  nil,
+                  room.room_category_id,
+                  :room,
+                  :per_person_per_night
+                ) ||
+                PricingRule.find_most_specific(
+                  property,
+                  season_id,
+                  nil,
+                  nil,
+                  :buyout,
+                  :buyout_fixed
+                )
+
+            if pricing_rule do
+              # Store per-person-per-night price (use first one found)
+              adult_price = adult_price || pricing_rule.amount
+
+              # Calculate base price
+              {:ok, base_price} = Money.mult(pricing_rule.amount, billable_people)
+
+              # Add children pricing for Tahoe
+              children_price_for_night =
+                if property == :tahoe && children_count > 0 do
+                  {:ok, price} = Money.mult(Money.new(25, :USD), children_count)
+                  price
+                else
+                  Money.new(0, :USD)
+                end
+
+              {:ok, night_total} = Money.add(base_price, children_price_for_night)
+              {:ok, new_total} = Money.add(acc, night_total)
+              {:ok, new_base_total} = Money.add(base_acc, base_price)
+              {:ok, new_children_total} = Money.add(children_acc, children_price_for_night)
+              {new_total, new_base_total, new_children_total, adult_price, children_price, true}
+            else
+              {acc, base_acc, children_acc, adult_price, children_price, found_any}
+            end
+          end
+        )
+
+      if not found_pricing_rules do
+        {:error, :pricing_rule_not_found}
+      else
+        nights = length(date_range)
+
+        base_per_night =
+          if nights > 0 do
+            {:ok, price} = Money.div(base_total, nights)
+            price
+          else
+            Money.new(0, :USD)
           end
 
-        cond do
-          date_comparison != :gt ->
-            {:error, :invalid_date_range}
+        children_per_night =
+          if nights > 0 do
+            {:ok, price} = Money.div(children_total, nights)
+            price
+          else
+            Money.new(0, :USD)
+          end
 
-          true ->
-            try do
-              room = get_room!(room_id)
-
-              Logger.debug(
-                "[Bookings] calculate_room_price called. Room: #{room_id} (#{room.name}), " <>
-                  "Category ID: #{inspect(room.room_category_id)}, " <>
-                  "Category: #{inspect(if room.room_category, do: room.room_category.name, else: nil)}, " <>
-                  "Guests: #{guests_count}, Children: #{children_count}, " <>
-                  "Dates: #{checkin_date} to #{checkout_date}"
-              )
-
-              # Check if room has a category (required for pricing)
-              if not room.room_category_id do
-                Logger.warning(
-                  "[Bookings] Room #{room_id} (#{room.name}) does not have a room_category_id set. " <>
-                    "Cannot calculate price without a category."
-                )
-
-                {:error, :room_category_required}
-              else
-                # Validate room has required fields before calling billable_people
-                if is_nil(room.min_billable_occupancy) or is_nil(room.capacity_max) do
-                  Logger.error(
-                    "[Bookings] Room #{room_id} (#{room.name}) is missing required capacity fields. " <>
-                      "min_billable_occupancy: #{inspect(room.min_billable_occupancy)}, " <>
-                      "capacity_max: #{inspect(room.capacity_max)}"
-                  )
-
-                  {:error, :invalid_room_configuration}
-                else
-                  # Safely call billable_people with error handling
-                  billable_people =
-                    try do
-                      Room.billable_people(room, guests_count)
-                    rescue
-                      e ->
-                        # Log the error and return nil
-                        Logger.error(
-                          "Error in billable_people for room #{room_id}: #{inspect(e)}"
-                        )
-
-                        Logger.error("Exception type: #{inspect(e.__struct__)}")
-                        Logger.error("Room: #{inspect(room)}")
-
-                        Logger.error(
-                          "Room fields - min_billable_occupancy: #{inspect(room.min_billable_occupancy)}, capacity_max: #{inspect(room.capacity_max)}"
-                        )
-
-                        Logger.error("guests_count: #{inspect(guests_count)}")
-                        nil
-                    end
-
-                  # Validate billable_people is a positive integer
-                  if not (is_integer(billable_people) && billable_people > 0) do
-                    Logger.error(
-                      "[Bookings] Invalid billable_people value: #{inspect(billable_people)}. " <>
-                        "Room: #{room_id} (#{room.name}), guests_count: #{guests_count}"
-                    )
-
-                    {:error, :invalid_guests_count}
-                  else
-                    # Calculate price per night and sum
-                    # Validate dates before using Date functions
-                    try do
-                      date_range =
-                        Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
-
-                      Logger.debug(
-                        "[Bookings] Calculating price for #{length(date_range)} nights. " <>
-                          "Date range: #{inspect(date_range)}"
-                      )
-
-                      {total, found_pricing_rules} =
-                        Enum.reduce(date_range, {Money.new(0, :USD), false}, fn date,
-                                                                                {acc, found_any} ->
-                          season = Season.for_date(property, date)
-                          season_id = if season, do: season.id, else: nil
-                          season_name = if season, do: season.name, else: nil
-
-                          Logger.debug(
-                            "[Bookings] Looking up pricing rule for date #{Date.to_string(date)}. " <>
-                              "Season: #{inspect(season_name)} (ID: #{inspect(season_id)}), " <>
-                              "Room ID: #{inspect(room_id)}, " <>
-                              "Room Category ID: #{inspect(room.room_category_id)}"
-                          )
-
-                          pricing_rule =
-                            PricingRule.find_most_specific(
-                              property,
-                              season_id,
-                              room_id,
-                              room.room_category_id,
-                              :room,
-                              :per_person_per_night
-                            )
-
-                          # Log when pricing rule is not found for debugging
-                          if not pricing_rule do
-                            Logger.warning(
-                              "[Bookings] No pricing rule found for room #{room_id} on #{Date.to_string(date)}. " <>
-                                "Property: #{property}, Season: #{inspect(season_name)} (ID: #{inspect(season_id)}), " <>
-                                "Room Category ID: #{inspect(room.room_category_id)}, " <>
-                                "Booking Mode: :room, Price Unit: :per_person_per_night"
-                            )
-                          else
-                            Logger.debug(
-                              "[Bookings] Found pricing rule for date #{Date.to_string(date)}. " <>
-                                "Amount: #{MoneyHelper.format_money!(pricing_rule.amount)}, " <>
-                                "Rule ID: #{pricing_rule.id}"
-                            )
-                          end
-
-                          if pricing_rule do
-                            # Calculate base price for adults (billable_people)
-                            # Ensure billable_people is a valid integer before calling Money.mult
-                            base_price =
-                              if is_integer(billable_people) && billable_people > 0 do
-                                try do
-                                  case Money.mult(pricing_rule.amount, billable_people) do
-                                    {:ok, price} -> price
-                                    {:error, _} -> Money.new(0, :USD)
-                                  end
-                                rescue
-                                  e ->
-                                    Logger.error(
-                                      "[Bookings] Error in Money.mult for billable_people: #{inspect(e)}. " <>
-                                        "billable_people: #{inspect(billable_people)}, " <>
-                                        "pricing_rule.amount: #{inspect(pricing_rule.amount)}"
-                                    )
-
-                                    Money.new(0, :USD)
-                                end
-                              else
-                                Logger.error(
-                                  "[Bookings] Invalid billable_people value: #{inspect(billable_people)}. " <>
-                                    "Expected positive integer."
-                                )
-
-                                Money.new(0, :USD)
-                              end
-
-                            # For Tahoe: add children pricing ($25/night for children 5-17, free under 5)
-                            # children_count represents children 5-17
-                            children_price =
-                              if property == :tahoe && children_count > 0 do
-                                if is_integer(children_count) && children_count > 0 do
-                                  try do
-                                    children_rate = Money.new(25, :USD)
-
-                                    case Money.mult(children_rate, children_count) do
-                                      {:ok, price} -> price
-                                      {:error, _} -> Money.new(0, :USD)
-                                    end
-                                  rescue
-                                    e ->
-                                      Logger.error(
-                                        "[Bookings] Error in Money.mult for children_count: #{inspect(e)}. " <>
-                                          "children_count: #{inspect(children_count)}"
-                                      )
-
-                                      Money.new(0, :USD)
-                                  end
-                                else
-                                  Logger.error(
-                                    "[Bookings] Invalid children_count value: #{inspect(children_count)}. " <>
-                                      "Expected positive integer."
-                                  )
-
-                                  Money.new(0, :USD)
-                                end
-                              else
-                                Money.new(0, :USD)
-                              end
-
-                            night_total =
-                              case Money.add(base_price, children_price) do
-                                {:ok, total} -> total
-                                {:error, _} -> base_price
-                              end
-
-                            case Money.add(acc, night_total) do
-                              {:ok, new_total} -> {new_total, true}
-                              {:error, _} -> {acc, found_any}
-                            end
-                          else
-                            {acc, found_any}
-                          end
-                        end)
-
-                      # If no pricing rules were found for any night, return an error
-                      if not found_pricing_rules do
-                        Logger.warning(
-                          "[Bookings] No pricing rules found for any night in date range. " <>
-                            "Room: #{room_id} (#{room.name}), " <>
-                            "Category ID: #{inspect(room.room_category_id)}, " <>
-                            "Date range: #{checkin_date} to #{checkout_date}"
-                        )
-
-                        {:error, :pricing_rule_not_found}
-                      else
-                        Logger.info(
-                          "[Bookings] Successfully calculated total price for room #{room_id} (#{room.name}): " <>
-                            "#{MoneyHelper.format_money!(total)}"
-                        )
-
-                        {:ok, total}
-                      end
-                    rescue
-                      e ->
-                        # Log date-related errors with full stack trace
-                        Logger.error(
-                          "Error calculating date range for room #{room_id}: #{inspect(e)}"
-                        )
-
-                        Logger.error("Exception type: #{inspect(e.__struct__)}")
-                        Logger.error("Exception message: #{Exception.message(e)}")
-
-                        Logger.error(
-                          "checkin_date: #{inspect(checkin_date)} (type: #{inspect(checkin_date.__struct__)}), " <>
-                            "checkout_date: #{inspect(checkout_date)} (type: #{inspect(checkout_date.__struct__)})"
-                        )
-
-                        Logger.error(
-                          "guests_count: #{inspect(guests_count)}, children_count: #{inspect(children_count)}"
-                        )
-
-                        Logger.error("billable_people: #{inspect(billable_people)}")
-                        Logger.error("room: #{inspect(room.id)} (#{room.name})")
-
-                        {:error, :date_calculation_error}
-                    end
-                  end
-                end
-              end
-            rescue
-              e ->
-                # Catch any errors that occur before we get to the date calculation
-                Logger.error(
-                  "Error in calculate_room_price before date calculation: #{inspect(e)}"
-                )
-
-                Logger.error("Exception type: #{inspect(e.__struct__)}")
-                Logger.error("Exception message: #{Exception.message(e)}")
-
-                Logger.error(
-                  "room_id: #{inspect(room_id)}, checkin_date: #{inspect(checkin_date)}, " <>
-                    "checkout_date: #{inspect(checkout_date)}, guests_count: #{inspect(guests_count)}, " <>
-                    "children_count: #{inspect(children_count)}, nights: #{inspect(nights)}"
-                )
-
-                {:error, :room_price_calculation_error}
-            end
-        end
+        {:ok, total,
+         %{
+           base: base_total,
+           children: children_total,
+           base_per_night: base_per_night,
+           children_per_night: children_per_night,
+           nights: nights,
+           billable_people: billable_people,
+           guests_count: guests_count,
+           children_count: children_count,
+           adult_price_per_night: adult_price_per_night,
+           children_price_per_night: children_price_per_night
+         }}
+      end
     end
   end
 

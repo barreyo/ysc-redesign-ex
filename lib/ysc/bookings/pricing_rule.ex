@@ -13,8 +13,6 @@ defmodule Ysc.Bookings.PricingRule do
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
-  alias Ysc.Repo
-
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]
