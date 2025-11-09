@@ -1,5 +1,0 @@
-# Example terraform.tfvars for sandbox environment
-environment            = "sandbox"
-aws_region            = "us-west-1"
-bucket_name_prefix    = "ysc-media"
-allowed_cors_origins  = ["*"]  # Restrict this in production

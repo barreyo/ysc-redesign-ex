@@ -33,8 +33,26 @@ export DBNAME 			?= ysc_dev
 ##
 
 .PHONY: dev
-dev: guard-STRIPE_SECRET guard-STRIPE_PUBLIC_KEY guard-STRIPE_WEBHOOK_SECRET ## Start the local dev server
-	@mix phx.server
+dev: ## Start the local dev server
+	@bash -c ' \
+		if [ -f .env ]; then \
+			set -a; \
+			. .env; \
+			set +a; \
+		fi; \
+		if [ -z "$$STRIPE_SECRET" ]; then \
+			echo "$(RED)Required environment variable $(BOLD)STRIPE_SECRET$(RESET)$(RED) not set.$(RESET)"; \
+			exit 1; \
+		fi; \
+		if [ -z "$$STRIPE_PUBLIC_KEY" ]; then \
+			echo "$(RED)Required environment variable $(BOLD)STRIPE_PUBLIC_KEY$(RESET)$(RED) not set.$(RESET)"; \
+			exit 1; \
+		fi; \
+		if [ -z "$$STRIPE_WEBHOOK_SECRET" ]; then \
+			echo "$(RED)Required environment variable $(BOLD)STRIPE_WEBHOOK_SECRET$(RESET)$(RED) not set.$(RESET)"; \
+			exit 1; \
+		fi; \
+		mix phx.server'
 
 .PHONY: dev-setup
 dev-setup:  ## Set up local dev environment

@@ -1,5 +1,7 @@
 # PROJECT
 
+.env
+
 etc/docker/volume/*
 priv/static/exports/*.csv
 
