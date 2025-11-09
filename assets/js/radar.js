@@ -7,9 +7,8 @@ export default RadarMap = {
                 return;
             }
 
-            window.Radar.initialize(
-                "prj_test_pk_5bcfd56661bb7fc596d70d5f21f0e2c6049b0966",
-            );
+            const radarKey = window.radarPublicKey || "prj_test_pk_5bcfd56661bb7fc596d70d5f21f0e2c6049b0966";
+            window.Radar.initialize(radarKey);
 
             let existingMarker = undefined;
             let locked = false; // Scoped to this map instance

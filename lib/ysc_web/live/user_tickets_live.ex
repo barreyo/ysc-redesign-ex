@@ -13,112 +13,109 @@ defmodule YscWeb.UserTicketsLive do
           <p class="text-zinc-600 mt-2">View and manage your event tickets</p>
         </div>
 
-        <div class="space-y-6">
-          <%= if Enum.empty?(@ticket_orders) do %>
-            <div class="text-center py-12">
-              <div class="text-zinc-400 mb-4">
-                <.icon name="hero-ticket" class="w-16 h-16 mx-auto" />
-              </div>
-              <h3 class="text-lg font-medium text-zinc-900 mb-2">No tickets yet</h3>
-              <p class="text-zinc-600 mb-6">You haven't purchased any event tickets yet.</p>
-              <.link
-                href={~p"/events"}
-                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Browse Events
-              </.link>
+        <div class="space-y-6" id="ticket-orders-list" phx-update="stream">
+          <!-- Empty state - only shows when it's the only child -->
+          <div id="ticket-orders-empty" class="only:block hidden text-center py-12">
+            <div class="text-zinc-400 mb-4">
+              <.icon name="hero-ticket" class="w-16 h-16 mx-auto" />
             </div>
-          <% else %>
-            <%= for ticket_order <- @ticket_orders do %>
-              <div class="bg-white border border-zinc-200 rounded-lg shadow-sm">
-                <div class="p-6">
-                  <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                      <div class="flex items-center space-x-3">
-                        <h3 class="text-lg font-semibold text-zinc-900">
-                          <%= ticket_order.event.title %>
-                        </h3>
-                        <.status_badge status={ticket_order.status} />
-                      </div>
+            <h3 class="text-lg font-medium text-zinc-900 mb-2">No tickets yet</h3>
+            <p class="text-zinc-600 mb-6">You haven't purchased any event tickets yet.</p>
+            <.link
+              href={~p"/events"}
+              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              Browse Events
+            </.link>
+          </div>
 
-                      <p class="text-sm text-zinc-600 mt-1">
-                        Order #<%= ticket_order.reference_id %> • <%= format_date(
-                          ticket_order.inserted_at
-                        ) %>
-                      </p>
-
-                      <div class="mt-3">
-                        <p class="text-sm text-zinc-600">
-                          <span class="font-medium">Total:</span>
-                          <%= format_price(ticket_order.total_amount) %>
-                        </p>
-
-                        <p class="text-sm text-zinc-600">
-                          <span class="font-medium">Tickets:</span>
-                          <%= length(ticket_order.tickets) %> ticket(s)
-                        </p>
-                      </div>
-                    </div>
-
-                    <div class="flex flex-col items-end space-y-2">
-                      <%= if ticket_order.status == :pending do %>
-                        <div class="text-sm text-amber-600">
-                          <.icon name="hero-clock" class="w-4 h-4 inline me-1" />
-                          Expires <%= format_time_remaining(ticket_order.expires_at) %>
-                        </div>
-                        <.button
-                          color="red"
-                          phx-click="cancel-order"
-                          phx-value-order-id={ticket_order.id}
-                        >
-                          Cancel Order
-                        </.button>
-                      <% end %>
-
-                      <%= if ticket_order.status == :completed do %>
-                        <.button phx-click="view-tickets" phx-value-order-id={ticket_order.id}>
-                          View Tickets
-                        </.button>
-                      <% end %>
-                    </div>
+          <div
+            :for={{id, ticket_order} <- @streams.ticket_orders}
+            id={id}
+            class="bg-white border border-zinc-200 rounded-lg shadow-sm"
+          >
+            <div class="p-6">
+              <div class="flex items-start justify-between">
+                <div class="flex-1">
+                  <div class="flex items-center space-x-3">
+                    <h3 class="text-lg font-semibold text-zinc-900">
+                      <%= ticket_order.event.title %>
+                    </h3>
+                    <.status_badge status={ticket_order.status} />
                   </div>
-                  <!-- Ticket Details -->
-                  <%= if ticket_order.status == :completed do %>
-                    <div class="mt-4 pt-4 border-t border-zinc-200">
-                      <h4 class="text-sm font-medium text-zinc-900 mb-3">Ticket Details</h4>
-                      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <%= for ticket <- ticket_order.tickets do %>
-                          <div class="bg-zinc-50 rounded-md p-3">
-                            <div class="flex items-center justify-between">
-                              <div>
-                                <p class="text-sm font-medium text-zinc-900">
-                                  <%= ticket.ticket_tier.name %>
-                                </p>
-                                <p class="text-xs text-zinc-600">
-                                  Ticket #<%= ticket.reference_id %>
-                                </p>
-                              </div>
-                              <div class="text-right">
-                                <p class="text-sm font-medium text-zinc-900">
-                                  <%= case ticket.ticket_tier.type do %>
-                                    <% :free -> %>
-                                      Free
-                                    <% _ -> %>
-                                      <%= format_price(ticket.ticket_tier.price) %>
-                                  <% end %>
-                                </p>
-                                <.status_badge status={ticket.status} size="sm" />
-                              </div>
-                            </div>
-                          </div>
-                        <% end %>
-                      </div>
+
+                  <p class="text-sm text-zinc-600 mt-1">
+                    Order #<%= ticket_order.reference_id %> • <%= format_date(
+                      ticket_order.inserted_at
+                    ) %>
+                  </p>
+
+                  <div class="mt-3">
+                    <p class="text-sm text-zinc-600">
+                      <span class="font-medium">Total:</span>
+                      <%= format_price(ticket_order.total_amount) %>
+                    </p>
+
+                    <p class="text-sm text-zinc-600">
+                      <span class="font-medium">Tickets:</span>
+                      <%= length(ticket_order.tickets) %> ticket(s)
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex flex-col items-end space-y-2">
+                  <%= if ticket_order.status == :pending do %>
+                    <div class="text-sm text-amber-600">
+                      <.icon name="hero-clock" class="w-4 h-4 inline me-1" />
+                      Expires <%= format_time_remaining(ticket_order.expires_at) %>
                     </div>
+                    <.button color="red" phx-click="cancel-order" phx-value-order-id={ticket_order.id}>
+                      Cancel Order
+                    </.button>
+                  <% end %>
+
+                  <%= if ticket_order.status == :completed do %>
+                    <.button phx-click="view-tickets" phx-value-order-id={ticket_order.id}>
+                      View Tickets
+                    </.button>
                   <% end %>
                 </div>
               </div>
-            <% end %>
-          <% end %>
+              <!-- Ticket Details -->
+              <%= if ticket_order.status == :completed do %>
+                <div class="mt-4 pt-4 border-t border-zinc-200">
+                  <h4 class="text-sm font-medium text-zinc-900 mb-3">Ticket Details</h4>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <%= for ticket <- ticket_order.tickets do %>
+                      <div class="bg-zinc-50 rounded-md p-3">
+                        <div class="flex items-center justify-between">
+                          <div>
+                            <p class="text-sm font-medium text-zinc-900">
+                              <%= ticket.ticket_tier.name %>
+                            </p>
+                            <p class="text-xs text-zinc-600">
+                              Ticket #<%= ticket.reference_id %>
+                            </p>
+                          </div>
+                          <div class="text-right">
+                            <p class="text-sm font-medium text-zinc-900">
+                              <%= case ticket.ticket_tier.type do %>
+                                <% :free -> %>
+                                  Free
+                                <% _ -> %>
+                                  <%= format_price(ticket.ticket_tier.price) %>
+                              <% end %>
+                            </p>
+                            <.status_badge status={ticket.status} size="sm" />
+                          </div>
+                        </div>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -137,7 +134,7 @@ defmodule YscWeb.UserTicketsLive do
     {:ok,
      socket
      |> assign(:page_title, "My Tickets")
-     |> assign(:ticket_orders, ticket_orders)}
+     |> stream(:ticket_orders, ticket_orders, limit: -50)}
   end
 
   @impl true
@@ -154,7 +151,7 @@ defmodule YscWeb.UserTicketsLive do
 
             {:noreply,
              socket
-             |> assign(:ticket_orders, ticket_orders)
+             |> stream(:ticket_orders, ticket_orders, reset: true, limit: -50)
              |> put_flash(:info, "Order cancelled successfully")}
 
           {:error, reason} ->

@@ -2948,7 +2948,7 @@ defmodule YscWeb.TahoeBookingLive do
     List.first(active_bookings)
   end
 
-  defp get_active_bookings(user_id) do
+  defp get_active_bookings(user_id, limit \\ 10) do
     today = Date.utc_today()
     checkout_time = ~T[11:00:00]
 
@@ -2958,12 +2958,14 @@ defmodule YscWeb.TahoeBookingLive do
         where: b.property == :tahoe,
         where: b.checkout_date >= ^today,
         order_by: [asc: b.checkin_date],
+        limit: ^limit,
         preload: [:room]
 
     bookings = Repo.all(query)
 
     # Filter out bookings that are past checkout time today
-    Enum.filter(bookings, fn booking ->
+    bookings
+    |> Enum.filter(fn booking ->
       if Date.compare(booking.checkout_date, today) == :eq do
         now = DateTime.utc_now()
         checkout_datetime = DateTime.new!(today, checkout_time, "Etc/UTC")
@@ -2972,6 +2974,7 @@ defmodule YscWeb.TahoeBookingLive do
         true
       end
     end)
+    |> Enum.take(limit)
   end
 
   defp past_checkout_time? do

@@ -6,8 +6,13 @@ defmodule YscWeb.Emails.Notifier do
   """
   import Swoosh.Email
 
-  @from_email "info@ysc.org"
-  @from_name "YSC"
+  defp from_email do
+    Application.get_env(:ysc, :emails)[:from_email] || "info@ysc.org"
+  end
+
+  defp from_name do
+    Application.get_env(:ysc, :emails)[:from_name] || "YSC"
+  end
 
   @template_mappings %{
     "application_rejected" => YscWeb.Emails.ApplicationRejected,
@@ -77,7 +82,7 @@ defmodule YscWeb.Emails.Notifier do
   end
 
   def schedule_email_to_board(idempotency_key, subject, template, variables) do
-    schedule_email(@from_email, idempotency_key, subject, template, variables, "", nil)
+    schedule_email(from_email(), idempotency_key, subject, template, variables, "", nil)
   end
 
   def send_email_idempotent(
@@ -105,7 +110,7 @@ defmodule YscWeb.Emails.Notifier do
     email =
       new()
       |> to(recipient)
-      |> from({@from_name, @from_email})
+      |> from({from_name(), from_email()})
       |> subject(subject)
       |> html_body(rendered)
       |> text_body(text_body)
@@ -127,7 +132,7 @@ defmodule YscWeb.Emails.Notifier do
 
   def send_email_to_board(idempotency_key, subject, template, variables) do
     send_email_idempotent(
-      @from_email,
+      from_email(),
       idempotency_key,
       subject,
       template,

@@ -99,6 +99,21 @@ config :stripity_stripe,
 
 config :stripity_stripe, :retries, max_attempts: 3, base_backoff: 500, max_backoff: 2_000
 
+config :ysc, :radar,
+  public_key:
+    System.get_env("RADAR_PUBLIC_KEY", "prj_test_pk_5bcfd56661bb7fc596d70d5f21f0e2c6049b0966")
+
+config :ysc, :emails,
+  from_email: System.get_env("EMAIL_FROM", "info@ysc.org"),
+  from_name: System.get_env("EMAIL_FROM_NAME", "YSC"),
+  contact_email: System.get_env("EMAIL_CONTACT", "info@ysc.org"),
+  admin_email: System.get_env("EMAIL_ADMIN", "admin@ysc.org"),
+  membership_email: System.get_env("EMAIL_MEMBERSHIP", "membership@ysc.org"),
+  board_email: System.get_env("EMAIL_BOARD", "board@ysc.org"),
+  volunteer_email: System.get_env("EMAIL_VOLUNTEER", "volunteer@ysc.org"),
+  tahoe_email: System.get_env("EMAIL_TAHOE", "tahoe@ysc.org"),
+  clear_lake_email: System.get_env("EMAIL_CLEAR_LAKE", "clearlake@ysc.org")
+
 # Removed Bling configuration - using internal subscription management
 
 config :ysc, :quickbooks,

@@ -44,6 +44,20 @@ Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
 
 You can get these from your [Stripe Dashboard](https://dashboard.stripe.com/apikeys).
 
+### Optional Configuration
+
+- `RADAR_PUBLIC_KEY` - Your Radar public key for map functionality (defaults to test key if not set)
+
+- `EMAIL_FROM` - Email address used as sender for outgoing emails (defaults to "info@ysc.org")
+- `EMAIL_FROM_NAME` - Display name for outgoing emails (defaults to "YSC")
+- `EMAIL_CONTACT` - General contact email address (defaults to "info@ysc.org")
+- `EMAIL_ADMIN` - Admin email address (defaults to "admin@ysc.org")
+- `EMAIL_MEMBERSHIP` - Membership-related email address (defaults to "membership@ysc.org")
+- `EMAIL_BOARD` - Board email address (defaults to "board@ysc.org")
+- `EMAIL_VOLUNTEER` - Volunteer email address (defaults to "volunteer@ysc.org")
+- `EMAIL_TAHOE` - Tahoe cabin email address (defaults to "tahoe@ysc.org")
+- `EMAIL_CLEAR_LAKE` - Clear Lake cabin email address (defaults to "clearlake@ysc.org")
+
 ### Setting Environment Variables
 
 You can set these variables in one of two ways:
@@ -54,6 +68,7 @@ You can set these variables in one of two ways:
 export STRIPE_SECRET="sk_test_..."
 export STRIPE_PUBLIC_KEY="pk_test_..."
 export STRIPE_WEBHOOK_SECRET="whsec_..."
+export RADAR_PUBLIC_KEY="prj_live_pk_..."  # Optional, defaults to test key
 ```
 
 #### Option 2: Create a `.env` file
@@ -64,6 +79,7 @@ Create a `.env` file in the project root:
 STRIPE_SECRET=sk_test_...
 STRIPE_PUBLIC_KEY=pk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
+RADAR_PUBLIC_KEY=prj_live_pk_...  # Optional, defaults to test key
 ```
 
 **Note:** Exported environment variables take precedence over values in the `.env` file. The `make dev` command will automatically load variables from `.env` if the file exists.

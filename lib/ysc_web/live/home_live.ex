@@ -225,7 +225,7 @@ defmodule YscWeb.HomeLive do
                           </div>
                           <div class="flex items-center text-sm text-zinc-600 mb-1">
                             <.icon name="hero-calendar-days" class="w-4 h-4 mr-1" />
-                            <span class="font-medium">Check-in:</span>
+                            <span class="font-semibold">Check-in:</span>
                             <span class="ml-1">
                               <%= Calendar.strftime(booking.checkin_date, "%B %d, %Y") %>
                             </span>
@@ -240,7 +240,7 @@ defmodule YscWeb.HomeLive do
                           </div>
                           <div class="flex items-center text-sm text-zinc-600 mb-1">
                             <.icon name="hero-calendar-days" class="w-4 h-4 mr-1" />
-                            <span class="font-medium">Check-out:</span>
+                            <span class="font-semibold">Check-out:</span>
                             <span class="ml-1">
                               <%= Calendar.strftime(booking.checkout_date, "%B %d, %Y") %>
                             </span>
@@ -428,7 +428,7 @@ defmodule YscWeb.HomeLive do
     end
   end
 
-  defp get_upcoming_tickets(user_id) do
+  defp get_upcoming_tickets(user_id, limit \\ 10) do
     # Get all confirmed tickets for the user
     tickets = Events.list_tickets_for_user(user_id)
 
@@ -447,6 +447,7 @@ defmodule YscWeb.HomeLive do
         end
     end)
     |> Enum.sort_by(fn ticket -> ticket.event.start_date end, :asc)
+    |> Enum.take(limit)
   end
 
   defp group_tickets_by_tier(tickets) do
@@ -466,7 +467,7 @@ defmodule YscWeb.HomeLive do
     |> Enum.sort_by(fn {event, _tiers} -> event.start_date end, :asc)
   end
 
-  defp get_future_active_bookings(user_id) do
+  defp get_future_active_bookings(user_id, limit \\ 10) do
     today = Date.utc_today()
     checkout_time = ~T[11:00:00]
 
@@ -475,12 +476,14 @@ defmodule YscWeb.HomeLive do
         where: b.user_id == ^user_id,
         where: b.checkout_date >= ^today,
         order_by: [asc: b.checkin_date],
+        limit: ^limit,
         preload: [:room]
 
     bookings = Ysc.Repo.all(query)
 
     # Filter out bookings that are past checkout time today
-    Enum.filter(bookings, fn booking ->
+    bookings
+    |> Enum.filter(fn booking ->
       if Date.compare(booking.checkout_date, today) == :eq do
         now = DateTime.utc_now()
         checkout_datetime = DateTime.new!(today, checkout_time, "Etc/UTC")
@@ -489,6 +492,7 @@ defmodule YscWeb.HomeLive do
         true
       end
     end)
+    |> Enum.take(limit)
   end
 
   defp format_property_name(:tahoe), do: "Lake Tahoe"

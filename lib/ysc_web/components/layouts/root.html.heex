@@ -21,6 +21,7 @@
     </script>
     <script>
       window.stripePublishableKey = "<%= Application.get_env(:stripity_stripe, :public_key) %>";
+      window.radarPublicKey = "<%= Application.get_env(:ysc, :radar)[:public_key] %>";
     </script>
     <Turnstile.script />
   </head>

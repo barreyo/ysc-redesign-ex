@@ -55,6 +55,9 @@ module.exports = {
         ".phx-change-loading &",
       ])
     ),
+    plugin(({ addVariant }) =>
+      addVariant("only", "&:only-child")
+    ),
 
     // Embeds Heroicons (https://heroicons.com) into your app.css bundle
     // See your `CoreComponents.icon/1` for more information.

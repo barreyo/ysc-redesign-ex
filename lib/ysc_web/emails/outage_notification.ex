@@ -150,8 +150,8 @@ defmodule YscWeb.Emails.OutageNotification do
   """
   def get_cabin_master_email(property) when is_atom(property) do
     case property do
-      :tahoe -> "tahoe@ysc.org"
-      :clear_lake -> "clearlake@ysc.org"
+      :tahoe -> Ysc.EmailConfig.tahoe_email()
+      :clear_lake -> Ysc.EmailConfig.clear_lake_email()
       _ -> nil
     end
   end
@@ -163,8 +163,8 @@ defmodule YscWeb.Emails.OutageNotification do
   rescue
     ArgumentError ->
       case property do
-        "tahoe" -> "tahoe@ysc.org"
-        "clear_lake" -> "clearlake@ysc.org"
+        "tahoe" -> Ysc.EmailConfig.tahoe_email()
+        "clear_lake" -> Ysc.EmailConfig.clear_lake_email()
         _ -> nil
       end
   end
