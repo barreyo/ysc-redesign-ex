@@ -74,7 +74,8 @@ defmodule LivePhone do
         data-masks={@masks}
         phx-target={@myself}
         phx-keyup="typing"
-        phx-blur="close"
+        phx-debounce="300"
+        phx-blur="blur"
       />
       <input type="hidden" name={@name} value={assigns[:formatted_value]} />
 
@@ -149,6 +150,19 @@ defmodule LivePhone do
   @impl true
   def handle_event("typing", %{"value" => value}, socket) do
     {:noreply, set_value(socket, value)}
+  end
+
+  def handle_event("blur", %{"value" => value}, socket) do
+    socket = set_value(socket, value)
+
+    # Force validation on blur by pushing change event immediately
+    {:noreply,
+     socket
+     |> assign(:opened?, false)
+     |> push_event("change", %{
+       id: "live_phone-#{socket.assigns.id}",
+       value: socket.assigns[:formatted_value]
+     })}
   end
 
   def handle_event("select_country", %{"country" => country}, socket) do

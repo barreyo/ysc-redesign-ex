@@ -87,6 +87,18 @@ class LivePhone {
     this.elements.textField().focus()
   }
 
+  // Remove phx-no-feedback class from parent wrapper to show validation errors
+  removeNoFeedback() {
+    const parent = this.elements.parent()
+    if (!parent) return
+
+    // Find the phx-feedback-for wrapper (parent of parent)
+    let wrapper = parent.closest('[phx-feedback-for]')
+    if (wrapper) {
+      wrapper.classList.remove('phx-no-feedback')
+    }
+  }
+
   // This has to happen because the `phx-change` event was not
   // always called correctly when updating the value from the
   // back-end. So this sends a dummy change event to work around it.
@@ -311,6 +323,9 @@ class LivePhone {
     this.setChange = this.setChange.bind(this)
     this.context.handleEvent("change", this.setChange)
 
+    // Remove phx-no-feedback class when input is focused to show validation errors
+    this.removeNoFeedback = this.removeNoFeedback.bind(this)
+
     // This is used to close the overlay on events that happen outside
     // of our liveview component
     this.onOutsideEvent = this.onOutsideEvent.bind(this)
@@ -334,6 +349,10 @@ class LivePhone {
     // When switching from country list to input field it should close the overlay
     this.closeOverlay = this.closeOverlay.bind(this)
     textField.addEventListener("focus", this.closeOverlay, false)
+
+    // Remove phx-no-feedback class when input is focused/interacted with
+    textField.addEventListener("focus", this.removeNoFeedback, false)
+    textField.addEventListener("input", this.removeNoFeedback, false)
 
     // This will help formatting input
     this.onInput = this.onInput.bind(this)
@@ -372,8 +391,12 @@ class LivePhone {
     // NOTE: Not sure if we know for sure the text field still exists, so making
     // this part of the cleanup conditional.
     const textField = this.elements.textField()
-    if (textField) textField.removeEventListener("focus", this.closeOverlay, false)
-    if (textField) textField.removeEventListener("input", this.onInput, false)
+    if (textField) {
+      textField.removeEventListener("focus", this.closeOverlay, false)
+      textField.removeEventListener("focus", this.removeNoFeedback, false)
+      textField.removeEventListener("input", this.removeNoFeedback, false)
+      textField.removeEventListener("input", this.onInput, false)
+    }
   }
 }
 
