@@ -260,7 +260,7 @@ defmodule YscWeb.TahoeBookingLive do
         <!-- Active Bookings List -->
         <div :if={@user && length(@active_bookings) > 0} class="mb-6">
           <div class="flex items-start">
-            <div class="ms-2 flex-1">
+            <div class="flex-1">
               <h3 class="text-lg font-semibold text-zinc-900 mb-3">Your Active Bookings</h3>
               <div class="space-y-3">
                 <%= for booking <- @active_bookings do %>

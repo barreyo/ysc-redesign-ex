@@ -2,6 +2,8 @@ defmodule YscWeb.HomeLive do
   use YscWeb, :live_view
 
   alias Ysc.{Accounts, Events, Subscriptions}
+  alias Ysc.Bookings.Booking
+  import Ecto.Query
 
   @impl true
   def mount(_params, _session, socket) do
@@ -17,11 +19,13 @@ defmodule YscWeb.HomeLive do
 
         current_membership = get_current_membership(user_with_subs)
         upcoming_tickets = get_upcoming_tickets(user.id)
+        future_bookings = get_future_active_bookings(user.id)
 
         assign(socket,
           page_title: "Home",
           current_membership: current_membership,
-          upcoming_tickets: upcoming_tickets
+          upcoming_tickets: upcoming_tickets,
+          future_bookings: future_bookings
         )
       else
         assign(socket, page_title: "Home")
@@ -169,6 +173,101 @@ defmodule YscWeb.HomeLive do
 
                 <div class="w-full">
                   <.membership_status current_membership={@current_membership} />
+                </div>
+              </div>
+              <!-- Upcoming Bookings Section -->
+              <div class="space-y-4 flex flex-col">
+                <div class="flex flex-row justify-between items-center space-x-4">
+                  <div class="flex-shrink-0">
+                    <h2 class="text-xl md:text-2xl font-semibold text-zinc-900">
+                      Your Upcoming Bookings
+                    </h2>
+                  </div>
+                  <div class="flex-shrink-0 flex gap-2">
+                    <.button phx-click={JS.navigate(~p"/bookings/tahoe")}>
+                      Book Tahoe
+                    </.button>
+                    <.button phx-click={JS.navigate(~p"/bookings/clear-lake")}>
+                      Book Clear Lake
+                    </.button>
+                  </div>
+                </div>
+
+                <div :if={Enum.empty?(@future_bookings)} class="text-center py-4">
+                  <div class="flex justify-center mb-4">
+                    <.icon name="hero-home" class="w-12 h-12 text-zinc-400" />
+                  </div>
+                  <h3 class="text-lg font-medium text-zinc-900 mb-2">No upcoming bookings</h3>
+                  <p class="text-zinc-600 mb-4">
+                    You don't have any cabin bookings scheduled yet.
+                  </p>
+                </div>
+
+                <div :if={!Enum.empty?(@future_bookings)} class="space-y-4">
+                  <%= for booking <- @future_bookings do %>
+                    <div class="border border-zinc-200 rounded-lg p-4">
+                      <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                          <div class="flex items-center gap-2 mb-2">
+                            <.badge>
+                              <%= booking.reference_id %>
+                            </.badge>
+                            <span class="text-sm font-medium text-zinc-900">
+                              <%= format_property_name(booking.property) %>
+                            </span>
+                            <%= if booking.room do %>
+                              <span class="text-sm text-zinc-600">
+                                · <%= booking.room.name %>
+                              </span>
+                            <% else %>
+                              <span class="text-sm text-zinc-600">· Full Buyout</span>
+                            <% end %>
+                          </div>
+                          <div class="flex items-center text-sm text-zinc-600 mb-1">
+                            <.icon name="hero-calendar-days" class="w-4 h-4 mr-1" />
+                            <span class="font-medium">Check-in:</span>
+                            <span class="ml-1">
+                              <%= Calendar.strftime(booking.checkin_date, "%B %d, %Y") %>
+                            </span>
+                            <span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded inline-block">
+                              <%= case days_until_booking(booking) do
+                                :started -> "In progress"
+                                0 -> "Today"
+                                1 -> "1 day left"
+                                days -> "#{days} days left"
+                              end %>
+                            </span>
+                          </div>
+                          <div class="flex items-center text-sm text-zinc-600 mb-1">
+                            <.icon name="hero-calendar-days" class="w-4 h-4 mr-1" />
+                            <span class="font-medium">Check-out:</span>
+                            <span class="ml-1">
+                              <%= Calendar.strftime(booking.checkout_date, "%B %d, %Y") %>
+                            </span>
+                          </div>
+                          <div class="flex items-center text-sm text-zinc-600">
+                            <.icon name="hero-users" class="w-4 h-4 mr-1" />
+                            <%= booking.guests_count %> <%= if booking.guests_count == 1,
+                              do: "guest",
+                              else: "guests" %>
+                            <%= if booking.children_count > 0 do %>
+                              , <%= booking.children_count %> <%= if booking.children_count == 1,
+                                do: "child",
+                                else: "children" %>
+                            <% end %>
+                          </div>
+                        </div>
+                        <div class="ml-4 flex-shrink-0">
+                          <.link
+                            navigate={booking_link_path(booking.property)}
+                            class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            View Details →
+                          </.link>
+                        </div>
+                      </div>
+                    </div>
+                  <% end %>
                 </div>
               </div>
               <!-- Upcoming Tickets Section -->
@@ -365,6 +464,60 @@ defmodule YscWeb.HomeLive do
       {event, grouped_tiers}
     end)
     |> Enum.sort_by(fn {event, _tiers} -> event.start_date end, :asc)
+  end
+
+  defp get_future_active_bookings(user_id) do
+    today = Date.utc_today()
+    checkout_time = ~T[11:00:00]
+
+    query =
+      from b in Booking,
+        where: b.user_id == ^user_id,
+        where: b.checkout_date >= ^today,
+        order_by: [asc: b.checkin_date],
+        preload: [:room]
+
+    bookings = Ysc.Repo.all(query)
+
+    # Filter out bookings that are past checkout time today
+    Enum.filter(bookings, fn booking ->
+      if Date.compare(booking.checkout_date, today) == :eq do
+        now = DateTime.utc_now()
+        checkout_datetime = DateTime.new!(today, checkout_time, "Etc/UTC")
+        DateTime.compare(now, checkout_datetime) == :lt
+      else
+        true
+      end
+    end)
+  end
+
+  defp format_property_name(:tahoe), do: "Lake Tahoe"
+  defp format_property_name(:clear_lake), do: "Clear Lake"
+  defp format_property_name(_), do: "Unknown"
+
+  defp booking_link_path(:tahoe), do: ~p"/bookings/tahoe"
+  defp booking_link_path(:clear_lake), do: ~p"/bookings/clear-lake"
+  defp booking_link_path(_), do: ~p"/bookings/tahoe"
+
+  defp days_until_booking(booking) do
+    today = Date.utc_today()
+    checkin_date = booking.checkin_date
+
+    case Date.compare(today, checkin_date) do
+      # Check-in is in the past - booking has started
+      :gt ->
+        :started
+
+      # Check-in is today
+      :eq ->
+        0
+
+      # Check-in is in the future
+      :lt ->
+        # Calculate days difference using calendar days
+        diff = Date.diff(checkin_date, today)
+        diff
+    end
   end
 
   defp days_until_event(event) do
