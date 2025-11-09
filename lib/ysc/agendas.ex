@@ -63,12 +63,14 @@ defmodule Ysc.Agendas do
   end
 
   def update_agenda_position(event_id, agenda, new_index) do
+    %Agenda{} = agenda
+
     Ecto.Multi.new()
     |> multi_reposition(:new, agenda, agenda, new_index, where_query: [event_id: event_id])
     |> Repo.transaction()
     |> case do
       {:ok, _} ->
-        new_agenda = %Agenda{agenda | position: new_index}
+        new_agenda = %{agenda | position: new_index}
         broadcast(event_id, %Ysc.MessagePassingEvents.AgendaRepositioned{agenda: new_agenda})
 
         :ok
@@ -79,6 +81,8 @@ defmodule Ysc.Agendas do
   end
 
   def update_agenda_item_position(event_id, agenda_item, new_index) do
+    %AgendaItem{} = agenda_item
+
     Ecto.Multi.new()
     |> multi_reposition(:new, agenda_item, {Agenda, agenda_item.agenda_id}, new_index,
       agenda_id: agenda_item.agenda_id
@@ -86,10 +90,7 @@ defmodule Ysc.Agendas do
     |> Repo.transaction()
     |> case do
       {:ok, _} ->
-        new_agenda_item = %AgendaItem{
-          agenda_item
-          | position: new_index
-        }
+        new_agenda_item = %{agenda_item | position: new_index}
 
         broadcast(event_id, %Ysc.MessagePassingEvents.AgendaItemRepositioned{
           agenda_item: new_agenda_item
@@ -103,6 +104,8 @@ defmodule Ysc.Agendas do
   end
 
   def move_agenda_item_to_agenda(event_id, agenda_item, agenda, at_index) do
+    %AgendaItem{} = agenda_item
+
     Ecto.Multi.new()
     |> multi_update_all(:dec_positions, fn _ ->
       from(a in AgendaItem,
@@ -134,7 +137,7 @@ defmodule Ysc.Agendas do
     |> Repo.transaction()
     |> case do
       {:ok, _} ->
-        new_agenda_item = %AgendaItem{
+        new_agenda_item = %{
           agenda_item
           | agenda: agenda,
             agenda_id: agenda.id,

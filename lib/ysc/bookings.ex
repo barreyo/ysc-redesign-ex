@@ -21,7 +21,6 @@ defmodule Ysc.Bookings do
 
   alias Ysc.Repo
   alias Ysc.Bookings.{Season, PricingRule, Room, RoomCategory, Blackout, Booking, DoorCode}
-  alias Ysc.MoneyHelper
 
   # Check-in and check-out times
   @checkin_time ~T[15:00:00]
@@ -694,7 +693,7 @@ defmodule Ysc.Bookings do
         room_id \\ nil,
         guests_count \\ 1,
         children_count \\ 0,
-        exclude_booking_id \\ nil,
+        _exclude_booking_id \\ nil,
         use_actual_guests \\ false
       ) do
     # Validate dates before using Date.diff
@@ -749,7 +748,7 @@ defmodule Ysc.Bookings do
     end
   end
 
-  defp calculate_buyout_price(property, checkin_date, checkout_date, nights) do
+  defp calculate_buyout_price(property, checkin_date, checkout_date, _nights) do
     # For buyouts, we need to check the season for each night
     # and sum up the prices
     date_range = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
@@ -833,7 +832,7 @@ defmodule Ysc.Bookings do
          room_id,
          guests_count,
          children_count,
-         nights,
+         _nights,
          use_actual_guests \\ false
        ) do
     room = get_room!(room_id)
@@ -956,7 +955,7 @@ defmodule Ysc.Bookings do
     end
   end
 
-  defp calculate_day_price(property, checkin_date, checkout_date, guests_count, nights) do
+  defp calculate_day_price(property, _checkin_date, _checkout_date, guests_count, nights) do
     # For day bookings, price is per guest per day
     # Clear Lake uses this model
     pricing_rule =

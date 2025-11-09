@@ -6,9 +6,7 @@ defmodule YscWeb.ClearLakeBookingLive do
   alias Ysc.MoneyHelper
   alias Ysc.Accounts
   alias Ysc.Subscriptions
-  alias Ysc.Repo
   require Logger
-  import Ecto.Query
 
   @max_guests 12
 
@@ -1373,7 +1371,7 @@ defmodule YscWeb.ClearLakeBookingLive do
     |> DateTime.to_iso8601()
   end
 
-  defp parse_query_params(params, uri) when is_map(params) do
+  defp parse_query_params(params, _uri) when is_map(params) do
     # Check if params are malformed (single key with entire query string as key)
     case find_malformed_query_key(params) do
       nil ->
@@ -1614,7 +1612,7 @@ defmodule YscWeb.ClearLakeBookingLive do
   # Handles year-spanning seasons (e.g., Nov 1 - Apr 30)
   defp get_season_end_date(season, reference_date) do
     {ref_month, ref_day} = {reference_date.month, reference_date.day}
-    {start_month, start_day} = {season.start_date.month, season.start_date.day}
+    {start_month, _start_day} = {season.start_date.month, season.start_date.day}
     {end_month, end_day} = {season.end_date.month, season.end_date.day}
 
     # If season spans years (e.g., Nov to Apr)
@@ -1690,7 +1688,7 @@ defmodule YscWeb.ClearLakeBookingLive do
   # Get the start date of a season for a specific year
   defp get_season_start_date_for_year(season, year) do
     {start_month, start_day} = {season.start_date.month, season.start_date.day}
-    {end_month, end_day} = {season.end_date.month, season.end_date.day}
+    {end_month, _end_day} = {season.end_date.month, season.end_date.day}
 
     # If season spans years (e.g., Nov to Apr)
     if start_month > end_month do

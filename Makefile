@@ -66,6 +66,9 @@ dev-setup:  ## Set up local dev environment
 	@echo "$(GREEN)Your local dev env is ready!$(RESET)"
 	@echo "Run $(BOLD)make dev$(RESET) to start the server and then visit $(BOLD)http://localhost:4000/$(RESET)"
 
+.PHONY: setup
+setup: dev-setup
+
 .PHONY: setup-s3
 setup-s3:  ## Set up local S3 bucket
 	@awslocal s3api create-bucket --bucket media || true
@@ -96,6 +99,11 @@ test: tests
 .PHONY: format
 format:  ## Format the code
 	@mix format
+
+.PHONY: lint
+lint:  ## Run the lint suite
+	@mix credo --all
+	@mix format --check-formatted
 
 .PHONY: clean-compose
 clean-compose:  ## Remove docker containers and volumes

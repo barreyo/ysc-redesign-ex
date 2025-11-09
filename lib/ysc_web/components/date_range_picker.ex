@@ -98,13 +98,13 @@ defmodule YscWeb.Components.DateRangePicker do
               phx-target={@myself}
               phx-click="pick-date"
               phx-value-date={Calendar.strftime(day, "%Y-%m-%d") <> "T00:00:00Z"}
-              disabled={is_date_disabled?(day, @min, @range_start, @state, @max)}
+              disabled={date_disabled?(day, @min, @range_start, @state, @max)}
               class={[
                 "calendar-day overflow-hidden py-1.5 h-10 rounded w-auto focus:z-10 w-full transition duration-300",
                 today?(day) && "font-bold border border-zinc-400 rounded",
-                is_date_disabled?(day, @min, @range_start, @state, @max) &&
+                date_disabled?(day, @min, @range_start, @state, @max) &&
                   "text-zinc-300 cursor-not-allowed opacity-50",
-                !is_date_disabled?(day, @min, @range_start, @state, @max) &&
+                !date_disabled?(day, @min, @range_start, @state, @max) &&
                   !before_min_date?(day, @min) &&
                   "hover:bg-blue-300 hover:border hover:border-blue-500",
                 other_month?(day, @current.date) && "text-zinc-500",
@@ -146,6 +146,7 @@ defmodule YscWeb.Components.DateRangePicker do
       |> assign(:range_end, nil)
       |> assign(:hover_range_end, nil)
       |> assign(:readonly, false)
+      |> assign(:disabled, false)
       |> assign(:selected_date, nil)
       |> assign(:form, nil)
     }
@@ -294,7 +295,7 @@ defmodule YscWeb.Components.DateRangePicker do
       hover_range_end =
         case socket.assigns.state do
           :set_end ->
-            if not is_date_disabled?(
+            if not date_disabled?(
                  day,
                  socket.assigns.min,
                  socket.assigns.range_start,
@@ -436,7 +437,7 @@ defmodule YscWeb.Components.DateRangePicker do
   end
 
   # Check if a date should be disabled based on booking rules
-  defp is_date_disabled?(day, min, range_start, state, max \\ nil) do
+  defp date_disabled?(day, min, range_start, state, max \\ nil) do
     # Always disable dates before minimum
     if Date.compare(day, min) == :lt do
       true

@@ -60,7 +60,7 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
       raise ArgumentError, "Ticket order missing event association: #{ticket_order.id}"
     end
 
-    if is_nil(ticket_order.tickets) or length(ticket_order.tickets) == 0 do
+    if is_nil(ticket_order.tickets) or Enum.empty?(ticket_order.tickets) do
       raise ArgumentError, "Ticket order missing tickets: #{ticket_order.id}"
     end
 

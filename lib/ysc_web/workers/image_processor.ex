@@ -51,8 +51,8 @@ defmodule YscWeb.Workers.ImageProcessor do
       # Get the actual file paths with correct extensions for cleanup
       # The process_image_upload function will have set the correct extensions
       # We need to detect them from the uploaded paths or use a pattern
-      optimized_path = find_file_with_pattern("#{tmp_output_file}_optimized")
-      thumbnail_path = find_file_with_pattern("#{tmp_output_file}_thumb")
+      _optimized_path = find_file_with_pattern("#{tmp_output_file}_optimized")
+      _thumbnail_path = find_file_with_pattern("#{tmp_output_file}_thumb")
 
       :ok
     after

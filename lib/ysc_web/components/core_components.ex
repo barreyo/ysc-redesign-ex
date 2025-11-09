@@ -706,6 +706,7 @@ defmodule YscWeb.CoreComponents do
 
   attr(:required, :boolean, default: false)
   attr(:readonly, :boolean, default: false)
+  attr(:disabled, :boolean, default: false)
   attr(:min, :any, default: @min_date, doc: "the earliest date that can be set")
   attr(:max, :any, default: nil, doc: "the latest date that can be set")
   attr(:errors, :list, default: [])
@@ -722,6 +723,7 @@ defmodule YscWeb.CoreComponents do
       end_date_field={@end_date_field}
       required={@required}
       readonly={@readonly}
+      disabled={@disabled}
       is_range?
       min={@min}
       max={@max}
