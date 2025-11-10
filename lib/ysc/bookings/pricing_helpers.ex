@@ -37,7 +37,7 @@ defmodule Ysc.Bookings.PricingHelpers do
           # For Tahoe room bookings, need at least one room selected
           # Check both single room selection and multiple room selection
           socket.assigns.selected_room_id ||
-            (socket.assigns.selected_room_ids && length(socket.assigns.selected_room_ids) > 0)
+            (socket.assigns.selected_room_ids && socket.assigns.selected_room_ids != [])
 
         :day ->
           # For Clear Lake day bookings, need guests count
@@ -152,7 +152,7 @@ defmodule Ysc.Bookings.PricingHelpers do
         if socket.assigns.selected_room_id, do: [socket.assigns.selected_room_id], else: []
       end
 
-    if length(room_ids) == 0 do
+    if room_ids == [] do
       assign_error(socket, "Please select at least one room")
     else
       # For multiple rooms, calculate price once for total guests (not per room)
