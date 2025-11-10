@@ -310,7 +310,14 @@ get_or_create_pricing_rule = fn attrs ->
       |> Repo.insert!()
 
     existing ->
-      existing
+      # Update existing rule if children_amount is provided and not already set
+      if Map.has_key?(attrs, :children_amount) && is_nil(existing.children_amount) do
+        existing
+        |> PricingRule.changeset(%{children_amount: attrs.children_amount})
+        |> Repo.update!()
+      else
+        existing
+      end
   end
 end
 
@@ -343,7 +350,7 @@ get_or_create_pricing_rule.(%{
 
 # Tahoe: Base room pricing for standard rooms - $45 per person per night
 # This applies to both summer and winter for standard category
-get_or_create_pricing_rule.(%{
+standard_rule = get_or_create_pricing_rule.(%{
   amount: Money.new(45, :USD), # $45.00
   booking_mode: :room,
   price_unit: :per_person_per_night,
@@ -352,8 +359,15 @@ get_or_create_pricing_rule.(%{
   season_id: nil # Applies to all seasons
 })
 
+# Update the standard rule to include children pricing
+if is_nil(standard_rule.children_amount) do
+  standard_rule
+  |> PricingRule.changeset(%{children_amount: Money.new(25, :USD)})
+  |> Repo.update!()
+end
+
 # Tahoe: Single bed room pricing - $35 per person per night (cheaper)
-get_or_create_pricing_rule.(%{
+single_rule = get_or_create_pricing_rule.(%{
   amount: Money.new(35, :USD), # $35.00
   booking_mode: :room,
   price_unit: :per_person_per_night,
@@ -362,13 +376,40 @@ get_or_create_pricing_rule.(%{
   season_id: nil # Applies to all seasons
 })
 
+# Update the single rule to include children pricing
+if is_nil(single_rule.children_amount) do
+  single_rule
+  |> PricingRule.changeset(%{children_amount: Money.new(25, :USD)})
+  |> Repo.update!()
+end
+
 # Tahoe: Family room pricing - same as standard ($45 per person per night)
-get_or_create_pricing_rule.(%{
+family_rule = get_or_create_pricing_rule.(%{
   amount: Money.new(45, :USD), # $45.00
   booking_mode: :room,
   price_unit: :per_person_per_night,
   property: :tahoe,
   room_category_id: family_category.id,
+  season_id: nil # Applies to all seasons
+})
+
+# Update the family rule to include children pricing
+if is_nil(family_rule.children_amount) do
+  family_rule
+  |> PricingRule.changeset(%{children_amount: Money.new(25, :USD)})
+  |> Repo.update!()
+end
+
+# Create a property-level fallback rule for children pricing
+# This will be used if no category-specific rule has children_amount
+get_or_create_pricing_rule.(%{
+  amount: Money.new(45, :USD), # Adult price (required field)
+  children_amount: Money.new(25, :USD), # $25.00 per child per night
+  booking_mode: :room,
+  price_unit: :per_person_per_night,
+  property: :tahoe,
+  room_id: nil,
+  room_category_id: nil,
   season_id: nil # Applies to all seasons
 })
 

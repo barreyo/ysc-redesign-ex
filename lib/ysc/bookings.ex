@@ -854,8 +854,7 @@ defmodule Ysc.Bookings do
        found_pricing_rules} =
         Enum.reduce(
           date_range,
-          {Money.new(0, :USD), Money.new(0, :USD), Money.new(0, :USD), nil, Money.new(25, :USD),
-           false},
+          {Money.new(0, :USD), Money.new(0, :USD), Money.new(0, :USD), nil, nil, false},
           fn date, {acc, base_acc, children_acc, adult_price, children_price, found_any} ->
             season = Season.for_date(property, date)
             season_id = if season, do: season.id, else: nil
@@ -897,10 +896,49 @@ defmodule Ysc.Bookings do
               # Calculate base price
               {:ok, base_price} = Money.mult(pricing_rule.amount, billable_people)
 
+              # Look up children pricing rule using same hierarchy
+              # Falls back to $25 if no children pricing rule found
+              children_pricing_rule =
+                PricingRule.find_children_pricing_rule(
+                  property,
+                  season_id,
+                  room_id,
+                  room.room_category_id,
+                  :room,
+                  :per_person_per_night
+                ) ||
+                  PricingRule.find_children_pricing_rule(
+                    property,
+                    season_id,
+                    nil,
+                    room.room_category_id,
+                    :room,
+                    :per_person_per_night
+                  ) ||
+                  PricingRule.find_children_pricing_rule(
+                    property,
+                    season_id,
+                    nil,
+                    nil,
+                    :room,
+                    :per_person_per_night
+                  )
+
+              # Use children_amount from rule if found, otherwise fallback to $25
+              children_price_per_person =
+                if children_pricing_rule && children_pricing_rule.children_amount do
+                  children_pricing_rule.children_amount
+                else
+                  Money.new(25, :USD)
+                end
+
+              # Store children price per night (use first one found)
+              children_price = children_price || children_price_per_person
+
               # Add children pricing for Tahoe
               children_price_for_night =
                 if property == :tahoe && children_count > 0 do
-                  {:ok, price} = Money.mult(Money.new(25, :USD), children_count)
+                  {:ok, price} = Money.mult(children_price_per_person, children_count)
                   price
                 else
                   Money.new(0, :USD)
@@ -937,6 +975,10 @@ defmodule Ysc.Bookings do
           else
             Money.new(0, :USD)
           end
+
+        # Ensure children_price_per_night has a fallback value
+        children_price_per_night =
+          children_price_per_night || Money.new(25, :USD)
 
         {:ok, total,
          %{

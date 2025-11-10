@@ -21,6 +21,9 @@ defmodule Ysc.Bookings.PricingRule do
     # Price amount (stored as Money)
     field :amount, Money.Ecto.Composite.Type, default_currency: :USD
 
+    # Children price amount (optional, stored as Money)
+    field :children_amount, Money.Ecto.Composite.Type, default_currency: :USD
+
     # Booking mode (room, day, buyout)
     field :booking_mode, Ysc.Bookings.BookingMode
 
@@ -50,6 +53,7 @@ defmodule Ysc.Bookings.PricingRule do
     pricing_rule
     |> cast(attrs, [
       :amount,
+      :children_amount,
       :booking_mode,
       :price_unit,
       :room_id,
@@ -63,6 +67,7 @@ defmodule Ysc.Bookings.PricingRule do
       :price_unit
     ])
     |> validate_money(:amount)
+    |> validate_money(:children_amount)
     |> validate_specificity()
     |> validate_room_and_category()
     |> unique_constraint(
@@ -242,6 +247,109 @@ defmodule Ysc.Bookings.PricingRule do
         "[PricingRule] Pricing rules matching booking_mode=#{booking_mode}, " <>
           "price_unit=#{price_unit}, property=#{property}: #{matching_count}"
       )
+    end
+
+    result
+  end
+
+  @doc """
+  Finds the most specific children pricing rule for the given criteria.
+
+  Uses the same hierarchy as `find_most_specific/6` but looks for rules
+  that have a `children_amount` set. Falls back through the hierarchy:
+  1. room_id (most specific)
+  2. room_category_id (medium)
+  3. property + season (least specific)
+
+  If no children pricing rule is found, returns `nil`.
+
+  ## Parameters
+  - `property`: Property to search for
+  - `season_id`: Season ID (optional)
+  - `room_id`: Room ID (optional, for room-specific pricing)
+  - `room_category_id`: Room category ID (optional, for category pricing)
+  - `booking_mode`: Booking mode (room, day, buyout)
+  - `price_unit`: Price unit to search for
+
+  ## Returns
+  - `%PricingRule{}` if found with children_amount set
+  - `nil` if not found
+  """
+  def find_children_pricing_rule(
+        property,
+        season_id,
+        room_id,
+        room_category_id,
+        booking_mode,
+        price_unit
+      ) do
+    alias Ysc.Bookings.PricingRule
+    require Logger
+
+    Logger.debug(
+      "[PricingRule] find_children_pricing_rule called. " <>
+        "Property: #{property}, Season ID: #{inspect(season_id)}, " <>
+        "Room ID: #{inspect(room_id)}, Room Category ID: #{inspect(room_category_id)}, " <>
+        "Booking Mode: #{booking_mode}, Price Unit: #{price_unit}"
+    )
+
+    base_query =
+      from pr in PricingRule,
+        where: pr.booking_mode == ^booking_mode,
+        where: pr.price_unit == ^price_unit,
+        where: pr.property == ^property or is_nil(pr.property),
+        where: not is_nil(pr.children_amount)
+
+    # Add season filter if provided
+    query =
+      if season_id do
+        from pr in base_query,
+          where: is_nil(pr.season_id) or pr.season_id == ^season_id
+      else
+        from pr in base_query, where: is_nil(pr.season_id)
+      end
+
+    # Add room/category filters
+    query =
+      cond do
+        room_id ->
+          # Most specific: room_id match
+          from pr in query,
+            where: pr.room_id == ^room_id
+
+        room_category_id ->
+          # Medium specificity: category match (no room_id set)
+          from pr in query,
+            where: is_nil(pr.room_id) and pr.room_category_id == ^room_category_id
+
+        true ->
+          # Least specific: property only (no room_id or category_id)
+          from pr in query,
+            where: is_nil(pr.room_id) and is_nil(pr.room_category_id)
+      end
+
+    # Order by specificity (room_id > category_id > season_id)
+    query =
+      from pr in query,
+        order_by: [
+          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_id),
+          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_category_id),
+          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.season_id)
+        ],
+        limit: 1
+
+    result = Ysc.Repo.one(query)
+
+    if result do
+      Logger.debug(
+        "[PricingRule] Found children pricing rule: ID=#{result.id}, " <>
+          "Children Amount=#{inspect(result.children_amount)}, " <>
+          "Room ID=#{inspect(result.room_id)}, " <>
+          "Category ID=#{inspect(result.room_category_id)}, " <>
+          "Season ID=#{inspect(result.season_id)}"
+      )
+    else
+      Logger.debug("[PricingRule] No children pricing rule found matching criteria.")
     end
 
     result

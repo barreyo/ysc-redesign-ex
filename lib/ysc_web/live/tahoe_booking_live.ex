@@ -2223,8 +2223,49 @@ defmodule YscWeb.TahoeBookingLive do
               Money.new(45, :USD)
             end
 
-          # Children pricing is $25/night for Tahoe (ages 5-17)
-          children_price = Money.new(25, :USD)
+          # Look up children pricing using same hierarchy as adult pricing
+          # Falls back to $25 if no children pricing rule found
+          children_price =
+            if socket.assigns.checkin_date do
+              season = Season.for_date(socket.assigns.property, socket.assigns.checkin_date)
+              season_id = if season, do: season.id, else: nil
+
+              children_pricing_rule =
+                PricingRule.find_children_pricing_rule(
+                  socket.assigns.property,
+                  season_id,
+                  room.id,
+                  nil,
+                  :room,
+                  :per_person_per_night
+                ) ||
+                  PricingRule.find_children_pricing_rule(
+                    socket.assigns.property,
+                    season_id,
+                    nil,
+                    room.room_category_id,
+                    :room,
+                    :per_person_per_night
+                  ) ||
+                  PricingRule.find_children_pricing_rule(
+                    socket.assigns.property,
+                    season_id,
+                    nil,
+                    nil,
+                    :room,
+                    :per_person_per_night
+                  )
+
+              if children_pricing_rule && children_pricing_rule.children_amount do
+                children_pricing_rule.children_amount
+              else
+                # Fallback to $25 if no children pricing rule found
+                Money.new(25, :USD)
+              end
+            else
+              # Fallback if no checkin date
+              Money.new(25, :USD)
+            end
 
           # Calculate minimum price if room has min_billable_occupancy > 1
           min_occupancy = room.min_billable_occupancy || 1

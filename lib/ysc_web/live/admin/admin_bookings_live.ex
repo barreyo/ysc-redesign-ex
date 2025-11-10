@@ -135,13 +135,27 @@ defmodule YscWeb.AdminBookingsLive do
           <.input
             type="text"
             field={@form[:amount]}
-            label="Amount"
+            label="Adult Amount"
             placeholder="0.00"
             phx-hook="MoneyInput"
             value={format_money_for_input(@form[:amount].value)}
             required
           >
             <div class="text-zinc-800">$</div>
+          </.input>
+
+          <.input
+            type="text"
+            field={@form[:children_amount]}
+            label="Children Amount (optional)"
+            placeholder="0.00"
+            phx-hook="MoneyInput"
+            value={format_money_for_input(@form[:children_amount].value)}
+          >
+            <div class="text-zinc-800">$</div>
+            <:help_text>
+              Children pricing for this rule. If not set, falls back to $25/night for Tahoe room bookings.
+            </:help_text>
           </.input>
 
           <.input
@@ -1278,6 +1292,7 @@ defmodule YscWeb.AdminBookingsLive do
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Price Unit</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Specificity</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Price</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Children Price</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Season</th>
                   <th class="pb-3 font-semibold text-zinc-700">Actions</th>
                 </tr>
@@ -1316,6 +1331,13 @@ defmodule YscWeb.AdminBookingsLive do
                       format_price(rule.amount)
                     else
                       "$0.00"
+                    end %>
+                  </td>
+                  <td class="py-3 pr-6 text-zinc-600 text-xs">
+                    <%= if rule.children_amount do
+                      format_price(rule.children_amount)
+                    else
+                      "-"
                     end %>
                   </td>
                   <td class="py-3 pr-6 text-zinc-600 text-xs">
@@ -2698,6 +2720,22 @@ defmodule YscWeb.AdminBookingsLive do
         end
       else
         pricing_rule_params
+      end
+
+    # Convert children_amount string to Money struct (if provided)
+    pricing_rule_params =
+      if children_amount_str = pricing_rule_params["children_amount"] do
+        case MoneyHelper.parse_money(children_amount_str) do
+          %Money{} = money ->
+            Map.put(pricing_rule_params, "children_amount", money)
+
+          nil ->
+            # If empty string, set to nil
+            Map.put(pricing_rule_params, "children_amount", nil)
+        end
+      else
+        # If not provided, set to nil
+        Map.put(pricing_rule_params, "children_amount", nil)
       end
 
     # Convert property string to atom
