@@ -441,10 +441,11 @@ defmodule YscWeb.TahoeBookingLive do
                       <%= format_guests_display(@guests_count, @children_count) %>
                     </span>
                     <.icon
-                      name={
-                        if @guests_dropdown_open, do: "hero-chevron-up", else: "hero-chevron-down"
-                      }
-                      class="w-5 h-5 text-zinc-500"
+                      name="hero-chevron-down"
+                      class={[
+                        "w-5 h-5 text-zinc-500 transition-transform duration-200 ease-in-out",
+                        if(@guests_dropdown_open, do: "rotate-180", else: "")
+                      ]}
                     />
                   </button>
                   <!-- Dropdown Panel -->
