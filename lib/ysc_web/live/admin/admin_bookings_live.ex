@@ -439,6 +439,210 @@ defmodule YscWeb.AdminBookingsLive do
           </.button>
         </div>
       </.modal>
+      <!-- New/Edit Refund Policy Modal -->
+      <.modal
+        :if={@live_action in [:new_refund_policy, :edit_refund_policy]}
+        id="refund-policy-modal"
+        on_cancel={
+          JS.navigate(~p"/admin/bookings?property=#{@selected_property}&section=#{@current_section}")
+        }
+        show
+      >
+        <.header>
+          <%= if @live_action == :new_refund_policy,
+            do: "New Refund Policy",
+            else: "Edit Refund Policy" %>
+        </.header>
+
+        <.simple_form
+          for={@refund_policy_form}
+          id="refund-policy-form"
+          phx-submit="save-refund-policy"
+          phx-change="validate-refund-policy"
+        >
+          <.input
+            type="hidden"
+            field={@refund_policy_form[:property]}
+            value={Atom.to_string(@selected_property)}
+          />
+
+          <.input
+            type="text"
+            field={@refund_policy_form[:name]}
+            label="Policy Name"
+            placeholder="e.g., Tahoe Full Cabin Cancellation Policy"
+            required
+          />
+
+          <.input
+            type="textarea"
+            field={@refund_policy_form[:description]}
+            label="Description"
+            placeholder="Optional description of this refund policy"
+          />
+
+          <.input
+            type="select"
+            field={@refund_policy_form[:booking_mode]}
+            label="Booking Mode"
+            options={[
+              {"Room", "room"},
+              {"Day", "day"},
+              {"Buyout", "buyout"}
+            ]}
+            required
+          />
+
+          <.input type="checkbox" field={@refund_policy_form[:is_active]} label="Active">
+            <p class="text-xs text-zinc-500 mt-1">
+              Only one active policy allowed per property/booking mode combination
+            </p>
+          </.input>
+
+          <:actions>
+            <.button phx-click={
+              JS.navigate(
+                ~p"/admin/bookings?property=#{@selected_property}&section=#{@current_section}"
+              )
+            }>
+              Cancel
+            </.button>
+            <.button type="submit">
+              <%= if @live_action == :new_refund_policy, do: "Create", else: "Update" %>
+            </.button>
+          </:actions>
+        </.simple_form>
+      </.modal>
+      <!-- Refund Policy Rules Modal -->
+      <.modal
+        :if={@live_action == :manage_refund_policy_rules}
+        id="refund-policy-rules-modal"
+        on_cancel={
+          JS.navigate(~p"/admin/bookings?property=#{@selected_property}&section=#{@current_section}")
+        }
+        show
+      >
+        <.header>
+          Manage Refund Policy Rules
+        </.header>
+
+        <div :if={@refund_policy} class="space-y-4">
+          <div class="bg-blue-50 rounded border border-blue-200 p-4 mb-4">
+            <p class="text-sm font-semibold text-zinc-700 mb-1">
+              <%= @refund_policy.name %>
+            </p>
+            <p class="text-xs text-zinc-600">
+              <%= atom_to_readable(@refund_policy.property) %> • <%= atom_to_readable(
+                @refund_policy.booking_mode
+              ) %>
+            </p>
+          </div>
+          <!-- Existing Rules -->
+          <div class="mb-6">
+            <h3 class="text-md font-semibold text-zinc-800 mb-3">Current Rules</h3>
+            <div :if={@refund_policy_rules == []} class="text-sm text-zinc-500 italic py-4">
+              No rules configured. Add a rule below.
+            </div>
+            <div :if={@refund_policy_rules != []} class="space-y-2">
+              <div
+                :for={rule <- @refund_policy_rules}
+                class="flex items-center justify-between p-3 bg-zinc-50 rounded border border-zinc-200"
+              >
+                <div class="flex-1">
+                  <p class="text-sm font-semibold text-zinc-800">
+                    <%= rule.days_before_checkin %> days before check-in
+                  </p>
+                  <p class="text-xs text-zinc-600">
+                    <%= Decimal.to_float(rule.refund_percentage) %>% refund
+                  </p>
+                  <p :if={rule.description} class="text-xs text-zinc-500 mt-1">
+                    <%= rule.description %>
+                  </p>
+                </div>
+                <button
+                  phx-click="delete-refund-policy-rule"
+                  phx-value-rule-id={rule.id}
+                  data-confirm="Are you sure you want to delete this rule?"
+                  class="text-red-600 hover:text-red-800 font-semibold text-sm"
+                >
+                  <.icon name="hero-trash" class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <!-- Add New Rule Form -->
+          <div class="border-t border-zinc-200 pt-4">
+            <h3 class="text-md font-semibold text-zinc-800 mb-3">Add New Rule</h3>
+            <.simple_form
+              for={@refund_policy_rule_form}
+              id="refund-policy-rule-form"
+              phx-submit="save-refund-policy-rule"
+              phx-change="validate-refund-policy-rule"
+            >
+              <.input
+                type="number"
+                field={@refund_policy_rule_form[:days_before_checkin]}
+                label="Days Before Check-in"
+                placeholder="e.g., 21"
+                min="0"
+                required
+              >
+                <p class="text-xs text-zinc-500 mt-1">
+                  Cancellations within this many days before check-in will apply this rule
+                </p>
+              </.input>
+
+              <.input
+                type="number"
+                field={@refund_policy_rule_form[:refund_percentage]}
+                label="Refund Percentage"
+                placeholder="e.g., 50"
+                min="0"
+                max="100"
+                step="0.01"
+                required
+              >
+                <p class="text-xs text-zinc-500 mt-1">
+                  Percentage of original payment to refund (0-100)
+                </p>
+              </.input>
+
+              <.input
+                type="text"
+                field={@refund_policy_rule_form[:description]}
+                label="Description (optional)"
+                placeholder="e.g., 50% forfeiture for late cancellation"
+              />
+
+              <.input
+                type="number"
+                field={@refund_policy_rule_form[:priority]}
+                label="Priority"
+                value={@refund_policy_rule_form[:priority].value || 0}
+                min="0"
+              >
+                <p class="text-xs text-zinc-500 mt-1">
+                  Lower number = higher priority when multiple rules match
+                </p>
+              </.input>
+
+              <:actions>
+                <.button type="submit">Add Rule</.button>
+              </:actions>
+            </.simple_form>
+          </div>
+
+          <div class="flex justify-end mt-6 pt-4 border-t border-zinc-200">
+            <.button phx-click={
+              JS.navigate(
+                ~p"/admin/bookings?property=#{@selected_property}&section=#{@current_section}"
+              )
+            }>
+              Close
+            </.button>
+          </div>
+        </div>
+      </.modal>
       <!-- New Booking Modal -->
       <.modal
         :if={@live_action == :new_booking}
@@ -1360,6 +1564,100 @@ defmodule YscWeb.AdminBookingsLive do
             </table>
           </div>
         </div>
+        <!-- Refund Policies Table -->
+        <div class="bg-white rounded border p-6">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h2 class="text-lg font-semibold text-zinc-800">Refund Policies</h2>
+              <p class="text-sm text-zinc-500">
+                Configure cancellation and refund policies for bookings
+              </p>
+            </div>
+            <.button phx-click={
+              JS.navigate(
+                ~p"/admin/bookings/refund-policies/new?property=#{@selected_property}&section=#{@current_section}"
+              )
+            }>
+              <.icon name="hero-plus" class="w-5 h-5 -mt-1" />
+              <span class="ms-1">
+                New Refund Policy
+              </span>
+            </.button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="text-left border-b border-zinc-200">
+                <tr>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Property</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Booking Mode</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Name</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Rules</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Status</th>
+                  <th class="pb-3 font-semibold text-zinc-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-100">
+                <tr :for={policy <- @filtered_refund_policies} class="hover:bg-zinc-50">
+                  <td class="py-3 pr-6">
+                    <.badge type="sky">
+                      <%= atom_to_readable(policy.property) %>
+                    </.badge>
+                  </td>
+                  <td class="py-3 pr-6">
+                    <.badge type="gray">
+                      <%= atom_to_readable(policy.booking_mode) %>
+                    </.badge>
+                  </td>
+                  <td class="py-3 pr-6 font-medium text-zinc-800">
+                    <%= policy.name %>
+                  </td>
+                  <td class="py-3 pr-6 text-zinc-600 text-xs">
+                    <%= length(policy.rules || []) %> rule(s)
+                  </td>
+                  <td class="py-3 pr-6">
+                    <span :if={policy.is_active} class="text-xs font-semibold text-green-600">
+                      Active
+                    </span>
+                    <span :if={!policy.is_active} class="text-xs font-semibold text-zinc-400">
+                      Inactive
+                    </span>
+                  </td>
+                  <td class="py-3">
+                    <div class="flex gap-2">
+                      <button
+                        phx-click={
+                          JS.navigate(
+                            ~p"/admin/bookings/refund-policies/#{policy.id}/edit?property=#{@selected_property}&section=#{@current_section}"
+                          )
+                        }
+                        class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        phx-click={
+                          JS.navigate(
+                            ~p"/admin/bookings/refund-policies/#{policy.id}/rules?property=#{@selected_property}&section=#{@current_section}"
+                          )
+                        }
+                        class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
+                      >
+                        Rules
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div
+              :if={@filtered_refund_policies == []}
+              class="text-sm text-zinc-500 italic py-4 text-center"
+            >
+              No refund policies configured
+            </div>
+          </div>
+        </div>
       </div>
     </.side_menu>
     """
@@ -1394,6 +1692,7 @@ defmodule YscWeb.AdminBookingsLive do
 
     seasons = Bookings.list_seasons()
     pricing_rules = Bookings.list_pricing_rules()
+    refund_policies = Bookings.list_refund_policies()
     room_categories = Bookings.list_room_categories()
     rooms = Bookings.list_rooms()
 
@@ -1479,11 +1778,16 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:door_code_warning, nil)
      |> assign(:season, nil)
      |> assign(:season_form, nil)
+     |> assign(:refund_policies, refund_policies)
+     |> assign(:refund_policy, nil)
+     |> assign(:refund_policy_form, nil)
+     |> assign(:refund_policy_rules, [])
+     |> assign(:refund_policy_rule_form, nil)
      |> assign(
        :reservations_path,
        ~p"/admin/bookings?property=#{selected_property}&section=reservations"
      )
-     |> assign_filtered_data(selected_property, seasons, pricing_rules)
+     |> assign_filtered_data(selected_property, seasons, pricing_rules, refund_policies)
      |> update_calendar_view(selected_property)}
   end
 
@@ -1563,7 +1867,8 @@ defmodule YscWeb.AdminBookingsLive do
         |> assign_filtered_data(
           property_atom,
           socket.assigns.seasons,
-          socket.assigns.pricing_rules
+          socket.assigns.pricing_rules,
+          socket.assigns.refund_policies
         )
       else
         socket
@@ -1892,6 +2197,55 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:booking, nil)
   end
 
+  defp apply_action(socket, :new_refund_policy, _params) do
+    form =
+      %Ysc.Bookings.RefundPolicy{}
+      |> Ysc.Bookings.RefundPolicy.changeset(%{
+        property: socket.assigns.selected_property,
+        booking_mode: :room,
+        is_active: true
+      })
+      |> to_form(as: "refund_policy")
+
+    socket
+    |> assign(:page_title, "New Refund Policy")
+    |> assign(:refund_policy, nil)
+    |> assign(:refund_policy_form, form)
+  end
+
+  defp apply_action(socket, :edit_refund_policy, %{"id" => id}) do
+    refund_policy = Bookings.get_refund_policy!(id)
+
+    form =
+      refund_policy
+      |> Ysc.Bookings.RefundPolicy.changeset(%{})
+      |> to_form(as: "refund_policy")
+
+    socket
+    |> assign(:page_title, "Edit Refund Policy")
+    |> assign(:refund_policy, refund_policy)
+    |> assign(:refund_policy_form, form)
+  end
+
+  defp apply_action(socket, :manage_refund_policy_rules, %{"id" => id}) do
+    refund_policy = Bookings.get_refund_policy!(id)
+    refund_policy_rules = Bookings.list_refund_policy_rules(id)
+
+    rule_form =
+      %Ysc.Bookings.RefundPolicyRule{}
+      |> Ysc.Bookings.RefundPolicyRule.changeset(%{
+        refund_policy_id: refund_policy.id,
+        priority: 0
+      })
+      |> to_form(as: "refund_policy_rule")
+
+    socket
+    |> assign(:page_title, "Manage Refund Policy Rules")
+    |> assign(:refund_policy, refund_policy)
+    |> assign(:refund_policy_rules, refund_policy_rules)
+    |> assign(:refund_policy_rule_form, rule_form)
+  end
+
   defp apply_action(socket, :edit_season, %{"id" => id}) do
     season = Bookings.get_season!(id)
 
@@ -1926,6 +2280,10 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:booking_type, nil)
     |> assign(:season, nil)
     |> assign(:season_form, nil)
+    |> assign(:refund_policy, nil)
+    |> assign(:refund_policy_form, nil)
+    |> assign(:refund_policy_rules, [])
+    |> assign(:refund_policy_rule_form, nil)
   end
 
   def handle_event("select-property", %{"property" => property}, socket) do
@@ -1941,7 +2299,12 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:door_codes, door_codes)
      |> assign(:active_door_code, active_door_code)
      |> assign(:door_code_warning, nil)
-     |> assign_filtered_data(property_atom, socket.assigns.seasons, socket.assigns.pricing_rules)
+     |> assign_filtered_data(
+       property_atom,
+       socket.assigns.seasons,
+       socket.assigns.pricing_rules,
+       socket.assigns.refund_policies
+     )
      |> update_calendar_view(property_atom)}
   end
 
@@ -2858,7 +3221,8 @@ defmodule YscWeb.AdminBookingsLive do
          |> assign_filtered_data(
            socket.assigns.selected_property,
            seasons,
-           socket.assigns.pricing_rules
+           socket.assigns.pricing_rules,
+           socket.assigns.refund_policies
          )
          |> push_navigate(
            to: ~p"/admin/bookings?property=#{socket.assigns.selected_property}&section=config"
@@ -2867,6 +3231,136 @@ defmodule YscWeb.AdminBookingsLive do
       {:error, changeset} ->
         {:noreply, assign(socket, :season_form, to_form(changeset, as: "season"))}
     end
+  end
+
+  def handle_event("validate-refund-policy", %{"refund_policy" => refund_policy_params}, socket) do
+    changeset =
+      (socket.assigns.refund_policy || %Ysc.Bookings.RefundPolicy{})
+      |> Ysc.Bookings.RefundPolicy.changeset(refund_policy_params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :refund_policy_form, to_form(changeset, as: "refund_policy"))}
+  end
+
+  def handle_event("save-refund-policy", %{"refund_policy" => refund_policy_params}, socket) do
+    # Convert property string to atom
+    refund_policy_params =
+      if property_str = refund_policy_params["property"] do
+        property_atom = String.to_existing_atom(property_str)
+        Map.put(refund_policy_params, "property", property_atom)
+      else
+        refund_policy_params
+      end
+
+    # Convert booking_mode string to atom
+    refund_policy_params =
+      refund_policy_params
+      |> maybe_convert_atom("booking_mode")
+
+    result =
+      if socket.assigns.refund_policy do
+        Bookings.update_refund_policy(socket.assigns.refund_policy, refund_policy_params)
+      else
+        Bookings.create_refund_policy(refund_policy_params)
+      end
+
+    case result do
+      {:ok, _refund_policy} ->
+        # Reload refund policies
+        refund_policies = Bookings.list_refund_policies()
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Refund policy saved successfully")
+         |> assign(:refund_policies, refund_policies)
+         |> assign_filtered_data(
+           socket.assigns.selected_property,
+           socket.assigns.seasons,
+           socket.assigns.pricing_rules,
+           refund_policies
+         )
+         |> push_navigate(
+           to:
+             ~p"/admin/bookings?property=#{socket.assigns.selected_property}&section=#{socket.assigns.current_section}"
+         )}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :refund_policy_form, to_form(changeset, as: "refund_policy"))}
+    end
+  end
+
+  def handle_event("validate-refund-policy-rule", %{"refund_policy_rule" => rule_params}, socket) do
+    changeset =
+      %Ysc.Bookings.RefundPolicyRule{}
+      |> Ysc.Bookings.RefundPolicyRule.changeset(rule_params)
+      |> Map.put(:action, :validate)
+
+    {:noreply,
+     assign(socket, :refund_policy_rule_form, to_form(changeset, as: "refund_policy_rule"))}
+  end
+
+  def handle_event("save-refund-policy-rule", %{"refund_policy_rule" => rule_params}, socket) do
+    # Convert refund_percentage to Decimal
+    rule_params =
+      if percentage_str = rule_params["refund_percentage"] do
+        case Decimal.parse(percentage_str) do
+          {decimal, _} -> Map.put(rule_params, "refund_percentage", decimal)
+          _ -> rule_params
+        end
+      else
+        rule_params
+      end
+
+    # Convert priority to integer
+    rule_params =
+      if priority_str = rule_params["priority"] do
+        case Integer.parse(priority_str) do
+          {priority, _} -> Map.put(rule_params, "priority", priority)
+          _ -> Map.put(rule_params, "priority", 0)
+        end
+      else
+        Map.put(rule_params, "priority", 0)
+      end
+
+    result = Bookings.create_refund_policy_rule(rule_params)
+
+    case result do
+      {:ok, _rule} ->
+        # Reload rules
+        refund_policy_rules = Bookings.list_refund_policy_rules(socket.assigns.refund_policy.id)
+
+        # Reset form
+        rule_form =
+          %Ysc.Bookings.RefundPolicyRule{}
+          |> Ysc.Bookings.RefundPolicyRule.changeset(%{
+            refund_policy_id: socket.assigns.refund_policy.id,
+            priority: 0
+          })
+          |> to_form(as: "refund_policy_rule")
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Refund policy rule added successfully")
+         |> assign(:refund_policy_rules, refund_policy_rules)
+         |> assign(:refund_policy_rule_form, rule_form)}
+
+      {:error, changeset} ->
+        {:noreply,
+         assign(socket, :refund_policy_rule_form, to_form(changeset, as: "refund_policy_rule"))}
+    end
+  end
+
+  def handle_event("delete-refund-policy-rule", %{"rule-id" => rule_id}, socket) do
+    rule = Bookings.get_refund_policy_rule!(rule_id)
+    Bookings.delete_refund_policy_rule(rule)
+
+    # Reload rules
+    refund_policy_rules = Bookings.list_refund_policy_rules(socket.assigns.refund_policy.id)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Refund policy rule deleted successfully")
+     |> assign(:refund_policy_rules, refund_policy_rules)}
   end
 
   def handle_event("save-door-code", %{"door_code" => door_code_params}, socket) do
@@ -2939,13 +3433,17 @@ defmodule YscWeb.AdminBookingsLive do
     end
   end
 
-  defp assign_filtered_data(socket, property, seasons, pricing_rules) do
+  defp assign_filtered_data(socket, property, seasons, pricing_rules, refund_policies) do
     filtered_seasons = Enum.filter(seasons, fn season -> season.property == property end)
     filtered_pricing_rules = Enum.filter(pricing_rules, fn rule -> rule.property == property end)
+
+    filtered_refund_policies =
+      Enum.filter(refund_policies, fn policy -> policy.property == property end)
 
     socket
     |> assign(:filtered_seasons, filtered_seasons)
     |> assign(:filtered_pricing_rules, filtered_pricing_rules)
+    |> assign(:filtered_refund_policies, filtered_refund_policies)
   end
 
   defp season_options(seasons) do
@@ -3463,7 +3961,7 @@ defmodule YscWeb.AdminBookingsLive do
 
   # Build path for Flop table/pagination that preserves all query params
   # Accepts either complete params (already includes property, section, etc.) or just reservation params
-  defp build_reservations_path(socket, params \\ %{}) do
+  defp build_reservations_path(socket, params) do
     # Check if params already includes base keys (means it's already complete)
     has_base_keys = Map.has_key?(params, "property") || Map.has_key?(params, :property)
 

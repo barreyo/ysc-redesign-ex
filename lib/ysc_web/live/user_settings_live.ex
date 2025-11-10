@@ -146,7 +146,7 @@ defmodule YscWeb.UserSettingsLive do
             </div>
           </div>
           <!-- New Payment Method Form (Hidden by default) -->
-          <div :if={@show_new_payment_form} class="pt-4">
+          <div :if={@show_new_payment_form && @payment_intent_secret} class="pt-4">
             <h3 class="text-lg font-medium text-zinc-900">Add New Payment Method</h3>
             <form
               id="payment-form"
@@ -1439,7 +1439,71 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   def handle_event("add-new-payment-method", _params, socket) do
-    {:noreply, assign(socket, :show_new_payment_form, true)}
+    require Logger
+    user = socket.assigns.user
+
+    Logger.info("Creating setup intent for user", user_id: user.id, stripe_id: user.stripe_id)
+
+    # Ensure user has a Stripe customer ID (reload user if it was just created)
+    user = ensure_stripe_customer_exists(user)
+
+    if user.stripe_id == nil do
+      Logger.error("User still has no stripe_id after ensure_stripe_customer_exists",
+        user_id: user.id
+      )
+
+      {:noreply,
+       socket
+       |> put_flash(
+         :error,
+         "Failed to create payment account. Please try again or contact support."
+       )
+       |> assign(:show_new_payment_form, false)}
+    else
+      Logger.info("User has stripe_id, creating setup intent",
+        user_id: user.id,
+        stripe_id: user.stripe_id
+      )
+
+      case Customers.create_setup_intent(user,
+             stripe: %{
+               payment_method_types: ["us_bank_account", "card"]
+             }
+           ) do
+        {:ok, setup_intent} ->
+          Logger.info("Setup intent created successfully",
+            setup_intent_id: setup_intent.id,
+            has_client_secret: not is_nil(setup_intent.client_secret)
+          )
+
+          {:noreply,
+           socket
+           |> assign(:user, user)
+           |> assign(:show_new_payment_form, true)
+           |> assign(:payment_intent_secret, setup_intent.client_secret)}
+
+        {:error, error} ->
+          error_message =
+            case error do
+              %{message: msg} -> msg
+              %Stripe.Error{message: msg} -> msg
+              msg when is_binary(msg) -> msg
+              other -> inspect(other, pretty: true)
+            end
+
+          Logger.error("Failed to create setup intent",
+            user_id: user.id,
+            stripe_id: user.stripe_id,
+            error: error_message,
+            full_error: inspect(error, pretty: true, limit: :infinity)
+          )
+
+          {:noreply,
+           socket
+           |> put_flash(:error, "Failed to initialize payment form: #{error_message}")
+           |> assign(:show_new_payment_form, false)}
+      end
+    end
   end
 
   def handle_event("cancel-new-payment-method", _params, socket) do
@@ -1774,9 +1838,31 @@ defmodule YscWeb.UserSettingsLive do
   defp ensure_stripe_customer_exists(user) do
     if user.stripe_id == nil do
       # No stripe_id - create new customer
-      Customers.create_stripe_customer(user)
-      # Reload user to get updated stripe_id
-      Ysc.Repo.get!(Ysc.Accounts.User, user.id)
+      case Customers.create_stripe_customer(user) do
+        {:ok, _stripe_customer} ->
+          # Reload user to get updated stripe_id
+          # Add a small delay to ensure the database update has committed
+          Process.sleep(50)
+          reloaded_user = Ysc.Accounts.get_user!(user.id)
+
+          # If still no stripe_id after reload, try again (database might need a moment)
+          if reloaded_user.stripe_id == nil do
+            Process.sleep(100)
+            Ysc.Accounts.get_user!(user.id)
+          else
+            reloaded_user
+          end
+
+        {:error, error} ->
+          require Logger
+
+          Logger.error("Failed to create Stripe customer",
+            user_id: user.id,
+            error: inspect(error)
+          )
+
+          user
+      end
     else
       # Has stripe_id - verify customer exists in Stripe
       case verify_stripe_customer_exists(user.stripe_id) do
@@ -1785,9 +1871,31 @@ defmodule YscWeb.UserSettingsLive do
 
         {:error, _} ->
           # Customer doesn't exist in Stripe, create a new one
-          Customers.create_stripe_customer(user)
-          # Reload user to get updated stripe_id
-          Ysc.Repo.get!(Ysc.Accounts.User, user.id)
+          case Customers.create_stripe_customer(user) do
+            {:ok, _stripe_customer} ->
+              # Reload user to get updated stripe_id
+              # Add a small delay to ensure the database update has committed
+              Process.sleep(50)
+              reloaded_user = Ysc.Accounts.get_user!(user.id)
+
+              # If still no stripe_id after reload, try again
+              if reloaded_user.stripe_id == nil do
+                Process.sleep(100)
+                Ysc.Accounts.get_user!(user.id)
+              else
+                reloaded_user
+              end
+
+            {:error, error} ->
+              require Logger
+
+              Logger.error("Failed to create Stripe customer",
+                user_id: user.id,
+                error: inspect(error)
+              )
+
+              user
+          end
       end
     end
   end

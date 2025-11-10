@@ -27,9 +27,26 @@ defmodule Ysc.Customers do
 
     case Stripe.Customer.create(customer_params) do
       {:ok, stripe_customer} ->
-        # Update user with Stripe customer ID
-        Ysc.Accounts.update_user(user, %{stripe_id: stripe_customer.id}, user)
-        {:ok, stripe_customer}
+        # Update user with Stripe customer ID directly (bypass authorization for system operation)
+        changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
+
+        case Repo.update(changeset) do
+          {:ok, updated_user} ->
+            {:ok, stripe_customer}
+
+          {:error, changeset} ->
+            require Logger
+
+            Logger.error("Failed to update user with stripe_id",
+              user_id: user.id,
+              stripe_customer_id: stripe_customer.id,
+              changeset_errors: inspect(changeset.errors)
+            )
+
+            # Still return success for the customer creation, but log the error
+            # The stripe_id will be set via webhook handler eventually
+            {:ok, stripe_customer}
+        end
 
       {:error, error} ->
         {:error, error}

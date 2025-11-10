@@ -129,9 +129,19 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
       <div class="border border-zinc-200 rounded p-4 sm:p-6">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-4">
           <h3 class="text-lg font-semibold">Ticket Purchases</h3>
-          <span class="text-sm text-zinc-600">
-            <%= length(@ticket_purchases) %> purchase<%= if length(@ticket_purchases) != 1, do: "s" %>
-          </span>
+          <div class="flex items-center gap-3">
+            <span class="text-sm text-zinc-600">
+              <%= length(@ticket_purchases) %> purchase<%= if length(@ticket_purchases) != 1, do: "s" %>
+            </span>
+            <.button
+              phx-click="export-tickets-csv"
+              phx-target={@myself}
+              color="blue"
+              class="w-full sm:w-auto"
+            >
+              <.icon name="hero-arrow-down-tray" class="w-4 h-4 me-1" /> Export CSV
+            </.button>
+          </div>
         </div>
 
         <div :if={length(@ticket_purchases) == 0} class="text-center py-8 text-zinc-500">
@@ -325,6 +335,59 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     else
       {:noreply, socket}
     end
+  end
+
+  @impl true
+  def handle_event("export-tickets-csv", _params, socket) do
+    tickets = Events.list_tickets_for_export(socket.assigns.event_id)
+
+    csv_content =
+      tickets
+      |> build_csv_rows()
+      |> CSV.encode(headers: true)
+      |> Enum.to_list()
+      |> IO.iodata_to_binary()
+
+    filename = "tickets_export_#{DateTime.utc_now() |> DateTime.to_unix()}.csv"
+
+    # Base64 encode the content for download
+    encoded_content = Base.encode64(csv_content)
+
+    {:noreply,
+     socket
+     |> push_event("download-csv", %{content: encoded_content, filename: filename})}
+  end
+
+  defp build_csv_rows(tickets) do
+    Enum.map(tickets, fn ticket ->
+      # If ticket tier requires registration, use ticket_detail data, otherwise use user data
+      {first_name, last_name, email} =
+        if ticket.ticket_tier && ticket.ticket_tier.requires_registration &&
+             ticket.ticket_detail do
+          {
+            ticket.ticket_detail.first_name || "",
+            ticket.ticket_detail.last_name || "",
+            ticket.ticket_detail.email || ""
+          }
+        else
+          {
+            ticket.user.first_name || "",
+            ticket.user.last_name || "",
+            ticket.user.email || ""
+          }
+        end
+
+      phone = ticket.user.phone_number || ""
+
+      %{
+        "Ticket Reference" => ticket.reference_id || "",
+        "Ticket Tier" => (ticket.ticket_tier && ticket.ticket_tier.name) || "",
+        "First Name" => first_name,
+        "Last Name" => last_name,
+        "Email" => email,
+        "Phone" => phone
+      }
+    end)
   end
 
   defp ticket_tier_type_to_badge_style(type) when is_atom(type) do

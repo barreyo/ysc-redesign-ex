@@ -24,24 +24,32 @@ defmodule Ysc.Bookings.PricingHelpers do
   - `false` otherwise
   """
   def ready_for_price_calculation?(socket, _property) do
-    has_dates = socket.assigns.checkin_date && socket.assigns.checkout_date
+    checkin_date = Map.get(socket.assigns, :checkin_date)
+    checkout_date = Map.get(socket.assigns, :checkout_date)
+    has_dates = !is_nil(checkin_date) && !is_nil(checkout_date)
 
     if not has_dates do
       false
     else
-      case socket.assigns.selected_booking_mode do
+      booking_mode = Map.get(socket.assigns, :selected_booking_mode)
+
+      case booking_mode do
         :buyout ->
           true
 
         :room ->
           # For Tahoe room bookings, need at least one room selected
           # Check both single room selection and multiple room selection
-          socket.assigns.selected_room_id ||
-            (socket.assigns.selected_room_ids && socket.assigns.selected_room_ids != [])
+          selected_room_id = Map.get(socket.assigns, :selected_room_id)
+          selected_room_ids = Map.get(socket.assigns, :selected_room_ids)
+
+          !is_nil(selected_room_id) ||
+            (!is_nil(selected_room_ids) && is_list(selected_room_ids) && selected_room_ids != [])
 
         :day ->
           # For Clear Lake day bookings, need guests count
-          socket.assigns.guests_count && socket.assigns.guests_count > 0
+          guests_count = Map.get(socket.assigns, :guests_count)
+          !is_nil(guests_count) && is_integer(guests_count) && guests_count > 0
 
         _ ->
           false

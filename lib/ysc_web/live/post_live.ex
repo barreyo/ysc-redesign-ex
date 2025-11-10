@@ -64,6 +64,13 @@ defmodule YscWeb.PostLive do
           loading="lazy"
           class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover"
           phx-hook="BlurHashImage"
+          alt={
+            if @post.featured_image,
+              do:
+                @post.featured_image.alt_text || @post.featured_image.title || @post.title ||
+                  "Featured image",
+              else: "Featured image"
+          }
         />
       </div>
 

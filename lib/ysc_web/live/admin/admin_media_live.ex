@@ -24,12 +24,110 @@ defmodule YscWeb.AdminMediaLive do
         <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-4">
           Edit Image
         </h2>
+        <!-- Image Version Tabs -->
+        <div class="border-b border-zinc-200 mb-4">
+          <nav class="-mb-px flex space-x-4" aria-label="Image Versions">
+            <button
+              phx-click="select-image-version"
+              phx-value-version="optimized"
+              class={[
+                "whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors",
+                if(@selected_image_version == :optimized,
+                  do: "border-blue-500 text-blue-600",
+                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                )
+              ]}
+            >
+              Optimized
+              <%= if @active_image.optimized_image_path do %>
+                <span class="ml-1 text-xs text-zinc-400">✓</span>
+              <% else %>
+                <span class="ml-1 text-xs text-zinc-400">—</span>
+              <% end %>
+            </button>
+            <button
+              phx-click="select-image-version"
+              phx-value-version="thumbnail"
+              class={[
+                "whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors",
+                if(@selected_image_version == :thumbnail,
+                  do: "border-blue-500 text-blue-600",
+                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                )
+              ]}
+            >
+              Thumbnail
+              <%= if @active_image.thumbnail_path do %>
+                <span class="ml-1 text-xs text-zinc-400">✓</span>
+              <% else %>
+                <span class="ml-1 text-xs text-zinc-400">—</span>
+              <% end %>
+            </button>
+            <button
+              phx-click="select-image-version"
+              phx-value-version="raw"
+              class={[
+                "whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors",
+                if(@selected_image_version == :raw,
+                  do: "border-blue-500 text-blue-600",
+                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                )
+              ]}
+            >
+              Raw
+              <%= if @active_image.raw_image_path do %>
+                <span class="ml-1 text-xs text-zinc-400">✓</span>
+              <% else %>
+                <span class="ml-1 text-xs text-zinc-400">—</span>
+              <% end %>
+            </button>
+          </nav>
+        </div>
+        <!-- Image Display -->
+        <div class="mb-4">
+          <%= if get_image_version_path(@active_image, @selected_image_version) do %>
+            <img
+              src={get_image_version_path(@active_image, @selected_image_version)}
+              class="w-full object-cover rounded max-h-96"
+              alt={@active_image.alt_text || @active_image.title || "Image"}
+            />
+            <div class="mt-2 text-xs text-zinc-500 space-y-1">
+              <p>
+                <strong>Version:</strong> <%= String.capitalize(
+                  Atom.to_string(@selected_image_version)
+                ) %>
+              </p>
+              <%= if @active_image.width && @active_image.height do %>
+                <p>
+                  <strong>Dimensions:</strong> <%= @active_image.width %> × <%= @active_image.height %> px
+                </p>
+              <% end %>
+              <%= if @active_image.processing_state do %>
+                <p>
+                  <strong>Processing State:</strong> <%= String.capitalize(
+                    Atom.to_string(@active_image.processing_state)
+                  ) %>
+                </p>
+              <% end %>
+              <p>
+                <strong>Path:</strong>
+                <span class="font-mono text-xs break-all">
+                  <%= get_image_version_path(@active_image, @selected_image_version) %>
+                </span>
+              </p>
+            </div>
+          <% else %>
+            <div class="w-full h-64 bg-zinc-100 rounded flex items-center justify-center">
+              <div class="text-center">
+                <.icon name="hero-photo" class="w-12 h-12 text-zinc-400 mx-auto mb-2" />
+                <p class="text-sm text-zinc-500">
+                  <%= String.capitalize(Atom.to_string(@selected_image_version)) %> version not available
+                </p>
+              </div>
+            </div>
+          <% end %>
+        </div>
 
-        <img
-          src={get_image_path(@active_image)}
-          class="w-full object-cover rounded max-h-100"
-          alt={@active_image.alt_text || @active_image.title || "Image"}
-        />
         <p class="leading-6 text-sm text-zinc-600 mt-2">
           Uploaded by <%= "#{String.capitalize(@image_uploader.first_name)} #{String.capitalize(@image_uploader.last_name)} (#{@image_uploader.email}) on #{Timex.format!(@image_uploader.inserted_at, "%Y-%m-%d", :strftime)}" %>
         </p>
@@ -202,6 +300,7 @@ defmodule YscWeb.AdminMediaLive do
      |> assign(form: form)
      |> assign(:active_image, image)
      |> assign(:image_uploader, image_uploader)
+     |> assign(:selected_image_version, :optimized)
      |> assign(page: 1, per_page: 20)
      |> paginate_images(1)
      |> assign(:active_page, :media), temporary_assigns: [form: nil]}
@@ -230,10 +329,11 @@ defmodule YscWeb.AdminMediaLive do
     images = Media.list_images((new_page - 1) * per_page, per_page)
 
     # Replace the entire stream with new page's images to prevent shifting
+    # Use reset: true to ensure the stream is properly reset and items don't shift
     socket
     |> assign(end_of_timeline?: length(images) < per_page)
     |> assign(:page, new_page)
-    |> stream(:images, images)
+    |> stream(:images, images, reset: true)
   end
 
   def handle_event("next-page", _, socket) do
@@ -312,6 +412,18 @@ defmodule YscWeb.AdminMediaLive do
     {:noreply, socket |> push_navigate(to: ~p"/admin/media")}
   end
 
+  def handle_event("select-image-version", %{"version" => version}, socket) do
+    version_atom =
+      case version do
+        "thumbnail" -> :thumbnail
+        "optimized" -> :optimized
+        "raw" -> :raw
+        _ -> :thumbnail
+      end
+
+    {:noreply, assign(socket, :selected_image_version, version_atom)}
+  end
+
   defp presign_upload(entry, socket) do
     uploads = socket.assigns.uploads
     key = "public/#{entry.client_name}"
@@ -358,4 +470,19 @@ defmodule YscWeb.AdminMediaLive do
 
   defp get_image_path(%Media.Image{raw_image_path: raw_path}),
     do: raw_path
+
+  # Helper function to get a specific image version path
+  defp get_image_version_path(%Media.Image{} = image, :thumbnail) do
+    image.thumbnail_path
+  end
+
+  defp get_image_version_path(%Media.Image{} = image, :optimized) do
+    image.optimized_image_path
+  end
+
+  defp get_image_version_path(%Media.Image{} = image, :raw) do
+    image.raw_image_path
+  end
+
+  defp get_image_version_path(_, _), do: nil
 end

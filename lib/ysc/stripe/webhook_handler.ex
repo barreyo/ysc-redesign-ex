@@ -339,7 +339,7 @@ defmodule Ysc.Stripe.WebhookHandler do
 
             payment_attrs = %{
               user_id: user.id,
-              amount: Money.new(MoneyHelper.cents_to_dollars(amount_paid), :USD),
+              amount: Money.new(:USD, MoneyHelper.cents_to_dollars(amount_paid)),
               entity_type: :membership,
               entity_id: find_subscription_id_from_stripe_id(subscription_id, user),
               external_payment_id: invoice_id,
@@ -440,7 +440,7 @@ defmodule Ysc.Stripe.WebhookHandler do
     description = payout[:description] || payout["description"] || "Stripe payout"
 
     # Convert amount from cents to Money struct
-    payout_amount = Money.new(MoneyHelper.cents_to_dollars(amount_cents), currency)
+    payout_amount = Money.new(currency, MoneyHelper.cents_to_dollars(amount_cents))
 
     # Process the payout in the ledger
     case Ledgers.process_stripe_payout(%{
@@ -555,7 +555,7 @@ defmodule Ysc.Stripe.WebhookHandler do
       case Stripe.Charge.retrieve(charge_id, expand: ["balance_transaction"]) do
         {:ok, %Stripe.Charge{balance_transaction: %Stripe.BalanceTransaction{fee: fee}}} ->
           # fee is already in cents
-          Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
+          Money.new(:USD, MoneyHelper.cents_to_dollars(fee))
 
         {:ok, %Stripe.Charge{}} ->
           Logger.warning("Charge retrieved but no balance transaction fee found",
@@ -631,11 +631,8 @@ defmodule Ysc.Stripe.WebhookHandler do
     # 2.9% + 30¢ for domestic cards
     # amount is a Decimal from cents_to_dollars, so 30¢ = 0.30
     estimated_fee = Decimal.add(Decimal.mult(amount, Decimal.new("0.029")), Decimal.new("0.30"))
-    # Convert to cents for Money.new to avoid precision issues
-    estimated_fee_cents =
-      Decimal.mult(estimated_fee, Decimal.new("100")) |> Decimal.round(0) |> Decimal.to_integer()
-
-    Money.new(MoneyHelper.cents_to_dollars(estimated_fee_cents), :USD)
+    # Return Money directly with the fee in dollars (no need to convert back to cents)
+    Money.new(:USD, estimated_fee)
   end
 
   # Helper function to find subscription ID from Stripe subscription ID
@@ -656,7 +653,7 @@ defmodule Ysc.Stripe.WebhookHandler do
       %{"stripe_fee" => fee_str} ->
         case Integer.parse(fee_str) do
           # fee is already in cents
-          {fee, _} -> Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
+          {fee, _} -> Money.new(:USD, MoneyHelper.cents_to_dollars(fee))
           :error -> fetch_actual_stripe_fee_from_charge(charge_id)
         end
 

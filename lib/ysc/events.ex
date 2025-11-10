@@ -545,6 +545,42 @@ defmodule Ysc.Events do
   end
 
   @doc """
+  Get all tickets for an event for CSV export.
+  Includes ticket_tier, user, and ticket_detail preloads.
+  """
+  def list_tickets_for_export(event_id) do
+    tickets =
+      Ticket
+      |> where([t], t.event_id == ^event_id and t.status == :confirmed)
+      |> join(:left, [t], tt in assoc(t, :ticket_tier), as: :ticket_tier)
+      |> join(:left, [t], u in assoc(t, :user), as: :user)
+      |> preload([ticket_tier: tt, user: u], ticket_tier: tt, user: u)
+      |> order_by([t], asc: t.inserted_at)
+      |> Repo.all()
+
+    # Load ticket details for each ticket (only if there are tickets)
+    ticket_details_map =
+      if Enum.empty?(tickets) do
+        %{}
+      else
+        ticket_ids = Enum.map(tickets, & &1.id)
+
+        TicketDetail
+        |> where([td], td.ticket_id in ^ticket_ids)
+        |> Repo.all()
+        |> Enum.group_by(& &1.ticket_id)
+        |> Enum.map(fn {ticket_id, [detail | _]} -> {ticket_id, detail} end)
+        |> Map.new()
+      end
+
+    # Attach ticket details to tickets
+    Enum.map(tickets, fn ticket ->
+      ticket_detail = Map.get(ticket_details_map, ticket.id)
+      Map.put(ticket, :ticket_detail, ticket_detail)
+    end)
+  end
+
+  @doc """
   Get ticket purchase summary for an event.
   """
   def get_ticket_purchase_summary(event_id) do

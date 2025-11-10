@@ -36,6 +36,13 @@ defmodule YscWeb.NewsLive do
                 phx-hook="BlurHashImage"
                 class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover rounded-lg w-full h-full"
                 loading="eager"
+                alt={
+                  if @featured.featured_image,
+                    do:
+                      @featured.featured_image.alt_text || @featured.featured_image.title ||
+                        @featured.title || "Featured news image",
+                    else: "Featured news image"
+                }
               />
             </div>
           </.link>
@@ -114,6 +121,13 @@ defmodule YscWeb.NewsLive do
                   loading="lazy"
                   phx-hook="BlurHashImage"
                   class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover"
+                  alt={
+                    if post.featured_image,
+                      do:
+                        post.featured_image.alt_text || post.featured_image.title || post.title ||
+                          "News article image",
+                      else: "News article image"
+                  }
                 />
               </div>
             </.link>

@@ -1905,7 +1905,7 @@ defmodule YscWeb.CoreComponents do
       |> assign(:full_path, full_path(email_hash, image_path))
 
     ~H"""
-    <img class={@class} src={@full_path} loading="lazy" />
+    <img class={@class} src={@full_path} loading="lazy" alt="User avatar" />
     """
   end
 

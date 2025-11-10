@@ -95,7 +95,12 @@ defmodule Ysc.Tickets do
   def get_ticket_order_by_reference(reference_id) do
     TicketOrder
     |> where([to], to.reference_id == ^reference_id)
-    |> preload([:user, :event, :payment, tickets: :ticket_tier])
+    |> preload([
+      :user,
+      :event,
+      payment: :payment_method,
+      tickets: :ticket_tier
+    ])
     |> Repo.one()
   end
 
@@ -675,22 +680,111 @@ defmodule Ysc.Tickets do
       stripe_fee: extract_stripe_fee(payment_intent),
       description: "Event tickets - Order #{ticket_order.reference_id}",
       property: nil,
-      payment_method_id: extract_payment_method_id(payment_intent)
+      payment_method_id: extract_payment_method_id(payment_intent, ticket_order.user_id)
     })
   end
 
   defp extract_stripe_fee(payment_intent) do
-    # Stripe fee is typically calculated as 2.9% + 30¢
-    # This is a simplified calculation - in production you'd get this from the charge object
-    amount_cents = payment_intent.amount
-    fee_cents = trunc(amount_cents * 0.029 + 30)
-    Money.new(fee_cents, :USD)
+    # Get the actual Stripe fee from the charge
+    case get_charge_from_payment_intent(payment_intent) do
+      {:ok, charge} ->
+        # Get the balance transaction to extract the fee
+        case get_balance_transaction(charge.balance_transaction) do
+          {:ok, balance_transaction} ->
+            fee_cents = balance_transaction.fee || 0
+            Money.new(:USD, Ysc.MoneyHelper.cents_to_dollars(fee_cents))
+
+          {:error, _} ->
+            # Fallback to estimated fee calculation
+            amount_cents = payment_intent.amount
+            estimated_fee_cents = trunc(amount_cents * 0.029 + 30)
+            Money.new(:USD, Ysc.MoneyHelper.cents_to_dollars(estimated_fee_cents))
+        end
+
+      {:error, _} ->
+        # Fallback to estimated fee calculation
+        amount_cents = payment_intent.amount
+        estimated_fee_cents = trunc(amount_cents * 0.029 + 30)
+        Money.new(:USD, Ysc.MoneyHelper.cents_to_dollars(estimated_fee_cents))
+    end
   end
 
-  defp extract_payment_method_id(_payment_intent) do
-    # Extract payment method ID from payment intent
-    # This would need to be implemented based on your Stripe setup
-    nil
+  defp get_charge_from_payment_intent(payment_intent) do
+    case payment_intent.charges do
+      %Stripe.List{data: [charge | _]} ->
+        {:ok, charge}
+
+      _ ->
+        {:error, :no_charge_found}
+    end
+  end
+
+  defp get_balance_transaction(balance_transaction_id) when is_binary(balance_transaction_id) do
+    case Stripe.BalanceTransaction.retrieve(balance_transaction_id) do
+      {:ok, balance_transaction} ->
+        {:ok, balance_transaction}
+
+      {:error, %Stripe.Error{} = error} ->
+        {:error, error.message}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp get_balance_transaction(_), do: {:error, :invalid_balance_transaction_id}
+
+  defp extract_payment_method_id(payment_intent, user_id) do
+    require Logger
+
+    case payment_intent.payment_method do
+      nil ->
+        Logger.info("No payment method found in payment intent",
+          payment_intent_id: payment_intent.id
+        )
+
+        nil
+
+      payment_method_id when is_binary(payment_method_id) ->
+        # Retrieve the full payment method from Stripe
+        case Stripe.PaymentMethod.retrieve(payment_method_id) do
+          {:ok, stripe_payment_method} ->
+            user = Ysc.Accounts.get_user!(user_id)
+
+            # Sync the payment method to our database
+            case Ysc.Payments.sync_payment_method_from_stripe(user, stripe_payment_method) do
+              {:ok, payment_method} ->
+                Logger.info("Successfully synced payment method for ticket payment",
+                  payment_method_id: payment_method.id,
+                  stripe_payment_method_id: payment_method_id,
+                  user_id: user_id
+                )
+
+                payment_method.id
+
+              {:error, reason} ->
+                Logger.warning("Failed to sync payment method for ticket payment",
+                  stripe_payment_method_id: payment_method_id,
+                  user_id: user_id,
+                  error: inspect(reason)
+                )
+
+                nil
+            end
+
+          {:error, error} ->
+            Logger.warning("Failed to retrieve payment method from Stripe",
+              payment_method_id: payment_method_id,
+              payment_intent_id: payment_intent.id,
+              error: error.message
+            )
+
+            nil
+        end
+
+      _ ->
+        nil
+    end
   end
 
   # Helper function to safely convert Money to cents

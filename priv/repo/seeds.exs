@@ -13,6 +13,7 @@
 alias Ysc.Repo
 alias Ysc.Accounts.User
 alias Ysc.SiteSettings.SiteSetting
+alias Ysc.Bookings
 
 # Default settings
 Repo.insert!(
@@ -1035,11 +1036,11 @@ if length(active_users) > 0 do
           %{
             name: "Early Bird",
             type: :paid,
-            price: Money.new(7500, :USD),
+            price: Money.new(75, :USD),
             quantity: 50,
             description: "Save $25!"
           },
-          %{name: "Regular Ticket", type: :paid, price: Money.new(10000, :USD), quantity: 100}
+          %{name: "Regular Ticket", type: :paid, price: Money.new(100, :USD), quantity: 100}
         ]
       },
       %{
@@ -1055,8 +1056,8 @@ if length(active_users) > 0 do
         longitude: -122.2869,
         max_attendees: 40,
         ticket_tiers: [
-          %{name: "Member Price", type: :paid, price: Money.new(4500, :USD), quantity: 20},
-          %{name: "Non-Member Price", type: :paid, price: Money.new(6000, :USD), quantity: 20}
+          %{name: "Member Price", type: :paid, price: Money.new(45, :USD), quantity: 20},
+          %{name: "Non-Member Price", type: :paid, price: Money.new(60, :USD), quantity: 20}
         ]
       },
       # Events with both free and paid tiers
@@ -1082,14 +1083,14 @@ if length(active_users) > 0 do
           %{
             name: "VIP Pass",
             type: :paid,
-            price: Money.new(15000, :USD),
+            price: Money.new(150, :USD),
             quantity: 100,
             description: "Includes VIP area access and premium food"
           },
           %{
             name: "Family Pack",
             type: :paid,
-            price: Money.new(20000, :USD),
+            price: Money.new(200, :USD),
             quantity: 50,
             description: "Up to 4 people"
           }
@@ -1112,7 +1113,7 @@ if length(active_users) > 0 do
           %{
             name: "With Lunch",
             type: :paid,
-            price: Money.new(2500, :USD),
+            price: Money.new(25, :USD),
             quantity: 15,
             description: "Includes catered picnic lunch"
           }
@@ -1338,3 +1339,547 @@ if length(active_users) > 0 do
 else
   IO.puts("⚠️  No active users found. Please create users first before seeding posts and events.")
 end
+
+# Seed room images for Tahoe rooms
+IO.puts("\n🖼️  Seeding room images for Tahoe rooms...")
+
+alias Ysc.Bookings.{Room, RoomCategory, Season}
+import Ecto.Query
+
+# Get all Tahoe rooms
+tahoe_rooms = Repo.all(from r in Room, where: r.property == :tahoe and r.is_active == true)
+
+IO.puts("  Found #{length(tahoe_rooms)} Tahoe rooms to process")
+
+# If no rooms exist, create them (with minimal dependencies)
+if length(tahoe_rooms) == 0 do
+  IO.puts("  ⚠️  No Tahoe rooms found. Creating rooms and dependencies...")
+
+  # Create room categories if they don't exist
+  single_category =
+    Repo.get_by(RoomCategory, name: "single") ||
+      Repo.insert!(
+        RoomCategory.changeset(%RoomCategory{}, %{
+          name: "single",
+          notes: "Single bed rooms (max 1 person)"
+        })
+      )
+
+  standard_category =
+    Repo.get_by(RoomCategory, name: "standard") ||
+      Repo.insert!(
+        RoomCategory.changeset(%RoomCategory{}, %{name: "standard", notes: "Standard rooms"})
+      )
+
+  family_category =
+    Repo.get_by(RoomCategory, name: "family") ||
+      Repo.insert!(
+        RoomCategory.changeset(%RoomCategory{}, %{
+          name: "family",
+          notes: "Family rooms (2 person minimum)"
+        })
+      )
+
+  # Create summer season for Tahoe if it doesn't exist
+  base_year = 2024
+  summer_start = Date.new!(base_year, 5, 1)
+  summer_end = Date.new!(base_year, 10, 31)
+
+  tahoe_summer =
+    Repo.get_by(Season, name: "Summer", property: :tahoe) ||
+      Repo.insert!(
+        Season.changeset(%Season{}, %{
+          name: "Summer",
+          description: "Summer season for Tahoe cabin (May 1 - Oct 31, recurring annually)",
+          property: :tahoe,
+          start_date: summer_start,
+          end_date: summer_end,
+          is_default: true,
+          advance_booking_days: nil
+        })
+      )
+
+  # Create rooms
+  room_names = ["Room 1", "Room 2", "Room 3", "Room 4", "Room 5a", "Room 5b", "Room 6", "Room 7"]
+
+  tahoe_rooms =
+    Enum.map(room_names, fn name ->
+      room_attrs =
+        cond do
+          name == "Room 5a" ->
+            %{
+              name: name,
+              description: "Cozy single bed room with 1 single bed. Perfect for solo travelers.",
+              property: :tahoe,
+              capacity_max: 1,
+              min_billable_occupancy: 1,
+              is_single_bed: true,
+              single_beds: 1,
+              queen_beds: 0,
+              king_beds: 0,
+              is_active: true,
+              room_category_id: single_category.id,
+              default_season_id: tahoe_summer.id
+            }
+
+          name == "Room 5b" ->
+            %{
+              name: name,
+              description: "Cozy single bed room with 1 single bed. Perfect for solo travelers.",
+              property: :tahoe,
+              capacity_max: 1,
+              min_billable_occupancy: 1,
+              is_single_bed: true,
+              single_beds: 1,
+              queen_beds: 0,
+              king_beds: 0,
+              is_active: true,
+              room_category_id: single_category.id,
+              default_season_id: tahoe_summer.id
+            }
+
+          name == "Room 4" ->
+            %{
+              name: name,
+              description:
+                "Spacious family room with 1 queen bed and 3 single beds. Accommodates up to 5 guests. Minimum 2 guests required.",
+              property: :tahoe,
+              capacity_max: 5,
+              min_billable_occupancy: 2,
+              is_single_bed: false,
+              single_beds: 3,
+              queen_beds: 1,
+              king_beds: 0,
+              is_active: true,
+              room_category_id: family_category.id,
+              default_season_id: tahoe_summer.id
+            }
+
+          name == "Room 1" ->
+            %{
+              name: name,
+              description: "Comfortable room with 2 single beds. Perfect for two guests.",
+              property: :tahoe,
+              capacity_max: 2,
+              min_billable_occupancy: 1,
+              is_single_bed: false,
+              single_beds: 2,
+              queen_beds: 0,
+              king_beds: 0,
+              is_active: true,
+              room_category_id: standard_category.id,
+              default_season_id: tahoe_summer.id
+            }
+
+          name == "Room 2" ->
+            %{
+              name: name,
+              description: "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
+              property: :tahoe,
+              capacity_max: 2,
+              min_billable_occupancy: 1,
+              is_single_bed: false,
+              single_beds: 0,
+              queen_beds: 1,
+              king_beds: 0,
+              is_active: true,
+              room_category_id: standard_category.id,
+              default_season_id: tahoe_summer.id
+            }
+
+          name == "Room 3" ->
+            %{
+              name: name,
+              description: "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
+              property: :tahoe,
+              capacity_max: 2,
+              min_billable_occupancy: 1,
+              is_single_bed: false,
+              single_beds: 0,
+              queen_beds: 1,
+              king_beds: 0,
+              is_active: true,
+              room_category_id: standard_category.id,
+              default_season_id: tahoe_summer.id
+            }
+
+          name == "Room 6" ->
+            %{
+              name: name,
+              description:
+                "Spacious room with 1 queen bed and 1 single bed. Accommodates up to 3 guests.",
+              property: :tahoe,
+              capacity_max: 3,
+              min_billable_occupancy: 1,
+              is_single_bed: false,
+              single_beds: 1,
+              queen_beds: 1,
+              king_beds: 0,
+              is_active: true,
+              room_category_id: standard_category.id,
+              default_season_id: tahoe_summer.id
+            }
+
+          name == "Room 7" ->
+            %{
+              name: name,
+              description: "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
+              property: :tahoe,
+              capacity_max: 2,
+              min_billable_occupancy: 1,
+              is_single_bed: false,
+              single_beds: 0,
+              queen_beds: 1,
+              king_beds: 0,
+              is_active: true,
+              room_category_id: standard_category.id,
+              default_season_id: tahoe_summer.id
+            }
+
+          true ->
+            %{
+              name: name,
+              description: "Standard room",
+              property: :tahoe,
+              capacity_max: 2,
+              min_billable_occupancy: 1,
+              is_single_bed: false,
+              single_beds: 0,
+              queen_beds: 0,
+              king_beds: 0,
+              is_active: true,
+              room_category_id: standard_category.id,
+              default_season_id: tahoe_summer.id
+            }
+        end
+
+      # Get or create room
+      case Repo.get_by(Room, name: name, property: :tahoe) do
+        nil ->
+          Repo.insert!(Room.changeset(%Room{}, room_attrs))
+
+        existing ->
+          existing
+      end
+    end)
+
+  IO.puts("  ✅ Created #{length(tahoe_rooms)} Tahoe rooms")
+end
+
+# Re-fetch rooms after potential creation
+tahoe_rooms = Repo.all(from r in Room, where: r.property == :tahoe and r.is_active == true)
+
+if length(tahoe_rooms) > 0 do
+  # Directory containing room images
+  tahoe_images_dir = Path.join([File.cwd!(), "priv", "static", "images", "tahoe"])
+
+  if File.exists?(tahoe_images_dir) do
+    # Map room names to image filenames
+    # Room 1 -> tahoe_room_1.jpg, Room 2 -> tahoe_room_2.jpg, etc.
+    # Room 5a and 5b share the same image (tahoe_room_5.jpg)
+    room_image_map = %{
+      "Room 1" => "tahoe_room_1.jpg",
+      "Room 2" => "tahoe_room_2.jpg",
+      "Room 3" => "tahoe_room_3.jpg",
+      "Room 4" => "tahoe_room_4.jpg",
+      "Room 5a" => "tahoe_room_5.jpg",
+      "Room 5b" => "tahoe_room_5.jpg",
+      "Room 6" => "tahoe_room_6.jpg",
+      "Room 7" => "tahoe_room_7.jpg"
+    }
+
+    images_created = 0
+    images_associated = 0
+
+    {images_created, images_associated} =
+      Enum.reduce(tahoe_rooms, {0, 0}, fn room, {created_acc, associated_acc} ->
+        image_filename = Map.get(room_image_map, room.name)
+
+        if image_filename do
+          image_path = Path.join(tahoe_images_dir, image_filename)
+
+          if File.exists?(image_path) do
+            image_title = "Tahoe #{room.name}"
+
+            # Check if image already exists by title
+            existing_image =
+              Repo.one(
+                from i in Image,
+                  where: i.title == ^image_title,
+                  limit: 1
+              )
+
+            {room_image, was_new_image} =
+              if existing_image do
+                IO.puts("  Image already exists for #{room.name}, associating with room...")
+                {existing_image, false}
+              else
+                # Upload raw file to S3
+                upload_result =
+                  try do
+                    Media.upload_file_to_s3(image_path)
+                  rescue
+                    e ->
+                      IO.puts("  Failed to upload #{image_filename} to S3: #{inspect(e)}")
+                      nil
+                  end
+
+                if upload_result do
+                  raw_s3_path = upload_result[:body][:location]
+
+                  # Check if image with this raw_image_path already exists
+                  existing_by_path =
+                    Repo.one(
+                      from i in Image,
+                        where: i.raw_image_path == ^URI.encode(raw_s3_path),
+                        limit: 1
+                    )
+
+                  if existing_by_path do
+                    IO.puts(
+                      "  Image with path already exists for #{room.name}, using existing..."
+                    )
+
+                    {existing_by_path, false}
+                  else
+                    # Create image record (must use admin_user for authorization)
+                    case Media.add_new_image(
+                           %{
+                             raw_image_path: URI.encode(raw_s3_path),
+                             user_id: admin_user.id,
+                             title: image_title,
+                             processing_state: "unprocessed"
+                           },
+                           admin_user
+                         ) do
+                      {:ok, new_image} ->
+                        IO.puts("  ✅ Created image record for #{room.name} (id: #{new_image.id})")
+                        # Process the image (create thumbnails, optimized versions, blur hash)
+                        temp_dir = "/tmp/image_processor"
+                        File.mkdir_p!(temp_dir)
+                        tmp_output_file = "#{temp_dir}/#{new_image.id}"
+                        optimized_output_path = "#{tmp_output_file}_optimized"
+                        thumbnail_output_path = "#{tmp_output_file}_thumb"
+
+                        processed_image =
+                          try do
+                            Media.process_image_upload(
+                              new_image,
+                              image_path,
+                              thumbnail_output_path,
+                              optimized_output_path
+                            )
+                          rescue
+                            e ->
+                              IO.puts(
+                                "  Failed to process image #{image_filename}: #{inspect(e)}"
+                              )
+
+                              new_image
+                          end
+
+                        # Clean up temp files
+                        try do
+                          File.rm(tmp_output_file)
+
+                          ["_optimized", "_thumb"]
+                          |> Enum.each(fn suffix ->
+                            [".jpg", ".jpeg", ".png", ".webp"]
+                            |> Enum.each(fn ext ->
+                              path = "#{tmp_output_file}#{suffix}#{ext}"
+                              if File.exists?(path), do: File.rm(path)
+                            end)
+                          end)
+
+                          File.rmdir(temp_dir)
+                        rescue
+                          _ -> :ok
+                        end
+
+                        {processed_image, true}
+
+                      {:error, reason} ->
+                        IO.puts(
+                          "  ❌ Failed to create image record for #{image_filename}: #{inspect(reason)}"
+                        )
+
+                        {nil, false}
+                    end
+                  end
+                else
+                  {nil, false}
+                end
+              end
+
+            if room_image do
+              # Reload room from database to get fresh data
+              fresh_room = Repo.get!(Room, room.id)
+
+              # Update room with image_id using Room changeset
+              result =
+                fresh_room
+                |> Room.changeset(%{image_id: room_image.id})
+                |> Repo.update()
+
+              case result do
+                {:ok, updated_room} ->
+                  IO.puts(
+                    "  ✅ Associated image with #{room.name} (image_id: #{updated_room.image_id})"
+                  )
+
+                  {created_acc + if(was_new_image, do: 1, else: 0), associated_acc + 1}
+
+                {:error, changeset} ->
+                  IO.puts(
+                    "  ❌ Failed to update #{room.name} with image: #{inspect(changeset.errors)}"
+                  )
+
+                  {created_acc + if(was_new_image, do: 1, else: 0), associated_acc}
+              end
+            else
+              IO.puts("  ⚠️  Could not create/retrieve image for #{room.name}")
+              {created_acc, associated_acc}
+            end
+          else
+            IO.puts("  ⚠️  Image file not found: #{image_filename}")
+            {created_acc, associated_acc}
+          end
+        else
+          IO.puts("  ℹ️  No image mapping for #{room.name}, skipping")
+          {created_acc, associated_acc}
+        end
+      end)
+
+    IO.puts("\n✅ Room images seeding completed!")
+    IO.puts("   - Images created: #{images_created}")
+    IO.puts("   - Images associated with rooms: #{images_associated}")
+    IO.puts("   - Total images in database: #{Media.count_images()}")
+  else
+    IO.puts("⚠️  Tahoe images directory not found: #{tahoe_images_dir}")
+  end
+else
+  IO.puts("⚠️  No Tahoe rooms found. Please run seeds_bookings.exs first to create rooms.")
+end
+
+# Seed refund policies for Tahoe property
+IO.puts("\n📋 Seeding refund policies...")
+
+# Tahoe Full Cabin (Buyout) Policy
+tahoe_buyout_policy =
+  case Bookings.get_active_refund_policy(:tahoe, :buyout) do
+    nil ->
+      policy =
+        Bookings.create_refund_policy!(%{
+          name: "Tahoe Full Cabin Cancellation Policy",
+          description: "Cancellation policy for full cabin (buyout) bookings at Tahoe property",
+          property: :tahoe,
+          booking_mode: :buyout,
+          is_active: true
+        })
+
+      policy
+
+    existing_policy ->
+      IO.puts("  ⚠️  Tahoe buyout policy already exists, skipping creation")
+      existing_policy
+  end
+
+# Create rules for Tahoe buyout policy
+if tahoe_buyout_policy do
+  # Rule 1: Less than 14 days = 0% refund (100% forfeiture)
+  case Bookings.list_refund_policy_rules(tahoe_buyout_policy.id)
+       |> Enum.find(fn r -> r.days_before_checkin == 14 end) do
+    nil ->
+      Bookings.create_refund_policy_rule!(%{
+        refund_policy_id: tahoe_buyout_policy.id,
+        days_before_checkin: 14,
+        refund_percentage: Decimal.new("0"),
+        description:
+          "Reservations cancelled less than 14 days prior to date of arrival will result in forfeiture of 100% of the cost",
+        priority: 0
+      })
+
+    _ ->
+      :ok
+  end
+
+  # Rule 2: Less than 21 days = 50% refund (50% forfeiture)
+  case Bookings.list_refund_policy_rules(tahoe_buyout_policy.id)
+       |> Enum.find(fn r -> r.days_before_checkin == 21 end) do
+    nil ->
+      Bookings.create_refund_policy_rule!(%{
+        refund_policy_id: tahoe_buyout_policy.id,
+        days_before_checkin: 21,
+        refund_percentage: Decimal.new("50"),
+        description:
+          "Reservations cancelled less than 21 days prior to date of arrival are subject to forfeiture of 50% of the cost",
+        priority: 0
+      })
+
+    _ ->
+      :ok
+  end
+
+  IO.puts("  ✅ Tahoe Full Cabin (Buyout) refund policy seeded")
+end
+
+# Tahoe Rooms Policy
+tahoe_room_policy =
+  case Bookings.get_active_refund_policy(:tahoe, :room) do
+    nil ->
+      policy =
+        Bookings.create_refund_policy!(%{
+          name: "Tahoe Rooms Cancellation Policy",
+          description: "Cancellation policy for room bookings at Tahoe property",
+          property: :tahoe,
+          booking_mode: :room,
+          is_active: true
+        })
+
+      policy
+
+    existing_policy ->
+      IO.puts("  ⚠️  Tahoe room policy already exists, skipping creation")
+      existing_policy
+  end
+
+# Create rules for Tahoe room policy
+if tahoe_room_policy do
+  # Rule 1: Less than 7 days = 0% refund (100% forfeiture)
+  case Bookings.list_refund_policy_rules(tahoe_room_policy.id)
+       |> Enum.find(fn r -> r.days_before_checkin == 7 end) do
+    nil ->
+      Bookings.create_refund_policy_rule!(%{
+        refund_policy_id: tahoe_room_policy.id,
+        days_before_checkin: 7,
+        refund_percentage: Decimal.new("0"),
+        description:
+          "Reservations cancelled less than 7 days prior to date of arrival will result in forfeiture of 100% of the cost",
+        priority: 0
+      })
+
+    _ ->
+      :ok
+  end
+
+  # Rule 2: Less than 14 days = 50% refund (50% forfeiture)
+  case Bookings.list_refund_policy_rules(tahoe_room_policy.id)
+       |> Enum.find(fn r -> r.days_before_checkin == 14 end) do
+    nil ->
+      Bookings.create_refund_policy_rule!(%{
+        refund_policy_id: tahoe_room_policy.id,
+        days_before_checkin: 14,
+        refund_percentage: Decimal.new("50"),
+        description:
+          "Reservations cancelled less than 14 days prior to date of arrival are subject to forfeiture of 50% of the cost",
+        priority: 0
+      })
+
+    _ ->
+      :ok
+  end
+
+  IO.puts("  ✅ Tahoe Rooms refund policy seeded")
+end
+
+IO.puts("✅ Refund policies seeding completed!")

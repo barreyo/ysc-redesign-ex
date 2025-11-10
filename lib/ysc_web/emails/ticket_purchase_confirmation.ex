@@ -205,16 +205,18 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
 
       payment_method ->
         case payment_method.type do
-          :credit_card ->
+          :card ->
             if payment_method.last_four do
-              "Credit Card ending in #{String.slice(payment_method.last_four, -4..-1)}"
+              brand = payment_method.display_brand || "Card"
+              "#{String.capitalize(brand)} ending in #{payment_method.last_four}"
             else
               "Credit Card"
             end
 
           :bank_account ->
             if payment_method.last_four do
-              "Bank Account ending in #{String.slice(payment_method.last_four, -4..-1)}"
+              bank_name = payment_method.bank_name || "Bank"
+              "#{bank_name} Account ending in #{payment_method.last_four}"
             else
               "Bank Account"
             end

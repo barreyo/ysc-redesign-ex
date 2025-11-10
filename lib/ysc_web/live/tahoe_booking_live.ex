@@ -2,7 +2,7 @@ defmodule YscWeb.TahoeBookingLive do
   use YscWeb, :live_view
 
   alias Ysc.Bookings
-  alias Ysc.Bookings.{Season, Booking, PricingRule}
+  alias Ysc.Bookings.{Season, Booking, PricingRule, Room}
   alias Ysc.Bookings.SeasonHelpers
   alias Ysc.Bookings.PricingHelpers
   alias Ysc.MoneyHelper
@@ -72,6 +72,10 @@ defmodule YscWeb.TahoeBookingLive do
         :none
       end
 
+    # Load refund policies for both booking modes
+    buyout_refund_policy = Bookings.get_active_refund_policy(:tahoe, :buyout)
+    room_refund_policy = Bookings.get_active_refund_policy(:tahoe, :room)
+
     socket =
       assign(socket,
         page_title: "Tahoe Cabin",
@@ -103,6 +107,8 @@ defmodule YscWeb.TahoeBookingLive do
         can_book: can_book,
         booking_disabled_reason: booking_disabled_reason,
         active_bookings: active_bookings,
+        buyout_refund_policy: buyout_refund_policy,
+        room_refund_policy: room_refund_policy,
         load_radar: true
       )
 
@@ -342,7 +348,7 @@ defmodule YscWeb.TahoeBookingLive do
         <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div class="flex items-start">
             <div class="flex-shrink-0">
-              <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-amber-600" />
+              <.icon name="hero-exclamation-triangle-solid" class="h-5 w-5 text-amber-600" />
             </div>
             <div class="ms-2 flex-1">
               <h3 class="text-sm font-semibold text-amber-900">Reservation Page Unavailable</h3>
@@ -638,7 +644,7 @@ defmodule YscWeb.TahoeBookingLive do
                 Select Room
               <% end %>
             </label>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
               <%= for room <- @available_rooms do %>
                 <% {availability, reason} = room.availability_status || {:available, nil} %>
                 <% is_unavailable = availability == :unavailable %>
@@ -646,24 +652,26 @@ defmodule YscWeb.TahoeBookingLive do
                   can_select_multiple_rooms?(assigns) &&
                     length(@selected_room_ids) >= max_rooms_for_user(assigns) %>
                 <% room_already_selected =
-                  can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids %>
+                  (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) ||
+                    (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id) %>
                 <% guests_count = parse_guests_count(@guests_count) || 1 %>
                 <% only_one_guest_selected = guests_count == 1 %>
                 <% cannot_add_second_room =
                   can_select_multiple_rooms?(assigns) && only_one_guest_selected &&
                     length(@selected_room_ids) > 0 && !room_already_selected %>
                 <% is_disabled =
-                  is_unavailable || (max_rooms_reached && !room_already_selected) ||
+                  (is_unavailable && !room_already_selected) ||
+                    (max_rooms_reached && !room_already_selected) ||
                     cannot_add_second_room %>
                 <div class={[
-                  "border rounded-lg overflow-hidden",
+                  "border rounded-lg overflow-hidden flex flex-col h-full",
                   if(is_disabled,
                     do: "border-zinc-200 bg-zinc-50 cursor-not-allowed opacity-60",
                     else:
                       "border-zinc-300 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all"
                   )
                 ]}>
-                  <label :if={!is_disabled} class="block cursor-pointer">
+                  <label :if={!is_disabled} class="block cursor-pointer flex flex-col h-full">
                     <input
                       type={if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"}
                       name={if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"}
@@ -679,45 +687,49 @@ defmodule YscWeb.TahoeBookingLive do
                       phx-value-room-id={room.id}
                       class="sr-only"
                     />
-                    <!-- Room Image Placeholder -->
-                    <div class="w-full h-48 bg-zinc-200 flex items-center justify-center">
-                      <div class="text-zinc-400 text-sm">
-                        <%= if room.image_id do %>
-                          <!-- Image would go here when available -->
-                          <svg
-                            class="w-16 h-16 mx-auto mb-2"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
-                          </svg>
-                          Room Image
-                        <% else %>
-                          <svg
-                            class="w-16 h-16 mx-auto mb-2"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
-                          </svg>
-                          Room Image
-                        <% end %>
+                    <!-- Room Image with Alert Overlay -->
+                    <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
+                      <!-- Alert Overlay on Image -->
+                      <div
+                        :if={is_unavailable && reason}
+                        class="absolute top-0 left-0 right-0 bg-amber-50 border-b border-amber-200 p-2 z-10"
+                      >
+                        <div class="flex items-start gap-2">
+                          <.icon
+                            name="hero-exclamation-triangle-solid"
+                            class="w-4 h-4 text-amber-600 flex-shrink-0"
+                          />
+                          <p class="text-xs text-amber-800"><%= reason %></p>
+                        </div>
                       </div>
+                      <%= if room.image && room.image.id do %>
+                        <!-- Render image with blur hash -->
+                        <canvas
+                          id={"blur-hash-room-#{room.id}"}
+                          src={get_room_blur_hash(room.image)}
+                          class="absolute inset-0 z-0 w-full h-full object-cover"
+                          phx-hook="BlurHashCanvas"
+                        >
+                        </canvas>
+                        <img
+                          src={get_room_image_url(room.image)}
+                          id={"image-room-#{room.id}"}
+                          loading="lazy"
+                          phx-hook="BlurHashImage"
+                          class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
+                          alt={room.image.alt_text || room.image.title || "#{room.name} image"}
+                        />
+                      <% else %>
+                        <!-- Placeholder when no image -->
+                        <div class="absolute inset-0 flex items-center justify-center">
+                          <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
+                            <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
+                          </div>
+                        </div>
+                      <% end %>
                     </div>
                     <!-- Room Content -->
-                    <div class="p-4">
+                    <div class="p-4 flex-1 flex flex-col">
                       <div class="flex items-start justify-between mb-2">
                         <div class="flex-1">
                           <div class="font-semibold text-zinc-900 text-lg"><%= room.name %></div>
@@ -779,7 +791,7 @@ defmodule YscWeb.TahoeBookingLive do
                         </span>
                       </div>
 
-                      <div class="border-t border-zinc-200 pt-3">
+                      <div class="border-t border-zinc-200 pt-3 mt-auto">
                         <div class="text-sm text-zinc-900 font-medium">
                           <div :if={room.minimum_price}>
                             <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
@@ -799,29 +811,9 @@ defmodule YscWeb.TahoeBookingLive do
                           ) %> per child
                         </div>
                       </div>
-
-                      <div
-                        :if={is_unavailable && reason}
-                        class="mt-3 bg-amber-50 border border-amber-200 rounded p-2"
-                      >
-                        <div class="flex items-start gap-2">
-                          <svg
-                            class="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fill-rule="evenodd"
-                              d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                              clip-rule="evenodd"
-                            />
-                          </svg>
-                          <p class="text-xs text-amber-800"><%= reason %></p>
-                        </div>
-                      </div>
                     </div>
                   </label>
-                  <div :if={is_disabled} class="block cursor-not-allowed">
+                  <div :if={is_disabled} class="block cursor-not-allowed flex flex-col h-full">
                     <input
                       type={if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"}
                       name={if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"}
@@ -831,27 +823,49 @@ defmodule YscWeb.TahoeBookingLive do
                       class="sr-only"
                       readonly
                     />
-                    <!-- Room Image Placeholder -->
-                    <div class="w-full h-48 bg-zinc-200 flex items-center justify-center">
-                      <div class="text-zinc-400 text-sm">
-                        <svg
-                          class="w-16 h-16 mx-auto mb-2"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    <!-- Room Image with Alert Overlay -->
+                    <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
+                      <!-- Alert Overlay on Image -->
+                      <div
+                        :if={is_unavailable && reason}
+                        class="absolute top-0 left-0 right-0 bg-amber-50 border-b border-amber-200 p-2 z-10"
+                      >
+                        <div class="flex items-start gap-2">
+                          <.icon
+                            name="hero-exclamation-triangle-solid"
+                            class="w-4 h-4 text-amber-600 flex-shrink-0"
                           />
-                        </svg>
-                        Room Image
+                          <p class="text-xs text-amber-800"><%= reason %></p>
+                        </div>
                       </div>
+                      <%= if room.image && room.image.id do %>
+                        <!-- Render image with blur hash -->
+                        <canvas
+                          id={"blur-hash-room-disabled-#{room.id}"}
+                          src={get_room_blur_hash(room.image)}
+                          class="absolute inset-0 z-0 w-full h-full object-cover"
+                          phx-hook="BlurHashCanvas"
+                        >
+                        </canvas>
+                        <img
+                          src={get_room_image_url(room.image)}
+                          id={"image-room-disabled-#{room.id}"}
+                          loading="lazy"
+                          phx-hook="BlurHashImage"
+                          class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
+                          alt={room.image.alt_text || room.image.title || "#{room.name} image"}
+                        />
+                      <% else %>
+                        <!-- Placeholder when no image -->
+                        <div class="absolute inset-0 flex items-center justify-center">
+                          <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
+                            <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
+                          </div>
+                        </div>
+                      <% end %>
                     </div>
                     <!-- Room Content -->
-                    <div class="p-4">
+                    <div class="p-4 flex-1 flex flex-col">
                       <div class="flex items-start justify-between mb-2">
                         <div class="flex-1">
                           <div class="font-semibold text-zinc-900 text-lg"><%= room.name %></div>
@@ -889,7 +903,7 @@ defmodule YscWeb.TahoeBookingLive do
                         </span>
                       </div>
 
-                      <div class="border-t border-zinc-200 pt-3">
+                      <div class="border-t border-zinc-200 pt-3 mt-auto">
                         <div class="text-sm text-zinc-900 font-medium">
                           <div :if={room.minimum_price}>
                             <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
@@ -907,26 +921,6 @@ defmodule YscWeb.TahoeBookingLive do
                           <%= MoneyHelper.format_money!(
                             room.children_price_per_night || Money.new(25, :USD)
                           ) %> per child
-                        </div>
-                      </div>
-
-                      <div
-                        :if={is_unavailable && reason}
-                        class="mt-3 bg-amber-50 border border-amber-200 rounded p-2"
-                      >
-                        <div class="flex items-start gap-2">
-                          <svg
-                            class="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fill-rule="evenodd"
-                              d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                              clip-rule="evenodd"
-                            />
-                          </svg>
-                          <p class="text-xs text-amber-800"><%= reason %></p>
                         </div>
                       </div>
                     </div>
@@ -1459,21 +1453,57 @@ defmodule YscWeb.TahoeBookingLive do
               />
             </summary>
             <div>
-              <div>
-                <h3 class="font-semibold text-zinc-900 mb-2">Full Cabin Bookings</h3>
-                <ul class="list-disc list-inside space-y-1">
-                  <li>Cancel 21–14 days before arrival → <strong>50% forfeited</strong></li>
-                  <li>Cancel less than 14 days → <strong>100% forfeited</strong></li>
-                </ul>
-              </div>
-              <div>
-                <h3 class="font-semibold text-zinc-900 mb-2">Individual Rooms</h3>
-                <ul class="list-disc list-inside space-y-1">
-                  <li>Cancel 14–7 days before arrival → <strong>50% forfeited</strong></li>
-                  <li>Cancel less than 7 days → <strong>100% forfeited</strong></li>
-                </ul>
-              </div>
-              <div class="bg-zinc-100 rounded p-3 text-sm">
+              <%= if @buyout_refund_policy do %>
+                <div>
+                  <h3 class="font-semibold text-zinc-900 mb-2">
+                    <%= if @buyout_refund_policy.name,
+                      do: @buyout_refund_policy.name,
+                      else: "Full Cabin Bookings" %>
+                  </h3>
+                  <%= if @buyout_refund_policy.description do %>
+                    <p class="text-sm text-zinc-600 mb-2"><%= @buyout_refund_policy.description %></p>
+                  <% end %>
+                  <%= if @buyout_refund_policy.rules && length(@buyout_refund_policy.rules) > 0 do %>
+                    <ul class="list-disc list-inside space-y-1">
+                      <%= for rule <- @buyout_refund_policy.rules do %>
+                        <li>
+                          <%= if rule.description && rule.description != "" do %>
+                            <%= rule.description %>
+                          <% else %>
+                            <%= raw(format_refund_rule(rule)) %>
+                          <% end %>
+                        </li>
+                      <% end %>
+                    </ul>
+                  <% end %>
+                </div>
+              <% end %>
+              <%= if @room_refund_policy do %>
+                <div class={if @buyout_refund_policy, do: "mt-4", else: ""}>
+                  <h3 class="font-semibold text-zinc-900 mb-2">
+                    <%= if @room_refund_policy.name,
+                      do: @room_refund_policy.name,
+                      else: "Individual Rooms" %>
+                  </h3>
+                  <%= if @room_refund_policy.description do %>
+                    <p class="text-sm text-zinc-600 mb-2"><%= @room_refund_policy.description %></p>
+                  <% end %>
+                  <%= if @room_refund_policy.rules && length(@room_refund_policy.rules) > 0 do %>
+                    <ul class="list-disc list-inside space-y-1">
+                      <%= for rule <- @room_refund_policy.rules do %>
+                        <li>
+                          <%= if rule.description && rule.description != "" do %>
+                            <%= rule.description %>
+                          <% else %>
+                            <%= raw(format_refund_rule(rule)) %>
+                          <% end %>
+                        </li>
+                      <% end %>
+                    </ul>
+                  <% end %>
+                </div>
+              <% end %>
+              <div class="bg-zinc-100 rounded p-3 text-sm mt-4">
                 <p class="mb-2"><strong>Notes:</strong></p>
                 <ul class="list-disc list-inside space-y-1">
                   <li>Members are responsible for the behavior and payments of their guests.</li>
@@ -1768,7 +1798,12 @@ defmodule YscWeb.TahoeBookingLive do
 
     room_id = if room_id_str && room_id_str != "", do: room_id_str, else: nil
 
-    # Check if room is available before allowing selection
+    # Check if this is a deselection attempt (clicking an already selected room)
+    current_selected_id = socket.assigns.selected_room_id
+    current_selected_ids = socket.assigns.selected_room_ids || []
+    is_deselection = room_id == current_selected_id || room_id in current_selected_ids
+
+    # Check if room is available before allowing selection (but allow deselection)
     room = Enum.find(socket.assigns.available_rooms || [], &(&1.id == room_id))
 
     {availability, _reason} =
@@ -1776,8 +1811,8 @@ defmodule YscWeb.TahoeBookingLive do
         do: room.availability_status || {:available, nil},
         else: {:unavailable, "Room not found"}
 
-    # Prevent selection of unavailable rooms
-    if availability == :unavailable do
+    # Prevent selection of unavailable rooms, but allow deselection
+    if availability == :unavailable && !is_deselection do
       {:noreply, socket}
     else
       # Determine if this is a checkbox toggle (family members) or radio selection
@@ -1824,11 +1859,15 @@ defmodule YscWeb.TahoeBookingLive do
         {:noreply, socket}
       else
         # Radio button: single selection
+        # Allow deselection by clicking the same room again
+        current_selected_id = socket.assigns.selected_room_id
+        new_selected_id = if room_id == current_selected_id, do: nil, else: room_id
+
         socket =
           socket
           |> assign(
-            selected_room_id: room_id,
-            selected_room_ids: if(room_id, do: [room_id], else: []),
+            selected_room_id: new_selected_id,
+            selected_room_ids: if(new_selected_id, do: [new_selected_id], else: []),
             calculated_price: nil,
             price_error: nil
           )
@@ -2085,7 +2124,14 @@ defmodule YscWeb.TahoeBookingLive do
       total_people = guests_count + children_count
 
       # Get ALL rooms for the property, not just available ones
-      all_rooms = Bookings.list_rooms(socket.assigns.property)
+      # Preload images for all rooms
+      all_rooms =
+        from(r in Room,
+          where: r.property == ^socket.assigns.property,
+          order_by: [asc: r.property, asc: r.name],
+          preload: [:room_category, :image]
+        )
+        |> Repo.all()
 
       Logger.info(
         "[TahoeBookingLive] Found #{length(all_rooms)} rooms for property #{socket.assigns.property}"
@@ -2155,6 +2201,12 @@ defmodule YscWeb.TahoeBookingLive do
           trying_to_add_second_room =
             can_select_multiple && length(selected_room_ids) > 0 && not room_already_selected
 
+          # Check if single membership user has already selected a room
+          single_membership_selected_room =
+            not can_select_multiple &&
+              length(selected_room_ids) > 0 &&
+              not room_already_selected
+
           availability_status =
             cond do
               not is_active ->
@@ -2162,6 +2214,10 @@ defmodule YscWeb.TahoeBookingLive do
 
               not is_available ->
                 {:unavailable, "Already booked for selected dates"}
+
+              single_membership_selected_room ->
+                {:unavailable,
+                 "Single membership allows only one room per booking. Please deselect the current room to select a different one."}
 
               only_one_guest && trying_to_add_second_room ->
                 {:unavailable,
@@ -3236,6 +3292,31 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
+  # Refund policy formatting helpers
+  defp format_refund_rule(rule) do
+    refund_percentage = Decimal.to_float(rule.refund_percentage)
+    forfeit_percentage = 100 - refund_percentage
+
+    # If there's a custom description, use it (will be rendered as plain text)
+    if rule.description && rule.description != "" do
+      rule.description
+    else
+      # Otherwise, format based on days and percentage (includes HTML for styling)
+      days = rule.days_before_checkin
+
+      cond do
+        forfeit_percentage == 0 ->
+          "Cancel #{days} or more days before arrival → <strong>Full refund</strong>"
+
+        forfeit_percentage == 100 ->
+          "Cancel less than #{days} days before arrival → <strong>100% forfeited</strong>"
+
+        true ->
+          "Cancel less than #{days} days before arrival → <strong>#{forfeit_percentage |> round()}% forfeited</strong>"
+      end
+    end
+  end
+
   # Bed icon SVG helpers
   defp bed_icon_svg(bed_type, class \\ "w-4 h-4")
 
@@ -3272,5 +3353,25 @@ defmodule YscWeb.TahoeBookingLive do
       <rect x="11.75" y="10.25" width="6" height="2.5" rx="1" />
     </svg>
     """
+  end
+
+  # Room image helper functions
+  defp get_room_blur_hash(nil), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+
+  defp get_room_blur_hash(%Ysc.Media.Image{blur_hash: nil}),
+    do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+
+  defp get_room_blur_hash(%Ysc.Media.Image{blur_hash: blur_hash}), do: blur_hash
+
+  defp get_room_image_url(nil), do: "/images/ysc_logo.png"
+
+  defp get_room_image_url(%Ysc.Media.Image{} = image) do
+    # Prefer thumbnail for room cards (smaller, faster loading)
+    cond do
+      not is_nil(image.thumbnail_path) -> image.thumbnail_path
+      not is_nil(image.optimized_image_path) -> image.optimized_image_path
+      not is_nil(image.raw_image_path) -> image.raw_image_path
+      true -> "/images/ysc_logo.png"
+    end
   end
 end

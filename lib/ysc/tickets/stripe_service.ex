@@ -187,6 +187,9 @@ defmodule Ysc.Tickets.StripeService do
 
   @doc false
   defp process_ledger_payment(ticket_order, payment_intent) do
+    # Extract and sync payment method before creating payment
+    payment_method_id = extract_and_sync_payment_method(payment_intent, ticket_order.user_id)
+
     Ledgers.process_payment(%{
       user_id: ticket_order.user_id,
       amount: ticket_order.total_amount,
@@ -196,8 +199,63 @@ defmodule Ysc.Tickets.StripeService do
       stripe_fee: extract_stripe_fee(payment_intent),
       description: "Event tickets - Order #{ticket_order.reference_id}",
       property: nil,
-      payment_method_id: extract_payment_method_id(payment_intent)
+      payment_method_id: payment_method_id
     })
+  end
+
+  @doc false
+  defp extract_and_sync_payment_method(payment_intent, user_id) do
+    require Logger
+
+    case payment_intent.payment_method do
+      nil ->
+        Logger.info("No payment method found in payment intent",
+          payment_intent_id: payment_intent.id
+        )
+
+        nil
+
+      payment_method_id when is_binary(payment_method_id) ->
+        # Retrieve the full payment method from Stripe
+        case Stripe.PaymentMethod.retrieve(payment_method_id) do
+          {:ok, stripe_payment_method} ->
+            # Get the user to sync the payment method
+            user = Ysc.Accounts.get_user!(user_id)
+
+            # Sync the payment method to our database
+            case Ysc.Payments.sync_payment_method_from_stripe(user, stripe_payment_method) do
+              {:ok, payment_method} ->
+                Logger.info("Successfully synced payment method for ticket payment",
+                  payment_method_id: payment_method.id,
+                  stripe_payment_method_id: payment_method_id,
+                  user_id: user_id
+                )
+
+                payment_method.id
+
+              {:error, reason} ->
+                Logger.warning("Failed to sync payment method for ticket payment",
+                  stripe_payment_method_id: payment_method_id,
+                  user_id: user_id,
+                  error: inspect(reason)
+                )
+
+                nil
+            end
+
+          {:error, error} ->
+            Logger.warning("Failed to retrieve payment method from Stripe",
+              payment_method_id: payment_method_id,
+              payment_intent_id: payment_intent.id,
+              error: error.message
+            )
+
+            nil
+        end
+
+      _ ->
+        nil
+    end
   end
 
   @doc false
@@ -209,20 +267,20 @@ defmodule Ysc.Tickets.StripeService do
         case get_balance_transaction(charge.balance_transaction) do
           {:ok, balance_transaction} ->
             fee_cents = balance_transaction.fee || 0
-            Money.new(fee_cents, :USD)
+            Money.new(:USD, Ysc.MoneyHelper.cents_to_dollars(fee_cents))
 
           {:error, _} ->
             # Fallback to estimated fee calculation
             amount_cents = payment_intent.amount
             estimated_fee_cents = trunc(amount_cents * 0.029 + 30)
-            Money.new(estimated_fee_cents, :USD)
+            Money.new(:USD, Ysc.MoneyHelper.cents_to_dollars(estimated_fee_cents))
         end
 
       {:error, _} ->
         # Fallback to estimated fee calculation
         amount_cents = payment_intent.amount
         estimated_fee_cents = trunc(amount_cents * 0.029 + 30)
-        Money.new(estimated_fee_cents, :USD)
+        Money.new(:USD, Ysc.MoneyHelper.cents_to_dollars(estimated_fee_cents))
     end
   end
 
@@ -249,14 +307,6 @@ defmodule Ysc.Tickets.StripeService do
       {:error, reason} ->
         {:error, reason}
     end
-  end
-
-  @doc false
-  defp extract_payment_method_id(_payment_intent) do
-    # For ticket payments, we don't currently track payment methods in our database
-    # The payment method ID from Stripe is not mapped to our internal payment method records
-    # TODO: Implement payment method mapping if needed for ticket payments
-    nil
   end
 
   @doc false

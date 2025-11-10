@@ -20,7 +20,18 @@ defmodule Ysc.Bookings do
   require Logger
 
   alias Ysc.Repo
-  alias Ysc.Bookings.{Season, PricingRule, Room, RoomCategory, Blackout, Booking, DoorCode}
+
+  alias Ysc.Bookings.{
+    Season,
+    PricingRule,
+    Room,
+    RoomCategory,
+    Blackout,
+    Booking,
+    DoorCode,
+    RefundPolicy,
+    RefundPolicyRule
+  }
 
   # Check-in and check-out times
   @checkin_time ~T[15:00:00]
@@ -128,7 +139,8 @@ defmodule Ysc.Bookings do
   Lists all rooms, optionally filtered by property.
   """
   def list_rooms(property \\ nil) do
-    query = from r in Room, order_by: [asc: r.property, asc: r.name], preload: [:room_category]
+    query =
+      from r in Room, order_by: [asc: r.property, asc: r.name], preload: [:room_category, :image]
 
     query =
       if property do
@@ -1129,5 +1141,357 @@ defmodule Ysc.Bookings do
   """
   def get_door_code!(id) do
     Repo.get!(DoorCode, id)
+  end
+
+  ## Refund Policies
+
+  @doc """
+  Lists all refund policies, optionally filtered by property and booking mode.
+  """
+  def list_refund_policies(property \\ nil, booking_mode \\ nil) do
+    query = from rp in RefundPolicy, order_by: [asc: rp.property, asc: rp.booking_mode]
+
+    query =
+      if property do
+        from rp in query, where: rp.property == ^property
+      else
+        query
+      end
+
+    query =
+      if booking_mode do
+        from rp in query, where: rp.booking_mode == ^booking_mode
+      else
+        query
+      end
+
+    policies = Repo.all(query)
+
+    # Load rules for each policy, ordered by days_before_checkin descending
+    Enum.map(policies, fn policy ->
+      rules =
+        from(r in RefundPolicyRule,
+          where: r.refund_policy_id == ^policy.id
+        )
+        |> RefundPolicyRule.ordered_by_days()
+        |> Repo.all()
+
+      %{policy | rules: rules}
+    end)
+  end
+
+  @doc """
+  Gets a single refund policy.
+  """
+  def get_refund_policy!(id) do
+    Repo.get!(RefundPolicy, id)
+    |> Repo.preload(:rules)
+  end
+
+  @doc """
+  Gets the active refund policy for a property and booking mode.
+  Returns nil if no active policy exists.
+  """
+  def get_active_refund_policy(property, booking_mode) do
+    policy =
+      from(rp in RefundPolicy,
+        where: rp.property == ^property,
+        where: rp.booking_mode == ^booking_mode,
+        where: rp.is_active == true
+      )
+      |> Repo.one()
+
+    if policy do
+      # Load rules ordered by days_before_checkin descending
+      rules =
+        from(r in RefundPolicyRule,
+          where: r.refund_policy_id == ^policy.id
+        )
+        |> RefundPolicyRule.ordered_by_days()
+        |> Repo.all()
+
+      %{policy | rules: rules}
+    else
+      nil
+    end
+  end
+
+  @doc """
+  Creates a refund policy.
+  """
+  def create_refund_policy(attrs \\ %{}) do
+    %RefundPolicy{}
+    |> RefundPolicy.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Creates a refund policy (bang version).
+  """
+  def create_refund_policy!(attrs \\ %{}) do
+    %RefundPolicy{}
+    |> RefundPolicy.changeset(attrs)
+    |> Repo.insert!()
+  end
+
+  @doc """
+  Updates a refund policy.
+  """
+  def update_refund_policy(%RefundPolicy{} = refund_policy, attrs) do
+    refund_policy
+    |> RefundPolicy.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a refund policy.
+  """
+  def delete_refund_policy(%RefundPolicy{} = refund_policy) do
+    Repo.delete(refund_policy)
+  end
+
+  ## Refund Policy Rules
+
+  @doc """
+  Lists all rules for a refund policy, ordered by days_before_checkin descending.
+  """
+  def list_refund_policy_rules(refund_policy_id) do
+    from(r in RefundPolicyRule,
+      where: r.refund_policy_id == ^refund_policy_id
+    )
+    |> RefundPolicyRule.ordered_by_days()
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a single refund policy rule.
+  """
+  def get_refund_policy_rule!(id) do
+    Repo.get!(RefundPolicyRule, id)
+  end
+
+  @doc """
+  Creates a refund policy rule.
+  """
+  def create_refund_policy_rule(attrs \\ %{}) do
+    %RefundPolicyRule{}
+    |> RefundPolicyRule.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Creates a refund policy rule (bang version).
+  """
+  def create_refund_policy_rule!(attrs \\ %{}) do
+    %RefundPolicyRule{}
+    |> RefundPolicyRule.changeset(attrs)
+    |> Repo.insert!()
+  end
+
+  @doc """
+  Updates a refund policy rule.
+  """
+  def update_refund_policy_rule(%RefundPolicyRule{} = refund_policy_rule, attrs) do
+    refund_policy_rule
+    |> RefundPolicyRule.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a refund policy rule.
+  """
+  def delete_refund_policy_rule(%RefundPolicyRule{} = refund_policy_rule) do
+    Repo.delete(refund_policy_rule)
+  end
+
+  ## Refund Calculation
+
+  @doc """
+  Calculates the refund amount for a booking based on the cancellation date and refund policy.
+
+  ## Parameters
+  - `booking`: The booking to calculate refund for
+  - `cancellation_date`: The date the booking is being cancelled (defaults to today)
+
+  ## Returns
+  - `{:ok, refund_amount, applied_rule}` if a policy exists and calculation succeeds
+  - `{:ok, full_refund, nil}` if no policy exists (full refund by default)
+  - `{:error, reason}` if calculation fails
+
+  ## Examples
+      iex> booking = %Booking{property: :tahoe, booking_mode: :buyout, checkin_date: ~D[2025-12-01]}
+      iex> calculate_refund(booking, ~D[2025-11-10])
+      {:ok, %Money{amount: 500, currency: :USD}, %RefundPolicyRule{}}
+  """
+  def calculate_refund(booking, cancellation_date \\ Date.utc_today()) do
+    policy = get_active_refund_policy(booking.property, booking.booking_mode)
+
+    if is_nil(policy) or is_nil(policy.rules) or Enum.empty?(policy.rules) do
+      # No policy exists - default to full refund
+      {:ok, nil, nil}
+    else
+      days_before_checkin = Date.diff(booking.checkin_date, cancellation_date)
+
+      if days_before_checkin < 0 do
+        # Cancellation is after check-in date - no refund
+        {:ok, Money.new(0, :USD), nil}
+      else
+        # Find the most restrictive rule that applies
+        # Rules are ordered by days_before_checkin DESC, so we need to find
+        # the rule with the smallest days_before_checkin where cancellation_days <= rule.days_before_checkin
+        # This means we want the LAST rule in the list that matches (most restrictive)
+        matching_rules =
+          Enum.filter(policy.rules, fn rule ->
+            days_before_checkin <= rule.days_before_checkin
+          end)
+
+        applied_rule =
+          if Enum.empty?(matching_rules) do
+            nil
+          else
+            # Get the rule with the smallest days_before_checkin (most restrictive)
+            Enum.min_by(matching_rules, fn rule -> rule.days_before_checkin end)
+          end
+
+        if applied_rule do
+          # Get the original payment amount for this booking
+          case get_booking_payment_amount(booking) do
+            {:ok, original_amount} ->
+              refund_percentage = Decimal.to_float(applied_rule.refund_percentage)
+              refund_amount = calculate_refund_amount(original_amount, refund_percentage)
+              {:ok, refund_amount, applied_rule}
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+        else
+          # No rule applies - default to full refund
+          {:ok, nil, nil}
+        end
+      end
+    end
+  end
+
+  @doc """
+  Gets the payment amount for a booking by looking up ledger entries.
+  """
+  def get_booking_payment_amount(booking) do
+    import Ecto.Query
+
+    # Find ledger entries for this booking
+    # related_entity_type is stored as an atom in the enum
+    entry =
+      from(e in Ysc.Ledgers.LedgerEntry,
+        where: e.related_entity_type == ^:booking,
+        where: e.related_entity_id == ^booking.id,
+        where: e.amount > ^Money.new(0, :USD),
+        order_by: [desc: e.inserted_at],
+        limit: 1
+      )
+      |> Repo.one()
+
+    if entry do
+      {:ok, entry.amount}
+    else
+      {:error, :payment_not_found}
+    end
+  end
+
+  defp calculate_refund_amount(original_amount, refund_percentage)
+       when is_float(refund_percentage) do
+    # Convert percentage to decimal (e.g., 50.0 -> 0.5)
+    multiplier = Decimal.from_float(refund_percentage / 100.0)
+
+    case Money.mult(original_amount, multiplier) do
+      {:ok, refund_amount} -> refund_amount
+      {:error, _} -> Money.new(0, :USD)
+    end
+  end
+
+  @doc """
+  Cancels a booking and processes the refund according to the refund policy.
+
+  ## Parameters
+  - `booking`: The booking to cancel
+  - `cancellation_date`: Optional cancellation date (defaults to today)
+  - `reason`: Optional cancellation reason
+
+  ## Returns
+  - `{:ok, booking, refund_amount, refund_transaction}` if successful
+  - `{:error, reason}` if cancellation fails
+
+  ## Examples
+      iex> cancel_booking(booking, ~D[2025-11-10], "User requested cancellation")
+      {:ok, %Booking{}, %Money{}, %LedgerTransaction{}}
+  """
+  def cancel_booking(booking, cancellation_date \\ Date.utc_today(), reason \\ nil) do
+    alias Ysc.Ledgers
+
+    # Calculate refund amount
+    case calculate_refund(booking, cancellation_date) do
+      {:ok, refund_amount, applied_rule} ->
+        # Get the original payment for this booking
+        case get_booking_payment(booking) do
+          {:ok, payment} ->
+            # Process refund if amount > 0
+            result =
+              if refund_amount && Money.positive?(refund_amount) do
+                # Process refund through ledger system
+                refund_reason =
+                  if applied_rule do
+                    "Booking cancellation: #{reason || "No reason provided"}. Applied policy rule: #{applied_rule.days_before_checkin} days before check-in, #{applied_rule.refund_percentage}% refund."
+                  else
+                    "Booking cancellation: #{reason || "No reason provided"}. Full refund (no policy applied)."
+                  end
+
+                case Ledgers.process_refund(%{
+                       payment_id: payment.id,
+                       refund_amount: refund_amount,
+                       reason: refund_reason,
+                       external_refund_id: nil
+                     }) do
+                  {:ok, {refund_transaction, _entries}} ->
+                    {:ok, booking, refund_amount, refund_transaction}
+
+                  {:error, reason} ->
+                    {:error, {:refund_failed, reason}}
+                end
+              else
+                # No refund (0% or nil)
+                {:ok, booking, Money.new(0, :USD), nil}
+              end
+
+            result
+
+          {:error, reason} ->
+            {:error, {:payment_not_found, reason}}
+        end
+
+      {:error, reason} ->
+        {:error, {:calculation_failed, reason}}
+    end
+  end
+
+  defp get_booking_payment(booking) do
+    import Ecto.Query
+
+    # Find the payment via ledger entries
+    # related_entity_type is stored as an atom in the enum
+    entry =
+      from(e in Ysc.Ledgers.LedgerEntry,
+        where: e.related_entity_type == ^:booking,
+        where: e.related_entity_id == ^booking.id,
+        where: e.amount > ^Money.new(0, :USD),
+        preload: [:payment],
+        order_by: [desc: e.inserted_at],
+        limit: 1
+      )
+      |> Repo.one()
+
+    if entry && entry.payment do
+      {:ok, entry.payment}
+    else
+      {:error, :payment_not_found}
+    end
   end
 end

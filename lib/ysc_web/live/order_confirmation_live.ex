@@ -204,22 +204,30 @@ defmodule YscWeb.OrderConfirmationLive do
   # Helper function to get payment method description
   defp get_payment_method_description(payment) do
     case payment.payment_method do
-      "card" ->
-        if payment.last_four do
-          "Credit Card ending in #{String.slice(payment.last_four, -4, 4)}"
-        else
-          "Credit Card"
-        end
+      nil ->
+        "Credit Card (Stripe)"
 
-      "bank_account" ->
-        if payment.last_four do
-          "Bank Account ending in #{String.slice(payment.last_four, -4, 4)}"
-        else
-          "Bank Account"
-        end
+      payment_method ->
+        case payment_method.type do
+          :card ->
+            if payment_method.last_four do
+              brand = payment_method.display_brand || "Card"
+              "#{String.capitalize(brand)} ending in #{payment_method.last_four}"
+            else
+              "Credit Card"
+            end
 
-      _ ->
-        "Payment Method"
+          :bank_account ->
+            if payment_method.last_four do
+              bank_name = payment_method.bank_name || "Bank"
+              "#{bank_name} Account ending in #{payment_method.last_four}"
+            else
+              "Bank Account"
+            end
+
+          _ ->
+            "Payment Method"
+        end
     end
   end
 end
