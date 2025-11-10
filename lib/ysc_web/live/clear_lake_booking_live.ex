@@ -3,6 +3,8 @@ defmodule YscWeb.ClearLakeBookingLive do
 
   alias Ysc.Bookings
   alias Ysc.Bookings.Season
+  alias Ysc.Bookings.SeasonHelpers
+  alias Ysc.Bookings.PricingHelpers
   alias Ysc.MoneyHelper
   alias Ysc.Accounts
   alias Ysc.Subscriptions
@@ -15,7 +17,11 @@ defmodule YscWeb.ClearLakeBookingLive do
     user = socket.assigns.current_user
 
     today = Date.utc_today()
-    max_booking_date = calculate_max_booking_date(today)
+
+    {current_season, season_start_date, season_end_date} =
+      SeasonHelpers.get_current_season_info(:clear_lake, today)
+
+    max_booking_date = SeasonHelpers.calculate_max_booking_date(:clear_lake, today)
 
     # Parse query parameters, handling malformed/double-encoded URLs
     parsed_params = parse_mount_params(params)
@@ -71,6 +77,9 @@ defmodule YscWeb.ClearLakeBookingLive do
         checkout_date: checkout_date,
         today: today,
         max_booking_date: max_booking_date,
+        current_season: current_season,
+        season_start_date: season_start_date,
+        season_end_date: season_end_date,
         selected_booking_mode: :day,
         guests_count: guests_count,
         max_guests: @max_guests,
@@ -129,7 +138,11 @@ defmodule YscWeb.ClearLakeBookingLive do
          guests_count != socket.assigns.guests_count ||
          tab_changed do
       today = Date.utc_today()
-      max_booking_date = Date.add(today, 45)
+
+      {current_season, season_start_date, season_end_date} =
+        SeasonHelpers.get_current_season_info(:clear_lake, today)
+
+      max_booking_date = SeasonHelpers.calculate_max_booking_date(:clear_lake, today)
 
       date_form =
         to_form(
@@ -148,6 +161,9 @@ defmodule YscWeb.ClearLakeBookingLive do
           checkout_date: checkout_date,
           today: today,
           max_booking_date: max_booking_date,
+          current_season: current_season,
+          season_start_date: season_start_date,
+          season_end_date: season_end_date,
           guests_count: guests_count,
           calculated_price: nil,
           price_error: nil,
@@ -283,6 +299,9 @@ defmodule YscWeb.ClearLakeBookingLive do
             </p>
             <p :if={@date_validation_errors[:advance_booking_limit]} class="text-red-600 text-sm mt-1">
               <%= @date_validation_errors[:advance_booking_limit] %>
+            </p>
+            <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm mt-1">
+              <%= @date_validation_errors[:season_date_range] %>
             </p>
           </div>
           <!-- Booking Mode Selection -->
@@ -1184,34 +1203,7 @@ defmodule YscWeb.ClearLakeBookingLive do
   defp parse_integer(_), do: nil
 
   defp calculate_price_if_ready(socket) do
-    if ready_for_price_calculation?(socket) do
-      case Bookings.calculate_booking_price(
-             socket.assigns.property,
-             socket.assigns.checkin_date,
-             socket.assigns.checkout_date,
-             socket.assigns.selected_booking_mode,
-             nil,
-             socket.assigns.guests_count
-           ) do
-        {:ok, price} ->
-          assign(socket, calculated_price: price, price_error: nil)
-
-        {:error, reason} ->
-          assign(socket,
-            calculated_price: nil,
-            price_error: "Unable to calculate price: #{inspect(reason)}"
-          )
-      end
-    else
-      assign(socket, calculated_price: nil, price_error: nil)
-    end
-  end
-
-  defp ready_for_price_calculation?(socket) do
-    socket.assigns.checkin_date &&
-      socket.assigns.checkout_date &&
-      (socket.assigns.selected_booking_mode == :buyout ||
-         (socket.assigns.selected_booking_mode == :day && socket.assigns.guests_count > 0))
+    PricingHelpers.calculate_price_if_ready(socket, :clear_lake)
   end
 
   defp can_submit_booking?(booking_mode, checkin_date, checkout_date, guests_count) do
@@ -1544,159 +1536,5 @@ defmodule YscWeb.ClearLakeBookingLive do
       end
 
     params
-  end
-
-  # Calculate max booking date based on current season and upcoming restricted seasons.
-  # If we're in a season with no limit, allow booking throughout that season.
-  # Limits only apply when approaching or entering a season with restrictions.
-  defp calculate_max_booking_date(today) do
-    # Get all seasons for the property
-    seasons = Bookings.list_seasons(:clear_lake)
-
-    # Find the current season
-    current_season = Season.for_date(:clear_lake, today)
-
-    if current_season do
-      # Check if current season has a limit
-      if has_advance_booking_limit?(current_season) do
-        # Current season has a limit - apply it
-        Date.add(today, current_season.advance_booking_days)
-      else
-        # Current season has no limit - allow booking throughout the season
-        # Find when the current season ends (could be this year or next year)
-        season_end = get_season_end_date(current_season, today)
-
-        # Now find the next season with a limit and calculate when that limit should start applying
-        next_restricted_season = find_next_season_with_limit(seasons, today, current_season)
-
-        if next_restricted_season do
-          # Find when that restricted season starts (next occurrence after today)
-          restricted_season_start = find_next_season_start_date(next_restricted_season, today)
-
-          # The limit applies X days before the restricted season starts
-          limit_start_date =
-            Date.add(restricted_season_start, -next_restricted_season.advance_booking_days)
-
-          # Return the later of: end of current season OR when the limit starts applying
-          max_date =
-            if Date.compare(season_end, limit_start_date) == :gt,
-              do: season_end,
-              else: limit_start_date
-
-          # But don't allow booking beyond today + limit if we're already past the limit start
-          if Date.compare(today, limit_start_date) == :gt do
-            # We're already past when the limit should start - apply the limit from today
-            Date.add(today, next_restricted_season.advance_booking_days)
-          else
-            max_date
-          end
-        else
-          # No upcoming restricted seasons - allow booking throughout current season
-          # and beyond (use a far future date as practical maximum)
-          Date.add(season_end, 365)
-        end
-      end
-    else
-      # No current season found - use default behavior (shouldn't happen in practice)
-      # Return a far future date as practical maximum
-      Date.add(today, 365 * 10)
-    end
-  end
-
-  # Check if a season has an advance booking limit
-  defp has_advance_booking_limit?(season) do
-    season.advance_booking_days != nil && season.advance_booking_days > 0
-  end
-
-  # Get the end date of a season for a given reference date
-  # Handles year-spanning seasons (e.g., Nov 1 - Apr 30)
-  defp get_season_end_date(season, reference_date) do
-    {ref_month, ref_day} = {reference_date.month, reference_date.day}
-    {start_month, _start_day} = {season.start_date.month, season.start_date.day}
-    {end_month, end_day} = {season.end_date.month, season.end_date.day}
-
-    # If season spans years (e.g., Nov to Apr)
-    if start_month > end_month do
-      # Check if we're before the end date in the current year
-      if {ref_month, ref_day} <= {end_month, end_day} do
-        # We're in the later part of the season (Jan-Apr), end is this year
-        Date.new!(reference_date.year, end_month, end_day)
-      else
-        # We're in the earlier part (Nov-Dec), end is next year
-        Date.new!(reference_date.year + 1, end_month, end_day)
-      end
-    else
-      # Same-year range - end is this year
-      Date.new!(reference_date.year, end_month, end_day)
-    end
-  end
-
-  # Find the next season (after current) that has an advance booking limit
-  defp find_next_season_with_limit(all_seasons, today, current_season) do
-    # Get all seasons except the current one
-    other_seasons = Enum.reject(all_seasons, &(&1.id == current_season.id))
-
-    # Find seasons with limits
-    restricted_seasons =
-      Enum.filter(other_seasons, &has_advance_booking_limit?/1)
-
-    if Enum.empty?(restricted_seasons) do
-      nil
-    else
-      # Find which restricted season comes next
-      # We need to check all occurrences of each season in the next few years
-      # and find the earliest one that's after today
-      restricted_seasons
-      |> Enum.flat_map(fn season ->
-        # Check this season in current year and next 2 years
-        Enum.map(0..2, fn year_offset ->
-          season_start = get_season_start_date_for_year(season, today.year + year_offset)
-          {season, season_start}
-        end)
-      end)
-      |> Enum.filter(fn {_season, start_date} ->
-        Date.compare(start_date, today) == :gt
-      end)
-      |> Enum.min_by(fn {_season, start_date} -> start_date end, fn -> nil end)
-      |> case do
-        nil -> nil
-        {season, _start_date} -> season
-      end
-    end
-  end
-
-  # Find the next occurrence of a season's start date after a given date
-  defp find_next_season_start_date(season, after_date) do
-    # Check current year and next few years to find the next occurrence
-    Enum.map(0..2, fn year_offset ->
-      get_season_start_date_for_year(season, after_date.year + year_offset)
-    end)
-    |> Enum.filter(fn start_date ->
-      Date.compare(start_date, after_date) == :gt
-    end)
-    |> Enum.min(fn -> nil end)
-    |> case do
-      nil ->
-        # Fallback: if no future occurrence found, use the next year
-        get_season_start_date_for_year(season, after_date.year + 1)
-
-      start_date ->
-        start_date
-    end
-  end
-
-  # Get the start date of a season for a specific year
-  defp get_season_start_date_for_year(season, year) do
-    {start_month, start_day} = {season.start_date.month, season.start_date.day}
-    {end_month, _end_day} = {season.end_date.month, season.end_date.day}
-
-    # If season spans years (e.g., Nov to Apr)
-    if start_month > end_month do
-      # Start is in the earlier year (e.g., Nov of year, Apr of year+1)
-      Date.new!(year, start_month, start_day)
-    else
-      # Same-year range - start is in the given year
-      Date.new!(year, start_month, start_day)
-    end
   end
 end

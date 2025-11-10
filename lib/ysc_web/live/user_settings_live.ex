@@ -227,18 +227,18 @@ defmodule YscWeb.UserSettingsLive do
               <.icon name="hero-wallet" class="w-5 h-5 me-2" /> Payments
             </.link>
           </li>
-          <%!-- <li>
+          <li>
             <.link
-              href="#"
+              navigate={~p"/users/notifications"}
               class={[
                 "inline-flex items-center px-4 py-3 rounded w-full",
                 @live_action == :notifications && "bg-blue-600 active text-zinc-100",
                 @live_action != :notifications && "hover:bg-zinc-100 hover:text-zinc-900"
               ]}
             >
-              <.icon name="hero-bell-alert" class="w-5 h-5 me-2" />Notifications
+              <.icon name="hero-bell-alert" class="w-5 h-5 me-2" /> Notifications
             </.link>
-          </li> --%>
+          </li>
         </ul>
 
         <div class="text-medium px-2 text-zinc-500 rounded w-full md:border-l md:border-1 md:border-zinc-100 md:pl-16">
@@ -666,6 +666,97 @@ defmodule YscWeb.UserSettingsLive do
             </div> --%>
           </div>
 
+          <div :if={@live_action == :notifications} class="space-y-6">
+            <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
+              <h2 class="text-zinc-900 font-bold text-xl">Notification Preferences</h2>
+              <p class="text-sm text-zinc-600">
+                Manage how you receive notifications from the YSC. You can control which types of emails you receive.
+              </p>
+
+              <.simple_form
+                for={@notification_form}
+                id="notification_form"
+                phx-submit="update_notifications"
+                phx-change="validate_notifications"
+              >
+                <div class="space-y-6">
+                  <!-- Account Notifications -->
+                  <div class="flex items-start space-x-3">
+                    <div class="flex items-center h-5 mt-1">
+                      <input
+                        type="hidden"
+                        name={@notification_form[:account_notifications].name}
+                        value="true"
+                      />
+                      <input
+                        type="checkbox"
+                        id={@notification_form[:account_notifications].id}
+                        name={@notification_form[:account_notifications].name}
+                        value="true"
+                        checked={true}
+                        disabled
+                        class="rounded opacity-50 text-zinc-800 cursor-not-allowed"
+                      />
+                    </div>
+                    <div class="flex-1">
+                      <label
+                        for={@notification_form[:account_notifications].id}
+                        class="text-sm font-medium text-zinc-900 cursor-not-allowed"
+                      >
+                        Account Updates
+                      </label>
+                      <p class="text-sm text-zinc-600">
+                        Important account-related notifications such as password changes, email confirmations, and security alerts. These cannot be disabled.
+                      </p>
+                    </div>
+                  </div>
+                  <!-- Newsletter Notifications -->
+                  <div class="flex items-start space-x-3">
+                    <div class="flex items-center h-5 mt-1">
+                      <.input
+                        field={@notification_form[:newsletter_notifications]}
+                        type="checkbox"
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-zinc-300 rounded"
+                      />
+                    </div>
+                    <div class="flex-1">
+                      <label
+                        for={@notification_form[:newsletter_notifications].id}
+                        class="text-sm font-medium text-zinc-900 cursor-pointer"
+                      >
+                        Newsletters
+                      </label>
+                      <p class="text-sm text-zinc-600">
+                        Receive our newsletter with updates about YSC events, news, and community highlights.
+                      </p>
+                    </div>
+                  </div>
+                  <!-- Event Notifications -->
+                  <div class="flex items-start space-x-3">
+                    <div class="flex items-center h-5 mt-1">
+                      <.input field={@notification_form[:event_notifications]} type="checkbox" />
+                    </div>
+                    <div class="flex-1">
+                      <label
+                        for={@notification_form[:event_notifications].id}
+                        class="text-sm font-medium text-zinc-900 cursor-pointer"
+                      >
+                        Event Updates
+                      </label>
+                      <p class="text-sm text-zinc-600">
+                        Receive emails when new events are published and reminders before events you're attending.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <:actions>
+                  <.button phx-disable-with="Saving...">Save Preferences</.button>
+                </:actions>
+              </.simple_form>
+            </div>
+          </div>
+
           <div :if={@live_action == :payments} class="space-y-6">
             <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
               <h2 class="text-zinc-900 font-bold text-xl">Payment History</h2>
@@ -789,6 +880,7 @@ defmodule YscWeb.UserSettingsLive do
     email_changeset = Accounts.change_user_email(user)
     password_changeset = Accounts.change_user_password(user)
     profile_changeset = Accounts.change_user_profile(user)
+    notification_changeset = Accounts.change_notification_preferences(user)
     live_action = socket.assigns[:live_action] || :edit
 
     # Ensure Stripe customer exists - create if missing or invalid
@@ -836,6 +928,7 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:profile_form, to_form(profile_changeset))
+      |> assign(:notification_form, to_form(notification_changeset))
       |> assign(
         :membership_form,
         to_form(%{"membership_type" => default_select(family_plan_active?)})
@@ -953,6 +1046,87 @@ defmodule YscWeb.UserSettingsLive do
 
       {:error, changeset} ->
         {:noreply, assign(socket, profile_form: to_form(changeset))}
+    end
+  end
+
+  def handle_event("validate_notifications", params, socket) do
+    %{"user" => user_params} = params
+
+    notification_form =
+      socket.assigns.current_user
+      |> Accounts.change_notification_preferences(user_params)
+      |> Map.put(:action, :validate)
+      |> to_form()
+
+    {:noreply, assign(socket, notification_form: notification_form)}
+  end
+
+  def handle_event("update_notifications", params, socket) do
+    %{"user" => user_params} = params
+    user = socket.assigns.current_user
+
+    # Ensure account_notifications is always true
+    user_params = Map.put(user_params, "account_notifications", "true")
+
+    # Check if newsletter preference changed
+    # Form sends "true" as string when checked, or missing when unchecked
+    old_newsletter_pref = user.newsletter_notifications
+
+    new_newsletter_pref =
+      user_params["newsletter_notifications"] == "true" ||
+        user_params["newsletter_notifications"] == true
+
+    case Accounts.update_notification_preferences(user, user_params) do
+      {:ok, updated_user} ->
+        # Sync with Mailpoet if newsletter preference changed
+        if old_newsletter_pref != new_newsletter_pref do
+          sync_mailpoet_subscription(updated_user, new_newsletter_pref)
+        end
+
+        notification_form =
+          Accounts.change_notification_preferences(updated_user, user_params) |> to_form()
+
+        {:noreply,
+         socket
+         |> assign(:user, updated_user)
+         |> assign(:notification_form, notification_form)
+         |> put_flash(:info, "Notification preferences updated successfully.")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, notification_form: to_form(changeset))}
+    end
+  end
+
+  defp sync_mailpoet_subscription(user, should_subscribe) do
+    # Subscribe or unsubscribe from Mailpoet asynchronously
+    # Failures are logged but don't affect preference update
+    action = if should_subscribe, do: "subscribe", else: "unsubscribe"
+
+    case %{"email" => user.email, "action" => action}
+         |> YscWeb.Workers.MailpoetSubscriber.new()
+         |> Oban.insert() do
+      {:ok, _job} ->
+        require Logger
+
+        Logger.info("Mailpoet subscription sync job enqueued",
+          user_id: user.id,
+          email: user.email,
+          action: action
+        )
+
+        :ok
+
+      {:error, changeset} ->
+        require Logger
+
+        Logger.warning("Failed to enqueue Mailpoet subscription sync job",
+          user_id: user.id,
+          email: user.email,
+          action: action,
+          errors: inspect(changeset.errors)
+        )
+
+        :ok
     end
   end
 

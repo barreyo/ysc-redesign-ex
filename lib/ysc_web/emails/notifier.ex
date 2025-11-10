@@ -35,6 +35,9 @@ defmodule YscWeb.Emails.Notifier do
   def schedule_email(recipient, idempotency_key, subject, template, variables, text_body, user_id) do
     require Logger
 
+    # Get category for this template
+    category = Ysc.Accounts.EmailCategories.get_category(template)
+
     job =
       %{
         recipient: recipient,
@@ -43,7 +46,8 @@ defmodule YscWeb.Emails.Notifier do
         template: template,
         params: variables,
         text_body: text_body,
-        user_id: user_id
+        user_id: user_id,
+        category: category
       }
       |> YscWeb.Workers.EmailNotifier.new()
 

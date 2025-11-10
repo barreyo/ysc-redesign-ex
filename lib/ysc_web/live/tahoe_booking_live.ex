@@ -3,6 +3,8 @@ defmodule YscWeb.TahoeBookingLive do
 
   alias Ysc.Bookings
   alias Ysc.Bookings.{Season, Booking, PricingRule}
+  alias Ysc.Bookings.SeasonHelpers
+  alias Ysc.Bookings.PricingHelpers
   alias Ysc.MoneyHelper
   alias Ysc.Accounts
   alias Ysc.Subscriptions
@@ -15,7 +17,11 @@ defmodule YscWeb.TahoeBookingLive do
     user = socket.assigns.current_user
 
     today = Date.utc_today()
-    max_booking_date = calculate_max_booking_date(today)
+
+    {current_season, season_start_date, season_end_date} =
+      SeasonHelpers.get_current_season_info(:tahoe, today)
+
+    max_booking_date = SeasonHelpers.calculate_max_booking_date(:tahoe, today)
 
     # Parse query parameters, handling malformed/double-encoded URLs
     parsed_params = parse_mount_params(params)
@@ -75,6 +81,9 @@ defmodule YscWeb.TahoeBookingLive do
         checkout_date: checkout_date,
         today: today,
         max_booking_date: max_booking_date,
+        current_season: current_season,
+        season_start_date: season_start_date,
+        season_end_date: season_end_date,
         selected_room_id: nil,
         selected_room_ids: [],
         selected_booking_mode: :room,
@@ -148,7 +157,11 @@ defmodule YscWeb.TahoeBookingLive do
          children_count != socket.assigns.children_count ||
          tab_changed do
       today = Date.utc_today()
-      max_booking_date = calculate_max_booking_date(today)
+
+      {current_season, season_start_date, season_end_date} =
+        SeasonHelpers.get_current_season_info(:tahoe, today)
+
+      max_booking_date = SeasonHelpers.calculate_max_booking_date(:tahoe, today)
 
       date_form =
         to_form(
@@ -167,6 +180,9 @@ defmodule YscWeb.TahoeBookingLive do
           checkout_date: checkout_date,
           today: today,
           max_booking_date: max_booking_date,
+          current_season: current_season,
+          season_start_date: season_start_date,
+          season_end_date: season_end_date,
           guests_count: guests_count,
           children_count: children_count,
           selected_room_id: nil,
@@ -534,6 +550,9 @@ defmodule YscWeb.TahoeBookingLive do
             </p>
             <p :if={@date_validation_errors[:season_booking_mode]} class="text-red-600 text-sm mt-1">
               <%= @date_validation_errors[:season_booking_mode] %>
+            </p>
+            <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm mt-1">
+              <%= @date_validation_errors[:season_date_range] %>
             </p>
           </div>
           <!-- Booking Mode Selection -->
@@ -2235,116 +2254,21 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   defp calculate_price_if_ready(socket) do
-    if ready_for_price_calculation?(socket) do
-      # Ensure guests_count and children_count are valid integers
-      guests_count = parse_guests_count(socket.assigns.guests_count)
-      children_count = parse_children_count(socket.assigns.children_count)
-
-      room_ids =
-        if can_select_multiple_rooms?(socket.assigns) do
-          socket.assigns.selected_room_ids
-        else
-          if socket.assigns.selected_room_id, do: [socket.assigns.selected_room_id], else: []
-        end
-
-      if socket.assigns.selected_booking_mode == :buyout do
-        # Buyout pricing
-        case Bookings.calculate_booking_price(
-               socket.assigns.property,
-               socket.assigns.checkin_date,
-               socket.assigns.checkout_date,
-               socket.assigns.selected_booking_mode,
-               nil,
-               guests_count,
-               children_count
-             ) do
-          {:ok, price, breakdown} ->
-            assign(socket,
-              calculated_price: price,
-              price_breakdown:
-                Map.merge(breakdown, %{
-                  guests_count: guests_count,
-                  children_count: children_count
-                }),
-              price_error: nil
-            )
-
-          {:ok, price} ->
-            assign(socket,
-              calculated_price: price,
-              price_breakdown: nil,
-              price_error: nil
-            )
-
-          {:error, reason} ->
-            assign(socket,
-              calculated_price: nil,
-              price_breakdown: nil,
-              price_error: "Unable to calculate price: #{inspect(reason)}"
-            )
-        end
-      else
-        # For multiple rooms, calculate price once for total guests (not per room)
-        # Use the first room to get pricing rules, but calculate for total guests
-        room_count = length(room_ids)
-
-        case Bookings.calculate_booking_price(
-               socket.assigns.property,
-               socket.assigns.checkin_date,
-               socket.assigns.checkout_date,
-               :room,
-               List.first(room_ids),
-               guests_count,
-               children_count,
-               nil,
-               true
-             ) do
-          {:ok, price, breakdown} ->
-            assign(socket,
-              calculated_price: price,
-              price_breakdown:
-                Map.merge(breakdown, %{
-                  room_count: room_count,
-                  guests_count: guests_count,
-                  children_count: children_count
-                }),
-              price_error: nil
-            )
-
-          {:ok, price} ->
-            assign(socket,
-              calculated_price: price,
-              price_breakdown: nil,
-              price_error: nil
-            )
-
-          {:error, reason} ->
-            assign(socket,
-              calculated_price: nil,
-              price_breakdown: nil,
-              price_error: "Unable to calculate price: #{inspect(reason)}"
-            )
-        end
-      end
-    else
-      assign(socket, calculated_price: nil, price_breakdown: nil, price_error: nil)
-    end
-  end
-
-  defp ready_for_price_calculation?(socket) do
-    socket.assigns.checkin_date &&
-      socket.assigns.checkout_date &&
-      (socket.assigns.selected_booking_mode == :buyout ||
-         (socket.assigns.selected_booking_mode == :room &&
-            (socket.assigns.selected_room_id ||
-               (can_select_multiple_rooms?(socket.assigns) &&
-                  length(socket.assigns.selected_room_ids) > 0))))
+    PricingHelpers.calculate_price_if_ready(socket, :tahoe,
+      parse_guests_fn: &parse_guests_count/1,
+      parse_children_fn: &parse_children_count/1,
+      can_select_multiple_rooms_fn: &can_select_multiple_rooms?/1
+    )
   end
 
   defp can_select_booking_mode?(checkin_date) do
+    # Check if the current season allows buyout mode
+    # This is called from the template, so we need to check the current season
+    # We'll pass the current_season through assigns or check it directly
     if checkin_date do
-      season = Season.for_date(:tahoe, checkin_date)
-      season && season.name == "Summer"
+      today = Date.utc_today()
+      current_season = Season.for_date(:tahoe, today)
+      current_season && current_season.name == "Summer"
     else
       false
     end
@@ -2719,10 +2643,10 @@ defmodule YscWeb.TahoeBookingLive do
 
   # Enforces season rules: Winter = room only, Summer = room or buyout
   defp enforce_season_booking_mode(socket) do
-    if socket.assigns.checkin_date do
-      season = Season.for_date(:tahoe, socket.assigns.checkin_date)
+    if socket.assigns.current_season do
+      season = socket.assigns.current_season
 
-      if season && season.name == "Winter" && socket.assigns.selected_booking_mode == :buyout do
+      if season.name == "Winter" && socket.assigns.selected_booking_mode == :buyout do
         # Winter season: force booking mode to room
         socket
         |> assign(
@@ -2746,6 +2670,7 @@ defmodule YscWeb.TahoeBookingLive do
     errors =
       if socket.assigns.checkin_date && socket.assigns.checkout_date do
         errors
+        |> validate_season_date_range(socket)
         |> validate_advance_booking_limit(
           socket.assigns.checkin_date,
           socket.assigns.checkout_date
@@ -2766,33 +2691,26 @@ defmodule YscWeb.TahoeBookingLive do
     assign(socket, date_validation_errors: errors)
   end
 
+  defp validate_season_date_range(errors, socket) do
+    checkin_date = socket.assigns.checkin_date
+    checkout_date = socket.assigns.checkout_date
+
+    validation_errors =
+      SeasonHelpers.validate_season_date_range(:tahoe, checkin_date, checkout_date)
+
+    if Map.has_key?(validation_errors, :season_date_range) do
+      Map.put(errors, :season_date_range, validation_errors.season_date_range)
+    else
+      errors
+    end
+  end
+
   defp validate_advance_booking_limit(errors, checkin_date, checkout_date) do
-    season = Season.for_date(:tahoe, checkin_date)
+    validation_errors =
+      SeasonHelpers.validate_advance_booking_limit(:tahoe, checkin_date, checkout_date)
 
-    # Only enforce limit if season exists and has advance_booking_days set
-    if season && season.advance_booking_days && season.advance_booking_days > 0 do
-      today = Date.utc_today()
-      max_booking_date = Date.add(today, season.advance_booking_days)
-
-      # Check if check-in date is more than the configured days out
-      if Date.compare(checkin_date, max_booking_date) == :gt do
-        Map.put(
-          errors,
-          :advance_booking_limit,
-          "Bookings can only be made up to #{season.advance_booking_days} days in advance. Maximum check-in date is #{Calendar.strftime(max_booking_date, "%B %d, %Y")}"
-        )
-      else
-        # Also check checkout date in case it extends beyond the limit
-        if Date.compare(checkout_date, max_booking_date) == :gt do
-          Map.put(
-            errors,
-            :advance_booking_limit,
-            "Bookings can only be made up to #{season.advance_booking_days} days in advance. Maximum check-out date is #{Calendar.strftime(max_booking_date, "%B %d, %Y")}"
-          )
-        else
-          errors
-        end
-      end
+    if Map.has_key?(validation_errors, :advance_booking_limit) do
+      Map.put(errors, :advance_booking_limit, validation_errors.advance_booking_limit)
     else
       errors
     end
@@ -2800,9 +2718,11 @@ defmodule YscWeb.TahoeBookingLive do
 
   defp validate_season_booking_mode(errors, socket) do
     if socket.assigns.checkin_date && socket.assigns.selected_booking_mode do
-      season = Season.for_date(:tahoe, socket.assigns.checkin_date)
+      # Use current season for validation
+      current_season = socket.assigns.current_season
 
-      if season && season.name == "Winter" && socket.assigns.selected_booking_mode == :buyout do
+      if current_season && current_season.name == "Winter" &&
+           socket.assigns.selected_booking_mode == :buyout do
         Map.put(
           errors,
           :season_booking_mode,
@@ -3272,32 +3192,6 @@ defmodule YscWeb.TahoeBookingLive do
       end
     else
       assign(socket, capacity_error: nil)
-    end
-  end
-
-  # Calculate max booking date based on the most restrictive season's configuration
-  # This ensures users can't select dates in restricted seasons (e.g., winter with 45-day limit)
-  # even when currently in an unrestricted season (e.g., summer with no limit)
-  defp calculate_max_booking_date(today) do
-    # Get all seasons for the property
-    seasons = Bookings.list_seasons(:tahoe)
-
-    # Find the most restrictive advance_booking_days limit
-    most_restrictive_limit =
-      seasons
-      |> Enum.filter(fn season ->
-        season.advance_booking_days && season.advance_booking_days > 0
-      end)
-      |> Enum.map(fn season -> season.advance_booking_days end)
-      |> Enum.min(fn -> nil end)
-
-    if most_restrictive_limit do
-      # Apply the most restrictive limit to prevent booking dates in restricted seasons
-      Date.add(today, most_restrictive_limit)
-    else
-      # No restrictions - return a far future date (effectively no limit)
-      # Using 10 years from now as a practical maximum
-      Date.add(today, 365 * 10)
     end
   end
 

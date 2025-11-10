@@ -1,7 +1,7 @@
 defmodule YscWeb.HomeLive do
   use YscWeb, :live_view
 
-  alias Ysc.{Accounts, Events, Subscriptions}
+  alias Ysc.{Accounts, Events, Subscriptions, Mailpoet}
   alias Ysc.Bookings.Booking
   import Ecto.Query
 
@@ -25,10 +25,18 @@ defmodule YscWeb.HomeLive do
           page_title: "Home",
           current_membership: current_membership,
           upcoming_tickets: upcoming_tickets,
-          future_bookings: future_bookings
+          future_bookings: future_bookings,
+          newsletter_email: "",
+          newsletter_submitted: false,
+          newsletter_error: nil
         )
       else
-        assign(socket, page_title: "Home")
+        assign(socket,
+          page_title: "Home",
+          newsletter_email: "",
+          newsletter_submitted: false,
+          newsletter_error: nil
+        )
       end
 
     {:ok, socket}
@@ -129,15 +137,27 @@ defmodule YscWeb.HomeLive do
               Sign up for our newsletter to receive updates about YSC and all the fun events we are arranging.
             </p>
 
-            <form class="py-2">
+            <form phx-submit="subscribe_newsletter" class="py-2">
               <input
-                class="px-3 py-2 block w-full border rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400 mb-4"
+                type="email"
                 name="email"
-                label="Email"
+                value={@newsletter_email}
+                class="px-3 py-2 block w-full border rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400 mb-4"
                 placeholder="Email address"
+                required
+                disabled={@newsletter_submitted}
               />
-              <.button>Let's keep in touch</.button>
-              <p class="not-prose text-sm italic text-zinc-500">
+              <p :if={@newsletter_error} class="text-sm text-red-600 mb-2">
+                <%= @newsletter_error %>
+              </p>
+              <div :if={@newsletter_submitted} class="flex items-center mb-2">
+                <.icon name="hero-check-circle" class="w-5 h-5 text-green-600 mr-2" />
+                <p class="text-sm text-green-600">
+                  Thank you for subscribing! Check your email to confirm.
+                </p>
+              </div>
+              <.button :if={!@newsletter_submitted} type="submit">Let's keep in touch</.button>
+              <p class="not-prose text-sm italic text-zinc-500 mt-2">
                 We don't spam! Read our
                 <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
                   privacy policy
@@ -559,6 +579,61 @@ defmodule YscWeb.HomeLive do
         now_date_only = DateTime.to_date(now)
         diff = Date.diff(event_date_only, now_date_only)
         max(0, diff)
+    end
+  end
+
+  @impl true
+  def handle_event("subscribe_newsletter", %{"email" => email}, socket) do
+    case Mailpoet.subscribe_email(email) do
+      {:ok, _response} ->
+        {:noreply,
+         socket
+         |> assign(
+           newsletter_email: email,
+           newsletter_submitted: true,
+           newsletter_error: nil
+         )
+         |> put_flash(:info, "Thank you for subscribing to our newsletter!")}
+
+      {:error, :invalid_email} ->
+        {:noreply,
+         socket
+         |> assign(
+           newsletter_email: email,
+           newsletter_error: "Please enter a valid email address."
+         )}
+
+      {:error, :mailpoet_api_url_not_configured} ->
+        {:noreply,
+         socket
+         |> assign(
+           newsletter_email: email,
+           newsletter_error: "Newsletter service is not configured. Please contact support."
+         )}
+
+      {:error, :mailpoet_api_key_not_configured} ->
+        {:noreply,
+         socket
+         |> assign(
+           newsletter_email: email,
+           newsletter_error: "Newsletter service is not configured. Please contact support."
+         )}
+
+      {:error, error_message} when is_binary(error_message) ->
+        {:noreply,
+         socket
+         |> assign(
+           newsletter_email: email,
+           newsletter_error: "Unable to subscribe at this time. Please try again later."
+         )}
+
+      {:error, _} ->
+        {:noreply,
+         socket
+         |> assign(
+           newsletter_email: email,
+           newsletter_error: "Unable to subscribe at this time. Please try again later."
+         )}
     end
   end
 end

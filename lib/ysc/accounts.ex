@@ -157,10 +157,33 @@ defmodule Ysc.Accounts do
          |> Repo.insert() do
       {:ok, user} ->
         Task.start(fn -> Ysc.Customers.create_stripe_customer(user) end)
+        subscribe_user_to_newsletter(user)
         {:ok, user}
 
       {:error, changeset} ->
         {:error, changeset}
+    end
+  end
+
+  defp subscribe_user_to_newsletter(user) do
+    # Subscribe user to Mailpoet newsletter asynchronously via Oban
+    # Failures are logged but don't affect user registration
+    case %{"email" => user.email}
+         |> YscWeb.Workers.MailpoetSubscriber.new()
+         |> Oban.insert() do
+      {:ok, _job} ->
+        :ok
+
+      {:error, changeset} ->
+        require Logger
+
+        Logger.warning("Failed to enqueue Mailpoet subscription job",
+          user_id: user.id,
+          email: user.email,
+          errors: inspect(changeset.errors)
+        )
+
+        :ok
     end
   end
 
@@ -327,6 +350,22 @@ defmodule Ysc.Accounts do
   def update_user_profile(user, attrs) do
     user
     |> User.profile_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for changing notification preferences.
+  """
+  def change_notification_preferences(user, attrs \\ %{}) do
+    User.notification_preferences_changeset(user, attrs)
+  end
+
+  @doc """
+  Updates the user notification preferences.
+  """
+  def update_notification_preferences(user, attrs) do
+    user
+    |> User.notification_preferences_changeset(attrs)
     |> Repo.update()
   end
 

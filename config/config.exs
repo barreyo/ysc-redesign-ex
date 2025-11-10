@@ -169,6 +169,17 @@ config :ysc,
     }
   ]
 
+# Mailpoet configuration
+# For production, set MAILPOET_API_URL and MAILPOET_API_KEY environment variables
+# The API URL should be your WordPress site URL + /wp-json/mailpoet/v1
+# Example: https://example.com/wp-json/mailpoet/v1
+mailpoet_list_id = System.get_env("MAILPOET_DEFAULT_LIST_ID")
+
+config :ysc, :mailpoet,
+  api_url: System.get_env("MAILPOET_API_URL"),
+  api_key: System.get_env("MAILPOET_API_KEY"),
+  default_list_id: if(mailpoet_list_id, do: String.to_integer(mailpoet_list_id), else: nil)
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

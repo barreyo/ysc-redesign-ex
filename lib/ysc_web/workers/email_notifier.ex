@@ -31,7 +31,8 @@ defmodule YscWeb.Workers.EmailNotifier do
         "template" => template,
         "params" => params,
         "text_body" => text_body,
-        "user_id" => user_id
+        "user_id" => user_id,
+        "category" => category
       } ->
         perform_with_args(
           job,
@@ -41,25 +42,55 @@ defmodule YscWeb.Workers.EmailNotifier do
           template,
           params,
           text_body,
-          user_id
+          user_id,
+          category
         )
 
       args ->
-        Logger.error("EmailNotifier job received invalid args",
-          job_id: job.id,
-          args: args,
-          expected_keys: [
-            "recipient",
-            "idempotency_key",
-            "subject",
-            "template",
-            "params",
-            "text_body",
-            "user_id"
-          ]
-        )
+        # Try to handle legacy jobs without category
+        case args do
+          %{
+            "recipient" => recipient,
+            "idempotency_key" => idempotency_key,
+            "subject" => subject,
+            "template" => template,
+            "params" => params,
+            "text_body" => text_body,
+            "user_id" => user_id
+          } ->
+            # Legacy job - get category from template
+            category = Ysc.Accounts.EmailCategories.get_category(template)
 
-        {:error, "Invalid job args: missing required fields"}
+            perform_with_args(
+              job,
+              recipient,
+              idempotency_key,
+              subject,
+              template,
+              params,
+              text_body,
+              user_id,
+              category
+            )
+
+          _ ->
+            Logger.error("EmailNotifier job received invalid args",
+              job_id: job.id,
+              args: args,
+              expected_keys: [
+                "recipient",
+                "idempotency_key",
+                "subject",
+                "template",
+                "params",
+                "text_body",
+                "user_id",
+                "category"
+              ]
+            )
+
+            {:error, "Invalid job args: missing required fields"}
+        end
     end
   end
 
@@ -71,7 +102,8 @@ defmodule YscWeb.Workers.EmailNotifier do
          template,
          params,
          text_body,
-         user_id
+         user_id,
+         category
        ) do
     Logger.info("EmailNotifier job started",
       job_id: job.id,
@@ -79,64 +111,107 @@ defmodule YscWeb.Workers.EmailNotifier do
       idempotency_key: idempotency_key,
       subject: subject,
       template: template,
-      user_id: user_id
+      user_id: user_id,
+      category: category
     )
 
-    try do
-      template_module = YscWeb.Emails.Notifier.get_template_module(template)
+    # Check user notification preferences if user_id is provided
+    should_send =
+      if user_id do
+        case Ysc.Repo.get(Ysc.Accounts.User, user_id) do
+          nil ->
+            Logger.warning("User not found for email notification",
+              user_id: user_id,
+              template: template
+            )
 
-      if template_module do
-        Logger.info("Template module found: #{inspect(template_module)}")
+            true
+
+          user ->
+            should_send = Ysc.Accounts.EmailCategories.should_send_email?(user, template)
+
+            if not should_send do
+              Logger.info("Email skipped due to user notification preferences",
+                user_id: user_id,
+                template: template,
+                category: category,
+                recipient: recipient
+              )
+            end
+
+            should_send
+        end
       else
-        Logger.error("Template module not found for template: #{template}")
-        raise "Template module not found for template: #{template}"
+        # No user_id - send email (e.g., board notifications)
+        true
       end
 
-      atomized_params = atomize_keys(params)
-      Logger.info("Atomized params: #{inspect(atomized_params)}")
+    if not should_send do
+      Logger.info("Email notification skipped",
+        job_id: job.id,
+        user_id: user_id,
+        template: template,
+        category: category
+      )
 
-      result =
-        YscWeb.Emails.Notifier.send_email_idempotent(
-          recipient,
-          idempotency_key,
-          subject,
-          template_module,
-          atomized_params,
-          text_body,
-          user_id
-        )
+      :ok
+    else
+      try do
+        template_module = YscWeb.Emails.Notifier.get_template_module(template)
 
-      case result do
-        {:ok, _email} ->
-          Logger.info("Email sent successfully",
-            job_id: job.id,
-            recipient: recipient,
-            idempotency_key: idempotency_key
+        if template_module do
+          Logger.info("Template module found: #{inspect(template_module)}")
+        else
+          Logger.error("Template module not found for template: #{template}")
+          raise "Template module not found for template: #{template}"
+        end
+
+        atomized_params = atomize_keys(params)
+        Logger.info("Atomized params: #{inspect(atomized_params)}")
+
+        result =
+          YscWeb.Emails.Notifier.send_email_idempotent(
+            recipient,
+            idempotency_key,
+            subject,
+            template_module,
+            atomized_params,
+            text_body,
+            user_id
           )
 
-          :ok
+        case result do
+          {:ok, _email} ->
+            Logger.info("Email sent successfully",
+              job_id: job.id,
+              recipient: recipient,
+              idempotency_key: idempotency_key
+            )
 
-        {:error, reason} ->
-          Logger.error("Failed to send email",
+            :ok
+
+          {:error, reason} ->
+            Logger.error("Failed to send email",
+              job_id: job.id,
+              recipient: recipient,
+              idempotency_key: idempotency_key,
+              error: reason
+            )
+
+            {:error, reason}
+        end
+      rescue
+        error ->
+          Logger.error("EmailNotifier job failed",
             job_id: job.id,
             recipient: recipient,
             idempotency_key: idempotency_key,
-            error: reason
+            error: error,
+            stacktrace: __STACKTRACE__
           )
 
-          {:error, reason}
+          {:error, error}
       end
-    rescue
-      error ->
-        Logger.error("EmailNotifier job failed",
-          job_id: job.id,
-          recipient: recipient,
-          idempotency_key: idempotency_key,
-          error: error,
-          stacktrace: __STACKTRACE__
-        )
-
-        {:error, error}
     end
   end
 

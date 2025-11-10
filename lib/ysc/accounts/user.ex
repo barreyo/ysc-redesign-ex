@@ -54,6 +54,11 @@ defmodule Ysc.Accounts.User do
 
     field :stripe_id, :string
 
+    # Notification preferences
+    field :newsletter_notifications, :boolean, default: true
+    field :event_notifications, :boolean, default: true
+    field :account_notifications, :boolean, default: true
+
     has_one :default_membership_payment_method, Ysc.Payments.PaymentMethod,
       foreign_key: :user_id,
       where: [is_default: true]
@@ -179,6 +184,18 @@ defmodule Ysc.Accounts.User do
     |> validate_length(:last_name, min: 1, max: 150)
     |> validate_required([:first_name, :last_name])
     |> validate_phone(opts)
+  end
+
+  @doc """
+  A user changeset for updating notification preferences.
+  """
+  def notification_preferences_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:newsletter_notifications, :event_notifications, :account_notifications])
+    |> validate_required([:account_notifications])
+    |> validate_inclusion(:account_notifications, [true],
+      message: "Account notifications cannot be disabled"
+    )
   end
 
   defp validate_phone(changeset, _opts) do
