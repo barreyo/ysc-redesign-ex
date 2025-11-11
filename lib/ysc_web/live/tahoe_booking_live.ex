@@ -42,7 +42,7 @@ defmodule YscWeb.TahoeBookingLive do
       )
 
     # Check if user can book
-    {can_book, booking_disabled_reason} = check_booking_eligibility(user)
+    {can_book, booking_error_title, booking_disabled_reason} = check_booking_eligibility(user)
 
     # Load active bookings for the user
     active_bookings = if user, do: get_active_bookings(user.id), else: []
@@ -105,6 +105,7 @@ defmodule YscWeb.TahoeBookingLive do
         membership_type: membership_type,
         active_tab: active_tab,
         can_book: can_book,
+        booking_error_title: booking_error_title,
         booking_disabled_reason: booking_disabled_reason,
         active_bookings: active_bookings,
         buyout_refund_policy: buyout_refund_policy,
@@ -140,7 +141,7 @@ defmodule YscWeb.TahoeBookingLive do
 
     # Check if user can book (re-check in case user state changed)
     user = socket.assigns.current_user
-    {can_book, booking_disabled_reason} = check_booking_eligibility(user)
+    {can_book, booking_error_title, booking_disabled_reason} = check_booking_eligibility(user)
 
     # Load active bookings for the user
     active_bookings = if user, do: get_active_bookings(user.id), else: []
@@ -202,6 +203,7 @@ defmodule YscWeb.TahoeBookingLive do
           date_validation_errors: %{},
           active_tab: active_tab,
           can_book: can_book,
+          booking_error_title: booking_error_title,
           booking_disabled_reason: booking_disabled_reason,
           active_bookings: active_bookings
         )
@@ -351,9 +353,11 @@ defmodule YscWeb.TahoeBookingLive do
               <.icon name="hero-exclamation-triangle-solid" class="h-5 w-5 text-amber-600" />
             </div>
             <div class="ms-2 flex-1">
-              <h3 class="text-sm font-semibold text-amber-900">Reservation Page Unavailable</h3>
+              <h3 :if={@booking_error_title} class="text-sm font-semibold text-amber-900">
+                <%= @booking_error_title %>
+              </h3>
               <div class="mt-2 text-sm text-amber-800">
-                <p><%= @booking_disabled_reason %></p>
+                <p><%= raw(@booking_disabled_reason) %></p>
               </div>
             </div>
           </div>
@@ -2908,6 +2912,7 @@ defmodule YscWeb.TahoeBookingLive do
   defp check_booking_eligibility(nil) do
     {
       false,
+      "Sign In Required",
       "You must be signed in to make a booking. Please sign in to continue."
     }
   end
@@ -2917,6 +2922,7 @@ defmodule YscWeb.TahoeBookingLive do
     if user.state != :active do
       {
         false,
+        "Membership Pending Approval",
         "Your membership application is pending approval. You will be able to make bookings once your application has been approved."
       }
     else
@@ -2935,7 +2941,7 @@ defmodule YscWeb.TahoeBookingLive do
         # Check if user has an active booking
         case get_active_booking(user.id) do
           nil ->
-            {true, nil}
+            {true, nil, nil}
 
           active_booking ->
             checkout_date = active_booking.checkout_date
@@ -2944,17 +2950,21 @@ defmodule YscWeb.TahoeBookingLive do
             # Check if booking is still active (checkout date is in the future, or today but checkout time hasn't passed)
             if Date.compare(checkout_date, today) == :gt or
                  (Date.compare(checkout_date, today) == :eq and not past_checkout_time?()) do
+              formatted_date = format_date(checkout_date)
+
               {
                 false,
-                "You can only have one active reservation at a time. Once your current reservation is complete (after checkout time on #{format_date(checkout_date)}) or cancelled, you can make another reservation."
+                "Looks like you already have a booking!",
+                "You can make a new reservation once your current stay is complete (after #{formatted_date}) or if you cancel your existing one."
               }
             else
-              {true, nil}
+              {true, nil, nil}
             end
         end
       else
         {
           false,
+          "Membership Required",
           "You need an active membership to make bookings. Please activate or renew your membership to continue."
         }
       end
