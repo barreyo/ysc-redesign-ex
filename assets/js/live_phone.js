@@ -70,6 +70,7 @@ class LivePhone {
 
   // Close the country list overlay
   closeOverlay() {
+    if (!this.isOpened) return
     this._dispatch("close")
   }
 

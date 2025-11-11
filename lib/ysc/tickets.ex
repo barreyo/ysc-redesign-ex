@@ -809,7 +809,12 @@ defmodule Ysc.Tickets do
 
   defp confirm_tickets(ticket_order) do
     # Query for tickets directly to avoid association loading issues
-    tickets = Repo.all(from t in Ticket, where: t.ticket_order_id == ^ticket_order.id)
+    # Only update tickets that are not already confirmed (idempotency)
+    tickets =
+      Repo.all(
+        from t in Ticket,
+          where: t.ticket_order_id == ^ticket_order.id and t.status != :confirmed
+      )
 
     tickets
     |> Enum.each(fn ticket ->

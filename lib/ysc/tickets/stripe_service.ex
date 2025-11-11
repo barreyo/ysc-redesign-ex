@@ -311,7 +311,9 @@ defmodule Ysc.Tickets.StripeService do
 
   @doc false
   defp confirm_tickets(tickets) do
+    # Only update tickets that are not already confirmed (idempotency)
     tickets
+    |> Enum.filter(fn ticket -> ticket.status != :confirmed end)
     |> Enum.each(fn ticket ->
       ticket
       |> Ysc.Events.Ticket.changeset(%{status: :confirmed})
