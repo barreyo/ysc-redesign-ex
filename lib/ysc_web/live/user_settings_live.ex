@@ -670,7 +670,7 @@ defmodule YscWeb.UserSettingsLive do
             <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
               <h2 class="text-zinc-900 font-bold text-xl">Notification Preferences</h2>
               <p class="text-sm text-zinc-600">
-                Manage how you receive notifications from the YSC. You can control which types of emails you receive.
+                Manage how you receive notifications from the YSC. You can control which types of notifications you receive via email or SMS.
               </p>
 
               <.simple_form
@@ -679,75 +679,133 @@ defmodule YscWeb.UserSettingsLive do
                 phx-submit="update_notifications"
                 phx-change="validate_notifications"
               >
-                <div class="space-y-6">
-                  <!-- Account Notifications -->
-                  <div class="flex items-start space-x-3">
-                    <div class="flex items-center h-5 mt-1">
-                      <input
-                        type="hidden"
-                        name={@notification_form[:account_notifications].name}
-                        value="true"
-                      />
-                      <input
-                        type="checkbox"
-                        id={@notification_form[:account_notifications].id}
-                        name={@notification_form[:account_notifications].name}
-                        value="true"
-                        checked={true}
-                        disabled
-                        class="rounded opacity-50 text-zinc-800 cursor-not-allowed"
-                      />
-                    </div>
-                    <div class="flex-1">
-                      <label
-                        for={@notification_form[:account_notifications].id}
-                        class="text-sm font-medium text-zinc-900 cursor-not-allowed"
-                      >
-                        Account Updates
-                      </label>
-                      <p class="text-sm text-zinc-600">
-                        Important account-related notifications such as password changes, email confirmations, and security alerts. These cannot be disabled.
-                      </p>
-                    </div>
-                  </div>
-                  <!-- Newsletter Notifications -->
-                  <div class="flex items-start space-x-3">
-                    <div class="flex items-center h-5 mt-1">
-                      <.input
-                        field={@notification_form[:newsletter_notifications]}
-                        type="checkbox"
-                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-zinc-300 rounded"
-                      />
-                    </div>
-                    <div class="flex-1">
-                      <label
-                        for={@notification_form[:newsletter_notifications].id}
-                        class="text-sm font-medium text-zinc-900 cursor-pointer"
-                      >
-                        Newsletters
-                      </label>
-                      <p class="text-sm text-zinc-600">
-                        Receive our newsletter with updates about YSC events, news, and community highlights.
-                      </p>
-                    </div>
-                  </div>
-                  <!-- Event Notifications -->
-                  <div class="flex items-start space-x-3">
-                    <div class="flex items-center h-5 mt-1">
-                      <.input field={@notification_form[:event_notifications]} type="checkbox" />
-                    </div>
-                    <div class="flex-1">
-                      <label
-                        for={@notification_form[:event_notifications].id}
-                        class="text-sm font-medium text-zinc-900 cursor-pointer"
-                      >
-                        Event Updates
-                      </label>
-                      <p class="text-sm text-zinc-600">
-                        Receive emails when new events are published and reminders before events you're attending.
-                      </p>
-                    </div>
-                  </div>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full divide-y divide-zinc-200">
+                    <thead class="bg-zinc-50">
+                      <tr>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider"
+                        >
+                          Category
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-center text-xs font-medium text-zinc-500 uppercase tracking-wider"
+                        >
+                          Email
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-center text-xs font-medium text-zinc-500 uppercase tracking-wider"
+                        >
+                          SMS
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-zinc-200">
+                      <!-- Newsletter Row -->
+                      <tr>
+                        <td class="px-6 py-4">
+                          <div>
+                            <div class="text-sm font-medium text-zinc-900">Newsletters</div>
+                            <div class="text-sm text-zinc-500 mt-1">
+                              Receive our newsletter with updates about YSC events, news, and community highlights.
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-6 py-4">
+                          <input
+                            type="hidden"
+                            name={@notification_form[:newsletter_notifications].name}
+                            value="false"
+                          />
+                          <.input
+                            field={@notification_form[:newsletter_notifications]}
+                            type="checkbox"
+                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-zinc-300 rounded"
+                          />
+                        </td>
+                        <td class="px-6 py-4">
+                          <span class="text-sm text-zinc-400">—</span>
+                        </td>
+                      </tr>
+                      <!-- Event Updates Row -->
+                      <tr>
+                        <td class="px-6 py-4">
+                          <div>
+                            <div class="text-sm font-medium text-zinc-900">Event Updates</div>
+                            <div class="text-sm text-zinc-500 mt-1">
+                              Receive notifications when new events are published and reminders before events you're attending.
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-6 py-4">
+                          <input
+                            type="hidden"
+                            name={@notification_form[:event_notifications].name}
+                            value="false"
+                          />
+                          <.input
+                            field={@notification_form[:event_notifications]}
+                            type="checkbox"
+                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-zinc-300 rounded"
+                          />
+                        </td>
+                        <td class="px-6 py-4">
+                          <input
+                            type="hidden"
+                            name={@notification_form[:event_notifications_sms].name}
+                            value="false"
+                          />
+                          <.input
+                            field={@notification_form[:event_notifications_sms]}
+                            type="checkbox"
+                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-zinc-300 rounded"
+                          />
+                        </td>
+                      </tr>
+                      <!-- Account Updates Row -->
+                      <tr>
+                        <td class="px-6 py-4">
+                          <div>
+                            <div class="text-sm font-medium text-zinc-900">Account Updates</div>
+                            <div class="text-sm text-zinc-500 mt-1">
+                              Important account-related notifications such as password changes, email confirmations, and security alerts.
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-6 py-4">
+                          <input
+                            type="hidden"
+                            name={@notification_form[:account_notifications].name}
+                            value="true"
+                          />
+                          <input
+                            type="checkbox"
+                            id={@notification_form[:account_notifications].id}
+                            name={@notification_form[:account_notifications].name}
+                            value="true"
+                            checked={true}
+                            disabled
+                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-zinc-300 rounded opacity-50 cursor-not-allowed"
+                          />
+                        </td>
+                        <td class="px-6 py-4">
+                          <input
+                            type="hidden"
+                            name={@notification_form[:account_notifications_sms].name}
+                            value="false"
+                          />
+                          <.input
+                            field={@notification_form[:account_notifications_sms]}
+                            type="checkbox"
+                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-zinc-300 rounded"
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
 
                 <:actions>
@@ -1068,17 +1126,21 @@ defmodule YscWeb.UserSettingsLive do
     # Ensure account_notifications is always true
     user_params = Map.put(user_params, "account_notifications", "true")
 
-    # Check if newsletter preference changed
-    # Form sends "true" as string when checked, or missing when unchecked
-    old_newsletter_pref = user.newsletter_notifications
+    # Helper function to convert form checkbox value to boolean
+    to_bool = fn
+      "true" -> true
+      true -> true
+      _ -> false
+    end
 
-    new_newsletter_pref =
-      user_params["newsletter_notifications"] == "true" ||
-        user_params["newsletter_notifications"] == true
+    # Check if newsletter preference changed
+    old_newsletter_pref = user.newsletter_notifications
 
     case Accounts.update_notification_preferences(user, user_params) do
       {:ok, updated_user} ->
         # Sync with Mailpoet if newsletter preference changed
+        new_newsletter_pref = to_bool.(user_params["newsletter_notifications"])
+
         if old_newsletter_pref != new_newsletter_pref do
           sync_mailpoet_subscription(updated_user, new_newsletter_pref)
         end

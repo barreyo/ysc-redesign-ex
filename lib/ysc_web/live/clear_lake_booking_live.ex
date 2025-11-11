@@ -279,6 +279,8 @@ defmodule YscWeb.ClearLakeBookingLive do
                   end_date_field={@date_form[:checkout_date]}
                   min={@today}
                   max={@max_booking_date}
+                  property={:clear_lake}
+                  today={@today}
                 />
               </div>
             </div>

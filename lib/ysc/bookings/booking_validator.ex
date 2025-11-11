@@ -92,27 +92,24 @@ defmodule Ysc.Bookings.BookingValidator do
   defp validate_booking_mode(changeset, _property), do: changeset
 
   # Validate advance booking limit based on season's configurable days
+  # Uses cross-season logic: checks the season for checkin_date and next season's limits
   defp validate_advance_booking_limit(changeset, property)
        when property in [:tahoe, :clear_lake] do
     checkin_date = Ecto.Changeset.get_field(changeset, :checkin_date)
+    checkout_date = Ecto.Changeset.get_field(changeset, :checkout_date)
 
-    if checkin_date do
-      season = Season.for_date(property, checkin_date)
+    if checkin_date && checkout_date do
+      alias Ysc.Bookings.SeasonHelpers
 
-      # Only enforce limit if season exists and has advance_booking_days set
-      if season && season.advance_booking_days && season.advance_booking_days > 0 do
-        today = Date.utc_today()
-        max_booking_date = Date.add(today, season.advance_booking_days)
+      validation_errors =
+        SeasonHelpers.validate_advance_booking_limit(property, checkin_date, checkout_date)
 
-        if Date.compare(checkin_date, max_booking_date) == :gt do
-          Ecto.Changeset.add_error(
-            changeset,
-            :checkin_date,
-            "Bookings can only be made up to #{season.advance_booking_days} days in advance. Maximum check-in date is #{Calendar.strftime(max_booking_date, "%B %d, %Y")}"
-          )
-        else
-          changeset
-        end
+      if Map.has_key?(validation_errors, :advance_booking_limit) do
+        Ecto.Changeset.add_error(
+          changeset,
+          :checkin_date,
+          validation_errors.advance_booking_limit
+        )
       else
         changeset
       end

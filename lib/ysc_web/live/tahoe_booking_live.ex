@@ -418,6 +418,8 @@ defmodule YscWeb.TahoeBookingLive do
               <!-- Date Selection -->
               <div class="md:col-span-1">
                 <.date_range_picker
+                  property={:tahoe}
+                  today={@today}
                   label="Check-in & Check-out Dates"
                   id="booking_date_range"
                   form={@date_form}
@@ -780,7 +782,7 @@ defmodule YscWeb.TahoeBookingLive do
 
                       <div
                         :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
-                        class="flex items-center gap-2 mb-3 text-xs text-zinc-500"
+                        class="flex items-center gap-2 mb-3 text-xs text-zinc-500 mt-auto"
                       >
                         <span :if={room.single_beds > 0} class="flex items-center gap-1">
                           <%= raw(bed_icon_svg(:single, "w-4 h-4")) %>
@@ -796,7 +798,7 @@ defmodule YscWeb.TahoeBookingLive do
                         </span>
                       </div>
 
-                      <div class="border-t border-zinc-200 pt-3 mt-auto">
+                      <div class="border-t border-zinc-200 pt-3">
                         <div class="text-sm text-zinc-900 font-medium">
                           <div :if={room.minimum_price}>
                             <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
@@ -892,7 +894,7 @@ defmodule YscWeb.TahoeBookingLive do
 
                       <div
                         :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
-                        class="flex items-center gap-2 mb-3 text-xs text-zinc-500"
+                        class="flex items-center gap-2 mb-3 text-xs text-zinc-500 mt-auto"
                       >
                         <span :if={room.single_beds > 0} class="flex items-center gap-1">
                           <%= raw(bed_icon_svg(:single, "w-4 h-4")) %>
@@ -908,7 +910,7 @@ defmodule YscWeb.TahoeBookingLive do
                         </span>
                       </div>
 
-                      <div class="border-t border-zinc-200 pt-3 mt-auto">
+                      <div class="border-t border-zinc-200 pt-3">
                         <div class="text-sm text-zinc-900 font-medium">
                           <div :if={room.minimum_price}>
                             <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
