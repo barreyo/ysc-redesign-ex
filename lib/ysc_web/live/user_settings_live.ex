@@ -788,7 +788,7 @@ defmodule YscWeb.UserSettingsLive do
                             value="true"
                             checked={true}
                             disabled
-                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-zinc-300 rounded opacity-50 cursor-not-allowed"
+                            class="h-4 w-4 text-zinc-600 focus:ring-blue-500 border-zinc-300 rounded opacity-50 cursor-not-allowed"
                           />
                         </td>
                         <td class="px-6 py-4">

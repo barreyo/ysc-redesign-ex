@@ -518,11 +518,9 @@ defmodule YscWeb.Components.DateRangePicker do
   end
 
   # Validate date selection based on booking rules
-  defp valid_date_selection?(socket, date) do
-    date_day = DateTime.to_date(date)
-
+  defp valid_date_selection?(socket, %Date{} = date) do
     # Check if date is after maximum (if max is set)
-    if socket.assigns[:max] && Date.compare(date_day, socket.assigns.max) == :gt do
+    if socket.assigns[:max] && Date.compare(date, socket.assigns.max) == :gt do
       false
     else
       # Check season restrictions if property is provided
@@ -531,17 +529,17 @@ defmodule YscWeb.Components.DateRangePicker do
 
         unless SeasonHelpers.is_date_selectable?(
                  socket.assigns[:property],
-                 date_day,
+                 date,
                  socket.assigns[:today]
                ) do
           false
         else
           # Continue with other checks
-          check_other_selection_rules(socket, date_day)
+          check_other_selection_rules(socket, date)
         end
       else
         # Continue with other checks
-        check_other_selection_rules(socket, date_day)
+        check_other_selection_rules(socket, date)
       end
     end
   end

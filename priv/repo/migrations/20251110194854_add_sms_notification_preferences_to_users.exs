@@ -3,8 +3,8 @@ defmodule Ysc.Repo.Migrations.AddSmsNotificationPreferencesToUsers do
 
   def up do
     alter table(:users) do
-      add :account_notifications_sms, :boolean, default: false, null: false
-      add :event_notifications_sms, :boolean, default: false, null: false
+      add :account_notifications_sms, :boolean, default: true, null: false
+      add :event_notifications_sms, :boolean, default: true, null: false
     end
   end
 
