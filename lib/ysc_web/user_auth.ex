@@ -356,6 +356,7 @@ defmodule YscWeb.UserAuth do
   defp not_approved_path(_conn), do: ~p"/pending-review"
 
   # Helper function to get the most expensive active membership
+  # Optimized to use preloaded subscriptions when available
   defp get_active_membership(user) do
     # Check for lifetime membership first (highest priority)
     if Accounts.has_lifetime_membership?(user) do
@@ -366,16 +367,23 @@ defmodule YscWeb.UserAuth do
         user_id: user.id
       }
     else
-      # Get all subscriptions for the user
-      subscriptions = Customers.subscriptions(user)
+      # Use preloaded subscriptions if available, otherwise fetch them
+      subscriptions =
+        case user.subscriptions do
+          %Ecto.Association.NotLoaded{} ->
+            # Fallback: fetch subscriptions if not preloaded
+            Customers.subscriptions(user)
+            |> Enum.filter(&Subscriptions.valid?/1)
 
-      # Filter for active subscriptions only
-      active_subscriptions =
-        Enum.filter(subscriptions, fn subscription ->
-          Subscriptions.valid?(subscription)
-        end)
+          subscriptions when is_list(subscriptions) ->
+            # Subscriptions are already preloaded and filtered (active only from get_user_by_session_token)
+            subscriptions
 
-      case active_subscriptions do
+          _ ->
+            []
+        end
+
+      case subscriptions do
         [] ->
           nil
 

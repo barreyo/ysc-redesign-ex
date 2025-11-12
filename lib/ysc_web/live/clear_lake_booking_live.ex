@@ -207,7 +207,7 @@ defmodule YscWeb.ClearLakeBookingLive do
         <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div class="flex items-start">
             <div class="flex-shrink-0">
-              <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-amber-600" />
+              <.icon name="hero-exclamation-triangle-solid" class="h-5 w-5 text-amber-600" />
             </div>
             <div class="ms-2 flex-1">
               <h3 class="text-sm font-semibold text-amber-900">Booking Not Available</h3>

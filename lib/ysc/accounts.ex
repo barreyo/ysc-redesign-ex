@@ -480,7 +480,28 @@ defmodule Ysc.Accounts do
   """
   def get_user_by_session_token(token) do
     {:ok, query} = UserToken.verify_session_token_query(token)
-    Repo.one(query)
+    user = Repo.one(query)
+
+    if user do
+      # Preload active subscriptions with subscription_items in a single optimized query
+      preload_active_subscriptions_for_auth(user)
+    else
+      nil
+    end
+  end
+
+  # Optimized preload that only fetches active subscriptions with subscription_items
+  # This reduces queries from 2+ (user + all subscriptions) to 1 (user + active subscriptions)
+  defp preload_active_subscriptions_for_auth(user) do
+    active_subscriptions =
+      from(s in Ysc.Subscriptions.Subscription,
+        where: s.user_id == ^user.id,
+        where: s.stripe_status in ["active", "trialing"],
+        preload: [:subscription_items]
+      )
+      |> Repo.all()
+
+    %{user | subscriptions: active_subscriptions}
   end
 
   @doc """

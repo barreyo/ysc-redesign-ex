@@ -18,10 +18,13 @@ defmodule YscWeb.TahoeBookingLive do
 
     today = Date.utc_today()
 
-    {current_season, season_start_date, season_end_date} =
-      SeasonHelpers.get_current_season_info(:tahoe, today)
+    # Load seasons once and cache them to avoid multiple queries
+    seasons = load_seasons_for_property(:tahoe)
 
-    max_booking_date = SeasonHelpers.calculate_max_booking_date(:tahoe, today)
+    {current_season, season_start_date, season_end_date} =
+      get_current_season_info_cached(seasons, today)
+
+    max_booking_date = calculate_max_booking_date_cached(seasons, today)
 
     # Parse query parameters, handling malformed/double-encoded URLs
     parsed_params = parse_mount_params(params)
@@ -88,6 +91,7 @@ defmodule YscWeb.TahoeBookingLive do
         current_season: current_season,
         season_start_date: season_start_date,
         season_end_date: season_end_date,
+        seasons: seasons,
         selected_room_id: nil,
         selected_room_ids: [],
         selected_booking_mode: :room,
@@ -164,11 +168,12 @@ defmodule YscWeb.TahoeBookingLive do
          children_count != socket.assigns.children_count ||
          tab_changed do
       today = Date.utc_today()
+      seasons = socket.assigns.seasons
 
       {current_season, season_start_date, season_end_date} =
-        SeasonHelpers.get_current_season_info(:tahoe, today)
+        get_current_season_info_cached(seasons, today)
 
-      max_booking_date = SeasonHelpers.calculate_max_booking_date(:tahoe, today)
+      max_booking_date = calculate_max_booking_date_cached(seasons, today)
 
       date_form =
         to_form(
@@ -587,7 +592,7 @@ defmodule YscWeb.TahoeBookingLive do
               </label>
               <label class={[
                 "flex items-center",
-                if(not can_select_booking_mode?(@checkin_date),
+                if(not can_select_booking_mode?(@seasons, @checkin_date),
                   do: "opacity-50 cursor-not-allowed",
                   else: ""
                 )
@@ -597,28 +602,34 @@ defmodule YscWeb.TahoeBookingLive do
                   name="booking_mode"
                   value="buyout"
                   checked={@selected_booking_mode == :buyout}
-                  disabled={not can_select_booking_mode?(@checkin_date)}
+                  disabled={not can_select_booking_mode?(@seasons, @checkin_date)}
                   phx-change="booking-mode-changed"
                   class={[
                     "mr-2",
-                    if(not can_select_booking_mode?(@checkin_date),
+                    if(not can_select_booking_mode?(@seasons, @checkin_date),
                       do: "cursor-not-allowed opacity-50",
                       else: ""
                     )
                   ]}
                   onclick={
-                    if(not can_select_booking_mode?(@checkin_date), do: "return false;", else: "")
+                    if(not can_select_booking_mode?(@seasons, @checkin_date),
+                      do: "return false;",
+                      else: ""
+                    )
                   }
                 />
                 <span class={
-                  if(not can_select_booking_mode?(@checkin_date), do: "text-zinc-400", else: "")
+                  if(not can_select_booking_mode?(@seasons, @checkin_date),
+                    do: "text-zinc-400",
+                    else: ""
+                  )
                 }>
                   Full Buyout
                 </span>
               </label>
             </div>
             <p
-              :if={not can_select_booking_mode?(@checkin_date)}
+              :if={not can_select_booking_mode?(@seasons, @checkin_date)}
               class="text-sm text-zinc-500 mt-2 ml-6"
             >
               Full buyout is only available during summer season.
@@ -1757,7 +1768,7 @@ defmodule YscWeb.TahoeBookingLive do
 
   def handle_event("booking-mode-changed", %{"booking_mode" => "buyout"}, socket) do
     # Prevent switching to buyout during winter season
-    if can_select_booking_mode?(socket.assigns.checkin_date) do
+    if can_select_booking_mode?(socket, socket.assigns.checkin_date) do
       socket =
         socket
         |> assign(
@@ -2250,7 +2261,9 @@ defmodule YscWeb.TahoeBookingLive do
           # Get adult price per person per night
           adult_price =
             if socket.assigns.checkin_date do
-              season = Season.for_date(socket.assigns.property, socket.assigns.checkin_date)
+              season =
+                Season.find_season_for_date(socket.assigns.seasons, socket.assigns.checkin_date)
+
               season_id = if season, do: season.id, else: nil
 
               # Try room-specific pricing first, then fall back to category pricing
@@ -2290,7 +2303,9 @@ defmodule YscWeb.TahoeBookingLive do
           # Falls back to $25 if no children pricing rule found
           children_price =
             if socket.assigns.checkin_date do
-              season = Season.for_date(socket.assigns.property, socket.assigns.checkin_date)
+              season =
+                Season.find_season_for_date(socket.assigns.seasons, socket.assigns.checkin_date)
+
               season_id = if season, do: season.id, else: nil
 
               children_pricing_rule =
@@ -2365,17 +2380,21 @@ defmodule YscWeb.TahoeBookingLive do
     )
   end
 
-  defp can_select_booking_mode?(checkin_date) do
+  # Helper function that works with seasons and checkin_date (for template usage)
+  defp can_select_booking_mode?(seasons, checkin_date) when is_list(seasons) do
     # Check if the current season allows buyout mode
-    # This is called from the template, so we need to check the current season
-    # We'll pass the current_season through assigns or check it directly
     if checkin_date do
       today = Date.utc_today()
-      current_season = Season.for_date(:tahoe, today)
+      current_season = Season.find_season_for_date(seasons, today)
       current_season && current_season.name == "Summer"
     else
       false
     end
+  end
+
+  # Helper function that works with socket (for code usage)
+  defp can_select_booking_mode?(socket, checkin_date) when is_struct(socket) do
+    can_select_booking_mode?(socket.assigns.seasons, checkin_date)
   end
 
   defp can_submit_booking?(
@@ -3385,6 +3404,116 @@ defmodule YscWeb.TahoeBookingLive do
       not is_nil(image.optimized_image_path) -> image.optimized_image_path
       not is_nil(image.raw_image_path) -> image.raw_image_path
       true -> "/images/ysc_logo.png"
+    end
+  end
+
+  # Season caching helpers to avoid multiple database queries
+
+  defp load_seasons_for_property(property) do
+    from(s in Season, where: s.property == ^property)
+    |> Repo.all()
+  end
+
+  defp get_current_season_info_cached(seasons, today) do
+    current_season = Season.find_season_for_date(seasons, today)
+
+    if current_season do
+      {season_start_date, season_end_date} =
+        SeasonHelpers.get_season_date_range(current_season, today)
+
+      {current_season, season_start_date, season_end_date}
+    else
+      {nil, nil, nil}
+    end
+  end
+
+  defp calculate_max_booking_date_cached(seasons, today) do
+    current_season = Season.find_season_for_date(seasons, today)
+
+    if current_season do
+      if current_season.advance_booking_days && current_season.advance_booking_days > 0 do
+        # Current season has a limit - apply it
+        Date.add(today, current_season.advance_booking_days)
+      else
+        # Current season has no limit - allow up to the end of current season
+        {_season_start, season_end} = SeasonHelpers.get_season_date_range(current_season, today)
+
+        # Also check if we can book into the next season (if it has a limit)
+        next_season = get_next_season_cached(seasons, today, current_season)
+
+        max_date = season_end
+
+        if next_season && next_season.advance_booking_days &&
+             next_season.advance_booking_days > 0 do
+          # Next season has a limit - we can book up to that limit
+          next_season_max = Date.add(today, next_season.advance_booking_days)
+          # Use the later of: end of current season or next season's limit
+          if Date.compare(next_season_max, max_date) == :gt do
+            next_season_max
+          else
+            max_date
+          end
+        else
+          max_date
+        end
+      end
+    else
+      # No current season found - use a conservative default
+      Date.add(today, 365)
+    end
+  end
+
+  defp get_next_season_cached(seasons, reference_date, current_season) do
+    if current_season && length(seasons) > 1 do
+      # Find the next season by calculating which one starts next
+      next_seasons =
+        seasons
+        |> Enum.filter(fn season -> season.id != current_season.id end)
+        |> Enum.map(fn season ->
+          {season, get_next_season_occurrence_start(season, reference_date)}
+        end)
+        |> Enum.filter(fn {_season, start_date} -> start_date != nil end)
+        |> Enum.sort_by(fn {_season, start_date} -> start_date end)
+
+      case next_seasons do
+        [{next_season, _start_date} | _] -> next_season
+        _ -> nil
+      end
+    else
+      nil
+    end
+  end
+
+  # Gets the next occurrence start date for a season after the reference date
+  defp get_next_season_occurrence_start(season, reference_date) do
+    {ref_month, ref_day} = {reference_date.month, reference_date.day}
+    {start_month, start_day} = {season.start_date.month, season.start_date.day}
+    {end_month, end_day} = {season.end_date.month, season.end_date.day}
+
+    cond do
+      # If season spans years (e.g., Nov to Apr)
+      start_month > end_month ->
+        # If we're before the end date, next start could be this year or next
+        if {ref_month, ref_day} <= {end_month, end_day} do
+          # We're in the later part (Jan-Apr), next start is this year
+          candidate = Date.new!(reference_date.year, start_month, start_day)
+
+          if Date.compare(candidate, reference_date) == :gt,
+            do: candidate,
+            else: Date.new!(reference_date.year + 1, start_month, start_day)
+        else
+          # We're in the earlier part (Nov-Dec), next start is next year
+          Date.new!(reference_date.year + 1, start_month, start_day)
+        end
+
+      # Same-year range
+      {ref_month, ref_day} < {start_month, start_day} ->
+        # Next start is this year
+        Date.new!(reference_date.year, start_month, start_day)
+
+      true ->
+        # Next start is next year
+        Date.new!(reference_date.year + 1, start_month, start_day)
     end
   end
 end

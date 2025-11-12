@@ -151,6 +151,24 @@ defmodule Ysc.Bookings.Season do
 
     seasons = Repo.all(query)
 
+    find_season_for_date(seasons, date)
+  end
+
+  @doc """
+  Finds the season that applies to a given date from a pre-loaded list of seasons.
+
+  This is an optimized version that avoids querying the database when seasons
+  are already loaded. Use this when you have a cached list of seasons.
+
+  ## Parameters
+  - `seasons`: A list of Season structs (already loaded from database)
+  - `date`: The date to check (Date struct)
+
+  ## Returns
+  - `%Season{}` if a matching season is found
+  - `nil` if no season matches
+  """
+  def find_season_for_date(seasons, date) when is_list(seasons) do
     Enum.find(seasons, fn season ->
       date_in_season?(date, season.start_date, season.end_date)
     end)
