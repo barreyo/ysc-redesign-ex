@@ -120,10 +120,16 @@ const StripeElements = {
         submitButton.textContent = 'Processing...';
 
         try {
+            // Get booking ID from data attribute for redirect URL
+            const bookingId = this.el.dataset.bookingId;
+            const returnUrl = bookingId ?
+                `${window.location.origin}/bookings/${bookingId}/receipt` :
+                `${window.location.origin}/payment/success`;
+
             const { error } = await this.stripe.confirmPayment({
                 elements: this.elements,
                 confirmParams: {
-                    return_url: `${window.location.origin}/payment/success`,
+                    return_url: returnUrl,
                 },
                 redirect: 'if_required'
             });

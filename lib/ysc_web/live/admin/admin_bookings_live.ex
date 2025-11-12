@@ -1218,7 +1218,23 @@ defmodule YscWeb.AdminBookingsLive do
                       <% end %>
                     </div>
                   <% else %>
-                    <.badge type="green">Full Buyout</.badge>
+                    <.badge type="green" class="whitespace-nowrap flex-shrink-0">Full Buyout</.badge>
+                  <% end %>
+                </:col>
+                <:col :let={{_, booking}} label="Status" field={:status}>
+                  <%= case booking.status do %>
+                    <% :draft -> %>
+                      <.badge type="dark" class="whitespace-nowrap flex-shrink-0">Draft</.badge>
+                    <% :hold -> %>
+                      <.badge type="yellow" class="whitespace-nowrap flex-shrink-0">Hold</.badge>
+                    <% :complete -> %>
+                      <.badge type="green" class="whitespace-nowrap flex-shrink-0">Complete</.badge>
+                    <% :refunded -> %>
+                      <.badge type="sky" class="whitespace-nowrap flex-shrink-0">Refunded</.badge>
+                    <% :canceled -> %>
+                      <.badge type="red" class="whitespace-nowrap flex-shrink-0">Canceled</.badge>
+                    <% _ -> %>
+                      <.badge type="dark" class="whitespace-nowrap flex-shrink-0">—</.badge>
                   <% end %>
                 </:col>
                 <:col :let={{_, booking}} label="Booked" field={:inserted_at}>

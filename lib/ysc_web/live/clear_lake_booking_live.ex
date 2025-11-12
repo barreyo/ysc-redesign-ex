@@ -2,7 +2,7 @@ defmodule YscWeb.ClearLakeBookingLive do
   use YscWeb, :live_view
 
   alias Ysc.Bookings
-  alias Ysc.Bookings.{Booking, SeasonHelpers, PricingHelpers}
+  alias Ysc.Bookings.{Booking, SeasonHelpers, PricingHelpers, BookingLocker}
   alias Ysc.MoneyHelper
   alias Ysc.Accounts
   alias Ysc.Subscriptions
@@ -1594,11 +1594,31 @@ defmodule YscWeb.ClearLakeBookingLive do
 
   def handle_event("create-booking", _params, socket) do
     case validate_and_create_booking(socket) do
-      {:ok, :created} ->
+      {:ok, booking} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Booking created successfully!")
-         |> push_navigate(to: ~p"/users/settings")}
+         |> push_navigate(to: ~p"/bookings/checkout/#{booking.id}")}
+
+      {:error, :insufficient_capacity} ->
+        {:noreply,
+         assign(socket,
+           form_errors: %{
+             general:
+               "Sorry, there is not enough capacity for your requested dates and number of guests."
+           },
+           calculated_price: socket.assigns.calculated_price,
+           availability_error: "Not enough capacity available"
+         )}
+
+      {:error, :property_unavailable} ->
+        {:noreply,
+         assign(socket,
+           form_errors: %{
+             general: "Sorry, the property is not available for your requested dates."
+           },
+           calculated_price: socket.assigns.calculated_price,
+           availability_error: "Property unavailable"
+         )}
 
       {:error, changeset} ->
         form_errors = format_errors(changeset)
@@ -1608,6 +1628,15 @@ defmodule YscWeb.ClearLakeBookingLive do
            form_errors: form_errors,
            calculated_price: nil,
            price_error: "Please fix the errors above"
+         )}
+
+      {:error, reason} when is_atom(reason) ->
+        error_message = format_booking_error(reason)
+
+        {:noreply,
+         assign(socket,
+           form_errors: %{general: error_message},
+           calculated_price: socket.assigns.calculated_price
          )}
     end
   end
@@ -1753,23 +1782,60 @@ defmodule YscWeb.ClearLakeBookingLive do
   end
 
   defp validate_and_create_booking(socket) do
-    attrs = %{
-      property: socket.assigns.property,
-      checkin_date: socket.assigns.checkin_date,
-      checkout_date: socket.assigns.checkout_date,
-      booking_mode: socket.assigns.selected_booking_mode,
-      room_id: nil,
-      guests_count: socket.assigns.guests_count,
-      user_id: socket.assigns.user.id
-    }
+    property = socket.assigns.property
+    checkin_date = socket.assigns.checkin_date
+    checkout_date = socket.assigns.checkout_date
+    booking_mode = socket.assigns.selected_booking_mode
+    guests_count = socket.assigns.guests_count
+    user_id = socket.assigns.user.id
 
-    changeset = Bookings.Booking.changeset(%Bookings.Booking{}, attrs, user: socket.assigns.user)
+    # Validate required fields
+    if is_nil(checkin_date) || is_nil(checkout_date) || is_nil(guests_count) || guests_count <= 0 do
+      {:error, :invalid_parameters}
+    else
+      # Use BookingLocker to create booking with inventory locking
+      case booking_mode do
+        :buyout ->
+          BookingLocker.create_buyout_booking(
+            user_id,
+            property,
+            checkin_date,
+            checkout_date,
+            guests_count
+          )
 
-    case Ysc.Repo.insert(changeset) do
-      {:ok, _booking} -> {:ok, :created}
-      {:error, changeset} -> {:error, changeset}
+        :day ->
+          BookingLocker.create_per_guest_booking(
+            user_id,
+            property,
+            checkin_date,
+            checkout_date,
+            guests_count
+          )
+
+        _ ->
+          {:error, :invalid_booking_mode}
+      end
     end
   end
+
+  defp format_booking_error(:insufficient_capacity),
+    do: "Sorry, there is not enough capacity for your requested dates and number of guests."
+
+  defp format_booking_error(:property_unavailable),
+    do: "Sorry, the property is not available for your requested dates."
+
+  defp format_booking_error(:rooms_already_booked),
+    do: "Sorry, some rooms are already booked for your requested dates."
+
+  defp format_booking_error(:invalid_parameters),
+    do: "Please fill in all required fields."
+
+  defp format_booking_error(:invalid_booking_mode),
+    do: "Invalid booking mode selected."
+
+  defp format_booking_error(_),
+    do: "An error occurred while creating your booking. Please try again."
 
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
@@ -2348,6 +2414,7 @@ defmodule YscWeb.ClearLakeBookingLive do
       from b in Booking,
         where: b.user_id == ^user_id,
         where: b.property == :clear_lake,
+        where: b.status == :complete,
         where: b.checkout_date >= ^today,
         order_by: [asc: b.checkin_date],
         limit: ^limit

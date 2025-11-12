@@ -494,6 +494,7 @@ defmodule YscWeb.HomeLive do
     query =
       from b in Booking,
         where: b.user_id == ^user_id,
+        where: b.status == :complete,
         where: b.checkout_date >= ^today,
         order_by: [asc: b.checkin_date],
         limit: ^limit,

@@ -79,7 +79,8 @@ config :ysc, Oban,
     {Oban.Plugins.Cron,
      crontab: [
        {"0 * * * *", YscWeb.Workers.FileExportCleanUp},
-       {"*/30 * * * *", Ysc.PropertyOutages.OutageScraperWorker}
+       {"*/30 * * * *", Ysc.PropertyOutages.OutageScraperWorker},
+       {"*/5 * * * *", Ysc.Bookings.HoldExpiryWorker}
      ]}
   ]
 

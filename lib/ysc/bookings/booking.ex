@@ -21,6 +21,7 @@ defmodule Ysc.Bookings.Booking do
       :guests_count,
       :property,
       :booking_mode,
+      :status,
       :inserted_at
     ],
     default_limit: 50,
@@ -65,6 +66,10 @@ defmodule Ysc.Bookings.Booking do
     field :children_count, :integer, default: 0
     field :property, Ysc.Bookings.BookingProperty
     field :booking_mode, Ysc.Bookings.BookingMode
+    field :status, Ysc.Bookings.BookingStatus, default: :draft
+    field :hold_expires_at, :utc_datetime
+    field :total_price, Money.Ecto.Composite.Type, default_currency: :USD
+    field :pricing_items, :map
     belongs_to :room, Ysc.Bookings.Room, foreign_key: :room_id, references: :id
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
 
@@ -97,6 +102,10 @@ defmodule Ysc.Bookings.Booking do
       :children_count,
       :property,
       :booking_mode,
+      :status,
+      :hold_expires_at,
+      :total_price,
+      :pricing_items,
       :room_id,
       :user_id
     ])

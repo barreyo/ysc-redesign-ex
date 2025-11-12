@@ -24,3 +24,18 @@ defmodule Ysc.Bookings.PriceUnit do
     type: :price_unit,
     enums: [:per_person_per_night, :per_guest_per_day, :buyout_fixed]
 end
+
+defmodule Ysc.Bookings.BookingStatus do
+  @moduledoc """
+  Booking status enum.
+
+  - draft: Initial state, not yet held
+  - hold: Inventory is held, waiting for payment
+  - complete: Payment received, booking confirmed
+  - refunded: Booking was refunded
+  - canceled: Booking was canceled
+  """
+  use EctoEnum,
+    type: :booking_status,
+    enums: [:draft, :hold, :complete, :refunded, :canceled]
+end

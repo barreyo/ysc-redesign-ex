@@ -3,7 +3,6 @@
 
 alias Ysc.Repo
 alias Ysc.Bookings.{RoomCategory, Season, Room, PricingRule, Booking, BookingValidator}
-alias Ysc.Bookings.BookingProperty
 alias Ysc.Accounts.User
 alias Money
 
@@ -422,6 +421,116 @@ IO.puts("Creating sample bookings...")
 
 import Ecto.Query
 
+# Helper function to calculate pricing and build pricing_items for a booking
+calculate_booking_pricing = fn booking_attrs ->
+  property = booking_attrs.property
+  checkin_date = booking_attrs.checkin_date
+  checkout_date = booking_attrs.checkout_date
+  booking_mode = booking_attrs.booking_mode
+  room_id = Map.get(booking_attrs, :room_id)
+  guests_count = booking_attrs.guests_count
+  children_count = Map.get(booking_attrs, :children_count, 0)
+
+  case Ysc.Bookings.calculate_booking_price(
+         property,
+         checkin_date,
+         checkout_date,
+         booking_mode,
+         room_id,
+         guests_count,
+         children_count
+       ) do
+    {:ok, total, breakdown} when is_map(breakdown) ->
+      # Handle room booking with breakdown
+      nights = Date.diff(checkout_date, checkin_date)
+
+      # Get room info if available
+      room_info = if room_id do
+        case Repo.get(Ysc.Bookings.Room, room_id) do
+          nil -> %{}
+          room -> %{"room_id" => room.id, "room_name" => room.name}
+        end
+      else
+        %{}
+      end
+
+      pricing_items = Map.merge(room_info, %{
+        "type" => "room",
+        "nights" => nights,
+        "guests_count" => guests_count,
+        "children_count" => children_count,
+        "total" => %{
+          "amount" => Decimal.to_string(total.amount),
+          "currency" => Atom.to_string(total.currency)
+        }
+      })
+
+      {total, pricing_items}
+
+    {:ok, total} ->
+      # Handle simple case (buyout, day)
+      nights = Date.diff(checkout_date, checkin_date)
+
+      pricing_items =
+        case booking_mode do
+          :buyout ->
+            price_per_night = if nights > 0, do: Money.div(total, nights) |> elem(1), else: total
+            %{
+              "type" => "buyout",
+              "nights" => nights,
+              "price_per_night" => %{
+                "amount" => Decimal.to_string(price_per_night.amount),
+                "currency" => Atom.to_string(price_per_night.currency)
+              },
+              "total" => %{
+                "amount" => Decimal.to_string(total.amount),
+                "currency" => Atom.to_string(total.currency)
+              }
+            }
+
+          :day ->
+            price_per_guest_per_night =
+              if nights > 0 and guests_count > 0 do
+                Money.div(total, nights * guests_count) |> elem(1)
+              else
+                Money.new(0, :USD)
+              end
+
+            %{
+              "type" => "per_guest",
+              "nights" => nights,
+              "guests_count" => guests_count,
+              "price_per_guest_per_night" => %{
+                "amount" => Decimal.to_string(price_per_guest_per_night.amount),
+                "currency" => Atom.to_string(price_per_guest_per_night.currency)
+              },
+              "total" => %{
+                "amount" => Decimal.to_string(total.amount),
+                "currency" => Atom.to_string(total.currency)
+              }
+            }
+
+          _ ->
+            # Fallback for room bookings that don't return breakdown
+            %{
+              "type" => "room",
+              "nights" => nights,
+              "guests_count" => guests_count,
+              "children_count" => children_count,
+              "total" => %{
+                "amount" => Decimal.to_string(total.amount),
+                "currency" => Atom.to_string(total.currency)
+              }
+            }
+        end
+
+      {total, pricing_items}
+
+    {:error, _reason} ->
+      {nil, nil}
+  end
+end
+
 # Get some users for bookings (need more for active + future bookings)
 users = Repo.all(from u in User, where: u.state == :active, limit: 10)
 
@@ -445,16 +554,25 @@ else
 
       user = Enum.at(users, 0)
       room = Enum.at(tahoe_rooms, 0)
+      guests_count = min(2, room.capacity_max || 4)
 
-      Booking.changeset(%Booking{}, %{
+      booking_attrs = %{
         checkin_date: checkin,
         checkout_date: checkout,
-        guests_count: min(2, room.capacity_max || 4),  # Respect room capacity
+        guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
         room_id: room.id,
         user_id: user.id
-      })
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }))
       |> BookingValidator.validate(user: user, skip_validation: true)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -466,16 +584,25 @@ else
 
       user = Enum.at(users, 1)
       room = Enum.at(tahoe_rooms, 1)
+      guests_count = min(2, room.capacity_max || 4)
 
-      Booking.changeset(%Booking{}, %{
+      booking_attrs = %{
         checkin_date: checkin,
         checkout_date: checkout,
-        guests_count: min(2, room.capacity_max || 4),
+        guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
         room_id: room.id,
         user_id: user.id
-      })
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }))
       |> BookingValidator.validate(user: user, skip_validation: true)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -487,16 +614,25 @@ else
 
       user = Enum.at(users, 2)
       room = Enum.at(tahoe_rooms, 2)
+      guests_count = min(3, room.capacity_max || 4)
 
-      Booking.changeset(%Booking{}, %{
+      booking_attrs = %{
         checkin_date: checkin,
         checkout_date: checkout,
-        guests_count: min(3, room.capacity_max || 4),
+        guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
         room_id: room.id,
         user_id: user.id
-      })
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }))
       |> BookingValidator.validate(user: user, skip_validation: true)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -508,16 +644,25 @@ else
 
       user = Enum.at(users, 3)
       room = Enum.at(tahoe_rooms, 3)
+      guests_count = min(2, room.capacity_max || 4)
 
-      Booking.changeset(%Booking{}, %{
+      booking_attrs = %{
         checkin_date: checkin,
         checkout_date: checkout,
-        guests_count: min(2, room.capacity_max || 4),  # Respect room capacity
+        guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
         room_id: room.id,
         user_id: user.id
-      })
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }))
       |> BookingValidator.validate(user: user)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -529,16 +674,25 @@ else
 
       user = Enum.at(users, 4)
       room = Enum.at(tahoe_rooms, 4)
+      guests_count = min(4, room.capacity_max || 4)
 
-      Booking.changeset(%Booking{}, %{
+      booking_attrs = %{
         checkin_date: checkin,
         checkout_date: checkout,
-        guests_count: min(4, room.capacity_max || 4),  # Respect room capacity
+        guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
         room_id: room.id,
         user_id: user.id
-      })
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }))
       |> BookingValidator.validate(user: user)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -552,15 +706,25 @@ else
       checkout1 = Date.add(checkin1, 2)  # 2 nights (checkin < checkout)
 
       user1 = Enum.at(users, 5)
-      Booking.changeset(%Booking{}, %{
+      guests_count1 = min(2, room.capacity_max || 4)
+
+      booking_attrs1 = %{
         checkin_date: checkin1,
         checkout_date: checkout1,
-        guests_count: min(2, room.capacity_max || 4),
+        guests_count: guests_count1,
         property: :tahoe,
         booking_mode: :room,
         room_id: room.id,
         user_id: user1.id
-      })
+      }
+
+      {total_price1, pricing_items1} = calculate_booking_pricing.(booking_attrs1)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs1, %{
+        status: :complete,
+        total_price: total_price1,
+        pricing_items: pricing_items1
+      }))
       |> Ysc.Bookings.BookingValidator.validate(user: user1)
       |> Repo.insert(on_conflict: :nothing)
 
@@ -569,15 +733,25 @@ else
       checkout2 = Date.add(checkin2, 3)  # 3 nights (checkin < checkout)
 
       user2 = Enum.at(users, 1)
-      Booking.changeset(%Booking{}, %{
+      guests_count2 = min(3, room.capacity_max || 4)
+
+      booking_attrs2 = %{
         checkin_date: checkin2,
         checkout_date: checkout2,
-        guests_count: min(3, room.capacity_max || 4),
+        guests_count: guests_count2,
         property: :tahoe,
         booking_mode: :room,
         room_id: room.id,
         user_id: user2.id
-      })
+      }
+
+      {total_price2, pricing_items2} = calculate_booking_pricing.(booking_attrs2)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs2, %{
+        status: :complete,
+        total_price: total_price2,
+        pricing_items: pricing_items2
+      }))
       |> Ysc.Bookings.BookingValidator.validate(user: user2)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -589,16 +763,25 @@ else
 
       user = Enum.at(users, 6)
       room = Enum.at(tahoe_rooms, 6)
+      guests_count = min(4, room.capacity_max || 4)
 
-      Booking.changeset(%Booking{}, %{
+      booking_attrs = %{
         checkin_date: checkin,
         checkout_date: checkout,
-        guests_count: min(4, room.capacity_max || 4),
+        guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
         room_id: room.id,
         user_id: user.id
-      })
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }))
       |> BookingValidator.validate(user: user)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -660,7 +843,7 @@ else
       # Use a user that doesn't have overlapping bookings (skip first 5 used for room bookings)
       tahoe_buyout_user = Enum.at(all_users, 5)
 
-      Booking.changeset(%Booking{}, %{
+      booking_attrs = %{
         checkin_date: tahoe_buyout_checkin,
         checkout_date: tahoe_buyout_checkout,
         guests_count: 8,  # Can be any number for buyouts
@@ -668,7 +851,15 @@ else
         booking_mode: :buyout,
         room_id: nil,  # Buyouts don't have a specific room
         user_id: tahoe_buyout_user.id
-      })
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }))
       |> BookingValidator.validate(user: tahoe_buyout_user)
       |> Repo.insert(on_conflict: :nothing)
 
@@ -708,7 +899,7 @@ else
           # Use a different user (skip first 5 used for room bookings)
           tahoe_weekend_user = Enum.at(all_users, 6)
 
-          Booking.changeset(%Booking{}, %{
+          booking_attrs = %{
             checkin_date: tahoe_weekend_checkin,
             checkout_date: tahoe_weekend_checkout,
             guests_count: 10,
@@ -716,7 +907,15 @@ else
             booking_mode: :buyout,
             room_id: nil,
             user_id: tahoe_weekend_user.id
-          })
+          }
+
+          {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+          Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+            status: :complete,
+            total_price: total_price,
+            pricing_items: pricing_items
+          }))
           |> BookingValidator.validate(user: tahoe_weekend_user)
           |> Repo.insert(on_conflict: :nothing)
         end
@@ -750,7 +949,7 @@ else
       # Use a different user (skip first 5 used for room bookings)
       tahoe_max_user = Enum.at(all_users, 7)
 
-      Booking.changeset(%Booking{}, %{
+      booking_attrs = %{
         checkin_date: tahoe_max_checkin,
         checkout_date: tahoe_max_checkout,
         guests_count: 12,
@@ -758,7 +957,15 @@ else
         booking_mode: :buyout,
         room_id: nil,
         user_id: tahoe_max_user.id
-      })
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }))
       |> BookingValidator.validate(user: tahoe_max_user)
       |> Repo.insert(on_conflict: :nothing)
 
@@ -769,7 +976,7 @@ else
       # Use a different user (skip first 5 used for room bookings)
       clear_lake_buyout_user = Enum.at(all_users, 5)
 
-      Booking.changeset(%Booking{}, %{
+      booking_attrs = %{
         checkin_date: clear_lake_buyout_checkin,
         checkout_date: clear_lake_buyout_checkout,
         guests_count: 15,  # Can exceed 12 since it's a buyout
@@ -777,7 +984,15 @@ else
         booking_mode: :buyout,
         room_id: nil,
         user_id: clear_lake_buyout_user.id
-      })
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }))
       |> BookingValidator.validate(user: clear_lake_buyout_user)
       |> Repo.insert(on_conflict: :nothing)
 
@@ -788,7 +1003,7 @@ else
       # Use a different user (skip first 5 used for room bookings)
       clear_lake_buyout2_user = Enum.at(all_users, 6)
 
-      Booking.changeset(%Booking{}, %{
+      booking_attrs = %{
         checkin_date: clear_lake_buyout2_checkin,
         checkout_date: clear_lake_buyout2_checkout,
         guests_count: 20,
@@ -796,7 +1011,15 @@ else
         booking_mode: :buyout,
         room_id: nil,
         user_id: clear_lake_buyout2_user.id
-      })
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }))
       |> BookingValidator.validate(user: clear_lake_buyout2_user)
       |> Repo.insert(on_conflict: :nothing)
 

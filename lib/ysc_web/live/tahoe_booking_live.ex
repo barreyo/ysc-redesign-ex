@@ -2,7 +2,7 @@ defmodule YscWeb.TahoeBookingLive do
   use YscWeb, :live_view
 
   alias Ysc.Bookings
-  alias Ysc.Bookings.{Season, Booking, PricingRule, Room}
+  alias Ysc.Bookings.{Season, Booking, PricingRule, Room, BookingLocker}
   alias Ysc.Bookings.SeasonHelpers
   alias Ysc.Bookings.PricingHelpers
   alias Ysc.MoneyHelper
@@ -2048,11 +2048,50 @@ defmodule YscWeb.TahoeBookingLive do
 
   def handle_event("create-booking", _params, socket) do
     case validate_and_create_booking(socket) do
-      {:ok, :created} ->
+      {:ok, booking} ->
+        # Redirect to checkout page for payment
         {:noreply,
          socket
-         |> put_flash(:info, "Booking created successfully!")
-         |> push_navigate(to: ~p"/users/settings")}
+         |> put_flash(:info, "Booking created! Please complete payment to confirm.")
+         |> push_navigate(to: ~p"/bookings/checkout/#{booking.id}")}
+
+      {:error, :insufficient_capacity} ->
+        {:noreply,
+         assign(socket,
+           form_errors: %{
+             general: "Sorry, there is not enough capacity for your requested dates."
+           },
+           calculated_price: nil,
+           price_error: "Insufficient capacity"
+         )}
+
+      {:error, :property_unavailable} ->
+        {:noreply,
+         assign(socket,
+           form_errors: %{
+             general: "Sorry, the property is not available for your requested dates."
+           },
+           calculated_price: nil,
+           price_error: "Property unavailable"
+         )}
+
+      {:error, :rooms_already_booked} ->
+        {:noreply,
+         assign(socket,
+           form_errors: %{
+             general: "Sorry, some rooms are already booked for your requested dates."
+           },
+           calculated_price: nil,
+           price_error: "Rooms unavailable"
+         )}
+
+      {:error, :invalid_parameters} ->
+        {:noreply,
+         assign(socket,
+           form_errors: %{general: "Please fill in all required fields."},
+           calculated_price: nil,
+           price_error: "Invalid parameters"
+         )}
 
       {:error, changeset} ->
         form_errors = format_errors(changeset)
@@ -2439,75 +2478,103 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   defp validate_and_create_booking(socket) do
-    # Determine which rooms to book
-    room_ids =
-      if can_select_multiple_rooms?(socket.assigns) do
-        socket.assigns.selected_room_ids
-      else
-        if socket.assigns.selected_room_id, do: [socket.assigns.selected_room_id], else: []
-      end
+    property = socket.assigns.property
+    checkin_date = socket.assigns.checkin_date
+    checkout_date = socket.assigns.checkout_date
+    booking_mode = socket.assigns.selected_booking_mode
+    guests_count = socket.assigns.guests_count
+    children_count = socket.assigns.children_count || 0
+    user_id = socket.assigns.user.id
 
-    # If buyout, create single booking
-    if socket.assigns.selected_booking_mode == :buyout do
-      attrs = %{
-        property: socket.assigns.property,
-        checkin_date: socket.assigns.checkin_date,
-        checkout_date: socket.assigns.checkout_date,
-        booking_mode: socket.assigns.selected_booking_mode,
-        room_id: nil,
-        guests_count: socket.assigns.guests_count,
-        children_count: socket.assigns.children_count,
-        user_id: socket.assigns.user.id
-      }
-
-      changeset =
-        Bookings.Booking.changeset(%Bookings.Booking{}, attrs, user: socket.assigns.user)
-
-      case Ysc.Repo.insert(changeset) do
-        {:ok, _booking} -> {:ok, :created}
-        {:error, changeset} -> {:error, changeset}
-      end
+    # Validate required fields
+    if is_nil(checkin_date) || is_nil(checkout_date) || is_nil(guests_count) || guests_count <= 0 do
+      {:error, :invalid_parameters}
     else
-      # Create multiple bookings atomically for multiple rooms
-      create_multiple_bookings(socket, room_ids)
+      case booking_mode do
+        :buyout ->
+          # Use BookingLocker for buyout booking with inventory locking
+          BookingLocker.create_buyout_booking(
+            user_id,
+            property,
+            checkin_date,
+            checkout_date,
+            guests_count
+          )
+
+        :room ->
+          # Determine which rooms to book
+          room_ids =
+            if can_select_multiple_rooms?(socket.assigns) do
+              socket.assigns.selected_room_ids
+            else
+              if socket.assigns.selected_room_id, do: [socket.assigns.selected_room_id], else: []
+            end
+
+          if length(room_ids) == 0 do
+            {:error, :invalid_parameters}
+          else
+            # Create room bookings using BookingLocker
+            # For multiple rooms, create them sequentially and return the first one for checkout
+            create_room_bookings_with_locking(
+              user_id,
+              property,
+              checkin_date,
+              checkout_date,
+              guests_count,
+              children_count,
+              room_ids
+            )
+          end
+
+        _ ->
+          {:error, :invalid_booking_mode}
+      end
     end
   end
 
-  defp create_multiple_bookings(socket, room_ids) do
-    Repo.transaction(fn ->
-      results =
-        Enum.map(room_ids, fn room_id ->
-          attrs = %{
-            property: socket.assigns.property,
-            checkin_date: socket.assigns.checkin_date,
-            checkout_date: socket.assigns.checkout_date,
-            booking_mode: :room,
-            room_id: room_id,
-            guests_count: socket.assigns.guests_count,
-            children_count: socket.assigns.children_count,
-            user_id: socket.assigns.user.id
-          }
+  defp create_room_bookings_with_locking(
+         user_id,
+         _property,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         children_count,
+         room_ids
+       ) do
+    # Create bookings for all rooms using BookingLocker
+    # This ensures proper inventory locking for each room
+    results =
+      Enum.reduce_while(room_ids, [], fn room_id, acc ->
+        case BookingLocker.create_room_booking(
+               user_id,
+               room_id,
+               checkin_date,
+               checkout_date,
+               guests_count,
+               children_count: children_count
+             ) do
+          {:ok, booking} ->
+            {:cont, [booking | acc]}
 
-          changeset =
-            Bookings.Booking.changeset(%Bookings.Booking{}, attrs, user: socket.assigns.user)
+          {:error, :room_already_booked} ->
+            {:halt, {:error, :rooms_already_booked}}
 
-          case Repo.insert(changeset) do
-            {:ok, booking} -> {:ok, booking}
-            {:error, changeset} -> Repo.rollback({:error, changeset})
-          end
-        end)
+          {:error, reason} ->
+            {:halt, {:error, reason}}
+        end
+      end)
 
-      # If all succeeded, return success
-      if Enum.all?(results, fn r -> match?({:ok, _}, r) end) do
-        :ok
-      else
-        Repo.rollback({:error, "Failed to create all bookings"})
-      end
-    end)
-    |> case do
-      {:ok, :ok} -> {:ok, :created}
-      {:error, changeset} -> {:error, changeset}
-      {:error, reason} -> {:error, %Ecto.Changeset{errors: [general: reason]}}
+    case results do
+      {:error, reason} ->
+        {:error, reason}
+
+      bookings when is_list(bookings) and length(bookings) > 0 ->
+        # Return the first booking for checkout
+        # Note: All bookings are created with :hold status and will need payment
+        {:ok, List.first(bookings)}
+
+      _ ->
+        {:error, :invalid_parameters}
     end
   end
 
@@ -3030,6 +3097,7 @@ defmodule YscWeb.TahoeBookingLive do
       from b in Booking,
         where: b.user_id == ^user_id,
         where: b.property == :tahoe,
+        where: b.status == :complete,
         where: b.checkout_date >= ^today,
         order_by: [asc: b.checkin_date],
         limit: ^limit,
