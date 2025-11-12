@@ -84,8 +84,8 @@ defmodule Ysc.Bookings.PricingHelpers do
       can_select_multiple_rooms_fn =
         Keyword.get(opts, :can_select_multiple_rooms_fn, fn _ -> false end)
 
-      guests_count = parse_guests_fn.(socket.assigns.guests_count || 1)
-      children_count = parse_children_fn.(socket.assigns.children_count || 0)
+      guests_count = parse_guests_fn.(Map.get(socket.assigns, :guests_count, 1))
+      children_count = parse_children_fn.(Map.get(socket.assigns, :children_count, 0))
 
       case socket.assigns.selected_booking_mode do
         :buyout ->

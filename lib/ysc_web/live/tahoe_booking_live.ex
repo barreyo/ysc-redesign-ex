@@ -2031,6 +2031,21 @@ defmodule YscWeb.TahoeBookingLive do
     {:noreply, socket}
   end
 
+  # Fallback handlers for cursor-move and cursor-leave events
+  # These events are handled by the DateRangePicker component, but we add
+  # these handlers as a safety measure in case events reach the parent LiveView
+  def handle_event("cursor-move", _date_str, socket) do
+    # These events should be handled by the DateRangePicker component
+    # Ignore them here to prevent crashes
+    {:noreply, socket}
+  end
+
+  def handle_event("cursor-leave", _params, socket) do
+    # These events should be handled by the DateRangePicker component
+    # Ignore them here to prevent crashes
+    {:noreply, socket}
+  end
+
   def handle_event("create-booking", _params, socket) do
     case validate_and_create_booking(socket) do
       {:ok, :created} ->
@@ -2890,8 +2905,18 @@ defmodule YscWeb.TahoeBookingLive do
   defp validate_max_nights(errors, checkin_date, checkout_date) do
     nights = Date.diff(checkout_date, checkin_date)
 
-    if nights > 4 do
-      Map.put(errors, :max_nights, "Maximum 4 nights allowed per booking")
+    # Get max nights from season for check-in date
+    max_nights =
+      if checkin_date do
+        season = Ysc.Bookings.Season.for_date(:tahoe, checkin_date)
+        Ysc.Bookings.Season.get_max_nights(season, :tahoe)
+      else
+        # Fallback to Tahoe default
+        4
+      end
+
+    if nights > max_nights do
+      Map.put(errors, :max_nights, "Maximum #{max_nights} nights allowed per booking")
     else
       errors
     end

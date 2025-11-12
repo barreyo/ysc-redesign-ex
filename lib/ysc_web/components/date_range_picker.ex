@@ -17,7 +17,7 @@ defmodule YscWeb.Components.DateRangePicker do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="date-range-picker">
+    <div id={Map.get(assigns, :id, @id)} class="date-range-picker" data-phx-component={@id}>
       <.input field={@start_date_field} type="hidden" />
       <.input :if={@is_range?} field={@end_date_field} type="hidden" />
       <div class="relative w-full lg:w-80" phx-click="open-calendar" phx-target={@myself}>
@@ -91,6 +91,8 @@ defmodule YscWeb.Components.DateRangePicker do
             id={"calendar_days_#{String.replace(@current.month, " ", "-")}"}
             class="isolate mt-2 grid grid-cols-7 gap-px text-sm"
             phx-hook="DaterangeHover"
+            phx-target={@myself}
+            data-component-id={@id}
           >
             <button
               :for={day <- Enum.flat_map(@current.week_rows, & &1)}
@@ -121,7 +123,17 @@ defmodule YscWeb.Components.DateRangePicker do
             </button>
           </div>
 
-          <div class="flex w-full justify-end mt-4">
+          <div class="flex w-full justify-end items-center mt-4 space-x-2">
+            <button
+              :if={@range_start || @range_end}
+              type="button"
+              phx-click="reset-dates"
+              phx-target={@myself}
+              class="inline-flex items-center px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              <.icon name="hero-x-mark" class="w-4 h-4 me-1" /> Reset
+            </button>
+            <div :if={!@range_start && !@range_end}></div>
             <.button type="button" phx-click="close-calendar" phx-target={@myself}>
               <%= select_button_text(@range_start, @range_end) %>
             </.button>
@@ -317,6 +329,51 @@ defmodule YscWeb.Components.DateRangePicker do
 
       {:noreply, socket |> assign(:hover_range_end, hover_range_end)}
     end
+  end
+
+  @impl true
+  def handle_event("cursor-leave", _params, socket) do
+    {:noreply, socket |> assign(:hover_range_end, nil)}
+  end
+
+  @impl true
+  def handle_event("reset-dates", _params, socket) do
+    # Clear both dates and reset state
+    attrs = %{
+      id: socket.assigns.id,
+      start_date: nil,
+      end_date: nil,
+      form: socket.assigns.form
+    }
+
+    send(self(), {:updated_event, attrs})
+
+    # Clear field values by setting them to empty strings
+    start_date_field =
+      if socket.assigns[:start_date_field] do
+        Map.put(socket.assigns.start_date_field, :value, "")
+      else
+        socket.assigns[:start_date_field]
+      end
+
+    end_date_field =
+      if socket.assigns[:end_date_field] do
+        Map.put(socket.assigns.end_date_field, :value, "")
+      else
+        socket.assigns[:end_date_field]
+      end
+
+    {
+      :noreply,
+      socket
+      |> assign(:calendar?, false)
+      |> assign(:range_start, nil)
+      |> assign(:range_end, nil)
+      |> assign(:hover_range_end, nil)
+      |> assign(:end_date_field, end_date_field)
+      |> assign(:start_date_field, start_date_field)
+      |> assign(:state, @initial_state)
+    }
   end
 
   defp end_value(assigns) when is_map_key(assigns, :end_date_field) do

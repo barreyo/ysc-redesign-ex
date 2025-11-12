@@ -1494,4 +1494,101 @@ defmodule Ysc.Bookings do
       {:error, :payment_not_found}
     end
   end
+
+  @doc """
+  Gets daily availability information for Clear Lake property.
+
+  Returns a map where keys are dates (as Date structs) and values are maps with:
+  - `day_bookings_count`: Number of guests already booked for day bookings
+  - `spots_available`: Number of spots remaining (12 - day_bookings_count)
+  - `has_buyout`: Whether there's a buyout booking on this date
+  - `is_blacked_out`: Whether the date is in a blackout period
+  - `can_book_day`: Whether day bookings are possible (not blacked out and spots available)
+  - `can_book_buyout`: Whether buyout is possible (not blacked out and no day bookings)
+
+  ## Parameters
+  - `start_date`: Start date of the range to check
+  - `end_date`: End date of the range to check
+
+  ## Returns
+  A map of dates to availability information.
+  """
+  def get_clear_lake_daily_availability(start_date, end_date) do
+    date_range = Date.range(start_date, end_date) |> Enum.to_list()
+
+    # Get all bookings that overlap with the date range
+    bookings = list_bookings(:clear_lake, start_date, end_date)
+
+    # Get all blackouts that overlap with the date range
+    blackouts = get_overlapping_blackouts(:clear_lake, start_date, end_date)
+
+    # Create a set of blacked out dates
+    blacked_out_dates =
+      blackouts
+      |> Enum.flat_map(fn blackout ->
+        Date.range(blackout.start_date, blackout.end_date) |> Enum.to_list()
+      end)
+      |> MapSet.new()
+
+    # Initialize availability map
+    availability =
+      date_range
+      |> Enum.map(fn date -> {date, %{day_bookings_count: 0, has_buyout: false}} end)
+      |> Map.new()
+
+    # Process bookings to count guests per day and check for buyouts
+    availability =
+      bookings
+      |> Enum.reduce(availability, fn booking, acc ->
+        booking_date_range =
+          Date.range(booking.checkin_date, booking.checkout_date) |> Enum.to_list()
+
+        booking_date_range
+        |> Enum.reduce(acc, fn date, date_acc ->
+          if Map.has_key?(date_acc, date) do
+            case booking.booking_mode do
+              :day ->
+                current_count = date_acc[date].day_bookings_count
+
+                Map.put(date_acc, date, %{
+                  date_acc[date]
+                  | day_bookings_count: current_count + booking.guests_count
+                })
+
+              :buyout ->
+                Map.put(date_acc, date, %{date_acc[date] | has_buyout: true})
+
+              _ ->
+                date_acc
+            end
+          else
+            date_acc
+          end
+        end)
+      end)
+
+    # Finalize availability information for each date
+    availability
+    |> Enum.map(fn {date, info} ->
+      is_blacked_out = MapSet.member?(blacked_out_dates, date)
+      spots_available = max(0, 12 - info.day_bookings_count)
+      can_book_day = not is_blacked_out and spots_available > 0 and not info.has_buyout
+
+      can_book_buyout =
+        not is_blacked_out and not info.has_buyout and info.day_bookings_count == 0
+
+      {
+        date,
+        %{
+          day_bookings_count: info.day_bookings_count,
+          spots_available: spots_available,
+          has_buyout: info.has_buyout,
+          is_blacked_out: is_blacked_out,
+          can_book_day: can_book_day,
+          can_book_buyout: can_book_buyout
+        }
+      }
+    end)
+    |> Map.new()
+  end
 end

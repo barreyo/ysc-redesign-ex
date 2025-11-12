@@ -41,6 +41,10 @@ defmodule Ysc.Bookings.Season do
     # nil or 0 means no limit, otherwise it's the number of days (e.g., 45)
     field :advance_booking_days, :integer, default: nil
 
+    # Maximum number of nights allowed for bookings in this season
+    # nil means use property default (4 for Tahoe, 30 for Clear Lake)
+    field :max_nights, :integer, default: nil
+
     # Relationships
     has_many :pricing_rules, Ysc.Bookings.PricingRule, foreign_key: :season_id
     has_many :rooms, Ysc.Bookings.Room, foreign_key: :default_season_id
@@ -60,9 +64,11 @@ defmodule Ysc.Bookings.Season do
       :start_date,
       :end_date,
       :is_default,
-      :advance_booking_days
+      :advance_booking_days,
+      :max_nights
     ])
     |> validate_number(:advance_booking_days, greater_than_or_equal_to: 0)
+    |> validate_number(:max_nights, greater_than: 0)
     |> validate_required([
       :name,
       :property,
@@ -186,6 +192,39 @@ defmodule Ysc.Bookings.Season do
   """
   def default_for_property(property) when is_atom(property) do
     Repo.get_by(__MODULE__, property: property, is_default: true)
+  end
+
+  @doc """
+  Gets the maximum number of nights allowed for a season or property.
+
+  If the season has a max_nights value, it's used. Otherwise, property defaults apply:
+  - Tahoe: 4 nights
+  - Clear Lake: 30 nights
+
+  ## Parameters
+  - `season`: A Season struct or nil
+  - `property`: The property (:tahoe or :clear_lake)
+
+  ## Returns
+  - Integer: Maximum number of nights allowed
+  """
+  def get_max_nights(nil, property) when property in [:tahoe, :clear_lake] do
+    case property do
+      :tahoe -> 4
+      :clear_lake -> 30
+    end
+  end
+
+  def get_max_nights(%__MODULE__{max_nights: nil} = season, _property) do
+    case season.property do
+      :tahoe -> 4
+      :clear_lake -> 30
+    end
+  end
+
+  def get_max_nights(%__MODULE__{max_nights: max_nights}, _property)
+      when is_integer(max_nights) do
+    max_nights
   end
 
   # Checks if a date falls within a recurring season pattern

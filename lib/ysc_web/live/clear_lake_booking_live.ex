@@ -2,18 +2,19 @@ defmodule YscWeb.ClearLakeBookingLive do
   use YscWeb, :live_view
 
   alias Ysc.Bookings
-  alias Ysc.Bookings.Season
-  alias Ysc.Bookings.SeasonHelpers
-  alias Ysc.Bookings.PricingHelpers
+  alias Ysc.Bookings.{Booking, SeasonHelpers, PricingHelpers}
   alias Ysc.MoneyHelper
   alias Ysc.Accounts
   alias Ysc.Subscriptions
+  alias Ysc.Repo
   require Logger
+  import Ecto.Query
 
   @max_guests 12
 
   @impl true
   def mount(params, _session, socket) do
+    Logger.debug("[ClearLakeBookingLive] mount called with params: #{inspect(params)}")
     user = socket.assigns.current_user
 
     today = Date.utc_today()
@@ -30,6 +31,7 @@ defmodule YscWeb.ClearLakeBookingLive do
     {checkin_date, checkout_date} = parse_dates_from_params(parsed_params)
     guests_count = parse_guests_from_params(parsed_params)
     requested_tab = parse_tab_from_params(parsed_params)
+    booking_mode = parse_booking_mode_from_params(parsed_params)
 
     date_form =
       to_form(
@@ -68,6 +70,13 @@ defmodule YscWeb.ClearLakeBookingLive do
         :none
       end
 
+    # Check which booking modes are allowed based on selected dates
+    {day_booking_allowed, buyout_booking_allowed} =
+      allowed_booking_modes(:clear_lake, checkin_date, checkout_date, current_season)
+
+    # Load active bookings for the user
+    active_bookings = if user_with_subs, do: get_active_bookings(user_with_subs.id), else: []
+
     socket =
       assign(socket,
         page_title: "Clear Lake Cabin",
@@ -80,11 +89,12 @@ defmodule YscWeb.ClearLakeBookingLive do
         current_season: current_season,
         season_start_date: season_start_date,
         season_end_date: season_end_date,
-        selected_booking_mode: :day,
+        selected_booking_mode: booking_mode,
         guests_count: guests_count,
         max_guests: @max_guests,
         calculated_price: nil,
         price_error: nil,
+        availability_error: nil,
         form_errors: %{},
         date_validation_errors: %{},
         date_form: date_form,
@@ -92,23 +102,39 @@ defmodule YscWeb.ClearLakeBookingLive do
         active_tab: active_tab,
         can_book: can_book,
         booking_disabled_reason: booking_disabled_reason,
+        day_booking_allowed: day_booking_allowed,
+        buyout_booking_allowed: buyout_booking_allowed,
+        active_bookings: active_bookings,
         load_radar: true
       )
 
-    # If dates are present and user can book, initialize validation and price calculation
+    # Validate all conditions (availability, booking mode, guests, etc.)
     socket =
-      if checkin_date && checkout_date && can_book do
-        socket
-        |> calculate_price_if_ready()
-      else
-        socket
-      end
+      socket
+      |> validate_all_conditions(
+        checkin_date,
+        checkout_date,
+        booking_mode,
+        guests_count,
+        current_season
+      )
+      |> then(fn s ->
+        # If dates are present and user can book, initialize price calculation
+        if checkin_date && checkout_date && can_book do
+          s
+          |> calculate_price_if_ready()
+        else
+          s
+        end
+      end)
 
     {:ok, socket}
   end
 
   @impl true
   def handle_params(params, uri, socket) do
+    Logger.debug("[ClearLakeBookingLive] handle_params called with params: #{inspect(params)}")
+
     # Parse query parameters, handling malformed/double-encoded URLs
     params = parse_query_params(params, uri)
 
@@ -116,10 +142,14 @@ defmodule YscWeb.ClearLakeBookingLive do
     {checkin_date, checkout_date} = parse_dates_from_params(params)
     guests_count = parse_guests_from_params(params)
     requested_tab = parse_tab_from_params(params)
+    booking_mode = parse_booking_mode_from_params(params)
 
     # Check if user can book (re-check in case user state changed)
     user = socket.assigns.current_user
     {can_book, booking_disabled_reason} = check_booking_eligibility(user)
+
+    # Load active bookings for the user
+    active_bookings = if user, do: get_active_bookings(user.id), else: []
 
     # If user can't book and requested booking tab, switch to information tab
     active_tab =
@@ -133,16 +163,58 @@ defmodule YscWeb.ClearLakeBookingLive do
     tab_changed = active_tab != socket.assigns.active_tab
 
     # Update if dates, guest counts, or tab have changed
-    if checkin_date != socket.assigns.checkin_date ||
-         checkout_date != socket.assigns.checkout_date ||
-         guests_count != socket.assigns.guests_count ||
-         tab_changed do
-      today = Date.utc_today()
+    # Use Date.compare for proper date comparison
+    dates_changed =
+      case {checkin_date, socket.assigns.checkin_date} do
+        {nil, nil} -> false
+        {nil, _} -> true
+        {_, nil} -> true
+        {c1, c2} -> Date.compare(c1, c2) != :eq
+      end ||
+        case {checkout_date, socket.assigns.checkout_date} do
+          {nil, nil} -> false
+          {nil, _} -> true
+          {_, nil} -> true
+          {c1, c2} -> Date.compare(c1, c2) != :eq
+        end
 
-      {current_season, season_start_date, season_end_date} =
-        SeasonHelpers.get_current_season_info(:clear_lake, today)
+    guests_changed = guests_count != socket.assigns.guests_count
+    booking_mode_changed = booking_mode != socket.assigns.selected_booking_mode
 
-      max_booking_date = SeasonHelpers.calculate_max_booking_date(:clear_lake, today)
+    # Also check if can_book or booking_disabled_reason changed
+    can_book_changed =
+      can_book != socket.assigns.can_book ||
+        booking_disabled_reason != socket.assigns.booking_disabled_reason
+
+    # Only update if something actually changed
+    # This prevents unnecessary updates on initial page load when mount already set everything
+    Logger.debug(
+      "[ClearLakeBookingLive] handle_params change check - dates: #{dates_changed}, guests: #{guests_changed}, tab: #{tab_changed}, booking_mode: #{booking_mode_changed}, can_book: #{can_book_changed}"
+    )
+
+    if dates_changed || guests_changed || tab_changed || booking_mode_changed || can_book_changed do
+      Logger.debug("[ClearLakeBookingLive] handle_params: Updating socket")
+      # Only recalculate today and max_booking_date if dates changed
+      # This prevents unnecessary component updates
+      {today, max_booking_date, current_season, season_start_date, season_end_date} =
+        if dates_changed do
+          today = Date.utc_today()
+
+          {current_season, season_start_date, season_end_date} =
+            SeasonHelpers.get_current_season_info(:clear_lake, today)
+
+          max_booking_date = SeasonHelpers.calculate_max_booking_date(:clear_lake, today)
+
+          {today, max_booking_date, current_season, season_start_date, season_end_date}
+        else
+          {
+            socket.assigns.today,
+            socket.assigns.max_booking_date,
+            socket.assigns.current_season,
+            socket.assigns.season_start_date,
+            socket.assigns.season_end_date
+          }
+        end
 
       date_form =
         to_form(
@@ -153,6 +225,12 @@ defmodule YscWeb.ClearLakeBookingLive do
           as: "booking_dates"
         )
 
+      # Check which booking modes are allowed based on selected dates
+      {day_booking_allowed, buyout_booking_allowed} =
+        allowed_booking_modes(:clear_lake, checkin_date, checkout_date, current_season)
+
+      # Validate all conditions (availability, booking mode, guests, etc.)
+      # This ensures URL parameters are validated even if user manipulates them
       socket =
         socket
         |> assign(
@@ -165,29 +243,55 @@ defmodule YscWeb.ClearLakeBookingLive do
           season_start_date: season_start_date,
           season_end_date: season_end_date,
           guests_count: guests_count,
+          selected_booking_mode: booking_mode,
           calculated_price: nil,
           price_error: nil,
+          availability_error: nil,
           form_errors: %{},
           date_form: date_form,
           date_validation_errors: %{},
           active_tab: active_tab,
           can_book: can_book,
-          booking_disabled_reason: booking_disabled_reason
+          booking_disabled_reason: booking_disabled_reason,
+          day_booking_allowed: day_booking_allowed,
+          buyout_booking_allowed: buyout_booking_allowed,
+          active_bookings: active_bookings
+        )
+        |> validate_all_conditions(
+          checkin_date,
+          checkout_date,
+          booking_mode,
+          guests_count,
+          current_season
         )
         |> then(fn s ->
-          # Only run price calculation if dates changed, not just tab
-          if checkin_date != socket.assigns.checkin_date ||
-               checkout_date != socket.assigns.checkout_date ||
-               guests_count != socket.assigns.guests_count do
-            s
-            |> calculate_price_if_ready()
-          else
-            s
-          end
+          # Update date form with validated/corrected dates
+          validated_date_form =
+            to_form(
+              %{
+                "checkin_date" => date_to_datetime_string(s.assigns.checkin_date),
+                "checkout_date" => date_to_datetime_string(s.assigns.checkout_date)
+              },
+              as: "booking_dates"
+            )
+
+          s
+          |> assign(:date_form, validated_date_form)
+          |> then(fn updated_s ->
+            # Only run price calculation if dates, guests, or booking mode changed, not just tab
+            if dates_changed || guests_changed || booking_mode_changed do
+              updated_s
+              |> calculate_price_if_ready()
+            else
+              updated_s
+            end
+          end)
         end)
 
+      Logger.debug("[ClearLakeBookingLive] handle_params: Update complete")
       {:noreply, socket}
     else
+      Logger.debug("[ClearLakeBookingLive] handle_params: No changes, skipping update")
       {:noreply, socket}
     end
   end
@@ -202,6 +306,76 @@ defmodule YscWeb.ClearLakeBookingLive do
           <p>
             Select your dates and number of guests to make a reservation at our Clear Lake cabin.
           </p>
+        </div>
+        <!-- Active Bookings List -->
+        <div :if={@user && length(@active_bookings) > 0} class="mb-6">
+          <div class="flex items-start">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-zinc-900 mb-3">Your Active Bookings</h3>
+              <div class="space-y-3">
+                <%= for booking <- @active_bookings do %>
+                  <div class="bg-white rounded-md p-3 border border-zinc-200">
+                    <div class="flex items-start justify-between">
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1 pb-1">
+                          <.badge>
+                            <%= booking.reference_id %>
+                          </.badge>
+                          <span class="text-sm text-zinc-600 font-medium">
+                            <%= if booking.booking_mode == :buyout do
+                              "Full Buyout"
+                            else
+                              "A La Carte"
+                            end %>
+                          </span>
+                        </div>
+                        <div class="text-sm text-zinc-600">
+                          <div class="flex items-center gap-4">
+                            <span>
+                              <span class="font-medium">Check-in:</span> <%= Calendar.strftime(
+                                booking.checkin_date,
+                                "%B %d, %Y"
+                              ) %>
+                            </span>
+                            <span>
+                              <span class="font-medium">Check-out:</span> <%= Calendar.strftime(
+                                booking.checkout_date,
+                                "%B %d, %Y"
+                              ) %>
+                            </span>
+                          </div>
+                          <div class="mt-1">
+                            <%= booking.guests_count %> <%= if booking.guests_count == 1,
+                              do: "guest",
+                              else: "guests" %>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="ml-4">
+                        <span
+                          :if={Date.compare(booking.checkin_date, @today) == :eq}
+                          class="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded"
+                        >
+                          Today
+                        </span>
+                        <span
+                          :if={Date.compare(booking.checkin_date, @today) == :gt}
+                          class="text-xs text-zinc-500"
+                        >
+                          <%= Date.diff(booking.checkin_date, @today) %> <%= if Date.diff(
+                                                                                  booking.checkin_date,
+                                                                                  @today
+                                                                                ) == 1,
+                                                                                do: "day",
+                                                                                else: "days" %> until check-in
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          </div>
         </div>
         <!-- Booking Eligibility Banner -->
         <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded-lg p-4">
@@ -267,21 +441,124 @@ defmodule YscWeb.ClearLakeBookingLive do
             class="absolute inset-0 bg-white bg-opacity-50 rounded-lg pointer-events-none z-10"
           >
           </div>
-          <!-- Date Selection -->
+          <!-- Booking Mode Selection -->
+          <div>
+            <label class="block text-lg font-semibold text-zinc-700 mb-2">
+              Booking Type
+            </label>
+            <form phx-change="booking-mode-changed">
+              <div class="flex gap-4">
+                <label class={[
+                  "flex items-center",
+                  if(!@day_booking_allowed, do: "opacity-50 cursor-not-allowed", else: "")
+                ]}>
+                  <input
+                    type="radio"
+                    name="booking_mode"
+                    value="day"
+                    checked={@selected_booking_mode == :day}
+                    disabled={!@day_booking_allowed}
+                    class="mr-2"
+                  />
+                  <span>A La Carte (Shared Stay)</span>
+                </label>
+                <label class={[
+                  "flex items-center",
+                  if(!@buyout_booking_allowed, do: "opacity-50 cursor-not-allowed", else: "")
+                ]}>
+                  <input
+                    type="radio"
+                    name="booking_mode"
+                    value="buyout"
+                    checked={@selected_booking_mode == :buyout}
+                    disabled={!@buyout_booking_allowed}
+                    class="mr-2"
+                  />
+                  <span>Full Buyout (Exclusive Rental)</span>
+                </label>
+              </div>
+            </form>
+            <div class="mt-3">
+              <p class="text-sm text-zinc-600">
+                <span :if={@selected_booking_mode == :day && @day_booking_allowed}>
+                  <strong>A La Carte (Shared Stay)</strong>
+                  — Book individual spots for up to 12 guests per day. You'll share the cabin with other guests. Perfect for smaller groups!
+                </span>
+                <span :if={@selected_booking_mode == :buyout && @buyout_booking_allowed}>
+                  <strong>Full Buyout (Exclusive Rental)</strong>
+                  — Reserve the entire cabin exclusively for your group. You'll have the entire cabin to yourself. Perfect for larger groups or special occasions!
+                </span>
+                <span
+                  :if={
+                    !@day_booking_allowed && !@buyout_booking_allowed &&
+                      (@checkin_date || @checkout_date)
+                  }
+                  class="text-amber-600 font-medium"
+                >
+                  Please select dates to see available booking options for your selected period.
+                </span>
+                <span
+                  :if={!@day_booking_allowed && @selected_booking_mode == :day && @checkin_date}
+                  class="text-amber-600 font-medium"
+                >
+                  A La Carte bookings are not available for the selected dates based on season settings.
+                </span>
+                <span
+                  :if={!@buyout_booking_allowed && @selected_booking_mode == :buyout && @checkin_date}
+                  class="text-amber-600 font-medium"
+                >
+                  Full Buyout bookings are not available for the selected dates based on season settings.
+                </span>
+              </p>
+            </div>
+          </div>
+          <!-- Availability Calendar -->
           <div class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <.date_range_picker
-                  label="Check-in & Check-out Dates"
-                  id="booking_date_range"
-                  form={@date_form}
-                  start_date_field={@date_form[:checkin_date]}
-                  end_date_field={@date_form[:checkout_date]}
-                  min={@today}
-                  max={@max_booking_date}
-                  property={:clear_lake}
-                  today={@today}
-                />
+            <div>
+              <label class="block font-semibold text-lg text-zinc-700 mb-2">
+                Select Dates
+              </label>
+              <div class="mb-4">
+                <p class="text-sm font-medium text-zinc-800 mb-2">
+                  <span :if={@selected_booking_mode == :day}>
+                    Select your dates — The calendar shows how many spots are available for each day (up to 12 guests per day).
+                  </span>
+                  <span :if={@selected_booking_mode == :buyout}>
+                    Select your dates — The calendar shows which dates are available for exclusive full cabin rental.
+                  </span>
+                </p>
+                <p class="text-xs text-zinc-600">
+                  Click on a date to start your selection, then click another date to complete your range.
+                </p>
+              </div>
+              <.live_component
+                module={YscWeb.Components.AvailabilityCalendar}
+                id="clear-lake-availability-calendar"
+                checkin_date={@checkin_date}
+                checkout_date={@checkout_date}
+                selected_booking_mode={@selected_booking_mode}
+                min={@today}
+                max={@max_booking_date}
+                property={:clear_lake}
+                today={@today}
+              />
+              <div :if={@checkin_date || @checkout_date} class="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  phx-click="reset-dates"
+                  class="inline-flex items-center px-4 py-2 text-sm font-medium text-zinc-700 bg-white border border-zinc-300 rounded-md hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                >
+                  <svg
+                    class="w-4 h-4 mr-1"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Reset Dates
+                </button>
               </div>
             </div>
             <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm mt-1">
@@ -306,74 +583,139 @@ defmodule YscWeb.ClearLakeBookingLive do
               <%= @date_validation_errors[:season_date_range] %>
             </p>
           </div>
-          <!-- Booking Mode Selection -->
-          <div>
-            <label class="block text-sm font-semibold text-zinc-700 mb-2">
-              Booking Type
-            </label>
-            <div class="flex gap-4">
-              <label class="flex items-center">
-                <input
-                  type="radio"
-                  name="booking_mode"
-                  value="day"
-                  checked={@selected_booking_mode == :day}
-                  phx-change="booking-mode-changed"
-                  class="mr-2"
-                />
-                <span>Day Booking (per guest)</span>
-              </label>
-              <label class="flex items-center">
-                <input
-                  type="radio"
-                  name="booking_mode"
-                  value="buyout"
-                  checked={@selected_booking_mode == :buyout}
-                  phx-change="booking-mode-changed"
-                  class="mr-2"
-                />
-                <span>Full Buyout</span>
-              </label>
-            </div>
-          </div>
           <!-- Guests Count (for day bookings) -->
-          <div :if={@selected_booking_mode == :day}>
-            <label class="block text-sm font-semibold text-zinc-700 mb-2">
-              Number of Guests
+          <div
+            :if={@selected_booking_mode == :day}
+            class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4"
+          >
+            <label class="block text-sm font-bold text-blue-900 mb-2">
+              Number of Guests (A La Carte Booking)
             </label>
-            <input
-              type="number"
-              min="1"
-              max={@max_guests || 12}
-              value={@guests_count}
-              phx-change="guests-changed"
-              phx-debounce="300"
-              class="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <p class="text-sm text-zinc-600 mt-1">
+            <p class="text-xs text-blue-700 mb-3">
+              Select how many guests will be staying. The calendar shows available spots for each day (up to 12 guests per day).
+            </p>
+            <form phx-change="guests-changed" phx-debounce="300">
+              <input
+                type="number"
+                name="guests_count"
+                id="guests_count"
+                min="1"
+                max={@max_guests || 12}
+                value={@guests_count}
+                class="w-full px-3 py-2 border-2 border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              />
+            </form>
+            <p class="text-sm text-blue-800 mt-2 font-medium">
               Maximum <%= @max_guests %> guests per day
             </p>
-            <p class="text-sm text-zinc-600 mt-1 italic">
+            <p class="text-xs text-blue-700 mt-1 italic">
               Note: Children up to and including 5 years old can join for free. Please do not include them when registering attendees.
             </p>
             <p :if={@form_errors[:guests_count]} class="text-red-600 text-sm mt-1">
               <%= @form_errors[:guests_count] %>
             </p>
           </div>
-          <!-- Price Display -->
-          <div :if={@calculated_price} class="bg-zinc-50 rounded-md p-4">
-            <div class="flex justify-between items-center">
-              <span class="text-lg font-semibold text-zinc-900">Total Price:</span>
-              <span class="text-2xl font-bold text-blue-600">
-                <%= MoneyHelper.format_money!(@calculated_price) %>
-              </span>
+          <!-- Availability Error Notice -->
+          <div
+            :if={@availability_error}
+            class="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-4"
+          >
+            <div class="flex items-start">
+              <div class="flex-shrink-0">
+                <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-amber-600" />
+              </div>
+              <div class="ml-3">
+                <h3 class="text-sm font-medium text-amber-800">Availability Issue</h3>
+                <div class="mt-2 text-sm text-amber-700">
+                  <p><%= @availability_error %></p>
+                </div>
+              </div>
             </div>
-            <p :if={@checkin_date && @checkout_date} class="text-sm text-zinc-600 mt-2">
-              <%= Date.diff(@checkout_date, @checkin_date) %> night(s)
-              <span :if={@selected_booking_mode == :day}>
-                • <%= @guests_count %> guest(s)
-              </span>
-            </p>
+          </div>
+          <!-- Reservation Summary & Price Display -->
+          <div
+            :if={@calculated_price && @checkin_date && @checkout_date}
+            class="bg-zinc-50 rounded-md p-6 space-y-4"
+          >
+            <div>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-4">Reservation Summary</h3>
+              <!-- Dates -->
+              <div class="space-y-2 mb-4">
+                <div class="flex items-center text-sm">
+                  <span class="font-semibold text-zinc-700 w-24">Check-in:</span>
+                  <span class="text-zinc-900">
+                    <%= Calendar.strftime(@checkin_date, "%B %d, %Y") %>
+                  </span>
+                </div>
+                <div class="flex items-center text-sm">
+                  <span class="font-semibold text-zinc-700 w-24">Check-out:</span>
+                  <span class="text-zinc-900">
+                    <%= Calendar.strftime(@checkout_date, "%B %d, %Y") %>
+                  </span>
+                </div>
+                <div class="flex items-center text-sm">
+                  <span class="font-semibold text-zinc-700 w-24">Nights:</span>
+                  <span class="text-zinc-900">
+                    <%= Date.diff(@checkout_date, @checkin_date) %> night(s)
+                  </span>
+                </div>
+              </div>
+              <!-- Reservation Type Description -->
+              <div class="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                <p class="text-sm text-blue-900">
+                  <span :if={@selected_booking_mode == :day}>
+                    <strong>A La Carte (Shared Stay):</strong>
+                    You'll be sharing the cabin with other guests. Each guest pays per night, and you can book individual spots for up to 12 guests per day.
+                  </span>
+                  <span :if={@selected_booking_mode == :buyout}>
+                    <strong>Full Buyout (Exclusive Rental):</strong>
+                    You'll have the entire cabin exclusively for your group. Perfect for larger groups or special occasions!
+                  </span>
+                </p>
+              </div>
+              <!-- Price Breakdown -->
+              <div class="border-t border-zinc-200 pt-4">
+                <h4 class="text-sm font-semibold text-zinc-700 mb-3">Price Breakdown</h4>
+                <div class="space-y-2 text-sm">
+                  <span :if={@selected_booking_mode == :day}>
+                    <% nights = Date.diff(@checkout_date, @checkin_date) %>
+                    <% price_per_guest_per_night = Money.new(50, :USD) %>
+                    <% total_guest_nights = nights * @guests_count %>
+                    <div class="flex justify-between items-center">
+                      <span class="text-zinc-600">
+                        <%= @guests_count %> guest(s) × <%= nights %> night(s) × <%= MoneyHelper.format_money!(
+                          price_per_guest_per_night
+                        ) %> per guest/night
+                      </span>
+                      <span class="font-medium text-zinc-900">
+                        <%= MoneyHelper.format_money!(
+                          Money.mult(price_per_guest_per_night, total_guest_nights)
+                          |> elem(1)
+                        ) %>
+                      </span>
+                    </div>
+                  </span>
+                  <span :if={@selected_booking_mode == :buyout}>
+                    <% nights = Date.diff(@checkout_date, @checkin_date) %>
+                    <% price_per_night = Money.new(500, :USD) %>
+                    <div class="flex justify-between items-center">
+                      <span class="text-zinc-600">
+                        <%= nights %> night(s) × <%= MoneyHelper.format_money!(price_per_night) %> per night
+                      </span>
+                      <span class="font-medium text-zinc-900">
+                        <%= MoneyHelper.format_money!(Money.mult(price_per_night, nights) |> elem(1)) %>
+                      </span>
+                    </div>
+                  </span>
+                </div>
+                <div class="flex justify-between items-center mt-4 pt-4 border-t border-zinc-300">
+                  <span class="text-lg font-semibold text-zinc-900">Total Price:</span>
+                  <span class="text-2xl font-bold text-blue-600">
+                    <%= MoneyHelper.format_money!(@calculated_price) %>
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <p :if={@price_error} class="text-red-600 text-sm">
@@ -388,13 +730,25 @@ defmodule YscWeb.ClearLakeBookingLive do
                     @selected_booking_mode,
                     @checkin_date,
                     @checkout_date,
-                    @guests_count
+                    @guests_count,
+                    @availability_error
                   )
               }
               phx-click="create-booking"
-              class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-md transition duration-200"
+              class={[
+                "w-full font-semibold py-3 px-4 rounded-md transition duration-200",
+                if(@selected_booking_mode == :day,
+                  do: "bg-blue-600 hover:bg-blue-700 text-white",
+                  else: "bg-indigo-600 hover:bg-indigo-700 text-white"
+                )
+              ]}
             >
-              Create Booking
+              <span :if={@selected_booking_mode == :day}>
+                Confirm A La Carte Booking
+              </span>
+              <span :if={@selected_booking_mode == :buyout}>
+                Confirm Full Cabin Buyout
+              </span>
             </button>
             <div
               :if={!@can_book}
@@ -435,7 +789,7 @@ defmodule YscWeb.ClearLakeBookingLive do
             </p>
             <blockquote>
               <p>
-                <strong>💡 Tip:</strong>
+                <strong>Tip:</strong>
                 Many YSC summer events at Clear Lake include shared meals — check the event description for details on what's provided.
               </p>
             </blockquote>
@@ -1089,27 +1443,87 @@ defmodule YscWeb.ClearLakeBookingLive do
   end
 
   def handle_event("booking-mode-changed", %{"booking_mode" => "day"}, socket) do
+    # Re-check allowed booking modes based on current dates
+    {day_booking_allowed, buyout_booking_allowed} =
+      allowed_booking_modes(
+        socket.assigns.property,
+        socket.assigns.checkin_date,
+        socket.assigns.checkout_date,
+        socket.assigns.current_season
+      )
+
+    # Validate availability for the new booking mode if dates are selected
+    availability_error =
+      if socket.assigns.checkin_date && socket.assigns.checkout_date do
+        validate_date_range_for_booking_mode(
+          socket.assigns.checkin_date,
+          socket.assigns.checkout_date,
+          :day,
+          socket.assigns.guests_count,
+          socket.assigns
+        )
+      else
+        nil
+      end
+
     socket =
       socket
       |> assign(
         selected_booking_mode: :day,
         calculated_price: nil,
-        price_error: nil
+        price_error: nil,
+        availability_error: availability_error,
+        day_booking_allowed: day_booking_allowed,
+        buyout_booking_allowed: buyout_booking_allowed
       )
       |> calculate_price_if_ready()
+      |> then(fn updated_socket ->
+        # Update URL with new booking mode
+        update_url_with_booking_mode(updated_socket)
+      end)
 
     {:noreply, socket}
   end
 
   def handle_event("booking-mode-changed", %{"booking_mode" => "buyout"}, socket) do
+    # Re-check allowed booking modes based on current dates
+    {day_booking_allowed, buyout_booking_allowed} =
+      allowed_booking_modes(
+        socket.assigns.property,
+        socket.assigns.checkin_date,
+        socket.assigns.checkout_date,
+        socket.assigns.current_season
+      )
+
+    # Validate availability for the new booking mode if dates are selected
+    availability_error =
+      if socket.assigns.checkin_date && socket.assigns.checkout_date do
+        validate_date_range_for_booking_mode(
+          socket.assigns.checkin_date,
+          socket.assigns.checkout_date,
+          :buyout,
+          socket.assigns.guests_count,
+          socket.assigns
+        )
+      else
+        nil
+      end
+
     socket =
       socket
       |> assign(
         selected_booking_mode: :buyout,
         calculated_price: nil,
-        price_error: nil
+        price_error: nil,
+        availability_error: availability_error,
+        day_booking_allowed: day_booking_allowed,
+        buyout_booking_allowed: buyout_booking_allowed
       )
       |> calculate_price_if_ready()
+      |> then(fn updated_socket ->
+        # Update URL with new booking mode
+        update_url_with_booking_mode(updated_socket)
+      end)
 
     {:noreply, socket}
   end
@@ -1117,19 +1531,63 @@ defmodule YscWeb.ClearLakeBookingLive do
   def handle_event("guests-changed", %{"guests_count" => guests_str}, socket) do
     guests_count = parse_integer(guests_str) || 1
 
-    query_params =
-      build_query_params(
-        socket.assigns.checkin_date,
-        socket.assigns.checkout_date,
-        guests_count,
-        socket.assigns.active_tab
+    # Validate that guests_count is within valid range
+    guests_count = min(max(guests_count, 1), @max_guests)
+
+    # Check if the selected dates still have enough spots available
+    availability_error =
+      if socket.assigns.selected_booking_mode == :day &&
+           socket.assigns.checkin_date &&
+           socket.assigns.checkout_date do
+        validate_guests_against_availability(
+          socket.assigns.checkin_date,
+          socket.assigns.checkout_date,
+          guests_count,
+          socket.assigns
+        )
+      else
+        nil
+      end
+
+    socket =
+      socket
+      |> assign(
+        guests_count: guests_count,
+        calculated_price: nil,
+        price_error: nil,
+        availability_error: availability_error
+      )
+      |> calculate_price_if_ready()
+      |> then(fn updated_socket ->
+        # Always update URL when guests change, even if dates are nil
+        # This ensures guests_count is preserved in the URL
+        update_url_with_guests(updated_socket)
+      end)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("reset-dates", _params, socket) do
+    date_form =
+      to_form(
+        %{
+          "checkin_date" => "",
+          "checkout_date" => ""
+        },
+        as: "booking_dates"
       )
 
     socket =
       socket
-      |> assign(guests_count: guests_count, calculated_price: nil, price_error: nil)
-      |> calculate_price_if_ready()
-      |> push_patch(to: ~p"/bookings/clear-lake?#{URI.encode_query(query_params)}")
+      |> assign(
+        checkin_date: nil,
+        checkout_date: nil,
+        calculated_price: nil,
+        price_error: nil,
+        availability_error: nil,
+        date_form: date_form
+      )
+      |> update_url_with_dates(nil, nil)
 
     {:noreply, socket}
   end
@@ -1152,6 +1610,78 @@ defmodule YscWeb.ClearLakeBookingLive do
            price_error: "Please fix the errors above"
          )}
     end
+  end
+
+  @impl true
+  def handle_info(
+        {:availability_calendar_date_changed,
+         %{checkin_date: checkin_date, checkout_date: checkout_date}},
+        socket
+      ) do
+    Logger.debug(
+      "[ClearLakeBookingLive] handle_info: availability_calendar_date_changed - checkin: #{inspect(checkin_date)}, checkout: #{inspect(checkout_date)}"
+    )
+
+    date_form =
+      to_form(
+        %{
+          "checkin_date" => date_to_datetime_string(checkin_date),
+          "checkout_date" => date_to_datetime_string(checkout_date)
+        },
+        as: "booking_dates"
+      )
+
+    # Validate availability when dates change
+    availability_error =
+      if socket.assigns.selected_booking_mode == :day &&
+           checkin_date &&
+           checkout_date &&
+           socket.assigns.guests_count do
+        validate_guests_against_availability(
+          checkin_date,
+          checkout_date,
+          socket.assigns.guests_count,
+          socket.assigns
+        )
+      else
+        nil
+      end
+
+    # Re-check allowed booking modes based on new dates
+    {day_booking_allowed, buyout_booking_allowed} =
+      allowed_booking_modes(
+        socket.assigns.property,
+        checkin_date,
+        checkout_date,
+        socket.assigns.current_season
+      )
+
+    socket =
+      socket
+      |> assign(
+        checkin_date: checkin_date,
+        checkout_date: checkout_date,
+        calculated_price: nil,
+        price_error: nil,
+        availability_error: availability_error,
+        form_errors: %{},
+        date_form: date_form,
+        day_booking_allowed: day_booking_allowed,
+        buyout_booking_allowed: buyout_booking_allowed
+      )
+      |> calculate_price_if_ready()
+      |> update_url_with_dates(checkin_date, checkout_date)
+
+    Logger.debug("[ClearLakeBookingLive] handle_info: Update complete")
+    {:noreply, socket}
+  end
+
+  def handle_info({:availability_calendar_date_changed, _}, socket) do
+    Logger.debug(
+      "[ClearLakeBookingLive] handle_info: Ignoring malformed availability_calendar_date_changed message"
+    )
+
+    {:noreply, socket}
   end
 
   def handle_event("switch-tab", %{"tab" => tab}, socket) do
@@ -1180,7 +1710,8 @@ defmodule YscWeb.ClearLakeBookingLive do
           socket.assigns.checkin_date,
           socket.assigns.checkout_date,
           socket.assigns.guests_count,
-          active_tab
+          active_tab,
+          socket.assigns.selected_booking_mode || :day
         )
 
       socket =
@@ -1208,8 +1739,15 @@ defmodule YscWeb.ClearLakeBookingLive do
     PricingHelpers.calculate_price_if_ready(socket, :clear_lake)
   end
 
-  defp can_submit_booking?(booking_mode, checkin_date, checkout_date, guests_count) do
+  defp can_submit_booking?(
+         booking_mode,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         availability_error \\ nil
+       ) do
     checkin_date && checkout_date &&
+      is_nil(availability_error) &&
       (booking_mode == :buyout ||
          (booking_mode == :day && guests_count > 0 && guests_count <= @max_guests))
   end
@@ -1492,23 +2030,107 @@ defmodule YscWeb.ClearLakeBookingLive do
     end
   end
 
+  defp parse_booking_mode_from_params(params) do
+    case Map.get(params, "booking_mode") do
+      "buyout" -> :buyout
+      "day" -> :day
+      _ -> :day
+    end
+  end
+
   defp update_url_with_dates(socket, checkin_date, checkout_date) do
+    Logger.debug(
+      "[ClearLakeBookingLive] update_url_with_dates called - checkin: #{inspect(checkin_date)}, checkout: #{inspect(checkout_date)}"
+    )
+
     guests_count = socket.assigns.guests_count || 1
     active_tab = socket.assigns.active_tab || :booking
+    booking_mode = socket.assigns.selected_booking_mode || :day
 
     query_params =
-      build_query_params(checkin_date, checkout_date, guests_count, active_tab)
+      build_query_params(checkin_date, checkout_date, guests_count, active_tab, booking_mode)
 
     if map_size(query_params) > 0 do
-      push_patch(socket, to: ~p"/bookings/clear-lake?#{URI.encode_query(query_params)}")
+      query_string = URI.encode_query(query_params)
+
+      Logger.debug(
+        "[ClearLakeBookingLive] update_url_with_dates: Pushing patch with query: #{query_string}"
+      )
+
+      push_patch(socket, to: "/bookings/clear-lake?#{query_string}")
     else
+      Logger.debug("[ClearLakeBookingLive] update_url_with_dates: Pushing patch without query")
+      push_patch(socket, to: ~p"/bookings/clear-lake")
+    end
+  end
+
+  defp update_url_with_guests(socket) do
+    Logger.debug(
+      "[ClearLakeBookingLive] update_url_with_guests called - guests: #{inspect(socket.assigns.guests_count)}"
+    )
+
+    checkin_date = socket.assigns.checkin_date
+    checkout_date = socket.assigns.checkout_date
+    guests_count = socket.assigns.guests_count || 1
+    active_tab = socket.assigns.active_tab || :booking
+    booking_mode = socket.assigns.selected_booking_mode || :day
+
+    query_params =
+      build_query_params(checkin_date, checkout_date, guests_count, active_tab, booking_mode)
+
+    if map_size(query_params) > 0 do
+      query_string = URI.encode_query(query_params)
+
+      Logger.debug(
+        "[ClearLakeBookingLive] update_url_with_guests: Pushing patch with query: #{query_string}"
+      )
+
+      push_patch(socket, to: "/bookings/clear-lake?#{query_string}")
+    else
+      Logger.debug("[ClearLakeBookingLive] update_url_with_guests: Pushing patch without query")
+      push_patch(socket, to: ~p"/bookings/clear-lake")
+    end
+  end
+
+  defp update_url_with_booking_mode(socket) do
+    Logger.debug(
+      "[ClearLakeBookingLive] update_url_with_booking_mode called - mode: #{inspect(socket.assigns.selected_booking_mode)}"
+    )
+
+    checkin_date = socket.assigns.checkin_date
+    checkout_date = socket.assigns.checkout_date
+    guests_count = socket.assigns.guests_count || 1
+    active_tab = socket.assigns.active_tab || :booking
+    booking_mode = socket.assigns.selected_booking_mode || :day
+
+    query_params =
+      build_query_params(checkin_date, checkout_date, guests_count, active_tab, booking_mode)
+
+    if map_size(query_params) > 0 do
+      query_string = URI.encode_query(query_params)
+
+      Logger.debug(
+        "[ClearLakeBookingLive] update_url_with_booking_mode: Pushing patch with query: #{query_string}"
+      )
+
+      push_patch(socket, to: "/bookings/clear-lake?#{query_string}")
+    else
+      Logger.debug(
+        "[ClearLakeBookingLive] update_url_with_booking_mode: Pushing patch without query"
+      )
+
       push_patch(socket, to: ~p"/bookings/clear-lake")
     end
   end
 
   defp build_query_params(checkin_date, checkout_date, guests_count, active_tab) do
+    build_query_params(checkin_date, checkout_date, guests_count, active_tab, nil)
+  end
+
+  defp build_query_params(checkin_date, checkout_date, guests_count, active_tab, booking_mode) do
     params = %{}
 
+    # Always include dates when they are set
     params =
       if checkin_date do
         Map.put(params, "checkin_date", Date.to_string(checkin_date))
@@ -1523,13 +2145,23 @@ defmodule YscWeb.ClearLakeBookingLive do
         params
       end
 
+    # Always include guests_count when it's set
     params =
-      if guests_count && guests_count != 1 do
+      if guests_count do
         Map.put(params, "guests_count", Integer.to_string(guests_count))
       else
         params
       end
 
+    # Include booking_mode when it's not the default (:day)
+    params =
+      if booking_mode && booking_mode != :day do
+        Map.put(params, "booking_mode", Atom.to_string(booking_mode))
+      else
+        params
+      end
+
+    # Include tab when it's not the default (:booking)
     params =
       if active_tab && active_tab != :booking do
         Map.put(params, "tab", Atom.to_string(active_tab))
@@ -1538,5 +2170,213 @@ defmodule YscWeb.ClearLakeBookingLive do
       end
 
     params
+  end
+
+  # Validates that the selected date range is available for the given booking mode
+  defp validate_date_range_for_booking_mode(
+         checkin_date,
+         checkout_date,
+         booking_mode,
+         guests_count,
+         assigns
+       ) do
+    # Create a temporary assigns with the booking mode to reuse existing validation logic
+    temp_assigns = Map.put(assigns, :selected_booking_mode, booking_mode)
+    validate_guests_against_availability(checkin_date, checkout_date, guests_count, temp_assigns)
+  end
+
+  # Validates that the selected dates have enough spots available for the requested number of guests
+  defp validate_guests_against_availability(checkin_date, checkout_date, guests_count, assigns) do
+    # Get availability for the date range
+    availability = Bookings.get_clear_lake_daily_availability(checkin_date, checkout_date)
+
+    # Check each date in the range
+    date_range = Date.range(checkin_date, checkout_date) |> Enum.to_list()
+
+    unavailable_dates =
+      date_range
+      |> Enum.filter(fn date ->
+        day_availability = Map.get(availability, date)
+
+        if day_availability do
+          # Check if there are enough spots available
+          if day_availability.is_blacked_out do
+            true
+          else
+            if assigns[:selected_booking_mode] == :day do
+              # For day bookings, check if there are enough spots
+              day_availability.spots_available < guests_count
+            else
+              # For buyout, check if buyout is possible
+              not day_availability.can_book_buyout
+            end
+          end
+        else
+          # Date not in availability map - assume unavailable
+          true
+        end
+      end)
+
+    if Enum.empty?(unavailable_dates) do
+      nil
+    else
+      # Build error message
+      if length(unavailable_dates) == 1 do
+        date_str = unavailable_dates |> List.first() |> Date.to_string()
+        day_availability = Map.get(availability, List.first(unavailable_dates))
+
+        cond do
+          day_availability && day_availability.is_blacked_out ->
+            "The date #{date_str} is blacked out and cannot be booked."
+
+          day_availability && assigns[:selected_booking_mode] == :day ->
+            spots = day_availability.spots_available
+
+            "The date #{date_str} only has #{spots} spot#{if spots == 1, do: "", else: "s"} available, but you're trying to book #{guests_count} guest#{if guests_count == 1, do: "", else: "s"}."
+
+          day_availability && assigns[:selected_booking_mode] == :buyout ->
+            "The date #{date_str} cannot be booked as a buyout (there are existing day bookings)."
+
+          true ->
+            "The date #{date_str} is unavailable for your selected number of guests."
+        end
+      else
+        dates_str =
+          unavailable_dates
+          |> Enum.map(&Date.to_string/1)
+          |> Enum.join(", ")
+
+        if assigns[:selected_booking_mode] == :buyout do
+          "The following dates in your selection cannot be booked as a buyout because there are existing day bookings: #{dates_str}. Please select different dates or switch to A La Carte booking mode."
+        else
+          "The following dates in your selection are unavailable: #{dates_str}. Please adjust your dates or number of guests."
+        end
+      end
+    end
+  end
+
+  # Validates all conditions for the booking: availability, booking mode restrictions, guest limits, etc.
+  # This should be called whenever dates, guests, or booking mode change to ensure data integrity
+  # This is especially important when URL parameters are manipulated by users
+  defp validate_all_conditions(
+         socket,
+         checkin_date,
+         checkout_date,
+         booking_mode,
+         guests_count,
+         current_season
+       ) do
+    # First, check if booking mode is allowed for the selected dates
+    {day_booking_allowed, buyout_booking_allowed} =
+      allowed_booking_modes(socket.assigns.property, checkin_date, checkout_date, current_season)
+
+    # Validate and normalize guest count (ensure it's within limits)
+    guests_count = if guests_count, do: min(max(guests_count, 1), @max_guests), else: 1
+
+    # Validate booking mode is valid
+    booking_mode = if booking_mode in [:day, :buyout], do: booking_mode, else: :day
+
+    # Validate dates are in correct order and not in the past
+    {checkin_date, checkout_date} =
+      if checkin_date && checkout_date do
+        today = socket.assigns.today || Date.utc_today()
+
+        # Ensure checkin_date is not in the past
+        checkin_date = if Date.compare(checkin_date, today) == :lt, do: today, else: checkin_date
+
+        # Ensure checkout_date is after checkin_date
+        checkout_date =
+          if Date.compare(checkout_date, checkin_date) != :gt do
+            Date.add(checkin_date, 1)
+          else
+            checkout_date
+          end
+
+        {checkin_date, checkout_date}
+      else
+        {checkin_date, checkout_date}
+      end
+
+    # If booking mode is not allowed for the selected dates, set an error
+    booking_mode_error =
+      cond do
+        booking_mode == :day && !day_booking_allowed ->
+          "A La Carte bookings are not available for the selected dates based on season settings."
+
+        booking_mode == :buyout && !buyout_booking_allowed ->
+          "Full Buyout bookings are not available for the selected dates based on season settings."
+
+        true ->
+          nil
+      end
+
+    # Validate availability for the selected booking mode and dates
+    availability_error =
+      if checkin_date && checkout_date && is_nil(booking_mode_error) do
+        validate_date_range_for_booking_mode(
+          checkin_date,
+          checkout_date,
+          booking_mode,
+          guests_count,
+          socket.assigns
+        )
+      else
+        nil
+      end
+
+    # Combine errors (booking mode error takes precedence)
+    final_error = booking_mode_error || availability_error
+
+    # Update socket with validated values and errors
+    socket
+    |> assign(
+      checkin_date: checkin_date,
+      checkout_date: checkout_date,
+      guests_count: guests_count,
+      selected_booking_mode: booking_mode,
+      availability_error: final_error,
+      day_booking_allowed: day_booking_allowed,
+      buyout_booking_allowed: buyout_booking_allowed
+    )
+  end
+
+  # Gets active bookings for a user (bookings that haven't ended yet)
+  defp get_active_bookings(user_id, limit \\ 10) do
+    today = Date.utc_today()
+
+    query =
+      from b in Booking,
+        where: b.user_id == ^user_id,
+        where: b.property == :clear_lake,
+        where: b.checkout_date >= ^today,
+        order_by: [asc: b.checkin_date],
+        limit: ^limit
+
+    Repo.all(query)
+  end
+
+  # Determines which booking modes are allowed based on season settings for the selected dates
+  # Returns a tuple: {day_booking_allowed, buyout_booking_allowed}
+  defp allowed_booking_modes(property, checkin_date, checkout_date, current_season) do
+    case property do
+      :clear_lake ->
+        # For Clear Lake, check if dates are selected and validate against season
+        if checkin_date do
+          # Check the season for the checkin date
+          season = Bookings.Season.for_date(:clear_lake, checkin_date)
+
+          # Currently, Clear Lake allows both booking modes for all seasons
+          # This can be extended in the future to restrict modes based on season settings
+          # Example: if season && season.name == "Winter", only allow day bookings
+          {true, true}
+        else
+          # No dates selected yet - allow both modes
+          {true, true}
+        end
+
+      _ ->
+        # Default: allow both modes
+        {true, true}
+    end
   end
 end

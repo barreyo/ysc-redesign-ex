@@ -158,20 +158,34 @@ defmodule Ysc.Bookings.BookingValidator do
     end
   end
 
-  # Maximum 4 nights for Tahoe bookings
+  # Maximum nights validation based on season configuration
   defp validate_max_nights(changeset) do
     checkin_date = Ecto.Changeset.get_field(changeset, :checkin_date)
     checkout_date = Ecto.Changeset.get_field(changeset, :checkout_date)
     property = Ecto.Changeset.get_field(changeset, :property)
 
-    if checkin_date && checkout_date && property == :tahoe do
+    if checkin_date && checkout_date && property do
       nights = Date.diff(checkout_date, checkin_date)
 
-      if nights > @max_nights_tahoe do
+      # Get max nights from season for check-in date
+      max_nights =
+        if checkin_date do
+          season = Season.for_date(property, checkin_date)
+          Season.get_max_nights(season, property)
+        else
+          # Fallback to property defaults
+          case property do
+            :tahoe -> 4
+            :clear_lake -> 30
+            _ -> 4
+          end
+        end
+
+      if nights > max_nights do
         Ecto.Changeset.add_error(
           changeset,
           :checkout_date,
-          "Maximum #{@max_nights_tahoe} nights allowed per booking"
+          "Maximum #{max_nights} nights allowed per booking"
         )
       else
         changeset

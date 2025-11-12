@@ -66,7 +66,8 @@ tahoe_winter =
     start_date: winter_start,
     end_date: winter_end,
     is_default: false,
-    advance_booking_days: 45 # Winter enforces 45-day limit
+    advance_booking_days: 45, # Winter enforces 45-day limit
+    max_nights: 4 # Tahoe maximum is 4 nights
   }, [:name, :property])
 
 # Note: We'll set summer as default since it's longer, but you can adjust
@@ -78,7 +79,8 @@ tahoe_summer =
     start_date: summer_start,
     end_date: summer_end,
     is_default: true,
-    advance_booking_days: nil # Summer allows booking as far out as desired (no limit)
+    advance_booking_days: nil, # Summer allows booking as far out as desired (no limit)
+    max_nights: 4 # Tahoe maximum is 4 nights
   }, [:name, :property])
 
 # Clear Lake seasons
@@ -90,7 +92,8 @@ clear_lake_winter =
     start_date: winter_start,
     end_date: winter_end,
     is_default: false,
-    advance_booking_days: nil # Clear Lake allows booking as far out as desired (no limit)
+    advance_booking_days: nil, # Clear Lake allows booking as far out as desired (no limit)
+    max_nights: 30 # Clear Lake allows up to 30 nights
   }, [:name, :property])
 
 clear_lake_summer =
@@ -101,7 +104,8 @@ clear_lake_summer =
     start_date: summer_start,
     end_date: summer_end,
     is_default: true,
-    advance_booking_days: nil # Clear Lake allows booking as far out as desired (no limit)
+    advance_booking_days: nil, # Clear Lake allows booking as far out as desired (no limit)
+    max_nights: 30 # Clear Lake allows up to 30 nights
   }, [:name, :property])
 
 # 3. Create Tahoe rooms

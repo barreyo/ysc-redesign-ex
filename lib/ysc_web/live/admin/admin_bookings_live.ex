@@ -255,6 +255,18 @@ defmodule YscWeb.AdminBookingsLive do
             </p>
           </.input>
 
+          <.input
+            type="number"
+            field={@season_form[:max_nights]}
+            label="Maximum Nights"
+            placeholder="Leave empty for property default"
+            min="1"
+          >
+            <p class="text-xs text-zinc-500 mt-1">
+              Maximum number of nights allowed for bookings in this season. Leave empty to use property default (4 for Tahoe, 30 for Clear Lake).
+            </p>
+          </.input>
+
           <.input type="checkbox" field={@season_form[:is_default]} label="Default Season">
             <p class="text-xs text-zinc-500 mt-1">
               Only one default season allowed per property
@@ -1413,6 +1425,7 @@ defmodule YscWeb.AdminBookingsLive do
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Name</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Date Range</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Advance Booking</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Max Nights</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Default</th>
                   <th class="pb-3 font-semibold text-zinc-700">Actions</th>
                 </tr>
@@ -1441,6 +1454,17 @@ defmodule YscWeb.AdminBookingsLive do
                       "#{season.advance_booking_days} days"
                     else
                       "No limit"
+                    end %>
+                  </td>
+                  <td class="py-3 pr-6 text-zinc-600">
+                    <%= if season.max_nights do
+                      "#{season.max_nights} nights"
+                    else
+                      case season.property do
+                        :tahoe -> "4 (default)"
+                        :clear_lake -> "30 (default)"
+                        _ -> "—"
+                      end
                     end %>
                   </td>
                   <td class="py-3 pr-6">
@@ -3205,6 +3229,23 @@ defmodule YscWeb.AdminBookingsLive do
         end
       else
         Map.put(season_params, "advance_booking_days", nil)
+      end
+
+    # Convert max_nights to integer or nil
+    season_params =
+      if max_nights_str = season_params["max_nights"] do
+        max_nights_str = String.trim(max_nights_str)
+
+        if max_nights_str == "" do
+          Map.put(season_params, "max_nights", nil)
+        else
+          case Integer.parse(max_nights_str) do
+            {nights, _} when nights > 0 -> Map.put(season_params, "max_nights", nights)
+            _ -> Map.put(season_params, "max_nights", nil)
+          end
+        end
+      else
+        Map.put(season_params, "max_nights", nil)
       end
 
     result = Bookings.update_season(socket.assigns.season, season_params)
