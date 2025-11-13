@@ -116,6 +116,25 @@ defmodule Ysc.Tickets do
   end
 
   @doc """
+  Gets paginated ticket orders for a user with Flop.
+  """
+  def list_user_ticket_orders_paginated(user_id, params) do
+    base_query =
+      from(to in TicketOrder,
+        where: to.user_id == ^user_id,
+        preload: [:tickets, :event, :payment, tickets: :ticket_tier]
+      )
+
+    case Flop.validate_and_run(base_query, params, for: TicketOrder) do
+      {:ok, {orders, meta}} ->
+        {:ok, {orders, meta}}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
   Gets all confirmed tickets for a user for a specific event.
   """
   def list_user_tickets_for_event(user_id, event_id) do

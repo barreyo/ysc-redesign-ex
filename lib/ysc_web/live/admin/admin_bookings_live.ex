@@ -304,6 +304,10 @@ defmodule YscWeb.AdminBookingsLive do
         >
           <div class="mb-4 p-4 bg-zinc-50 rounded border border-zinc-200">
             <p class="text-sm text-zinc-600 mb-2">
+              <span class="font-medium">Total Amount Paid:</span>
+              <%= MoneyHelper.format_money!(@selected_pending_refund.payment.amount) %>
+            </p>
+            <p class="text-sm text-zinc-600 mb-2">
               <span class="font-medium">Policy Refund Amount:</span>
               <%= MoneyHelper.format_money!(@selected_pending_refund.policy_refund_amount) %>
             </p>
@@ -329,6 +333,7 @@ defmodule YscWeb.AdminBookingsLive do
             label="Admin Notes (Optional)"
             placeholder="Add any notes about this refund approval..."
             rows="3"
+            value=""
           />
 
           <:actions>
@@ -368,6 +373,7 @@ defmodule YscWeb.AdminBookingsLive do
             placeholder="Please explain why this refund is being rejected..."
             rows="3"
             required
+            value=""
           />
 
           <:actions>
@@ -921,24 +927,21 @@ defmodule YscWeb.AdminBookingsLive do
           >
             Configuration
           </button>
-          <button
-            phx-click="select-section"
-            phx-value-section="pending_refunds"
-            class={[
-              "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
-              if(@current_section == :pending_refunds,
-                do: "border-blue-500 text-blue-600",
-                else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
-              )
-            ]}
-          >
-            Pending Refunds
-            <%= if @pending_refunds_count && @pending_refunds_count > 0 do %>
-              <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                <%= @pending_refunds_count %>
-              </span>
-            <% end %>
-          </button>
+          <.notification_badge count={@pending_refunds_count} badge_color="red">
+            <button
+              phx-click="select-section"
+              phx-value-section="pending_refunds"
+              class={[
+                "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
+                if(@current_section == :pending_refunds,
+                  do: "border-blue-500 text-blue-600",
+                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                )
+              ]}
+            >
+              Pending Refunds
+            </button>
+          </.notification_badge>
         </nav>
       </div>
       <!-- Calendar View -->
@@ -2162,8 +2165,17 @@ defmodule YscWeb.AdminBookingsLive do
       if socket.assigns[:current_section] == :pending_refunds do
         load_pending_refunds(socket)
       else
-        # Still load count for the badge
-        pending_refunds_count = Bookings.list_pending_refunds() |> length()
+        # Still load count for the badge (filtered by selected property)
+        selected_property = socket.assigns.selected_property
+
+        pending_refunds_count =
+          Bookings.list_pending_refunds()
+          |> Enum.filter(fn pr ->
+            # Booking is preloaded by list_pending_refunds, but ensure it exists
+            pr.booking && pr.booking.property == selected_property
+          end)
+          |> length()
+
         assign(socket, :pending_refunds_count, pending_refunds_count)
       end
 
@@ -3051,8 +3063,8 @@ defmodule YscWeb.AdminBookingsLive do
     pending_refund = Bookings.get_pending_refund!(id)
 
     form =
-      %{}
-      |> Ecto.Changeset.cast(%{}, [])
+      {%{}, %{admin_refund_amount: :string, admin_notes: :string}}
+      |> Ecto.Changeset.cast(%{}, [:admin_refund_amount, :admin_notes])
       |> to_form(as: "approve_refund")
 
     {:noreply,
@@ -3065,8 +3077,8 @@ defmodule YscWeb.AdminBookingsLive do
     pending_refund = Bookings.get_pending_refund!(id)
 
     form =
-      %{}
-      |> Ecto.Changeset.cast(%{}, [])
+      {%{}, %{admin_notes: :string}}
+      |> Ecto.Changeset.cast(%{}, [:admin_notes])
       |> to_form(as: "reject_refund")
 
     {:noreply,
@@ -3079,11 +3091,7 @@ defmodule YscWeb.AdminBookingsLive do
     pending_refund = socket.assigns.selected_pending_refund
 
     # Parse custom refund amount
-    admin_refund_amount =
-      case Money.parse(params["admin_refund_amount"]) do
-        {:ok, amount} -> amount
-        {:error, _} -> nil
-      end
+    admin_refund_amount = MoneyHelper.parse_money(params["admin_refund_amount"])
 
     admin_notes = params["admin_notes"]
 
@@ -4220,15 +4228,21 @@ defmodule YscWeb.AdminBookingsLive do
     # Load bookings for this property and date range (filtered at database level)
     bookings_in_range = Bookings.list_bookings(property, start_date, end_date)
 
+    # Filter out canceled and refunded bookings (only show active bookings on calendar)
+    active_bookings =
+      Enum.filter(bookings_in_range, fn booking ->
+        booking.status != :canceled && booking.status != :refunded
+      end)
+
     # Separate room bookings from buyout bookings
     # Room bookings have rooms associated, buyout bookings have no rooms
     room_bookings =
-      Enum.filter(bookings_in_range, fn booking ->
+      Enum.filter(active_bookings, fn booking ->
         Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0
       end)
 
     buyout_bookings =
-      Enum.filter(bookings_in_range, fn booking ->
+      Enum.filter(active_bookings, fn booking ->
         !Ecto.assoc_loaded?(booking.rooms) || length(booking.rooms) == 0
       end)
 
@@ -4359,13 +4373,18 @@ defmodule YscWeb.AdminBookingsLive do
     end
   end
 
-  # Load pending refunds
+  # Load pending refunds (filtered by selected property)
   defp load_pending_refunds(socket) do
+    selected_property = socket.assigns.selected_property
+
     pending_refunds =
       Bookings.list_pending_refunds()
       |> Enum.map(fn pr ->
         pr
         |> Repo.preload(booking: [:user, rooms: :room_category], payment: :user)
+      end)
+      |> Enum.filter(fn pr ->
+        pr.booking && pr.booking.property == selected_property
       end)
 
     socket

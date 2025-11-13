@@ -124,144 +124,156 @@ defmodule YscWeb.BookingCheckoutLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-4xl mx-auto px-4 py-8">
-      <div class="mb-6">
-        <h1 class="text-3xl font-bold text-zinc-900">Complete Your Booking</h1>
-        <p class="text-zinc-600 mt-2">Review your booking details and complete payment</p>
-      </div>
+    <div class="py-8 lg:py-10 max-w-screen-lg mx-auto px-4">
+      <div class="max-w-xl mx-auto lg:mx-0">
+        <div class="prose prose-zinc mb-6">
+          <h1>Complete Your Booking</h1>
+          <p>Review your booking details and complete payment</p>
+        </div>
 
-      <div class="space-y-6">
-        <!-- Booking Summary -->
-        <div>
-          <div class="bg-white rounded-lg border border-zinc-200 p-6">
-            <h2 class="text-xl font-semibold text-zinc-900 mb-4">Booking Summary</h2>
+        <div class="space-y-6">
+          <!-- Booking Summary -->
+          <div>
+            <div class="bg-white rounded-lg border border-zinc-200 p-6">
+              <h2 class="text-xl font-semibold text-zinc-900 mb-4">Booking Summary</h2>
 
-            <div class="space-y-4">
-              <div>
-                <div class="text-sm text-zinc-600">Property</div>
-                <div class="font-medium text-zinc-900">
-                  <%= String.capitalize(Atom.to_string(@booking.property)) %>
+              <div class="space-y-4">
+                <div>
+                  <div class="text-sm text-zinc-600">Property</div>
+                  <div class="font-medium text-zinc-900">
+                    <%= String.capitalize(Atom.to_string(@booking.property)) %>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <div class="text-sm text-zinc-600">Check-in</div>
-                <div class="font-medium text-zinc-900">
-                  <%= format_date(@booking.checkin_date, @timezone) %>
+                <div>
+                  <div class="text-sm text-zinc-600">Check-in</div>
+                  <div class="font-medium text-zinc-900">
+                    <%= format_date(@booking.checkin_date, @timezone) %>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <div class="text-sm text-zinc-600">Check-out</div>
-                <div class="font-medium text-zinc-900">
-                  <%= format_date(@booking.checkout_date, @timezone) %>
+                <div>
+                  <div class="text-sm text-zinc-600">Check-out</div>
+                  <div class="font-medium text-zinc-900">
+                    <%= format_date(@booking.checkout_date, @timezone) %>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <div class="text-sm text-zinc-600">Nights</div>
-                <div class="font-medium text-zinc-900">
-                  <%= Date.diff(@booking.checkout_date, @booking.checkin_date) %>
+                <div>
+                  <div class="text-sm text-zinc-600">Nights</div>
+                  <div class="font-medium text-zinc-900">
+                    <%= Date.diff(@booking.checkout_date, @booking.checkin_date) %>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <div class="text-sm text-zinc-600">Guests</div>
-                <div class="font-medium text-zinc-900"><%= @booking.guests_count %></div>
-              </div>
-
-              <div>
-                <div class="text-sm text-zinc-600">Booking Mode</div>
-                <div class="font-medium text-zinc-900">
-                  <%= if @booking.booking_mode == :buyout do %>
-                    Full Buyout
-                  <% else %>
-                    Per Guest
-                  <% end %>
+                <div>
+                  <div class="text-sm text-zinc-600">Guests</div>
+                  <div class="font-medium text-zinc-900"><%= @booking.guests_count %></div>
                 </div>
-              </div>
 
-              <div>
-                <div class="text-sm text-zinc-600">Reference</div>
-                <div class="font-mono text-sm text-zinc-900"><%= @booking.reference_id %></div>
+                <div>
+                  <div class="text-sm text-zinc-600">Booking Mode</div>
+                  <div class="font-medium text-zinc-900">
+                    <%= if @booking.booking_mode == :buyout do %>
+                      Full Buyout
+                    <% else %>
+                      Per Guest
+                    <% end %>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="text-sm text-zinc-600">Reference</div>
+                  <div class="font-mono text-sm text-zinc-900"><%= @booking.reference_id %></div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <!-- Payment Section -->
-        <div>
-          <div class="bg-white rounded-lg border border-zinc-200 p-6">
-            <h2 class="text-xl font-semibold text-zinc-900 mb-4">Payment</h2>
-            <!-- Price Breakdown -->
-            <div class="space-y-3 mb-6">
-              <%= if @price_breakdown do %>
-                <%= render_price_breakdown(assigns) %>
-              <% end %>
+          <!-- Payment Section -->
+          <div>
+            <div class="bg-white rounded-lg border border-zinc-200 p-6">
+              <h2 class="text-xl font-semibold text-zinc-900 mb-4">Payment</h2>
+              <!-- Price Breakdown -->
+              <div class="space-y-3 mb-6">
+                <%= if @price_breakdown do %>
+                  <%= render_price_breakdown(assigns) %>
+                <% end %>
 
-              <div class="border-t border-zinc-200 pt-3">
-                <div class="flex justify-between items-center">
-                  <span class="text-lg font-semibold text-zinc-900">Total</span>
-                  <span class="text-2xl font-bold text-zinc-900">
-                    <%= MoneyHelper.format_money!(@total_price) %>
-                  </span>
+                <div class="border-t border-zinc-200 pt-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-lg font-semibold text-zinc-900">Total</span>
+                    <span class="text-2xl font-bold text-zinc-900">
+                      <%= MoneyHelper.format_money!(@total_price) %>
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <!-- Payment Error -->
-            <div :if={@payment_error} class="mb-4 p-3 bg-red-50 border border-red-200 rounded">
-              <p class="text-sm text-red-800"><%= @payment_error %></p>
-            </div>
-            <!-- Payment Form -->
-            <div :if={@show_payment_form && @payment_intent && !@is_expired}>
+              <!-- Payment Error -->
+              <div :if={@payment_error} class="mb-4 p-3 bg-red-50 border border-red-200 rounded">
+                <p class="text-sm text-red-800"><%= @payment_error %></p>
+              </div>
+              <!-- Payment Form -->
+              <div :if={@show_payment_form && @payment_intent && !@is_expired}>
+                <div
+                  id="stripe-payment-container"
+                  phx-hook="StripeElements"
+                  data-client-secret={@payment_intent.client_secret}
+                  data-booking-id={@booking.id}
+                >
+                  <div id="payment-element">
+                    <!-- Stripe Elements will mount here -->
+                  </div>
+                  <div id="payment-message" class="hidden mt-4"></div>
+                </div>
+
+                <div class="flex gap-3 mt-4">
+                  <button
+                    id="submit-payment"
+                    type="button"
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={@is_expired}
+                  >
+                    Pay <%= MoneyHelper.format_money!(@total_price) %>
+                  </button>
+                  <button
+                    type="button"
+                    phx-click="cancel-booking"
+                    phx-confirm="Are you sure you want to cancel this booking? The availability will be released immediately."
+                    class="px-6 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 font-semibold py-3 rounded-lg transition duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+              <!-- Expired Booking Message -->
               <div
-                id="stripe-payment-container"
-                phx-hook="StripeElements"
-                data-client-secret={@payment_intent.client_secret}
-                data-booking-id={@booking.id}
+                :if={assigns[:is_expired] && @is_expired}
+                class="mt-4 p-4 bg-red-50 border border-red-200 rounded"
               >
-                <div id="payment-element">
-                  <!-- Stripe Elements will mount here -->
-                </div>
-                <div id="payment-message" class="hidden mt-4"></div>
+                <p class="text-sm font-semibold text-red-800 mb-2">Booking Expired</p>
+                <p class="text-sm text-red-700">
+                  This booking has expired and is no longer available for payment. Please create a new booking.
+                </p>
+                <a
+                  href={get_property_redirect_path(@booking.property)}
+                  class="mt-3 inline-block text-sm font-medium text-red-800 hover:text-red-900 underline"
+                >
+                  Create New Booking →
+                </a>
               </div>
-
-              <button
-                id="submit-payment"
-                type="button"
-                class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={@is_expired}
+              <!-- Hold Expiry Warning -->
+              <div
+                :if={@booking.hold_expires_at && (!assigns[:is_expired] || !@is_expired)}
+                class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded"
               >
-                Pay <%= MoneyHelper.format_money!(@total_price) %>
-              </button>
-            </div>
-            <!-- Expired Booking Message -->
-            <div
-              :if={assigns[:is_expired] && @is_expired}
-              class="mt-4 p-4 bg-red-50 border border-red-200 rounded"
-            >
-              <p class="text-sm font-semibold text-red-800 mb-2">Booking Expired</p>
-              <p class="text-sm text-red-700">
-                This booking has expired and is no longer available for payment. Please create a new booking.
-              </p>
-              <a
-                href={get_property_redirect_path(@booking.property)}
-                class="mt-3 inline-block text-sm font-medium text-red-800 hover:text-red-900 underline"
-              >
-                Create New Booking →
-              </a>
-            </div>
-            <!-- Hold Expiry Warning -->
-            <div
-              :if={@booking.hold_expires_at && (!assigns[:is_expired] || !@is_expired)}
-              class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded"
-            >
-              <p class="text-xs text-yellow-800">
-                Your booking will be held until <%= format_datetime(
-                  @booking.hold_expires_at,
-                  @timezone
-                ) %>.
-                Please complete payment before then.
-              </p>
+                <p class="text-xs text-yellow-800">
+                  Your booking will be held until <%= format_datetime(
+                    @booking.hold_expires_at,
+                    @timezone
+                  ) %>.
+                  Please complete payment before then.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -352,6 +364,31 @@ defmodule YscWeb.BookingCheckoutLive do
       <% end %>
     <% end %>
     """
+  end
+
+  @impl true
+  def handle_event("cancel-booking", _params, socket) do
+    case BookingLocker.release_hold(socket.assigns.booking.id) do
+      {:ok, _canceled_booking} ->
+        property = socket.assigns.booking.property
+        redirect_path = get_property_redirect_path(property)
+
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           "Your booking has been canceled and the availability has been released."
+         )
+         |> redirect(to: redirect_path)}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Failed to cancel booking: #{inspect(reason)}. Please try again or contact support."
+         )}
+    end
   end
 
   @impl true

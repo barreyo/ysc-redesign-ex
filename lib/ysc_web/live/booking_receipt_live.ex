@@ -85,151 +85,153 @@ defmodule YscWeb.BookingReceiptLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-4xl mx-auto px-4 py-8">
-      <div class="mb-6">
-        <div class="text-center mb-6">
-          <div class="text-green-500 mb-4">
-            <.icon name="hero-check-circle" class="w-16 h-16 mx-auto" />
-          </div>
-          <h1 class="text-3xl font-bold text-zinc-900 mb-2">Booking Confirmed!</h1>
-          <p class="text-zinc-600">
-            Your booking has been successfully confirmed. You'll receive a confirmation email shortly.
-          </p>
-        </div>
-      </div>
-
-      <div class="space-y-6">
-        <!-- Booking Summary -->
-        <div>
-          <div class="bg-white rounded-lg border border-zinc-200 p-6">
-            <h2 class="text-xl font-semibold text-zinc-900 mb-4">Booking Summary</h2>
-
-            <div class="space-y-4">
-              <div>
-                <div class="text-sm text-zinc-600">Booking Reference</div>
-                <div class="font-medium text-zinc-900 font-mono"><%= @booking.reference_id %></div>
-              </div>
-
-              <div>
-                <div class="text-sm text-zinc-600">Property</div>
-                <div class="font-medium text-zinc-900">
-                  <%= format_property_name(@booking.property) %>
-                </div>
-              </div>
-
-              <div>
-                <div class="text-sm text-zinc-600">Check-in</div>
-                <div class="font-medium text-zinc-900">
-                  <%= format_date(@booking.checkin_date, @timezone) %>
-                </div>
-              </div>
-
-              <div>
-                <div class="text-sm text-zinc-600">Check-out</div>
-                <div class="font-medium text-zinc-900">
-                  <%= format_date(@booking.checkout_date, @timezone) %>
-                </div>
-              </div>
-
-              <div>
-                <div class="text-sm text-zinc-600">Nights</div>
-                <div class="font-medium text-zinc-900">
-                  <%= Date.diff(@booking.checkout_date, @booking.checkin_date) %>
-                </div>
-              </div>
-
-              <div>
-                <div class="text-sm text-zinc-600">Guests</div>
-                <div class="font-medium text-zinc-900">
-                  <%= @booking.guests_count %>
-                  <%= if @booking.children_count > 0 do %>
-                    (<%= @booking.children_count %> children)
-                  <% end %>
-                </div>
-              </div>
-
-              <div>
-                <div class="text-sm text-zinc-600">Booking Mode</div>
-                <div class="font-medium text-zinc-900">
-                  <%= if @booking.booking_mode == :buyout do %>
-                    Full Buyout
-                  <% else %>
-                    <%= if @booking.booking_mode == :room do %>
-                      Per Room
-                    <% else %>
-                      Per Guest
-                    <% end %>
-                  <% end %>
-                </div>
-              </div>
-
-              <%= if Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0 do %>
-                <div>
-                  <div class="text-sm text-zinc-600">
-                    <%= if length(@booking.rooms) == 1, do: "Room", else: "Rooms" %>
-                  </div>
-                  <div class="font-medium text-zinc-900">
-                    <%= Enum.map_join(@booking.rooms, ", ", fn room -> room.name end) %>
-                  </div>
-                </div>
-              <% end %>
+    <div class="py-8 lg:py-10 max-w-screen-lg mx-auto px-4">
+      <div class="max-w-xl mx-auto lg:mx-0 pb-10">
+        <div class="mb-6">
+          <div class="text-center mb-6">
+            <div class="text-green-500 mb-4">
+              <.icon name="hero-check-circle" class="w-16 h-16 mx-auto" />
             </div>
+            <h1 class="text-3xl font-bold text-zinc-900 mb-2">Booking Confirmed!</h1>
+            <p class="text-zinc-600">
+              Your booking has been successfully confirmed. You'll receive a confirmation email shortly.
+            </p>
           </div>
         </div>
-        <!-- Payment Summary -->
-        <%= if @payment do %>
+
+        <div class="space-y-6">
+          <!-- Booking Summary -->
           <div>
             <div class="bg-white rounded-lg border border-zinc-200 p-6">
-              <h2 class="text-xl font-semibold text-zinc-900 mb-4">Payment Summary</h2>
+              <h2 class="text-xl font-semibold text-zinc-900 mb-4">Booking Summary</h2>
 
-              <div class="space-y-3">
-                <%= if @price_breakdown do %>
-                  <%= render_price_breakdown(assigns) %>
+              <div class="space-y-4">
+                <div>
+                  <div class="text-sm text-zinc-600">Booking Reference</div>
+                  <div class="font-medium text-zinc-900 font-mono"><%= @booking.reference_id %></div>
+                </div>
+
+                <div>
+                  <div class="text-sm text-zinc-600">Property</div>
+                  <div class="font-medium text-zinc-900">
+                    <%= format_property_name(@booking.property) %>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="text-sm text-zinc-600">Check-in</div>
+                  <div class="font-medium text-zinc-900">
+                    <%= format_date(@booking.checkin_date, @timezone) %>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="text-sm text-zinc-600">Check-out</div>
+                  <div class="font-medium text-zinc-900">
+                    <%= format_date(@booking.checkout_date, @timezone) %>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="text-sm text-zinc-600">Nights</div>
+                  <div class="font-medium text-zinc-900">
+                    <%= Date.diff(@booking.checkout_date, @booking.checkin_date) %>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="text-sm text-zinc-600">Guests</div>
+                  <div class="font-medium text-zinc-900">
+                    <%= @booking.guests_count %>
+                    <%= if @booking.children_count > 0 do %>
+                      (<%= @booking.children_count %> children)
+                    <% end %>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="text-sm text-zinc-600">Booking Mode</div>
+                  <div class="font-medium text-zinc-900">
+                    <%= if @booking.booking_mode == :buyout do %>
+                      Full Buyout
+                    <% else %>
+                      <%= if @booking.booking_mode == :room do %>
+                        Per Room
+                      <% else %>
+                        Per Guest
+                      <% end %>
+                    <% end %>
+                  </div>
+                </div>
+
+                <%= if Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0 do %>
+                  <div>
+                    <div class="text-sm text-zinc-600">
+                      <%= if length(@booking.rooms) == 1, do: "Room", else: "Rooms" %>
+                    </div>
+                    <div class="font-medium text-zinc-900">
+                      <%= Enum.map_join(@booking.rooms, ", ", fn room -> room.name end) %>
+                    </div>
+                  </div>
                 <% end %>
+              </div>
+            </div>
+          </div>
+          <!-- Payment Summary -->
+          <%= if @payment do %>
+            <div>
+              <div class="bg-white rounded-lg border border-zinc-200 p-6">
+                <h2 class="text-xl font-semibold text-zinc-900 mb-4">Payment Summary</h2>
 
-                <div class="flex justify-between text-sm">
-                  <span class="text-zinc-600">Payment Method</span>
-                  <span class="text-zinc-900">
-                    <%= get_payment_method_description(@payment) %>
-                  </span>
-                </div>
+                <div class="space-y-3">
+                  <%= if @price_breakdown do %>
+                    <%= render_price_breakdown(assigns) %>
+                  <% end %>
 
-                <div class="flex justify-between text-sm">
-                  <span class="text-zinc-600">Payment Date</span>
-                  <span class="text-zinc-900">
-                    <%= format_datetime(@payment.payment_date, @timezone) %>
-                  </span>
-                </div>
-
-                <div class="border-t border-zinc-200 pt-3">
-                  <div class="flex justify-between items-center">
-                    <span class="text-lg font-semibold text-zinc-900">Total Paid</span>
-                    <span class="text-2xl font-bold text-zinc-900">
-                      <%= MoneyHelper.format_money!(@payment.amount) %>
+                  <div class="flex justify-between text-sm">
+                    <span class="text-zinc-600">Payment Method</span>
+                    <span class="text-zinc-900">
+                      <%= get_payment_method_description(@payment) %>
                     </span>
+                  </div>
+
+                  <div class="flex justify-between text-sm">
+                    <span class="text-zinc-600">Payment Date</span>
+                    <span class="text-zinc-900">
+                      <%= format_datetime(@payment.payment_date, @timezone) %>
+                    </span>
+                  </div>
+
+                  <div class="border-t border-zinc-200 pt-3">
+                    <div class="flex justify-between items-center">
+                      <span class="text-lg font-semibold text-zinc-900">Total Paid</span>
+                      <span class="text-2xl font-bold text-zinc-900">
+                        <%= MoneyHelper.format_money!(@payment.amount) %>
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+          <% end %>
+          <!-- Action Buttons -->
+          <div class="flex flex-col sm:flex-row gap-4">
+            <.button phx-click="view-bookings" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+              View My Bookings
+            </.button>
+            <.button phx-click="go-home" class="flex-1 bg-zinc-200 text-zinc-800 hover:bg-zinc-300">
+              Back to Home
+            </.button>
           </div>
-        <% end %>
-        <!-- Action Buttons -->
-        <div class="flex flex-col sm:flex-row gap-4">
-          <.button phx-click="view-bookings" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
-            View My Bookings
-          </.button>
-          <.button phx-click="go-home" class="flex-1 bg-zinc-200 text-zinc-800 hover:bg-zinc-300">
-            Back to Home
-          </.button>
-        </div>
-        <!-- Additional Info -->
-        <div class="text-center">
-          <p class="text-sm text-zinc-500">
-            Need help? Contact us at
-            <a href="mailto:info@ysc.org" class="text-blue-600 hover:text-blue-500">
-              info@ysc.org
-            </a>
-          </p>
+          <!-- Additional Info -->
+          <div class="text-center">
+            <p class="text-sm text-zinc-500">
+              Need help? Contact us at
+              <a href="mailto:info@ysc.org" class="text-blue-600 hover:text-blue-500">
+                info@ysc.org
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>

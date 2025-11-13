@@ -12,6 +12,18 @@ defmodule Ysc.Tickets.TicketOrder do
 
   @reference_prefix "ORD"
 
+  @derive {
+    Flop.Schema,
+    filterable: [:user_id, :status, :event_id],
+    sortable: [:reference_id, :status, :total_amount, :inserted_at, :completed_at],
+    default_limit: 50,
+    max_limit: 200,
+    default_order: %{
+      order_by: [:inserted_at],
+      order_directions: [:desc]
+    }
+  }
+
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]

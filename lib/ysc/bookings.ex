@@ -33,7 +33,8 @@ defmodule Ysc.Bookings do
     DoorCode,
     RefundPolicy,
     RefundPolicyRule,
-    PendingRefund
+    PendingRefund,
+    PropertyInventory
   }
 
   # Check-in and check-out times
@@ -378,6 +379,25 @@ defmodule Ysc.Bookings do
       end
 
     case Flop.validate_and_run(base_query, other_params, for: Booking) do
+      {:ok, {bookings, meta}} ->
+        {:ok, {bookings, meta}}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Lists paginated bookings for a specific user with Flop.
+  """
+  def list_user_bookings_paginated(user_id, params) do
+    base_query =
+      from(b in Booking,
+        where: b.user_id == ^user_id,
+        preload: [:user, rooms: :room_category]
+      )
+
+    case Flop.validate_and_run(base_query, params, for: Booking) do
       {:ok, {bookings, meta}} ->
         {:ok, {bookings, meta}}
 
@@ -1741,7 +1761,13 @@ defmodule Ysc.Bookings do
 
     # Get all bookings that overlap with the date range
     # Only preload what we need - we don't need user data for availability calculation
-    bookings = list_bookings(:clear_lake, start_date, end_date, preload: [:rooms])
+    # Filter out canceled and hold bookings - only count complete bookings for availability
+    all_bookings = list_bookings(:clear_lake, start_date, end_date, preload: [:rooms])
+
+    bookings =
+      Enum.filter(all_bookings, fn booking ->
+        booking.status == :complete
+      end)
 
     # Get all blackouts that overlap with the date range
     blackouts = get_overlapping_blackouts(:clear_lake, start_date, end_date)
@@ -1791,15 +1817,28 @@ defmodule Ysc.Bookings do
         end)
       end)
 
+    # Get capacity_held from PropertyInventory for each date to account for hold bookings
+    held_capacity_by_date =
+      from(pi in PropertyInventory,
+        where: pi.property == :clear_lake,
+        where: pi.day >= ^start_date and pi.day <= ^end_date,
+        select: {pi.day, pi.capacity_held}
+      )
+      |> Repo.all()
+      |> Map.new()
+
     # Finalize availability information for each date
     availability
     |> Enum.map(fn {date, info} ->
       is_blacked_out = MapSet.member?(blacked_out_dates, date)
-      spots_available = max(0, 12 - info.day_bookings_count)
+      # Account for both confirmed bookings and held capacity
+      capacity_held = Map.get(held_capacity_by_date, date, 0)
+      total_occupied = info.day_bookings_count + capacity_held
+      spots_available = max(0, 12 - total_occupied)
       can_book_day = not is_blacked_out and spots_available > 0 and not info.has_buyout
 
       can_book_buyout =
-        not is_blacked_out and not info.has_buyout and info.day_bookings_count == 0
+        not is_blacked_out and not info.has_buyout and total_occupied == 0
 
       {
         date,

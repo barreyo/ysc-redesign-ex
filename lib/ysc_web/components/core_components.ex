@@ -1503,6 +1503,63 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  @doc """
+  Renders a notification badge component that wraps content with a badge overlay.
+
+  The badge appears in the top-right corner of the wrapped content.
+  Only displays if count is provided and greater than 0.
+
+  ## Examples
+
+      <.notification_badge count={5}>
+        <button>Notifications</button>
+      </.notification_badge>
+
+      <.notification_badge count={@pending_count} badge_color="red">
+        <.button>Pending Items</.button>
+      </.notification_badge>
+  """
+  attr :count, :integer, default: 0, doc: "The count to display in the badge"
+
+  attr :badge_color, :string,
+    default: "red",
+    doc: "Color scheme for the badge (red, blue, green, yellow)"
+
+  attr :class, :string, default: nil, doc: "Additional CSS classes for the wrapper"
+  slot :inner_block, required: true, doc: "The content to wrap with the notification badge"
+
+  def notification_badge(assigns) do
+    badge_classes = %{
+      "red" => "bg-red-500 text-white border-red-600",
+      "blue" => "bg-blue-500 text-white border-blue-600",
+      "green" => "bg-green-500 text-white border-green-600",
+      "yellow" => "bg-yellow-500 text-white border-yellow-600"
+    }
+
+    badge_class = badge_classes[assigns.badge_color] || badge_classes["red"]
+
+    assigns =
+      assigns
+      |> assign(:badge_class, badge_class)
+      |> assign(:show_badge, assigns.count && assigns.count > 0)
+
+    ~H"""
+    <div class={["relative inline-block", @class]}>
+      <%= render_slot(@inner_block) %>
+      <div
+        :if={@show_badge}
+        class={[
+          "absolute inline-flex items-center justify-center w-6 h-6 text-xs font-bold",
+          "border-2 rounded-full -top-2 -end-2",
+          @badge_class
+        ]}
+      >
+        <%= if @count > 99, do: "99+", else: @count %>
+      </div>
+    </div>
+    """
+  end
+
   attr :class, :string, default: nil
   attr :tooltip_text, :string, required: true
 

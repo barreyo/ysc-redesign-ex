@@ -161,294 +161,296 @@ defmodule YscWeb.UserBookingDetailLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-4xl mx-auto px-4 py-8">
-      <div class="mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h1 class="text-3xl font-bold text-zinc-900">Booking Details</h1>
-            <p class="text-zinc-600 mt-1">
-              Booking Reference:
-              <code class="text-sm bg-zinc-100 px-2 py-1 rounded font-mono">
-                <%= @booking.reference_id %>
-              </code>
-            </p>
-          </div>
-          <div class="flex gap-2">
-            <.button
-              :if={@can_cancel}
-              phx-click="show-cancel-modal"
-              color="red"
-              data-confirm="Are you sure you want to cancel this booking?"
-            >
-              <.icon name="hero-x-circle" class="w-5 h-5 me-1 -mt-0.5" /> Cancel Booking
-            </.button>
+    <div class="py-8 lg:py-10 max-w-screen-lg mx-auto px-4">
+      <div class="max-w-xl mx-auto lg:mx-0">
+        <div class="prose prose-zinc mb-6">
+          <div class="flex items-start justify-between">
+            <h1>Booking Details</h1>
+            <div class="flex gap-2">
+              <.button
+                :if={@can_cancel}
+                phx-click="show-cancel-modal"
+                color="red"
+                data-confirm="Are you sure you want to cancel this booking?"
+              >
+                <.icon name="hero-x-circle" class="w-5 h-5 me-1 -mt-0.5" /> Cancel Booking
+              </.button>
+            </div>
           </div>
         </div>
-        <!-- Status Badge -->
-        <div class="mb-6">
-          <.badge
-            type={
-              case @booking.status do
-                :complete -> "green"
-                :hold -> "yellow"
-                :canceled -> "red"
-                :refunded -> "red"
-                _ -> "gray"
-              end
-            }
-            class="text-sm"
-          >
-            <%= String.capitalize(to_string(@booking.status)) %>
-          </.badge>
-        </div>
-      </div>
 
-      <div class="space-y-6">
-        <!-- Cancellation Policy -->
-        <%= if @refund_info && @can_cancel do %>
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h2 class="text-lg font-semibold text-blue-900 mb-3">Cancellation Policy</h2>
-            <div class="text-sm text-blue-800 space-y-3">
-              <%= if @refund_info.estimated_refund do %>
-                <p class="font-medium">
-                  If you cancel today, you may be eligible for a refund of approximately <strong class="text-blue-900"><%= MoneyHelper.format_money!(@refund_info.estimated_refund) %></strong>.
-                </p>
-              <% else %>
-                <p>
-                  Cancellation refunds are calculated based on how many days before check-in you cancel.
-                </p>
-              <% end %>
-              <%= if @refund_info.policy_rules && length(@refund_info.policy_rules) > 0 do %>
-                <div class="pt-3 border-t border-blue-200">
-                  <p class="font-semibold mb-2">Cancellation Policy:</p>
-                  <div class="text-sm text-blue-800 space-y-2">
-                    <%= # Sort rules by days_before_checkin ascending (most restrictive first)
-                    sorted_rules =
-                      Enum.sort_by(
-                        @refund_info.policy_rules,
-                        fn rule -> rule.days_before_checkin end,
-                        :asc
-                      )
+        <div class="space-y-6">
+          <!-- Cancellation Policy -->
+          <%= if @refund_info && @can_cancel do %>
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h2 class="text-lg font-semibold text-blue-900 mb-3">Cancellation Policy</h2>
+              <div class="text-sm text-blue-800 space-y-3">
+                <%= if @refund_info.estimated_refund do %>
+                  <p class="font-medium">
+                    If you cancel today, you may be eligible for a refund of approximately <strong class="text-blue-900"><%= MoneyHelper.format_money!(@refund_info.estimated_refund) %></strong>.
+                  </p>
+                <% else %>
+                  <p>
+                    Cancellation refunds are calculated based on how many days before check-in you cancel.
+                  </p>
+                <% end %>
+                <%= if @refund_info.policy_rules && length(@refund_info.policy_rules) > 0 do %>
+                  <div class="pt-3 border-t border-blue-200">
+                    <p class="font-semibold mb-2">Cancellation Policy:</p>
+                    <div class="text-sm text-blue-800 space-y-2">
+                      <%= # Sort rules by days_before_checkin ascending (most restrictive first)
+                      sorted_rules =
+                        Enum.sort_by(
+                          @refund_info.policy_rules,
+                          fn rule -> rule.days_before_checkin end,
+                          :asc
+                        )
 
-                    # Calculate forfeiture percentage (100 - refund_percentage)
-                    for rule <- sorted_rules do
-                      forfeiture_percentage =
-                        Decimal.sub(Decimal.new(100), rule.refund_percentage) |> Decimal.to_float()
+                      # Calculate forfeiture percentage (100 - refund_percentage)
+                      for rule <- sorted_rules do
+                        forfeiture_percentage =
+                          Decimal.sub(Decimal.new(100), rule.refund_percentage) |> Decimal.to_float()
 
-                      cond do
-                        forfeiture_percentage == 100.0 ->
-                          # 100% forfeiture (0% refund)
-                          "Any reservation cancelled less than #{rule.days_before_checkin} days prior to date of arrival will result in forfeiture of 100% of the cost."
+                        cond do
+                          forfeiture_percentage == 100.0 ->
+                            # 100% forfeiture (0% refund)
+                            "Any reservation cancelled less than #{rule.days_before_checkin} days prior to date of arrival will result in forfeiture of 100% of the cost."
 
-                        forfeiture_percentage > 0 ->
-                          # Partial forfeiture
-                          "Reservations cancelled less than #{rule.days_before_checkin} days prior to date of arrival are subject to forfeiture of #{forfeiture_percentage |> Float.round(0) |> trunc()}% of the cost."
+                          forfeiture_percentage > 0 ->
+                            # Partial forfeiture
+                            "Reservations cancelled less than #{rule.days_before_checkin} days prior to date of arrival are subject to forfeiture of #{forfeiture_percentage |> Float.round(0) |> trunc()}% of the cost."
 
-                        true ->
-                          # 0% forfeiture (100% refund) - shouldn't happen but handle it
-                          "Reservations cancelled #{rule.days_before_checkin} or more days prior to date of arrival are eligible for a full refund."
+                          true ->
+                            # 0% forfeiture (100% refund) - shouldn't happen but handle it
+                            "Reservations cancelled #{rule.days_before_checkin} or more days prior to date of arrival are eligible for a full refund."
+                        end
                       end
-                    end
-                    |> Enum.map(fn text -> "<p>#{text}</p>" end)
-                    |> Enum.join("")
-                    |> raw() %>
+                      |> Enum.map(fn text -> "<p>#{text}</p>" end)
+                      |> Enum.join("")
+                      |> raw() %>
+                    </div>
                   </div>
-                </div>
-              <% else %>
-                <div class="pt-3 border-t border-blue-200">
-                  <p class="font-semibold mb-2">Cancellation Policy:</p>
-                  <div class="text-sm text-blue-800">
-                    <p>Full refund available for cancellations.</p>
+                <% else %>
+                  <div class="pt-3 border-t border-blue-200">
+                    <p class="font-semibold mb-2">Cancellation Policy:</p>
+                    <div class="text-sm text-blue-800">
+                      <p>Full refund available for cancellations.</p>
+                    </div>
                   </div>
-                </div>
-              <% end %>
+                <% end %>
 
-              <div class="pt-3 border-t border-blue-200 space-y-2">
-                <p class="font-medium">
-                  Important: Even if the cancellation policy does not provide a refund, canceling your reservation will free up the room for other members to book.
-                </p>
-                <p>
-                  If you need to cancel due to weather conditions or have other inquiries, please reach out to the cabin master at <.link
-                    href={"mailto:#{get_cabin_master_email(@booking.property)}"}
-                    class="text-blue-900 hover:text-blue-700 underline font-medium"
-                  >
+                <div class="pt-3 border-t border-blue-200 space-y-2">
+                  <p class="font-medium">
+                    Important: Even if the cancellation policy does not provide a refund, canceling your reservation will free up the room for other members to book.
+                  </p>
+                  <p>
+                    If you need to cancel due to weather conditions or have other inquiries, please reach out to the cabin master at <.link
+                      href={"mailto:#{get_cabin_master_email(@booking.property)}"}
+                      class="text-blue-900 hover:text-blue-700 underline font-medium"
+                    >
                     <%= get_cabin_master_email(@booking.property) %>
                   </.link>.
-                </p>
-              </div>
-            </div>
-          </div>
-        <% end %>
-        <!-- Booking Summary -->
-        <div class="bg-white rounded-lg border border-zinc-200 p-6">
-          <h2 class="text-xl font-semibold text-zinc-900 mb-4">Booking Summary</h2>
-
-          <div class="space-y-4">
-            <div>
-              <div class="text-sm text-zinc-600">Property</div>
-              <div class="font-medium text-zinc-900">
-                <%= format_property_name(@booking.property) %>
-              </div>
-            </div>
-
-            <div>
-              <div class="text-sm text-zinc-600">Check-in</div>
-              <div class="font-medium text-zinc-900">
-                <%= format_date(@booking.checkin_date, @timezone) %>
-              </div>
-            </div>
-
-            <div>
-              <div class="text-sm text-zinc-600">Check-out</div>
-              <div class="font-medium text-zinc-900">
-                <%= format_date(@booking.checkout_date, @timezone) %>
-              </div>
-            </div>
-
-            <div>
-              <div class="text-sm text-zinc-600">Nights</div>
-              <div class="font-medium text-zinc-900">
-                <%= Date.diff(@booking.checkout_date, @booking.checkin_date) %>
-              </div>
-            </div>
-
-            <div>
-              <div class="text-sm text-zinc-600">Guests</div>
-              <div class="font-medium text-zinc-900">
-                <%= @booking.guests_count %>
-                <%= if @booking.children_count > 0 do %>
-                  (<%= @booking.children_count %> children)
-                <% end %>
-              </div>
-            </div>
-
-            <div>
-              <div class="text-sm text-zinc-600">Booking Mode</div>
-              <div class="font-medium text-zinc-900">
-                <%= if @booking.booking_mode == :buyout do %>
-                  Full Buyout
-                <% else %>
-                  <%= if @booking.booking_mode == :room do %>
-                    Per Room
-                  <% else %>
-                    Per Guest
-                  <% end %>
-                <% end %>
-              </div>
-            </div>
-
-            <%= if Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0 do %>
-              <div>
-                <div class="text-sm text-zinc-600">
-                  <%= if length(@booking.rooms) == 1, do: "Room", else: "Rooms" %>
-                </div>
-                <div class="font-medium text-zinc-900">
-                  <%= Enum.map_join(@booking.rooms, ", ", fn room -> room.name end) %>
+                  </p>
                 </div>
               </div>
-            <% end %>
-          </div>
-        </div>
-        <!-- Payment Summary -->
-        <%= if @payment do %>
+            </div>
+          <% end %>
+          <!-- Booking Summary -->
           <div class="bg-white rounded-lg border border-zinc-200 p-6">
-            <h2 class="text-xl font-semibold text-zinc-900 mb-4">Payment Summary</h2>
+            <h2 class="text-xl font-semibold text-zinc-900 mb-4">Booking Summary</h2>
 
-            <div class="space-y-3">
-              <%= if @price_breakdown do %>
-                <%= render_price_breakdown(assigns) %>
-              <% end %>
-
-              <div class="flex justify-between text-sm">
-                <span class="text-zinc-600">Payment Method</span>
-                <span class="text-zinc-900">
-                  <%= get_payment_method_description(@payment) %>
-                </span>
+            <div class="space-y-4">
+              <div>
+                <div class="text-sm text-zinc-600 mb-0.5">Booking Reference</div>
+                <.badge>
+                  <%= @booking.reference_id %>
+                </.badge>
               </div>
-
-              <div class="flex justify-between text-sm">
-                <span class="text-zinc-600">Payment Date</span>
-                <span class="text-zinc-900">
-                  <%= format_datetime(@payment.payment_date || @payment.inserted_at, @timezone) %>
-                </span>
-              </div>
-
-              <div class="flex justify-between text-sm">
-                <span class="text-zinc-600">Payment Status</span>
-                <span class="text-zinc-900">
-                  <.badge type={
-                    case @payment.status do
-                      :completed -> "green"
-                      :pending -> "yellow"
+              <!-- Status Badge -->
+              <div>
+                <div class="text-sm text-zinc-600 mb-0.5">Status</div>
+                <.badge
+                  type={
+                    case @booking.status do
+                      :complete -> "green"
+                      :hold -> "yellow"
+                      :canceled -> "red"
                       :refunded -> "red"
                       _ -> "gray"
                     end
-                  }>
-                    <%= String.capitalize(to_string(@payment.status)) %>
-                  </.badge>
-                </span>
+                  }
+                  class="text-sm"
+                >
+                  <%= String.capitalize(to_string(@booking.status)) %>
+                </.badge>
               </div>
 
-              <div class="border-t border-zinc-200 pt-3">
-                <div class="flex justify-between items-center">
-                  <span class="text-lg font-semibold text-zinc-900">Total Paid</span>
-                  <span class="text-2xl font-bold text-zinc-900">
-                    <%= MoneyHelper.format_money!(@payment.amount) %>
+              <div>
+                <div class="text-sm text-zinc-600">Property</div>
+                <div class="font-medium text-zinc-900">
+                  <%= format_property_name(@booking.property) %>
+                </div>
+              </div>
+
+              <div>
+                <div class="text-sm text-zinc-600">Check-in</div>
+                <div class="font-medium text-zinc-900">
+                  <%= format_date(@booking.checkin_date, @timezone) %>
+                </div>
+              </div>
+
+              <div>
+                <div class="text-sm text-zinc-600">Check-out</div>
+                <div class="font-medium text-zinc-900">
+                  <%= format_date(@booking.checkout_date, @timezone) %>
+                </div>
+              </div>
+
+              <div>
+                <div class="text-sm text-zinc-600">Nights</div>
+                <div class="font-medium text-zinc-900">
+                  <%= Date.diff(@booking.checkout_date, @booking.checkin_date) %>
+                </div>
+              </div>
+
+              <div>
+                <div class="text-sm text-zinc-600">Guests</div>
+                <div class="font-medium text-zinc-900">
+                  <%= @booking.guests_count %>
+                  <%= if @booking.children_count > 0 do %>
+                    (<%= @booking.children_count %> children)
+                  <% end %>
+                </div>
+              </div>
+
+              <div>
+                <div class="text-sm text-zinc-600">Booking Mode</div>
+                <div class="font-medium text-zinc-900">
+                  <%= if @booking.booking_mode == :buyout do %>
+                    Full Buyout
+                  <% else %>
+                    <%= if @booking.booking_mode == :room do %>
+                      Per Room
+                    <% else %>
+                      Per Guest
+                    <% end %>
+                  <% end %>
+                </div>
+              </div>
+
+              <%= if Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0 do %>
+                <div>
+                  <div class="text-sm text-zinc-600">
+                    <%= if length(@booking.rooms) == 1, do: "Room", else: "Rooms" %>
+                  </div>
+                  <div class="font-medium text-zinc-900">
+                    <%= Enum.map_join(@booking.rooms, ", ", fn room -> room.name end) %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+          <!-- Payment Summary -->
+          <%= if @payment do %>
+            <div class="bg-white rounded-lg border border-zinc-200 p-6">
+              <h2 class="text-xl font-semibold text-zinc-900 mb-4">Payment Summary</h2>
+
+              <div class="space-y-3">
+                <%= if @price_breakdown do %>
+                  <%= render_price_breakdown(assigns) %>
+                <% end %>
+
+                <div class="flex justify-between text-sm">
+                  <span class="text-zinc-600">Payment Method</span>
+                  <span class="text-zinc-900">
+                    <%= get_payment_method_description(@payment) %>
                   </span>
+                </div>
+
+                <div class="flex justify-between text-sm">
+                  <span class="text-zinc-600">Payment Date</span>
+                  <span class="text-zinc-900">
+                    <%= format_datetime(@payment.payment_date || @payment.inserted_at, @timezone) %>
+                  </span>
+                </div>
+
+                <div class="flex justify-between text-sm">
+                  <span class="text-zinc-600">Payment Status</span>
+                  <span class="text-zinc-900">
+                    <.badge type={
+                      case @payment.status do
+                        :completed -> "green"
+                        :pending -> "yellow"
+                        :refunded -> "red"
+                        _ -> "gray"
+                      end
+                    }>
+                      <%= String.capitalize(to_string(@payment.status)) %>
+                    </.badge>
+                  </span>
+                </div>
+
+                <div class="border-t border-zinc-200 pt-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-lg font-semibold text-zinc-900">Total Paid</span>
+                    <span class="text-2xl font-bold text-zinc-900">
+                      <%= MoneyHelper.format_money!(@payment.amount) %>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          <% end %>
+        </div>
+        <!-- Cancel Modal -->
+        <%= if @show_cancel_modal do %>
+          <.modal id="cancel-booking-modal" on_cancel={JS.push("hide-cancel-modal")} show>
+            <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-6">
+              Cancel Booking
+            </h2>
+
+            <div class="space-y-4">
+              <p class="text-zinc-600">
+                Are you sure you want to cancel this booking? This action cannot be undone.
+              </p>
+
+              <%= if @refund_info && @refund_info.estimated_refund do %>
+                <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p class="text-sm text-blue-800">
+                    <strong>Estimated Refund:</strong>
+                    <%= MoneyHelper.format_money!(@refund_info.estimated_refund) %>
+                  </p>
+                </div>
+              <% end %>
+
+              <.simple_form for={%{}} id="cancel-booking-form" phx-submit="confirm-cancel">
+                <.input
+                  type="textarea"
+                  name="reason"
+                  label="Cancellation Reason (Optional)"
+                  value={@cancel_reason}
+                  phx-blur="update-cancel-reason"
+                  phx-debounce="300"
+                  rows="3"
+                />
+
+                <:actions>
+                  <.button type="submit" color="red" phx-disable-with="Cancelling...">
+                    Cancel Booking
+                  </.button>
+                  <.button
+                    type="button"
+                    phx-click="hide-cancel-modal"
+                    class="bg-zinc-200 text-zinc-800 hover:bg-zinc-300"
+                  >
+                    Keep Booking
+                  </.button>
+                </:actions>
+              </.simple_form>
+            </div>
+          </.modal>
         <% end %>
       </div>
-      <!-- Cancel Modal -->
-      <%= if @show_cancel_modal do %>
-        <.modal id="cancel-booking-modal" on_cancel={JS.push("hide-cancel-modal")} show>
-          <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-6">
-            Cancel Booking
-          </h2>
-
-          <div class="space-y-4">
-            <p class="text-zinc-600">
-              Are you sure you want to cancel this booking? This action cannot be undone.
-            </p>
-
-            <%= if @refund_info && @refund_info.estimated_refund do %>
-              <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <p class="text-sm text-blue-800">
-                  <strong>Estimated Refund:</strong>
-                  <%= MoneyHelper.format_money!(@refund_info.estimated_refund) %>
-                </p>
-              </div>
-            <% end %>
-
-            <.simple_form for={%{}} id="cancel-booking-form" phx-submit="confirm-cancel">
-              <.input
-                type="textarea"
-                name="reason"
-                label="Cancellation Reason (Optional)"
-                value={@cancel_reason}
-                phx-blur="update-cancel-reason"
-                phx-debounce="300"
-                rows="3"
-              />
-
-              <:actions>
-                <.button type="submit" color="red" phx-disable-with="Cancelling...">
-                  Cancel Booking
-                </.button>
-                <.button
-                  type="button"
-                  phx-click="hide-cancel-modal"
-                  class="bg-zinc-200 text-zinc-800 hover:bg-zinc-300"
-                >
-                  Keep Booking
-                </.button>
-              </:actions>
-            </.simple_form>
-          </div>
-        </.modal>
-      <% end %>
     </div>
     """
   end
@@ -475,8 +477,26 @@ defmodule YscWeb.UserBookingDetailLive do
 
   defp can_cancel_booking?(booking) do
     # Can cancel if booking is complete or hold, and check-in is in the future
+    # OR if check-in is today (in PST) and it's before 3PM PST
+    today_pst = get_today_pst()
+
     booking.status in [:complete, :hold] &&
-      Date.compare(booking.checkin_date, Date.utc_today()) == :gt
+      (Date.compare(booking.checkin_date, today_pst) == :gt ||
+         (Date.compare(booking.checkin_date, today_pst) == :eq &&
+            before_checkin_time_today?()))
+  end
+
+  defp get_today_pst do
+    DateTime.now!("America/Los_Angeles") |> DateTime.to_date()
+  end
+
+  defp before_checkin_time_today? do
+    # Check if current time (in PST) is before 3PM (15:00)
+    now_pst = DateTime.now!("America/Los_Angeles")
+    today_pst = DateTime.to_date(now_pst)
+    checkin_time = ~T[15:00:00]
+    checkin_datetime_today = DateTime.new!(today_pst, checkin_time, "America/Los_Angeles")
+    DateTime.compare(now_pst, checkin_datetime_today) == :lt
   end
 
   defp get_refund_info(booking) do

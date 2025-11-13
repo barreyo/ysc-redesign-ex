@@ -2,9 +2,11 @@ defmodule YscWeb.AdminUserDetailsLive do
   use YscWeb, :live_view
 
   alias Ysc.Accounts
+  alias Ysc.Bookings
   alias Ysc.Ledgers
   alias Ysc.Repo
   alias Ysc.Subscriptions
+  alias Ysc.Tickets
 
   def render(assigns) do
     ~H"""
@@ -60,7 +62,7 @@ defmodule YscWeb.AdminUserDetailsLive do
                       "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
                   ]}
                 >
-                  Orders
+                  Tickets
                 </.link>
               </li>
               <li class="me-2">
@@ -170,12 +172,214 @@ defmodule YscWeb.AdminUserDetailsLive do
           </.simple_form>
         </div>
 
-        <div :if={@live_action == :orders} class="max-w-lg py-8 px-2">
-          <p class="text-sm text-zinc-800">No orders (yet!)</p>
+        <div :if={@live_action == :orders} class="max-w-full py-8 px-2">
+          <h2 class="text-xl font-semibold text-zinc-800 mb-4">Ticket Orders</h2>
+          <div class="w-full">
+            <Flop.Phoenix.table
+              id="user_ticket_orders_list"
+              items={@streams.ticket_orders}
+              meta={@ticket_orders_meta}
+              path={~p"/admin/users/#{@user_id}/details/orders"}
+            >
+              <:col :let={{_, order}} label="Order ID" field={:reference_id}>
+                <.badge type="default" class="whitespace-nowrap">
+                  <span class="font-mono text-xs">
+                    <%= order.reference_id %>
+                  </span>
+                </.badge>
+              </:col>
+              <:col :let={{_, order}} label="Event" field={:inserted_at}>
+                <%= if order.event do %>
+                  <div class="text-sm font-semibold text-zinc-800">
+                    <%= order.event.title %>
+                  </div>
+                  <%= if order.event.start_date do %>
+                    <div class="text-xs text-zinc-500 mt-0.5">
+                      <%= Calendar.strftime(order.event.start_date, "%b %d, %Y") %>
+                    </div>
+                  <% end %>
+                <% else %>
+                  <span class="text-zinc-400">—</span>
+                <% end %>
+              </:col>
+              <:col :let={{_, order}} label="Tickets">
+                <span class="text-sm text-zinc-600">
+                  <%= length(order.tickets || []) %> ticket(s)
+                </span>
+              </:col>
+              <:col :let={{_, order}} label="Amount" field={:total_amount}>
+                <span class="text-sm font-medium text-zinc-900">
+                  <%= Ysc.MoneyHelper.format_money!(order.total_amount) %>
+                </span>
+              </:col>
+              <:col :let={{_, order}} label="Status" field={:status}>
+                <%= case order.status do %>
+                  <% :pending -> %>
+                    <.badge type="yellow" class="whitespace-nowrap flex-shrink-0">Pending</.badge>
+                  <% :completed -> %>
+                    <.badge type="green" class="whitespace-nowrap flex-shrink-0">Completed</.badge>
+                  <% :cancelled -> %>
+                    <.badge type="red" class="whitespace-nowrap flex-shrink-0">Cancelled</.badge>
+                  <% :expired -> %>
+                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">Expired</.badge>
+                  <% _ -> %>
+                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">—</.badge>
+                <% end %>
+              </:col>
+              <:col :let={{_, order}} label="Order Date" field={:inserted_at}>
+                <span class="text-sm text-zinc-600">
+                  <%= Calendar.strftime(order.inserted_at, "%b %d, %Y") %>
+                </span>
+              </:col>
+            </Flop.Phoenix.table>
+
+            <Flop.Phoenix.pagination
+              :if={@ticket_orders_meta}
+              meta={@ticket_orders_meta}
+              path={~p"/admin/users/#{@user_id}/details/orders"}
+              opts={[
+                wrapper_attrs: [class: "flex items-center justify-center py-10 h-10 text-base"],
+                pagination_list_attrs: [
+                  class: [
+                    "flex gap-0 order-2 justify-center items-center"
+                  ]
+                ],
+                previous_link_attrs: [
+                  class:
+                    "order-1 flex justify-center items-center px-3 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                ],
+                next_link_attrs: [
+                  class:
+                    "order-3 flex justify-center items-center px-3 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                ],
+                page_links: {:ellipsis, 5}
+              ]}
+            />
+          </div>
         </div>
 
-        <div :if={@live_action == :bookings} class="max-w-lg py-8 px-2">
-          <p class="text-sm text-zinc-800">No bookings (yet!)</p>
+        <div :if={@live_action == :bookings} class="max-w-full py-8 px-2">
+          <h2 class="text-xl font-semibold text-zinc-800 mb-4">Bookings</h2>
+          <div class="w-full">
+            <Flop.Phoenix.table
+              id="user_bookings_list"
+              items={@streams.bookings}
+              meta={@bookings_meta}
+              path={~p"/admin/users/#{@user_id}/details/bookings"}
+            >
+              <:col :let={{_, booking}} label="Reference" field={:reference_id}>
+                <.badge type="default" class="whitespace-nowrap">
+                  <span class="font-mono text-xs flex-shrink-0 whitespace-nowrap">
+                    <%= booking.reference_id %>
+                  </span>
+                </.badge>
+              </:col>
+              <:col :let={{_, booking}} label="Property" field={:property}>
+                <span class="text-sm text-zinc-800">
+                  <%= case booking.property do %>
+                    <% :tahoe -> %>
+                      Lake Tahoe
+                    <% :clear_lake -> %>
+                      Clear Lake
+                    <% _ -> %>
+                      —
+                  <% end %>
+                </span>
+              </:col>
+              <:col :let={{_, booking}} label="Check-in" field={:checkin_date}>
+                <span class="text-sm text-zinc-800">
+                  <%= Calendar.strftime(booking.checkin_date, "%b %d, %Y") %>
+                </span>
+              </:col>
+              <:col :let={{_, booking}} label="Check-out" field={:checkout_date}>
+                <span class="text-sm text-zinc-800">
+                  <%= Calendar.strftime(booking.checkout_date, "%b %d, %Y") %>
+                </span>
+              </:col>
+              <:col :let={{_, booking}} label="Nights">
+                <span class="text-sm text-zinc-600">
+                  <%= Date.diff(booking.checkout_date, booking.checkin_date) %>
+                </span>
+              </:col>
+              <:col :let={{_, booking}} label="Guests" field={:guests_count}>
+                <span class="text-sm text-zinc-600">
+                  <%= booking.guests_count %>
+                </span>
+              </:col>
+              <:col :let={{_, booking}} label="Room" field={:booking_mode}>
+                <%= if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do %>
+                  <div class="space-y-1">
+                    <%= for room <- booking.rooms do %>
+                      <div>
+                        <div class="text-sm font-medium text-zinc-800">
+                          <%= room.name %>
+                        </div>
+                        <%= if room.room_category do %>
+                          <div class="text-xs text-zinc-500 mt-0.5">
+                            <%= String.capitalize(to_string(room.room_category.name)) %>
+                          </div>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                <% else %>
+                  <.badge type="green" class="whitespace-nowrap flex-shrink-0">Full Buyout</.badge>
+                <% end %>
+              </:col>
+              <:col :let={{_, booking}} label="Status" field={:status}>
+                <%= case booking.status do %>
+                  <% :draft -> %>
+                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">Draft</.badge>
+                  <% :hold -> %>
+                    <.badge type="yellow" class="whitespace-nowrap flex-shrink-0">Hold</.badge>
+                  <% :complete -> %>
+                    <.badge type="green" class="whitespace-nowrap flex-shrink-0">Complete</.badge>
+                  <% :refunded -> %>
+                    <.badge type="sky" class="whitespace-nowrap flex-shrink-0">Refunded</.badge>
+                  <% :canceled -> %>
+                    <.badge type="red" class="whitespace-nowrap flex-shrink-0">Canceled</.badge>
+                  <% _ -> %>
+                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">—</.badge>
+                <% end %>
+              </:col>
+              <:col :let={{_, booking}} label="Booked" field={:inserted_at}>
+                <span class="text-sm text-zinc-600">
+                  <%= Calendar.strftime(booking.inserted_at, "%b %d, %Y") %>
+                </span>
+              </:col>
+              <:action :let={{_, booking}} label="Action">
+                <.link
+                  navigate={~p"/bookings/#{booking.id}"}
+                  class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
+                >
+                  View
+                </.link>
+              </:action>
+            </Flop.Phoenix.table>
+
+            <Flop.Phoenix.pagination
+              :if={@bookings_meta}
+              meta={@bookings_meta}
+              path={~p"/admin/users/#{@user_id}/details/bookings"}
+              opts={[
+                wrapper_attrs: [class: "flex items-center justify-center py-10 h-10 text-base"],
+                pagination_list_attrs: [
+                  class: [
+                    "flex gap-0 order-2 justify-center items-center"
+                  ]
+                ],
+                previous_link_attrs: [
+                  class:
+                    "order-1 flex justify-center items-center px-3 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                ],
+                next_link_attrs: [
+                  class:
+                    "order-3 flex justify-center items-center px-3 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                ],
+                page_links: {:ellipsis, 5}
+              ]}
+            />
+          </div>
         </div>
 
         <div :if={@live_action == :application} class="max-w-lg py-8 px-2">
@@ -647,7 +851,27 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:membership_form, to_form(membership_changeset, as: "membership"))
      |> assign(:membership_type_form, to_form(membership_type_changeset, as: "membership_type"))
      |> assign(:lifetime_form, to_form(lifetime_changeset, as: "lifetime"))
+     |> assign(:ticket_orders_meta, nil)
+     |> assign(:bookings_meta, nil)
      |> assign(form: to_form(user_changeset, as: "user"))}
+  end
+
+  def handle_params(params, _uri, socket) do
+    user_id = socket.assigns.user_id
+
+    socket =
+      case socket.assigns.live_action do
+        :orders ->
+          load_ticket_orders(socket, user_id, params)
+
+        :bookings ->
+          load_bookings(socket, user_id, params)
+
+        _ ->
+          socket
+      end
+
+    {:noreply, socket}
   end
 
   def handle_event("save", %{"user" => user_params}, socket) do
@@ -994,5 +1218,33 @@ defmodule YscWeb.AdminUserDetailsLive do
       value = Atom.to_string(plan.id)
       {label, value}
     end)
+  end
+
+  defp load_ticket_orders(socket, user_id, params) do
+    case Tickets.list_user_ticket_orders_paginated(user_id, params) do
+      {:ok, {orders, meta}} ->
+        socket
+        |> assign(:ticket_orders_meta, meta)
+        |> stream(:ticket_orders, orders, reset: true)
+
+      {:error, meta} ->
+        socket
+        |> assign(:ticket_orders_meta, meta)
+        |> stream(:ticket_orders, [], reset: true)
+    end
+  end
+
+  defp load_bookings(socket, user_id, params) do
+    case Bookings.list_user_bookings_paginated(user_id, params) do
+      {:ok, {bookings, meta}} ->
+        socket
+        |> assign(:bookings_meta, meta)
+        |> stream(:bookings, bookings, reset: true)
+
+      {:error, meta} ->
+        socket
+        |> assign(:bookings_meta, meta)
+        |> stream(:bookings, [], reset: true)
+    end
   end
 end
