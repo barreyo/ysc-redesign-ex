@@ -522,7 +522,13 @@ defmodule YscWeb.BookingCheckoutLive do
         payment_intent_params
       end
 
-    case Stripe.PaymentIntent.create(payment_intent_params) do
+    # Use booking reference ID as idempotency key to prevent duplicate charges
+    # If the same reference is used again, Stripe will return the existing payment intent
+    idempotency_key = "booking_#{booking.reference_id}"
+
+    case Stripe.PaymentIntent.create(payment_intent_params,
+           headers: %{"Idempotency-Key" => idempotency_key}
+         ) do
       {:ok, payment_intent} ->
         {:ok, payment_intent}
 

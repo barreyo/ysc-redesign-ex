@@ -61,7 +61,13 @@ defmodule Ysc.Tickets.StripeService do
         payment_intent_params
       end
 
-    case Stripe.PaymentIntent.create(payment_intent_params) do
+    # Use ticket order reference ID as idempotency key to prevent duplicate charges
+    # If the same reference is used again, Stripe will return the existing payment intent
+    idempotency_key = "ticket_order_#{ticket_order.reference_id}"
+
+    case Stripe.PaymentIntent.create(payment_intent_params,
+           headers: %{"Idempotency-Key" => idempotency_key}
+         ) do
       {:ok, payment_intent} ->
         # Update the ticket order with the payment intent ID
         case Tickets.update_payment_intent(ticket_order, payment_intent.id) do
