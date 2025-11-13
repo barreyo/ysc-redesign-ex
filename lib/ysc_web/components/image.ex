@@ -43,12 +43,21 @@ defmodule YscWeb.Components.Image do
       |> assign(:aspect_class, aspect_class)
       |> assign(:preferred_type, preferred_type)
 
-    if assigns.image_id == nil || assigns.image_id == "" do
-      {:ok, socket |> assign(image: nil)}
-    else
-      image = Media.get_image!(assigns.image_id)
-      {:ok, socket |> assign(image: image)}
-    end
+    # Use preloaded image if available (from batch loading), otherwise fetch
+    image =
+      case Map.get(assigns, :image) do
+        nil ->
+          if assigns.image_id == nil || assigns.image_id == "" do
+            nil
+          else
+            Media.get_image!(assigns.image_id)
+          end
+
+        preloaded_image ->
+          preloaded_image
+      end
+
+    {:ok, socket |> assign(image: image)}
   end
 
   defp get_blur_hash(nil), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"

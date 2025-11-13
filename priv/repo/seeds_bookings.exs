@@ -427,9 +427,13 @@ calculate_booking_pricing = fn booking_attrs ->
   checkin_date = booking_attrs.checkin_date
   checkout_date = booking_attrs.checkout_date
   booking_mode = booking_attrs.booking_mode
-  room_id = Map.get(booking_attrs, :room_id)
+  rooms = Map.get(booking_attrs, :rooms, [])
   guests_count = booking_attrs.guests_count
   children_count = Map.get(booking_attrs, :children_count, 0)
+
+  # For pricing calculation, use the first room's ID (for single-room bookings)
+  # For multi-room bookings, we'd need to sum prices, but seeds only create single-room bookings
+  room_id = if length(rooms) > 0, do: List.first(rooms).id, else: nil
 
   case Ysc.Bookings.calculate_booking_price(
          property,
@@ -444,28 +448,63 @@ calculate_booking_pricing = fn booking_attrs ->
       # Handle room booking with breakdown
       nights = Date.diff(checkout_date, checkin_date)
 
-      # Get room info if available
-      room_info = if room_id do
-        case Repo.get(Ysc.Bookings.Room, room_id) do
-          nil -> %{}
-          room -> %{"room_id" => room.id, "room_name" => room.name}
-        end
-      else
-        %{}
-      end
+      # Build pricing_items for all rooms
+      if length(rooms) > 0 do
+        # Multiple rooms - create a list of room items
+        room_items = Enum.map(rooms, fn room ->
+          # For each room, we'd need to calculate its price separately
+          # For seeds, we'll use the total divided by number of rooms (simplified)
+          room_total = if length(rooms) > 1 do
+            # Divide total by number of rooms (simplified approach for seeds)
+            case Money.div(total, length(rooms)) do
+              {:ok, divided} -> divided
+              _ -> total
+            end
+          else
+            total
+          end
 
-      pricing_items = Map.merge(room_info, %{
-        "type" => "room",
-        "nights" => nights,
-        "guests_count" => guests_count,
-        "children_count" => children_count,
-        "total" => %{
-          "amount" => Decimal.to_string(total.amount),
-          "currency" => Atom.to_string(total.currency)
+          %{
+            "room_id" => room.id,
+            "room_name" => room.name,
+            "nights" => nights,
+            "guests_count" => guests_count,
+            "children_count" => children_count,
+            "total" => %{
+              "amount" => Decimal.to_string(room_total.amount),
+              "currency" => Atom.to_string(room_total.currency)
+            }
+          }
+        end)
+
+        pricing_items = %{
+          "type" => "room",
+          "rooms" => room_items,
+          "nights" => nights,
+          "guests_count" => guests_count,
+          "children_count" => children_count,
+          "total" => %{
+            "amount" => Decimal.to_string(total.amount),
+            "currency" => Atom.to_string(total.currency)
+          }
         }
-      })
 
-      {total, pricing_items}
+        {total, pricing_items}
+      else
+        # No rooms (shouldn't happen for room bookings, but handle gracefully)
+        pricing_items = %{
+          "type" => "room",
+          "nights" => nights,
+          "guests_count" => guests_count,
+          "children_count" => children_count,
+          "total" => %{
+            "amount" => Decimal.to_string(total.amount),
+            "currency" => Atom.to_string(total.currency)
+          }
+        }
+
+        {total, pricing_items}
+      end
 
     {:ok, total} ->
       # Handle simple case (buyout, day)
@@ -562,7 +601,7 @@ else
         guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
-        room_id: room.id,
+        rooms: [room],
         user_id: user.id
       }
 
@@ -572,7 +611,7 @@ else
         status: :complete,
         total_price: total_price,
         pricing_items: pricing_items
-      }))
+      }), rooms: [room])
       |> BookingValidator.validate(user: user, skip_validation: true)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -592,7 +631,7 @@ else
         guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
-        room_id: room.id,
+        rooms: [room],
         user_id: user.id
       }
 
@@ -602,7 +641,7 @@ else
         status: :complete,
         total_price: total_price,
         pricing_items: pricing_items
-      }))
+      }), rooms: [room])
       |> BookingValidator.validate(user: user, skip_validation: true)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -622,7 +661,7 @@ else
         guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
-        room_id: room.id,
+        rooms: [room],
         user_id: user.id
       }
 
@@ -632,7 +671,7 @@ else
         status: :complete,
         total_price: total_price,
         pricing_items: pricing_items
-      }))
+      }), rooms: [room])
       |> BookingValidator.validate(user: user, skip_validation: true)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -652,7 +691,7 @@ else
         guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
-        room_id: room.id,
+        rooms: [room],
         user_id: user.id
       }
 
@@ -662,7 +701,7 @@ else
         status: :complete,
         total_price: total_price,
         pricing_items: pricing_items
-      }))
+      }), rooms: [room])
       |> BookingValidator.validate(user: user)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -682,7 +721,7 @@ else
         guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
-        room_id: room.id,
+        rooms: [room],
         user_id: user.id
       }
 
@@ -692,7 +731,7 @@ else
         status: :complete,
         total_price: total_price,
         pricing_items: pricing_items
-      }))
+      }), rooms: [room])
       |> BookingValidator.validate(user: user)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -714,7 +753,7 @@ else
         guests_count: guests_count1,
         property: :tahoe,
         booking_mode: :room,
-        room_id: room.id,
+        rooms: [room],
         user_id: user1.id
       }
 
@@ -724,7 +763,7 @@ else
         status: :complete,
         total_price: total_price1,
         pricing_items: pricing_items1
-      }))
+      }), rooms: [room])
       |> Ysc.Bookings.BookingValidator.validate(user: user1)
       |> Repo.insert(on_conflict: :nothing)
 
@@ -741,7 +780,7 @@ else
         guests_count: guests_count2,
         property: :tahoe,
         booking_mode: :room,
-        room_id: room.id,
+        rooms: [room],
         user_id: user2.id
       }
 
@@ -751,7 +790,7 @@ else
         status: :complete,
         total_price: total_price2,
         pricing_items: pricing_items2
-      }))
+      }), rooms: [room])
       |> Ysc.Bookings.BookingValidator.validate(user: user2)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -771,7 +810,7 @@ else
         guests_count: guests_count,
         property: :tahoe,
         booking_mode: :room,
-        room_id: room.id,
+        rooms: [room],
         user_id: user.id
       }
 
@@ -781,7 +820,7 @@ else
         status: :complete,
         total_price: total_price,
         pricing_items: pricing_items
-      }))
+      }), rooms: [room])
       |> BookingValidator.validate(user: user)
       |> Repo.insert(on_conflict: :nothing)
     end
@@ -849,7 +888,7 @@ else
         guests_count: 8,  # Can be any number for buyouts
         property: :tahoe,
         booking_mode: :buyout,
-        room_id: nil,  # Buyouts don't have a specific room
+        rooms: [],  # Buyouts don't have a specific room
         user_id: tahoe_buyout_user.id
       }
 
@@ -859,7 +898,7 @@ else
         status: :complete,
         total_price: total_price,
         pricing_items: pricing_items
-      }))
+      }), rooms: [])
       |> BookingValidator.validate(user: tahoe_buyout_user)
       |> Repo.insert(on_conflict: :nothing)
 
@@ -905,7 +944,7 @@ else
             guests_count: 10,
             property: :tahoe,
             booking_mode: :buyout,
-            room_id: nil,
+            rooms: [],
             user_id: tahoe_weekend_user.id
           }
 
@@ -915,7 +954,7 @@ else
             status: :complete,
             total_price: total_price,
             pricing_items: pricing_items
-          }))
+          }), rooms: [])
           |> BookingValidator.validate(user: tahoe_weekend_user)
           |> Repo.insert(on_conflict: :nothing)
         end
@@ -955,7 +994,7 @@ else
         guests_count: 12,
         property: :tahoe,
         booking_mode: :buyout,
-        room_id: nil,
+        rooms: [],
         user_id: tahoe_max_user.id
       }
 
@@ -965,7 +1004,7 @@ else
         status: :complete,
         total_price: total_price,
         pricing_items: pricing_items
-      }))
+      }), rooms: [])
       |> BookingValidator.validate(user: tahoe_max_user)
       |> Repo.insert(on_conflict: :nothing)
 
@@ -982,7 +1021,7 @@ else
         guests_count: 15,  # Can exceed 12 since it's a buyout
         property: :clear_lake,
         booking_mode: :buyout,
-        room_id: nil,
+        rooms: [],
         user_id: clear_lake_buyout_user.id
       }
 
@@ -992,7 +1031,7 @@ else
         status: :complete,
         total_price: total_price,
         pricing_items: pricing_items
-      }))
+      }), rooms: [])
       |> BookingValidator.validate(user: clear_lake_buyout_user)
       |> Repo.insert(on_conflict: :nothing)
 
@@ -1009,7 +1048,7 @@ else
         guests_count: 20,
         property: :clear_lake,
         booking_mode: :buyout,
-        room_id: nil,
+        rooms: [],
         user_id: clear_lake_buyout2_user.id
       }
 
@@ -1019,7 +1058,7 @@ else
         status: :complete,
         total_price: total_price,
         pricing_items: pricing_items
-      }))
+      }), rooms: [])
       |> BookingValidator.validate(user: clear_lake_buyout2_user)
       |> Repo.insert(on_conflict: :nothing)
 

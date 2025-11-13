@@ -18,8 +18,9 @@ defmodule YscWeb.TahoeBookingLive do
 
     today = Date.utc_today()
 
-    # Load seasons once and cache them to avoid multiple queries
-    seasons = load_seasons_for_property(:tahoe)
+    # Load seasons once using cache to avoid multiple queries
+    alias Ysc.Bookings.SeasonCache
+    seasons = SeasonCache.get_all_for_property(:tahoe)
 
     {current_season, season_start_date, season_end_date} =
       get_current_season_info_cached(seasons, today)
@@ -44,11 +45,12 @@ defmodule YscWeb.TahoeBookingLive do
         as: "booking_dates"
       )
 
-    # Check if user can book
-    {can_book, booking_error_title, booking_disabled_reason} = check_booking_eligibility(user)
-
-    # Load active bookings for the user
+    # Load active bookings for the user first (needed for eligibility check)
     active_bookings = if user, do: get_active_bookings(user.id), else: []
+
+    # Check if user can book (pass active_bookings to avoid duplicate query)
+    {can_book, booking_error_title, booking_disabled_reason} =
+      check_booking_eligibility(user, active_bookings)
 
     # If user can't book, default to information tab
     active_tab =
@@ -58,11 +60,17 @@ defmodule YscWeb.TahoeBookingLive do
         requested_tab
       end
 
-    # Load user with subscriptions if signed in
+    # Use preloaded subscriptions from auth if available, otherwise load them
     user_with_subs =
       if user do
-        Accounts.get_user!(user.id)
-        |> Ysc.Repo.preload(:subscriptions)
+        # Check if subscriptions are already preloaded from auth
+        if Ecto.assoc_loaded?(user.subscriptions) do
+          user
+        else
+          # Only load if not already preloaded
+          Accounts.get_user!(user.id)
+          |> Ysc.Repo.preload(:subscriptions)
+        end
       else
         nil
       end
@@ -145,10 +153,18 @@ defmodule YscWeb.TahoeBookingLive do
 
     # Check if user can book (re-check in case user state changed)
     user = socket.assigns.current_user
-    {can_book, booking_error_title, booking_disabled_reason} = check_booking_eligibility(user)
 
-    # Load active bookings for the user
-    active_bookings = if user, do: get_active_bookings(user.id), else: []
+    # Load active bookings for the user (only if not already loaded in mount)
+    active_bookings =
+      if user && !socket.assigns[:active_bookings] do
+        get_active_bookings(user.id)
+      else
+        socket.assigns[:active_bookings] || []
+      end
+
+    # Check if user can book (pass active_bookings to avoid duplicate query)
+    {can_book, booking_error_title, booking_disabled_reason} =
+      check_booking_eligibility(user, active_bookings)
 
     # If user can't book and requested booking tab, switch to information tab
     active_tab =
@@ -300,9 +316,9 @@ defmodule YscWeb.TahoeBookingLive do
                           <.badge>
                             <%= booking.reference_id %>
                           </.badge>
-                          <%= if booking.room do %>
+                          <%= if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do %>
                             <span class="text-sm text-zinc-600 font-medium">
-                              <%= booking.room.name %>
+                              <%= Enum.map_join(booking.rooms, ", ", fn room -> room.name end) %>
                             </span>
                           <% else %>
                             <span class="text-sm text-zinc-600 font-medium">Buyout</span>
@@ -2541,40 +2557,24 @@ defmodule YscWeb.TahoeBookingLive do
          children_count,
          room_ids
        ) do
-    # Create bookings for all rooms using BookingLocker
-    # This ensures proper inventory locking for each room
-    results =
-      Enum.reduce_while(room_ids, [], fn room_id, acc ->
-        case BookingLocker.create_room_booking(
-               user_id,
-               room_id,
-               checkin_date,
-               checkout_date,
-               guests_count,
-               children_count: children_count
-             ) do
-          {:ok, booking} ->
-            {:cont, [booking | acc]}
+    # Create a single booking with all rooms using BookingLocker
+    # This ensures proper inventory locking for all rooms atomically
+    case BookingLocker.create_room_booking(
+           user_id,
+           room_ids,
+           checkin_date,
+           checkout_date,
+           guests_count,
+           children_count: children_count
+         ) do
+      {:ok, booking} ->
+        {:ok, booking}
 
-          {:error, :room_already_booked} ->
-            {:halt, {:error, :rooms_already_booked}}
+      {:error, :room_unavailable} ->
+        {:error, :rooms_already_booked}
 
-          {:error, reason} ->
-            {:halt, {:error, reason}}
-        end
-      end)
-
-    case results do
       {:error, reason} ->
         {:error, reason}
-
-      bookings when is_list(bookings) and length(bookings) > 0 ->
-        # Return the first booking for checkout
-        # Note: All bookings are created with :hold status and will need payment
-        {:ok, List.first(bookings)}
-
-      _ ->
-        {:error, :invalid_parameters}
     end
   end
 
@@ -3022,7 +3022,7 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
-  defp check_booking_eligibility(nil) do
+  defp check_booking_eligibility(nil, _active_bookings) do
     {
       false,
       "Sign In Required",
@@ -3030,7 +3030,7 @@ defmodule YscWeb.TahoeBookingLive do
     }
   end
 
-  defp check_booking_eligibility(user) do
+  defp check_booking_eligibility(user, active_bookings \\ nil) do
     # Check if user account is approved
     if user.state != :active do
       {
@@ -3051,8 +3051,10 @@ defmodule YscWeb.TahoeBookingLive do
         end
 
       if Accounts.has_active_membership?(user_with_subs) do
-        # Check if user has an active booking
-        case get_active_booking(user.id) do
+        # Check if user has an active booking (use provided active_bookings if available)
+        active_bookings_list = active_bookings || get_active_bookings(user.id)
+
+        case get_active_booking(user.id, active_bookings_list) do
           nil ->
             {true, nil, nil}
 
@@ -3084,9 +3086,9 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
-  defp get_active_booking(user_id) do
-    active_bookings = get_active_bookings(user_id)
-    List.first(active_bookings)
+  defp get_active_booking(user_id, active_bookings \\ nil) do
+    bookings = active_bookings || get_active_bookings(user_id)
+    List.first(bookings)
   end
 
   defp get_active_bookings(user_id, limit \\ 10) do
@@ -3101,7 +3103,7 @@ defmodule YscWeb.TahoeBookingLive do
         where: b.checkout_date >= ^today,
         order_by: [asc: b.checkin_date],
         limit: ^limit,
-        preload: [:room]
+        preload: [:rooms]
 
     bookings = Repo.all(query)
 
@@ -3219,9 +3221,10 @@ defmodule YscWeb.TahoeBookingLive do
 
         overlapping_query =
           from b in Booking,
+            join: br in "booking_rooms",
+            on: br.booking_id == b.id,
             where: b.user_id == ^user_id,
             where: b.property == :tahoe,
-            where: not is_nil(b.room_id),
             where:
               fragment(
                 "? < ? AND ? > ?",

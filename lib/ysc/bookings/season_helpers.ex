@@ -244,11 +244,9 @@ defmodule Ysc.Bookings.SeasonHelpers do
 
   # Gets the next season that comes after the given date
   defp get_next_season(property, reference_date) do
-    query =
-      from s in Season,
-        where: s.property == ^property
-
-    all_seasons = Ysc.Repo.all(query)
+    # Use cached seasons list for better performance
+    alias Ysc.Bookings.SeasonCache
+    all_seasons = SeasonCache.get_all_for_property(property)
     current_season = Season.for_date(property, reference_date)
 
     if current_season && length(all_seasons) > 1 do

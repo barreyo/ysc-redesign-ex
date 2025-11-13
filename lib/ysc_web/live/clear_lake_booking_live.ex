@@ -7,14 +7,12 @@ defmodule YscWeb.ClearLakeBookingLive do
   alias Ysc.Accounts
   alias Ysc.Subscriptions
   alias Ysc.Repo
-  require Logger
   import Ecto.Query
 
   @max_guests 12
 
   @impl true
   def mount(params, _session, socket) do
-    Logger.debug("[ClearLakeBookingLive] mount called with params: #{inspect(params)}")
     user = socket.assigns.current_user
 
     today = Date.utc_today()
@@ -53,11 +51,17 @@ defmodule YscWeb.ClearLakeBookingLive do
         requested_tab
       end
 
-    # Load user with subscriptions if signed in
+    # Use preloaded subscriptions from auth if available, otherwise load them
     user_with_subs =
       if user do
-        Accounts.get_user!(user.id)
-        |> Ysc.Repo.preload(:subscriptions)
+        # Check if subscriptions are already preloaded from auth
+        if Ecto.assoc_loaded?(user.subscriptions) do
+          user
+        else
+          # Only load if not already preloaded
+          Accounts.get_user!(user.id)
+          |> Ysc.Repo.preload(:subscriptions)
+        end
       else
         nil
       end
@@ -133,8 +137,6 @@ defmodule YscWeb.ClearLakeBookingLive do
 
   @impl true
   def handle_params(params, uri, socket) do
-    Logger.debug("[ClearLakeBookingLive] handle_params called with params: #{inspect(params)}")
-
     # Parse query parameters, handling malformed/double-encoded URLs
     params = parse_query_params(params, uri)
 
@@ -148,8 +150,13 @@ defmodule YscWeb.ClearLakeBookingLive do
     user = socket.assigns.current_user
     {can_book, booking_disabled_reason} = check_booking_eligibility(user)
 
-    # Load active bookings for the user
-    active_bookings = if user, do: get_active_bookings(user.id), else: []
+    # Load active bookings for the user (only if not already loaded in mount)
+    active_bookings =
+      if user && !socket.assigns[:active_bookings] do
+        get_active_bookings(user.id)
+      else
+        socket.assigns[:active_bookings] || []
+      end
 
     # If user can't book and requested booking tab, switch to information tab
     active_tab =
@@ -188,12 +195,7 @@ defmodule YscWeb.ClearLakeBookingLive do
 
     # Only update if something actually changed
     # This prevents unnecessary updates on initial page load when mount already set everything
-    Logger.debug(
-      "[ClearLakeBookingLive] handle_params change check - dates: #{dates_changed}, guests: #{guests_changed}, tab: #{tab_changed}, booking_mode: #{booking_mode_changed}, can_book: #{can_book_changed}"
-    )
-
     if dates_changed || guests_changed || tab_changed || booking_mode_changed || can_book_changed do
-      Logger.debug("[ClearLakeBookingLive] handle_params: Updating socket")
       # Only recalculate today and max_booking_date if dates changed
       # This prevents unnecessary component updates
       {today, max_booking_date, current_season, season_start_date, season_end_date} =
@@ -288,10 +290,8 @@ defmodule YscWeb.ClearLakeBookingLive do
           end)
         end)
 
-      Logger.debug("[ClearLakeBookingLive] handle_params: Update complete")
       {:noreply, socket}
     else
-      Logger.debug("[ClearLakeBookingLive] handle_params: No changes, skipping update")
       {:noreply, socket}
     end
   end
@@ -1647,10 +1647,6 @@ defmodule YscWeb.ClearLakeBookingLive do
          %{checkin_date: checkin_date, checkout_date: checkout_date}},
         socket
       ) do
-    Logger.debug(
-      "[ClearLakeBookingLive] handle_info: availability_calendar_date_changed - checkin: #{inspect(checkin_date)}, checkout: #{inspect(checkout_date)}"
-    )
-
     date_form =
       to_form(
         %{
@@ -1701,15 +1697,10 @@ defmodule YscWeb.ClearLakeBookingLive do
       |> calculate_price_if_ready()
       |> update_url_with_dates(checkin_date, checkout_date)
 
-    Logger.debug("[ClearLakeBookingLive] handle_info: Update complete")
     {:noreply, socket}
   end
 
   def handle_info({:availability_calendar_date_changed, _}, socket) do
-    Logger.debug(
-      "[ClearLakeBookingLive] handle_info: Ignoring malformed availability_calendar_date_changed message"
-    )
-
     {:noreply, socket}
   end
 
@@ -2105,10 +2096,6 @@ defmodule YscWeb.ClearLakeBookingLive do
   end
 
   defp update_url_with_dates(socket, checkin_date, checkout_date) do
-    Logger.debug(
-      "[ClearLakeBookingLive] update_url_with_dates called - checkin: #{inspect(checkin_date)}, checkout: #{inspect(checkout_date)}"
-    )
-
     guests_count = socket.assigns.guests_count || 1
     active_tab = socket.assigns.active_tab || :booking
     booking_mode = socket.assigns.selected_booking_mode || :day
@@ -2118,23 +2105,13 @@ defmodule YscWeb.ClearLakeBookingLive do
 
     if map_size(query_params) > 0 do
       query_string = URI.encode_query(query_params)
-
-      Logger.debug(
-        "[ClearLakeBookingLive] update_url_with_dates: Pushing patch with query: #{query_string}"
-      )
-
       push_patch(socket, to: "/bookings/clear-lake?#{query_string}")
     else
-      Logger.debug("[ClearLakeBookingLive] update_url_with_dates: Pushing patch without query")
       push_patch(socket, to: ~p"/bookings/clear-lake")
     end
   end
 
   defp update_url_with_guests(socket) do
-    Logger.debug(
-      "[ClearLakeBookingLive] update_url_with_guests called - guests: #{inspect(socket.assigns.guests_count)}"
-    )
-
     checkin_date = socket.assigns.checkin_date
     checkout_date = socket.assigns.checkout_date
     guests_count = socket.assigns.guests_count || 1
@@ -2146,23 +2123,13 @@ defmodule YscWeb.ClearLakeBookingLive do
 
     if map_size(query_params) > 0 do
       query_string = URI.encode_query(query_params)
-
-      Logger.debug(
-        "[ClearLakeBookingLive] update_url_with_guests: Pushing patch with query: #{query_string}"
-      )
-
       push_patch(socket, to: "/bookings/clear-lake?#{query_string}")
     else
-      Logger.debug("[ClearLakeBookingLive] update_url_with_guests: Pushing patch without query")
       push_patch(socket, to: ~p"/bookings/clear-lake")
     end
   end
 
   defp update_url_with_booking_mode(socket) do
-    Logger.debug(
-      "[ClearLakeBookingLive] update_url_with_booking_mode called - mode: #{inspect(socket.assigns.selected_booking_mode)}"
-    )
-
     checkin_date = socket.assigns.checkin_date
     checkout_date = socket.assigns.checkout_date
     guests_count = socket.assigns.guests_count || 1
@@ -2174,17 +2141,8 @@ defmodule YscWeb.ClearLakeBookingLive do
 
     if map_size(query_params) > 0 do
       query_string = URI.encode_query(query_params)
-
-      Logger.debug(
-        "[ClearLakeBookingLive] update_url_with_booking_mode: Pushing patch with query: #{query_string}"
-      )
-
       push_patch(socket, to: "/bookings/clear-lake?#{query_string}")
     else
-      Logger.debug(
-        "[ClearLakeBookingLive] update_url_with_booking_mode: Pushing patch without query"
-      )
-
       push_patch(socket, to: ~p"/bookings/clear-lake")
     end
   end

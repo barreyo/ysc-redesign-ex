@@ -22,6 +22,7 @@ defmodule YscWeb.EventsListLive do
               id={"event-cover-#{event.id}"}
               module={YscWeb.Components.Image}
               image_id={event.image_id}
+              image={Map.get(event, :image)}
             />
           </.link>
 
@@ -128,8 +129,12 @@ defmodule YscWeb.EventsListLive do
     # Get event ID (handle both structs and maps)
     event_id = Map.get(event, :id) || Map.get(event, "id")
 
-    # Get all ticket tiers for the event
-    ticket_tiers = Events.list_ticket_tiers_for_event(event_id)
+    # Use preloaded ticket_tiers if available (from batch loading), otherwise fetch
+    ticket_tiers =
+      case Map.get(event, :ticket_tiers) do
+        nil -> Events.list_ticket_tiers_for_event(event_id)
+        tiers -> tiers
+      end
 
     # Filter out donation tiers - donations don't count toward "sold out" status
     non_donation_tiers =
@@ -168,8 +173,21 @@ defmodule YscWeb.EventsListLive do
         #  all regular tickets are effectively sold out even if some tiers show availability)
         event_at_capacity =
           case Map.get(event, :max_attendees) || Map.get(event, "max_attendees") do
-            nil -> false
-            _ -> Tickets.event_at_capacity?(event)
+            nil ->
+              false
+
+            _ ->
+              # Use preloaded ticket_count if available, otherwise query
+              case Map.get(event, :ticket_count) do
+                nil ->
+                  Tickets.event_at_capacity?(event)
+
+                ticket_count ->
+                  max_attendees =
+                    Map.get(event, :max_attendees) || Map.get(event, "max_attendees")
+
+                  ticket_count >= max_attendees
+              end
           end
 
         all_tiers_sold_out || event_at_capacity

@@ -154,7 +154,7 @@ defmodule Ysc.Bookings.PricingRule do
   - `nil` if not found
   """
   def find_most_specific(property, season_id, room_id, room_category_id, booking_mode, price_unit) do
-    alias Ysc.Bookings.PricingRule
+    alias Ysc.Bookings.PricingRuleCache
     require Logger
 
     Logger.debug(
@@ -163,6 +163,22 @@ defmodule Ysc.Bookings.PricingRule do
         "Room ID: #{inspect(room_id)}, Room Category ID: #{inspect(room_category_id)}, " <>
         "Booking Mode: #{booking_mode}, Price Unit: #{price_unit}"
     )
+
+    # Use cache which will handle DB lookup on miss
+    PricingRuleCache.get(property, season_id, room_id, room_category_id, booking_mode, price_unit)
+  end
+
+  # Internal function that actually queries the database (called by cache on miss)
+  def find_most_specific_db(
+        property,
+        season_id,
+        room_id,
+        room_category_id,
+        booking_mode,
+        price_unit
+      ) do
+    alias Ysc.Bookings.PricingRule
+    require Logger
 
     base_query =
       from pr in PricingRule,
@@ -283,11 +299,41 @@ defmodule Ysc.Bookings.PricingRule do
         booking_mode,
         price_unit
       ) do
-    alias Ysc.Bookings.PricingRule
+    alias Ysc.Bookings.PricingRuleCache
     require Logger
 
     Logger.debug(
       "[PricingRule] find_children_pricing_rule called. " <>
+        "Property: #{property}, Season ID: #{inspect(season_id)}, " <>
+        "Room ID: #{inspect(room_id)}, Room Category ID: #{inspect(room_category_id)}, " <>
+        "Booking Mode: #{booking_mode}, Price Unit: #{price_unit}"
+    )
+
+    # Use cache which will handle DB lookup on miss
+    PricingRuleCache.get_children(
+      property,
+      season_id,
+      room_id,
+      room_category_id,
+      booking_mode,
+      price_unit
+    )
+  end
+
+  # Internal function that actually queries the database (called by cache on miss)
+  def find_children_pricing_rule_db(
+        property,
+        season_id,
+        room_id,
+        room_category_id,
+        booking_mode,
+        price_unit
+      ) do
+    alias Ysc.Bookings.PricingRule
+    require Logger
+
+    Logger.debug(
+      "[PricingRule] find_children_pricing_rule_db called. " <>
         "Property: #{property}, Season ID: #{inspect(season_id)}, " <>
         "Room ID: #{inspect(room_id)}, Room Category ID: #{inspect(room_category_id)}, " <>
         "Booking Mode: #{booking_mode}, Price Unit: #{price_unit}"

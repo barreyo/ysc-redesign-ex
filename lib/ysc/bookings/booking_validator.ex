@@ -56,7 +56,8 @@ defmodule Ysc.Bookings.BookingValidator do
   defp validate_booking_mode(changeset, :tahoe) do
     checkin_date = Ecto.Changeset.get_field(changeset, :checkin_date)
     booking_mode = Ecto.Changeset.get_field(changeset, :booking_mode)
-    room_id = Ecto.Changeset.get_field(changeset, :room_id)
+    rooms = Ecto.Changeset.get_field(changeset, :rooms) || []
+    has_rooms = is_list(rooms) && length(rooms) > 0
 
     if checkin_date do
       season = Season.for_date(:tahoe, checkin_date)
@@ -67,7 +68,7 @@ defmodule Ysc.Bookings.BookingValidator do
 
         season.name == "Winter" ->
           # Winter: only rooms allowed (no buyouts)
-          if is_nil(room_id) or booking_mode == :buyout do
+          if !has_rooms or booking_mode == :buyout do
             Ecto.Changeset.add_error(
               changeset,
               :booking_mode,
@@ -78,7 +79,7 @@ defmodule Ysc.Bookings.BookingValidator do
           end
 
         season.name == "Summer" ->
-          # Summer: rooms or buyout allowed - validation passes if either room_id is set or booking_mode is buyout
+          # Summer: rooms or buyout allowed - validation passes if either rooms are set or booking_mode is buyout
           changeset
 
         true ->
@@ -262,13 +263,15 @@ defmodule Ysc.Bookings.BookingValidator do
 
       # For family memberships, check for overlapping dates (same timeframe)
       # For single memberships, check for exact same dates
+      # Check for bookings that have rooms (via join table)
       overlapping_bookings_query =
         if membership_type in [:family, :lifetime] do
           # Family: Allow overlapping dates (same timeframe)
           from b in Booking,
+            join: br in "booking_rooms",
+            on: br.booking_id == b.id,
             where: b.user_id == ^user_id,
             where: b.property == :tahoe,
-            where: not is_nil(b.room_id),
             where:
               fragment(
                 "? < ? AND ? > ?",
@@ -280,11 +283,12 @@ defmodule Ysc.Bookings.BookingValidator do
         else
           # Single: Only exact same dates
           from b in Booking,
+            join: br in "booking_rooms",
+            on: br.booking_id == b.id,
             where: b.user_id == ^user_id,
             where: b.property == :tahoe,
             where: b.checkin_date == ^checkin_date,
-            where: b.checkout_date == ^checkout_date,
-            where: not is_nil(b.room_id)
+            where: b.checkout_date == ^checkout_date
         end
 
       overlapping_bookings_query =
@@ -370,19 +374,29 @@ defmodule Ysc.Bookings.BookingValidator do
 
   defp validate_clear_lake_guest_limits(changeset, _property), do: changeset
 
-  # Validate room capacity (guests_count <= room.capacity_max)
+  # Validate room capacity (guests_count <= sum of room capacities for all rooms)
   defp validate_room_capacity(changeset) do
-    room_id = Ecto.Changeset.get_field(changeset, :room_id)
+    rooms = Ecto.Changeset.get_field(changeset, :rooms) || []
     guests_count = Ecto.Changeset.get_field(changeset, :guests_count)
 
-    if room_id && guests_count do
-      room = Repo.get(Room, room_id)
+    if length(rooms) > 0 && guests_count do
+      # For multiple rooms, sum the capacities
+      total_capacity =
+        Enum.reduce(rooms, 0, fn room, acc ->
+          room_capacity = if is_struct(room), do: room.capacity_max, else: 0
+          acc + room_capacity
+        end)
 
-      if room && guests_count > room.capacity_max do
+      if total_capacity > 0 && guests_count > total_capacity do
+        room_names =
+          Enum.map_join(rooms, ", ", fn room ->
+            if is_struct(room), do: room.name, else: "Unknown"
+          end)
+
         Ecto.Changeset.add_error(
           changeset,
           :guests_count,
-          "Room capacity is #{room.capacity_max} guests, but #{guests_count} guests requested"
+          "Total room capacity is #{total_capacity} guests, but #{guests_count} guests requested (#{room_names})"
         )
       else
         changeset

@@ -23,6 +23,7 @@ defmodule Ysc.Bookings do
 
   alias Ysc.Bookings.{
     Season,
+    SeasonCache,
     PricingRule,
     Room,
     RoomCategory,
@@ -41,18 +42,18 @@ defmodule Ysc.Bookings do
 
   @doc """
   Lists all seasons, optionally filtered by property.
+
+  Uses cache when filtering by property for better performance.
   """
   def list_seasons(property \\ nil) do
-    query = from s in Season, order_by: [asc: s.property, asc: s.name]
-
-    query =
-      if property do
-        from s in query, where: s.property == ^property
-      else
-        query
-      end
-
-    Repo.all(query)
+    if property do
+      # Use cache for property-specific lookups
+      SeasonCache.get_all_for_property(property)
+    else
+      # For all seasons, query directly (less common, no cache needed)
+      query = from s in Season, order_by: [asc: s.property, asc: s.name]
+      Repo.all(query)
+    end
   end
 
   @doc """
@@ -66,25 +67,57 @@ defmodule Ysc.Bookings do
   Creates a season.
   """
   def create_season(attrs \\ %{}) do
-    %Season{}
-    |> Season.changeset(attrs)
-    |> Repo.insert()
+    result =
+      %Season{}
+      |> Season.changeset(attrs)
+      |> Repo.insert()
+
+    case result do
+      {:ok, _season} ->
+        # Invalidate season cache
+        Ysc.Bookings.SeasonCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   @doc """
   Updates a season.
   """
   def update_season(%Season{} = season, attrs) do
-    season
-    |> Season.changeset(attrs)
-    |> Repo.update()
+    result =
+      season
+      |> Season.changeset(attrs)
+      |> Repo.update()
+
+    case result do
+      {:ok, _season} ->
+        # Invalidate season cache
+        Ysc.Bookings.SeasonCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   @doc """
   Deletes a season.
   """
   def delete_season(%Season{} = season) do
-    Repo.delete(season)
+    result = Repo.delete(season)
+
+    case result do
+      {:ok, _season} ->
+        # Invalidate season cache
+        Ysc.Bookings.SeasonCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   ## Pricing Rules
@@ -112,25 +145,57 @@ defmodule Ysc.Bookings do
   Creates a pricing rule.
   """
   def create_pricing_rule(attrs \\ %{}) do
-    %PricingRule{}
-    |> PricingRule.changeset(attrs)
-    |> Repo.insert()
+    result =
+      %PricingRule{}
+      |> PricingRule.changeset(attrs)
+      |> Repo.insert()
+
+    case result do
+      {:ok, _pricing_rule} ->
+        # Invalidate pricing rule cache
+        Ysc.Bookings.PricingRuleCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   @doc """
   Updates a pricing rule.
   """
   def update_pricing_rule(%PricingRule{} = pricing_rule, attrs) do
-    pricing_rule
-    |> PricingRule.changeset(attrs)
-    |> Repo.update()
+    result =
+      pricing_rule
+      |> PricingRule.changeset(attrs)
+      |> Repo.update()
+
+    case result do
+      {:ok, _pricing_rule} ->
+        # Invalidate pricing rule cache
+        Ysc.Bookings.PricingRuleCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   @doc """
   Deletes a pricing rule.
   """
   def delete_pricing_rule(%PricingRule{} = pricing_rule) do
-    Repo.delete(pricing_rule)
+    result = Repo.delete(pricing_rule)
+
+    case result do
+      {:ok, _pricing_rule} ->
+        # Invalidate pricing rule cache
+        Ysc.Bookings.PricingRuleCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   ## Rooms
@@ -193,8 +258,9 @@ defmodule Ysc.Bookings do
       # Get all bookings in a date range across all properties
       list_bookings(nil, ~D[2025-11-01], ~D[2025-11-30])
   """
-  def list_bookings(property \\ nil, start_date \\ nil, end_date \\ nil) do
-    query = from b in Booking, order_by: [asc: b.checkin_date], preload: [:room, :user]
+  def list_bookings(property \\ nil, start_date \\ nil, end_date \\ nil, opts \\ []) do
+    preloads = Keyword.get(opts, :preload, [:rooms, :user])
+    query = from b in Booking, order_by: [asc: b.checkin_date], preload: ^preloads
 
     query =
       if property do
@@ -233,7 +299,7 @@ defmodule Ysc.Bookings do
     # Extract property filter if present
     {property_filter, other_params} = extract_property_filter(other_params)
 
-    base_query = from(b in Booking, preload: [:user, room: :room_category])
+    base_query = from(b in Booking, preload: [:user, rooms: :room_category])
 
     # Apply property filter
     base_query =
@@ -328,7 +394,7 @@ defmodule Ysc.Bookings do
           fragment("SIMILARITY(?, ?) > 0.2", u.first_name, ^search_term) or
           fragment("SIMILARITY(?, ?) > 0.2", u.last_name, ^search_term) or
           ilike(b.reference_id, ^search_like),
-      preload: [:user, room: :room_category]
+      preload: [:user, rooms: :room_category]
     )
   end
 
@@ -395,7 +461,7 @@ defmodule Ysc.Bookings do
   """
   def get_booking!(id) do
     Repo.get!(Booking, id)
-    |> Repo.preload([:room, :user])
+    |> Repo.preload([:rooms, :user])
   end
 
   @doc """
@@ -638,10 +704,16 @@ defmodule Ysc.Bookings do
     if not room.is_active do
       false
     else
-      # Check for overlapping bookings
+      # Check for overlapping bookings using the booking_rooms join table
+      # ULIDs are stored as binary UUIDs in PostgreSQL, but have different string representations
+      # We need to compare the binary UUID column with the ULID string
+      # Since ULIDs are binary-compatible with UUIDs, we can use the room's ID directly
+      # and let Ecto handle the conversion by using type/2 to specify binary_id
       overlapping_bookings_query =
         from b in Booking,
-          where: b.room_id == ^room_id,
+          join: br in "booking_rooms",
+          on: br.booking_id == b.id,
+          where: br.room_id == type(^room.id, Ecto.ULID),
           where:
             fragment(
               "(? < ? AND ? > ?)",
@@ -649,7 +721,8 @@ defmodule Ysc.Bookings do
               ^checkout_date,
               b.checkout_date,
               ^checkin_date
-            )
+            ),
+          where: b.status in [:hold, :complete]
 
       overlapping_bookings_query =
         if exclude_booking_id do
@@ -1191,63 +1264,83 @@ defmodule Ysc.Bookings do
   @doc """
   Gets the active refund policy for a property and booking mode.
   Returns nil if no active policy exists.
+
+  Uses cache for improved performance.
   """
   def get_active_refund_policy(property, booking_mode) do
-    policy =
-      from(rp in RefundPolicy,
-        where: rp.property == ^property,
-        where: rp.booking_mode == ^booking_mode,
-        where: rp.is_active == true
-      )
-      |> Repo.one()
-
-    if policy do
-      # Load rules ordered by days_before_checkin descending
-      rules =
-        from(r in RefundPolicyRule,
-          where: r.refund_policy_id == ^policy.id
-        )
-        |> RefundPolicyRule.ordered_by_days()
-        |> Repo.all()
-
-      %{policy | rules: rules}
-    else
-      nil
-    end
+    alias Ysc.Bookings.RefundPolicyCache
+    RefundPolicyCache.get_active(property, booking_mode)
   end
 
   @doc """
   Creates a refund policy.
   """
   def create_refund_policy(attrs \\ %{}) do
-    %RefundPolicy{}
-    |> RefundPolicy.changeset(attrs)
-    |> Repo.insert()
+    result =
+      %RefundPolicy{}
+      |> RefundPolicy.changeset(attrs)
+      |> Repo.insert()
+
+    case result do
+      {:ok, _refund_policy} ->
+        # Invalidate refund policy cache
+        Ysc.Bookings.RefundPolicyCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   @doc """
   Creates a refund policy (bang version).
   """
   def create_refund_policy!(attrs \\ %{}) do
-    %RefundPolicy{}
-    |> RefundPolicy.changeset(attrs)
-    |> Repo.insert!()
+    result =
+      %RefundPolicy{}
+      |> RefundPolicy.changeset(attrs)
+      |> Repo.insert!()
+
+    # Invalidate refund policy cache
+    Ysc.Bookings.RefundPolicyCache.invalidate()
+    result
   end
 
   @doc """
   Updates a refund policy.
   """
   def update_refund_policy(%RefundPolicy{} = refund_policy, attrs) do
-    refund_policy
-    |> RefundPolicy.changeset(attrs)
-    |> Repo.update()
+    result =
+      refund_policy
+      |> RefundPolicy.changeset(attrs)
+      |> Repo.update()
+
+    case result do
+      {:ok, _refund_policy} ->
+        # Invalidate refund policy cache
+        Ysc.Bookings.RefundPolicyCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   @doc """
   Deletes a refund policy.
   """
   def delete_refund_policy(%RefundPolicy{} = refund_policy) do
-    Repo.delete(refund_policy)
+    result = Repo.delete(refund_policy)
+
+    case result do
+      {:ok, _refund_policy} ->
+        # Invalidate refund policy cache
+        Ysc.Bookings.RefundPolicyCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   ## Refund Policy Rules
@@ -1274,34 +1367,71 @@ defmodule Ysc.Bookings do
   Creates a refund policy rule.
   """
   def create_refund_policy_rule(attrs \\ %{}) do
-    %RefundPolicyRule{}
-    |> RefundPolicyRule.changeset(attrs)
-    |> Repo.insert()
+    result =
+      %RefundPolicyRule{}
+      |> RefundPolicyRule.changeset(attrs)
+      |> Repo.insert()
+
+    case result do
+      {:ok, _refund_policy_rule} ->
+        # Invalidate refund policy cache (rules are part of the policy)
+        Ysc.Bookings.RefundPolicyCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   @doc """
   Creates a refund policy rule (bang version).
   """
   def create_refund_policy_rule!(attrs \\ %{}) do
-    %RefundPolicyRule{}
-    |> RefundPolicyRule.changeset(attrs)
-    |> Repo.insert!()
+    result =
+      %RefundPolicyRule{}
+      |> RefundPolicyRule.changeset(attrs)
+      |> Repo.insert!()
+
+    # Invalidate refund policy cache (rules are part of the policy)
+    Ysc.Bookings.RefundPolicyCache.invalidate()
+    result
   end
 
   @doc """
   Updates a refund policy rule.
   """
   def update_refund_policy_rule(%RefundPolicyRule{} = refund_policy_rule, attrs) do
-    refund_policy_rule
-    |> RefundPolicyRule.changeset(attrs)
-    |> Repo.update()
+    result =
+      refund_policy_rule
+      |> RefundPolicyRule.changeset(attrs)
+      |> Repo.update()
+
+    case result do
+      {:ok, _refund_policy_rule} ->
+        # Invalidate refund policy cache (rules are part of the policy)
+        Ysc.Bookings.RefundPolicyCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   @doc """
   Deletes a refund policy rule.
   """
   def delete_refund_policy_rule(%RefundPolicyRule{} = refund_policy_rule) do
-    Repo.delete(refund_policy_rule)
+    result = Repo.delete(refund_policy_rule)
+
+    case result do
+      {:ok, _refund_policy_rule} ->
+        # Invalidate refund policy cache (rules are part of the policy)
+        Ysc.Bookings.RefundPolicyCache.invalidate()
+        result
+
+      _ ->
+        result
+    end
   end
 
   ## Refund Calculation
@@ -1517,7 +1647,8 @@ defmodule Ysc.Bookings do
     date_range = Date.range(start_date, end_date) |> Enum.to_list()
 
     # Get all bookings that overlap with the date range
-    bookings = list_bookings(:clear_lake, start_date, end_date)
+    # Only preload what we need - we don't need user data for availability calculation
+    bookings = list_bookings(:clear_lake, start_date, end_date, preload: [:rooms])
 
     # Get all blackouts that overlap with the date range
     blackouts = get_overlapping_blackouts(:clear_lake, start_date, end_date)

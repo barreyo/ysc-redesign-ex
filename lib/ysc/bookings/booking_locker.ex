@@ -204,135 +204,249 @@ defmodule Ysc.Bookings.BookingLocker do
   end
 
   @doc """
-  Atomically creates a per-room booking with proper inventory locking.
+  Atomically creates a booking with one or more rooms with proper inventory locking.
 
   ## Parameters:
   - `user_id`: The user making the booking
-  - `room_id`: The room to book
+  - `room_ids`: List of room IDs to book (can be single room or multiple), or a single room_id (binary)
   - `checkin_date`: Check-in date
   - `checkout_date`: Check-out date
   - `guests_count`: Number of guests
-  - `opts`: Additional options (e.g., `hold_duration_minutes`)
+  - `opts`: Additional options (e.g., `hold_duration_minutes`, `children_count`)
 
   ## Returns:
-  - `{:ok, %Booking{}}` on success
+  - `{:ok, %Booking{}}` on success (with rooms preloaded)
   - `{:error, reason}` on failure
+
+  ## Notes:
+  - All rooms must be available for the booking to succeed
+  - Creates a single booking with multiple rooms (many-to-many relationship)
+  - All rooms are locked atomically in a single transaction
   """
-  def create_room_booking(user_id, room_id, checkin_date, checkout_date, guests_count, opts \\ []) do
+  def create_room_booking(
+        user_id,
+        room_ids,
+        checkin_date,
+        checkout_date,
+        guests_count,
+        opts \\ []
+      )
+      when is_list(room_ids) do
     children_count = Keyword.get(opts, :children_count, 0)
     hold_duration = Keyword.get(opts, :hold_duration_minutes, @hold_duration_minutes)
     hold_expires_at = DateTime.add(DateTime.utc_now(), hold_duration, :minute)
 
-    Repo.transaction(fn ->
-      days = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+    if length(room_ids) == 0 do
+      {:error, :no_rooms_provided}
+    else
+      Repo.transaction(fn ->
+        days = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
 
-      # Get room to determine property
-      room = Repo.get!(Room, room_id)
-      property = room.property
+        # Get all rooms to determine property (must all be same property)
+        rooms = Enum.map(room_ids, &Repo.get!(Room, &1))
+        property = rooms |> List.first() |> Map.get(:property)
 
-      # Ensure property_inventory rows exist (for buyout check)
-      for day <- days do
-        capacity_total = get_property_capacity_for_date(property, day)
-        ensure_property_inventory_row(property, day, capacity_total)
-      end
-
-      # Ensure room_inventory rows exist
-      for day <- days do
-        ensure_room_inventory_row(room_id, day)
-      end
-
-      # Lock room_inventory and property_inventory rows FOR UPDATE
-      locked_room_inv =
-        Repo.all(
-          from ri in RoomInventory,
-            where: ri.room_id == ^room_id and ri.day >= ^checkin_date and ri.day < ^checkout_date,
-            lock: "FOR UPDATE"
-        )
-
-      locked_prop_inv =
-        Repo.all(
-          from pi in PropertyInventory,
-            where:
-              pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date,
-            lock: "FOR UPDATE"
-        )
-
-      # Validate (no buyout; room free)
-      # Check buyout flags
-      buyout_blocked =
-        Enum.any?(locked_prop_inv, fn pi -> pi.buyout_held == true or pi.buyout_booked == true end)
-
-      if buyout_blocked do
-        Repo.rollback({:error, :property_buyout_active})
-      end
-
-      # Check room availability
-      room_blocked =
-        Enum.any?(locked_room_inv, fn ri -> ri.held == true or ri.booked == true end)
-
-      if room_blocked do
-        Repo.rollback({:error, :room_unavailable})
-      end
-
-      # Set held = true on room_inventory
-      {count, _} =
-        Repo.update_all(
-          from(ri in RoomInventory,
-            where: ri.room_id == ^room_id and ri.day >= ^checkin_date and ri.day < ^checkout_date
-          ),
-          set: [held: true, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
-        )
-
-      if count == 0 do
-        Repo.rollback({:error, :inventory_update_failed})
-      end
-
-      # Calculate pricing
-      {total_price, pricing_items} =
-        case Bookings.calculate_booking_price(
-               property,
-               checkin_date,
-               checkout_date,
-               :room,
-               room_id,
-               guests_count,
-               children_count
-             ) do
-          {:ok, total} ->
-            nights = Date.diff(checkout_date, checkin_date)
-            items = build_room_pricing_items(room, total, nights, guests_count, children_count)
-            {total, items}
-
-          {:error, _reason} ->
-            {nil, nil}
+        # Verify all rooms are from the same property
+        if Enum.any?(rooms, &(&1.property != property)) do
+          Repo.rollback({:error, :rooms_must_be_same_property})
         end
 
-      # Create booking :hold
-      attrs = %{
-        property: property,
-        checkin_date: checkin_date,
-        checkout_date: checkout_date,
-        booking_mode: :room,
-        room_id: room_id,
-        guests_count: guests_count,
-        children_count: children_count,
-        user_id: user_id,
-        status: :hold,
-        hold_expires_at: hold_expires_at,
-        total_price: total_price,
-        pricing_items: pricing_items
-      }
+        # Ensure property_inventory rows exist (for buyout check)
+        for day <- days do
+          capacity_total = get_property_capacity_for_date(property, day)
+          ensure_property_inventory_row(property, day, capacity_total)
+        end
 
-      case %Booking{}
-           |> Booking.changeset(attrs, skip_validation: true)
-           |> Repo.insert() do
-        {:ok, booking} ->
-          booking
+        # Ensure room_inventory rows exist for all rooms
+        for day <- days, room_id <- room_ids do
+          ensure_room_inventory_row(room_id, day)
+        end
 
-        {:error, changeset} ->
-          Repo.rollback({:error, changeset})
-      end
-    end)
+        # Lock room_inventory for ALL rooms and property_inventory rows FOR UPDATE
+        locked_room_inv =
+          Repo.all(
+            from ri in RoomInventory,
+              where:
+                ri.room_id in ^room_ids and ri.day >= ^checkin_date and ri.day < ^checkout_date,
+              lock: "FOR UPDATE"
+          )
+
+        locked_prop_inv =
+          Repo.all(
+            from pi in PropertyInventory,
+              where:
+                pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date,
+              lock: "FOR UPDATE"
+          )
+
+        # Validate (no buyout; all rooms free)
+        # Check buyout flags
+        buyout_blocked =
+          Enum.any?(locked_prop_inv, fn pi ->
+            pi.buyout_held == true or pi.buyout_booked == true
+          end)
+
+        if buyout_blocked do
+          Repo.rollback({:error, :property_buyout_active})
+        end
+
+        # Check all rooms are available
+        room_blocked =
+          Enum.any?(locked_room_inv, fn ri -> ri.held == true or ri.booked == true end)
+
+        if room_blocked do
+          Repo.rollback({:error, :room_unavailable})
+        end
+
+        # Set held = true on all room_inventory rows
+        {count, _} =
+          Repo.update_all(
+            from(ri in RoomInventory,
+              where:
+                ri.room_id in ^room_ids and ri.day >= ^checkin_date and ri.day < ^checkout_date
+            ),
+            set: [held: true, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+          )
+
+        if count == 0 do
+          Repo.rollback({:error, :inventory_update_failed})
+        end
+
+        # Calculate pricing for all rooms combined
+        # For multiple rooms, we sum the prices
+        {total_price, pricing_items} =
+          case calculate_multi_room_price(
+                 rooms,
+                 checkin_date,
+                 checkout_date,
+                 guests_count,
+                 children_count
+               ) do
+            {:ok, total, items} ->
+              {total, items}
+
+            {:error, _reason} ->
+              {nil, nil}
+          end
+
+        # Create booking :hold with all rooms
+        attrs = %{
+          property: property,
+          checkin_date: checkin_date,
+          checkout_date: checkout_date,
+          booking_mode: :room,
+          guests_count: guests_count,
+          children_count: children_count,
+          user_id: user_id,
+          status: :hold,
+          hold_expires_at: hold_expires_at,
+          total_price: total_price,
+          pricing_items: pricing_items
+        }
+
+        case %Booking{}
+             |> Booking.changeset(attrs, rooms: rooms, skip_validation: true)
+             |> Repo.insert() do
+          {:ok, booking} ->
+            # Preload rooms for return
+            Repo.preload(booking, :rooms)
+
+          {:error, changeset} ->
+            Repo.rollback({:error, changeset})
+        end
+      end)
+    end
+  end
+
+  # Backward compatibility: single room_id as string/binary
+  def create_room_booking(user_id, room_id, checkin_date, checkout_date, guests_count, opts)
+      when is_binary(room_id) do
+    create_room_booking(user_id, [room_id], checkin_date, checkout_date, guests_count, opts)
+  end
+
+  # Helper to calculate price for multiple rooms
+  defp calculate_multi_room_price(
+         rooms,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         children_count
+       ) do
+    nights = Date.diff(checkout_date, checkin_date)
+    property = rooms |> List.first() |> Map.get(:property)
+
+    results =
+      Enum.reduce(rooms, {:ok, Money.new(0, :USD), []}, fn room, acc ->
+        case acc do
+          {:ok, total_acc, items_acc} ->
+            # Ensure total_acc is a Money struct, not a tuple (defensive check)
+            actual_total_acc =
+              case total_acc do
+                {:ok, money} when is_struct(money, Money) -> money
+                %Money{} = money -> money
+                _ -> Money.new(0, :USD)
+              end
+
+            case Bookings.calculate_booking_price(
+                   property,
+                   checkin_date,
+                   checkout_date,
+                   :room,
+                   room.id,
+                   guests_count,
+                   children_count
+                 ) do
+              {:ok, room_total, breakdown} ->
+                # Convert breakdown map (with atom keys) to JSON-safe format
+                # build_room_pricing_items creates a proper map with string keys
+                room_items =
+                  build_room_pricing_items(
+                    room,
+                    room_total,
+                    nights,
+                    guests_count,
+                    children_count,
+                    breakdown
+                  )
+
+                # Money.add returns {:ok, result} or {:error, reason}
+                case Money.add(actual_total_acc, room_total) do
+                  {:ok, new_total} ->
+                    {:ok, new_total, [room_items | items_acc]}
+
+                  {:error, reason} ->
+                    {:error, reason}
+                end
+
+              error ->
+                error
+            end
+
+          error ->
+            error
+        end
+      end)
+
+    case results do
+      {:ok, total, items} ->
+        # Combine items into a single pricing_items structure
+        combined_items = %{
+          "type" => "room",
+          "rooms" => Enum.reverse(items),
+          "nights" => nights,
+          "guests_count" => guests_count,
+          "children_count" => children_count,
+          "total" => %{
+            "amount" => Decimal.to_string(total.amount),
+            "currency" => Atom.to_string(total.currency)
+          }
+        }
+
+        {:ok, total, combined_items}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -485,7 +599,7 @@ defmodule Ysc.Bookings.BookingLocker do
   """
   def confirm_booking(booking_id) do
     Repo.transaction(fn ->
-      booking = Repo.get!(Booking, booking_id)
+      booking = Repo.get!(Booking, booking_id) |> Repo.preload(:rooms)
 
       if booking.status != :hold do
         Repo.rollback({:error, :invalid_status})
@@ -513,23 +627,27 @@ defmodule Ysc.Bookings.BookingLocker do
           end
 
         :room ->
-          # Set booked = true, clear held
-          {count, _} =
-            Repo.update_all(
-              from(ri in RoomInventory,
-                where:
-                  ri.room_id == ^booking.room_id and
-                    ri.day >= ^booking.checkin_date and ri.day < ^booking.checkout_date
-              ),
-              set: [
-                held: false,
-                booked: true,
-                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-              ]
-            )
+          # Set booked = true, clear held for all rooms
+          room_ids = Enum.map(booking.rooms, & &1.id)
 
-          if count == 0 do
-            Repo.rollback({:error, :inventory_update_failed})
+          if length(room_ids) > 0 do
+            {count, _} =
+              Repo.update_all(
+                from(ri in RoomInventory,
+                  where:
+                    ri.room_id in ^room_ids and
+                      ri.day >= ^booking.checkin_date and ri.day < ^booking.checkout_date
+                ),
+                set: [
+                  held: false,
+                  booked: true,
+                  updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                ]
+              )
+
+            if count == 0 do
+              Repo.rollback({:error, :inventory_update_failed})
+            end
           end
 
         :day ->
@@ -554,14 +672,64 @@ defmodule Ysc.Bookings.BookingLocker do
       end
 
       # Update booking status
+      # Pass existing rooms to avoid Ecto thinking we're removing them
       case booking
-           |> Booking.changeset(%{status: :complete, hold_expires_at: nil}, skip_validation: true)
+           |> Booking.changeset(%{status: :complete, hold_expires_at: nil},
+             rooms: booking.rooms,
+             skip_validation: true
+           )
            |> Repo.update() do
         {:ok, updated_booking} ->
           updated_booking
 
         {:error, changeset} ->
           Repo.rollback({:error, changeset})
+      end
+    end)
+    |> case do
+      {:ok, confirmed_booking} ->
+        # After successful confirmation, cancel all other hold bookings for the same property and user
+        # This frees up any inventory that was accidentally left pending
+        # Do this outside the transaction to avoid nested transaction issues
+        cancel_other_hold_bookings(
+          confirmed_booking.property,
+          confirmed_booking.user_id,
+          confirmed_booking.id
+        )
+
+        {:ok, confirmed_booking}
+
+      error ->
+        error
+    end
+  end
+
+  # Helper to cancel all other hold bookings for the same property and user
+  defp cancel_other_hold_bookings(property, user_id, exclude_booking_id) do
+    # Find all other hold bookings for the same property and user
+    other_hold_bookings =
+      Repo.all(
+        from b in Booking,
+          where: b.property == ^property,
+          where: b.user_id == ^user_id,
+          where: b.status == :hold,
+          where: b.id != ^exclude_booking_id
+      )
+
+    # Release each hold booking
+    Enum.each(other_hold_bookings, fn hold_booking ->
+      case release_hold(hold_booking.id) do
+        {:ok, _} ->
+          # Successfully released
+          :ok
+
+        {:error, reason} ->
+          # Log error but don't fail the main operation
+          require Logger
+
+          Logger.warn(
+            "Failed to release hold booking #{hold_booking.id} when confirming booking #{exclude_booking_id}: #{inspect(reason)}"
+          )
       end
     end)
   end
@@ -578,7 +746,7 @@ defmodule Ysc.Bookings.BookingLocker do
   """
   def release_hold(booking_id) do
     Repo.transaction(fn ->
-      booking = Repo.get!(Booking, booking_id)
+      booking = Repo.get!(Booking, booking_id) |> Repo.preload(:rooms)
 
       if booking.status != :hold do
         Repo.rollback({:error, :invalid_status})
@@ -605,19 +773,23 @@ defmodule Ysc.Bookings.BookingLocker do
           end
 
         :room ->
-          # Clear held
-          {count, _} =
-            Repo.update_all(
-              from(ri in RoomInventory,
-                where:
-                  ri.room_id == ^booking.room_id and
-                    ri.day >= ^booking.checkin_date and ri.day < ^booking.checkout_date
-              ),
-              set: [held: false, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
-            )
+          # Clear held for all rooms
+          room_ids = Enum.map(booking.rooms, & &1.id)
 
-          if count == 0 do
-            Repo.rollback({:error, :inventory_update_failed})
+          if length(room_ids) > 0 do
+            {count, _} =
+              Repo.update_all(
+                from(ri in RoomInventory,
+                  where:
+                    ri.room_id in ^room_ids and
+                      ri.day >= ^booking.checkin_date and ri.day < ^booking.checkout_date
+                ),
+                set: [held: false, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+              )
+
+            if count == 0 do
+              Repo.rollback({:error, :inventory_update_failed})
+            end
           end
 
         :day ->
@@ -639,8 +811,12 @@ defmodule Ysc.Bookings.BookingLocker do
       end
 
       # Update booking status to canceled
+      # Pass existing rooms to avoid Ecto thinking we're removing them
       case booking
-           |> Booking.changeset(%{status: :canceled, hold_expires_at: nil}, skip_validation: true)
+           |> Booking.changeset(%{status: :canceled, hold_expires_at: nil},
+             rooms: booking.rooms,
+             skip_validation: true
+           )
            |> Repo.update() do
         {:ok, updated_booking} ->
           updated_booking
@@ -690,10 +866,17 @@ defmodule Ysc.Bookings.BookingLocker do
     )
   end
 
-  defp build_room_pricing_items(room, total, nights, guests_count, children_count) do
-    # For room bookings, we'll create a simplified structure
-    # The actual per-night breakdown would require more detailed calculation
-    %{
+  defp build_room_pricing_items(
+         room,
+         total,
+         nights,
+         guests_count,
+         children_count,
+         breakdown \\ nil
+       ) do
+    # For room bookings, create a JSON-safe structure with string keys
+    # Convert breakdown map (with atom keys) to string keys if provided
+    base_item = %{
       "type" => "room",
       "room_id" => room.id,
       "room_name" => room.name,
@@ -705,7 +888,44 @@ defmodule Ysc.Bookings.BookingLocker do
         "currency" => Atom.to_string(total.currency)
       }
     }
+
+    # If breakdown is provided, convert atom keys to string keys and merge
+    if breakdown && is_map(breakdown) do
+      breakdown_string_keys =
+        breakdown
+        |> Enum.map(fn
+          {key, value} when is_atom(key) ->
+            {Atom.to_string(key), convert_money_to_map(value)}
+
+          {key, value} ->
+            {key, convert_money_to_map(value)}
+        end)
+        |> Enum.into(%{})
+
+      Map.merge(base_item, breakdown_string_keys)
+    else
+      base_item
+    end
   end
+
+  # Helper to convert Money structs to maps for JSON encoding
+  defp convert_money_to_map(%Money{} = money) do
+    %{
+      "amount" => Decimal.to_string(money.amount),
+      "currency" => Atom.to_string(money.currency)
+    }
+  end
+
+  defp convert_money_to_map(value)
+       when is_integer(value) or is_float(value) or is_binary(value) do
+    value
+  end
+
+  defp convert_money_to_map(value) when is_map(value) do
+    Enum.map(value, fn {k, v} -> {k, convert_money_to_map(v)} end) |> Enum.into(%{})
+  end
+
+  defp convert_money_to_map(value), do: value
 
   defp get_property_capacity_for_date(property, _date) do
     # TODO: Get from season policy if available

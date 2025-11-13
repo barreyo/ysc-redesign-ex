@@ -8,7 +8,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
   alias Ysc.Bookings
   alias Ysc.Bookings.SeasonHelpers
-  require Logger
 
   @week_start_at :sunday
 
@@ -405,10 +404,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
   @impl true
   def update(assigns, socket) do
-    Logger.debug(
-      "[AvailabilityCalendar] update called - checkin: #{inspect(assigns[:checkin_date])}, checkout: #{inspect(assigns[:checkout_date])}, today: #{inspect(assigns[:today])}"
-    )
-
     # Calculate date range for availability (show 3 months)
     today = assigns[:today] || Date.utc_today()
 
@@ -494,17 +489,11 @@ defmodule YscWeb.Components.AvailabilityCalendar do
       !has_valid_availability ||
         booking_mode_changed
 
-    Logger.debug(
-      "[AvailabilityCalendar] needs_availability_reload: #{needs_availability_reload}, has_valid_availability: #{has_valid_availability}, today_changed: #{today_changed}, booking_mode_changed: #{booking_mode_changed}"
-    )
-
     # Get availability data only if needed
     availability =
       if needs_availability_reload do
-        Logger.debug("[AvailabilityCalendar] Loading availability data...")
         Bookings.get_clear_lake_daily_availability(start_date, end_date)
       else
-        Logger.debug("[AvailabilityCalendar] Reusing cached availability data")
         socket.assigns[:availability]
       end
 
@@ -552,10 +541,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
       |> assign(:seasons, seasons)
       |> assign(:selected_booking_mode, assigns[:selected_booking_mode] || :day)
       |> assign(:state, new_state)
-
-    Logger.debug(
-      "[AvailabilityCalendar] update complete - socket assigns checkin: #{inspect(updated_socket.assigns[:checkin_date])}, checkout: #{inspect(updated_socket.assigns[:checkout_date])}"
-    )
 
     {:ok, updated_socket}
   end
@@ -664,10 +649,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
   @impl true
   def handle_event("cursor-move", date_str, socket) do
-    Logger.debug(
-      "[AvailabilityCalendar] cursor-move received - date_str: #{inspect(date_str)}, state: #{socket.assigns.state}, checkin: #{inspect(socket.assigns.checkin_date)}"
-    )
-
     # Handle both string and map formats
     date_string =
       if is_map(date_str),
@@ -688,10 +669,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
       end
 
     if is_nil(date) do
-      Logger.debug("[AvailabilityCalendar] cursor-move: Failed to parse date")
       {:noreply, socket}
     else
-      Logger.debug("[AvailabilityCalendar] cursor-move: Parsed date: #{inspect(date)}")
       # Show hover range when we have a start date and are selecting end date
       if socket.assigns.state == :set_end && socket.assigns.checkin_date do
         checkin_date = socket.assigns.checkin_date
@@ -716,16 +695,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
             nil
           end
 
-        Logger.debug(
-          "[AvailabilityCalendar] cursor-move: Setting hover_checkout_date to #{inspect(hover_checkout_date)}"
-        )
-
         {:noreply, socket |> assign(:hover_checkout_date, hover_checkout_date)}
       else
-        Logger.debug(
-          "[AvailabilityCalendar] cursor-move: Not in set_end state or no checkin_date - clearing hover"
-        )
-
         # Clear hover when not in set_end state
         {:noreply, socket |> assign(:hover_checkout_date, nil)}
       end
@@ -744,10 +715,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
       checkin_date: socket.assigns.checkin_date,
       checkout_date: socket.assigns.checkout_date
     }
-
-    Logger.debug(
-      "[AvailabilityCalendar] send_date_update called - checkin: #{inspect(attrs.checkin_date)}, checkout: #{inspect(attrs.checkout_date)}"
-    )
 
     send(self(), {:availability_calendar_date_changed, attrs})
     socket
@@ -803,10 +770,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         else
           {start_date, end_date}
         end
-
-      Logger.debug(
-        "[AvailabilityCalendar] Reloading availability for month navigation - range: #{start_date} to #{end_date}"
-      )
 
       new_availability = Bookings.get_clear_lake_daily_availability(start_date, end_date)
 

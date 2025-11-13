@@ -202,6 +202,9 @@ defmodule YscWeb.NewsLive do
 
   defp paginate_posts(socket, new_page) when new_page >= 1 do
     %{per_page: per_page, page: cur_page} = socket.assigns
+
+    # Posts.list_posts already preloads :author and :featured_image
+    # Ecto will batch load these associations automatically
     posts = Posts.list_posts((new_page - 1) * per_page, per_page)
 
     {posts, at, limit} =

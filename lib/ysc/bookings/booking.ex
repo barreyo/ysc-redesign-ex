@@ -70,7 +70,7 @@ defmodule Ysc.Bookings.Booking do
     field :hold_expires_at, :utc_datetime
     field :total_price, Money.Ecto.Composite.Type, default_currency: :USD
     field :pricing_items, :map
-    belongs_to :room, Ysc.Bookings.Room, foreign_key: :room_id, references: :id
+    many_to_many :rooms, Ysc.Bookings.Room, join_through: Ysc.Bookings.BookingRoom
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
 
     timestamps()
@@ -106,16 +106,15 @@ defmodule Ysc.Bookings.Booking do
       :hold_expires_at,
       :total_price,
       :pricing_items,
-      :room_id,
       :user_id
     ])
+    |> put_assoc(:rooms, opts[:rooms] || [])
     |> validate_required([:checkin_date, :checkout_date, :property, :booking_mode, :user_id])
     |> generate_reference_id()
     |> infer_booking_mode()
     |> validate_date_range()
     |> validate_booking_rules(opts)
     |> unique_constraint(:reference_id)
-    |> foreign_key_constraint(:room_id)
     |> foreign_key_constraint(:user_id)
   end
 
@@ -133,22 +132,27 @@ defmodule Ysc.Bookings.Booking do
     end
   end
 
-  # Infer booking_mode from room_id if not provided
+  # Infer booking_mode from rooms if not provided
   defp infer_booking_mode(changeset) do
     booking_mode = get_field(changeset, :booking_mode)
-    room_id = get_field(changeset, :room_id)
 
-    cond do
-      not is_nil(booking_mode) ->
-        changeset
+    if not is_nil(booking_mode) do
+      changeset
+    else
+      # Check if rooms are provided (via changeset or preloaded)
+      rooms = get_field(changeset, :rooms) || []
 
-      is_nil(room_id) ->
-        # No room = buyout
-        put_change(changeset, :booking_mode, :buyout)
+      has_rooms =
+        (is_list(rooms) && length(rooms) > 0) ||
+          (is_map(rooms) && Map.has_key?(rooms, :rooms) && length(Map.get(rooms, :rooms, [])) > 0)
 
-      true ->
-        # Has room = room booking
+      if has_rooms do
+        # Has rooms = room booking
         put_change(changeset, :booking_mode, :room)
+      else
+        # No rooms = buyout
+        put_change(changeset, :booking_mode, :buyout)
+      end
     end
   end
 

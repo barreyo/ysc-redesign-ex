@@ -118,61 +118,178 @@ defmodule Ysc.Events do
 
   @doc """
   Fetch events with upcoming start dates, optionally limited.
+  Optimized to batch load ticket tiers and ticket counts to avoid N+1 queries.
   """
   def list_upcoming_events(limit \\ 50) do
     three_days_ago = DateTime.add(DateTime.utc_now(), -3, :day)
 
-    from(e in Event,
-      where: e.start_date > ^DateTime.utc_now(),
-      where: e.state in [:published, :cancelled],
-      left_join: t in Ticket,
-      on: t.event_id == e.id and t.status == :confirmed and t.inserted_at >= ^three_days_ago,
-      group_by: e.id,
-      select: %{
-        id: e.id,
-        reference_id: e.reference_id,
-        state: e.state,
-        published_at: e.published_at,
-        publish_at: e.publish_at,
-        organizer_id: e.organizer_id,
-        title: e.title,
-        description: e.description,
-        max_attendees: e.max_attendees,
-        age_restriction: e.age_restriction,
-        show_participants: e.show_participants,
-        raw_details: e.raw_details,
-        rendered_details: e.rendered_details,
-        image_id: e.image_id,
-        start_date: e.start_date,
-        start_time: e.start_time,
-        end_date: e.end_date,
-        end_time: e.end_time,
-        location_name: e.location_name,
-        address: e.address,
-        latitude: e.latitude,
-        longitude: e.longitude,
-        place_id: e.place_id,
-        lock_version: e.lock_version,
-        inserted_at: e.inserted_at,
-        updated_at: e.updated_at,
-        recent_tickets_count: count(t.id),
-        selling_fast: fragment("count(?) >= 5", t.id)
-      },
-      order_by: [
-        # First sort by state: non-cancelled events first, cancelled events last
-        asc: fragment("CASE WHEN ? = 'cancelled' THEN 1 ELSE 0 END", e.state),
-        # Then sort by start_date for non-cancelled events
-        asc: e.start_date,
-        # Finally sort by start_time for events on the same date
-        asc: e.start_time
-      ],
-      limit: ^limit
-    )
-    |> Repo.all()
-    |> Enum.map(&add_pricing_info/1)
+    events =
+      from(e in Event,
+        where: e.start_date > ^DateTime.utc_now(),
+        where: e.state in [:published, :cancelled],
+        left_join: t in Ticket,
+        on: t.event_id == e.id and t.status == :confirmed and t.inserted_at >= ^three_days_ago,
+        group_by: e.id,
+        select: %{
+          id: e.id,
+          reference_id: e.reference_id,
+          state: e.state,
+          published_at: e.published_at,
+          publish_at: e.publish_at,
+          organizer_id: e.organizer_id,
+          title: e.title,
+          description: e.description,
+          max_attendees: e.max_attendees,
+          age_restriction: e.age_restriction,
+          show_participants: e.show_participants,
+          raw_details: e.raw_details,
+          rendered_details: e.rendered_details,
+          image_id: e.image_id,
+          start_date: e.start_date,
+          start_time: e.start_time,
+          end_date: e.end_date,
+          end_time: e.end_time,
+          location_name: e.location_name,
+          address: e.address,
+          latitude: e.latitude,
+          longitude: e.longitude,
+          place_id: e.place_id,
+          lock_version: e.lock_version,
+          inserted_at: e.inserted_at,
+          updated_at: e.updated_at,
+          recent_tickets_count: count(t.id),
+          selling_fast: fragment("count(?) >= 5", t.id)
+        },
+        order_by: [
+          # First sort by state: non-cancelled events first, cancelled events last
+          asc: fragment("CASE WHEN ? = 'cancelled' THEN 1 ELSE 0 END", e.state),
+          # Then sort by start_date for non-cancelled events
+          asc: e.start_date,
+          # Finally sort by start_time for events on the same date
+          asc: e.start_time
+        ],
+        limit: ^limit
+      )
+      |> Repo.all()
+
+    # Batch load all ticket tiers, ticket counts, and images for all events at once
+    add_pricing_info_batch(events)
   end
 
-  # Helper function to add pricing information to events
+  # Batch load pricing info for all events to avoid N+1 queries
+  defp add_pricing_info_batch(events) when is_list(events) do
+    if length(events) == 0 do
+      []
+    else
+      event_ids = Enum.map(events, & &1.id)
+
+      # Batch load all ticket tiers for all events
+      ticket_tiers_by_event = batch_load_ticket_tiers(event_ids)
+
+      # Batch load ticket counts for all events
+      ticket_counts_by_event = batch_load_ticket_counts(event_ids)
+
+      # Batch load images for all events (extract unique image_ids)
+      image_ids =
+        events
+        |> Enum.map(& &1.image_id)
+        |> Enum.filter(&(&1 != nil))
+        |> Enum.uniq()
+
+      images_by_id = batch_load_images(image_ids)
+
+      # Add pricing info, ticket counts, and images to each event
+      Enum.map(events, fn event ->
+        ticket_tiers = Map.get(ticket_tiers_by_event, event.id, [])
+        ticket_count = Map.get(ticket_counts_by_event, event.id, 0)
+        pricing_info = calculate_event_pricing(ticket_tiers)
+        image = if event.image_id, do: Map.get(images_by_id, event.image_id), else: nil
+
+        event
+        |> Map.put(:pricing_info, pricing_info)
+        |> Map.put(:ticket_tiers, ticket_tiers)
+        |> Map.put(:ticket_count, ticket_count)
+        |> Map.put(:image, image)
+      end)
+    end
+  end
+
+  # Batch load images for multiple image IDs
+  defp batch_load_images(image_ids) when is_list(image_ids) do
+    if length(image_ids) == 0 do
+      %{}
+    else
+      alias Ysc.Media.Image
+
+      from(i in Image, where: i.id in ^image_ids)
+      |> Repo.all()
+      |> Enum.into(%{}, fn image -> {image.id, image} end)
+    end
+  end
+
+  # Batch load ticket tiers for multiple events
+  defp batch_load_ticket_tiers(event_ids) when is_list(event_ids) do
+    if length(event_ids) == 0 do
+      %{}
+    else
+      from(tt in TicketTier,
+        where: tt.event_id in ^event_ids,
+        left_join: t in Ticket,
+        on: t.ticket_tier_id == tt.id and t.status == :confirmed,
+        group_by: [
+          tt.id,
+          tt.name,
+          tt.description,
+          tt.type,
+          tt.price,
+          tt.quantity,
+          tt.requires_registration,
+          tt.start_date,
+          tt.end_date,
+          tt.event_id,
+          tt.lock_version,
+          tt.inserted_at,
+          tt.updated_at
+        ],
+        select: %{
+          id: tt.id,
+          name: tt.name,
+          description: tt.description,
+          type: tt.type,
+          price: tt.price,
+          quantity: tt.quantity,
+          requires_registration: tt.requires_registration,
+          start_date: tt.start_date,
+          end_date: tt.end_date,
+          event_id: tt.event_id,
+          lock_version: tt.lock_version,
+          inserted_at: tt.inserted_at,
+          updated_at: tt.updated_at,
+          sold_tickets_count: count(t.id)
+        },
+        order_by: [asc: tt.inserted_at]
+      )
+      |> Repo.all()
+      |> Enum.group_by(& &1.event_id)
+    end
+  end
+
+  # Batch load ticket counts for multiple events
+  defp batch_load_ticket_counts(event_ids) when is_list(event_ids) do
+    if length(event_ids) == 0 do
+      %{}
+    else
+      from(t in Ticket,
+        where: t.event_id in ^event_ids and t.status == :confirmed,
+        group_by: t.event_id,
+        select: {t.event_id, count(t.id)}
+      )
+      |> Repo.all()
+      |> Enum.into(%{}, fn {event_id, count} -> {event_id, count} end)
+    end
+  end
+
+  # Helper function to add pricing information to events (kept for backward compatibility)
   defp add_pricing_info(event) do
     ticket_tiers = list_ticket_tiers_for_event(event.id)
     pricing_info = calculate_event_pricing(ticket_tiers)

@@ -46,26 +46,28 @@ defmodule Ysc.Posts do
   end
 
   def list_posts(offset, limit) do
+    # Preload associations - Ecto will batch load these efficiently
     Repo.all(
       from p in Post,
         where: p.state == :published,
         where: p.featured_post == false,
-        preload: [:author, :featured_image],
         order_by: [{:desc, :published_on}],
         limit: ^limit,
         offset: ^offset
     )
+    |> Repo.preload([:author, :featured_image])
   end
 
   def list_posts(limit) do
+    # Preload associations - Ecto will batch load these efficiently
     Repo.all(
       from p in Post,
         where: p.state == :published,
         where: p.featured_post == false,
-        preload: [:author, :featured_image],
         order_by: [{:desc, :published_on}],
         limit: ^limit
     )
+    |> Repo.preload([:author, :featured_image])
   end
 
   def list_posts_paginated(params) do

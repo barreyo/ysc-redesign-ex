@@ -235,9 +235,9 @@ defmodule YscWeb.HomeLive do
                             <span class="text-sm font-medium text-zinc-900">
                               <%= format_property_name(booking.property) %>
                             </span>
-                            <%= if booking.room do %>
+                            <%= if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do %>
                               <span class="text-sm text-zinc-600">
-                                · <%= booking.room.name %>
+                                · <%= Enum.map_join(booking.rooms, ", ", fn room -> room.name end) %>
                               </span>
                             <% else %>
                               <span class="text-sm text-zinc-600">· Full Buyout</span>
@@ -498,7 +498,7 @@ defmodule YscWeb.HomeLive do
         where: b.checkout_date >= ^today,
         order_by: [asc: b.checkin_date],
         limit: ^limit,
-        preload: [:room]
+        preload: [:rooms]
 
     bookings = Ysc.Repo.all(query)
 

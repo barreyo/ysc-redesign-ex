@@ -151,6 +151,12 @@ defmodule Ysc.Bookings.Season do
   - `nil` if no season matches
   """
   def for_date(property, date) when is_atom(property) do
+    alias Ysc.Bookings.SeasonCache
+    SeasonCache.get(property, date)
+  end
+
+  # Internal function that actually queries the database (called by cache on miss)
+  def for_date_db(property, date) when is_atom(property) do
     query =
       from s in __MODULE__,
         where: s.property == ^property
@@ -158,6 +164,12 @@ defmodule Ysc.Bookings.Season do
     seasons = Repo.all(query)
 
     find_season_for_date(seasons, date)
+  end
+
+  # Internal function that queries all seasons for a property (used by cache)
+  def list_all_for_property_db(property) when is_atom(property) do
+    from(s in __MODULE__, where: s.property == ^property, order_by: [asc: s.name])
+    |> Repo.all()
   end
 
   @doc """

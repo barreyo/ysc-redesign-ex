@@ -34,14 +34,14 @@ defmodule YscWeb.BookingReceiptLive do
              |> redirect(to: ~p"/")}
           else
             # Preload associations
-            booking = Repo.preload(booking, [:user, :room, room: :room_category])
+            booking = Repo.preload(booking, [:user, rooms: :room_category])
 
             # Handle Stripe redirect parameters
             socket = handle_stripe_redirect(params, booking, socket)
 
             # Reload booking in case status changed
             booking =
-              Repo.get!(Booking, booking_id) |> Repo.preload([:user, :room, room: :room_category])
+              Repo.get!(Booking, booking_id) |> Repo.preload([:user, rooms: :room_category])
 
             # Get payment information
             payment = get_booking_payment(booking)
@@ -85,10 +85,9 @@ defmodule YscWeb.BookingReceiptLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen py-12 bg-zinc-50">
-      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- Success Header -->
-        <div class="text-center mb-8">
+    <div class="max-w-4xl mx-auto px-4 py-8">
+      <div class="mb-6">
+        <div class="text-center mb-6">
           <div class="text-green-500 mb-4">
             <.icon name="hero-check-circle" class="w-16 h-16 mx-auto" />
           </div>
@@ -97,101 +96,115 @@ defmodule YscWeb.BookingReceiptLive do
             Your booking has been successfully confirmed. You'll receive a confirmation email shortly.
           </p>
         </div>
-        <!-- Booking Details Card -->
-        <div class="bg-white rounded-lg shadow-sm border border-zinc-200 mb-6">
-          <div class="px-6 py-4 border-b border-zinc-200">
-            <h2 class="text-lg font-semibold text-zinc-900">Booking Details</h2>
-          </div>
-          <div class="px-6 py-4 space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      </div>
+
+      <div class="space-y-6">
+        <!-- Booking Summary -->
+        <div>
+          <div class="bg-white rounded-lg border border-zinc-200 p-6">
+            <h2 class="text-xl font-semibold text-zinc-900 mb-4">Booking Summary</h2>
+
+            <div class="space-y-4">
               <div>
-                <dt class="text-sm font-medium text-zinc-500">Booking Reference</dt>
-                <dd class="mt-1 text-sm text-zinc-900 font-mono">
-                  <%= @booking.reference_id %>
-                </dd>
+                <div class="text-sm text-zinc-600">Booking Reference</div>
+                <div class="font-medium text-zinc-900 font-mono"><%= @booking.reference_id %></div>
               </div>
+
               <div>
-                <dt class="text-sm font-medium text-zinc-500">Property</dt>
-                <dd class="mt-1 text-sm text-zinc-900">
+                <div class="text-sm text-zinc-600">Property</div>
+                <div class="font-medium text-zinc-900">
                   <%= format_property_name(@booking.property) %>
-                </dd>
+                </div>
               </div>
+
               <div>
-                <dt class="text-sm font-medium text-zinc-500">Check-in</dt>
-                <dd class="mt-1 text-sm text-zinc-900">
+                <div class="text-sm text-zinc-600">Check-in</div>
+                <div class="font-medium text-zinc-900">
                   <%= format_date(@booking.checkin_date, @timezone) %>
-                </dd>
+                </div>
               </div>
+
               <div>
-                <dt class="text-sm font-medium text-zinc-500">Check-out</dt>
-                <dd class="mt-1 text-sm text-zinc-900">
+                <div class="text-sm text-zinc-600">Check-out</div>
+                <div class="font-medium text-zinc-900">
                   <%= format_date(@booking.checkout_date, @timezone) %>
-                </dd>
+                </div>
               </div>
+
               <div>
-                <dt class="text-sm font-medium text-zinc-500">Nights</dt>
-                <dd class="mt-1 text-sm text-zinc-900">
+                <div class="text-sm text-zinc-600">Nights</div>
+                <div class="font-medium text-zinc-900">
                   <%= Date.diff(@booking.checkout_date, @booking.checkin_date) %>
-                </dd>
+                </div>
               </div>
+
               <div>
-                <dt class="text-sm font-medium text-zinc-500">Guests</dt>
-                <dd class="mt-1 text-sm text-zinc-900">
+                <div class="text-sm text-zinc-600">Guests</div>
+                <div class="font-medium text-zinc-900">
                   <%= @booking.guests_count %>
                   <%= if @booking.children_count > 0 do %>
                     (<%= @booking.children_count %> children)
                   <% end %>
-                </dd>
+                </div>
               </div>
+
               <div>
-                <dt class="text-sm font-medium text-zinc-500">Booking Mode</dt>
-                <dd class="mt-1 text-sm text-zinc-900">
+                <div class="text-sm text-zinc-600">Booking Mode</div>
+                <div class="font-medium text-zinc-900">
                   <%= if @booking.booking_mode == :buyout do %>
                     Full Buyout
                   <% else %>
-                    Per Guest
+                    <%= if @booking.booking_mode == :room do %>
+                      Per Room
+                    <% else %>
+                      Per Guest
+                    <% end %>
                   <% end %>
-                </dd>
+                </div>
               </div>
-              <%= if @booking.room do %>
+
+              <%= if Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0 do %>
                 <div>
-                  <dt class="text-sm font-medium text-zinc-500">Room</dt>
-                  <dd class="mt-1 text-sm text-zinc-900"><%= @booking.room.name %></dd>
+                  <div class="text-sm text-zinc-600">
+                    <%= if length(@booking.rooms) == 1, do: "Room", else: "Rooms" %>
+                  </div>
+                  <div class="font-medium text-zinc-900">
+                    <%= Enum.map_join(@booking.rooms, ", ", fn room -> room.name end) %>
+                  </div>
                 </div>
               <% end %>
             </div>
           </div>
         </div>
-        <!-- Payment Summary Card -->
+        <!-- Payment Summary -->
         <%= if @payment do %>
-          <div class="bg-white rounded-lg shadow-sm border border-zinc-200 mb-6">
-            <div class="px-6 py-4 border-b border-zinc-200">
-              <h2 class="text-lg font-semibold text-zinc-900">Payment Summary</h2>
-            </div>
-            <div class="px-6 py-4">
+          <div>
+            <div class="bg-white rounded-lg border border-zinc-200 p-6">
+              <h2 class="text-xl font-semibold text-zinc-900 mb-4">Payment Summary</h2>
+
               <div class="space-y-3">
                 <%= if @price_breakdown do %>
                   <%= render_price_breakdown(assigns) %>
                 <% end %>
 
-                <div class="flex justify-between">
+                <div class="flex justify-between text-sm">
                   <span class="text-zinc-600">Payment Method</span>
-                  <span class="font-medium">
+                  <span class="text-zinc-900">
                     <%= get_payment_method_description(@payment) %>
                   </span>
                 </div>
 
-                <div class="flex justify-between">
+                <div class="flex justify-between text-sm">
                   <span class="text-zinc-600">Payment Date</span>
-                  <span class="font-medium">
+                  <span class="text-zinc-900">
                     <%= format_datetime(@payment.payment_date, @timezone) %>
                   </span>
                 </div>
 
-                <div class="border-t pt-3">
-                  <div class="flex justify-between">
+                <div class="border-t border-zinc-200 pt-3">
+                  <div class="flex justify-between items-center">
                     <span class="text-lg font-semibold text-zinc-900">Total Paid</span>
-                    <span class="text-lg font-bold text-zinc-900">
+                    <span class="text-2xl font-bold text-zinc-900">
                       <%= MoneyHelper.format_money!(@payment.amount) %>
                     </span>
                   </div>
@@ -210,7 +223,7 @@ defmodule YscWeb.BookingReceiptLive do
           </.button>
         </div>
         <!-- Additional Info -->
-        <div class="mt-8 text-center">
+        <div class="text-center">
           <p class="text-sm text-zinc-500">
             Need help? Contact us at
             <a href="mailto:info@ysc.org" class="text-blue-600 hover:text-blue-500">
@@ -251,6 +264,59 @@ defmodule YscWeb.BookingReceiptLive do
             <% end %>
           </span>
         </div>
+      <% end %>
+    <% end %>
+    <%= if @booking.booking_mode == :room do %>
+      <%= if @price_breakdown && is_map(@price_breakdown) do %>
+        <%= if @price_breakdown["rooms"] && is_list(@price_breakdown["rooms"]) do %>
+          <!-- Multiple rooms -->
+          <%= for room_item <- @price_breakdown["rooms"] do %>
+            <div class="flex justify-between text-sm">
+              <span class="text-zinc-600">
+                <%= if room_item["room_name"] do %>
+                  <%= room_item["room_name"] %>:
+                <% end %>
+                <%= @price_breakdown["nights"] || 0 %> night(s)
+                <%= if @price_breakdown["guests_count"] do %>
+                  × <%= @price_breakdown["guests_count"] %> guest(s)
+                <% end %>
+                <%= if @price_breakdown["children_count"] && @price_breakdown["children_count"] > 0 do %>
+                  × <%= @price_breakdown["children_count"] %> child(ren)
+                <% end %>
+              </span>
+              <span class="text-zinc-900">
+                <%= if room_item["total"] do %>
+                  <%= MoneyHelper.format_money!(
+                    Money.new(room_item["total"]["currency"], room_item["total"]["amount"])
+                  ) %>
+                <% end %>
+              </span>
+            </div>
+          <% end %>
+        <% else %>
+          <!-- Single room (legacy format) -->
+          <div class="flex justify-between text-sm">
+            <span class="text-zinc-600">
+              <%= @price_breakdown["nights"] || 0 %> night(s)
+              <%= if @price_breakdown["guests_count"] do %>
+                × <%= @price_breakdown["guests_count"] %> guest(s)
+              <% end %>
+              <%= if @price_breakdown["children_count"] && @price_breakdown["children_count"] > 0 do %>
+                × <%= @price_breakdown["children_count"] %> child(ren)
+              <% end %>
+            </span>
+            <span class="text-zinc-900">
+              <%= if @price_breakdown["total"] do %>
+                <%= MoneyHelper.format_money!(
+                  Money.new(
+                    @price_breakdown["total"]["currency"],
+                    @price_breakdown["total"]["amount"]
+                  )
+                ) %>
+              <% end %>
+            </span>
+          </div>
+        <% end %>
       <% end %>
     <% end %>
     """

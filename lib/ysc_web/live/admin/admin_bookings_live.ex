@@ -417,14 +417,20 @@ defmodule YscWeb.AdminBookingsLive do
               </p>
             </div>
 
-            <div :if={@booking.room}>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">Room</label>
-              <p class="text-sm text-zinc-900">
-                <%= @booking.room.name %>
-                <span :if={@booking.room.room_category} class="text-zinc-500">
-                  (<%= atom_to_readable(@booking.room.room_category.name) %>)
-                </span>
-              </p>
+            <div :if={Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0}>
+              <label class="block text-sm font-semibold text-zinc-700 mb-1">
+                <%= if length(@booking.rooms) == 1, do: "Room", else: "Rooms" %>
+              </label>
+              <div class="text-sm text-zinc-900 space-y-1">
+                <%= for room <- @booking.rooms do %>
+                  <p>
+                    <%= room.name %>
+                    <span :if={room.room_category} class="text-zinc-500">
+                      (<%= atom_to_readable(room.room_category.name) %>)
+                    </span>
+                  </p>
+                <% end %>
+              </div>
             </div>
           </div>
 
@@ -1091,7 +1097,11 @@ defmodule YscWeb.AdminBookingsLive do
                       <% end %>
                     </div>
                   <% end %>
-                  <%= for booking <- @room_bookings |> Enum.filter(&(&1.room_id == room.id)) do
+                  <%= for booking <-
+                            @room_bookings
+                            |> Enum.filter(fn b ->
+                              Ecto.assoc_loaded?(b.rooms) && Enum.any?(b.rooms, &(&1.id == room.id))
+                            end) do
                     raw(render_booking_div(booking, @calendar_start_date, total_days))
                   end %>
                 </div>
@@ -1206,14 +1216,18 @@ defmodule YscWeb.AdminBookingsLive do
                   </span>
                 </:col>
                 <:col :let={{_, booking}} label="Room" field={:booking_mode}>
-                  <%= if booking.room do %>
-                    <div>
-                      <div class="text-sm font-medium text-zinc-800">
-                        <%= booking.room.name %>
-                      </div>
-                      <%= if booking.room.room_category do %>
-                        <div class="text-xs text-zinc-500 mt-0.5">
-                          <%= atom_to_readable(booking.room.room_category.name) %>
+                  <%= if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do %>
+                    <div class="space-y-1">
+                      <%= for room <- booking.rooms do %>
+                        <div>
+                          <div class="text-sm font-medium text-zinc-800">
+                            <%= room.name %>
+                          </div>
+                          <%= if room.room_category do %>
+                            <div class="text-xs text-zinc-500 mt-0.5">
+                              <%= atom_to_readable(room.room_category.name) %>
+                            </div>
+                          <% end %>
                         </div>
                       <% end %>
                     </div>
@@ -2144,7 +2158,7 @@ defmodule YscWeb.AdminBookingsLive do
 
   defp apply_action(socket, :view_booking, %{"id" => id}) do
     booking = Bookings.get_booking!(id)
-    booking = Ysc.Repo.preload(booking, [:user, :room, room: :room_category])
+    booking = Ysc.Repo.preload(booking, [:user, rooms: :room_category])
 
     # Ensure selected_property matches the booking's property
     socket =
@@ -3785,8 +3799,9 @@ defmodule YscWeb.AdminBookingsLive do
     {:safe, escaped_checkin_str} = Phoenix.HTML.html_escape(checkin_str)
     {:safe, escaped_checkout_str} = Phoenix.HTML.html_escape(checkout_str)
 
-    # Determine if this is a buyout booking (no room_id or booking_mode is :buyout)
-    is_buyout = is_nil(booking.room_id) || booking.booking_mode == :buyout
+    # Determine if this is a buyout booking (no rooms or booking_mode is :buyout)
+    has_rooms = Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0
+    is_buyout = !has_rooms || booking.booking_mode == :buyout
 
     # Use green colors for buyout bookings, blue for regular room bookings
     {bg_color, border_color, text_color, hover_color} =
@@ -3862,9 +3877,17 @@ defmodule YscWeb.AdminBookingsLive do
     # Load bookings for this property and date range (filtered at database level)
     bookings_in_range = Bookings.list_bookings(property, start_date, end_date)
 
-    # Separate room bookings from buyout bookings (buyouts have room_id = nil)
-    room_bookings = Enum.filter(bookings_in_range, & &1.room_id)
-    buyout_bookings = Enum.filter(bookings_in_range, &is_nil(&1.room_id))
+    # Separate room bookings from buyout bookings
+    # Room bookings have rooms associated, buyout bookings have no rooms
+    room_bookings =
+      Enum.filter(bookings_in_range, fn booking ->
+        Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0
+      end)
+
+    buyout_bookings =
+      Enum.filter(bookings_in_range, fn booking ->
+        !Ecto.assoc_loaded?(booking.rooms) || length(booking.rooms) == 0
+      end)
 
     socket
     |> assign(:filtered_rooms, filtered_rooms)
