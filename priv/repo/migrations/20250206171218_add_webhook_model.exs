@@ -17,5 +17,8 @@ defmodule Ysc.Repo.Migrations.AddWebhookModel do
 
     create unique_index(:webhook_events, [:provider, :event_id])
     create index(:webhook_events, [:state])
+    # Note: event_id is a string (external provider ID), not a foreign key
+    # but we add an index for lookup performance
+    create index(:webhook_events, [:event_id])
   end
 end

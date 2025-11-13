@@ -378,13 +378,18 @@ defmodule YscWeb.HomeLive do
                             </div>
                             <div class="text-right">
                               <p class="font-semibold text-zinc-900">
-                                <%= if Money.zero?(List.first(tickets).ticket_tier.price) do %>
-                                  Free
-                                <% else %>
-                                  <%= case Money.to_string(List.first(tickets).ticket_tier.price) do
-                                    {:ok, amount} -> amount
-                                    {:error, _} -> "Error"
-                                  end %>
+                                <%= cond do %>
+                                  <% List.first(tickets).ticket_tier.type == "donation" || List.first(tickets).ticket_tier.type == :donation -> %>
+                                    <%= get_donation_amount_display(tickets) %>
+                                  <% List.first(tickets).ticket_tier.price == nil -> %>
+                                    Free
+                                  <% Money.zero?(List.first(tickets).ticket_tier.price) -> %>
+                                    Free
+                                  <% true -> %>
+                                    <%= case Money.to_string(List.first(tickets).ticket_tier.price) do
+                                      {:ok, amount} -> amount
+                                      {:error, _} -> "Error"
+                                    end %>
                                 <% end %>
                               </p>
                               <p class="text-xs text-green-600 font-medium">Confirmed</p>
@@ -519,6 +524,77 @@ defmodule YscWeb.HomeLive do
       end
     end)
     |> Enum.take(limit)
+  end
+
+  defp get_donation_amount_display(tickets) do
+    # Get the ticket_order from the first ticket
+    ticket_order = List.first(tickets).ticket_order
+
+    if ticket_order do
+      # Get all tickets in the order (we need to reload with all tickets)
+      order_with_tickets = Ysc.Tickets.get_ticket_order(ticket_order.id)
+
+      if order_with_tickets && order_with_tickets.tickets do
+        # Calculate non-donation ticket costs
+        non_donation_total =
+          order_with_tickets.tickets
+          |> Enum.filter(fn t ->
+            t.ticket_tier.type != "donation" && t.ticket_tier.type != :donation
+          end)
+          |> Enum.reduce(Money.new(0, :USD), fn ticket, acc ->
+            case ticket.ticket_tier.price do
+              nil ->
+                acc
+
+              price when is_struct(price, Money) ->
+                case Money.add(acc, price) do
+                  {:ok, new_total} -> new_total
+                  _ -> acc
+                end
+
+              _ ->
+                acc
+            end
+          end)
+
+        # Calculate donation total
+        donation_total =
+          case Money.sub(order_with_tickets.total_amount, non_donation_total) do
+            {:ok, amount} -> amount
+            _ -> Money.new(0, :USD)
+          end
+
+        # Count donation tickets
+        donation_tickets =
+          order_with_tickets.tickets
+          |> Enum.filter(fn t ->
+            t.ticket_tier.type == "donation" || t.ticket_tier.type == :donation
+          end)
+
+        donation_count = length(donation_tickets)
+
+        if donation_count > 0 && Money.positive?(donation_total) do
+          # Calculate per-ticket donation amount
+          per_ticket_amount =
+            case Money.div(donation_total, donation_count) do
+              {:ok, amount} -> amount
+              _ -> Money.new(0, :USD)
+            end
+
+          # Format and display
+          case Money.to_string(per_ticket_amount) do
+            {:ok, amount} -> amount
+            _ -> "Donation"
+          end
+        else
+          "Donation"
+        end
+      else
+        "Donation"
+      end
+    else
+      "Donation"
+    end
   end
 
   defp format_property_name(:tahoe), do: "Lake Tahoe"

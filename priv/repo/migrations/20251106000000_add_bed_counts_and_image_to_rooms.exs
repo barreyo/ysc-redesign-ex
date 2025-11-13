@@ -18,5 +18,8 @@ defmodule Ysc.Repo.Migrations.AddBedCountsAndImageToRooms do
     create constraint(:rooms, :single_beds_non_negative, check: "single_beds >= 0")
     create constraint(:rooms, :queen_beds_non_negative, check: "queen_beds >= 0")
     create constraint(:rooms, :king_beds_non_negative, check: "king_beds >= 0")
+
+    # Add index for image_id foreign key
+    create index(:rooms, [:image_id])
   end
 end

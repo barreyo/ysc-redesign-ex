@@ -669,8 +669,8 @@ defmodule Ysc.Tickets do
 
   defp within_event_capacity?(%Event{max_attendees: nil}, _), do: true
 
-  defp within_event_capacity?(%Event{max_attendees: max_attendees}, requested_quantity) do
-    current_attendees = count_confirmed_tickets_for_event(max_attendees)
+  defp within_event_capacity?(%Event{max_attendees: max_attendees} = event, requested_quantity) do
+    current_attendees = count_confirmed_tickets_for_event(event.id)
     current_attendees + requested_quantity <= max_attendees
   end
 

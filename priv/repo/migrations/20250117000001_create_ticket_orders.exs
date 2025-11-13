@@ -33,6 +33,7 @@ defmodule Ysc.Repo.Migrations.CreateTicketOrders do
     create index(:ticket_orders, [:status])
     create index(:ticket_orders, [:expires_at])
     create index(:ticket_orders, [:payment_intent_id])
+    create index(:ticket_orders, [:payment_id])
 
     # Add ticket_order_id to existing tickets table
     alter table(:tickets) do

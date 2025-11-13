@@ -31,6 +31,8 @@ defmodule Ysc.Repo.Migrations.AddPostsComments do
 
     create unique_index(:posts, [:url_name])
     create constraint(:posts, :comment_count_always_positive, check: "comment_count >= 0")
+    create index(:posts, [:image_id])
+    create index(:posts, [:user_id])
 
     create table(:post_events, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
@@ -47,6 +49,7 @@ defmodule Ysc.Repo.Migrations.AddPostsComments do
     end
 
     create index(:post_events, [:post_id])
+    create index(:post_events, [:user_id])
 
     create table(:comments, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true

@@ -16,7 +16,8 @@ defmodule Ysc.Repo.Migrations.CreateSubscriptions do
       add :current_period_start, :utc_datetime, null: true
       add :current_period_end, :utc_datetime, null: true
 
-      add :user_id, :binary_id, null: false
+      add :user_id, references(:users, column: :id, type: :binary_id, on_delete: :nothing),
+        null: false
 
       timestamps(type: :utc_datetime)
     end

@@ -26,5 +26,6 @@ defmodule Ysc.Repo.Migrations.AddMediaImage do
 
     create index(:images, [:processing_state])
     create index(:images, [:inserted_at])
+    create index(:images, [:user_id])
   end
 end

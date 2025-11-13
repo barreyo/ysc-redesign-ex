@@ -42,6 +42,7 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
 
     create unique_index(:events, [:reference_id])
     create index(:events, [:state])
+    create index(:events, [:image_id])
 
     create table(:agendas, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
@@ -133,6 +134,9 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
     create unique_index(:tickets, [:reference_id])
     create index(:tickets, [:event_id])
     create index(:tickets, [:status])
+    create index(:tickets, [:payment_id])
+    create index(:tickets, [:user_id])
+    create index(:tickets, [:ticket_tier_id])
 
     create table(:ticket_details, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true

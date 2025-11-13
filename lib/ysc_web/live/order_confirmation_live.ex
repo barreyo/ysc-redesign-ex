@@ -51,8 +51,8 @@ defmodule YscWeb.OrderConfirmationLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="min-h-screen py-12">
-      <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="py-8 lg:py-10 max-w-screen-lg mx-auto px-4">
+      <div class="max-w-xl mx-auto lg:mx-0">
         <!-- Success Header -->
         <div class="text-center mb-8">
           <div class="text-green-500 mb-4">
@@ -120,7 +120,7 @@ defmodule YscWeb.OrderConfirmationLive do
                     <p class="font-semibold text-zinc-900">
                       <%= cond do %>
                         <% ticket.ticket_tier.type == "donation" || ticket.ticket_tier.type == :donation -> %>
-                          Donation
+                          <%= get_donation_amount_for_ticket(ticket, @ticket_order) %>
                         <% ticket.ticket_tier.price == nil -> %>
                           Free
                         <% Money.zero?(ticket.ticket_tier.price) -> %>
@@ -199,6 +199,68 @@ defmodule YscWeb.OrderConfirmationLive do
       </div>
     </div>
     """
+  end
+
+  # Helper function to calculate donation amount for a ticket
+  defp get_donation_amount_for_ticket(ticket, ticket_order) do
+    if ticket_order && ticket_order.tickets do
+      # Calculate non-donation ticket costs
+      non_donation_total =
+        ticket_order.tickets
+        |> Enum.filter(fn t ->
+          t.ticket_tier.type != "donation" && t.ticket_tier.type != :donation
+        end)
+        |> Enum.reduce(Money.new(0, :USD), fn t, acc ->
+          case t.ticket_tier.price do
+            nil ->
+              acc
+
+            price when is_struct(price, Money) ->
+              case Money.add(acc, price) do
+                {:ok, new_total} -> new_total
+                _ -> acc
+              end
+
+            _ ->
+              acc
+          end
+        end)
+
+      # Calculate donation total
+      donation_total =
+        case Money.sub(ticket_order.total_amount, non_donation_total) do
+          {:ok, amount} -> amount
+          _ -> Money.new(0, :USD)
+        end
+
+      # Count donation tickets
+      donation_tickets =
+        ticket_order.tickets
+        |> Enum.filter(fn t ->
+          t.ticket_tier.type == "donation" || t.ticket_tier.type == :donation
+        end)
+
+      donation_count = length(donation_tickets)
+
+      if donation_count > 0 && Money.positive?(donation_total) do
+        # Calculate per-ticket donation amount
+        per_ticket_amount =
+          case Money.div(donation_total, donation_count) do
+            {:ok, amount} -> amount
+            _ -> Money.new(0, :USD)
+          end
+
+        # Format and display
+        case Money.to_string(per_ticket_amount) do
+          {:ok, amount} -> amount
+          _ -> "Donation"
+        end
+      else
+        "Donation"
+      end
+    else
+      "Donation"
+    end
   end
 
   # Helper function to get payment method description

@@ -65,7 +65,7 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
     end
 
     # Group tickets by tier for summary
-    ticket_summaries = prepare_ticket_summaries(ticket_order.tickets)
+    ticket_summaries = prepare_ticket_summaries(ticket_order.tickets, ticket_order)
 
     # Format dates and times
     event_date_time = format_event_datetime(ticket_order.event)
@@ -138,7 +138,7 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
     }
   end
 
-  defp prepare_ticket_summaries(tickets) do
+  defp prepare_ticket_summaries(tickets, ticket_order) do
     tickets
     |> Enum.group_by(& &1.ticket_tier_id)
     |> Enum.map(fn {_tier_id, tier_tickets} ->
@@ -150,16 +150,103 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
       end
 
       quantity = length(tier_tickets)
-      price_per_ticket = format_money(first_ticket.ticket_tier.price)
-      total_price = format_money(calculate_tier_total(first_ticket.ticket_tier.price, quantity))
+      tier = first_ticket.ticket_tier
+
+      # Check if this is a donation tier
+      is_donation = tier.type == "donation" || tier.type == :donation
+
+      {price_per_ticket, total_price} =
+        if is_donation do
+          # Calculate donation amount from ticket_order
+          calculate_donation_amounts(tier_tickets, ticket_order)
+        else
+          # Regular tier pricing
+          price = tier.price || Money.new(0, :USD)
+          {format_money(price), format_money(calculate_tier_total(price, quantity))}
+        end
 
       %{
-        ticket_tier_name: first_ticket.ticket_tier.name,
+        ticket_tier_name: tier.name,
         quantity: quantity,
         price_per_ticket: price_per_ticket,
         total_price: total_price
       }
     end)
+  end
+
+  defp calculate_donation_amounts(donation_tickets, ticket_order) do
+    if ticket_order && ticket_order.tickets do
+      # Calculate non-donation ticket costs
+      non_donation_total =
+        ticket_order.tickets
+        |> Enum.filter(fn t ->
+          t.ticket_tier.type != "donation" && t.ticket_tier.type != :donation
+        end)
+        |> Enum.reduce(Money.new(0, :USD), fn t, acc ->
+          case t.ticket_tier.price do
+            nil ->
+              acc
+
+            price when is_struct(price, Money) ->
+              case Money.add(acc, price) do
+                {:ok, new_total} -> new_total
+                _ -> acc
+              end
+
+            _ ->
+              acc
+          end
+        end)
+
+      # Calculate total donation amount
+      donation_total =
+        case Money.sub(ticket_order.total_amount, non_donation_total) do
+          {:ok, amount} -> amount
+          _ -> Money.new(0, :USD)
+        end
+
+      # Group all donation tickets by tier
+      donation_tickets_by_tier =
+        ticket_order.tickets
+        |> Enum.filter(fn t ->
+          t.ticket_tier.type == "donation" || t.ticket_tier.type == :donation
+        end)
+        |> Enum.group_by(& &1.ticket_tier_id)
+
+      # Get the tier_id for this specific donation tier
+      tier_id = List.first(donation_tickets).ticket_tier_id
+      this_tier_tickets = Map.get(donation_tickets_by_tier, tier_id, [])
+
+      # Count tickets in this tier
+      this_tier_count = length(this_tier_tickets)
+
+      total_donation_count =
+        Enum.sum(Enum.map(donation_tickets_by_tier, fn {_tid, tickets} -> length(tickets) end))
+
+      if total_donation_count > 0 && Money.positive?(donation_total) do
+        # If there's only one donation tier, divide evenly
+        # If multiple tiers, we can't determine exact amounts per tier without original data
+        # So we'll divide evenly across all donation tickets (best approximation)
+        per_ticket_amount =
+          case Money.div(donation_total, total_donation_count) do
+            {:ok, amount} -> amount
+            _ -> Money.new(0, :USD)
+          end
+
+        # For this tier, multiply by the quantity of tickets in this tier
+        tier_total =
+          case Money.mult(per_ticket_amount, this_tier_count) do
+            {:ok, amount} -> amount
+            _ -> Money.new(0, :USD)
+          end
+
+        {format_money(per_ticket_amount), format_money(tier_total)}
+      else
+        {"$0.00", "$0.00"}
+      end
+    else
+      {"$0.00", "$0.00"}
+    end
   end
 
   defp calculate_tier_total(price, quantity) do

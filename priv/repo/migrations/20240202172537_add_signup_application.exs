@@ -78,5 +78,6 @@ defmodule Ysc.Repo.Migrations.AddSignupApplication do
     end
 
     create index(:signup_application_review_events, [:application_id])
+    create index(:signup_application_review_events, [:user_id])
   end
 end

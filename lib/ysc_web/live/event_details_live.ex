@@ -82,7 +82,7 @@ defmodule YscWeb.EventDetailsLive do
                         <p class="font-semibold text-zinc-900">
                           <%= cond do %>
                             <% List.first(tickets).ticket_tier.type == "donation" || List.first(tickets).ticket_tier.type == :donation -> %>
-                              Donation
+                              <%= get_donation_amount_for_tickets(tickets) %>
                             <% List.first(tickets).ticket_tier.price == nil -> %>
                               Free
                             <% Money.zero?(List.first(tickets).ticket_tier.price) -> %>
@@ -596,7 +596,8 @@ defmodule YscWeb.EventDetailsLive do
                   :if={
                     !is_donation && !is_sold_out && !is_pre_sale && !is_sale_ended &&
                       @event.max_attendees &&
-                      calculate_total_selected_tickets(@selected_tickets) >= @event.max_attendees
+                      calculate_total_selected_tickets(@selected_tickets, @event.id) >=
+                        @event.max_attendees
                   }
                   class="mt-2"
                 >
@@ -1065,7 +1066,7 @@ defmodule YscWeb.EventDetailsLive do
                   <p class="font-semibold text-zinc-900">
                     <%= cond do %>
                       <% ticket.ticket_tier.type == "donation" || ticket.ticket_tier.type == :donation -> %>
-                        Donation
+                        <%= get_donation_amount_for_single_ticket(ticket) %>
                       <% ticket.ticket_tier.price == nil -> %>
                         Free
                       <% Money.zero?(ticket.ticket_tier.price) -> %>
@@ -2206,9 +2207,18 @@ defmodule YscWeb.EventDetailsLive do
     end
   end
 
-  defp calculate_total_selected_tickets(selected_tickets) do
+  defp calculate_total_selected_tickets(selected_tickets, event_id) do
     selected_tickets
-    |> Enum.reduce(0, fn {_tier_id, quantity}, acc -> acc + quantity end)
+    |> Enum.reduce(0, fn {tier_id, quantity}, acc ->
+      # Only count non-donation tiers towards event capacity
+      ticket_tier = get_ticket_tier_by_id(event_id, tier_id)
+
+      if ticket_tier && (ticket_tier.type != "donation" && ticket_tier.type != :donation) do
+        acc + quantity
+      else
+        acc
+      end
+    end)
   end
 
   defp has_any_tickets_selected?(selected_tickets) do
@@ -2406,6 +2416,81 @@ defmodule YscWeb.EventDetailsLive do
            |> put_flash(:error, "Failed to create payment: #{reason}")
            |> assign(:show_ticket_modal, false)}
       end
+    end
+  end
+
+  # Helper function to calculate donation amount for grouped tickets
+  defp get_donation_amount_for_tickets(tickets) do
+    ticket = List.first(tickets)
+    get_donation_amount_for_single_ticket(ticket)
+  end
+
+  # Helper function to calculate donation amount for a single ticket
+  defp get_donation_amount_for_single_ticket(ticket) do
+    if ticket.ticket_order do
+      # Reload the ticket order with all tickets to calculate donation amount
+      ticket_order = Ysc.Tickets.get_ticket_order(ticket.ticket_order.id)
+
+      if ticket_order && ticket_order.tickets do
+        # Calculate non-donation ticket costs
+        non_donation_total =
+          ticket_order.tickets
+          |> Enum.filter(fn t ->
+            t.ticket_tier.type != "donation" && t.ticket_tier.type != :donation
+          end)
+          |> Enum.reduce(Money.new(0, :USD), fn t, acc ->
+            case t.ticket_tier.price do
+              nil ->
+                acc
+
+              price when is_struct(price, Money) ->
+                case Money.add(acc, price) do
+                  {:ok, new_total} -> new_total
+                  _ -> acc
+                end
+
+              _ ->
+                acc
+            end
+          end)
+
+        # Calculate donation total
+        donation_total =
+          case Money.sub(ticket_order.total_amount, non_donation_total) do
+            {:ok, amount} -> amount
+            _ -> Money.new(0, :USD)
+          end
+
+        # Count donation tickets
+        donation_tickets =
+          ticket_order.tickets
+          |> Enum.filter(fn t ->
+            t.ticket_tier.type == "donation" || t.ticket_tier.type == :donation
+          end)
+
+        donation_count = length(donation_tickets)
+
+        if donation_count > 0 && Money.positive?(donation_total) do
+          # Calculate per-ticket donation amount
+          per_ticket_amount =
+            case Money.div(donation_total, donation_count) do
+              {:ok, amount} -> amount
+              _ -> Money.new(0, :USD)
+            end
+
+          # Format and display
+          case Money.to_string(per_ticket_amount) do
+            {:ok, amount} -> amount
+            _ -> "Donation"
+          end
+        else
+          "Donation"
+        end
+      else
+        "Donation"
+      end
+    else
+      "Donation"
     end
   end
 end

@@ -122,6 +122,8 @@ defmodule Ysc.Tickets.BookingLocker do
           tier.event_id != event_id -> {:error, :tier_not_for_event}
           not tier_on_sale?(tier) -> {:error, :tier_not_on_sale}
           quantity <= 0 -> {:error, :invalid_quantity}
+          # Donations don't count towards capacity - skip capacity check
+          tier.type == :donation or tier.type == "donation" -> :ok
           true -> validate_tier_capacity(tier, quantity)
         end
     end

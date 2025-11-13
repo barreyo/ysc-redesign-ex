@@ -764,7 +764,12 @@ defmodule Ysc.Events do
     |> where([t], t.user_id == ^user_id)
     |> join(:left, [t], e in assoc(t, :event), as: :event)
     |> join(:left, [t], tt in assoc(t, :ticket_tier), as: :ticket_tier)
-    |> preload([event: e, ticket_tier: tt], event: e, ticket_tier: tt)
+    |> join(:left, [t], to in assoc(t, :ticket_order), as: :ticket_order)
+    |> preload([event: e, ticket_tier: tt, ticket_order: to],
+      event: e,
+      ticket_tier: tt,
+      ticket_order: to
+    )
     |> order_by([t], desc: t.inserted_at)
     |> Repo.all()
   end

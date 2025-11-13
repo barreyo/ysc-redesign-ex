@@ -49,9 +49,7 @@ defmodule Ysc.Accounts.User do
     has_many :family_members, FamilyMember, on_replace: :delete
 
     field :most_connected_country, :string
-
     field :lifetime_membership_awarded_at, :utc_datetime
-
     field :stripe_id, :string
 
     # Notification preferences (email)
@@ -68,9 +66,7 @@ defmodule Ysc.Accounts.User do
       where: [is_default: true]
 
     has_many :payment_methods, Ysc.Payments.PaymentMethod, foreign_key: :user_id
-
     has_many :subscriptions, Ysc.Subscriptions.Subscription, foreign_key: :user_id
-
     has_many :auth_events, Ysc.Accounts.AuthEvent
 
     field :display_name, :string, virtual: true
