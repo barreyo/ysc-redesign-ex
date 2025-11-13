@@ -601,7 +601,10 @@ defmodule YscWeb.ClearLakeBookingLive do
                 id="guests_count"
                 min="1"
                 max={@max_guests || 12}
+                step="1"
                 value={@guests_count}
+                oninput={"const max = #{@max_guests || 12}; if (this.value !== '') { const val = parseInt(this.value); if (!isNaN(val)) { this.value = Math.max(1, Math.min(max, val)); } }"}
+                onblur={"const max = #{@max_guests || 12}; const val = parseInt(this.value); if (isNaN(val) || val < 1) { this.value = 1; } else if (val > max) { this.value = max; }"}
                 class="w-full px-3 py-2 border-2 border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               />
             </form>
