@@ -318,9 +318,14 @@ defmodule YscWeb.ClearLakeBookingLive do
                     <div class="flex items-start justify-between">
                       <div class="flex-1">
                         <div class="flex items-center gap-2 mb-1 pb-1">
-                          <.badge>
-                            <%= booking.reference_id %>
-                          </.badge>
+                          <.link
+                            navigate={~p"/bookings/#{booking.id}"}
+                            class="hover:text-blue-600 transition-colors"
+                          >
+                            <.badge>
+                              <%= booking.reference_id %>
+                            </.badge>
+                          </.link>
                           <span class="text-sm text-zinc-600 font-medium">
                             <%= if booking.booking_mode == :buyout do
                               "Full Buyout"
@@ -351,7 +356,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                           </div>
                         </div>
                       </div>
-                      <div class="ml-4">
+                      <div class="ml-4 flex flex-col items-end gap-2">
                         <span
                           :if={Date.compare(booking.checkin_date, @today) == :eq}
                           class="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded"
@@ -369,6 +374,12 @@ defmodule YscWeb.ClearLakeBookingLive do
                                                                                 do: "day",
                                                                                 else: "days" %> until check-in
                         </span>
+                        <.link
+                          navigate={~p"/bookings/#{booking.id}"}
+                          class="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                        >
+                          View Details →
+                        </.link>
                       </div>
                     </div>
                   </div>
@@ -443,41 +454,45 @@ defmodule YscWeb.ClearLakeBookingLive do
           </div>
           <!-- Booking Mode Selection -->
           <div>
-            <label class="block text-lg font-semibold text-zinc-700 mb-2">
-              Booking Type
-            </label>
-            <form phx-change="booking-mode-changed">
-              <div class="flex gap-4">
-                <label class={[
-                  "flex items-center",
-                  if(!@day_booking_allowed, do: "opacity-50 cursor-not-allowed", else: "")
-                ]}>
-                  <input
-                    type="radio"
-                    name="booking_mode"
-                    value="day"
-                    checked={@selected_booking_mode == :day}
-                    disabled={!@day_booking_allowed}
-                    class="mr-2"
-                  />
-                  <span>A La Carte (Shared Stay)</span>
-                </label>
-                <label class={[
-                  "flex items-center",
-                  if(!@buyout_booking_allowed, do: "opacity-50 cursor-not-allowed", else: "")
-                ]}>
-                  <input
-                    type="radio"
-                    name="booking_mode"
-                    value="buyout"
-                    checked={@selected_booking_mode == :buyout}
-                    disabled={!@buyout_booking_allowed}
-                    class="mr-2"
-                  />
-                  <span>Full Buyout (Exclusive Rental)</span>
-                </label>
-              </div>
-            </form>
+            <fieldset>
+              <legend class="block text-lg font-semibold text-zinc-700 mb-2">
+                Booking Type
+              </legend>
+              <form phx-change="booking-mode-changed">
+                <div class="flex gap-4" role="radiogroup">
+                  <label class={[
+                    "flex items-center",
+                    if(!@day_booking_allowed, do: "opacity-50 cursor-not-allowed", else: "")
+                  ]}>
+                    <input
+                      type="radio"
+                      id="booking-mode-day"
+                      name="booking_mode"
+                      value="day"
+                      checked={@selected_booking_mode == :day}
+                      disabled={!@day_booking_allowed}
+                      class="mr-2"
+                    />
+                    <span>A La Carte (Shared Stay)</span>
+                  </label>
+                  <label class={[
+                    "flex items-center",
+                    if(!@buyout_booking_allowed, do: "opacity-50 cursor-not-allowed", else: "")
+                  ]}>
+                    <input
+                      type="radio"
+                      id="booking-mode-buyout"
+                      name="booking_mode"
+                      value="buyout"
+                      checked={@selected_booking_mode == :buyout}
+                      disabled={!@buyout_booking_allowed}
+                      class="mr-2"
+                    />
+                    <span>Full Buyout (Exclusive Rental)</span>
+                  </label>
+                </div>
+              </form>
+            </fieldset>
             <div class="mt-3">
               <p class="text-sm text-zinc-600">
                 <span :if={@selected_booking_mode == :day && @day_booking_allowed}>
@@ -515,9 +530,9 @@ defmodule YscWeb.ClearLakeBookingLive do
           <!-- Availability Calendar -->
           <div class="space-y-4">
             <div>
-              <label class="block font-semibold text-lg text-zinc-700 mb-2">
+              <div class="block font-semibold text-lg text-zinc-700 mb-2">
                 Select Dates
-              </label>
+              </div>
               <div class="mb-4">
                 <p class="text-sm font-medium text-zinc-800 mb-2">
                   <span :if={@selected_booking_mode == :day}>
@@ -588,7 +603,7 @@ defmodule YscWeb.ClearLakeBookingLive do
             :if={@selected_booking_mode == :day}
             class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4"
           >
-            <label class="block text-sm font-bold text-blue-900 mb-2">
+            <label for="guests_count" class="block text-sm font-bold text-blue-900 mb-2">
               Number of Guests (A La Carte Booking)
             </label>
             <p class="text-xs text-blue-700 mb-3">

@@ -225,13 +225,18 @@ defmodule YscWeb.HomeLive do
 
                 <div :if={!Enum.empty?(@future_bookings)} class="space-y-4">
                   <%= for booking <- @future_bookings do %>
-                    <div class="border border-zinc-200 rounded-lg p-4">
+                    <div class="border border-zinc-200 rounded-lg p-4 hover:bg-zinc-50 transition-colors">
                       <div class="flex items-start justify-between">
                         <div class="flex-1">
                           <div class="flex items-center gap-2 mb-2">
-                            <.badge>
-                              <%= booking.reference_id %>
-                            </.badge>
+                            <.link
+                              navigate={~p"/bookings/#{booking.id}"}
+                              class="hover:text-blue-600 transition-colors"
+                            >
+                              <.badge>
+                                <%= booking.reference_id %>
+                              </.badge>
+                            </.link>
                             <span class="text-sm font-medium text-zinc-900">
                               <%= format_property_name(booking.property) %>
                             </span>
@@ -279,7 +284,7 @@ defmodule YscWeb.HomeLive do
                         </div>
                         <div class="ml-4 flex-shrink-0">
                           <.link
-                            navigate={booking_link_path(booking.property)}
+                            navigate={~p"/bookings/#{booking.id}"}
                             class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                           >
                             View Details →

@@ -858,29 +858,184 @@ defmodule YscWeb.UserSettingsLive do
                           </h3>
                         </div>
                       </div>
+                      <!-- Payment Details -->
+                      <div class="space-y-2 text-sm text-zinc-600">
+                        <!-- Event/Ticket Details -->
+                        <div :if={payment_info.type == :ticket && payment_info.ticket_order}>
+                          <div class="flex items-start space-x-2">
+                            <span class="font-medium text-zinc-700">Event:</span>
+                            <div class="flex-1">
+                              <p class="text-zinc-900">
+                                <%= if payment_info.event do
+                                  payment_info.event.title
+                                else
+                                  "Event"
+                                end %>
+                              </p>
+                              <p class="text-xs text-zinc-500 mt-1">
+                                <%= if payment_info.ticket_order.tickets do
+                                  tickets = payment_info.ticket_order.tickets
 
-                      <div class="flex items-center space-x-4 text-sm text-zinc-600">
-                        <p>
-                          <%= if payment_info.payment.payment_date do
-                            Timex.format!(payment_info.payment.payment_date, "{Mshort} {D}, {YYYY}")
-                          else
-                            Timex.format!(payment_info.payment.inserted_at, "{Mshort} {D}, {YYYY}")
-                          end %>
-                        </p>
+                                  tickets
+                                  |> Enum.group_by(fn t -> t.ticket_tier && t.ticket_tier.name end)
+                                  |> Enum.map(fn {tier_name, tier_tickets} ->
+                                    count = length(tier_tickets)
+                                    tier_display = tier_name || "General Admission"
+                                    "#{count}x #{tier_display}"
+                                  end)
+                                  |> Enum.join(", ")
+                                else
+                                  "No ticket details"
+                                end %>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- Booking Details -->
+                        <div :if={payment_info.type == :booking && payment_info.booking}>
+                          <div class="space-y-1">
+                            <div class="flex items-center space-x-2">
+                              <span class="font-medium text-zinc-700">Property:</span>
+                              <span class="text-zinc-900">
+                                <%= case payment_info.booking.property do
+                                  :tahoe -> "Tahoe"
+                                  :clear_lake -> "Clear Lake"
+                                  _ -> "Cabin"
+                                end %>
+                              </span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                              <span class="font-medium text-zinc-700">Dates:</span>
+                              <span class="text-zinc-900">
+                                <%= Timex.format!(
+                                  payment_info.booking.checkin_date,
+                                  "{Mshort} {D}, {YYYY}"
+                                ) %> - <%= Timex.format!(
+                                  payment_info.booking.checkout_date,
+                                  "{Mshort} {D}, {YYYY}"
+                                ) %>
+                              </span>
+                              <span class="text-zinc-500">
+                                (<%= Date.diff(
+                                  payment_info.booking.checkout_date,
+                                  payment_info.booking.checkin_date
+                                ) %> nights)
+                              </span>
+                            </div>
+                            <div
+                              :if={
+                                Ecto.assoc_loaded?(payment_info.booking.rooms) &&
+                                  length(payment_info.booking.rooms) > 0
+                              }
+                              class="flex items-center space-x-2"
+                            >
+                              <span class="font-medium text-zinc-700">Rooms:</span>
+                              <span class="text-zinc-900">
+                                <%= Enum.map_join(payment_info.booking.rooms, ", ", fn room ->
+                                  room.name
+                                end) %>
+                              </span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                              <span class="font-medium text-zinc-700">Guests:</span>
+                              <span class="text-zinc-900">
+                                <%= payment_info.booking.guests_count %>
+                                <%= if payment_info.booking.children_count > 0 do
+                                  " (#{payment_info.booking.children_count} children)"
+                                end %>
+                              </span>
+                            </div>
+                            <div
+                              :if={payment_info.booking.reference_id}
+                              class="flex items-center space-x-2"
+                            >
+                              <span class="font-medium text-zinc-700">Booking ID:</span>
+                              <code class="text-xs bg-zinc-100 px-2 py-0.5 rounded font-mono text-zinc-700">
+                                <%= payment_info.booking.reference_id %>
+                              </code>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- Membership Details -->
+                        <div :if={payment_info.type == :membership && payment_info.subscription}>
+                          <div class="flex items-center space-x-2">
+                            <span class="font-medium text-zinc-700">Plan:</span>
+                            <span class="text-zinc-900">
+                              <%= case payment_info.subscription.subscription_items do
+                                [item | _] ->
+                                  plans = Application.get_env(:ysc, :membership_plans)
 
-                        <p class="font-medium text-zinc-900">
-                          <%= Ysc.MoneyHelper.format_money!(payment_info.payment.amount) %>
-                        </p>
+                                  plan =
+                                    Enum.find(plans, &(&1.stripe_price_id == item.stripe_price_id))
 
-                        <.badge :if={payment_info.payment.status == :completed} type="green">
-                          Completed
-                        </.badge>
-                        <.badge :if={payment_info.payment.status == :pending} type="yellow">
-                          Pending
-                        </.badge>
-                        <.badge :if={payment_info.payment.status == :refunded} type="red">
-                          Refunded
-                        </.badge>
+                                  if plan do
+                                    String.capitalize(to_string(plan.id))
+                                  else
+                                    "Single"
+                                  end
+
+                                _ ->
+                                  "Single"
+                              end %>
+                            </span>
+                          </div>
+                        </div>
+                        <!-- Payment Information -->
+                        <div class="flex items-center space-x-4 pt-2 border-t border-zinc-200">
+                          <div>
+                            <span class="font-medium text-zinc-700">Date:</span>
+                            <span class="text-zinc-900 ml-1">
+                              <%= if payment_info.payment.payment_date do
+                                Timex.format!(
+                                  payment_info.payment.payment_date,
+                                  "{Mshort} {D}, {YYYY}"
+                                )
+                              else
+                                Timex.format!(
+                                  payment_info.payment.inserted_at,
+                                  "{Mshort} {D}, {YYYY}"
+                                )
+                              end %>
+                            </span>
+                          </div>
+
+                          <div>
+                            <span class="font-medium text-zinc-700">Amount:</span>
+                            <span class="text-zinc-900 font-semibold ml-1">
+                              <%= Ysc.MoneyHelper.format_money!(payment_info.payment.amount) %>
+                            </span>
+                          </div>
+
+                          <div>
+                            <.badge :if={payment_info.payment.status == :completed} type="green">
+                              Completed
+                            </.badge>
+                            <.badge :if={payment_info.payment.status == :pending} type="yellow">
+                              Pending
+                            </.badge>
+                            <.badge :if={payment_info.payment.status == :refunded} type="red">
+                              Refunded
+                            </.badge>
+                          </div>
+                        </div>
+                        <!-- Payment Method and Reference -->
+                        <div class="flex items-center space-x-4 text-xs text-zinc-500 pt-1">
+                          <div :if={payment_info.payment.reference_id}>
+                            <span>Reference:</span>
+                            <code class="ml-1 font-mono">
+                              <%= payment_info.payment.reference_id %>
+                            </code>
+                          </div>
+                          <div :if={
+                            Ecto.assoc_loaded?(payment_info.payment.payment_method) &&
+                              payment_info.payment.payment_method
+                          }>
+                            <span>Payment Method:</span>
+                            <span class="ml-1">
+                              <%= payment_method_display_text(payment_info.payment.payment_method) %>
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -696,6 +696,7 @@ defmodule Ysc.Ledgers do
     # Get the revenue ledger entry to determine payment type
     revenue_entry = get_revenue_entry_for_payment(payment.id)
     entity_type = if revenue_entry, do: revenue_entry.related_entity_type, else: nil
+    entity_id = if revenue_entry, do: revenue_entry.related_entity_id, else: nil
 
     # Get ticket order if this is an event payment
     ticket_order =
@@ -712,15 +713,39 @@ defmodule Ysc.Ledgers do
         nil
       end
 
+    # Get booking if this is a booking payment
+    booking =
+      if entity_type == :booking && entity_id do
+        try do
+          Ysc.Bookings.get_booking!(entity_id)
+        rescue
+          Ecto.NoResultsError -> nil
+        end
+      else
+        nil
+      end
+
+    # Get membership subscription if this is a membership payment
+    subscription =
+      if entity_type == :membership && entity_id do
+        Ysc.Subscriptions.get_subscription(entity_id)
+      else
+        nil
+      end
+
     payment_info = %{
       payment: payment,
       type: determine_payment_type(entity_type),
       ticket_order: ticket_order,
       event: if(ticket_order, do: ticket_order.event, else: nil),
+      booking: booking,
+      subscription: subscription,
       description:
         build_payment_description(%{
           entity_type: entity_type,
-          ticket_order: ticket_order
+          ticket_order: ticket_order,
+          booking: booking,
+          subscription: subscription
         })
     }
 
@@ -733,9 +758,16 @@ defmodule Ysc.Ledgers do
   defp determine_payment_type(:donation), do: :donation
   defp determine_payment_type(_), do: :unknown
 
-  defp build_payment_description(%{entity_type: :membership}) do
-    "Membership Payment"
+  defp build_payment_description(%{entity_type: :membership, subscription: subscription}) do
+    if subscription do
+      plan_type = get_membership_plan_type(subscription)
+      "Membership Payment - #{String.capitalize(to_string(plan_type))}"
+    else
+      "Membership Payment"
+    end
   end
+
+  defp build_payment_description(%{entity_type: :membership}), do: "Membership Payment"
 
   defp build_payment_description(%{entity_type: :event, ticket_order: ticket_order})
        when not is_nil(ticket_order) do
@@ -750,9 +782,33 @@ defmodule Ysc.Ledgers do
     end
   end
 
+  defp build_payment_description(%{entity_type: :booking, booking: booking})
+       when not is_nil(booking) do
+    property_name =
+      case booking.property do
+        :tahoe -> "Tahoe"
+        :clear_lake -> "Clear Lake"
+        _ -> "Cabin"
+      end
+
+    "#{property_name} Booking"
+  end
+
   defp build_payment_description(%{entity_type: :booking}), do: "Cabin Booking"
   defp build_payment_description(%{entity_type: :donation}), do: "Donation"
   defp build_payment_description(_), do: "Payment"
+
+  defp get_membership_plan_type(subscription) do
+    case subscription.subscription_items do
+      [item | _] ->
+        plans = Application.get_env(:ysc, :membership_plans)
+        plan = Enum.find(plans, &(&1.stripe_price_id == item.stripe_price_id))
+        if plan, do: plan.id, else: :single
+
+      _ ->
+        :single
+    end
+  end
 
   @doc """
   Gets account balance for a specific account.

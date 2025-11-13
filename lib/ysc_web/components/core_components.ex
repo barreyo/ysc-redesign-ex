@@ -586,11 +586,34 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  # Hidden inputs - no label needed
+  def input(%{type: "hidden"} = assigns) do
+    # Generate id from name if not provided
+    id = assigns.id || assigns.name || "input-#{System.unique_integer([:positive])}"
+
+    assigns = assign(assigns, :id, id)
+
+    ~H"""
+    <input
+      type="hidden"
+      name={@name}
+      id={@id}
+      value={Phoenix.HTML.Form.normalize_value(@type, @value)}
+      {@rest}
+    />
+    """
+  end
+
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
+    # Generate id from name if not provided
+    id = assigns.id || assigns.name || "input-#{System.unique_integer([:positive])}"
+
+    assigns = assign(assigns, :id, id)
+
     ~H"""
     <div phx-feedback-for={@name}>
-      <.label for={@id}><%= @label %></.label>
+      <.label :if={@label} for={@id}><%= @label %></.label>
       <input
         type={@type}
         name={@name}

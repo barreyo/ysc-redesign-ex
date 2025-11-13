@@ -288,6 +288,96 @@ defmodule YscWeb.AdminBookingsLive do
           </:actions>
         </.simple_form>
       </.modal>
+      <!-- Approve Refund Modal -->
+      <.modal
+        :if={@selected_pending_refund && @approve_refund_form}
+        id="approve-refund-modal"
+        on_cancel={JS.push("close-approve-refund-modal")}
+        show
+      >
+        <.header>Approve Refund - Custom Amount</.header>
+
+        <.simple_form
+          for={@approve_refund_form}
+          id="approve-refund-form"
+          phx-submit="approve-refund-custom"
+        >
+          <div class="mb-4 p-4 bg-zinc-50 rounded border border-zinc-200">
+            <p class="text-sm text-zinc-600 mb-2">
+              <span class="font-medium">Policy Refund Amount:</span>
+              <%= MoneyHelper.format_money!(@selected_pending_refund.policy_refund_amount) %>
+            </p>
+            <p class="text-xs text-zinc-500">
+              You can approve a different amount than the policy amount if needed.
+            </p>
+          </div>
+
+          <.input
+            type="text"
+            name="approve_refund[admin_refund_amount]"
+            label="Refund Amount"
+            placeholder={MoneyHelper.format_money!(@selected_pending_refund.policy_refund_amount)}
+            phx-hook="MoneyInput"
+            value=""
+          >
+            <div class="text-zinc-800">$</div>
+          </.input>
+
+          <.input
+            type="textarea"
+            name="approve_refund[admin_notes]"
+            label="Admin Notes (Optional)"
+            placeholder="Add any notes about this refund approval..."
+            rows="3"
+          />
+
+          <:actions>
+            <div class="flex justify-end gap-2">
+              <.button phx-click="close-approve-refund-modal" type="button">Cancel</.button>
+              <.button type="submit" class="bg-green-600 hover:bg-green-700 text-white">
+                Approve Refund
+              </.button>
+            </div>
+          </:actions>
+        </.simple_form>
+      </.modal>
+      <!-- Reject Refund Modal -->
+      <.modal
+        :if={@selected_pending_refund && @reject_refund_form}
+        id="reject-refund-modal"
+        on_cancel={JS.push("close-reject-refund-modal")}
+        show
+      >
+        <.header>Reject Refund</.header>
+
+        <.simple_form for={@reject_refund_form} id="reject-refund-form" phx-submit="reject-refund">
+          <div class="mb-4 p-4 bg-red-50 rounded border border-red-200">
+            <p class="text-sm text-red-800 mb-2">
+              <span class="font-medium">Policy Refund Amount:</span>
+              <%= MoneyHelper.format_money!(@selected_pending_refund.policy_refund_amount) %>
+            </p>
+            <p class="text-xs text-red-600">
+              This refund will be rejected and no payment will be processed.
+            </p>
+          </div>
+
+          <.input
+            type="textarea"
+            name="reject_refund[admin_notes]"
+            label="Rejection Reason (Required)"
+            placeholder="Please explain why this refund is being rejected..."
+            rows="3"
+            required
+          />
+
+          <:actions>
+            <div class="flex justify-end gap-2">
+              <.button phx-click="close-reject-refund-modal" type="button">Cancel</.button>
+              <.button type="submit" color="red">Reject Refund</.button>
+            </div>
+          </:actions>
+        </.simple_form>
+      </.modal>
       <!-- View Booking Modal -->
       <.modal
         :if={@live_action == :view_booking}
@@ -831,6 +921,24 @@ defmodule YscWeb.AdminBookingsLive do
           >
             Configuration
           </button>
+          <button
+            phx-click="select-section"
+            phx-value-section="pending_refunds"
+            class={[
+              "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
+              if(@current_section == :pending_refunds,
+                do: "border-blue-500 text-blue-600",
+                else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+              )
+            ]}
+          >
+            Pending Refunds
+            <%= if @pending_refunds_count && @pending_refunds_count > 0 do %>
+              <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                <%= @pending_refunds_count %>
+              </span>
+            <% end %>
+          </button>
         </nav>
       </div>
       <!-- Calendar View -->
@@ -1309,6 +1417,105 @@ defmodule YscWeb.AdminBookingsLive do
         </div>
       </div>
       <!-- Configuration View -->
+      <!-- Pending Refunds Section -->
+      <div :if={@current_section == :pending_refunds} class="space-y-6 pb-16">
+        <div class="bg-white rounded-lg border border-zinc-200 p-6">
+          <h2 class="text-xl font-semibold text-zinc-900 mb-4">Pending Refunds</h2>
+          <p class="text-sm text-zinc-600 mb-6">
+            Review and process refunds for cancelled bookings that require admin approval.
+          </p>
+
+          <%= if Enum.empty?(@pending_refunds) do %>
+            <div class="text-center py-12">
+              <p class="text-zinc-500">No pending refunds at this time.</p>
+            </div>
+          <% else %>
+            <div class="space-y-4">
+              <%= for pending_refund <- @pending_refunds do %>
+                <div class="border border-zinc-200 rounded-lg p-4 hover:bg-zinc-50 transition-colors">
+                  <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                      <div class="flex items-center gap-3 mb-2">
+                        <.link
+                          navigate={~p"/bookings/#{pending_refund.booking.id}"}
+                          class="font-semibold text-zinc-900 hover:text-blue-600"
+                        >
+                          Booking: <%= pending_refund.booking.reference_id %>
+                        </.link>
+                        <span class="text-sm text-zinc-600">
+                          <%= format_property_name(pending_refund.booking.property) %>
+                        </span>
+                      </div>
+                      <div class="text-sm text-zinc-600 space-y-1">
+                        <div>
+                          <span class="font-medium">Check-in:</span>
+                          <%= Calendar.strftime(pending_refund.booking.checkin_date, "%B %d, %Y") %>
+                        </div>
+                        <div>
+                          <span class="font-medium">Check-out:</span>
+                          <%= Calendar.strftime(pending_refund.booking.checkout_date, "%B %d, %Y") %>
+                        </div>
+                        <div>
+                          <span class="font-medium">User:</span>
+                          <%= if Ecto.assoc_loaded?(pending_refund.booking.user) do %>
+                            <%= pending_refund.booking.user.email %>
+                          <% else %>
+                            N/A
+                          <% end %>
+                        </div>
+                        <%= if pending_refund.cancellation_reason do %>
+                          <div>
+                            <span class="font-medium">Cancellation Reason:</span>
+                            <%= pending_refund.cancellation_reason %>
+                          </div>
+                        <% end %>
+                      </div>
+                    </div>
+                    <div class="text-right ml-4">
+                      <div class="text-lg font-semibold text-zinc-900 mb-1">
+                        Policy Refund: <%= MoneyHelper.format_money!(
+                          pending_refund.policy_refund_amount
+                        ) %>
+                      </div>
+                      <%= if pending_refund.applied_rule_days_before_checkin do %>
+                        <div class="text-xs text-zinc-500">
+                          <%= pending_refund.applied_rule_days_before_checkin %>+ days before check-in: <%= Decimal.to_float(
+                            pending_refund.applied_rule_refund_percentage
+                          ) %>% refund
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                  <div class="flex gap-2 pt-4 border-t border-zinc-200">
+                    <.button
+                      phx-click="approve-refund"
+                      phx-value-id={pending_refund.id}
+                      class="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <.icon name="hero-check" class="w-4 h-4 me-1" /> Approve Policy Amount
+                    </.button>
+                    <.button
+                      phx-click="show-approve-refund-modal"
+                      phx-value-id={pending_refund.id}
+                      class="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <.icon name="hero-pencil" class="w-4 h-4 me-1" /> Approve Custom Amount
+                    </.button>
+                    <.button
+                      phx-click="show-reject-refund-modal"
+                      phx-value-id={pending_refund.id}
+                      color="red"
+                    >
+                      <.icon name="hero-x-circle" class="w-4 h-4 me-1" /> Reject
+                    </.button>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
       <div :if={@current_section == :config} class="space-y-8 pb-16 max-w-screen-lg">
         <!-- Door Codes Section -->
         <div class="bg-white rounded border p-6">
@@ -1829,6 +2036,11 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:door_codes, door_codes)
      |> assign(:active_door_code, active_door_code)
      |> assign(:door_code_form, door_code_form)
+     |> assign(:pending_refunds, [])
+     |> assign(:pending_refunds_count, 0)
+     |> assign(:selected_pending_refund, nil)
+     |> assign(:approve_refund_form, nil)
+     |> assign(:reject_refund_form, nil)
      |> assign(:door_code_warning, nil)
      |> assign(:season, nil)
      |> assign(:season_form, nil)
@@ -1943,6 +2155,16 @@ defmodule YscWeb.AdminBookingsLive do
         load_reservations(socket, params)
       else
         socket
+      end
+
+    # Load pending refunds count and list if on pending_refunds section
+    socket =
+      if socket.assigns[:current_section] == :pending_refunds do
+        load_pending_refunds(socket)
+      else
+        # Still load count for the badge
+        pending_refunds_count = Bookings.list_pending_refunds() |> length()
+        assign(socket, :pending_refunds_count, pending_refunds_count)
       end
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
@@ -2802,6 +3024,127 @@ defmodule YscWeb.AdminBookingsLive do
     query_string = URI.encode_query(flattened_params)
 
     {:noreply, push_patch(socket, to: "/admin/bookings?#{query_string}")}
+  end
+
+  def handle_event("approve-refund", %{"id" => id}, socket) do
+    pending_refund = Bookings.get_pending_refund!(id)
+
+    case Bookings.approve_pending_refund(pending_refund, nil, nil, socket.assigns.current_user) do
+      {:ok, _updated_refund, _stripe_refund_id} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Refund approved and processed successfully")
+         |> load_pending_refunds()}
+
+      {:error, reason} ->
+        error_message =
+          case reason do
+            {:refund_failed, _} -> "Failed to process refund. Please try again."
+            _ -> "Failed to approve refund. Please try again."
+          end
+
+        {:noreply, put_flash(socket, :error, error_message)}
+    end
+  end
+
+  def handle_event("show-approve-refund-modal", %{"id" => id}, socket) do
+    pending_refund = Bookings.get_pending_refund!(id)
+
+    form =
+      %{}
+      |> Ecto.Changeset.cast(%{}, [])
+      |> to_form(as: "approve_refund")
+
+    {:noreply,
+     socket
+     |> assign(:selected_pending_refund, pending_refund)
+     |> assign(:approve_refund_form, form)}
+  end
+
+  def handle_event("show-reject-refund-modal", %{"id" => id}, socket) do
+    pending_refund = Bookings.get_pending_refund!(id)
+
+    form =
+      %{}
+      |> Ecto.Changeset.cast(%{}, [])
+      |> to_form(as: "reject_refund")
+
+    {:noreply,
+     socket
+     |> assign(:selected_pending_refund, pending_refund)
+     |> assign(:reject_refund_form, form)}
+  end
+
+  def handle_event("approve-refund-custom", %{"approve_refund" => params}, socket) do
+    pending_refund = socket.assigns.selected_pending_refund
+
+    # Parse custom refund amount
+    admin_refund_amount =
+      case Money.parse(params["admin_refund_amount"]) do
+        {:ok, amount} -> amount
+        {:error, _} -> nil
+      end
+
+    admin_notes = params["admin_notes"]
+
+    case Bookings.approve_pending_refund(
+           pending_refund,
+           admin_refund_amount,
+           admin_notes,
+           socket.assigns.current_user
+         ) do
+      {:ok, _updated_refund, _stripe_refund_id} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Refund approved and processed successfully")
+         |> assign(:selected_pending_refund, nil)
+         |> assign(:approve_refund_form, nil)
+         |> load_pending_refunds()}
+
+      {:error, reason} ->
+        error_message =
+          case reason do
+            {:refund_failed, _} -> "Failed to process refund. Please try again."
+            _ -> "Failed to approve refund. Please try again."
+          end
+
+        {:noreply, put_flash(socket, :error, error_message)}
+    end
+  end
+
+  def handle_event("reject-refund", %{"reject_refund" => params}, socket) do
+    pending_refund = socket.assigns.selected_pending_refund
+    admin_notes = params["admin_notes"]
+
+    case Bookings.reject_pending_refund(pending_refund, admin_notes, socket.assigns.current_user) do
+      {:ok, _updated_refund} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Refund rejected")
+         |> assign(:selected_pending_refund, nil)
+         |> assign(:reject_refund_form, nil)
+         |> load_pending_refunds()}
+
+      {:error, changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to reject refund. Please try again.")
+         |> assign(:reject_refund_form, to_form(changeset, as: "reject_refund"))}
+    end
+  end
+
+  def handle_event("close-approve-refund-modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:selected_pending_refund, nil)
+     |> assign(:approve_refund_form, nil)}
+  end
+
+  def handle_event("close-reject-refund-modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:selected_pending_refund, nil)
+     |> assign(:reject_refund_form, nil)}
   end
 
   def handle_event("prev-month", _, socket) do
@@ -4015,6 +4358,25 @@ defmodule YscWeb.AdminBookingsLive do
         |> assign(:reservations_path, build_reservations_path(socket, params))
     end
   end
+
+  # Load pending refunds
+  defp load_pending_refunds(socket) do
+    pending_refunds =
+      Bookings.list_pending_refunds()
+      |> Enum.map(fn pr ->
+        pr
+        |> Repo.preload(booking: [:user, rooms: :room_category], payment: :user)
+      end)
+
+    socket
+    |> assign(:pending_refunds, pending_refunds)
+    |> assign(:pending_refunds_count, length(pending_refunds))
+  end
+
+  # Helper to format property name
+  defp format_property_name(:tahoe), do: "Lake Tahoe Cabin"
+  defp format_property_name(:clear_lake), do: "Clear Lake Cabin"
+  defp format_property_name(_), do: "Cabin"
 
   # Build query params for reservations while preserving calendar params
   defp build_reservation_query_params(socket, reservation_params) do

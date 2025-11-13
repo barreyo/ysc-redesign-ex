@@ -7,6 +7,7 @@ defmodule Ysc.Bookings.BookingValidator do
   - Summer: Individual rooms OR full buyout
   - If booking contains Saturday, must also reserve Sunday (full weekend)
   - Only one active booking per user at a time (all seasons)
+  - Exception: Family/Lifetime members can have up to 2 bookings in the same time period (overlapping dates)
   - Maximum 4 nights per booking
   - Family membership: Up to 2 rooms in same time period (same or overlapping dates)
   - Single membership: Only 1 room per booking
@@ -197,18 +198,31 @@ defmodule Ysc.Bookings.BookingValidator do
   end
 
   # Only one active booking per user at a time (all seasons)
+  # Exception: Family/Lifetime members can have up to 2 bookings in the same time period
   defp validate_single_active_booking(changeset, user, :tahoe) do
     checkin_date = Ecto.Changeset.get_field(changeset, :checkin_date)
     checkout_date = Ecto.Changeset.get_field(changeset, :checkout_date)
     booking_id = Ecto.Changeset.get_field(changeset, :id)
     user_id = Ecto.Changeset.get_field(changeset, :user_id) || (user && user.id)
 
-    if checkin_date && checkout_date && user_id do
+    if checkin_date && checkout_date && user_id && not is_nil(user) do
+      membership_type = get_membership_type(user)
+
+      # Family and lifetime members can have up to 2 bookings in the same time period
+      max_overlapping_bookings =
+        if membership_type in [:family, :lifetime] do
+          1
+        else
+          0
+        end
+
       # Check for overlapping active bookings for this user
+      # Only count bookings with status = :complete (active bookings)
       overlapping_query =
         from b in Booking,
           where: b.user_id == ^user_id,
           where: b.property == :tahoe,
+          where: b.status == :complete,
           where:
             fragment(
               "? < ? AND ? > ?",
@@ -227,11 +241,18 @@ defmodule Ysc.Bookings.BookingValidator do
 
       overlapping_count = Repo.aggregate(overlapping_query, :count, :id)
 
-      if overlapping_count > 0 do
+      if overlapping_count > max_overlapping_bookings do
+        error_message =
+          if membership_type in [:family, :lifetime] do
+            "You can only have up to 2 bookings in the same time period. Please complete your existing booking first or book within the same time period as your existing booking."
+          else
+            "You can only have one active booking at a time. Please complete your existing booking first."
+          end
+
         Ecto.Changeset.add_error(
           changeset,
           :checkin_date,
-          "You can only have one active booking at a time. Please complete your existing booking first."
+          error_message
         )
       else
         changeset
@@ -263,8 +284,9 @@ defmodule Ysc.Bookings.BookingValidator do
 
       # For family memberships, check for overlapping dates (same timeframe)
       # For single memberships, check for exact same dates
-      # Check for bookings that have rooms (via join table)
-      overlapping_bookings_query =
+      # Count the actual number of rooms (not bookings) in overlapping time period
+      # Only count active bookings (status = :complete)
+      base_query =
         if membership_type in [:family, :lifetime] do
           # Family: Allow overlapping dates (same timeframe)
           from b in Booking,
@@ -272,6 +294,7 @@ defmodule Ysc.Bookings.BookingValidator do
             on: br.booking_id == b.id,
             where: b.user_id == ^user_id,
             where: b.property == :tahoe,
+            where: b.status == :complete,
             where:
               fragment(
                 "? < ? AND ? > ?",
@@ -287,18 +310,22 @@ defmodule Ysc.Bookings.BookingValidator do
             on: br.booking_id == b.id,
             where: b.user_id == ^user_id,
             where: b.property == :tahoe,
+            where: b.status == :complete,
             where: b.checkin_date == ^checkin_date,
             where: b.checkout_date == ^checkout_date
         end
 
-      overlapping_bookings_query =
+      room_count_query =
         if booking_id do
-          from b in overlapping_bookings_query, where: b.id != ^booking_id
+          from [b, br] in base_query,
+            where: b.id != ^booking_id,
+            select: count(br.id)
         else
-          overlapping_bookings_query
+          from [b, br] in base_query,
+            select: count(br.id)
         end
 
-      existing_room_count = Repo.aggregate(overlapping_bookings_query, :count, :id)
+      existing_room_count = Repo.one(room_count_query) || 0
 
       if existing_room_count >= max_rooms do
         Ecto.Changeset.add_error(

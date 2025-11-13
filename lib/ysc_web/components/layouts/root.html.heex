@@ -63,13 +63,10 @@
             <div class="z-10 absolute max-w-screen-lg w-full transform top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 items-center flex">
               <.link
                 navigate={~p"/"}
-                class="transition-opacity ease-in-out duration-400 hover:opacity-80 w-full"
+                class="transition-opacity ease-in-out duration-400 hover:opacity-80 w-full text-2xl font-extrabold tracking-wide text-white uppercase sm:text-3xl md:text-5xl lg:whitespace-nowrap"
               >
-                <div class="flex items-center text-left px-4 space-x-5 justify-between">
-                  <.ysc_logo class="h-20 md:h-24" />
-                  <span class="self-center text-2xl font-extrabold tracking-wide text-white uppercase sm:text-3xl md:text-5xl lg:whitespace-nowrap">
-                    The Young Scandinavians Club
-                  </span>
+                <div class="flex items-center text-left px-4 justify-between">
+                  <.ysc_logo class="h-20 md:h-24 me-5" /> The Young Scandinavians Club
                 </div>
               </.link>
             </div>
@@ -336,11 +333,11 @@
         <div class="max-w-screen-lg p-4 py-6 mx-auto lg:py-8">
           <div class="lg:flex lg:justify-between">
             <div class="mb-6 lg:mb-0">
-              <.link navigate={~p"/"} class="flex items-center">
-                <.ysc_logo class="h-14 me-3" />
-                <span class="self-center text-xl font-semibold whitespace-nowrap">
-                  The Young Scandinavians Club
-                </span>
+              <.link
+                navigate={~p"/"}
+                class="flex items-center font-semibold whitespace-nowrap text-xl"
+              >
+                <.ysc_logo class="h-14 me-3" /> The Young Scandinavians Club
               </.link>
             </div>
             <div class="flex mb-6">

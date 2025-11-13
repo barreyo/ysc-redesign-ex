@@ -22,6 +22,7 @@ defmodule YscWeb.Components.DateRangePicker do
       <.input :if={@is_range?} field={@end_date_field} type="hidden" />
       <div class="relative w-full lg:w-80" phx-click="open-calendar" phx-target={@myself}>
         <.input
+          id={"#{@id}_display_value"}
           name={"#{@id}_display_value"}
           required={@required}
           readonly

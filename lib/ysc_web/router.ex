@@ -124,6 +124,7 @@ defmodule YscWeb.Router do
       live "/users/tickets", UserTicketsLive, :index
       live "/tickets/:order_id", UserTicketsLive, :show
       live "/orders/:order_id/confirmation", OrderConfirmationLive, :index
+      live "/bookings/:id", UserBookingDetailLive, :index
     end
   end
 

@@ -483,6 +483,92 @@ defmodule Ysc.Stripe.WebhookHandler do
     :ok
   end
 
+  defp handle("charge.refunded", %Stripe.Charge{} = charge) do
+    require Logger
+
+    Logger.info("Charge refunded",
+      charge_id: charge.id,
+      payment_intent_id: charge.payment_intent
+    )
+
+    # Process refund in ledger
+    process_refund_from_charge(charge)
+
+    :ok
+  end
+
+  defp handle("refund.created", %Stripe.Refund{} = refund) do
+    require Logger
+
+    Logger.info("Refund created",
+      refund_id: refund.id,
+      charge_id: refund.charge,
+      amount: refund.amount
+    )
+
+    # Process refund in ledger
+    process_refund_from_refund_object(refund)
+
+    :ok
+  end
+
+  defp handle("refund.created", refund) when is_map(refund) do
+    require Logger
+
+    refund_id = Map.get(refund, :id) || Map.get(refund, "id")
+    charge_id = Map.get(refund, :charge) || Map.get(refund, "charge")
+    amount = Map.get(refund, :amount) || Map.get(refund, "amount")
+
+    Logger.info("Refund created",
+      refund_id: refund_id,
+      charge_id: charge_id,
+      amount: amount
+    )
+
+    # Process refund in ledger
+    process_refund_from_refund_object(refund)
+
+    :ok
+  end
+
+  defp handle("refund.updated", %Stripe.Refund{} = refund) do
+    require Logger
+
+    Logger.info("Refund updated",
+      refund_id: refund.id,
+      charge_id: refund.charge,
+      status: refund.status
+    )
+
+    # Only process if refund is now succeeded
+    if refund.status == "succeeded" do
+      process_refund_from_refund_object(refund)
+    end
+
+    :ok
+  end
+
+  defp handle("refund.updated", refund) when is_map(refund) do
+    require Logger
+
+    refund_id = Map.get(refund, :id) || Map.get(refund, "id")
+    charge_id = Map.get(refund, :charge) || Map.get(refund, "charge")
+    status = Map.get(refund, :status) || Map.get(refund, "status")
+
+    Logger.info("Refund updated",
+      refund_id: refund_id,
+      charge_id: charge_id,
+      status: status
+    )
+
+    # Only process if refund is now succeeded
+    if status == "succeeded" do
+      process_refund_from_refund_object(refund)
+    end
+
+    :ok
+  end
+
   defp handle(_event_name, _event_object), do: :ok
 
   defp maybe_put_cancellation_end(changeset, %Stripe.Subscription{} = event) do
@@ -838,6 +924,198 @@ defmodule Ysc.Stripe.WebhookHandler do
 
             nil
         end
+    end
+  end
+
+  # Process refund from Stripe charge object
+  defp process_refund_from_charge(%Stripe.Charge{} = charge) do
+    require Logger
+
+    # Get the payment intent ID from the charge
+    payment_intent_id = charge.payment_intent
+
+    if payment_intent_id do
+      # Find the payment by external_payment_id
+      payment = Ledgers.get_payment_by_external_id(payment_intent_id)
+
+      if payment do
+        # Get refund amount from charge refunds
+        refund_amount =
+          case charge.refunds do
+            %Stripe.List{data: refunds} when is_list(refunds) ->
+              # Sum all refund amounts
+              total_cents =
+                Enum.reduce(refunds, 0, fn refund, acc ->
+                  case refund do
+                    %Stripe.Refund{amount: amount} -> acc + amount
+                    %{amount: amount} when is_integer(amount) -> acc + amount
+                    _ -> acc
+                  end
+                end)
+
+              Money.new(:USD, MoneyHelper.cents_to_dollars(total_cents))
+
+            _ ->
+              # Fallback: if we can't get refunds, try to get from charge amount
+              # This is a partial fallback - ideally we should have the refund object
+              Money.new(:USD, MoneyHelper.cents_to_dollars(charge.amount))
+          end
+
+        # Get refund reason from metadata or use default
+        reason =
+          case charge.metadata do
+            %{"reason" => reason} when is_binary(reason) -> reason
+            %{reason: reason} when is_binary(reason) -> reason
+            _ -> "Booking cancellation refund"
+          end
+
+        # Get refund ID from the first refund
+        refund_id =
+          case charge.refunds do
+            %Stripe.List{data: [%Stripe.Refund{id: id} | _]} -> id
+            %Stripe.List{data: [%{id: id} | _]} when is_binary(id) -> id
+            [%Stripe.Refund{id: id} | _] -> id
+            [%{id: id} | _] when is_binary(id) -> id
+            _ -> nil
+          end
+
+        # Process refund in ledger
+        case Ledgers.process_refund(%{
+               payment_id: payment.id,
+               refund_amount: refund_amount,
+               reason: reason,
+               external_refund_id: refund_id
+             }) do
+          {:ok, {_refund_transaction, _entries}} ->
+            Logger.info("Refund processed successfully in ledger",
+              payment_id: payment.id,
+              refund_id: refund_id,
+              amount: Money.to_string!(refund_amount)
+            )
+
+            :ok
+
+          {:error, reason} ->
+            Logger.error("Failed to process refund in ledger",
+              payment_id: payment.id,
+              refund_id: refund_id,
+              error: inspect(reason)
+            )
+
+            :ok
+        end
+      else
+        Logger.warning("Payment not found for refund",
+          payment_intent_id: payment_intent_id,
+          charge_id: charge.id
+        )
+
+        :ok
+      end
+    else
+      Logger.warning("No payment intent ID found in charge",
+        charge_id: charge.id
+      )
+
+      :ok
+    end
+  end
+
+  # Process refund from Stripe refund object (can be struct or map)
+  defp process_refund_from_refund_object(%Stripe.Refund{} = refund) do
+    # Convert struct to map for unified processing
+    process_refund_from_refund_object(Map.from_struct(refund))
+  end
+
+  defp process_refund_from_refund_object(refund) when is_map(refund) do
+    require Logger
+
+    # Extract fields from refund (handles both struct and map)
+    refund_id = Map.get(refund, :id) || Map.get(refund, "id")
+    charge_id = Map.get(refund, :charge) || Map.get(refund, "charge")
+    amount = Map.get(refund, :amount) || Map.get(refund, "amount")
+    metadata = Map.get(refund, :metadata) || Map.get(refund, "metadata") || %{}
+
+    # Get payment intent ID directly from refund object (preferred) or from charge
+    payment_intent_id =
+      Map.get(refund, :payment_intent) || Map.get(refund, "payment_intent")
+
+    # If payment_intent is not directly available, try to get it from charge
+    payment_intent_id =
+      if is_nil(payment_intent_id) && charge_id do
+        case Stripe.Charge.retrieve(charge_id, %{expand: ["payment_intent"]}) do
+          {:ok, charge} ->
+            charge.payment_intent
+
+          {:error, reason} ->
+            Logger.warning("Failed to retrieve charge for refund",
+              charge_id: charge_id,
+              refund_id: refund_id,
+              error: inspect(reason)
+            )
+
+            nil
+        end
+      else
+        payment_intent_id
+      end
+
+    if payment_intent_id do
+      # Find the payment by external_payment_id
+      payment = Ledgers.get_payment_by_external_id(payment_intent_id)
+
+      if payment do
+        # Convert refund amount from cents to Money
+        refund_amount = Money.new(:USD, MoneyHelper.cents_to_dollars(amount))
+
+        # Get refund reason from metadata or use default
+        reason =
+          case metadata do
+            %{"reason" => reason} when is_binary(reason) -> reason
+            %{reason: reason} when is_binary(reason) -> reason
+            _ -> "Booking cancellation refund"
+          end
+
+        # Process refund in ledger
+        case Ledgers.process_refund(%{
+               payment_id: payment.id,
+               refund_amount: refund_amount,
+               reason: reason,
+               external_refund_id: refund_id
+             }) do
+          {:ok, {_refund_transaction, _entries}} ->
+            Logger.info("Refund processed successfully in ledger",
+              payment_id: payment.id,
+              refund_id: refund_id,
+              amount: Money.to_string!(refund_amount)
+            )
+
+            :ok
+
+          {:error, reason} ->
+            Logger.error("Failed to process refund in ledger",
+              payment_id: payment.id,
+              refund_id: refund_id,
+              error: inspect(reason)
+            )
+
+            :ok
+        end
+      else
+        Logger.warning("Payment not found for refund",
+          payment_intent_id: payment_intent_id,
+          refund_id: refund_id
+        )
+
+        :ok
+      end
+    else
+      Logger.warning("No payment intent ID found in refund",
+        refund_id: refund_id,
+        charge_id: charge_id
+      )
+
+      :ok
     end
   end
 end

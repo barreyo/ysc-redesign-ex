@@ -20,6 +20,7 @@ defmodule Ysc.Bookings do
   require Logger
 
   alias Ysc.Repo
+  alias Stripe
 
   alias Ysc.Bookings.{
     Season,
@@ -31,7 +32,8 @@ defmodule Ysc.Bookings do
     Booking,
     DoorCode,
     RefundPolicy,
-    RefundPolicyRule
+    RefundPolicyRule,
+    PendingRefund
   }
 
   # Check-in and check-out times
@@ -1509,16 +1511,21 @@ defmodule Ysc.Bookings do
     import Ecto.Query
 
     # Find ledger entries for this booking
-    # related_entity_type is stored as an atom in the enum
-    entry =
+    # Note: We filter by amount > 0 in Elixir since Money comparison in queries is complex
+    entries =
       from(e in Ysc.Ledgers.LedgerEntry,
         where: e.related_entity_type == ^:booking,
         where: e.related_entity_id == ^booking.id,
-        where: e.amount > ^Money.new(0, :USD),
-        order_by: [desc: e.inserted_at],
-        limit: 1
+        order_by: [desc: e.inserted_at]
       )
-      |> Repo.one()
+      |> Repo.all()
+
+    # Filter for positive amounts and get the first one
+    entry =
+      entries
+      |> Enum.find(fn e ->
+        e.amount && Money.positive?(e.amount)
+      end)
 
     if entry do
       {:ok, entry.amount}
@@ -1541,13 +1548,17 @@ defmodule Ysc.Bookings do
   @doc """
   Cancels a booking and processes the refund according to the refund policy.
 
+  If the refund is 100% (full refund), it processes immediately.
+  If the refund is less than 100% (partial refund), it creates a pending refund
+  that requires admin review.
+
   ## Parameters
   - `booking`: The booking to cancel
   - `cancellation_date`: Optional cancellation date (defaults to today)
   - `reason`: Optional cancellation reason
 
   ## Returns
-  - `{:ok, booking, refund_amount, refund_transaction}` if successful
+  - `{:ok, booking, refund_amount, refund_transaction_or_pending_refund}` if successful
   - `{:error, reason}` if cancellation fails
 
   ## Examples
@@ -1556,67 +1567,149 @@ defmodule Ysc.Bookings do
   """
   def cancel_booking(booking, cancellation_date \\ Date.utc_today(), reason \\ nil) do
     alias Ysc.Ledgers
+    alias Ysc.Bookings.{BookingLocker, PendingRefund}
 
-    # Calculate refund amount
-    case calculate_refund(booking, cancellation_date) do
-      {:ok, refund_amount, applied_rule} ->
-        # Get the original payment for this booking
-        case get_booking_payment(booking) do
+    # First, always cancel the booking and free up inventory
+    cancel_result =
+      case booking.status do
+        :hold ->
+          BookingLocker.release_hold(booking.id)
+
+        :complete ->
+          BookingLocker.cancel_complete_booking(booking.id)
+
+        _ ->
+          # Booking already canceled or in invalid state
+          {:error, :invalid_status}
+      end
+
+    case cancel_result do
+      {:ok, canceled_booking} ->
+        # Get the original payment for this booking first
+        case get_booking_payment(canceled_booking) do
           {:ok, payment} ->
-            # Process refund if amount > 0
-            result =
-              if refund_amount && Money.positive?(refund_amount) do
-                # Process refund through ledger system
-                refund_reason =
-                  if applied_rule do
-                    "Booking cancellation: #{reason || "No reason provided"}. Applied policy rule: #{applied_rule.days_before_checkin} days before check-in, #{applied_rule.refund_percentage}% refund."
+            # Calculate refund amount
+            case calculate_refund(canceled_booking, cancellation_date) do
+              {:ok, refund_amount, applied_rule} ->
+                # If refund_amount is nil, it means full refund (no policy)
+                # In that case, use the full payment amount
+                actual_refund_amount =
+                  if is_nil(refund_amount) do
+                    payment.amount
                   else
-                    "Booking cancellation: #{reason || "No reason provided"}. Full refund (no policy applied)."
+                    refund_amount
                   end
 
-                case Ledgers.process_refund(%{
-                       payment_id: payment.id,
-                       refund_amount: refund_amount,
-                       reason: refund_reason,
-                       external_refund_id: nil
-                     }) do
-                  {:ok, {refund_transaction, _entries}} ->
-                    {:ok, booking, refund_amount, refund_transaction}
+                # Process refund if amount > 0
+                if actual_refund_amount && Money.positive?(actual_refund_amount) do
+                  # Check if refund is 100% (full refund)
+                  is_full_refund = Money.equal?(actual_refund_amount, payment.amount)
 
-                  {:error, reason} ->
-                    {:error, {:refund_failed, reason}}
+                  if is_full_refund do
+                    # Full refund - create refund in Stripe
+                    refund_reason =
+                      if applied_rule do
+                        "Booking cancellation: #{reason || "No reason provided"}. Applied policy rule: #{applied_rule.days_before_checkin} days before check-in, #{applied_rule.refund_percentage}% refund."
+                      else
+                        "Booking cancellation: #{reason || "No reason provided"}. Full refund (no policy applied)."
+                      end
+
+                    # Get the payment intent ID from the payment
+                    payment_intent_id = payment.external_payment_id
+
+                    if payment_intent_id && payment.external_provider == :stripe do
+                      # Convert refund amount to cents for Stripe
+                      refund_amount_cents = money_to_cents(actual_refund_amount)
+
+                      # Create refund in Stripe
+                      case create_stripe_refund(
+                             payment_intent_id,
+                             refund_amount_cents,
+                             refund_reason
+                           ) do
+                        {:ok, stripe_refund} ->
+                          # Refund created in Stripe - ledger will be updated via webhook
+                          # Return the refund ID so we can track it
+                          {:ok, canceled_booking, actual_refund_amount, stripe_refund.id}
+
+                        {:error, reason} ->
+                          {:error, {:refund_failed, reason}}
+                      end
+                    else
+                      {:error,
+                       {:refund_failed, "Payment does not have a valid Stripe payment intent ID"}}
+                    end
+                  else
+                    # Partial refund - create pending refund for admin review
+                    applied_rule_days =
+                      if applied_rule, do: applied_rule.days_before_checkin, else: nil
+
+                    applied_rule_percentage =
+                      if applied_rule, do: applied_rule.refund_percentage, else: nil
+
+                    pending_refund_attrs = %{
+                      booking_id: canceled_booking.id,
+                      payment_id: payment.id,
+                      policy_refund_amount: actual_refund_amount,
+                      status: :pending,
+                      cancellation_reason: reason,
+                      applied_rule_days_before_checkin: applied_rule_days,
+                      applied_rule_refund_percentage: applied_rule_percentage
+                    }
+
+                    case %PendingRefund{}
+                         |> PendingRefund.changeset(pending_refund_attrs)
+                         |> Repo.insert() do
+                      {:ok, pending_refund} ->
+                        {:ok, canceled_booking, actual_refund_amount, pending_refund}
+
+                      {:error, changeset} ->
+                        {:error, {:pending_refund_failed, changeset}}
+                    end
+                  end
+                else
+                  # No refund (0% or nil)
+                  {:ok, canceled_booking, Money.new(0, :USD), nil}
                 end
-              else
-                # No refund (0% or nil)
-                {:ok, booking, Money.new(0, :USD), nil}
-              end
 
-            result
+              {:error, reason} ->
+                {:error, {:calculation_failed, reason}}
+            end
 
           {:error, reason} ->
             {:error, {:payment_not_found, reason}}
         end
 
       {:error, reason} ->
-        {:error, {:calculation_failed, reason}}
+        {:error, {:cancellation_failed, reason}}
     end
   end
 
-  defp get_booking_payment(booking) do
+  @doc """
+  Gets the payment for a booking by looking up ledger entries.
+
+  Returns `{:ok, payment}` if found, or `{:error, :payment_not_found}` if not found.
+  """
+  def get_booking_payment(booking) do
     import Ecto.Query
 
     # Find the payment via ledger entries
-    # related_entity_type is stored as an atom in the enum
-    entry =
+    # Note: We filter by amount > 0 in Elixir since Money comparison in queries is complex
+    entries =
       from(e in Ysc.Ledgers.LedgerEntry,
         where: e.related_entity_type == ^:booking,
         where: e.related_entity_id == ^booking.id,
-        where: e.amount > ^Money.new(0, :USD),
         preload: [:payment],
-        order_by: [desc: e.inserted_at],
-        limit: 1
+        order_by: [desc: e.inserted_at]
       )
-      |> Repo.one()
+      |> Repo.all()
+
+    # Filter for positive amounts and get the first one
+    entry =
+      entries
+      |> Enum.find(fn e ->
+        e.amount && Money.positive?(e.amount)
+      end)
 
     if entry && entry.payment do
       {:ok, entry.payment}
@@ -1721,5 +1814,233 @@ defmodule Ysc.Bookings do
       }
     end)
     |> Map.new()
+  end
+
+  @doc """
+  Lists all pending refunds that require admin review.
+  """
+  def list_pending_refunds do
+    import Ecto.Query
+
+    from(pr in PendingRefund,
+      where: pr.status == :pending,
+      order_by: [asc: pr.inserted_at],
+      preload: [:booking, :payment]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a pending refund by ID with all associations preloaded.
+  """
+  def get_pending_refund!(id) do
+    import Ecto.Query
+
+    from(pr in PendingRefund,
+      where: pr.id == ^id,
+      preload: [:booking, :payment, :reviewed_by]
+    )
+    |> Repo.one!()
+  end
+
+  @doc """
+  Approves and processes a pending refund.
+
+  The admin can specify a different refund amount than the policy amount.
+  If no admin_refund_amount is provided, the policy_refund_amount is used.
+
+  ## Parameters
+  - `pending_refund`: The pending refund to approve
+  - `admin_refund_amount`: Optional custom refund amount (defaults to policy amount)
+  - `admin_notes`: Optional notes from the admin
+  - `reviewed_by`: The admin user approving the refund
+
+  ## Returns
+  - `{:ok, pending_refund, refund_transaction}` if successful
+  - `{:error, reason}` if processing fails
+  """
+  def approve_pending_refund(
+        pending_refund,
+        admin_refund_amount \\ nil,
+        admin_notes \\ nil,
+        reviewed_by
+      ) do
+    alias Ysc.MoneyHelper
+
+    # Use admin amount if provided, otherwise use policy amount
+    refund_amount = admin_refund_amount || pending_refund.policy_refund_amount
+
+    refund_reason =
+      if admin_notes do
+        "Booking cancellation refund (admin approved): #{admin_notes}. Policy amount: #{MoneyHelper.format_money!(pending_refund.policy_refund_amount)}, Refunded amount: #{MoneyHelper.format_money!(refund_amount)}."
+      else
+        "Booking cancellation refund (admin approved). Policy amount: #{MoneyHelper.format_money!(pending_refund.policy_refund_amount)}, Refunded amount: #{MoneyHelper.format_money!(refund_amount)}."
+      end
+
+    # Get the payment to find the payment intent ID
+    payment = Repo.get!(Ysc.Ledgers.Payment, pending_refund.payment_id)
+
+    if payment.external_payment_id && payment.external_provider == :stripe do
+      # Convert refund amount to cents for Stripe
+      refund_amount_cents = money_to_cents(refund_amount)
+
+      # Create refund in Stripe
+      case create_stripe_refund(payment.external_payment_id, refund_amount_cents, refund_reason) do
+        {:ok, stripe_refund} ->
+          # Update pending refund status - ledger will be updated via webhook
+          updated_pending_refund =
+            pending_refund
+            |> PendingRefund.changeset(%{
+              status: :approved,
+              admin_refund_amount: refund_amount,
+              admin_notes: admin_notes,
+              reviewed_by_id: reviewed_by.id,
+              reviewed_at: DateTime.utc_now()
+            })
+            |> Repo.update!()
+
+          {:ok, updated_pending_refund, stripe_refund.id}
+
+        {:error, reason} ->
+          {:error, {:refund_failed, reason}}
+      end
+    else
+      {:error, {:refund_failed, "Payment does not have a valid Stripe payment intent ID"}}
+    end
+  end
+
+  @doc """
+  Rejects a pending refund.
+
+  ## Parameters
+  - `pending_refund`: The pending refund to reject
+  - `admin_notes`: Optional notes explaining why the refund was rejected
+  - `reviewed_by`: The admin user rejecting the refund
+
+  ## Returns
+  - `{:ok, pending_refund}` if successful
+  - `{:error, reason}` if update fails
+  """
+  def reject_pending_refund(pending_refund, admin_notes \\ nil, reviewed_by) do
+    pending_refund
+    |> PendingRefund.changeset(%{
+      status: :rejected,
+      admin_notes: admin_notes,
+      reviewed_by_id: reviewed_by.id,
+      reviewed_at: DateTime.utc_now()
+    })
+    |> Repo.update()
+  end
+
+  ## Private Functions
+
+  # Helper function to safely convert Money to cents
+  defp money_to_cents(%Money{amount: amount, currency: :USD}) do
+    # Use Decimal for precise conversion to avoid floating-point errors
+    amount
+    |> Decimal.mult(100)
+    |> Decimal.to_integer()
+  end
+
+  defp money_to_cents(%Money{amount: amount, currency: _currency}) do
+    # For other currencies, use same conversion
+    amount
+    |> Decimal.mult(100)
+    |> Decimal.to_integer()
+  end
+
+  defp money_to_cents(_) do
+    # Fallback for invalid money values
+    0
+  end
+
+  @doc """
+  Creates a refund in Stripe for a payment intent.
+
+  ## Parameters
+  - `payment_intent_id`: The Stripe payment intent ID
+  - `amount_cents`: The refund amount in cents
+  - `reason`: Reason for the refund
+
+  ## Returns
+  - `{:ok, %Stripe.Refund{}}` on success
+  - `{:error, reason}` on failure
+  """
+  defp create_stripe_refund(payment_intent_id, amount_cents, reason) do
+    require Logger
+
+    # First, retrieve the payment intent to get the charge ID
+    case Stripe.PaymentIntent.retrieve(payment_intent_id, %{expand: ["charges"]}) do
+      {:ok, payment_intent} ->
+        # Get the charge ID from the payment intent
+        charge_id =
+          case payment_intent.charges do
+            %Stripe.List{data: [%Stripe.Charge{id: charge_id} | _]} -> charge_id
+            [%Stripe.Charge{id: charge_id} | _] -> charge_id
+            _ -> nil
+          end
+
+        if charge_id do
+          # Create refund using the charge ID
+          refund_params = %{
+            charge: charge_id,
+            amount: amount_cents,
+            reason: "requested_by_customer",
+            metadata: %{
+              reason: reason,
+              payment_intent_id: payment_intent_id
+            }
+          }
+
+          case Stripe.Refund.create(refund_params) do
+            {:ok, refund} ->
+              Logger.info("Stripe refund created successfully",
+                refund_id: refund.id,
+                payment_intent_id: payment_intent_id,
+                amount_cents: amount_cents
+              )
+
+              {:ok, refund}
+
+            {:error, %Stripe.Error{} = error} ->
+              Logger.error("Stripe refund creation failed",
+                payment_intent_id: payment_intent_id,
+                error: error.message
+              )
+
+              {:error, error.message}
+
+            {:error, reason} ->
+              Logger.error("Stripe refund creation failed",
+                payment_intent_id: payment_intent_id,
+                error: inspect(reason)
+              )
+
+              {:error, "Failed to create refund in Stripe"}
+          end
+        else
+          Logger.error("No charge found in payment intent",
+            payment_intent_id: payment_intent_id
+          )
+
+          {:error, "No charge found for payment intent"}
+        end
+
+      {:error, %Stripe.Error{} = error} ->
+        Logger.error("Failed to retrieve payment intent for refund",
+          payment_intent_id: payment_intent_id,
+          error: error.message
+        )
+
+        {:error, "Failed to retrieve payment intent: #{error.message}"}
+
+      {:error, reason} ->
+        Logger.error("Failed to retrieve payment intent for refund",
+          payment_intent_id: payment_intent_id,
+          error: inspect(reason)
+        )
+
+        {:error, "Failed to retrieve payment intent"}
+    end
   end
 end

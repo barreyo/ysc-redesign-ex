@@ -83,6 +83,24 @@ defmodule YscWeb.TahoeBookingLive do
         :none
       end
 
+    # Calculate restricted date range for family/lifetime members with 1 room booking
+    {restricted_min_date, restricted_max_date} =
+      if membership_type in [:family, :lifetime] && length(active_bookings) > 0 do
+        total_rooms = count_rooms_in_active_bookings(active_bookings)
+
+        if total_rooms == 1 do
+          calculate_restricted_date_range(active_bookings, max_booking_date)
+        else
+          {today, max_booking_date}
+        end
+      else
+        {today, max_booking_date}
+      end
+
+    # Check if dates are actually restricted (different from default range)
+    dates_restricted =
+      dates_are_restricted?(restricted_min_date, restricted_max_date, today, max_booking_date)
+
     # Load refund policies for both booking modes
     buyout_refund_policy = Bookings.get_active_refund_policy(:tahoe, :buyout)
     room_refund_policy = Bookings.get_active_refund_policy(:tahoe, :room)
@@ -96,6 +114,9 @@ defmodule YscWeb.TahoeBookingLive do
         checkout_date: checkout_date,
         today: today,
         max_booking_date: max_booking_date,
+        restricted_min_date: restricted_min_date,
+        restricted_max_date: restricted_max_date,
+        dates_restricted: dates_restricted,
         current_season: current_season,
         season_start_date: season_start_date,
         season_end_date: season_end_date,
@@ -191,6 +212,27 @@ defmodule YscWeb.TahoeBookingLive do
 
       max_booking_date = calculate_max_booking_date_cached(seasons, today)
 
+      # Calculate restricted date range for family/lifetime members with 1 room booking
+      membership_type = socket.assigns.membership_type || :none
+      active_bookings = socket.assigns[:active_bookings] || []
+
+      {restricted_min_date, restricted_max_date} =
+        if membership_type in [:family, :lifetime] && length(active_bookings) > 0 do
+          total_rooms = count_rooms_in_active_bookings(active_bookings)
+
+          if total_rooms == 1 do
+            calculate_restricted_date_range(active_bookings, max_booking_date)
+          else
+            {today, max_booking_date}
+          end
+        else
+          {today, max_booking_date}
+        end
+
+      # Check if dates are actually restricted
+      dates_restricted =
+        dates_are_restricted?(restricted_min_date, restricted_max_date, today, max_booking_date)
+
       date_form =
         to_form(
           %{
@@ -208,6 +250,9 @@ defmodule YscWeb.TahoeBookingLive do
           checkout_date: checkout_date,
           today: today,
           max_booking_date: max_booking_date,
+          restricted_min_date: restricted_min_date,
+          restricted_max_date: restricted_max_date,
+          dates_restricted: dates_restricted,
           current_season: current_season,
           season_start_date: season_start_date,
           season_end_date: season_end_date,
@@ -264,11 +309,41 @@ defmodule YscWeb.TahoeBookingLive do
         as: "booking_dates"
       )
 
+    # Recalculate restricted dates if needed
+    membership_type = socket.assigns.membership_type || :none
+    active_bookings = socket.assigns[:active_bookings] || []
+    max_booking_date = socket.assigns.max_booking_date
+
+    {restricted_min_date, restricted_max_date} =
+      if membership_type in [:family, :lifetime] && length(active_bookings) > 0 do
+        total_rooms = count_rooms_in_active_bookings(active_bookings)
+
+        if total_rooms == 1 do
+          calculate_restricted_date_range(active_bookings, max_booking_date)
+        else
+          {socket.assigns.today, max_booking_date}
+        end
+      else
+        {socket.assigns.today, max_booking_date}
+      end
+
+    # Check if dates are actually restricted
+    dates_restricted =
+      dates_are_restricted?(
+        restricted_min_date,
+        restricted_max_date,
+        socket.assigns.today,
+        max_booking_date
+      )
+
     socket =
       socket
       |> assign(
         checkin_date: checkin_date,
         checkout_date: checkout_date,
+        restricted_min_date: restricted_min_date,
+        restricted_max_date: restricted_max_date,
+        dates_restricted: dates_restricted,
         selected_room_id: nil,
         selected_room_ids: [],
         available_rooms: [],
@@ -349,7 +424,7 @@ defmodule YscWeb.TahoeBookingLive do
                           </div>
                         </div>
                       </div>
-                      <div class="ml-4">
+                      <div class="ml-4 flex flex-col items-end gap-2">
                         <%= if Date.compare(booking.checkout_date, Date.utc_today()) == :eq do %>
                           <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                             Checking out today
@@ -359,6 +434,12 @@ defmodule YscWeb.TahoeBookingLive do
                             Active
                           </span>
                         <% end %>
+                        <.link
+                          navigate={~p"/bookings/#{booking.id}"}
+                          class="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                        >
+                          View Details →
+                        </.link>
                       </div>
                     </div>
                   </div>
@@ -446,22 +527,26 @@ defmodule YscWeb.TahoeBookingLive do
                   form={@date_form}
                   start_date_field={@date_form[:checkin_date]}
                   end_date_field={@date_form[:checkout_date]}
-                  min={@today}
-                  max={@max_booking_date}
+                  min={@restricted_min_date}
+                  max={@restricted_max_date}
                   disabled={!@can_book}
                 />
               </div>
               <!-- Guests and Children Selection (Dropdown) -->
               <div class="md:col-span-1 py-1 ms-0 md:ms-4">
-                <label class="block text-sm font-semibold text-zinc-700 mb-2">
+                <div id="guests-label" class="block text-sm font-semibold text-zinc-700 mb-2">
                   Guests
-                </label>
+                </div>
                 <div class="relative">
                   <!-- Dropdown Trigger -->
                   <button
                     type="button"
+                    id="guests-dropdown-button"
                     phx-click="toggle-guests-dropdown"
                     disabled={!@can_book}
+                    aria-labelledby="guests-label"
+                    aria-expanded={@guests_dropdown_open}
+                    aria-haspopup="true"
                     class="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span class="text-zinc-900">
@@ -484,14 +569,20 @@ defmodule YscWeb.TahoeBookingLive do
                     <div class="space-y-4">
                       <!-- Adults Counter -->
                       <div>
-                        <label class="block text-sm font-semibold text-zinc-700 mb-2">
+                        <div id="adults-label" class="block text-sm font-semibold text-zinc-700 mb-2">
                           Number of Adults
-                        </label>
-                        <div class="flex items-center space-x-3">
+                        </div>
+                        <div
+                          class="flex items-center space-x-3"
+                          role="group"
+                          aria-labelledby="adults-label"
+                        >
                           <button
                             type="button"
+                            id="decrease-guests-button"
                             phx-click="decrease-guests"
                             disabled={@guests_count <= 1}
+                            aria-label="Decrease number of adults"
                             class={[
                               "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
                               if(@guests_count <= 1,
@@ -502,12 +593,18 @@ defmodule YscWeb.TahoeBookingLive do
                           >
                             <.icon name="hero-minus" class="w-5 h-5" />
                           </button>
-                          <span class="w-12 text-center font-medium text-lg text-zinc-900">
+                          <span
+                            id="guests-count-display"
+                            class="w-12 text-center font-medium text-lg text-zinc-900"
+                            aria-live="polite"
+                          >
                             <%= @guests_count %>
                           </span>
                           <button
                             type="button"
+                            id="increase-guests-button"
                             phx-click="increase-guests"
+                            aria-label="Increase number of adults"
                             class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
                           >
                             <.icon name="hero-plus" class="w-5 h-5" />
@@ -516,14 +613,23 @@ defmodule YscWeb.TahoeBookingLive do
                       </div>
                       <!-- Children Counter -->
                       <div>
-                        <label class="block text-sm font-semibold text-zinc-700 mb-2">
+                        <div
+                          id="children-label"
+                          class="block text-sm font-semibold text-zinc-700 mb-2"
+                        >
                           Number of Children (ages 5-17)
-                        </label>
-                        <div class="flex items-center space-x-3">
+                        </div>
+                        <div
+                          class="flex items-center space-x-3"
+                          role="group"
+                          aria-labelledby="children-label"
+                        >
                           <button
                             type="button"
+                            id="decrease-children-button"
                             phx-click="decrease-children"
                             disabled={@children_count <= 0}
+                            aria-label="Decrease number of children"
                             class={[
                               "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
                               if(@children_count <= 0,
@@ -534,12 +640,18 @@ defmodule YscWeb.TahoeBookingLive do
                           >
                             <.icon name="hero-minus" class="w-5 h-5" />
                           </button>
-                          <span class="w-12 text-center font-medium text-lg text-zinc-900">
+                          <span
+                            id="children-count-display"
+                            class="w-12 text-center font-medium text-lg text-zinc-900"
+                            aria-live="polite"
+                          >
                             <%= @children_count %>
                           </span>
                           <button
                             type="button"
+                            id="increase-children-button"
                             phx-click="increase-children"
+                            aria-label="Increase number of children"
                             class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
                           >
                             <.icon name="hero-plus" class="w-5 h-5" />
@@ -590,60 +702,81 @@ defmodule YscWeb.TahoeBookingLive do
             </p>
           </div>
           <!-- Booking Mode Selection -->
+          <div
+            :if={@dates_restricted && @membership_type in [:family, :lifetime]}
+            class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md"
+          >
+            <div class="flex items-start">
+              <div class="flex-shrink-0">
+                <.icon name="hero-information-circle" class="h-5 w-5 text-blue-600" />
+              </div>
+              <div class="ms-2 flex-1">
+                <p class="text-sm text-blue-800">
+                  <strong>Second Room Booking:</strong>
+                  Since you already have one room reserved, your second room booking must be within the same time period. The date range is restricted to ensure both bookings overlap and stay within the 4-night maximum.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div :if={@checkin_date}>
-            <label class="block text-sm font-semibold text-zinc-700 mb-2">
-              Booking Type
-            </label>
-            <div class="flex gap-4">
-              <label class="flex items-center">
-                <input
-                  type="radio"
-                  name="booking_mode"
-                  value="room"
-                  checked={@selected_booking_mode == :room}
-                  phx-change="booking-mode-changed"
-                  class="mr-2"
-                />
-                <span>Individual Room(s)</span>
-              </label>
-              <label class={[
-                "flex items-center",
-                if(not can_select_booking_mode?(@seasons, @checkin_date),
-                  do: "opacity-50 cursor-not-allowed",
-                  else: ""
-                )
-              ]}>
-                <input
-                  type="radio"
-                  name="booking_mode"
-                  value="buyout"
-                  checked={@selected_booking_mode == :buyout}
-                  disabled={not can_select_booking_mode?(@seasons, @checkin_date)}
-                  phx-change="booking-mode-changed"
-                  class={[
-                    "mr-2",
-                    if(not can_select_booking_mode?(@seasons, @checkin_date),
-                      do: "cursor-not-allowed opacity-50",
-                      else: ""
-                    )
-                  ]}
-                  onclick={
-                    if(not can_select_booking_mode?(@seasons, @checkin_date),
-                      do: "return false;",
-                      else: ""
-                    )
-                  }
-                />
-                <span class={
+            <fieldset>
+              <legend class="block text-sm font-semibold text-zinc-700 mb-2">
+                Booking Type
+              </legend>
+              <div class="flex gap-4" role="radiogroup">
+                <label class="flex items-center">
+                  <input
+                    type="radio"
+                    id="booking-mode-room"
+                    name="booking_mode"
+                    value="room"
+                    checked={@selected_booking_mode == :room}
+                    phx-change="booking-mode-changed"
+                    class="mr-2"
+                  />
+                  <span>Individual Room(s)</span>
+                </label>
+                <label class={[
+                  "flex items-center",
                   if(not can_select_booking_mode?(@seasons, @checkin_date),
-                    do: "text-zinc-400",
+                    do: "opacity-50 cursor-not-allowed",
                     else: ""
                   )
-                }>
-                  Full Buyout
-                </span>
-              </label>
-            </div>
+                ]}>
+                  <input
+                    type="radio"
+                    id="booking-mode-buyout"
+                    name="booking_mode"
+                    value="buyout"
+                    checked={@selected_booking_mode == :buyout}
+                    disabled={not can_select_booking_mode?(@seasons, @checkin_date)}
+                    phx-change="booking-mode-changed"
+                    class={[
+                      "mr-2",
+                      if(not can_select_booking_mode?(@seasons, @checkin_date),
+                        do: "cursor-not-allowed opacity-50",
+                        else: ""
+                      )
+                    ]}
+                    onclick={
+                      if(not can_select_booking_mode?(@seasons, @checkin_date),
+                        do: "return false;",
+                        else: ""
+                      )
+                    }
+                  />
+                  <span class={
+                    if(not can_select_booking_mode?(@seasons, @checkin_date),
+                      do: "text-zinc-400",
+                      else: ""
+                    )
+                  }>
+                    Full Buyout
+                  </span>
+                </label>
+              </div>
+            </fieldset>
             <p
               :if={not can_select_booking_mode?(@seasons, @checkin_date)}
               class="text-sm text-zinc-500 mt-2 ml-6"
@@ -669,299 +802,308 @@ defmodule YscWeb.TahoeBookingLive do
                 </div>
               </div>
             </div>
-            <label class="block text-sm font-semibold text-zinc-700 mb-4">
-              <%= if can_select_multiple_rooms?(assigns) do %>
-                Select Room(s) <%= if length(@selected_room_ids) > 0,
-                  do: "(#{length(@selected_room_ids)}/#{max_rooms_for_user(assigns)})",
-                  else: "" %>
-              <% else %>
-                Select Room
-              <% end %>
-            </label>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
-              <%= for room <- @available_rooms do %>
-                <% {availability, reason} = room.availability_status || {:available, nil} %>
-                <% is_unavailable = availability == :unavailable %>
-                <% max_rooms_reached =
-                  can_select_multiple_rooms?(assigns) &&
-                    length(@selected_room_ids) >= max_rooms_for_user(assigns) %>
-                <% room_already_selected =
-                  (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) ||
-                    (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id) %>
-                <% guests_count = parse_guests_count(@guests_count) || 1 %>
-                <% only_one_guest_selected = guests_count == 1 %>
-                <% cannot_add_second_room =
-                  can_select_multiple_rooms?(assigns) && only_one_guest_selected &&
-                    length(@selected_room_ids) > 0 && !room_already_selected %>
-                <% is_disabled =
-                  (is_unavailable && !room_already_selected) ||
-                    (max_rooms_reached && !room_already_selected) ||
-                    cannot_add_second_room %>
-                <div class={[
-                  "border rounded-lg overflow-hidden flex flex-col h-full",
-                  if(is_disabled,
-                    do: "border-zinc-200 bg-zinc-50 cursor-not-allowed opacity-60",
-                    else:
-                      "border-zinc-300 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all"
-                  )
-                ]}>
-                  <label :if={!is_disabled} class="block cursor-pointer flex flex-col h-full">
-                    <input
-                      type={if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"}
-                      name={if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"}
-                      value={room.id}
-                      checked={
-                        if can_select_multiple_rooms?(assigns) do
-                          room.id in @selected_room_ids
-                        else
-                          @selected_room_id == room.id
-                        end
-                      }
-                      phx-click="room-changed"
-                      phx-value-room-id={room.id}
-                      class="sr-only"
-                    />
-                    <!-- Room Image with Alert Overlay -->
-                    <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
-                      <!-- Alert Overlay on Image -->
-                      <div
-                        :if={is_unavailable && reason}
-                        class="absolute top-0 left-0 right-0 bg-amber-50 border-b border-amber-200 p-2 z-10"
-                      >
-                        <div class="flex items-start gap-2">
-                          <.icon
-                            name="hero-exclamation-triangle-solid"
-                            class="w-4 h-4 text-amber-600 flex-shrink-0"
-                          />
-                          <p class="text-xs text-amber-800"><%= reason %></p>
-                        </div>
-                      </div>
-                      <%= if room.image && room.image.id do %>
-                        <!-- Render image with blur hash -->
-                        <canvas
-                          id={"blur-hash-room-#{room.id}"}
-                          src={get_room_blur_hash(room.image)}
-                          class="absolute inset-0 z-0 w-full h-full object-cover"
-                          phx-hook="BlurHashCanvas"
+            <fieldset>
+              <legend class="block text-sm font-semibold text-zinc-700 mb-4">
+                <%= if can_select_multiple_rooms?(assigns) do %>
+                  Select Room(s) <%= if length(@selected_room_ids) > 0,
+                    do: "(#{length(@selected_room_ids)}/#{max_rooms_for_user(assigns)})",
+                    else: "" %>
+                <% else %>
+                  Select Room
+                <% end %>
+              </legend>
+              <div
+                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch"
+                role={if can_select_multiple_rooms?(assigns), do: "group", else: "radiogroup"}
+              >
+                <%= for room <- @available_rooms do %>
+                  <% {availability, reason} = room.availability_status || {:available, nil} %>
+                  <% is_unavailable = availability == :unavailable %>
+                  <% max_rooms_reached =
+                    can_select_multiple_rooms?(assigns) &&
+                      length(@selected_room_ids) >= max_rooms_for_user(assigns) %>
+                  <% room_already_selected =
+                    (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) ||
+                      (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id) %>
+                  <% guests_count = parse_guests_count(@guests_count) || 1 %>
+                  <% only_one_guest_selected = guests_count == 1 %>
+                  <% cannot_add_second_room =
+                    can_select_multiple_rooms?(assigns) && only_one_guest_selected &&
+                      length(@selected_room_ids) > 0 && !room_already_selected %>
+                  <% is_disabled =
+                    (is_unavailable && !room_already_selected) ||
+                      (max_rooms_reached && !room_already_selected) ||
+                      cannot_add_second_room %>
+                  <div class={[
+                    "border rounded-lg overflow-hidden flex flex-col h-full",
+                    if(is_disabled,
+                      do: "border-zinc-200 bg-zinc-50 cursor-not-allowed opacity-60",
+                      else:
+                        "border-zinc-300 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all"
+                    )
+                  ]}>
+                    <label :if={!is_disabled} class="block cursor-pointer flex flex-col h-full">
+                      <input
+                        type={if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"}
+                        id={"room-#{room.id}"}
+                        name={if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"}
+                        value={room.id}
+                        checked={
+                          if can_select_multiple_rooms?(assigns) do
+                            room.id in @selected_room_ids
+                          else
+                            @selected_room_id == room.id
+                          end
+                        }
+                        aria-label={"Select #{room.name}"}
+                        phx-click="room-changed"
+                        phx-value-room-id={room.id}
+                        class="sr-only"
+                      />
+                      <!-- Room Image with Alert Overlay -->
+                      <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
+                        <!-- Alert Overlay on Image -->
+                        <div
+                          :if={is_unavailable && reason}
+                          class="absolute top-0 left-0 right-0 bg-amber-50 border-b border-amber-200 p-2 z-10"
                         >
-                        </canvas>
-                        <img
-                          src={get_room_image_url(room.image)}
-                          id={"image-room-#{room.id}"}
-                          loading="lazy"
-                          phx-hook="BlurHashImage"
-                          class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
-                          alt={room.image.alt_text || room.image.title || "#{room.name} image"}
-                        />
-                      <% else %>
-                        <!-- Placeholder when no image -->
-                        <div class="absolute inset-0 flex items-center justify-center">
-                          <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
-                            <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
+                          <div class="flex items-start gap-2">
+                            <.icon
+                              name="hero-exclamation-triangle-solid"
+                              class="w-4 h-4 text-amber-600 flex-shrink-0"
+                            />
+                            <p class="text-xs text-amber-800"><%= reason %></p>
                           </div>
                         </div>
-                      <% end %>
-                    </div>
-                    <!-- Room Content -->
-                    <div class="p-4 flex-1 flex flex-col">
-                      <div class="flex items-start justify-between mb-2">
-                        <div class="flex-1">
-                          <div class="font-semibold text-zinc-900 text-lg"><%= room.name %></div>
-                          <div class="text-sm text-zinc-600 mt-1">
-                            <%= room.description %>
-                          </div>
-                        </div>
-                        <div class="ml-3 flex-shrink-0">
-                          <div class={
-                            if (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) or
-                                 (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id) do
-                              "w-5 h-5 rounded border-2 flex items-center justify-center bg-blue-600 border-blue-600"
-                            else
-                              "w-5 h-5 rounded border-2 flex items-center justify-center border-zinc-300"
-                            end
-                          }>
-                            <svg
-                              :if={
-                                (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) or
-                                  (!can_select_multiple_rooms?(assigns) &&
-                                     @selected_room_id == room.id)
-                              }
-                              class="w-3 h-3 text-white"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fill-rule="evenodd"
-                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                clip-rule="evenodd"
-                              />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="flex items-center gap-2 text-xs text-zinc-500 mb-3">
-                        <span>Max <%= room.capacity_max %> guests</span>
-                        <span :if={room.min_billable_occupancy > 1}>
-                          • Min <%= room.min_billable_occupancy %> guests
-                        </span>
-                      </div>
-
-                      <div
-                        :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
-                        class="flex items-center gap-2 mb-3 text-xs text-zinc-500 mt-auto"
-                      >
-                        <span :if={room.single_beds > 0} class="flex items-center gap-1">
-                          <%= raw(bed_icon_svg(:single, "w-4 h-4")) %>
-                          <span><%= room.single_beds %> Twin</span>
-                        </span>
-                        <span :if={room.queen_beds > 0} class="flex items-center gap-1">
-                          <%= raw(bed_icon_svg(:queen, "w-4 h-4")) %>
-                          <span><%= room.queen_beds %> Queen</span>
-                        </span>
-                        <span :if={room.king_beds > 0} class="flex items-center gap-1">
-                          <%= raw(bed_icon_svg(:king, "w-4 h-4")) %>
-                          <span><%= room.king_beds %> King</span>
-                        </span>
-                      </div>
-
-                      <div class="border-t border-zinc-200 pt-3">
-                        <div class="text-sm text-zinc-900 font-medium">
-                          <div :if={room.minimum_price}>
-                            <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
-                            <span class="text-xs text-zinc-500 font-normal">
-                              (<%= room.min_billable_occupancy %> guest min)
-                            </span>
-                          </div>
-                          <div :if={!room.minimum_price}>
-                            <%= MoneyHelper.format_money!(
-                              room.adult_price_per_night || Money.new(45, :USD)
-                            ) %> per adult
-                          </div>
-                        </div>
-                        <div class="text-xs text-zinc-500 mt-1">
-                          <%= MoneyHelper.format_money!(
-                            room.children_price_per_night || Money.new(25, :USD)
-                          ) %> per child
-                        </div>
-                      </div>
-                    </div>
-                  </label>
-                  <div :if={is_disabled} class="block cursor-not-allowed flex flex-col h-full">
-                    <input
-                      type={if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"}
-                      name={if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"}
-                      value={room.id}
-                      checked={false}
-                      disabled={true}
-                      class="sr-only"
-                      readonly
-                    />
-                    <!-- Room Image with Alert Overlay -->
-                    <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
-                      <!-- Alert Overlay on Image -->
-                      <div
-                        :if={is_unavailable && reason}
-                        class="absolute top-0 left-0 right-0 bg-amber-50 border-b border-amber-200 p-2 z-10"
-                      >
-                        <div class="flex items-start gap-2">
-                          <.icon
-                            name="hero-exclamation-triangle-solid"
-                            class="w-4 h-4 text-amber-600 flex-shrink-0"
+                        <%= if room.image && room.image.id do %>
+                          <!-- Render image with blur hash -->
+                          <canvas
+                            id={"blur-hash-room-#{room.id}"}
+                            src={get_room_blur_hash(room.image)}
+                            class="absolute inset-0 z-0 w-full h-full object-cover"
+                            phx-hook="BlurHashCanvas"
+                          >
+                          </canvas>
+                          <img
+                            src={get_room_image_url(room.image)}
+                            id={"image-room-#{room.id}"}
+                            loading="lazy"
+                            phx-hook="BlurHashImage"
+                            class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
+                            alt={room.image.alt_text || room.image.title || "#{room.name} image"}
                           />
-                          <p class="text-xs text-amber-800"><%= reason %></p>
-                        </div>
+                        <% else %>
+                          <!-- Placeholder when no image -->
+                          <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
+                              <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
+                            </div>
+                          </div>
+                        <% end %>
                       </div>
-                      <%= if room.image && room.image.id do %>
-                        <!-- Render image with blur hash -->
-                        <canvas
-                          id={"blur-hash-room-disabled-#{room.id}"}
-                          src={get_room_blur_hash(room.image)}
-                          class="absolute inset-0 z-0 w-full h-full object-cover"
-                          phx-hook="BlurHashCanvas"
+                      <!-- Room Content -->
+                      <div class="p-4 flex-1 flex flex-col">
+                        <div class="flex items-start justify-between mb-2">
+                          <div class="flex-1">
+                            <div class="font-semibold text-zinc-900 text-lg"><%= room.name %></div>
+                            <div class="text-sm text-zinc-600 mt-1">
+                              <%= room.description %>
+                            </div>
+                          </div>
+                          <div class="ml-3 flex-shrink-0">
+                            <div class={
+                              if (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) or
+                                   (!can_select_multiple_rooms?(assigns) &&
+                                      @selected_room_id == room.id) do
+                                "w-5 h-5 rounded border-2 flex items-center justify-center bg-blue-600 border-blue-600"
+                              else
+                                "w-5 h-5 rounded border-2 flex items-center justify-center border-zinc-300"
+                              end
+                            }>
+                              <svg
+                                :if={
+                                  (can_select_multiple_rooms?(assigns) &&
+                                     room.id in @selected_room_ids) or
+                                    (!can_select_multiple_rooms?(assigns) &&
+                                       @selected_room_id == room.id)
+                                }
+                                class="w-3 h-3 text-white"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fill-rule="evenodd"
+                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                  clip-rule="evenodd"
+                                />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 text-xs text-zinc-500 mb-3">
+                          <span>Max <%= room.capacity_max %> guests</span>
+                          <span :if={room.min_billable_occupancy > 1}>
+                            • Min <%= room.min_billable_occupancy %> guests
+                          </span>
+                        </div>
+
+                        <div
+                          :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
+                          class="flex items-center gap-2 mb-3 text-xs text-zinc-500 mt-auto"
                         >
-                        </canvas>
-                        <img
-                          src={get_room_image_url(room.image)}
-                          id={"image-room-disabled-#{room.id}"}
-                          loading="lazy"
-                          phx-hook="BlurHashImage"
-                          class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
-                          alt={room.image.alt_text || room.image.title || "#{room.name} image"}
-                        />
-                      <% else %>
-                        <!-- Placeholder when no image -->
-                        <div class="absolute inset-0 flex items-center justify-center">
-                          <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
-                            <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
-                          </div>
+                          <span :if={room.single_beds > 0} class="flex items-center gap-1">
+                            <%= raw(bed_icon_svg(:single, "w-4 h-4")) %>
+                            <span><%= room.single_beds %> Twin</span>
+                          </span>
+                          <span :if={room.queen_beds > 0} class="flex items-center gap-1">
+                            <%= raw(bed_icon_svg(:queen, "w-4 h-4")) %>
+                            <span><%= room.queen_beds %> Queen</span>
+                          </span>
+                          <span :if={room.king_beds > 0} class="flex items-center gap-1">
+                            <%= raw(bed_icon_svg(:king, "w-4 h-4")) %>
+                            <span><%= room.king_beds %> King</span>
+                          </span>
                         </div>
-                      <% end %>
-                    </div>
-                    <!-- Room Content -->
-                    <div class="p-4 flex-1 flex flex-col">
-                      <div class="flex items-start justify-between mb-2">
-                        <div class="flex-1">
-                          <div class="font-semibold text-zinc-900 text-lg"><%= room.name %></div>
-                          <div class="text-sm text-zinc-600 mt-1">
-                            <%= room.description %>
+
+                        <div class="border-t border-zinc-200 pt-3">
+                          <div class="text-sm text-zinc-900 font-medium">
+                            <div :if={room.minimum_price}>
+                              <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
+                              <span class="text-xs text-zinc-500 font-normal">
+                                (<%= room.min_billable_occupancy %> guest min)
+                              </span>
+                            </div>
+                            <div :if={!room.minimum_price}>
+                              <%= MoneyHelper.format_money!(
+                                room.adult_price_per_night || Money.new(45, :USD)
+                              ) %> per adult
+                            </div>
                           </div>
-                        </div>
-                        <div class="ml-3 flex-shrink-0">
-                          <div class="w-5 h-5 rounded border-2 border-zinc-300"></div>
-                        </div>
-                      </div>
-
-                      <div class="flex items-center gap-2 text-xs text-zinc-500 mb-3">
-                        <span>Max <%= room.capacity_max %> guests</span>
-                        <span :if={room.min_billable_occupancy > 1}>
-                          • Min <%= room.min_billable_occupancy %> guests
-                        </span>
-                      </div>
-
-                      <div
-                        :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
-                        class="flex items-center gap-2 mb-3 text-xs text-zinc-500 mt-auto"
-                      >
-                        <span :if={room.single_beds > 0} class="flex items-center gap-1">
-                          <%= raw(bed_icon_svg(:single, "w-4 h-4")) %>
-                          <span><%= room.single_beds %> Twin</span>
-                        </span>
-                        <span :if={room.queen_beds > 0} class="flex items-center gap-1">
-                          <%= raw(bed_icon_svg(:queen, "w-4 h-4")) %>
-                          <span><%= room.queen_beds %> Queen</span>
-                        </span>
-                        <span :if={room.king_beds > 0} class="flex items-center gap-1">
-                          <%= raw(bed_icon_svg(:king, "w-4 h-4")) %>
-                          <span><%= room.king_beds %> King</span>
-                        </span>
-                      </div>
-
-                      <div class="border-t border-zinc-200 pt-3">
-                        <div class="text-sm text-zinc-900 font-medium">
-                          <div :if={room.minimum_price}>
-                            <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
-                            <span class="text-xs text-zinc-500 font-normal">
-                              (<%= room.min_billable_occupancy %> guest min)
-                            </span>
-                          </div>
-                          <div :if={!room.minimum_price}>
+                          <div class="text-xs text-zinc-500 mt-1">
                             <%= MoneyHelper.format_money!(
-                              room.adult_price_per_night || Money.new(45, :USD)
-                            ) %> per adult
+                              room.children_price_per_night || Money.new(25, :USD)
+                            ) %> per child
                           </div>
                         </div>
-                        <div class="text-xs text-zinc-500 mt-1">
-                          <%= MoneyHelper.format_money!(
-                            room.children_price_per_night || Money.new(25, :USD)
-                          ) %> per child
+                      </div>
+                    </label>
+                    <div :if={is_disabled} class="block cursor-not-allowed flex flex-col h-full">
+                      <input
+                        type={if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"}
+                        name={if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"}
+                        value={room.id}
+                        checked={false}
+                        disabled={true}
+                        class="sr-only"
+                        readonly
+                      />
+                      <!-- Room Image with Alert Overlay -->
+                      <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
+                        <!-- Alert Overlay on Image -->
+                        <div
+                          :if={is_unavailable && reason}
+                          class="absolute top-0 left-0 right-0 bg-amber-50 border-b border-amber-200 p-2 z-10"
+                        >
+                          <div class="flex items-start gap-2">
+                            <.icon
+                              name="hero-exclamation-triangle-solid"
+                              class="w-4 h-4 text-amber-600 flex-shrink-0"
+                            />
+                            <p class="text-xs text-amber-800"><%= reason %></p>
+                          </div>
+                        </div>
+                        <%= if room.image && room.image.id do %>
+                          <!-- Render image with blur hash -->
+                          <canvas
+                            id={"blur-hash-room-disabled-#{room.id}"}
+                            src={get_room_blur_hash(room.image)}
+                            class="absolute inset-0 z-0 w-full h-full object-cover"
+                            phx-hook="BlurHashCanvas"
+                          >
+                          </canvas>
+                          <img
+                            src={get_room_image_url(room.image)}
+                            id={"image-room-disabled-#{room.id}"}
+                            loading="lazy"
+                            phx-hook="BlurHashImage"
+                            class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
+                            alt={room.image.alt_text || room.image.title || "#{room.name} image"}
+                          />
+                        <% else %>
+                          <!-- Placeholder when no image -->
+                          <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
+                              <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
+                            </div>
+                          </div>
+                        <% end %>
+                      </div>
+                      <!-- Room Content -->
+                      <div class="p-4 flex-1 flex flex-col">
+                        <div class="flex items-start justify-between mb-2">
+                          <div class="flex-1">
+                            <div class="font-semibold text-zinc-900 text-lg"><%= room.name %></div>
+                            <div class="text-sm text-zinc-600 mt-1">
+                              <%= room.description %>
+                            </div>
+                          </div>
+                          <div class="ml-3 flex-shrink-0">
+                            <div class="w-5 h-5 rounded border-2 border-zinc-300"></div>
+                          </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 text-xs text-zinc-500 mb-3">
+                          <span>Max <%= room.capacity_max %> guests</span>
+                          <span :if={room.min_billable_occupancy > 1}>
+                            • Min <%= room.min_billable_occupancy %> guests
+                          </span>
+                        </div>
+
+                        <div
+                          :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
+                          class="flex items-center gap-2 mb-3 text-xs text-zinc-500 mt-auto"
+                        >
+                          <span :if={room.single_beds > 0} class="flex items-center gap-1">
+                            <%= raw(bed_icon_svg(:single, "w-4 h-4")) %>
+                            <span><%= room.single_beds %> Twin</span>
+                          </span>
+                          <span :if={room.queen_beds > 0} class="flex items-center gap-1">
+                            <%= raw(bed_icon_svg(:queen, "w-4 h-4")) %>
+                            <span><%= room.queen_beds %> Queen</span>
+                          </span>
+                          <span :if={room.king_beds > 0} class="flex items-center gap-1">
+                            <%= raw(bed_icon_svg(:king, "w-4 h-4")) %>
+                            <span><%= room.king_beds %> King</span>
+                          </span>
+                        </div>
+
+                        <div class="border-t border-zinc-200 pt-3">
+                          <div class="text-sm text-zinc-900 font-medium">
+                            <div :if={room.minimum_price}>
+                              <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
+                              <span class="text-xs text-zinc-500 font-normal">
+                                (<%= room.min_billable_occupancy %> guest min)
+                              </span>
+                            </div>
+                            <div :if={!room.minimum_price}>
+                              <%= MoneyHelper.format_money!(
+                                room.adult_price_per_night || Money.new(45, :USD)
+                              ) %> per adult
+                            </div>
+                          </div>
+                          <div class="text-xs text-zinc-500 mt-1">
+                            <%= MoneyHelper.format_money!(
+                              room.children_price_per_night || Money.new(25, :USD)
+                            ) %> per child
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              <% end %>
-            </div>
+                <% end %>
+              </div>
+            </fieldset>
             <p :if={@form_errors[:room_id]} class="text-red-600 text-sm mt-1">
               <%= @form_errors[:room_id] %>
             </p>
@@ -1077,6 +1219,8 @@ defmodule YscWeb.TahoeBookingLive do
           <p :if={@capacity_error} class="text-red-600 text-sm mt-2">
             <%= @capacity_error %>
           </p>
+          <!-- Restricted Date Range Message -->
+
           <!-- Submit Button -->
           <div>
             <button
@@ -2289,11 +2433,24 @@ defmodule YscWeb.TahoeBookingLive do
           trying_to_add_second_room =
             can_select_multiple && length(selected_room_ids) > 0 && not room_already_selected
 
-          # Check if single membership user has already selected a room
-          single_membership_selected_room =
+          # Check if user has already selected a room and can't select multiple
+          # This applies to both single membership users and family/lifetime members with existing bookings
+          cannot_select_another_room =
             not can_select_multiple &&
               length(selected_room_ids) > 0 &&
               not room_already_selected
+
+          # Check if user has an existing booking (for better error message)
+          has_existing_booking =
+            if socket.assigns[:active_bookings] do
+              active_bookings = socket.assigns[:active_bookings] || []
+              count_rooms_in_active_bookings(active_bookings) > 0
+            else
+              false
+            end
+
+          # Determine membership type for error message
+          membership_type = socket.assigns[:membership_type] || :none
 
           availability_status =
             cond do
@@ -2303,9 +2460,15 @@ defmodule YscWeb.TahoeBookingLive do
               not is_available ->
                 {:unavailable, "Already booked for selected dates"}
 
-              single_membership_selected_room ->
-                {:unavailable,
-                 "Single membership allows only one room per booking. Please deselect the current room to select a different one."}
+              cannot_select_another_room ->
+                error_message =
+                  if has_existing_booking && membership_type in [:family, :lifetime] do
+                    "You already have a room reserved. You can only select one room for your second booking. Please deselect the current room to select a different one."
+                  else
+                    "Single membership allows only one room per booking. Please deselect the current room to select a different one."
+                  end
+
+                {:unavailable, error_message}
 
               only_one_guest && trying_to_add_second_room ->
                 {:unavailable,
@@ -2580,9 +2743,13 @@ defmodule YscWeb.TahoeBookingLive do
 
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-      Enum.reduce(opts, msg, fn {key, value}, acc ->
-        String.replace(acc, "%{#{key}}", to_string(value))
-      end)
+      if is_binary(msg) do
+        Enum.reduce(opts, msg, fn {key, value}, acc ->
+          String.replace(acc, "%{#{key}}", to_string(value))
+        end)
+      else
+        to_string(msg)
+      end
     end)
   end
 
@@ -2993,29 +3160,84 @@ defmodule YscWeb.TahoeBookingLive do
     errors = socket.assigns.date_validation_errors || %{}
 
     if socket.assigns.checkin_date && socket.assigns.checkout_date && socket.assigns.user do
-      user_id = socket.assigns.user.id
+      user = socket.assigns.user
 
-      overlapping_query =
-        from b in Booking,
-          where: b.user_id == ^user_id,
-          where: b.property == :tahoe,
-          where:
-            fragment(
-              "? < ? AND ? > ?",
-              b.checkin_date,
-              ^socket.assigns.checkout_date,
-              b.checkout_date,
-              ^socket.assigns.checkin_date
-            )
+      user_with_subs =
+        case user.subscriptions do
+          %Ecto.Association.NotLoaded{} ->
+            Accounts.get_user!(user.id) |> Repo.preload(:subscriptions)
 
-      if Repo.exists?(overlapping_query) do
-        Map.put(
-          errors,
-          :active_booking,
-          "You can only have one active reservation at a time. Please complete your existing reservation first."
-        )
+          _ ->
+            user
+        end
+
+      membership_type = get_membership_type(user_with_subs)
+
+      # For family/lifetime members, check room count instead of just booking existence
+      if membership_type in [:family, :lifetime] do
+        user_id = user.id
+
+        # Count rooms in overlapping bookings
+        overlapping_query =
+          from b in Booking,
+            join: br in "booking_rooms",
+            on: br.booking_id == b.id,
+            where: b.user_id == ^user_id,
+            where: b.property == :tahoe,
+            where: b.status in [:complete],
+            where:
+              fragment(
+                "? < ? AND ? > ?",
+                b.checkin_date,
+                ^socket.assigns.checkout_date,
+                b.checkout_date,
+                ^socket.assigns.checkin_date
+              )
+
+        room_count_query =
+          from br in "booking_rooms",
+            join: b in subquery(overlapping_query),
+            on: br.booking_id == b.id,
+            select: count(br.id)
+
+        existing_room_count = Repo.one(room_count_query) || 0
+
+        if existing_room_count >= 2 do
+          Map.put(
+            errors,
+            :active_booking,
+            "You have reached the maximum of 2 rooms for your #{String.capitalize("#{membership_type}")} membership in this time period."
+          )
+        else
+          errors
+        end
       else
-        errors
+        # Single membership: only one booking at a time
+        user_id = user.id
+
+        overlapping_query =
+          from b in Booking,
+            where: b.user_id == ^user_id,
+            where: b.property == :tahoe,
+            where: b.status in [:complete],
+            where:
+              fragment(
+                "? < ? AND ? > ?",
+                b.checkin_date,
+                ^socket.assigns.checkout_date,
+                b.checkout_date,
+                ^socket.assigns.checkin_date
+              )
+
+        if Repo.exists?(overlapping_query) do
+          Map.put(
+            errors,
+            :active_booking,
+            "You can only have one active reservation at a time. Please complete your existing reservation first."
+          )
+        else
+          errors
+        end
       end
     else
       errors
@@ -3054,27 +3276,66 @@ defmodule YscWeb.TahoeBookingLive do
         # Check if user has an active booking (use provided active_bookings if available)
         active_bookings_list = active_bookings || get_active_bookings(user.id)
 
-        case get_active_booking(user.id, active_bookings_list) do
-          nil ->
-            {true, nil, nil}
+        # Get membership type to check if user can have multiple bookings
+        membership_type = get_membership_type(user_with_subs)
 
-          active_booking ->
-            checkout_date = active_booking.checkout_date
-            today = Date.utc_today()
+        # For family/lifetime members, check room count instead of just booking existence
+        if membership_type in [:family, :lifetime] do
+          # Count total rooms in active bookings
+          total_rooms = count_rooms_in_active_bookings(active_bookings_list)
 
-            # Check if booking is still active (checkout date is in the future, or today but checkout time hasn't passed)
-            if Date.compare(checkout_date, today) == :gt or
-                 (Date.compare(checkout_date, today) == :eq and not past_checkout_time?()) do
-              formatted_date = format_date(checkout_date)
+          if total_rooms >= 2 do
+            # User has 2 rooms already, check if any booking is still active
+            # Get the latest checkout date from all active bookings
+            latest_checkout_date = get_latest_checkout_date(active_bookings_list)
 
-              {
-                false,
-                "Looks like you already have a booking!",
-                "You can make a new reservation once your current stay is complete (after #{formatted_date}) or if you cancel your existing one."
-              }
+            if latest_checkout_date do
+              today = Date.utc_today()
+
+              # Check if booking is still active
+              if Date.compare(latest_checkout_date, today) == :gt or
+                   (Date.compare(latest_checkout_date, today) == :eq and not past_checkout_time?()) do
+                formatted_date = format_date(latest_checkout_date)
+
+                {
+                  false,
+                  "Maximum rooms reached",
+                  "You have reached the maximum of 2 rooms for your #{String.capitalize("#{membership_type}")} membership. You can make a new reservation once your current stay is complete (after #{formatted_date}) or if you cancel your existing booking."
+                }
+              else
+                {true, nil, nil}
+              end
             else
               {true, nil, nil}
             end
+          else
+            # User has less than 2 rooms, allow booking (validation will ensure dates overlap)
+            {true, nil, nil}
+          end
+        else
+          # Single membership: only one booking at a time
+          case get_active_booking(user.id, active_bookings_list) do
+            nil ->
+              {true, nil, nil}
+
+            active_booking ->
+              checkout_date = active_booking.checkout_date
+              today = Date.utc_today()
+
+              # Check if booking is still active (checkout date is in the future, or today but checkout time hasn't passed)
+              if Date.compare(checkout_date, today) == :gt or
+                   (Date.compare(checkout_date, today) == :eq and not past_checkout_time?()) do
+                formatted_date = format_date(checkout_date)
+
+                {
+                  false,
+                  "Looks like you already have a booking!",
+                  "You can make a new reservation once your current stay is complete (after #{formatted_date}) or if you cancel your existing one."
+                }
+              else
+                {true, nil, nil}
+              end
+          end
         end
       else
         {
@@ -3089,6 +3350,24 @@ defmodule YscWeb.TahoeBookingLive do
   defp get_active_booking(user_id, active_bookings \\ nil) do
     bookings = active_bookings || get_active_bookings(user_id)
     List.first(bookings)
+  end
+
+  defp get_latest_checkout_date(active_bookings) do
+    case active_bookings do
+      [] ->
+        nil
+
+      bookings when is_list(bookings) ->
+        bookings
+        |> Enum.max_by(& &1.checkout_date, Date)
+
+      _ ->
+        nil
+    end
+    |> case do
+      nil -> nil
+      booking -> booking.checkout_date
+    end
   end
 
   defp get_active_bookings(user_id, limit \\ 10) do
@@ -3129,14 +3408,12 @@ defmodule YscWeb.TahoeBookingLive do
     DateTime.compare(now, checkout_datetime) == :gt
   end
 
-  defp format_date(date) do
-    Calendar.strftime(date, "%B %d, %Y")
-  end
-
   defp get_membership_type(user) do
-    if Ysc.Accounts.has_lifetime_membership?(user) do
+    # Check for lifetime membership first
+    if Accounts.has_lifetime_membership?(user) do
       :lifetime
     else
+      # Get active subscriptions
       subscriptions =
         case user.subscriptions do
           %Ecto.Association.NotLoaded{} ->
@@ -3169,15 +3446,7 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   defp get_membership_type_from_subscription(subscription) do
-    # Only preload if not already loaded
-    subscription =
-      case subscription.subscription_items do
-        %Ecto.Association.NotLoaded{} ->
-          Ysc.Repo.preload(subscription, :subscription_items)
-
-        _ ->
-          subscription
-      end
+    subscription = Repo.preload(subscription, :subscription_items)
 
     case subscription.subscription_items do
       [item | _] ->
@@ -3202,14 +3471,81 @@ defmodule YscWeb.TahoeBookingLive do
       end)
 
     Enum.max_by(subscriptions, fn subscription ->
-      case subscription.subscription_items do
-        [item | _] ->
-          Map.get(price_to_amount, item.stripe_price_id, 0)
+      subscription = Repo.preload(subscription, :subscription_items)
 
-        _ ->
-          0
+      case subscription.subscription_items do
+        [item | _] -> Map.get(price_to_amount, item.stripe_price_id, 0)
+        _ -> 0
       end
     end)
+  end
+
+  defp count_rooms_in_active_bookings(active_bookings) do
+    active_bookings
+    |> Enum.map(fn booking ->
+      # Rooms are preloaded, count them
+      case booking.rooms do
+        %Ecto.Association.NotLoaded{} -> 0
+        rooms when is_list(rooms) -> length(rooms)
+        _ -> 0
+      end
+    end)
+    |> Enum.sum()
+  end
+
+  defp dates_are_restricted?(restricted_min, restricted_max, default_min, default_max) do
+    # Dates are restricted if they differ from the default range
+    Date.compare(restricted_min, default_min) != :eq ||
+      Date.compare(restricted_max, default_max) != :eq
+  end
+
+  defp calculate_restricted_date_range(active_bookings, max_booking_date) do
+    # Get the first active booking (should only be one for this use case)
+    case List.first(active_bookings) do
+      nil ->
+        # No active bookings, use default range
+        {Date.utc_today(), max_booking_date}
+
+      booking ->
+        existing_checkin = booking.checkin_date
+        existing_checkout = booking.checkout_date
+        existing_nights = Date.diff(existing_checkout, existing_checkin)
+        max_nights = 4
+
+        if existing_nights >= max_nights do
+          # Booking is already 4 days, restrict to those exact dates (no extension)
+          {existing_checkin, existing_checkout}
+        else
+          # Calculate how many nights to add in each direction
+          # If existing is 1 night, extend 3 days backward and forward
+          # If existing is 2 nights, extend 2 days backward and forward
+          # If existing is 3 nights, extend 1 day backward and forward
+          nights_to_add = max_nights - existing_nights
+
+          # Extend backward from check-in date
+          restricted_min = Date.add(existing_checkin, -nights_to_add)
+
+          # Extend forward: maximum checkout is 4 nights from check-in
+          restricted_max = Date.add(existing_checkin, max_nights)
+
+          # Ensure we don't go before today or after max_booking_date
+          today = Date.utc_today()
+
+          restricted_min =
+            if Date.compare(restricted_min, today) == :lt, do: today, else: restricted_min
+
+          restricted_max =
+            if Date.compare(restricted_max, max_booking_date) == :gt,
+              do: max_booking_date,
+              else: restricted_max
+
+          {restricted_min, restricted_max}
+        end
+    end
+  end
+
+  defp format_date(date) do
+    Calendar.strftime(date, "%B %d, %Y")
   end
 
   defp can_add_second_room?(assigns) do
@@ -3259,7 +3595,16 @@ defmodule YscWeb.TahoeBookingLive do
           type
       end
 
-    membership_type in [:family, :lifetime]
+    # Family/lifetime members can select multiple rooms only if they don't already have a booking
+    # If they have 1 room booking, they can only select 1 room for their second booking
+    if membership_type in [:family, :lifetime] do
+      active_bookings = assigns[:active_bookings] || []
+      total_rooms = count_rooms_in_active_bookings(active_bookings)
+      # Can select multiple rooms only if they have 0 rooms (no existing booking)
+      total_rooms == 0
+    else
+      false
+    end
   end
 
   defp max_rooms_for_user(user_or_assigns) do
@@ -3281,10 +3626,34 @@ defmodule YscWeb.TahoeBookingLive do
           get_membership_type(user_or_assigns)
       end
 
+    # Check if user already has a booking (for assigns map only)
+    existing_rooms =
+      if is_map(user_or_assigns) && Map.has_key?(user_or_assigns, :active_bookings) do
+        active_bookings = user_or_assigns[:active_bookings] || []
+        count_rooms_in_active_bookings(active_bookings)
+      else
+        0
+      end
+
+    # If user already has 1 room booking, they can only book 1 more room
+    # Otherwise, family/lifetime members can book up to 2 rooms
     case membership_type do
-      :family -> 2
-      :lifetime -> 2
-      _ -> 1
+      :family ->
+        if existing_rooms >= 1 do
+          1
+        else
+          2
+        end
+
+      :lifetime ->
+        if existing_rooms >= 1 do
+          1
+        else
+          2
+        end
+
+      _ ->
+        1
     end
   end
 
