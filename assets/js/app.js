@@ -39,6 +39,7 @@ import StripeElements from "./stripe_elements";
 import CheckoutTimer from "./checkout_timer";
 import PanelResizer from "./panel_resizer";
 import EmailPreview from "./email_preview";
+import AdminSearch from "./admin_search";
 
 let Hooks = {
     StickyNavbar,
@@ -57,6 +58,7 @@ let Hooks = {
     CheckoutTimer,
     PanelResizer,
     EmailPreview,
+    AdminSearch,
 };
 Hooks.LivePhone = LivePhone;
 

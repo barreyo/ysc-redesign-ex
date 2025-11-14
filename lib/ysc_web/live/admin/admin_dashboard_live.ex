@@ -17,6 +17,10 @@ defmodule YscWeb.AdminDashboardLive do
         Overview
       </h1>
 
+      <div class="mb-6">
+        <.live_component module={YscWeb.AdminSearchComponent} id="admin-search" />
+      </div>
+
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <!-- Latest Comments Module -->
         <div class="bg-white rounded border p-6">

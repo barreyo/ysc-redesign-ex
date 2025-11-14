@@ -881,7 +881,7 @@ defmodule YscWeb.AdminUserDetailsLive do
               phx-hook="PanelResizer"
               phx-update="ignore"
               data-target=".resizable-right"
-              class="resizable-right flex-[0_0_auto] bg-white border-l-4 border-zinc-300 hover:border-blue-500 cursor-ew-resize select-none transition-colors flex flex-row"
+              class="resizable-right flex-[0_0_auto] bg-white border-l-4 border-zinc-300 hover:border-blue-500 select-none transition-colors flex flex-row"
               style={
                 if @panel_width do
                   "max-height: calc(100vh - 200px); width: #{@panel_width}; flex-shrink: 0;"
