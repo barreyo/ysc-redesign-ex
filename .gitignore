@@ -1,6 +1,7 @@
 # PROJECT
 
 .env
+.python-version
 
 etc/docker/volume/*
 priv/static/exports/*.csv

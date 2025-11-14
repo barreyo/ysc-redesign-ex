@@ -29,6 +29,7 @@ RUN mix deps.get --only prod
 
 # Copy config files
 COPY config config
+COPY rel rel
 
 # Copy assets
 COPY priv priv
@@ -75,6 +76,7 @@ RUN mkdir -p /app
 WORKDIR /app
 
 # Copy the release from the builder stage
+COPY --from=builder --chown=app:app /app/rel rel
 COPY --from=builder --chown=app:app /app/_build/prod/rel/ysc ./
 COPY --from=builder --chown=app:app /app/priv/static ./priv/static
 

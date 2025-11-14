@@ -20,9 +20,9 @@ defmodule YscWeb.S3.SimpleS3Upload do
       before the signed upload expires.
   ## Examples
       config = %{
-        region: "us-east-1",
-        access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
-        secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
+        region: S3Config.region(),
+        access_key_id: S3Config.aws_access_key_id(),
+        secret_access_key: S3Config.aws_secret_access_key()
       }
       {:ok, fields} =
         SimpleS3Upload.sign_form_upload(config, "my-bucket",

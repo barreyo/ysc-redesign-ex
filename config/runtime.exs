@@ -125,9 +125,12 @@ if config_env() == :prod do
   # For production: Set S3_BUCKET, S3_REGION, and optionally S3_BASE_URL
   # For sandbox: Set S3_BUCKET (e.g., ysc-media-sandbox), S3_REGION, and optionally S3_BASE_URL
   # If S3_BASE_URL is not set, it will be constructed from bucket and region.
-  s3_bucket = System.get_env("S3_BUCKET") || "media"
-  s3_region = System.get_env("S3_REGION") || "us-west-1"
-  s3_base_url = System.get_env("S3_BASE_URL")
+  s3_bucket = System.get_env("BUCKET_NAME") || "media"
+  s3_region = System.get_env("AWS_REGION") || "us-west-1"
+  s3_base_url = System.get_env("AWS_ENDPOINT_URL_S3")
+
+  aws_access_key_id = System.get_env("AWS_ACCESS_KEY_ID")
+  aws_secret_access_key = System.get_env("AWS_SECRET_ACCESS_KEY")
 
   config :ysc,
     s3_bucket: s3_bucket,

@@ -430,8 +430,8 @@ defmodule YscWeb.AdminMediaLive do
 
     config = %{
       region: S3Config.region(),
-      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
-      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
+      access_key_id: S3Config.aws_access_key_id(),
+      secret_access_key: S3Config.aws_secret_access_key()
     }
 
     {:ok, fields} =
