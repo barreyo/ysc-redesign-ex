@@ -1314,39 +1314,6 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
-  defp sync_mailpoet_subscription(user, should_subscribe) do
-    # Subscribe or unsubscribe from Mailpoet asynchronously
-    # Failures are logged but don't affect preference update
-    action = if should_subscribe, do: "subscribe", else: "unsubscribe"
-
-    case %{"email" => user.email, "action" => action}
-         |> YscWeb.Workers.MailpoetSubscriber.new()
-         |> Oban.insert() do
-      {:ok, _job} ->
-        require Logger
-
-        Logger.info("Mailpoet subscription sync job enqueued",
-          user_id: user.id,
-          email: user.email,
-          action: action
-        )
-
-        :ok
-
-      {:error, changeset} ->
-        require Logger
-
-        Logger.warning("Failed to enqueue Mailpoet subscription sync job",
-          user_id: user.id,
-          email: user.email,
-          action: action,
-          errors: inspect(changeset.errors)
-        )
-
-        :ok
-    end
-  end
-
   def handle_event("select_membership", %{"membership_type" => membership_type} = _params, socket) do
     user = socket.assigns.user
 
@@ -1702,8 +1669,8 @@ defmodule YscWeb.UserSettingsLive do
         {:error, error} ->
           error_message =
             case error do
-              %{message: msg} -> msg
               %Stripe.Error{message: msg} -> msg
+              %{message: msg} -> msg
               msg when is_binary(msg) -> msg
               other -> inspect(other, pretty: true)
             end
@@ -1738,31 +1705,6 @@ defmodule YscWeb.UserSettingsLive do
      socket
      |> assign(:all_payment_methods, updated_payment_methods)
      |> assign(:default_payment_method, updated_default)}
-  end
-
-  def handle_info({:refresh_payment_methods, user_id}, socket) do
-    if socket.assigns.user.id == user_id do
-      user = socket.assigns.user
-
-      # Use the new sync function to ensure we're in sync with Stripe
-      {:ok, updated_payment_methods} = Ysc.Payments.sync_payment_methods_with_stripe(user)
-      updated_default = Ysc.Payments.get_default_payment_method(user)
-
-      require Logger
-
-      Logger.info("Refreshed payment methods after selection",
-        user_id: user.id,
-        payment_methods_count: length(updated_payment_methods),
-        default_payment_method_id: updated_default && updated_default.id
-      )
-
-      {:noreply,
-       socket
-       |> assign(:all_payment_methods, updated_payment_methods)
-       |> assign(:default_payment_method, updated_default)}
-    else
-      {:noreply, socket}
-    end
   end
 
   def handle_event("cancel-membership", _params, socket) do
@@ -1831,17 +1773,6 @@ defmodule YscWeb.UserSettingsLive do
     else
       {:noreply, socket}
     end
-  end
-
-  defp paginate_payments(socket, new_page) when new_page >= 1 do
-    %{payments_per_page: per_page, payments_total: total_count, user: user} = socket.assigns
-    {payments, _total_count} = Ledgers.list_user_payments_paginated(user.id, new_page, per_page)
-    total_pages = div(total_count + per_page - 1, per_page)
-
-    socket
-    |> assign(:payments_page, new_page)
-    |> assign(:payments_total_pages, total_pages)
-    |> assign(:payments, payments)
   end
 
   def handle_event("change-membership", params, socket) do
@@ -1935,6 +1866,75 @@ defmodule YscWeb.UserSettingsLive do
             end
           end
       end
+    end
+  end
+
+  def handle_info({:refresh_payment_methods, user_id}, socket) do
+    if socket.assigns.user.id == user_id do
+      user = socket.assigns.user
+
+      # Use the new sync function to ensure we're in sync with Stripe
+      {:ok, updated_payment_methods} = Ysc.Payments.sync_payment_methods_with_stripe(user)
+      updated_default = Ysc.Payments.get_default_payment_method(user)
+
+      require Logger
+
+      Logger.info("Refreshed payment methods after selection",
+        user_id: user.id,
+        payment_methods_count: length(updated_payment_methods),
+        default_payment_method_id: updated_default && updated_default.id
+      )
+
+      {:noreply,
+       socket
+       |> assign(:all_payment_methods, updated_payment_methods)
+       |> assign(:default_payment_method, updated_default)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp paginate_payments(socket, new_page) when new_page >= 1 do
+    %{payments_per_page: per_page, payments_total: total_count, user: user} = socket.assigns
+    {payments, _total_count} = Ledgers.list_user_payments_paginated(user.id, new_page, per_page)
+    total_pages = div(total_count + per_page - 1, per_page)
+
+    socket
+    |> assign(:payments_page, new_page)
+    |> assign(:payments_total_pages, total_pages)
+    |> assign(:payments, payments)
+  end
+
+  defp sync_mailpoet_subscription(user, should_subscribe) do
+    # Subscribe or unsubscribe from Mailpoet asynchronously
+    # Failures are logged but don't affect preference update
+    action = if should_subscribe, do: "subscribe", else: "unsubscribe"
+
+    case %{"email" => user.email, "action" => action}
+         |> YscWeb.Workers.MailpoetSubscriber.new()
+         |> Oban.insert() do
+      {:ok, _job} ->
+        require Logger
+
+        Logger.info("Mailpoet subscription sync job enqueued",
+          user_id: user.id,
+          email: user.email,
+          action: action
+        )
+
+        :ok
+
+      {:error, changeset} ->
+        require Logger
+
+        Logger.warning("Failed to enqueue Mailpoet subscription sync job",
+          user_id: user.id,
+          email: user.email,
+          action: action,
+          errors: inspect(changeset.errors)
+        )
+
+        :ok
     end
   end
 
@@ -2125,28 +2125,6 @@ defmodule YscWeb.UserSettingsLive do
       {:error, error} -> {:error, error}
     end
   end
-
-  # Helper function to format ticket tiers for display
-  @doc false
-  defp format_ticket_tiers(tickets) when is_list(tickets) and length(tickets) > 0 do
-    tickets
-    |> Enum.group_by(fn ticket ->
-      if ticket.ticket_tier && ticket.ticket_tier.id do
-        ticket.ticket_tier.id
-      else
-        nil
-      end
-    end)
-    |> Enum.map_join(", ", fn {_tier_id, tier_tickets} ->
-      count = length(tier_tickets)
-      # Get tier name from first ticket's tier
-      tier = hd(tier_tickets).ticket_tier
-      tier_name = if tier && tier.name, do: tier.name, else: "Unknown Tier"
-      "#{count}x #{tier_name}"
-    end)
-  end
-
-  defp format_ticket_tiers(_), do: ""
 
   # Helper function to safely fetch user invoices
 end

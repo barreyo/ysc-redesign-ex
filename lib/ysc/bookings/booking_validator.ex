@@ -20,11 +20,10 @@ defmodule Ysc.Bookings.BookingValidator do
   """
   import Ecto.Query, warn: false
   alias Ysc.Repo
-  alias Ysc.Bookings.{Booking, Season, Room}
+  alias Ysc.Bookings.{Booking, Season}
   alias Ysc.Accounts.User
   alias Ysc.Subscriptions
 
-  @max_nights_tahoe 4
   @max_guests_clear_lake 12
 
   @doc """

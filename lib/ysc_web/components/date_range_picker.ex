@@ -499,7 +499,7 @@ defmodule YscWeb.Components.DateRangePicker do
   end
 
   # Check if a date should be disabled based on booking rules
-  defp date_disabled?(day, min, range_start, state, max \\ nil, property \\ nil, today \\ nil) do
+  defp date_disabled?(day, min, range_start, state, max, property, today) do
     # Always disable dates before minimum
     if Date.compare(day, min) == :lt do
       true

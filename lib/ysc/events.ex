@@ -289,18 +289,6 @@ defmodule Ysc.Events do
     end
   end
 
-  # Helper function to add pricing information to events (kept for backward compatibility)
-  defp add_pricing_info(event) do
-    ticket_tiers = list_ticket_tiers_for_event(event.id)
-    pricing_info = calculate_event_pricing(ticket_tiers)
-
-    # Handle both structs and maps (from our custom query)
-    case event do
-      %{__struct__: _} -> Map.put(event, :pricing_info, pricing_info)
-      %{} -> Map.put(event, :pricing_info, pricing_info)
-    end
-  end
-
   # Calculate pricing display information for an event
   defp calculate_event_pricing([]) do
     %{display_text: "FREE", has_free_tiers: true, lowest_price: nil}

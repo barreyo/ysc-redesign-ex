@@ -520,8 +520,6 @@ defmodule YscWeb.TahoeBookingLive do
               <!-- Date Selection -->
               <div class="md:col-span-1">
                 <.date_range_picker
-                  property={:tahoe}
-                  today={@today}
                   label="Check-in & Check-out Dates"
                   id="booking_date_range"
                   form={@date_form}
@@ -2635,9 +2633,9 @@ defmodule YscWeb.TahoeBookingLive do
          checkin_date,
          checkout_date,
          room_ids_or_id,
-         capacity_error \\ nil,
-         price_error \\ nil,
-         form_errors \\ %{}
+         capacity_error,
+         price_error,
+         form_errors
        ) do
     has_rooms? =
       case room_ids_or_id do
@@ -2965,9 +2963,9 @@ defmodule YscWeb.TahoeBookingLive do
   defp build_query_params(
          checkin_date,
          checkout_date,
-         guests_count \\ 1,
-         children_count \\ 0,
-         active_tab \\ :booking
+         guests_count,
+         children_count,
+         active_tab
        ) do
     params = %{}
 
@@ -3063,18 +3061,10 @@ defmodule YscWeb.TahoeBookingLive do
     assign(socket, date_validation_errors: errors)
   end
 
-  defp validate_season_date_range(errors, socket) do
-    checkin_date = socket.assigns.checkin_date
-    checkout_date = socket.assigns.checkout_date
-
-    validation_errors =
-      SeasonHelpers.validate_season_date_range(:tahoe, checkin_date, checkout_date)
-
-    if Map.has_key?(validation_errors, :season_date_range) do
-      Map.put(errors, :season_date_range, validation_errors.season_date_range)
-    else
-      errors
-    end
+  defp validate_season_date_range(errors, _socket) do
+    # validate_season_date_range always returns empty map (cross-season bookings allowed)
+    # No validation needed here
+    errors
   end
 
   defp validate_advance_booking_limit(errors, checkin_date, checkout_date) do
@@ -3244,6 +3234,8 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
+  defp check_booking_eligibility(user, active_bookings)
+
   defp check_booking_eligibility(nil, _active_bookings) do
     {
       false,
@@ -3252,7 +3244,7 @@ defmodule YscWeb.TahoeBookingLive do
     }
   end
 
-  defp check_booking_eligibility(user, active_bookings \\ nil) do
+  defp check_booking_eligibility(user, active_bookings) do
     # Check if user account is approved
     if user.state != :active do
       {
@@ -3347,7 +3339,7 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
-  defp get_active_booking(user_id, active_bookings \\ nil) do
+  defp get_active_booking(user_id, active_bookings) do
     bookings = active_bookings || get_active_bookings(user_id)
     List.first(bookings)
   end
@@ -3548,38 +3540,6 @@ defmodule YscWeb.TahoeBookingLive do
     Calendar.strftime(date, "%B %d, %Y")
   end
 
-  defp can_add_second_room?(assigns) do
-    if assigns.checkin_date && assigns.checkout_date && assigns.user do
-      membership_type = get_membership_type(assigns.user)
-
-      if membership_type in [:family, :lifetime] do
-        user_id = assigns.user.id
-
-        overlapping_query =
-          from b in Booking,
-            join: br in "booking_rooms",
-            on: br.booking_id == b.id,
-            where: b.user_id == ^user_id,
-            where: b.property == :tahoe,
-            where:
-              fragment(
-                "? < ? AND ? > ?",
-                b.checkin_date,
-                ^assigns.checkout_date,
-                b.checkout_date,
-                ^assigns.checkin_date
-              )
-
-        existing_count = Repo.aggregate(overlapping_query, :count, :id)
-        existing_count < 2
-      else
-        false
-      end
-    else
-      false
-    end
-  end
-
   defp can_select_multiple_rooms?(assigns) do
     # Use cached membership_type if available, otherwise compute it
     membership_type =
@@ -3657,14 +3617,6 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
-  defp has_room_selected?(assigns) do
-    if can_select_multiple_rooms?(assigns) do
-      length(assigns.selected_room_ids) > 0
-    else
-      not is_nil(assigns.selected_room_id)
-    end
-  end
-
   defp get_selected_rooms_for_submit(assigns) do
     if can_select_multiple_rooms?(assigns) do
       assigns.selected_room_ids
@@ -3719,26 +3671,6 @@ defmodule YscWeb.TahoeBookingLive do
       "#{guests_text} • #{children_text}"
     else
       guests_text
-    end
-  end
-
-  defp calculate_max_guests(assigns) do
-    if can_select_multiple_rooms?(assigns) && length(assigns.selected_room_ids) > 0 do
-      # For multiple rooms, sum the max capacity
-      assigns.selected_room_ids
-      |> Enum.map(fn room_id ->
-        room = Enum.find(assigns.available_rooms, &(&1.id == room_id))
-        if room, do: room.capacity_max, else: 0
-      end)
-      |> Enum.sum()
-      |> max(1)
-    else
-      if assigns.selected_room_id do
-        room = Enum.find(assigns.available_rooms, &(&1.id == assigns.selected_room_id))
-        if room, do: room.capacity_max, else: 1
-      else
-        1
-      end
     end
   end
 
@@ -3815,7 +3747,7 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   # Bed icon SVG helpers
-  defp bed_icon_svg(bed_type, class \\ "w-4 h-4")
+  defp bed_icon_svg(bed_type, class)
 
   defp bed_icon_svg(:single, class) do
     """
@@ -3873,11 +3805,6 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   # Season caching helpers to avoid multiple database queries
-
-  defp load_seasons_for_property(property) do
-    from(s in Season, where: s.property == ^property)
-    |> Repo.all()
-  end
 
   defp get_current_season_info_cached(seasons, today) do
     current_season = Season.find_season_for_date(seasons, today)

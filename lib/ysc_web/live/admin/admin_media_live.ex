@@ -458,19 +458,6 @@ defmodule YscWeb.AdminMediaLive do
   defp error_to_string(:external_client_failure), do: "External client failure"
   defp error_to_string(_), do: "An error occurred"
 
-  # Helper function to get the best available image path with fallbacks
-  # Priority: thumbnail_path > optimized_image_path > raw_image_path
-  defp get_image_path(%Media.Image{thumbnail_path: thumbnail_path})
-       when not is_nil(thumbnail_path),
-       do: thumbnail_path
-
-  defp get_image_path(%Media.Image{optimized_image_path: optimized_path})
-       when not is_nil(optimized_path),
-       do: optimized_path
-
-  defp get_image_path(%Media.Image{raw_image_path: raw_path}),
-    do: raw_path
-
   # Helper function to get a specific image version path
   defp get_image_version_path(%Media.Image{} = image, :thumbnail) do
     image.thumbnail_path

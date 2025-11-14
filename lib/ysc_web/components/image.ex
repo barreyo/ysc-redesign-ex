@@ -66,8 +66,6 @@ defmodule YscWeb.Components.Image do
 
   # Helper function to get the best available image path with fallbacks
   # Supports preferred_type: :optimized, :thumbnail, :raw, or nil (default)
-  defp image_url(nil), do: "/images/ysc_logo.png"
-
   # Prefer optimized image (for detail pages) - skip thumbnail, fallback to raw
   defp image_url(%Image{} = image, :optimized) do
     cond do
@@ -101,6 +99,4 @@ defmodule YscWeb.Components.Image do
       true -> "/images/ysc_logo.png"
     end
   end
-
-  defp image_url(%Image{} = image), do: image_url(image, nil)
 end

@@ -202,7 +202,7 @@ defmodule YscWeb.OrderConfirmationLive do
   end
 
   # Helper function to calculate donation amount for a ticket
-  defp get_donation_amount_for_ticket(ticket, ticket_order) do
+  defp get_donation_amount_for_ticket(_ticket, ticket_order) do
     if ticket_order && ticket_order.tickets do
       # Calculate non-donation ticket costs
       non_donation_total =

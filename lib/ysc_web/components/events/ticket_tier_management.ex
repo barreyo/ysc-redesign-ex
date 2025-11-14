@@ -301,6 +301,27 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
+  @impl true
+  def handle_event("export-tickets-csv", _params, socket) do
+    tickets = Events.list_tickets_for_export(socket.assigns.event_id)
+
+    csv_content =
+      tickets
+      |> build_csv_rows()
+      |> CSV.encode(headers: true)
+      |> Enum.to_list()
+      |> IO.iodata_to_binary()
+
+    filename = "tickets_export_#{DateTime.utc_now() |> DateTime.to_unix()}.csv"
+
+    # Base64 encode the content for download
+    encoded_content = Base.encode64(csv_content)
+
+    {:noreply,
+     socket
+     |> push_event("download-csv", %{content: encoded_content, filename: filename})}
+  end
+
   def handle_info(
         {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
         socket
@@ -335,27 +356,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     else
       {:noreply, socket}
     end
-  end
-
-  @impl true
-  def handle_event("export-tickets-csv", _params, socket) do
-    tickets = Events.list_tickets_for_export(socket.assigns.event_id)
-
-    csv_content =
-      tickets
-      |> build_csv_rows()
-      |> CSV.encode(headers: true)
-      |> Enum.to_list()
-      |> IO.iodata_to_binary()
-
-    filename = "tickets_export_#{DateTime.utc_now() |> DateTime.to_unix()}.csv"
-
-    # Base64 encode the content for download
-    encoded_content = Base.encode64(csv_content)
-
-    {:noreply,
-     socket
-     |> push_event("download-csv", %{content: encoded_content, filename: filename})}
   end
 
   defp build_csv_rows(tickets) do

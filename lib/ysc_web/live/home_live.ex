@@ -601,10 +601,6 @@ defmodule YscWeb.HomeLive do
   defp format_property_name(:clear_lake), do: "Clear Lake"
   defp format_property_name(_), do: "Unknown"
 
-  defp booking_link_path(:tahoe), do: ~p"/bookings/tahoe"
-  defp booking_link_path(:clear_lake), do: ~p"/bookings/clear-lake"
-  defp booking_link_path(_), do: ~p"/bookings/tahoe"
-
   defp days_until_booking(booking) do
     today = Date.utc_today()
     checkin_date = booking.checkin_date

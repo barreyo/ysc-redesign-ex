@@ -7,7 +7,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
   use YscWeb, :live_component
 
   alias Ysc.Bookings
-  alias Ysc.Bookings.SeasonHelpers
 
   @week_start_at :sunday
 
@@ -422,8 +421,12 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     visible_month_end = Date.end_of_month(current_date)
 
     # Expand range to cover visible month plus 30 days before and after for context
-    start_date = visible_month_start |> Date.add(-30) |> max(today)
-    end_date = visible_month_end |> Date.add(30)
+    month_start_minus_30 = Date.add(visible_month_start, -30)
+
+    start_date =
+      if Date.compare(month_start_minus_30, today) == :lt, do: today, else: month_start_minus_30
+
+    end_date = Date.add(visible_month_end, 30)
 
     # Also ensure we cover any selected dates
     checkin_date = assigns[:checkin_date]
@@ -434,15 +437,19 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         checkin_date && checkout_date ->
           # Expand range to include selected dates
           {
-            min(start_date, checkin_date) |> Date.add(-30),
-            max(end_date, checkout_date) |> Date.add(30)
+            if(Date.compare(start_date, checkin_date) == :gt, do: checkin_date, else: start_date)
+            |> Date.add(-30),
+            if(Date.compare(end_date, checkout_date) == :lt, do: checkout_date, else: end_date)
+            |> Date.add(30)
           }
 
         checkin_date ->
           # Expand range to include check-in date
           {
-            min(start_date, checkin_date) |> Date.add(-30),
-            max(end_date, checkin_date) |> Date.add(30)
+            if(Date.compare(start_date, checkin_date) == :gt, do: checkin_date, else: start_date)
+            |> Date.add(-30),
+            if(Date.compare(end_date, checkin_date) == :lt, do: checkin_date, else: end_date)
+            |> Date.add(30)
           }
 
         true ->
@@ -454,7 +461,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     # Compare dates using Date.compare to handle struct comparison correctly
     # Also check if the availability data covers the needed date range
     existing_today = socket.assigns[:today]
-    today_changed = is_nil(existing_today) || Date.compare(existing_today, today) != :eq
+    _today_changed = is_nil(existing_today) || Date.compare(existing_today, today) != :eq
 
     # Check if existing availability data covers the needed range
     existing_availability = socket.assigns[:availability]
@@ -729,8 +736,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     needs_reload =
       if !is_nil(existing_availability) && map_size(existing_availability) > 0 do
         availability_dates = Map.keys(existing_availability)
-        existing_min = Enum.min(availability_dates)
-        existing_max = Enum.max(availability_dates)
+        existing_min = Enum.min_by(availability_dates, &Date.to_erl/1)
+        existing_max = Enum.max_by(availability_dates, &Date.to_erl/1)
 
         # Check if the new month is outside the range
         month_start = Date.beginning_of_month(date)
@@ -747,8 +754,12 @@ defmodule YscWeb.Components.AvailabilityCalendar do
       visible_month_start = Date.beginning_of_month(date)
       visible_month_end = Date.end_of_month(date)
 
-      start_date = visible_month_start |> Date.add(-30) |> max(today)
-      end_date = visible_month_end |> Date.add(30)
+      month_start_minus_30 = Date.add(visible_month_start, -30)
+
+      start_date =
+        if Date.compare(month_start_minus_30, today) == :lt, do: today, else: month_start_minus_30
+
+      end_date = Date.add(visible_month_end, 30)
 
       # Also include selected dates if any
       {start_date, end_date} =
@@ -758,13 +769,17 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
           if checkout do
             {
-              min(start_date, checkin) |> Date.add(-30),
-              max(end_date, checkout) |> Date.add(30)
+              if(Date.compare(start_date, checkin) == :gt, do: checkin, else: start_date)
+              |> Date.add(-30),
+              if(Date.compare(end_date, checkout) == :lt, do: checkout, else: end_date)
+              |> Date.add(30)
             }
           else
             {
-              min(start_date, checkin) |> Date.add(-30),
-              max(end_date, checkin) |> Date.add(30)
+              if(Date.compare(start_date, checkin) == :gt, do: checkin, else: start_date)
+              |> Date.add(-30),
+              if(Date.compare(end_date, checkin) == :lt, do: checkin, else: end_date)
+              |> Date.add(30)
             }
           end
         else
@@ -805,7 +820,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
          today,
          selected_booking_mode,
          availability,
-         seasons \\ nil
+         seasons
        ) do
     # Always disable dates before minimum
     if Date.compare(day, min) == :lt do
@@ -860,7 +875,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
             state,
             property,
             availability,
-            selected_booking_mode
+            selected_booking_mode,
+            nil
           )
         end
       end
@@ -892,10 +908,10 @@ defmodule YscWeb.Components.AvailabilityCalendar do
          day,
          checkin_date,
          state,
-         property \\ nil,
-         availability \\ nil,
-         selected_booking_mode \\ nil,
-         seasons \\ nil
+         property,
+         availability,
+         selected_booking_mode,
+         seasons
        ) do
     # Cannot check in on Saturday (day 6) - this applies to Tahoe only
     # Clear Lake allows Saturday check-ins
@@ -1002,7 +1018,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
          today,
          selected_booking_mode,
          availability,
-         seasons \\ nil
+         seasons
        ) do
     # Check if date is before minimum or after maximum (these are "other" reasons)
     if Date.compare(day, min) == :lt or (max && Date.compare(day, max) == :gt) do
@@ -1046,7 +1062,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
              state,
              property,
              availability,
-             selected_booking_mode
+             selected_booking_mode,
+             nil
            ) do
           :other
         else
@@ -1148,7 +1165,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
          today,
          selected_booking_mode,
          availability,
-         seasons \\ nil
+         seasons
        ) do
     # Check if date is before minimum
     if Date.compare(day, min) == :lt do

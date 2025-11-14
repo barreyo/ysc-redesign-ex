@@ -31,7 +31,7 @@ defmodule Ysc.Customers do
         changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
 
         case Repo.update(changeset) do
-          {:ok, updated_user} ->
+          {:ok, _updated_user} ->
             {:ok, stripe_customer}
 
           {:error, changeset} ->

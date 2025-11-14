@@ -39,7 +39,6 @@ defmodule Ysc.Bookings.BookingLocker do
     Booking,
     PropertyInventory,
     RoomInventory,
-    Season,
     Room
   }
 
@@ -230,6 +229,15 @@ defmodule Ysc.Bookings.BookingLocker do
         checkout_date,
         guests_count,
         opts \\ []
+      )
+
+  def create_room_booking(
+        user_id,
+        room_ids,
+        checkin_date,
+        checkout_date,
+        guests_count,
+        opts
       )
       when is_list(room_ids) do
     children_count = Keyword.get(opts, :children_count, 0)
@@ -727,7 +735,7 @@ defmodule Ysc.Bookings.BookingLocker do
           # Log error but don't fail the main operation
           require Logger
 
-          Logger.warn(
+          Logger.warning(
             "Failed to release hold booking #{hold_booking.id} when confirming booking #{exclude_booking_id}: #{inspect(reason)}"
           )
       end
@@ -968,7 +976,7 @@ defmodule Ysc.Bookings.BookingLocker do
          nights,
          guests_count,
          children_count,
-         breakdown \\ nil
+         breakdown
        ) do
     # For room bookings, create a JSON-safe structure with string keys
     # Convert breakdown map (with atom keys) to string keys if provided

@@ -2,12 +2,10 @@ defmodule YscWeb.UserBookingDetailLive do
   use YscWeb, :live_view
 
   alias Ysc.Bookings
-  alias Ysc.Bookings.{Booking, BookingLocker}
+  alias Ysc.Bookings.Booking
   alias Ysc.EmailConfig
-  alias Ysc.Ledgers
   alias Ysc.MoneyHelper
   alias Ysc.Repo
-  import Ecto.Query
 
   @impl true
   def mount(%{"id" => booking_id}, _session, socket) do
@@ -561,14 +559,14 @@ defmodule YscWeb.UserBookingDetailLive do
   end
 
   defp render_price_breakdown(assigns) do
-    breakdown = assigns.price_breakdown
+    assigns = assign(assigns, :breakdown, assigns.price_breakdown)
 
-    if breakdown && is_map(breakdown) do
+    if assigns.breakdown && is_map(assigns.breakdown) do
       ~H"""
       <div class="space-y-2">
-        <%= if breakdown["type"] == "room" do %>
-          <%= if breakdown["rooms"] && is_list(breakdown["rooms"]) do %>
-            <%= for room_item <- breakdown["rooms"] do %>
+        <%= if @breakdown["type"] == "room" do %>
+          <%= if @breakdown["rooms"] && is_list(@breakdown["rooms"]) do %>
+            <%= for room_item <- @breakdown["rooms"] do %>
               <div class="flex justify-between text-sm">
                 <span class="text-zinc-600">
                   <%= room_item["room_name"] || "Room" %> (<%= room_item["nights"] || 0 %> nights)
@@ -581,10 +579,10 @@ defmodule YscWeb.UserBookingDetailLive do
           <% else %>
             <div class="flex justify-between text-sm">
               <span class="text-zinc-600">
-                Room Booking (<%= breakdown["nights"] || 0 %> nights)
+                Room Booking (<%= @breakdown["nights"] || 0 %> nights)
               </span>
               <span class="text-zinc-900">
-                <%= format_money_from_map(breakdown["total"]) %>
+                <%= format_money_from_map(@breakdown["total"]) %>
               </span>
             </div>
           <% end %>
@@ -592,7 +590,7 @@ defmodule YscWeb.UserBookingDetailLive do
           <div class="flex justify-between text-sm">
             <span class="text-zinc-600">Booking Total</span>
             <span class="text-zinc-900">
-              <%= format_money_from_map(breakdown["total"]) %>
+              <%= format_money_from_map(@breakdown["total"]) %>
             </span>
           </div>
         <% end %>

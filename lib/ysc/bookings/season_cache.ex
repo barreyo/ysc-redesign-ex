@@ -94,7 +94,7 @@ defmodule Ysc.Bookings.SeasonCache do
 
   Useful when you know only one property's seasons changed.
   """
-  def invalidate_property(property) do
+  def invalidate_property(_property) do
     # Get all cache keys for this property
     # Note: Cachex doesn't support pattern matching, so we'll use version bump
     # which will cause all cached entries to be revalidated on next access

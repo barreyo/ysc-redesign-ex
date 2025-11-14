@@ -153,10 +153,10 @@ defmodule YscWeb.AdminBookingsLive do
             value={format_money_for_input(@form[:children_amount].value)}
           >
             <div class="text-zinc-800">$</div>
-            <:help_text>
-              Children pricing for this rule. If not set, falls back to $25/night for Tahoe room bookings.
-            </:help_text>
           </.input>
+          <p class="mt-1 text-sm text-zinc-600">
+            Children pricing for this rule. If not set, falls back to $25/night for Tahoe room bookings.
+          </p>
 
           <.input
             type="select"
@@ -4464,7 +4464,9 @@ defmodule YscWeb.AdminBookingsLive do
   # Flatten nested maps for URI encoding
   # Converts %{"search" => %{"query" => "test"}} to %{"search[query]" => "test"}
   # Filters out list values that have indexed equivalents (e.g., order_by list when order_by[0] exists)
-  defp flatten_query_params(params, prefix \\ "") when is_map(params) do
+  defp flatten_query_params(params, prefix \\ "")
+
+  defp flatten_query_params(params, prefix) when is_map(params) do
     # First, filter out list values that have indexed equivalents
     filtered_params =
       Enum.reduce(params, %{}, fn {key, value}, acc ->

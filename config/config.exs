@@ -10,7 +10,11 @@ import Config
 config :ysc,
   ecto_repos: [Ysc.Repo]
 
-config :ysc, Ysc.Repo, migration_timestamps: [type: :utc_datetime]
+config :ysc, Ysc.Repo,
+  migration_timestamps: [type: :utc_datetime],
+  pool_size: 8,
+  timeout: 15_000,
+  prepare: :unnamed
 
 # Configures the endpoint
 config :ysc, YscWeb.Endpoint,
@@ -71,6 +75,7 @@ config :argon2_elixir,
 
 config :ysc, Oban,
   repo: Ysc.Repo,
+  notifier: Oban.Notifiers.PG,
   queues: [default: 10, media: 5, exports: 3, mailers: 20],
   log: false,
   plugins: [

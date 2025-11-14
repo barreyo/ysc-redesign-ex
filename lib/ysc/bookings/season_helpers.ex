@@ -112,7 +112,12 @@ defmodule Ysc.Bookings.SeasonHelpers do
   NOTE: This validation is now disabled to allow cross-season bookings.
   Rules should apply for the dates the user is selecting across seasons.
   """
-  def validate_season_date_range(property, checkin_date, checkout_date, today \\ Date.utc_today()) do
+  def validate_season_date_range(
+        _property,
+        _checkin_date,
+        _checkout_date,
+        _today \\ Date.utc_today()
+      ) do
     # Allow bookings across seasons - no restriction
     %{}
   end
@@ -219,7 +224,7 @@ defmodule Ysc.Bookings.SeasonHelpers do
   # Get the end date of the current season occurrence
   defp get_season_end_date(season, today) do
     {today_month, today_day} = {today.month, today.day}
-    {start_month, start_day} = {season.start_date.month, season.start_date.day}
+    {start_month, _start_day} = {season.start_date.month, season.start_date.day}
     {end_month, end_day} = {season.end_date.month, season.end_date.day}
 
     # If season spans years (e.g., Nov to Apr)
@@ -300,18 +305,6 @@ defmodule Ysc.Bookings.SeasonHelpers do
       true ->
         # Next start is next year
         Date.new!(reference_date.year + 1, start_month, start_day)
-    end
-  end
-
-  # Gets the start date of the next season after the reference date
-  defp get_next_season_start_date(property, reference_date) do
-    next_season = get_next_season(property, reference_date)
-
-    if next_season do
-      next_start_date = get_next_season_occurrence_start(next_season, reference_date)
-      {next_season, next_start_date}
-    else
-      {nil, nil}
     end
   end
 end

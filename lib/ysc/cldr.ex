@@ -5,6 +5,6 @@ defmodule Ysc.Cldr do
   Configures the Cldr library for internationalization and localization support.
   """
   use Cldr,
-    locales: ["en"],
-    default_locale: "en"
+    locales: [:en],
+    default_locale: :en
 end

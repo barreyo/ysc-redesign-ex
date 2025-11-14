@@ -598,7 +598,7 @@ defmodule YscWeb.BookingCheckoutLive do
         if payment_intent.status == "succeeded" do
           # Process payment in ledger
           case process_ledger_payment(booking, payment_intent) do
-            {:ok, payment} ->
+            {:ok, _payment} ->
               # Confirm booking
               case BookingLocker.confirm_booking(booking.id) do
                 {:ok, confirmed_booking} ->
@@ -769,7 +769,9 @@ defmodule YscWeb.BookingCheckoutLive do
 
   defp money_to_cents(_), do: 0
 
-  defp cents_to_money(cents, currency \\ :USD) when is_integer(cents) do
+  defp cents_to_money(cents, currency)
+
+  defp cents_to_money(cents, currency) when is_integer(cents) do
     cents_decimal = Decimal.new(cents)
     dollars = Decimal.div(cents_decimal, Decimal.new(100))
     Money.new(currency, dollars)
@@ -859,7 +861,7 @@ defmodule YscWeb.BookingCheckoutLive do
   end
 
   # Timezone-aware formatting functions
-  defp format_date(%Date{} = date, timezone) do
+  defp format_date(%Date{} = date, _timezone) do
     # Dates don't have timezone, but we format them consistently
     Calendar.strftime(date, "%B %d, %Y")
   end

@@ -38,7 +38,7 @@ defmodule Ysc.Bookings.Room do
     belongs_to :default_season, Ysc.Bookings.Season, foreign_key: :default_season_id
     belongs_to :image, Ysc.Media.Image, foreign_key: :image_id
 
-    has_many :bookings, Ysc.Bookings.Booking, foreign_key: :room_id
+    many_to_many :bookings, Ysc.Bookings.Booking, join_through: Ysc.Bookings.BookingRoom
     has_many :pricing_rules, Ysc.Bookings.PricingRule, foreign_key: :room_id
 
     timestamps()

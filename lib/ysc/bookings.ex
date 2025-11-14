@@ -896,7 +896,7 @@ defmodule Ysc.Bookings do
          guests_count,
          children_count,
          nights,
-         use_actual_guests \\ false
+         use_actual_guests
        ) do
     # Basic validation
     cond do
@@ -940,7 +940,7 @@ defmodule Ysc.Bookings do
          guests_count,
          children_count,
          _nights,
-         use_actual_guests \\ false
+         use_actual_guests
        ) do
     room = get_room!(room_id)
 
@@ -1586,7 +1586,6 @@ defmodule Ysc.Bookings do
       {:ok, %Booking{}, %Money{}, %LedgerTransaction{}}
   """
   def cancel_booking(booking, cancellation_date \\ Date.utc_today(), reason \\ nil) do
-    alias Ysc.Ledgers
     alias Ysc.Bookings.{BookingLocker, PendingRefund}
 
     # First, always cancel the booking and free up inventory
@@ -1993,18 +1992,16 @@ defmodule Ysc.Bookings do
     0
   end
 
-  @doc """
-  Creates a refund in Stripe for a payment intent.
-
-  ## Parameters
-  - `payment_intent_id`: The Stripe payment intent ID
-  - `amount_cents`: The refund amount in cents
-  - `reason`: Reason for the refund
-
-  ## Returns
-  - `{:ok, %Stripe.Refund{}}` on success
-  - `{:error, reason}` on failure
-  """
+  # Creates a refund in Stripe for a payment intent.
+  #
+  # ## Parameters
+  # - `payment_intent_id`: The Stripe payment intent ID
+  # - `amount_cents`: The refund amount in cents
+  # - `reason`: Reason for the refund
+  #
+  # ## Returns
+  # - `{:ok, %Stripe.Refund{}}` on success
+  # - `{:error, reason}` on failure
   defp create_stripe_refund(payment_intent_id, amount_cents, reason) do
     require Logger
 

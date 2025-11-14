@@ -549,7 +549,9 @@ defmodule YscWeb.BookingReceiptLive do
     end
   end
 
-  defp cents_to_money(cents, currency \\ :USD) when is_integer(cents) do
+  defp cents_to_money(cents, currency)
+
+  defp cents_to_money(cents, currency) when is_integer(cents) do
     cents_decimal = Decimal.new(cents)
     dollars = Decimal.div(cents_decimal, Decimal.new(100))
     Money.new(currency, dollars)

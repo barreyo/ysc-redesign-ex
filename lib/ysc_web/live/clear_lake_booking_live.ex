@@ -1638,16 +1638,6 @@ defmodule YscWeb.ClearLakeBookingLive do
            availability_error: "Property unavailable"
          )}
 
-      {:error, changeset} ->
-        form_errors = format_errors(changeset)
-
-        {:noreply,
-         assign(socket,
-           form_errors: form_errors,
-           calculated_price: nil,
-           price_error: "Please fix the errors above"
-         )}
-
       {:error, reason} when is_atom(reason) ->
         error_message = format_booking_error(reason)
 
@@ -1656,6 +1646,57 @@ defmodule YscWeb.ClearLakeBookingLive do
            form_errors: %{general: error_message},
            calculated_price: socket.assigns.calculated_price
          )}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        form_errors = format_errors(changeset)
+
+        {:noreply,
+         assign(socket,
+           form_errors: form_errors,
+           calculated_price: nil,
+           price_error: "Please fix the errors above"
+         )}
+    end
+  end
+
+  def handle_event("switch-tab", %{"tab" => tab}, socket) do
+    active_tab =
+      case tab do
+        "information" ->
+          :information
+
+        "booking" ->
+          # Prevent switching to booking tab if user can't book
+          if socket.assigns.can_book do
+            :booking
+          else
+            socket.assigns.active_tab
+          end
+
+        _ ->
+          socket.assigns.active_tab
+      end
+
+    # Only update if tab actually changed
+    if active_tab != socket.assigns.active_tab do
+      # Update URL with the new tab
+      query_params =
+        build_query_params(
+          socket.assigns.checkin_date,
+          socket.assigns.checkout_date,
+          socket.assigns.guests_count,
+          active_tab,
+          socket.assigns.selected_booking_mode || :day
+        )
+
+      socket =
+        socket
+        |> assign(active_tab: active_tab)
+        |> push_patch(to: ~p"/bookings/clear-lake?#{URI.encode_query(query_params)}")
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
     end
   end
 
@@ -1722,47 +1763,6 @@ defmodule YscWeb.ClearLakeBookingLive do
     {:noreply, socket}
   end
 
-  def handle_event("switch-tab", %{"tab" => tab}, socket) do
-    active_tab =
-      case tab do
-        "information" ->
-          :information
-
-        "booking" ->
-          # Prevent switching to booking tab if user can't book
-          if socket.assigns.can_book do
-            :booking
-          else
-            socket.assigns.active_tab
-          end
-
-        _ ->
-          socket.assigns.active_tab
-      end
-
-    # Only update if tab actually changed
-    if active_tab != socket.assigns.active_tab do
-      # Update URL with the new tab
-      query_params =
-        build_query_params(
-          socket.assigns.checkin_date,
-          socket.assigns.checkout_date,
-          socket.assigns.guests_count,
-          active_tab,
-          socket.assigns.selected_booking_mode || :day
-        )
-
-      socket =
-        socket
-        |> assign(active_tab: active_tab)
-        |> push_patch(to: ~p"/bookings/clear-lake?#{URI.encode_query(query_params)}")
-
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
-  end
-
   # Helper functions
 
   defp parse_date(""), do: nil
@@ -1782,7 +1782,7 @@ defmodule YscWeb.ClearLakeBookingLive do
          checkin_date,
          checkout_date,
          guests_count,
-         availability_error \\ nil
+         availability_error
        ) do
     checkin_date && checkout_date &&
       is_nil(availability_error) &&
@@ -2165,10 +2165,6 @@ defmodule YscWeb.ClearLakeBookingLive do
     end
   end
 
-  defp build_query_params(checkin_date, checkout_date, guests_count, active_tab) do
-    build_query_params(checkin_date, checkout_date, guests_count, active_tab, nil)
-  end
-
   defp build_query_params(checkin_date, checkout_date, guests_count, active_tab, booking_mode) do
     params = %{}
 
@@ -2400,13 +2396,13 @@ defmodule YscWeb.ClearLakeBookingLive do
 
   # Determines which booking modes are allowed based on season settings for the selected dates
   # Returns a tuple: {day_booking_allowed, buyout_booking_allowed}
-  defp allowed_booking_modes(property, checkin_date, checkout_date, current_season) do
+  defp allowed_booking_modes(property, checkin_date, _checkout_date, _current_season) do
     case property do
       :clear_lake ->
         # For Clear Lake, check if dates are selected and validate against season
         if checkin_date do
           # Check the season for the checkin date
-          season = Bookings.Season.for_date(:clear_lake, checkin_date)
+          _season = Bookings.Season.for_date(:clear_lake, checkin_date)
 
           # Currently, Clear Lake allows both booking modes for all seasons
           # This can be extended in the future to restrict modes based on season settings
