@@ -886,7 +886,7 @@ defmodule YscWeb.AdminUserDetailsLive do
                 if @panel_width do
                   "max-height: calc(100vh - 200px); width: #{@panel_width}; flex-shrink: 0;"
                 else
-                  "max-height: calc(100vh - 200px); width: 33.333333%; flex-shrink: 0;"
+                  "max-height: calc(100vh - 200px); width: 40%; flex-shrink: 0;"
                 end
               }
             >
