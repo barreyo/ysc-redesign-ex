@@ -964,13 +964,20 @@ defmodule YscWeb.AdminUserDetailsLive do
                     <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">
                       Message
                     </p>
-                    <div class="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
+                    <div class="bg-zinc-50 rounded-lg border border-zinc-200 overflow-hidden">
                       <%= if @selected_notification.rendered_message do %>
-                        <div>
-                          <%= raw(@selected_notification.rendered_message) %>
-                        </div>
+                        <iframe
+                          id={"email-preview-#{@selected_notification.id}"}
+                          srcdoc={@selected_notification.rendered_message}
+                          class="w-full border-0"
+                          style="min-height: 400px; height: 600px;"
+                          phx-hook="EmailPreview"
+                        >
+                        </iframe>
                       <% else %>
-                        <p class="text-sm text-zinc-400 italic">No message content available</p>
+                        <div class="p-4">
+                          <p class="text-sm text-zinc-400 italic">No message content available</p>
+                        </div>
                       <% end %>
                     </div>
                   </div>
