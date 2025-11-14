@@ -4,6 +4,7 @@ defmodule YscWeb.AdminUserDetailsLive do
   alias Ysc.Accounts
   alias Ysc.Bookings
   alias Ysc.Ledgers
+  alias Ysc.Messages
   alias Ysc.Repo
   alias Ysc.Subscriptions
   alias Ysc.Tickets
@@ -102,6 +103,19 @@ defmodule YscWeb.AdminUserDetailsLive do
                   ]}
                 >
                   Membership
+                </.link>
+              </li>
+              <li class="me-2">
+                <.link
+                  navigate={~p"/admin/users/#{@user_id}/details/notifications"}
+                  class={[
+                    "inline-block p-4 border-b-2 rounded-t-lg",
+                    @live_action == :notifications && "text-blue-600 border-blue-600 active",
+                    @live_action != :notifications &&
+                      "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
+                  ]}
+                >
+                  Notifications
                 </.link>
               </li>
             </ul>
@@ -777,6 +791,205 @@ defmodule YscWeb.AdminUserDetailsLive do
             </div>
           </div>
         </div>
+
+        <div :if={@live_action == :notifications} class="max-w-full py-8 px-2">
+          <div class="flex flex-row flex-nowrap items-stretch gap-0">
+            <div
+              id="resizable-left-panel"
+              phx-update="ignore"
+              class={[
+                "resizable-left flex-1 flex-auto overflow-auto",
+                if(@selected_notification, do: "flex-[0_0_auto]", else: "flex-[1_1_auto]")
+              ]}
+              style={
+                if @selected_notification && @panel_width do
+                  "width: calc(100% - #{@panel_width} - 8px); flex-shrink: 0;"
+                else
+                  nil
+                end
+              }
+            >
+              <h2 class="text-xl font-semibold text-zinc-800 mb-4">Notifications</h2>
+              <div class="w-full">
+                <div :if={length(@notifications) == 0} class="text-sm text-zinc-600 py-8">
+                  <p>No notifications found for this user.</p>
+                </div>
+
+                <div :if={length(@notifications) > 0} class="overflow-x-auto">
+                  <table class="min-w-full divide-y divide-zinc-200">
+                    <thead class="bg-zinc-50">
+                      <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                          Sent
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                          Type
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                          Template
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                          Recipient
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-zinc-200">
+                      <tr
+                        :for={notification <- @notifications}
+                        phx-click="select_notification"
+                        phx-value-id={notification.id}
+                        class={[
+                          "hover:bg-zinc-50 cursor-pointer",
+                          @selected_notification && notification.id == @selected_notification.id &&
+                            "bg-blue-50"
+                        ]}
+                      >
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-800">
+                          <%= format_datetime_for_display(notification.inserted_at) %>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          <.badge>
+                            <%= notification.message_type |> to_string() |> String.capitalize() %>
+                          </.badge>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-600">
+                          <code class="text-xs bg-zinc-100 px-2 py-1 rounded">
+                            <%= notification.message_template %>
+                          </code>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-600">
+                          <%= if notification.email do %>
+                            <%= notification.email %>
+                          <% else %>
+                            <%= if notification.phone_number do %>
+                              <%= notification.phone_number %>
+                            <% else %>
+                              <span class="text-zinc-400">—</span>
+                            <% end %>
+                          <% end %>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div
+              :if={@selected_notification}
+              id="resizable-right-panel"
+              phx-hook="PanelResizer"
+              phx-update="ignore"
+              data-target=".resizable-right"
+              class="resizable-right flex-[0_0_auto] bg-white border-l-4 border-zinc-300 hover:border-blue-500 cursor-ew-resize select-none transition-colors flex flex-row"
+              style={
+                if @panel_width do
+                  "max-height: calc(100vh - 200px); width: #{@panel_width}; flex-shrink: 0;"
+                else
+                  "max-height: calc(100vh - 200px); width: 33.333333%; flex-shrink: 0;"
+                end
+              }
+            >
+              <div
+                id="panel-resizer-left-edge"
+                class="flex-shrink-0 w-6 cursor-ew-resize z-10 flex items-center justify-center pointer-events-auto"
+              >
+                <.icon
+                  name="hero-arrows-right-left"
+                  class="w-4 h-4 text-zinc-400 pointer-events-none"
+                />
+              </div>
+              <div class="flex-1 p-6 overflow-auto">
+                <div class="flex justify-between items-start mb-4">
+                  <h3 class="text-lg font-semibold text-zinc-800">Message Details</h3>
+                  <button
+                    phx-click="close_notification_panel"
+                    class="text-zinc-400 hover:text-zinc-600"
+                    type="button"
+                  >
+                    <.icon name="hero-x-mark" class="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div class="space-y-4">
+                  <div>
+                    <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">
+                      Sent
+                    </p>
+                    <p class="text-sm text-zinc-800">
+                      <%= format_datetime_for_display(@selected_notification.inserted_at) %>
+                    </p>
+                  </div>
+
+                  <div>
+                    <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">
+                      Type
+                    </p>
+                    <p class="text-sm text-zinc-800">
+                      <.badge>
+                        <%= @selected_notification.message_type |> to_string() |> String.capitalize() %>
+                      </.badge>
+                    </p>
+                  </div>
+
+                  <div>
+                    <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">
+                      Template
+                    </p>
+                    <p class="text-sm text-zinc-800">
+                      <code class="text-xs bg-zinc-100 px-2 py-1 rounded">
+                        <%= @selected_notification.message_template %>
+                      </code>
+                    </p>
+                  </div>
+
+                  <div>
+                    <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">
+                      Recipient
+                    </p>
+                    <p class="text-sm text-zinc-800">
+                      <%= if @selected_notification.email do %>
+                        <%= @selected_notification.email %>
+                      <% else %>
+                        <%= if @selected_notification.phone_number do %>
+                          <%= @selected_notification.phone_number %>
+                        <% else %>
+                          <span class="text-zinc-400">—</span>
+                        <% end %>
+                      <% end %>
+                    </p>
+                  </div>
+
+                  <div>
+                    <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">
+                      Message
+                    </p>
+                    <div class="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
+                      <%= if @selected_notification.rendered_message do %>
+                        <div>
+                          <%= raw(@selected_notification.rendered_message) %>
+                        </div>
+                      <% else %>
+                        <p class="text-sm text-zinc-400 italic">No message content available</p>
+                      <% end %>
+                    </div>
+                  </div>
+
+                  <div :if={
+                    @selected_notification.params && map_size(@selected_notification.params) > 0
+                  }>
+                    <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">
+                      Parameters
+                    </p>
+                    <div class="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
+                      <pre class="text-xs text-zinc-600 overflow-x-auto"><code><%= inspect(@selected_notification.params, pretty: true) %></code></pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </.side_menu>
     """
@@ -853,6 +1066,9 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:lifetime_form, to_form(lifetime_changeset, as: "lifetime"))
      |> assign(:ticket_orders_meta, nil)
      |> assign(:bookings_meta, nil)
+     |> assign(:notifications, [])
+     |> assign(:selected_notification, nil)
+     |> assign(:panel_width, nil)
      |> assign(form: to_form(user_changeset, as: "user"))}
   end
 
@@ -866,6 +1082,9 @@ defmodule YscWeb.AdminUserDetailsLive do
 
         :bookings ->
           load_bookings(socket, user_id, params)
+
+        :notifications ->
+          load_notifications(socket, user_id)
 
         _ ->
           socket
@@ -1246,5 +1465,26 @@ defmodule YscWeb.AdminUserDetailsLive do
         |> assign(:bookings_meta, meta)
         |> stream(:bookings, [], reset: true)
     end
+  end
+
+  defp load_notifications(socket, user_id) do
+    notifications = Messages.list_user_messages(user_id, limit: 100)
+    assign(socket, :notifications, notifications)
+  end
+
+  def handle_event("select_notification", %{"id" => id}, socket) do
+    notification =
+      socket.assigns.notifications
+      |> Enum.find(fn n -> n.id == id end)
+
+    {:noreply, assign(socket, :selected_notification, notification)}
+  end
+
+  def handle_event("close_notification_panel", _params, socket) do
+    {:noreply, assign(socket, :selected_notification, nil)}
+  end
+
+  def handle_event("resize_panel", %{"width" => width}, socket) do
+    {:noreply, assign(socket, :panel_width, width)}
   end
 end

@@ -12,7 +12,7 @@ defmodule Ysc.Ledgers do
 
   import Ecto.Query, warn: false
   alias Ysc.Repo
-  alias Ysc.Ledgers.{LedgerAccount, LedgerEntry, LedgerTransaction, Payment}
+  alias Ysc.Ledgers.{LedgerAccount, LedgerEntry, LedgerTransaction, Payment, Payout}
 
   # Basic account names for the system
   @basic_accounts [
@@ -427,6 +427,10 @@ defmodule Ysc.Ledgers do
   - `payout_amount`: Amount being paid out by Stripe
   - `stripe_payout_id`: Stripe payout ID
   - `description`: Description of the payout
+  - `currency`: Currency code (optional, defaults to :USD)
+  - `status`: Payout status (optional, defaults to "paid")
+  - `arrival_date`: When the payout arrives (optional)
+  - `metadata`: Additional metadata (optional)
   """
   def process_stripe_payout(attrs) do
     %{
@@ -434,6 +438,11 @@ defmodule Ysc.Ledgers do
       stripe_payout_id: stripe_payout_id,
       description: description
     } = attrs
+
+    currency = Map.get(attrs, :currency, "usd")
+    status = Map.get(attrs, :status, "paid")
+    arrival_date = Map.get(attrs, :arrival_date)
+    metadata = Map.get(attrs, :metadata, %{})
 
     ensure_basic_accounts()
 
@@ -468,7 +477,20 @@ defmodule Ysc.Ledgers do
           description: description
         })
 
-      {payout_payment, transaction, entries}
+      # Create payout record
+      {:ok, payout} =
+        create_payout(%{
+          stripe_payout_id: stripe_payout_id,
+          amount: payout_amount,
+          currency: currency,
+          status: status,
+          arrival_date: arrival_date,
+          description: description,
+          metadata: metadata,
+          payment_id: payout_payment.id
+        })
+
+      {payout_payment, transaction, entries, payout}
     end)
   end
 
@@ -515,6 +537,105 @@ defmodule Ysc.Ledgers do
     entries = [stripe_credit_entry | entries]
 
     entries
+  end
+
+  ## Payout Management
+
+  @doc """
+  Creates a payout record.
+  """
+  def create_payout(attrs \\ %{}) do
+    %Payout{}
+    |> Payout.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Gets a payout by Stripe payout ID.
+  """
+  def get_payout_by_stripe_id(stripe_payout_id) do
+    Repo.get_by(Payout, stripe_payout_id: stripe_payout_id)
+  end
+
+  @doc """
+  Gets a payout by ID with preloaded payments and refunds.
+  """
+  def get_payout!(id) do
+    Repo.get!(Payout, id)
+    |> Repo.preload([:payments, :refunds, :payment])
+  end
+
+  @doc """
+  Links a payment to a payout.
+  """
+  def link_payment_to_payout(payout, payment) do
+    # Check if already linked
+    existing_link =
+      from(pp in "payout_payments",
+        where: pp.payout_id == ^payout.id and pp.payment_id == ^payment.id,
+        limit: 1
+      )
+      |> Repo.one()
+
+    if existing_link do
+      {:ok, payout}
+    else
+      payout
+      |> Repo.preload(:payments)
+      |> Ecto.Changeset.change()
+      |> Ecto.Changeset.put_assoc(:payments, [payment | payout.payments])
+      |> Repo.update()
+    end
+  end
+
+  @doc """
+  Links a refund transaction to a payout.
+  """
+  def link_refund_to_payout(payout, refund_transaction) do
+    # Check if already linked
+    existing_link =
+      from(pr in "payout_refunds",
+        where: pr.payout_id == ^payout.id and pr.refund_transaction_id == ^refund_transaction.id,
+        limit: 1
+      )
+      |> Repo.one()
+
+    if existing_link do
+      {:ok, payout}
+    else
+      payout
+      |> Repo.preload(:refunds)
+      |> Ecto.Changeset.change()
+      |> Ecto.Changeset.put_assoc(:refunds, [refund_transaction | payout.refunds])
+      |> Repo.update()
+    end
+  end
+
+  @doc """
+  Gets all payments linked to a payout.
+  """
+  def get_payout_payments(payout_id) do
+    from(p in Payment,
+      join: pp in "payout_payments",
+      on: pp.payment_id == p.id,
+      where: pp.payout_id == ^payout_id,
+      preload: [:payment_method]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets all refund transactions linked to a payout.
+  """
+  def get_payout_refunds(payout_id) do
+    from(t in LedgerTransaction,
+      join: pr in "payout_refunds",
+      on: pr.refund_transaction_id == t.id,
+      where: pr.payout_id == ^payout_id,
+      where: t.type == "refund",
+      preload: [:payment]
+    )
+    |> Repo.all()
   end
 
   ## Credit Management
@@ -950,40 +1071,62 @@ defmodule Ysc.Ledgers do
   Adds payment type information to a payment struct.
   """
   def add_payment_type_info(payment) do
-    # Get the revenue entry for this payment to determine the type
-    revenue_entry = get_revenue_entry_for_payment(payment.id)
+    # Check if this payment is linked to a payout
+    payout = get_payout_by_payment_id(payment.id)
 
-    payment_type_info =
-      case revenue_entry do
-        nil ->
-          %{type: "Unknown", details: "No revenue entry found"}
+    if payout do
+      # This is a payout payment
+      payment_type_info = %{
+        type: "Payout",
+        details: "Stripe payout: #{payout.stripe_payout_id}"
+      }
 
-        entry ->
-          case entry.related_entity_type do
-            :membership ->
-              %{type: "Membership", details: get_membership_details(entry.related_entity_id)}
+      Map.put(payment, :payment_type_info, payment_type_info)
+    else
+      # Get the revenue entry for this payment to determine the type
+      revenue_entry = get_revenue_entry_for_payment(payment.id)
 
-            :event ->
-              %{type: "Event", details: get_event_details(entry.related_entity_id)}
+      payment_type_info =
+        case revenue_entry do
+          nil ->
+            %{type: "Unknown", details: "No revenue entry found"}
 
-            :booking ->
-              %{
-                type: "Booking",
-                details: get_booking_details(entry.related_entity_id, entry.account.name)
-              }
+          entry ->
+            case entry.related_entity_type do
+              :membership ->
+                %{type: "Membership", details: get_membership_details(entry.related_entity_id)}
 
-            :donation ->
-              %{type: "Donation", details: "General donation"}
+              :event ->
+                %{type: "Event", details: get_event_details(entry.related_entity_id)}
 
-            :administration ->
-              %{type: "Administration", details: "System transaction"}
+              :booking ->
+                %{
+                  type: "Booking",
+                  details: get_booking_details(entry.related_entity_id, entry.account.name)
+                }
 
-            _ ->
-              %{type: "Unknown", details: "Unknown entity type"}
-          end
-      end
+              :donation ->
+                %{type: "Donation", details: "General donation"}
 
-    Map.put(payment, :payment_type_info, payment_type_info)
+              :administration ->
+                %{type: "Administration", details: "System transaction"}
+
+              _ ->
+                %{type: "Unknown", details: "Unknown entity type"}
+            end
+        end
+
+      Map.put(payment, :payment_type_info, payment_type_info)
+    end
+  end
+
+  # Helper function to get payout by payment ID
+  defp get_payout_by_payment_id(payment_id) do
+    from(p in Payout,
+      where: p.payment_id == ^payment_id,
+      limit: 1
+    )
+    |> Repo.one()
   end
 
   # Helper function to get the revenue entry for a payment

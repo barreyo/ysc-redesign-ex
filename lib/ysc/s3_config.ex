@@ -41,6 +41,14 @@ defmodule Ysc.S3Config do
     Application.get_env(:ysc, :s3_region, "us-west-1")
   end
 
+  def aws_access_key_id do
+    Application.get_env(:ysc, :aws_access_key_id, "access_key_id")
+  end
+
+  def aws_secret_access_key do
+    Application.get_env(:ysc, :aws_secret_access_key, "secret_access_key")
+  end
+
   @doc """
   Returns the S3 endpoint configuration for ExAws.
   """

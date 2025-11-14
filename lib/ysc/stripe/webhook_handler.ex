@@ -5,6 +5,7 @@ defmodule Ysc.Stripe.WebhookHandler do
   Processes various Stripe webhook event types including subscriptions,
   payments, invoices, and customer updates.
   """
+  import Ecto.Query, warn: false
   alias Ysc.Customers
   alias Ysc.Subscriptions
   alias Ysc.Ledgers
@@ -426,18 +427,56 @@ defmodule Ysc.Stripe.WebhookHandler do
   defp handle("payout.paid", payout) when is_map(payout) do
     require Logger
 
+    payout_id = payout[:id] || payout["id"]
+
     Logger.info("Processing Stripe payout",
-      payout_id: payout[:id] || payout["id"],
+      payout_id: payout_id,
       amount: payout[:amount] || payout["amount"],
       currency: payout[:currency] || payout["currency"],
       status: payout[:status] || payout["status"]
     )
 
-    # Process the payout in the ledger
+    # Check if payout already exists (idempotency)
+    case Ledgers.get_payout_by_stripe_id(payout_id) do
+      nil ->
+        # Payout doesn't exist, process it
+        process_new_payout(payout)
+
+      existing_payout ->
+        # Payout already exists, skip processing
+        Logger.info("Payout already processed, skipping (idempotency)",
+          payout_id: payout_id,
+          existing_payout_id: existing_payout.id
+        )
+
+        :ok
+    end
+  end
+
+  # Helper function to process a new payout
+  defp process_new_payout(payout) do
+    require Logger
+
     payout_id = payout[:id] || payout["id"]
     amount_cents = payout[:amount] || payout["amount"]
-    currency = (payout[:currency] || payout["currency"]) |> String.downcase() |> String.to_atom()
+    currency_str = payout[:currency] || payout["currency"]
+    currency = currency_str |> String.downcase() |> String.to_atom()
     description = payout[:description] || payout["description"] || "Stripe payout"
+    status = payout[:status] || payout["status"]
+    metadata = payout[:metadata] || payout["metadata"] || %{}
+
+    # Parse arrival_date if present
+    arrival_date =
+      case payout[:arrival_date] || payout["arrival_date"] do
+        nil ->
+          nil
+
+        unix_timestamp when is_integer(unix_timestamp) ->
+          DateTime.from_unix!(unix_timestamp) |> DateTime.truncate(:second)
+
+        _ ->
+          nil
+      end
 
     # Convert amount from cents to Money struct
     payout_amount = Money.new(currency, MoneyHelper.cents_to_dollars(amount_cents))
@@ -446,16 +485,20 @@ defmodule Ysc.Stripe.WebhookHandler do
     case Ledgers.process_stripe_payout(%{
            payout_amount: payout_amount,
            stripe_payout_id: payout_id,
-           description: description
+           description: description,
+           currency: currency_str,
+           status: status,
+           arrival_date: arrival_date,
+           metadata: metadata
          }) do
-      {:ok, {_payout_payment, _transaction, _entries}} ->
+      {:ok, {_payout_payment, _transaction, _entries, payout}} ->
         Logger.info("Stripe payout processed successfully in ledger",
           payout_id: payout_id,
           amount: Money.to_string!(payout_amount)
         )
 
-        # Get detailed breakdown of payments included in this payout
-        print_payout_breakdown(payout_id, payout_amount)
+        # Fetch and link payments/refunds from Stripe
+        link_payout_transactions(payout, payout_id)
 
         :ok
 
@@ -750,8 +793,6 @@ defmodule Ysc.Stripe.WebhookHandler do
 
   # Helper function to update subscription items
   defp update_subscription_items(subscription, stripe_items) do
-    import Ecto.Query, only: [from: 2]
-
     # Create/update subscription items
     subscription_items =
       Subscriptions.subscription_item_structs_from_stripe_items(stripe_items, subscription)
@@ -1116,6 +1157,193 @@ defmodule Ysc.Stripe.WebhookHandler do
       )
 
       :ok
+    end
+  end
+
+  # Helper function to link payments and refunds to a payout
+  defp link_payout_transactions(payout, stripe_payout_id) do
+    require Logger
+
+    try do
+      # Fetch balance transactions for this payout from Stripe
+      # Balance transactions show all charges, refunds, and fees included in the payout
+      case Stripe.BalanceTransaction.list(%{payout: stripe_payout_id, limit: 100}) do
+        {:ok, %Stripe.List{data: balance_transactions}} ->
+          Logger.info("Found #{length(balance_transactions)} balance transactions for payout",
+            payout_id: stripe_payout_id
+          )
+
+          Enum.each(balance_transactions, fn balance_transaction ->
+            link_balance_transaction_to_payout(payout, balance_transaction)
+          end)
+
+        {:error, reason} ->
+          Logger.warning("Failed to fetch balance transactions for payout",
+            payout_id: stripe_payout_id,
+            error: inspect(reason)
+          )
+      end
+    rescue
+      error ->
+        Logger.error("Exception while linking payout transactions",
+          payout_id: stripe_payout_id,
+          error: Exception.message(error)
+        )
+    end
+  end
+
+  # Helper function to link a single balance transaction to a payout
+  defp link_balance_transaction_to_payout(payout, balance_transaction) do
+    require Logger
+
+    # Balance transactions can be charges, refunds, or other types
+    # We need to find the corresponding payment or refund in our system
+    case balance_transaction.type do
+      "charge" ->
+        # Find payment by charge ID (which is the payment_intent ID)
+        charge_id = balance_transaction.source
+        link_charge_to_payout(payout, charge_id)
+
+      "refund" ->
+        # Find refund transaction by refund ID
+        refund_id = balance_transaction.source
+        link_stripe_refund_to_payout(payout, refund_id)
+
+      _ ->
+        # Other types (fees, adjustments, etc.) - skip for now
+        :ok
+    end
+  end
+
+  # Helper function to link a charge to a payout
+  defp link_charge_to_payout(payout, charge_id) do
+    require Logger
+
+    try do
+      # Get the charge to find the payment intent
+      case Stripe.Charge.retrieve(charge_id) do
+        {:ok, charge} ->
+          payment_intent_id = charge.payment_intent
+
+          if payment_intent_id do
+            # Find payment by external_payment_id (payment intent ID)
+            payment = Ledgers.get_payment_by_external_id(payment_intent_id)
+
+            if payment do
+              case Ledgers.link_payment_to_payout(payout, payment) do
+                {:ok, _} ->
+                  Logger.info("Linked payment to payout",
+                    payout_id: payout.stripe_payout_id,
+                    payment_id: payment.id,
+                    charge_id: charge_id
+                  )
+
+                {:error, reason} ->
+                  Logger.warning("Failed to link payment to payout",
+                    payout_id: payout.stripe_payout_id,
+                    payment_id: payment.id,
+                    error: inspect(reason)
+                  )
+              end
+            else
+              Logger.debug("Payment not found for charge",
+                charge_id: charge_id,
+                payment_intent_id: payment_intent_id
+              )
+            end
+          end
+
+        {:error, reason} ->
+          Logger.warning("Failed to retrieve charge",
+            charge_id: charge_id,
+            error: inspect(reason)
+          )
+      end
+    rescue
+      error ->
+        Logger.error("Exception while linking charge to payout",
+          charge_id: charge_id,
+          error: Exception.message(error)
+        )
+    end
+  end
+
+  # Helper function to link a Stripe refund to a payout
+  defp link_stripe_refund_to_payout(payout, stripe_refund_id) do
+    require Logger
+
+    try do
+      # Get the refund to find the charge/payment intent
+      case Stripe.Refund.retrieve(stripe_refund_id) do
+        {:ok, refund} ->
+          charge_id = refund.charge
+
+          if charge_id do
+            # Get the charge to find the payment intent
+            case Stripe.Charge.retrieve(charge_id) do
+              {:ok, charge} ->
+                payment_intent_id = charge.payment_intent
+
+                if payment_intent_id do
+                  # Find the payment
+                  payment = Ledgers.get_payment_by_external_id(payment_intent_id)
+
+                  if payment do
+                    # Find the refund transaction for this payment
+                    refund_transaction =
+                      from(t in Ysc.Ledgers.LedgerTransaction,
+                        where: t.payment_id == ^payment.id,
+                        where: t.type == "refund",
+                        order_by: [desc: t.inserted_at],
+                        limit: 1
+                      )
+                      |> Ysc.Repo.one()
+
+                    if refund_transaction do
+                      case Ledgers.link_refund_to_payout(payout, refund_transaction) do
+                        {:ok, _} ->
+                          Logger.info("Linked refund to payout",
+                            payout_id: payout.stripe_payout_id,
+                            refund_transaction_id: refund_transaction.id,
+                            stripe_refund_id: stripe_refund_id
+                          )
+
+                        {:error, reason} ->
+                          Logger.warning("Failed to link refund to payout",
+                            payout_id: payout.stripe_payout_id,
+                            refund_transaction_id: refund_transaction.id,
+                            error: inspect(reason)
+                          )
+                      end
+                    else
+                      Logger.debug("Refund transaction not found for payment",
+                        payment_id: payment.id,
+                        stripe_refund_id: stripe_refund_id
+                      )
+                    end
+                  end
+                end
+
+              {:error, reason} ->
+                Logger.warning("Failed to retrieve charge for refund",
+                  charge_id: charge_id,
+                  error: inspect(reason)
+                )
+            end
+          end
+
+        {:error, reason} ->
+          Logger.warning("Failed to retrieve refund",
+            stripe_refund_id: stripe_refund_id,
+            error: inspect(reason)
+          )
+      end
+    rescue
+      error ->
+        Logger.error("Exception while linking refund to payout",
+          stripe_refund_id: stripe_refund_id,
+          error: Exception.message(error)
+        )
     end
   end
 end

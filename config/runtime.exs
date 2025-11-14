@@ -135,7 +135,9 @@ if config_env() == :prod do
   config :ysc,
     s3_bucket: s3_bucket,
     s3_region: s3_region,
-    s3_base_url: s3_base_url
+    s3_base_url: s3_base_url,
+    aws_access_key_id: aws_access_key_id,
+    aws_secret_access_key: aws_secret_access_key
 
   # Configure ExAws S3 endpoint if we're using localstack (dev/test)
   # or a custom endpoint (sandbox/prod might use custom endpoints)

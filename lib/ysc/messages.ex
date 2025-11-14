@@ -255,4 +255,31 @@ defmodule Ysc.Messages do
         {:error, "failed to send email"}
     end
   end
+
+  @doc """
+  Lists all messages (notifications) for a user, ordered by most recent first.
+  """
+  def list_user_messages(user_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 50)
+    offset = Keyword.get(opts, :offset, 0)
+
+    from(m in MessageIdempotency,
+      where: m.user_id == ^user_id,
+      order_by: [desc: m.id],
+      limit: ^limit,
+      offset: ^offset
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets the total count of messages for a user.
+  """
+  def count_user_messages(user_id) do
+    from(m in MessageIdempotency,
+      where: m.user_id == ^user_id,
+      select: count()
+    )
+    |> Repo.one()
+  end
 end

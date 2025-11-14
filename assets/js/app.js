@@ -37,6 +37,7 @@ import Turnstile from "./phoenix_turnstile";
 import StripeInput from "./stripe_payment";
 import StripeElements from "./stripe_elements";
 import CheckoutTimer from "./checkout_timer";
+import PanelResizer from "./panel_resizer";
 
 let Hooks = {
     StickyNavbar,
@@ -53,6 +54,7 @@ let Hooks = {
     StripeInput,
     StripeElements,
     CheckoutTimer,
+    PanelResizer,
 };
 Hooks.LivePhone = LivePhone;
 
