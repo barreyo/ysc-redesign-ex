@@ -2228,8 +2228,17 @@ defmodule YscWeb.ClearLakeBookingLive do
     # Get availability for the date range
     availability = Bookings.get_clear_lake_daily_availability(checkin_date, checkout_date)
 
-    # Check each date in the range
-    date_range = Date.range(checkin_date, checkout_date) |> Enum.to_list()
+    # Check each date in the range, but exclude checkout_date
+    # Since checkout is at 11 AM and check-in is at 3 PM, the checkout_date
+    # is not an occupied night and should not be validated
+    date_range =
+      if Date.compare(checkout_date, checkin_date) == :gt do
+        # Exclude checkout_date - only validate nights that will be stayed
+        Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+      else
+        # Edge case: same day check-in/check-out (shouldn't happen, but handle gracefully)
+        []
+      end
 
     unavailable_dates =
       date_range

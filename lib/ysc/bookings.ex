@@ -1758,10 +1758,15 @@ defmodule Ysc.Bookings do
   def get_clear_lake_daily_availability(start_date, end_date) do
     date_range = Date.range(start_date, end_date) |> Enum.to_list()
 
-    # Get all bookings that overlap with the date range
+    # Get all bookings that overlap with the date range OR have checkout/checkin dates in the range
+    # We need to expand the query to include bookings that checkout on start_date or checkin on end_date
+    # to properly detect changeover days
     # Only preload what we need - we don't need user data for availability calculation
     # Filter out canceled and hold bookings - only count complete bookings for availability
-    all_bookings = list_bookings(:clear_lake, start_date, end_date, preload: [:rooms])
+    # Expand the date range by 1 day on each side to capture all relevant checkouts and checkins
+    expanded_start = Date.add(start_date, -1)
+    expanded_end = Date.add(end_date, 1)
+    all_bookings = list_bookings(:clear_lake, expanded_start, expanded_end, preload: [:rooms])
 
     bookings =
       Enum.filter(all_bookings, fn booking ->
@@ -1782,15 +1787,70 @@ defmodule Ysc.Bookings do
     # Initialize availability map
     availability =
       date_range
-      |> Enum.map(fn date -> {date, %{day_bookings_count: 0, has_buyout: false}} end)
+      |> Enum.map(fn date ->
+        {date,
+         %{day_bookings_count: 0, has_buyout: false, has_checkout: false, has_checkin: false}}
+      end)
       |> Map.new()
 
     # Process bookings to count guests per day and check for buyouts
+    # Note: Exclude checkout_date from the range since checkout is at 11:00 AM
+    # and check-in is at 15:00 (3 PM), allowing same-day turnarounds
     availability =
       bookings
       |> Enum.reduce(availability, fn booking, acc ->
+        # Debug: Print booking info
+        IO.puts("""
+        [DEBUG] Processing booking:
+          - checkin_date: #{Date.to_string(booking.checkin_date)}
+          - checkout_date: #{Date.to_string(booking.checkout_date)}
+          - booking_mode: #{booking.booking_mode}
+          - status: #{booking.status}
+        """)
+
+        # Track checkout and checkin dates for changeover day detection
+        # Only track if the date is in the availability map (within the displayed range)
+        acc =
+          if Map.has_key?(acc, booking.checkout_date) do
+            IO.puts("[DEBUG] Tracking checkout on #{Date.to_string(booking.checkout_date)}")
+
+            Map.update!(acc, booking.checkout_date, fn info ->
+              %{info | has_checkout: true}
+            end)
+          else
+            IO.puts(
+              "[DEBUG] Checkout date #{Date.to_string(booking.checkout_date)} not in availability map"
+            )
+
+            acc
+          end
+
+        acc =
+          if Map.has_key?(acc, booking.checkin_date) do
+            IO.puts("[DEBUG] Tracking checkin on #{Date.to_string(booking.checkin_date)}")
+
+            Map.update!(acc, booking.checkin_date, fn info ->
+              %{info | has_checkin: true}
+            end)
+          else
+            IO.puts(
+              "[DEBUG] Checkin date #{Date.to_string(booking.checkin_date)} not in availability map"
+            )
+
+            acc
+          end
+
+        # Only count dates from checkin_date to checkout_date - 1
+        # The checkout_date itself is not occupied since guests leave at 11 AM
         booking_date_range =
-          Date.range(booking.checkin_date, booking.checkout_date) |> Enum.to_list()
+          if Date.compare(booking.checkout_date, booking.checkin_date) == :gt do
+            # Exclude checkout_date - only count nights actually stayed
+            Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
+            |> Enum.to_list()
+          else
+            # Edge case: same day check-in/check-out (shouldn't happen, but handle gracefully)
+            []
+          end
 
         booking_date_range
         |> Enum.reduce(acc, fn date, date_acc ->
@@ -1836,8 +1896,28 @@ defmodule Ysc.Bookings do
       spots_available = max(0, 12 - total_occupied)
       can_book_day = not is_blacked_out and spots_available > 0 and not info.has_buyout
 
+      # Buyout can only be booked if:
+      # - Not blacked out
+      # - No buyout already on that day
+      # - No day bookings (shared/per person) on that day (day_bookings_count must be 0)
       can_book_buyout =
-        not is_blacked_out and not info.has_buyout and total_occupied == 0
+        not is_blacked_out and not info.has_buyout and info.day_bookings_count == 0
+
+      is_changeover = info.has_checkout && info.has_checkin
+
+      # Debug printing for changeover days
+      if is_changeover do
+        IO.puts("""
+        [DEBUG] Changeover day detected: #{Date.to_string(date)}
+          - has_checkout: #{info.has_checkout}
+          - has_checkin: #{info.has_checkin}
+          - has_buyout: #{info.has_buyout}
+          - day_bookings_count: #{info.day_bookings_count}
+          - can_book_day: #{can_book_day}
+          - can_book_buyout: #{can_book_buyout}
+          - is_blacked_out: #{is_blacked_out}
+        """)
+      end
 
       {
         date,
@@ -1847,7 +1927,10 @@ defmodule Ysc.Bookings do
           has_buyout: info.has_buyout,
           is_blacked_out: is_blacked_out,
           can_book_day: can_book_day,
-          can_book_buyout: can_book_buyout
+          can_book_buyout: can_book_buyout,
+          has_checkout: info.has_checkout,
+          has_checkin: info.has_checkin,
+          is_changeover_day: is_changeover
         }
       }
     end)

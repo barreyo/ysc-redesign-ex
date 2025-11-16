@@ -832,7 +832,7 @@ else
     # Use different users than the room bookings (indices 5+ to avoid conflicts)
     all_users = Repo.all(from u in User, where: u.state == :active, limit: 15)
 
-    if Enum.count(all_users) >= 8 do
+    if Enum.count(all_users) >= 11 do
       # Tahoe Buyout 1: Summer buyout (2 nights, no weekend)
       # Must be in summer season (May 1 - Oct 31)
       today = Date.utc_today()
@@ -1009,20 +1009,20 @@ else
       |> Repo.insert(on_conflict: :nothing)
 
       # Clear Lake Buyout 1: Simple buyout
-      clear_lake_buyout_checkin = Date.add(today, 12)
-      clear_lake_buyout_checkout = Date.add(clear_lake_buyout_checkin, 2)  # 2 nights
+      clear_lake_buyout1_checkin = Date.add(today, 12)
+      clear_lake_buyout1_checkout = Date.add(clear_lake_buyout1_checkin, 2)  # 2 nights
 
       # Use a different user (skip first 5 used for room bookings)
-      clear_lake_buyout_user = Enum.at(all_users, 5)
+      clear_lake_buyout1_user = Enum.at(all_users, 5)
 
       booking_attrs = %{
-        checkin_date: clear_lake_buyout_checkin,
-        checkout_date: clear_lake_buyout_checkout,
+        checkin_date: clear_lake_buyout1_checkin,
+        checkout_date: clear_lake_buyout1_checkout,
         guests_count: 15,  # Can exceed 12 since it's a buyout
         property: :clear_lake,
         booking_mode: :buyout,
         rooms: [],
-        user_id: clear_lake_buyout_user.id
+        user_id: clear_lake_buyout1_user.id
       }
 
       {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
@@ -1032,11 +1032,12 @@ else
         total_price: total_price,
         pricing_items: pricing_items
       }), rooms: [])
-      |> BookingValidator.validate(user: clear_lake_buyout_user)
+      |> BookingValidator.validate(user: clear_lake_buyout1_user)
       |> Repo.insert(on_conflict: :nothing)
 
-      # Clear Lake Buyout 2: Longer buyout
-      clear_lake_buyout2_checkin = Date.add(today, 20)
+      # Clear Lake Buyout 2: Longer buyout - ensure it doesn't overlap with Buyout 1
+      # Buyout 1 ends at clear_lake_buyout1_checkout, so start Buyout 2 after that
+      clear_lake_buyout2_checkin = Date.add(clear_lake_buyout1_checkout, 1)  # Start the day after Buyout 1 ends
       clear_lake_buyout2_checkout = Date.add(clear_lake_buyout2_checkin, 5)  # 5 nights
 
       # Use a different user (skip first 5 used for room bookings)
@@ -1062,7 +1063,84 @@ else
       |> BookingValidator.validate(user: clear_lake_buyout2_user)
       |> Repo.insert(on_conflict: :nothing)
 
-      IO.puts("Created buyout bookings")
+      # Clear Lake Day Mode (Shared) Bookings - "a la cart"
+      # These can overlap with each other but not with buyouts
+      # Day 1: Small group
+      clear_lake_day1_checkin = Date.add(clear_lake_buyout2_checkout, 2)  # Start 2 days after last buyout ends
+      clear_lake_day1_checkout = Date.add(clear_lake_day1_checkin, 1)  # 1 night
+      clear_lake_day1_user = Enum.at(all_users, 8)
+
+      booking_attrs = %{
+        checkin_date: clear_lake_day1_checkin,
+        checkout_date: clear_lake_day1_checkout,
+        guests_count: 3,
+        property: :clear_lake,
+        booking_mode: :day,
+        rooms: [],
+        user_id: clear_lake_day1_user.id
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }), rooms: [])
+      |> BookingValidator.validate(user: clear_lake_day1_user)
+      |> Repo.insert(on_conflict: :nothing)
+
+      # Day 2: Medium group (can overlap with Day 1 since it's shared)
+      clear_lake_day2_checkin = clear_lake_day1_checkin  # Same check-in date (shared booking)
+      clear_lake_day2_checkout = Date.add(clear_lake_day2_checkin, 2)  # 2 nights
+      clear_lake_day2_user = Enum.at(all_users, 9)
+
+      booking_attrs = %{
+        checkin_date: clear_lake_day2_checkin,
+        checkout_date: clear_lake_day2_checkout,
+        guests_count: 5,
+        property: :clear_lake,
+        booking_mode: :day,
+        rooms: [],
+        user_id: clear_lake_day2_user.id
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }), rooms: [])
+      |> BookingValidator.validate(user: clear_lake_day2_user)
+      |> Repo.insert(on_conflict: :nothing)
+
+      # Day 3: Another shared booking starting later
+      clear_lake_day3_checkin = Date.add(clear_lake_day1_checkout, 1)  # Start after Day 1 ends
+      clear_lake_day3_checkout = Date.add(clear_lake_day3_checkin, 3)  # 3 nights
+      clear_lake_day3_user = Enum.at(all_users, 10)
+
+      booking_attrs = %{
+        checkin_date: clear_lake_day3_checkin,
+        checkout_date: clear_lake_day3_checkout,
+        guests_count: 4,
+        property: :clear_lake,
+        booking_mode: :day,
+        rooms: [],
+        user_id: clear_lake_day3_user.id
+      }
+
+      {total_price, pricing_items} = calculate_booking_pricing.(booking_attrs)
+
+      Booking.changeset(%Booking{}, Map.merge(booking_attrs, %{
+        status: :complete,
+        total_price: total_price,
+        pricing_items: pricing_items
+      }), rooms: [])
+      |> BookingValidator.validate(user: clear_lake_day3_user)
+      |> Repo.insert(on_conflict: :nothing)
+
+      IO.puts("Created buyout and day mode bookings for Clear Lake")
     end
 
     IO.puts("Created sample bookings")

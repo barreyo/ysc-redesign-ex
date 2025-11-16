@@ -90,45 +90,113 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                   [
                     "calendar-day overflow-hidden py-2 h-16 rounded w-full focus:z-10 transition duration-300 flex flex-col items-center justify-center",
                     today?(day) && "font-bold border-2 border-zinc-400",
-                    # Different colors based on unavailability reason
-                    unavailability_type(
-                      day,
-                      @min,
-                      @checkin_date,
-                      @state,
-                      @max,
-                      @property,
-                      @today,
-                      @selected_booking_mode,
-                      @availability,
-                      @seasons
-                    ) == :blackout &&
+                    # Red styling for dates with day bookings when in buyout mode
+                    # Buyout cannot be booked if there are ANY day bookings on that day
+                    if @selected_booking_mode == :buyout do
+                      case Map.get(@availability, day) do
+                        %{day_bookings_count: count} when count > 0 ->
+                          "bg-red-200 border border-red-300 text-zinc-900 cursor-not-allowed"
+
+                        _ ->
+                          nil
+                      end
+                    else
+                      nil
+                    end,
+                    # Fully red styling for dates with both checkout and checkin (not selectable at all)
+                    case Map.get(@availability, day) do
+                      %{has_checkout: checkout, has_checkin: checkin}
+                      when checkout == true and checkin == true ->
+                        if !is_blacked_out?(day, @availability) do
+                          "bg-red-200 border border-red-300 text-zinc-900 cursor-not-allowed"
+                        else
+                          nil
+                        end
+
+                      _ ->
+                        nil
+                    end,
+                    # Half green / half red styling for dates with check-in but no checkout
+                    # Only show gradients for buyout mode (not for shared/day mode bookings)
+                    if @selected_booking_mode == :buyout do
+                      case Map.get(@availability, day) do
+                        %{has_checkin: checkin, has_checkout: checkout}
+                        when checkin == true and checkout != true ->
+                          if !is_blacked_out?(day, @availability) do
+                            "bg-gradient-to-r from-green-50 to-red-100 border-l-2 border-r-2 border-l-green-200 border-r-red-300 text-zinc-900"
+                          else
+                            nil
+                          end
+
+                        _ ->
+                          nil
+                      end
+                    else
+                      nil
+                    end,
+                    # Half green / half red styling for dates with checkout but no check-in
+                    # Only show gradients for buyout mode (not for shared/day mode bookings)
+                    if @selected_booking_mode == :buyout do
+                      case Map.get(@availability, day) do
+                        %{has_checkout: checkout, has_checkin: checkin}
+                        when checkout == true and checkin != true ->
+                          if !is_blacked_out?(day, @availability) do
+                            "bg-gradient-to-r from-red-100 to-green-50 border-l-2 border-r-2 border-l-red-300 border-r-green-200 text-zinc-900"
+                          else
+                            nil
+                          end
+
+                        _ ->
+                          nil
+                      end
+                    else
+                      nil
+                    end,
+                    # Different colors based on unavailability reason (only if not a changeover day)
+                    !has_checkout?(day, @availability) &&
+                      !has_checkin?(day, @availability) &&
+                      unavailability_type(
+                        day,
+                        @min,
+                        @checkin_date,
+                        @state,
+                        @max,
+                        @property,
+                        @today,
+                        @selected_booking_mode,
+                        @availability,
+                        @seasons
+                      ) == :blackout &&
                       "text-red-100 cursor-not-allowed bg-red-800 border border-red-900",
-                    unavailability_type(
-                      day,
-                      @min,
-                      @checkin_date,
-                      @state,
-                      @max,
-                      @property,
-                      @today,
-                      @selected_booking_mode,
-                      @availability,
-                      @seasons
-                    ) == :bookings &&
+                    !has_checkout?(day, @availability) &&
+                      !has_checkin?(day, @availability) &&
+                      unavailability_type(
+                        day,
+                        @min,
+                        @checkin_date,
+                        @state,
+                        @max,
+                        @property,
+                        @today,
+                        @selected_booking_mode,
+                        @availability,
+                        @seasons
+                      ) == :bookings &&
                       "text-red-200 cursor-not-allowed bg-red-200 border border-red-300",
-                    unavailability_type(
-                      day,
-                      @min,
-                      @checkin_date,
-                      @state,
-                      @max,
-                      @property,
-                      @today,
-                      @selected_booking_mode,
-                      @availability,
-                      @seasons
-                    ) == :other &&
+                    !has_checkout?(day, @availability) &&
+                      !has_checkin?(day, @availability) &&
+                      unavailability_type(
+                        day,
+                        @min,
+                        @checkin_date,
+                        @state,
+                        @max,
+                        @property,
+                        @today,
+                        @selected_booking_mode,
+                        @availability,
+                        @seasons
+                      ) == :other &&
                       "text-zinc-300 cursor-not-allowed opacity-50 bg-zinc-100"
                   ]
                 }
@@ -210,6 +278,103 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                     !selected_end?(day, @checkout_date) &&
                     !(@state == :set_end && @hover_checkout_date && day == @hover_checkout_date) &&
                     "bg-blue-400 text-white hover:bg-blue-500",
+                  # Red styling for dates with day bookings when in buyout mode
+                  # Buyout cannot be booked if there are ANY day bookings on that day
+                  if @selected_booking_mode == :buyout &&
+                       !other_month?(day, @current.date) &&
+                       !selected_start?(day, @checkin_date) &&
+                       !selected_end?(day, @checkout_date) &&
+                       !(@state == :set_end && @hover_checkout_date && day == @hover_checkout_date) &&
+                       !selected_range?(day, @checkin_date, @hover_checkout_date || @checkout_date) &&
+                       !(in_hover_range?(day, @checkin_date, @hover_checkout_date) &&
+                           @state == :set_end) do
+                    case Map.get(@availability, day) do
+                      %{day_bookings_count: count} when count > 0 ->
+                        "bg-red-200 border border-red-300 text-zinc-900 cursor-not-allowed"
+
+                      _ ->
+                        nil
+                    end
+                  else
+                    nil
+                  end,
+                  # Fully red styling for dates with both checkout and checkin (not selectable at all)
+                  # Must come before other styling to take precedence
+                  if !other_month?(day, @current.date) &&
+                       !selected_start?(day, @checkin_date) &&
+                       !selected_end?(day, @checkout_date) &&
+                       !(@state == :set_end && @hover_checkout_date && day == @hover_checkout_date) &&
+                       !selected_range?(day, @checkin_date, @hover_checkout_date || @checkout_date) &&
+                       !(in_hover_range?(day, @checkin_date, @hover_checkout_date) &&
+                           @state == :set_end) do
+                    case Map.get(@availability, day) do
+                      %{has_checkout: checkout, has_checkin: checkin} = info
+                      when checkout == true and checkin == true ->
+                        if !is_blacked_out?(day, @availability) do
+                          "bg-red-200 border border-red-300 text-zinc-900 cursor-not-allowed"
+                        else
+                          nil
+                        end
+
+                      _ ->
+                        nil
+                    end
+                  else
+                    nil
+                  end,
+                  # Half green / half red styling for dates with check-in but no checkout
+                  # Only show gradients for buyout mode (not for shared/day mode bookings)
+                  # These can be used as checkout dates for same-day turnarounds
+                  if @selected_booking_mode == :buyout &&
+                       !other_month?(day, @current.date) &&
+                       !selected_start?(day, @checkin_date) &&
+                       !selected_end?(day, @checkout_date) &&
+                       !(@state == :set_end && @hover_checkout_date && day == @hover_checkout_date) &&
+                       !selected_range?(day, @checkin_date, @hover_checkout_date || @checkout_date) &&
+                       !(in_hover_range?(day, @checkin_date, @hover_checkout_date) &&
+                           @state == :set_end) do
+                    case Map.get(@availability, day) do
+                      %{has_checkin: checkin, has_checkout: checkout}
+                      when checkin == true and checkout != true ->
+                        if !is_blacked_out?(day, @availability) do
+                          "bg-gradient-to-r from-green-50 to-red-100 border-l-2 border-r-2 border-l-green-200 border-r-red-300 text-zinc-900"
+                        else
+                          nil
+                        end
+
+                      _ ->
+                        nil
+                    end
+                  else
+                    nil
+                  end,
+                  # Half green / half red styling for dates with checkout but no check-in
+                  # Only show gradients for buyout mode (not for shared/day mode bookings)
+                  # These can be used as check-in dates for same-day turnarounds
+                  # Left side red (checkout happening), right side green (available for check-in)
+                  if @selected_booking_mode == :buyout &&
+                       !other_month?(day, @current.date) &&
+                       !selected_start?(day, @checkin_date) &&
+                       !selected_end?(day, @checkout_date) &&
+                       !(@state == :set_end && @hover_checkout_date && day == @hover_checkout_date) &&
+                       !selected_range?(day, @checkin_date, @hover_checkout_date || @checkout_date) &&
+                       !(in_hover_range?(day, @checkin_date, @hover_checkout_date) &&
+                           @state == :set_end) do
+                    case Map.get(@availability, day) do
+                      %{has_checkout: checkout, has_checkin: checkin}
+                      when checkout == true and checkin != true ->
+                        if !is_blacked_out?(day, @availability) do
+                          "bg-gradient-to-r from-red-100 to-green-50 border-l-2 border-r-2 border-l-red-300 border-r-green-200 text-zinc-900"
+                        else
+                          nil
+                        end
+
+                      _ ->
+                        nil
+                    end
+                  else
+                    nil
+                  end,
                   # Light green background for available dates (not disabled, not selected, not in range, not other month, and has availability data)
                   !date_disabled?(
                     day,
@@ -230,6 +395,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                     !selected_range?(day, @checkin_date, @hover_checkout_date || @checkout_date) &&
                     !(in_hover_range?(day, @checkin_date, @hover_checkout_date) && @state == :set_end) &&
                     Map.has_key?(@availability, day) &&
+                    !is_changeover_day?(day, @availability) &&
                     "bg-green-50 border border-green-200 text-zinc-900",
                   today?(day) && "font-bold border-2 border-zinc-400",
                   # Show hover effect only when not in range selection mode and not disabled
@@ -247,8 +413,26 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                   ) &&
                     !before_min_date?(day, @min) &&
                     @state != :set_end &&
+                    is_changeover_day?(day, @availability) &&
+                    "hover:from-green-100 hover:to-red-200",
+                  !date_disabled?(
+                    day,
+                    @min,
+                    @checkin_date,
+                    @state,
+                    @max,
+                    @property,
+                    @today,
+                    @selected_booking_mode,
+                    @availability,
+                    @seasons
+                  ) &&
+                    !before_min_date?(day, @min) &&
+                    @state != :set_end &&
+                    !is_changeover_day?(day, @availability) &&
                     "hover:bg-green-100 hover:border-green-300",
                   # Different colors for disabled dates based on reason (but not if it's the selected start date)
+                  # Exclude dates with check-in/checkout from disabled styling (they have special styling)
                   date_disabled?(
                     day,
                     @min,
@@ -262,6 +446,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                     @seasons
                   ) &&
                     !selected_start?(day, @checkin_date) &&
+                    !has_checkout?(day, @availability) &&
+                    !has_checkin?(day, @availability) &&
                     unavailability_type(
                       day,
                       @min,
@@ -288,6 +474,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                     @seasons
                   ) &&
                     !selected_start?(day, @checkin_date) &&
+                    !has_checkout?(day, @availability) &&
+                    !has_checkin?(day, @availability) &&
                     unavailability_type(
                       day,
                       @min,
@@ -314,6 +502,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                     @seasons
                   ) &&
                     !selected_start?(day, @checkin_date) &&
+                    !has_checkout?(day, @availability) &&
+                    !has_checkin?(day, @availability) &&
                     unavailability_type(
                       day,
                       @min,
@@ -824,60 +1014,182 @@ defmodule YscWeb.Components.AvailabilityCalendar do
        ) do
     # Always disable dates before minimum
     if Date.compare(day, min) == :lt do
+      IO.puts("[DEBUG] date_disabled? #{Date.to_string(day)}: true (before min)")
       true
     else
       # Check if date is after maximum (if max is set)
       if max && Date.compare(day, max) == :gt do
+        IO.puts("[DEBUG] date_disabled? #{Date.to_string(day)}: true (after max)")
         true
       else
         # Check season restrictions if property is provided
         if property && today do
           unless is_date_selectable_cached?(property, day, today, seasons) do
+            IO.puts("[DEBUG] date_disabled? #{Date.to_string(day)}: true (season restriction)")
             true
           else
             # Check availability
             day_availability = Map.get(availability, day)
 
             if day_availability do
-              cond do
-                day_availability.is_blacked_out ->
-                  true
+              disabled_reason =
+                cond do
+                  # Rule: Cannot book if blacked out (applies to both buyout and day mode)
+                  day_availability.is_blacked_out ->
+                    "blacked_out"
 
-                selected_booking_mode == :day && not day_availability.can_book_day ->
-                  true
+                  # Rule: For buyout mode - cannot book if there are ANY day bookings on that day
+                  # Checkout is at 11:00 AM, check-in is at 15:00 (3 PM), so same-day turnarounds are allowed
+                  selected_booking_mode == :buyout ->
+                    # Check if there are day bookings (shared/per person) on this date
+                    if day_availability.day_bookings_count > 0 do
+                      "cannot_book_buyout (has_day_bookings: #{day_availability.day_bookings_count})"
+                    else
+                      # Check if there's a buyout staying (not checking out/in today)
+                      # Allow same-day turnarounds: checkout at 12:00, check-in at 15:00
+                      is_checkout_date = state == :set_end
+                      is_checkin_date = state == :set_start || is_nil(checkin_date)
 
-                selected_booking_mode == :buyout && not day_availability.can_book_buyout ->
-                  true
+                      if day_availability.has_buyout do
+                        # Check if same-day turnaround is possible
+                        can_same_day_turnaround =
+                          (is_checkout_date && day_availability.has_checkin) ||
+                            (is_checkin_date && day_availability.has_checkout)
 
-                true ->
-                  # Check other rules (Saturday, range validation, etc.)
-                  # When selecting checkout date, also check if all dates in range are available
-                  check_other_rules(
-                    day,
-                    checkin_date,
-                    state,
-                    property,
-                    availability,
-                    selected_booking_mode,
-                    seasons
-                  )
+                        if can_same_day_turnaround do
+                          # Same-day turnaround allowed - check other rules
+                          other_rules_result =
+                            check_other_rules(
+                              day,
+                              checkin_date,
+                              state,
+                              property,
+                              availability,
+                              selected_booking_mode,
+                              seasons
+                            )
+
+                          if other_rules_result do
+                            "other_rules"
+                          else
+                            nil
+                          end
+                        else
+                          "cannot_book_buyout (has_buyout_staying: true)"
+                        end
+                      else
+                        # No buyout, no day bookings - check other rules
+                        other_rules_result =
+                          check_other_rules(
+                            day,
+                            checkin_date,
+                            state,
+                            property,
+                            availability,
+                            selected_booking_mode,
+                            seasons
+                          )
+
+                        if other_rules_result do
+                          "other_rules"
+                        else
+                          nil
+                        end
+                      end
+                    end
+
+                  # Rule: For day/shared mode - cannot book if there's a buyout or blackout
+                  # 12 person max is already handled in can_book_day
+                  selected_booking_mode == :day ->
+                    if day_availability.has_buyout do
+                      "cannot_book_day (has_buyout: true)"
+                    else
+                      # Check if there are spots available (12 person max)
+                      # Checkout is at 11:00 AM, check-in is at 15:00 (3 PM), so same-day turnarounds are allowed
+                      if day_availability.spots_available <= 0 do
+                        "cannot_book_day (no_spots_available: #{day_availability.spots_available})"
+                      else
+                        # Check other rules
+                        other_rules_result =
+                          check_other_rules(
+                            day,
+                            checkin_date,
+                            state,
+                            property,
+                            availability,
+                            selected_booking_mode,
+                            seasons
+                          )
+
+                        if other_rules_result do
+                          "other_rules"
+                        else
+                          nil
+                        end
+                      end
+                    end
+
+                  true ->
+                    # Check other rules (Saturday, range validation, etc.)
+                    other_rules_result =
+                      check_other_rules(
+                        day,
+                        checkin_date,
+                        state,
+                        property,
+                        availability,
+                        selected_booking_mode,
+                        seasons
+                      )
+
+                    if other_rules_result do
+                      "other_rules"
+                    else
+                      nil
+                    end
+                end
+
+              if disabled_reason do
+                IO.puts("""
+                [DEBUG] date_disabled? #{Date.to_string(day)}: true (#{disabled_reason})
+                  - selected_booking_mode: #{selected_booking_mode}
+                  - has_checkout: #{day_availability.has_checkout}
+                  - has_checkin: #{day_availability.has_checkin}
+                  - is_changeover_day: #{day_availability.is_changeover_day}
+                """)
+
+                true
+              else
+                IO.puts("[DEBUG] date_disabled? #{Date.to_string(day)}: false (available)")
+                false
               end
             else
               # Date not in availability map (outside loaded range) - disable it
               # This prevents selecting dates that haven't been loaded yet
+              IO.puts(
+                "[DEBUG] date_disabled? #{Date.to_string(day)}: true (not in availability map)"
+              )
+
               true
             end
           end
         else
-          check_other_rules(
-            day,
-            checkin_date,
-            state,
-            property,
-            availability,
-            selected_booking_mode,
-            nil
+          result =
+            check_other_rules(
+              day,
+              checkin_date,
+              state,
+              property,
+              availability,
+              selected_booking_mode,
+              nil
+            )
+
+          IO.puts(
+            "[DEBUG] date_disabled? #{Date.to_string(day)}: #{result} (no property/today check)"
           )
+
+          result
         end
       end
     end
@@ -955,7 +1267,16 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
             true ->
               # Check if all dates in the range are available
-              date_range = Date.range(checkin_date, day) |> Enum.to_list()
+              # Note: Exclude the checkout date (day) from validation since checkout is at 11 AM
+              # and check-in is at 3 PM, allowing same-day turnarounds
+              date_range =
+                if Date.compare(day, checkin_date) == :gt do
+                  # Exclude checkout date - only validate nights that will be stayed
+                  Date.range(checkin_date, Date.add(day, -1)) |> Enum.to_list()
+                else
+                  # Edge case: same day check-in/check-out (shouldn't happen, but handle gracefully)
+                  []
+                end
 
               # Check if any date in the range is blacked out or unavailable
               range_has_unavailable_date =
@@ -1310,6 +1631,86 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
   defp other_month?(day, current_date) do
     Date.beginning_of_month(day) != Date.beginning_of_month(current_date)
+  end
+
+  defp is_changeover_day?(day, availability) do
+    case Map.get(availability, day) do
+      %{is_changeover_day: true} = info ->
+        IO.puts("""
+        [DEBUG] is_changeover_day? for #{Date.to_string(day)}: true
+          - has_checkout: #{Map.get(info, :has_checkout, false)}
+          - has_checkin: #{Map.get(info, :has_checkin, false)}
+          - is_changeover_day: #{Map.get(info, :is_changeover_day, false)}
+        """)
+
+        true
+
+      info ->
+        if info do
+          IO.puts("""
+          [DEBUG] is_changeover_day? for #{Date.to_string(day)}: false
+            - has_checkout: #{Map.get(info, :has_checkout, false)}
+            - has_checkin: #{Map.get(info, :has_checkin, false)}
+            - is_changeover_day: #{Map.get(info, :is_changeover_day, false)}
+          """)
+        end
+
+        false
+    end
+  end
+
+  defp is_blacked_out?(day, availability) do
+    case Map.get(availability, day) do
+      %{is_blacked_out: true} -> true
+      _ -> false
+    end
+  end
+
+  defp has_both_checkout_and_checkin?(day, availability) do
+    case Map.get(availability, day) do
+      %{has_checkout: true, has_checkin: true} -> true
+      _ -> false
+    end
+  end
+
+  defp has_checkin?(day, availability) do
+    case Map.get(availability, day) do
+      %{has_checkin: true} = info ->
+        IO.puts(
+          "[DEBUG] has_checkin? #{Date.to_string(day)}: true (has_checkin: #{Map.get(info, :has_checkin, false)}, has_checkout: #{Map.get(info, :has_checkout, false)})"
+        )
+
+        true
+
+      info ->
+        if info do
+          IO.puts(
+            "[DEBUG] has_checkin? #{Date.to_string(day)}: false (has_checkin: #{Map.get(info, :has_checkin, false)}, has_checkout: #{Map.get(info, :has_checkout, false)})"
+          )
+        end
+
+        false
+    end
+  end
+
+  defp has_checkout?(day, availability) do
+    case Map.get(availability, day) do
+      %{has_checkout: true} = info ->
+        IO.puts(
+          "[DEBUG] has_checkout? #{Date.to_string(day)}: true (has_checkin: #{Map.get(info, :has_checkin, false)}, has_checkout: #{Map.get(info, :has_checkout, false)})"
+        )
+
+        true
+
+      info ->
+        if info do
+          IO.puts(
+            "[DEBUG] has_checkout? #{Date.to_string(day)}: false (has_checkin: #{Map.get(info, :has_checkin, false)}, has_checkout: #{Map.get(info, :has_checkout, false)})"
+          )
+        end
+
+        false
+    end
   end
 
   defp selected_range?(day, checkin_date, checkout_date) do
