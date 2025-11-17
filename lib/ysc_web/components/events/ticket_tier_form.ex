@@ -71,7 +71,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
           form={@form}
           start_date_field={@form[:start_date]}
           min={Date.utc_today()}
-          required={true}
+          required={false}
         />
         <.date_picker
           :if={!donation_type?(@form[:type].value)}
@@ -80,7 +80,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
           form={@form}
           start_date_field={@form[:end_date]}
           min={sale_end_min_date(@form[:start_date].value)}
-          required={true}
+          required={false}
         />
 
         <div

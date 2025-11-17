@@ -41,8 +41,14 @@ defmodule Ysc.Events.TicketTier do
   Creates a changeset for the TicketTier schema.
   """
   def changeset(ticket_tier, attrs \\ %{}) do
+    # Normalize empty strings to nil for date fields before casting
+    normalized_attrs =
+      attrs
+      |> normalize_date_field(:start_date)
+      |> normalize_date_field(:end_date)
+
     ticket_tier
-    |> cast(attrs, [
+    |> cast(normalized_attrs, [
       :name,
       :description,
       :type,
@@ -67,6 +73,30 @@ defmodule Ysc.Events.TicketTier do
     |> validate_money(:price)
     |> optimistic_lock(:lock_version)
     |> foreign_key_constraint(:event_id)
+  end
+
+  # Normalize empty strings and invalid date strings to nil for date fields
+  defp normalize_date_field(attrs, field) when is_atom(field) do
+    field_str = Atom.to_string(field)
+    value = Map.get(attrs, field_str) || Map.get(attrs, field)
+
+    case value do
+      "" ->
+        Map.put(attrs, field_str, nil)
+
+      nil ->
+        attrs
+
+      value when is_binary(value) ->
+        # Try to parse the date string, if it fails, set to nil
+        case DateTime.from_iso8601(value) do
+          {:ok, _datetime, _offset} -> attrs
+          {:error, _} -> Map.put(attrs, field_str, nil)
+        end
+
+      _ ->
+        attrs
+    end
   end
 
   # Custom validation for price field - required for paid types only

@@ -29,7 +29,7 @@ defmodule YscWeb.Components.DateRangePicker do
           type="text"
           class="w-full"
           label={@label}
-          value={date_range_display(@range_start, @range_end)}
+          value={date_range_display(@range_start, @range_end, @is_range?)}
         />
         <.icon name="hero-calendar" class="absolute top-10 right-3 mt-0.5 flex text-zinc-600" />
       </div>
@@ -697,23 +697,32 @@ defmodule YscWeb.Components.DateRangePicker do
   defp select_button_text("", ""), do: "Close"
   defp select_button_text(_start_date, _end_date), do: "Select Dates"
 
-  defp date_range_display(start_date, nil) when start_date in [nil, ""] do
-    "MM/DD/YYYY - MM/DD/YYYY"
+  defp date_range_display(start_date, nil, is_range?) when start_date in [nil, ""] do
+    if is_range? do
+      "MM/DD/YYYY - MM/DD/YYYY"
+    else
+      "MM/DD/YYYY"
+    end
   end
 
-  defp date_range_display(start_date, end_date) when end_date in [nil, ""] do
+  defp date_range_display(start_date, end_date, is_range?) when end_date in [nil, ""] do
     start_date_datetime = extract_date(start_date)
     Calendar.strftime(start_date_datetime, "%b %d, %Y")
   end
 
-  defp date_range_display(start_date, end_date) do
+  defp date_range_display(start_date, end_date, is_range?) do
     start_date_datetime = extract_date(start_date)
     end_date_datetime = extract_date(end_date)
 
-    if start_date_datetime == end_date_datetime do
-      Calendar.strftime(start_date_datetime, "%b %d, %Y")
+    if is_range? do
+      if start_date_datetime == end_date_datetime do
+        Calendar.strftime(start_date_datetime, "%b %d, %Y")
+      else
+        "#{Calendar.strftime(start_date_datetime, "%b %d, %Y")} - #{Calendar.strftime(end_date_datetime, "%b %d, %Y")}"
+      end
     else
-      "#{Calendar.strftime(start_date_datetime, "%b %d, %Y")} - #{Calendar.strftime(end_date_datetime, "%b %d, %Y")}"
+      # Single date picker - only show the start date
+      Calendar.strftime(start_date_datetime, "%b %d, %Y")
     end
   end
 
