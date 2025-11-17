@@ -226,14 +226,6 @@ defmodule Ysc.Tickets.BookingLocker do
     }
   end
 
-  defp count_confirmed_tickets_for_event_locked(nil), do: 0
-
-  defp count_confirmed_tickets_for_event_locked(event_id) do
-    Ticket
-    |> where([t], t.event_id == ^event_id and t.status == :confirmed)
-    |> Repo.aggregate(:count, :id)
-  end
-
   defp count_all_tickets_for_event_locked(nil), do: 0
 
   defp count_all_tickets_for_event_locked(event_id) do

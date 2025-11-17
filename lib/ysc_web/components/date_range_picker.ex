@@ -705,7 +705,7 @@ defmodule YscWeb.Components.DateRangePicker do
     end
   end
 
-  defp date_range_display(start_date, end_date, is_range?) when end_date in [nil, ""] do
+  defp date_range_display(start_date, end_date, _is_range?) when end_date in [nil, ""] do
     start_date_datetime = extract_date(start_date)
     Calendar.strftime(start_date_datetime, "%b %d, %Y")
   end

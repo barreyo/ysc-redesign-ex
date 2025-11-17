@@ -2301,7 +2301,7 @@ defmodule YscWeb.TahoeBookingLive do
            price_error: "Please fix the errors above"
          )}
 
-      {:error, reason} ->
+      {:error, _reason} ->
         # Handle any other error atoms that weren't explicitly handled above
         {:noreply,
          socket

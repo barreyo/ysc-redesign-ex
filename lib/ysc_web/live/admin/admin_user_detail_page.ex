@@ -1103,6 +1103,22 @@ defmodule YscWeb.AdminUserDetailsLive do
     {:noreply, socket}
   end
 
+  def handle_event("select_notification", %{"id" => id}, socket) do
+    notification =
+      socket.assigns.notifications
+      |> Enum.find(fn n -> n.id == id end)
+
+    {:noreply, assign(socket, :selected_notification, notification)}
+  end
+
+  def handle_event("close_notification_panel", _params, socket) do
+    {:noreply, assign(socket, :selected_notification, nil)}
+  end
+
+  def handle_event("resize_panel", %{"width" => width}, socket) do
+    {:noreply, assign(socket, :panel_width, width)}
+  end
+
   def handle_event("save", %{"user" => user_params}, socket) do
     current_user = socket.assigns[:current_user]
     assigned = socket.assigns[:selected_user]
@@ -1480,21 +1496,5 @@ defmodule YscWeb.AdminUserDetailsLive do
   defp load_notifications(socket, user_id) do
     notifications = Messages.list_user_messages(user_id, limit: 100)
     assign(socket, :notifications, notifications)
-  end
-
-  def handle_event("select_notification", %{"id" => id}, socket) do
-    notification =
-      socket.assigns.notifications
-      |> Enum.find(fn n -> n.id == id end)
-
-    {:noreply, assign(socket, :selected_notification, notification)}
-  end
-
-  def handle_event("close_notification_panel", _params, socket) do
-    {:noreply, assign(socket, :selected_notification, nil)}
-  end
-
-  def handle_event("resize_panel", %{"width" => width}, socket) do
-    {:noreply, assign(socket, :panel_width, width)}
   end
 end

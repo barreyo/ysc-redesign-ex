@@ -10,7 +10,7 @@ kill_signal = 'SIGTERM'
 [build]
 
 [deploy]
-release_command = '/app/bin/migrate'
+release_command = "/bin/sh -lc 'DATABASE_URL=${RAW_DATABASE_URL} /app/bin/migrate'"
 
 [env]
 ENVIRONMENT = 'sandbox'

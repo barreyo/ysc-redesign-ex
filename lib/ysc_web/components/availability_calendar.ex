@@ -1666,13 +1666,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     end
   end
 
-  defp has_both_checkout_and_checkin?(day, availability) do
-    case Map.get(availability, day) do
-      %{has_checkout: true, has_checkin: true} -> true
-      _ -> false
-    end
-  end
-
   defp has_checkin?(day, availability) do
     case Map.get(availability, day) do
       %{has_checkin: true} = info ->

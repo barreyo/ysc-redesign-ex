@@ -11,7 +11,6 @@ defmodule Ysc.Tickets do
   """
 
   import Ecto.Query, warn: false
-  import RetryOn, only: [retry_on_stale: 2]
   alias Ysc.Repo
 
   alias Ysc.Tickets.TicketOrder

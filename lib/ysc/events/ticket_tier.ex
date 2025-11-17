@@ -184,40 +184,4 @@ defmodule Ysc.Events.TicketTier do
         changeset
     end
   end
-
-  # Calculate total capacity across all ticket tiers for an event
-  defp calculate_total_event_capacity(event_id, current_changeset) do
-    # Get all existing ticket tiers for this event
-    existing_tiers = Ysc.Events.list_ticket_tiers_for_event(event_id)
-
-    # Calculate total from existing tiers
-    existing_total =
-      existing_tiers
-      |> Enum.map(& &1.quantity)
-      |> Enum.reject(&is_nil/1)
-      |> Enum.sum()
-
-    # Add the quantity from the current changeset (if it's an update, we need to handle it properly)
-    current_quantity = get_field(current_changeset, :quantity)
-    current_tier_id = get_field(current_changeset, :id)
-
-    # If this is an update to an existing tier, we need to subtract the old quantity first
-    adjusted_total =
-      if current_tier_id do
-        # Find the existing tier being updated
-        existing_tier = Enum.find(existing_tiers, &(&1.id == current_tier_id))
-
-        if existing_tier && existing_tier.quantity do
-          # Subtract the old quantity and add the new one
-          existing_total - existing_tier.quantity + (current_quantity || 0)
-        else
-          existing_total + (current_quantity || 0)
-        end
-      else
-        # This is a new tier, just add the quantity
-        existing_total + (current_quantity || 0)
-      end
-
-    adjusted_total
-  end
 end

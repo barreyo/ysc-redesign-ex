@@ -295,6 +295,15 @@ defmodule Ysc.Bookings.BookingLocker do
         guests_count,
         opts \\ []
       )
+
+  def create_room_booking(
+        user_id,
+        room_ids,
+        checkin_date,
+        checkout_date,
+        guests_count,
+        opts
+      )
       when is_list(room_ids) do
     retry_on_stale(
       fn attempt ->
@@ -313,6 +322,12 @@ defmodule Ysc.Bookings.BookingLocker do
       max_attempts: 3,
       delay_ms: 100
     )
+  end
+
+  # Backward compatibility: single room_id as string/binary
+  def create_room_booking(user_id, room_id, checkin_date, checkout_date, guests_count, opts)
+      when is_binary(room_id) do
+    create_room_booking(user_id, [room_id], checkin_date, checkout_date, guests_count, opts)
   end
 
   defp do_create_room_booking(
@@ -472,12 +487,6 @@ defmodule Ysc.Bookings.BookingLocker do
         end
       end)
     end
-  end
-
-  # Backward compatibility: single room_id as string/binary
-  def create_room_booking(user_id, room_id, checkin_date, checkout_date, guests_count, opts)
-      when is_binary(room_id) do
-    create_room_booking(user_id, [room_id], checkin_date, checkout_date, guests_count, opts)
   end
 
   # Helper to calculate price for multiple rooms

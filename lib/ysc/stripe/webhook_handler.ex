@@ -453,6 +453,99 @@ defmodule Ysc.Stripe.WebhookHandler do
     end
   end
 
+  defp handle("charge.dispute.created", %Stripe.Dispute{} = dispute) do
+    require Logger
+
+    # Handle chargeback/dispute - you may want to create a liability entry
+    Logger.info("Chargeback/dispute created",
+      dispute_id: dispute.id,
+      charge_id: dispute.charge
+    )
+
+    # You could add logic here to create ledger entries for disputes
+    :ok
+  end
+
+  defp handle("charge.refunded", %Stripe.Charge{} = charge) do
+    require Logger
+
+    Logger.info("Charge refunded",
+      charge_id: charge.id,
+      payment_intent_id: charge.payment_intent
+    )
+
+    # Process refund in ledger
+    process_refund_from_charge(charge)
+
+    :ok
+  end
+
+  defp handle("refund.created", %Stripe.Refund{} = refund) do
+    require Logger
+
+    Logger.info("Refund created",
+      refund_id: refund.id,
+      charge_id: refund.charge,
+      amount: refund.amount
+    )
+
+    # Process refund in ledger
+    process_refund_from_refund_object(refund)
+
+    :ok
+  end
+
+  defp handle("refund.created", refund) when is_map(refund) do
+    require Logger
+
+    refund_id = refund[:id] || refund["id"]
+    charge_id = refund[:charge] || refund["charge"]
+
+    Logger.info("Refund created (map)",
+      refund_id: refund_id,
+      charge_id: charge_id,
+      amount: refund[:amount] || refund["amount"]
+    )
+
+    # Process refund in ledger
+    process_refund_from_refund_object(refund)
+
+    :ok
+  end
+
+  defp handle("refund.updated", %Stripe.Refund{} = refund) do
+    require Logger
+
+    Logger.info("Refund updated",
+      refund_id: refund.id,
+      charge_id: refund.charge,
+      amount: refund.amount,
+      status: refund.status
+    )
+
+    # You could add logic here to update refund status in ledger
+    :ok
+  end
+
+  defp handle("refund.updated", refund) when is_map(refund) do
+    require Logger
+
+    refund_id = refund[:id] || refund["id"]
+    charge_id = refund[:charge] || refund["charge"]
+
+    Logger.info("Refund updated (map)",
+      refund_id: refund_id,
+      charge_id: charge_id,
+      amount: refund[:amount] || refund["amount"],
+      status: refund[:status] || refund["status"]
+    )
+
+    # You could add logic here to update refund status in ledger
+    :ok
+  end
+
+  defp handle(_event_name, _event_object), do: :ok
+
   # Helper function to process a new payout
   defp process_new_payout(payout) do
     require Logger
@@ -512,107 +605,6 @@ defmodule Ysc.Stripe.WebhookHandler do
         :ok
     end
   end
-
-  defp handle("charge.dispute.created", %Stripe.Dispute{} = dispute) do
-    require Logger
-
-    # Handle chargeback/dispute - you may want to create a liability entry
-    Logger.info("Chargeback/dispute created",
-      dispute_id: dispute.id,
-      charge_id: dispute.charge
-    )
-
-    # You could add logic here to create ledger entries for disputes
-    :ok
-  end
-
-  defp handle("charge.refunded", %Stripe.Charge{} = charge) do
-    require Logger
-
-    Logger.info("Charge refunded",
-      charge_id: charge.id,
-      payment_intent_id: charge.payment_intent
-    )
-
-    # Process refund in ledger
-    process_refund_from_charge(charge)
-
-    :ok
-  end
-
-  defp handle("refund.created", %Stripe.Refund{} = refund) do
-    require Logger
-
-    Logger.info("Refund created",
-      refund_id: refund.id,
-      charge_id: refund.charge,
-      amount: refund.amount
-    )
-
-    # Process refund in ledger
-    process_refund_from_refund_object(refund)
-
-    :ok
-  end
-
-  defp handle("refund.created", refund) when is_map(refund) do
-    require Logger
-
-    refund_id = Map.get(refund, :id) || Map.get(refund, "id")
-    charge_id = Map.get(refund, :charge) || Map.get(refund, "charge")
-    amount = Map.get(refund, :amount) || Map.get(refund, "amount")
-
-    Logger.info("Refund created",
-      refund_id: refund_id,
-      charge_id: charge_id,
-      amount: amount
-    )
-
-    # Process refund in ledger
-    process_refund_from_refund_object(refund)
-
-    :ok
-  end
-
-  defp handle("refund.updated", %Stripe.Refund{} = refund) do
-    require Logger
-
-    Logger.info("Refund updated",
-      refund_id: refund.id,
-      charge_id: refund.charge,
-      status: refund.status
-    )
-
-    # Only process if refund is now succeeded
-    if refund.status == "succeeded" do
-      process_refund_from_refund_object(refund)
-    end
-
-    :ok
-  end
-
-  defp handle("refund.updated", refund) when is_map(refund) do
-    require Logger
-
-    refund_id = Map.get(refund, :id) || Map.get(refund, "id")
-    charge_id = Map.get(refund, :charge) || Map.get(refund, "charge")
-    status = Map.get(refund, :status) || Map.get(refund, "status")
-
-    Logger.info("Refund updated",
-      refund_id: refund_id,
-      charge_id: charge_id,
-      status: status
-    )
-
-    # Only process if refund is now succeeded
-    if status == "succeeded" do
-      process_refund_from_refund_object(refund)
-    end
-
-    :ok
-  end
-
-  defp handle(_event_name, _event_object), do: :ok
 
   defp maybe_put_cancellation_end(changeset, %Stripe.Subscription{} = event) do
     ends_at =
@@ -813,98 +805,6 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   # Helper function to ensure customer has a default payment method after subscription creation
-
-  # Helper function to print detailed breakdown of payments included in a payout
-  defp print_payout_breakdown(payout_id, payout_amount) do
-    require Logger
-
-    Logger.info("=== PAYOUT BREAKDOWN ===",
-      payout_id: payout_id,
-      total_payout_amount: Money.to_string!(payout_amount)
-    )
-
-    # Get all payments that were part of this payout
-    # Note: This is a simplified approach. In a real implementation, you might need to
-    # correlate payments with payouts using Stripe's API or additional tracking
-    recent_payments = get_recent_payments_for_payout_breakdown()
-
-    # Group payments by type
-    payments_by_type = group_payments_by_type(recent_payments)
-
-    # Print summary for each payment type
-    Enum.each(payments_by_type, fn {type, payments} ->
-      total_amount = calculate_total_amount(payments)
-      count = length(payments)
-
-      Logger.info("Payment Type: #{type}",
-        count: count,
-        total_amount: Money.to_string!(total_amount)
-      )
-
-      # Print details for each payment
-      Enum.each(payments, fn payment ->
-        Logger.info("  - #{payment.payment_type_info.details}",
-          payment_id: payment.id,
-          amount: Money.to_string!(payment.amount),
-          user: get_user_display_name(payment.user),
-          date: payment.payment_date
-        )
-      end)
-    end)
-
-    Logger.info("=== END PAYOUT BREAKDOWN ===")
-  end
-
-  # Helper function to get recent payments for payout breakdown
-  defp get_recent_payments_for_payout_breakdown do
-    # Get payments from the last 7 days as a reasonable window for payout correlation
-    start_date = DateTime.add(DateTime.utc_now(), -7, :day)
-    end_date = DateTime.utc_now()
-
-    Ysc.Ledgers.get_recent_payments(start_date, end_date, 100)
-  end
-
-  # Helper function to group payments by type
-  defp group_payments_by_type(payments) do
-    payments
-    |> Enum.group_by(fn payment ->
-      payment.payment_type_info.type
-    end)
-  end
-
-  # Helper function to calculate total amount for a list of payments
-  defp calculate_total_amount(payments) do
-    payments
-    |> Enum.map(fn payment -> payment.amount end)
-    |> Enum.reduce(Money.new(0, :USD), fn amount, acc ->
-      case Money.add(acc, amount) do
-        {:ok, result} -> result
-        {:error, _} -> acc
-      end
-    end)
-  end
-
-  # Helper function to get user display name
-  defp get_user_display_name(nil), do: "System"
-
-  defp get_user_display_name(user) do
-    case {user.first_name, user.last_name} do
-      {nil, nil} ->
-        "Unknown User"
-
-      {first_name, nil} when is_binary(first_name) ->
-        first_name
-
-      {nil, last_name} when is_binary(last_name) ->
-        last_name
-
-      {first_name, last_name} when is_binary(first_name) and is_binary(last_name) ->
-        "#{first_name} #{last_name}"
-
-      _ ->
-        "Unknown User"
-    end
-  end
 
   # Helper function to extract payment method from Stripe invoice
   defp extract_payment_method_from_invoice(invoice) do
@@ -1167,7 +1067,16 @@ defmodule Ysc.Stripe.WebhookHandler do
     try do
       # Fetch balance transactions for this payout from Stripe
       # Balance transactions show all charges, refunds, and fees included in the payout
-      case Stripe.BalanceTransaction.list(%{payout: stripe_payout_id, limit: 100}) do
+      # Note: Using apply to avoid compile-time warning about undefined function
+      result =
+        if Code.ensure_loaded(Stripe.BalanceTransaction) &&
+             function_exported?(Stripe.BalanceTransaction, :list, 1) do
+          apply(Stripe.BalanceTransaction, :list, [%{payout: stripe_payout_id, limit: 100}])
+        else
+          {:error, :not_available}
+        end
+
+      case result do
         {:ok, %Stripe.List{data: balance_transactions}} ->
           Logger.info("Found #{length(balance_transactions)} balance transactions for payout",
             payout_id: stripe_payout_id

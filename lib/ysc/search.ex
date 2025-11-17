@@ -14,7 +14,9 @@ defmodule Ysc.Search do
   Performs a global search across Events, Posts, Tickets, Users, and Bookings.
   Returns results grouped by type.
   """
-  def global_search(search_term, limit \\ 5) when is_binary(search_term) and search_term != "" do
+  def global_search(search_term, limit \\ 5)
+
+  def global_search(search_term, limit) when is_binary(search_term) and search_term != "" do
     search_like = "%#{search_term}%"
 
     %{
@@ -73,7 +75,7 @@ defmodule Ysc.Search do
     |> Repo.preload([:ticket_tier])
   end
 
-  defp search_users(search_term, search_like, limit) do
+  defp search_users(search_term, _search_like, limit) do
     phone_like = "%#{search_term}%"
 
     from(u in User,

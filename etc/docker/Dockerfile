@@ -26,30 +26,30 @@ RUN mix local.hex --force && \
 # Install mix dependencies
 COPY mix.exs mix.lock ./
 RUN mix deps.get --only prod
+RUN mkdir -p config
 
 # Copy config files
-COPY config config
-COPY rel rel
+COPY config/config.exs config/prod.exs config/runtime.exs config/
+RUN mix deps.compile
 
-# Copy assets
+# Ensure priv/static directory exists (phx.digest creates it, but let's be safe)
+RUN mkdir -p priv/static
+
+COPY rel rel
 COPY priv priv
 COPY assets assets
 
 # Copy all application files
 COPY lib lib
 
-# Compile the application
-RUN mix do compile --warnings-as-errors, release
-
-# Ensure priv/static directory exists (phx.digest creates it, but let's be safe)
-RUN mkdir -p priv/static
-
-# Install asset tools
-RUN mix assets.setup
-
 # Compile assets
 RUN mix sentry.package_source_code
 RUN mix assets.deploy
+
+# Compile the application
+RUN mix do compile --warnings-as-errors, release
+
+RUN mix release
 
 # ===============================================
 # Stage 2: Create the final production image
@@ -61,19 +61,24 @@ RUN apk add --no-cache \
     libstdc++ \
     openssl \
     ncurses-libs \
-    ca-certificates
-
-# Set environment variables
-ENV PORT=4000 \
-    LANG=C.UTF-8 \
-    MIX_ENV=prod
+    ca-certificates \
+    tini
 
 # Create non-root user
 RUN adduser -D app
 
 # Set working directory
 RUN mkdir -p /app
+RUN chown app /app
+
 WORKDIR /app
+
+# Set environment variables
+ENV PORT=4000 \
+    LANG=C.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8 \
+    MIX_ENV=prod
 
 # Copy the release from the builder stage
 COPY --from=builder --chown=app:app /app/rel rel
@@ -84,7 +89,7 @@ COPY --from=builder --chown=app:app /app/priv/static ./priv/static
 USER app
 
 # Set the default command
-CMD ["bin/ysc", "start"]
+CMD ["/tini", "--", "/app/bin/server"]
 
 # Expose the port
 EXPOSE 4000
