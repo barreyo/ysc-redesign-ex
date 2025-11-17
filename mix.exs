@@ -83,7 +83,7 @@ defmodule Ysc.MixProject do
       {:phoenix_turnstile, "~> 1.0"},
       {:phoenix, "~> 1.7"},
       {:plug_cowboy, "~> 2.6"},
-      {:postgrex, ">= 0.0.0"},
+      {:postgrex, "~> 0.20"},
       {:sentry, "~> 11.0"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:stripity_stripe, "~> 2.17"},
