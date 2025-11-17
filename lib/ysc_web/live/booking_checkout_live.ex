@@ -125,7 +125,7 @@ defmodule YscWeb.BookingCheckoutLive do
   def render(assigns) do
     ~H"""
     <div class="py-8 lg:py-10 max-w-screen-lg mx-auto px-4">
-      <div class="max-w-xl mx-auto lg:mx-0">
+      <div class="max-w-xl mx-auto">
         <div class="prose prose-zinc mb-6">
           <h1>Complete Your Booking</h1>
           <p>Review your booking details and complete payment</p>

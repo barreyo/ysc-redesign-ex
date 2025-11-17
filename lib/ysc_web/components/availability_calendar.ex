@@ -308,7 +308,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                        !(in_hover_range?(day, @checkin_date, @hover_checkout_date) &&
                            @state == :set_end) do
                     case Map.get(@availability, day) do
-                      %{has_checkout: checkout, has_checkin: checkin} = info
+                      %{has_checkout: checkout, has_checkin: checkin}
                       when checkout == true and checkin == true ->
                         if !is_blacked_out?(day, @availability) do
                           "bg-red-200 border border-red-300 text-zinc-900 cursor-not-allowed"

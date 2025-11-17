@@ -879,7 +879,6 @@ defmodule YscWeb.AdminUserDetailsLive do
               :if={@selected_notification}
               id="resizable-right-panel"
               phx-hook="PanelResizer"
-              phx-update="ignore"
               data-target=".resizable-right"
               class="resizable-right flex-[0_0_auto] bg-white border-l-4 border-zinc-300 hover:border-blue-500 select-none transition-colors flex flex-row"
               style={
@@ -892,6 +891,7 @@ defmodule YscWeb.AdminUserDetailsLive do
             >
               <div
                 id="panel-resizer-left-edge"
+                phx-update="ignore"
                 class="flex-shrink-0 w-6 cursor-ew-resize z-10 flex items-center justify-center pointer-events-auto"
               >
                 <.icon
@@ -899,7 +899,10 @@ defmodule YscWeb.AdminUserDetailsLive do
                   class="w-4 h-4 text-zinc-400 pointer-events-none"
                 />
               </div>
-              <div class="flex-1 p-6 overflow-auto">
+              <div
+                id={"notification-content-#{@selected_notification.id}"}
+                class="flex-1 p-6 overflow-auto"
+              >
                 <div class="flex justify-between items-start mb-4">
                   <h3 class="text-lg font-semibold text-zinc-800">Message Details</h3>
                   <button

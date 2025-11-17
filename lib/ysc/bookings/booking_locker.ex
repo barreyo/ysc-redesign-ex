@@ -31,6 +31,7 @@ defmodule Ysc.Bookings.BookingLocker do
   """
 
   import Ecto.Query, warn: false
+  import RetryOn, only: [retry_on_stale: 2]
   require Logger
 
   alias Ysc.Repo
@@ -54,6 +55,8 @@ defmodule Ysc.Bookings.BookingLocker do
   @doc """
   Atomically creates a buyout booking with proper inventory locking.
 
+  Uses optimistic locking with automatic retry on stale errors.
+
   ## Parameters:
   - `user_id`: The user making the booking
   - `property`: The property (:tahoe or :clear_lake)
@@ -64,7 +67,7 @@ defmodule Ysc.Bookings.BookingLocker do
 
   ## Returns:
   - `{:ok, %Booking{}}` on success
-  - `{:error, reason}` on failure
+  - `{:error, reason}` on failure (including `:stale_inventory` if retries exhausted)
   """
   def create_buyout_booking(
         user_id,
@@ -74,6 +77,42 @@ defmodule Ysc.Bookings.BookingLocker do
         guests_count,
         opts \\ []
       ) do
+    # Use retry_on_stale to handle optimistic locking conflicts
+    # This will automatically retry if Ecto.StaleEntryError is raised
+    retry_on_stale(
+      fn attempt ->
+        if attempt > 1 do
+          Logger.info("Retrying buyout booking after stale error",
+            user_id: user_id,
+            property: property,
+            checkin_date: checkin_date,
+            checkout_date: checkout_date,
+            attempt: attempt
+          )
+        end
+
+        do_create_buyout_booking(
+          user_id,
+          property,
+          checkin_date,
+          checkout_date,
+          guests_count,
+          opts
+        )
+      end,
+      max_attempts: 3,
+      delay_ms: 100
+    )
+  end
+
+  defp do_create_buyout_booking(
+         user_id,
+         property,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         opts
+       ) do
     hold_duration = Keyword.get(opts, :hold_duration_minutes, @hold_duration_minutes)
     hold_expires_at = DateTime.add(DateTime.utc_now(), hold_duration, :minute)
 
@@ -86,30 +125,28 @@ defmodule Ysc.Bookings.BookingLocker do
         ensure_property_inventory_row(property, day, capacity_total)
       end
 
-      # Lock property_inventory rows for all days
-      locked_prop_inv =
+      # Fetch property_inventory rows for all days (optimistic locking - no FOR UPDATE)
+      prop_inv =
         Repo.all(
           from pi in PropertyInventory,
             where:
-              pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date,
-            lock: "FOR UPDATE"
+              pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date
         )
 
-      # If Tahoe has rooms, ensure no room activity blocks buyout
+      # If Tahoe has rooms, check room activity
       if property == :tahoe do
-        locked_room_inv =
+        room_inv =
           Repo.all(
             from ri in RoomInventory,
               join: r in Room,
               on: ri.room_id == r.id,
               where:
-                r.property == ^property and ri.day >= ^checkin_date and ri.day < ^checkout_date,
-              lock: "FOR UPDATE"
+                r.property == ^property and ri.day >= ^checkin_date and ri.day < ^checkout_date
           )
 
         # Validate no held/booked rooms for any day
         blocked_days =
-          Enum.filter(locked_room_inv, fn ri -> ri.held == true or ri.booked == true end)
+          Enum.filter(room_inv, fn ri -> ri.held == true or ri.booked == true end)
 
         if length(blocked_days) > 0 do
           Repo.rollback({:error, :rooms_already_booked})
@@ -118,7 +155,7 @@ defmodule Ysc.Bookings.BookingLocker do
 
       # Validate no buyout held/booked and no per-guest counts (Clear Lake)
       invalid_days =
-        Enum.filter(locked_prop_inv, fn pi ->
+        Enum.filter(prop_inv, fn pi ->
           pi.buyout_held == true or
             pi.buyout_booked == true or
             (property == :clear_lake and (pi.capacity_held > 0 or pi.capacity_booked > 0))
@@ -128,18 +165,46 @@ defmodule Ysc.Bookings.BookingLocker do
         Repo.rollback({:error, :property_unavailable})
       end
 
-      # Set buyout_held = true for the range
-      {count, _} =
-        Repo.update_all(
-          from(pi in PropertyInventory,
-            where:
-              pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date
-          ),
-          set: [buyout_held: true, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
-        )
+      # Update all property_inventory rows using optimistic locking
+      # IMPORTANT: We must update ALL rows or the booking fails (no partial bookings)
+      # For composite primary keys, we manually check lock_version in the WHERE clause
+      # AND include availability checks to ensure optimistic locking works correctly
+      update_results =
+        Enum.map(prop_inv, fn pi ->
+          # Use update_all with explicit lock_version check AND availability validation
+          # This ensures optimistic locking works correctly - if lock_version changed or
+          # availability changed, the update will affect 0 rows
+          {count, _} =
+            Repo.update_all(
+              from(pi2 in PropertyInventory,
+                where:
+                  pi2.property == ^pi.property and pi2.day == ^pi.day and
+                    pi2.lock_version == ^pi.lock_version and
+                    pi2.buyout_held == false and pi2.buyout_booked == false and
+                    (^property != :clear_lake or
+                       (pi2.capacity_held == 0 and pi2.capacity_booked == 0))
+              ),
+              set: [
+                buyout_held: true,
+                lock_version: pi.lock_version + 1,
+                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+              ]
+            )
 
-      if count == 0 do
-        Repo.rollback({:error, :inventory_update_failed})
+          if count == 1 do
+            {:ok, :updated}
+          else
+            {:error, :stale_inventory}
+          end
+        end)
+
+      # Check if all updates succeeded
+      failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
+
+      if length(failed_updates) > 0 do
+        # At least one update failed - this means another transaction modified the inventory
+        # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
+        raise Ecto.StaleEntryError, struct: List.first(prop_inv), action: :update
       end
 
       # Calculate pricing
@@ -230,16 +295,35 @@ defmodule Ysc.Bookings.BookingLocker do
         guests_count,
         opts \\ []
       )
-
-  def create_room_booking(
-        user_id,
-        room_ids,
-        checkin_date,
-        checkout_date,
-        guests_count,
-        opts
-      )
       when is_list(room_ids) do
+    retry_on_stale(
+      fn attempt ->
+        if attempt > 1 do
+          Logger.info("Retrying room booking after stale error",
+            user_id: user_id,
+            room_ids: room_ids,
+            checkin_date: checkin_date,
+            checkout_date: checkout_date,
+            attempt: attempt
+          )
+        end
+
+        do_create_room_booking(user_id, room_ids, checkin_date, checkout_date, guests_count, opts)
+      end,
+      max_attempts: 3,
+      delay_ms: 100
+    )
+  end
+
+  defp do_create_room_booking(
+         user_id,
+         room_ids,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         opts
+       )
+       when is_list(room_ids) do
     children_count = Keyword.get(opts, :children_count, 0)
     hold_duration = Keyword.get(opts, :hold_duration_minutes, @hold_duration_minutes)
     hold_expires_at = DateTime.add(DateTime.utc_now(), hold_duration, :minute)
@@ -270,27 +354,25 @@ defmodule Ysc.Bookings.BookingLocker do
           ensure_room_inventory_row(room_id, day)
         end
 
-        # Lock room_inventory for ALL rooms and property_inventory rows FOR UPDATE
-        locked_room_inv =
+        # Fetch room_inventory and property_inventory rows (optimistic locking - no FOR UPDATE)
+        room_inv =
           Repo.all(
             from ri in RoomInventory,
               where:
-                ri.room_id in ^room_ids and ri.day >= ^checkin_date and ri.day < ^checkout_date,
-              lock: "FOR UPDATE"
+                ri.room_id in ^room_ids and ri.day >= ^checkin_date and ri.day < ^checkout_date
           )
 
-        locked_prop_inv =
+        prop_inv =
           Repo.all(
             from pi in PropertyInventory,
               where:
-                pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date,
-              lock: "FOR UPDATE"
+                pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date
           )
 
         # Validate (no buyout; all rooms free)
         # Check buyout flags
         buyout_blocked =
-          Enum.any?(locked_prop_inv, fn pi ->
+          Enum.any?(prop_inv, fn pi ->
             pi.buyout_held == true or pi.buyout_booked == true
           end)
 
@@ -300,24 +382,50 @@ defmodule Ysc.Bookings.BookingLocker do
 
         # Check all rooms are available
         room_blocked =
-          Enum.any?(locked_room_inv, fn ri -> ri.held == true or ri.booked == true end)
+          Enum.any?(room_inv, fn ri -> ri.held == true or ri.booked == true end)
 
         if room_blocked do
           Repo.rollback({:error, :room_unavailable})
         end
 
-        # Set held = true on all room_inventory rows
-        {count, _} =
-          Repo.update_all(
-            from(ri in RoomInventory,
-              where:
-                ri.room_id in ^room_ids and ri.day >= ^checkin_date and ri.day < ^checkout_date
-            ),
-            set: [held: true, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
-          )
+        # Update all room_inventory rows using optimistic locking
+        # IMPORTANT: We must update ALL rows or the booking fails (no partial bookings)
+        # For composite primary keys, we manually check lock_version in the WHERE clause
+        # AND include availability checks to ensure optimistic locking works correctly
+        update_results =
+          Enum.map(room_inv, fn ri ->
+            # Use update_all with explicit lock_version check AND availability validation
+            # This ensures optimistic locking works correctly - if lock_version changed or
+            # availability changed, the update will affect 0 rows
+            {count, _} =
+              Repo.update_all(
+                from(ri2 in RoomInventory,
+                  where:
+                    ri2.room_id == ^ri.room_id and ri2.day == ^ri.day and
+                      ri2.lock_version == ^ri.lock_version and
+                      ri2.held == false and ri2.booked == false
+                ),
+                set: [
+                  held: true,
+                  lock_version: ri.lock_version + 1,
+                  updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                ]
+              )
 
-        if count == 0 do
-          Repo.rollback({:error, :inventory_update_failed})
+            if count == 1 do
+              {:ok, :updated}
+            else
+              {:error, :stale_inventory}
+            end
+          end)
+
+        # Check if all updates succeeded
+        failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
+
+        if length(failed_updates) > 0 do
+          # At least one update failed - this means another transaction modified the inventory
+          # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
+          raise Ecto.StaleEntryError, struct: List.first(room_inv), action: :update
         end
 
         # Calculate pricing for all rooms combined
@@ -480,6 +588,40 @@ defmodule Ysc.Bookings.BookingLocker do
         guests_count,
         opts \\ []
       ) do
+    retry_on_stale(
+      fn attempt ->
+        if attempt > 1 do
+          Logger.info("Retrying per-guest booking after stale error",
+            user_id: user_id,
+            property: property,
+            checkin_date: checkin_date,
+            checkout_date: checkout_date,
+            attempt: attempt
+          )
+        end
+
+        do_create_per_guest_booking(
+          user_id,
+          property,
+          checkin_date,
+          checkout_date,
+          guests_count,
+          opts
+        )
+      end,
+      max_attempts: 3,
+      delay_ms: 100
+    )
+  end
+
+  defp do_create_per_guest_booking(
+         user_id,
+         property,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         opts
+       ) do
     hold_duration = Keyword.get(opts, :hold_duration_minutes, @hold_duration_minutes)
     hold_expires_at = DateTime.add(DateTime.utc_now(), hold_duration, :minute)
 
@@ -492,18 +634,17 @@ defmodule Ysc.Bookings.BookingLocker do
         ensure_property_inventory_row(property, day, capacity_total)
       end
 
-      # Lock property_inventory rows FOR UPDATE
-      locked_prop_inv =
+      # Fetch property_inventory rows (optimistic locking - no FOR UPDATE)
+      prop_inv =
         Repo.all(
           from pi in PropertyInventory,
             where:
-              pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date,
-            lock: "FOR UPDATE"
+              pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date
         )
 
       # Validate for each day: buyout flags false and capacity_booked + capacity_held + guests <= capacity_total
       invalid_days =
-        Enum.filter(locked_prop_inv, fn pi ->
+        Enum.filter(prop_inv, fn pi ->
           pi.buyout_held == true or
             pi.buyout_booked == true or
             pi.capacity_booked + pi.capacity_held + guests_count > pi.capacity_total
@@ -513,19 +654,45 @@ defmodule Ysc.Bookings.BookingLocker do
         Repo.rollback({:error, :insufficient_capacity})
       end
 
-      # Increment capacity_held
-      {count, _} =
-        Repo.update_all(
-          from(pi in PropertyInventory,
-            where:
-              pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date
-          ),
-          inc: [capacity_held: guests_count],
-          set: [updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
-        )
+      # Increment capacity_held using optimistic locking
+      # IMPORTANT: We must update ALL rows or the booking fails (no partial bookings)
+      # For composite primary keys, we manually check lock_version in the WHERE clause
+      # AND include availability checks to ensure optimistic locking works correctly
+      update_results =
+        Enum.map(prop_inv, fn pi ->
+          # Use update_all with explicit lock_version check AND availability validation
+          # This ensures optimistic locking works correctly - if lock_version changed or
+          # capacity changed, the update will affect 0 rows
+          {count, _} =
+            Repo.update_all(
+              from(pi2 in PropertyInventory,
+                where:
+                  pi2.property == ^pi.property and pi2.day == ^pi.day and
+                    pi2.lock_version == ^pi.lock_version and
+                    pi2.buyout_held == false and pi2.buyout_booked == false and
+                    pi2.capacity_booked + pi2.capacity_held + ^guests_count <= pi2.capacity_total
+              ),
+              set: [
+                capacity_held: pi.capacity_held + guests_count,
+                lock_version: pi.lock_version + 1,
+                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+              ]
+            )
 
-      if count == 0 do
-        Repo.rollback({:error, :inventory_update_failed})
+          if count == 1 do
+            {:ok, :updated}
+          else
+            {:error, :stale_inventory}
+          end
+        end)
+
+      # Check if all updates succeeded
+      failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
+
+      if length(failed_updates) > 0 do
+        # At least one update failed - this means another transaction modified the inventory
+        # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
+        raise Ecto.StaleEntryError, struct: List.first(prop_inv), action: :update
       end
 
       # Create booking :hold

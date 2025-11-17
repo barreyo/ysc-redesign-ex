@@ -1619,7 +1619,12 @@ defmodule YscWeb.ClearLakeBookingLive do
 
       {:error, :insufficient_capacity} ->
         {:noreply,
-         assign(socket,
+         socket
+         |> put_flash(
+           :error,
+           "Sorry, there is not enough capacity for your requested dates and number of guests."
+         )
+         |> assign(
            form_errors: %{
              general:
                "Sorry, there is not enough capacity for your requested dates and number of guests."
@@ -1630,7 +1635,9 @@ defmodule YscWeb.ClearLakeBookingLive do
 
       {:error, :property_unavailable} ->
         {:noreply,
-         assign(socket,
+         socket
+         |> put_flash(:error, "Sorry, the property is not available for your requested dates.")
+         |> assign(
            form_errors: %{
              general: "Sorry, the property is not available for your requested dates."
            },
@@ -1642,16 +1649,21 @@ defmodule YscWeb.ClearLakeBookingLive do
         error_message = format_booking_error(reason)
 
         {:noreply,
-         assign(socket,
+         socket
+         |> put_flash(:error, error_message)
+         |> assign(
            form_errors: %{general: error_message},
            calculated_price: socket.assigns.calculated_price
          )}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         form_errors = format_errors(changeset)
+        error_message = "Please fix the errors above and try again."
 
         {:noreply,
-         assign(socket,
+         socket
+         |> put_flash(:error, error_message)
+         |> assign(
            form_errors: form_errors,
            calculated_price: nil,
            price_error: "Please fix the errors above"
@@ -1833,6 +1845,10 @@ defmodule YscWeb.ClearLakeBookingLive do
 
   defp format_booking_error(:property_unavailable),
     do: "Sorry, the property is not available for your requested dates."
+
+  defp format_booking_error(:stale_inventory),
+    do:
+      "The availability changed while you were booking. Please refresh the calendar and try again."
 
   defp format_booking_error(:rooms_already_booked),
     do: "Sorry, some rooms are already booked for your requested dates."

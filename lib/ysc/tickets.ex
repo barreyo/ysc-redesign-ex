@@ -11,6 +11,7 @@ defmodule Ysc.Tickets do
   """
 
   import Ecto.Query, warn: false
+  import RetryOn, only: [retry_on_stale: 2]
   alias Ysc.Repo
 
   alias Ysc.Tickets.TicketOrder
@@ -44,6 +45,7 @@ defmodule Ysc.Tickets do
   - `{:ok, %TicketOrder{}}` on success
   - `{:error, changeset}` on validation failure
   - `{:error, :overbooked}` if event or tier capacity exceeded
+  - `{:error, :event_capacity_exceeded}` if event's global max_attendees limit would be exceeded
   - `{:error, :event_not_available}` if event is not available for purchase
   - `{:error, :membership_required}` if user doesn't have active membership
   """
@@ -56,9 +58,10 @@ defmodule Ysc.Tickets do
       ticket_selections: ticket_selections
     )
 
-    with {:ok, _} <- validate_user_membership(user_id),
-         {:ok, ticket_order} <- BookingLocker.atomic_booking(user_id, event_id, ticket_selections) do
-      {:ok, ticket_order}
+    with {:ok, _} <- validate_user_membership(user_id) do
+      # Note: Ticket bookings don't update tiers/events, so optimistic locking isn't used here
+      # Capacity is checked by counting existing tickets within the transaction
+      BookingLocker.atomic_booking(user_id, event_id, ticket_selections)
     else
       error ->
         require Logger

@@ -88,6 +88,7 @@ defmodule Ysc.MixProject do
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:stripity_stripe, "~> 2.17"},
       {:swoosh, "~> 1.14"},
+      {:retry_on, "~> 0.1.0"},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},

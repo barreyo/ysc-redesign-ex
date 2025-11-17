@@ -96,7 +96,7 @@ tests:  ## Run the test suite (starts postgres if needed)
 	@echo "$(BOLD)Waiting for PostgreSQL to be ready...$(RESET)"
 	@DBNAME=postgres ./etc/scripts/_wait_db_connection.sh echo "PostgreSQL is ready"
 	@echo "$(BOLD)Running test suite...$(RESET)"
-	@mix test
+	@MIX_ENV=test mix test --trace
 
 .PHONY: test
 test: tests

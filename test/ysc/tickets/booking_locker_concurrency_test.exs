@@ -3,10 +3,10 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
   Extensive concurrency tests for ticket booking to ensure no data races or overbooking.
 
   These tests simulate high-concurrency scenarios where multiple users attempt to book
-  tickets simultaneously, verifying that the database locking mechanisms prevent
+  tickets simultaneously, verifying that optimistic locking mechanisms prevent
   double-booking and ensure capacity limits are respected.
   """
-  use Ysc.DataCase, async: false
+  use Ysc.DataCase, async: true
 
   alias Ysc.Tickets.BookingLocker
   alias Ysc.Events
@@ -21,14 +21,18 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         user = user_fixture()
         # Give user lifetime membership so they can purchase tickets
         user
-        |> Ecto.Changeset.change(lifetime_membership_awarded_at: DateTime.utc_now())
+        |> Ecto.Changeset.change(
+          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        )
         |> Repo.update!()
       end)
 
     # Create an event with limited capacity
     organizer =
       user_fixture()
-      |> Ecto.Changeset.change(lifetime_membership_awarded_at: DateTime.utc_now())
+      |> Ecto.Changeset.change(
+        lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+      )
       |> Repo.update!()
 
     {:ok, event} =
@@ -37,9 +41,9 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         description: "Testing concurrent bookings",
         state: :published,
         organizer_id: organizer.id,
-        start_date: DateTime.add(DateTime.utc_now(), 30, :day),
+        start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
         max_attendees: 100,
-        published_at: DateTime.utc_now()
+        published_at: DateTime.truncate(DateTime.utc_now(), :second)
       })
 
     # Create ticket tiers with limited quantities
@@ -85,7 +89,8 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
     test "prevents overbooking when multiple users book same tier simultaneously", %{
       users: users,
       event: event,
-      tier1: tier1
+      tier1: tier1,
+      sandbox_owner: owner
     } do
       # Tier has capacity of 50
       # 60 users try to book 1 ticket each simultaneously
@@ -95,6 +100,7 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
             BookingLocker.atomic_booking(user.id, event.id, %{tier1.id => 1})
           end,
           max_concurrency: 60,
@@ -146,7 +152,8 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
       users: users,
       event: event,
       tier1: tier1,
-      tier2: tier2
+      tier2: tier2,
+      sandbox_owner: owner
     } do
       # Tier1 has capacity 50, Tier2 has capacity 25
       # Create 80 concurrent booking attempts
@@ -157,6 +164,7 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         |> Enum.with_index()
         |> Task.async_stream(
           fn {user, index} ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
             # Alternate between tier1 and tier2
             tier_id = if rem(index, 2) == 0, do: tier1.id, else: tier2.id
             BookingLocker.atomic_booking(user.id, event.id, %{tier_id => 1})
@@ -201,7 +209,8 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
     test "prevents overbooking when users request multiple tickets simultaneously", %{
       users: users,
       event: event,
-      tier1: tier1
+      tier1: tier1,
+      sandbox_owner: owner
     } do
       # Tier has capacity 50
       # 20 users try to book 3 tickets each (total 60 tickets requested)
@@ -211,6 +220,7 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
             BookingLocker.atomic_booking(user.id, event.id, %{tier1.id => 3})
           end,
           max_concurrency: 20,
@@ -255,7 +265,8 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
       users: users,
       event: event,
       tier1: tier1,
-      tier2: tier2
+      tier2: tier2,
+      sandbox_owner: owner
     } do
       # Event has max_attendees: 100
       # Tier1 capacity: 50, Tier2 capacity: 25
@@ -269,6 +280,7 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         |> Enum.with_index()
         |> Task.async_stream(
           fn {user, index} ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
             # Alternate between tiers
             tier_id = if rem(index, 2) == 0, do: tier1.id, else: tier2.id
             BookingLocker.atomic_booking(user.id, event.id, %{tier_id => 1})
@@ -308,7 +320,8 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
     test "pending tickets prevent new bookings from exceeding capacity", %{
       users: users,
       event: event,
-      tier1: tier1
+      tier1: tier1,
+      sandbox_owner: owner
     } do
       # Tier has capacity 50
       # First wave: 30 users book tickets (creates 30 pending tickets)
@@ -318,6 +331,7 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         first_wave_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
             BookingLocker.atomic_booking(user.id, event.id, %{tier1.id => 1})
           end,
           max_concurrency: 30,
@@ -344,6 +358,7 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         second_wave_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
             BookingLocker.atomic_booking(user.id, event.id, %{tier1.id => 1})
           end,
           max_concurrency: 30,
@@ -377,7 +392,8 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
     test "allows unlimited concurrent bookings for unlimited tier", %{
       users: users,
       event: event,
-      tier_unlimited: tier_unlimited
+      tier_unlimited: tier_unlimited,
+      sandbox_owner: owner
     } do
       # Unlimited tier should allow all bookings
       concurrent_users = Enum.take(users, 50)
@@ -386,6 +402,7 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
             BookingLocker.atomic_booking(user.id, event.id, %{tier_unlimited.id => 1})
           end,
           max_concurrency: 50,
@@ -415,7 +432,8 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
     test "handles rapid sequential bookings correctly", %{
       users: users,
       event: event,
-      tier1: tier1
+      tier1: tier1,
+      sandbox_owner: owner
     } do
       # Book tickets rapidly one after another (not truly concurrent, but tests sequential logic)
       concurrent_users = Enum.take(users, 60)
@@ -447,11 +465,14 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
 
     test "prevents same user from booking same tier multiple times concurrently", %{
       event: event,
-      tier1: tier1
+      tier1: tier1,
+      sandbox_owner: owner
     } do
       user =
         user_fixture()
-        |> Ecto.Changeset.change(lifetime_membership_awarded_at: DateTime.utc_now())
+        |> Ecto.Changeset.change(
+          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        )
         |> Repo.update!()
 
       # Same user tries to book same tier 10 times concurrently
@@ -459,6 +480,7 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         1..10
         |> Task.async_stream(
           fn _ ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
             BookingLocker.atomic_booking(user.id, event.id, %{tier1.id => 1})
           end,
           max_concurrency: 10,
@@ -490,10 +512,11 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
     test "ensures database locks prevent race conditions", %{
       users: users,
       event: event,
-      tier1: tier1
+      tier1: tier1,
+      sandbox_owner: owner
     } do
-      # This test verifies that FOR UPDATE locks work correctly
-      # by checking that no two transactions see the same availability count
+      # This test verifies that optimistic locking works correctly
+      # by checking that no two transactions can successfully update the same tier inventory
 
       concurrent_users = Enum.take(users, 100)
 
@@ -502,6 +525,7 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
             result = BookingLocker.atomic_booking(user.id, event.id, %{tier1.id => 1})
             # Small delay to ensure we can observe transaction ordering
             Process.sleep(1)

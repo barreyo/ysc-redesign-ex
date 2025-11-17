@@ -3,13 +3,13 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
   Extensive concurrency tests for cabin bookings to ensure no data races or overbooking.
 
   These tests simulate high-concurrency scenarios where multiple users attempt to book
-  cabins simultaneously, verifying that the database locking mechanisms prevent
+  cabins simultaneously, verifying that optimistic locking mechanisms prevent
   double-booking and ensure capacity limits are respected for:
   - Tahoe room bookings
   - Clear Lake per-guest bookings
   - Buyout bookings
   """
-  use Ysc.DataCase, async: false
+  use Ysc.DataCase, async: true
 
   alias Ysc.Bookings.BookingLocker
   alias Ysc.Bookings.{Booking, PropertyInventory, RoomInventory, Room}
@@ -79,15 +79,21 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       users: users,
       tahoe_room1: room,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # 20 users try to book the same room for the same dates simultaneously
+      # Each concurrent task needs its own database connection for proper locking
       concurrent_users = Enum.take(users, 20)
 
       results =
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            # Allow this task process to checkout its own database connection
+            # This is critical for proper optimistic locking behavior with concurrent transactions
+            Ysc.DataCase.allow_sandbox(self(), owner)
+
             BookingLocker.create_room_booking(
               user.id,
               [room.id],
@@ -137,7 +143,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       tahoe_room2: room2,
       tahoe_room3: room3,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # 30 users try to book different rooms simultaneously
       concurrent_users = Enum.take(users, 30)
@@ -147,6 +154,7 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         |> Enum.with_index()
         |> Task.async_stream(
           fn {user, index} ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
             # Distribute across 3 rooms
             room_id =
               case rem(index, 3) do
@@ -198,7 +206,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       users: users,
       tahoe_room1: room,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # First user books checkin_date to checkout_date
       [user1 | rest_users] = users
@@ -231,6 +240,7 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         |> Enum.zip(overlapping_dates)
         |> Task.async_stream(
           fn {user, {ci_date, co_date}} ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
             BookingLocker.create_room_booking(user.id, [room.id], ci_date, co_date, 2)
           end,
           max_concurrency: length(overlapping_dates),
@@ -259,7 +269,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       users: users,
       tahoe_room1: room,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # First user books original dates
       [user1 | rest_users] = users
@@ -283,6 +294,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
+
             BookingLocker.create_room_booking(
               user.id,
               [room.id],
@@ -308,7 +321,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
     test "prevents overbooking when capacity is exceeded", %{
       users: users,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # Clear Lake has capacity of 12 guests per day
       # 20 users try to book 1 guest each simultaneously (total 20 guests > 12 capacity)
@@ -318,6 +332,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
+
             BookingLocker.create_per_guest_booking(
               user.id,
               :clear_lake,
@@ -363,7 +379,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
     test "handles mixed guest counts correctly", %{
       users: users,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # Clear Lake capacity: 12 guests
       # Create bookings with varying guest counts
@@ -377,6 +394,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         |> Enum.zip(guest_counts)
         |> Task.async_stream(
           fn {user, guests} ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
+
             BookingLocker.create_per_guest_booking(
               user.id,
               :clear_lake,
@@ -419,7 +438,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
     test "prevents overbooking when multiple users book multiple guests", %{
       users: users,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # Clear Lake capacity: 12 guests
       # 5 users try to book 3 guests each (total 15 guests > 12 capacity)
@@ -429,6 +449,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
+
             BookingLocker.create_per_guest_booking(
               user.id,
               :clear_lake,
@@ -474,7 +496,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
     test "prevents multiple buyout bookings for same dates", %{
       users: users,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # 10 users try to book buyout for same dates simultaneously
       concurrent_users = Enum.take(users, 10)
@@ -483,6 +506,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
+
             BookingLocker.create_buyout_booking(
               user.id,
               :clear_lake,
@@ -529,12 +554,13 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       users: users,
       tahoe_room1: room,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # First user books a room
       [user1 | rest_users] = users
 
-      {:ok, {:ok, _room_booking}} =
+      {:ok, _room_booking} =
         BookingLocker.create_room_booking(
           user1.id,
           [room.id],
@@ -550,6 +576,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
+
             BookingLocker.create_buyout_booking(
               user.id,
               :tahoe,
@@ -584,12 +612,13 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       users: users,
       tahoe_room1: room,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # First user books buyout
       [user1 | rest_users] = users
 
-      {:ok, {:ok, _buyout_booking}} =
+      {:ok, _buyout_booking} =
         BookingLocker.create_buyout_booking(
           user1.id,
           :tahoe,
@@ -638,7 +667,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
     test "prevents per-guest bookings when buyout is active (Clear Lake)", %{
       users: users,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # First user books buyout
       [user1 | rest_users] = users
@@ -691,14 +721,15 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
   end
 
   describe "concurrent bookings - database transaction isolation" do
-    test "ensures FOR UPDATE locks prevent race conditions in room bookings", %{
+    test "ensures optimistic locking prevents race conditions in room bookings", %{
       users: users,
       tahoe_room1: room,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
-      # This test verifies that FOR UPDATE locks work correctly
-      # by checking that no two transactions see the same availability
+      # This test verifies that optimistic locking works correctly
+      # by checking that no two transactions can successfully update the same inventory
 
       concurrent_users = Enum.take(users, 30)
 
@@ -706,6 +737,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
+
             result =
               BookingLocker.create_room_booking(
                 user.id,
@@ -741,10 +774,11 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       end
     end
 
-    test "ensures FOR UPDATE locks prevent race conditions in per-guest bookings", %{
+    test "ensures optimistic locking prevents race conditions in per-guest bookings", %{
       users: users,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # Clear Lake capacity: 12 guests
       # 20 users try to book 1 guest each
@@ -754,6 +788,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         concurrent_users
         |> Task.async_stream(
           fn user ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
+
             result =
               BookingLocker.create_per_guest_booking(
                 user.id,
@@ -796,12 +832,13 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       users: users,
       tahoe_room1: room,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # First user creates a hold booking
       [user1 | rest_users] = users
 
-      {:ok, {:ok, booking1}} =
+      {:ok, booking1} =
         BookingLocker.create_room_booking(
           user1.id,
           [room.id],
@@ -830,7 +867,7 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       # Now another user should be able to book
       [user2 | _] = rest_users
 
-      {:ok, {:ok, _booking2}} =
+      {:ok, _booking2} =
         BookingLocker.create_room_booking(
           user2.id,
           [room.id],
@@ -850,7 +887,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       users: users,
       tahoe_room1: room,
       checkin_date: checkin_date,
-      checkout_date: checkout_date
+      checkout_date: checkout_date,
+      sandbox_owner: owner
     } do
       # First user creates a hold booking
       [user1 | rest_users] = users

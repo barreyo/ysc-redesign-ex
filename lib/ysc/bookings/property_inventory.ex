@@ -20,6 +20,8 @@ defmodule Ysc.Bookings.PropertyInventory do
     field :buyout_held, :boolean, default: false
     field :buyout_booked, :boolean, default: false
 
+    field :lock_version, :integer, default: 1
+
     field :updated_at, :utc_datetime
   end
 
@@ -39,5 +41,6 @@ defmodule Ysc.Bookings.PropertyInventory do
     |> validate_number(:capacity_total, greater_than_or_equal_to: 0)
     |> validate_number(:capacity_held, greater_than_or_equal_to: 0)
     |> validate_number(:capacity_booked, greater_than_or_equal_to: 0)
+    |> optimistic_lock(:lock_version)
   end
 end

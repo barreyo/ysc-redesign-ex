@@ -65,7 +65,6 @@ defmodule Ysc.Events.TicketTier do
     |> validate_quantity()
     |> validate_datetime_order()
     |> validate_money(:price)
-    |> validate_event_capacity()
     |> optimistic_lock(:lock_version)
     |> foreign_key_constraint(:event_id)
   end
@@ -153,41 +152,6 @@ defmodule Ysc.Events.TicketTier do
 
       _ ->
         changeset
-    end
-  end
-
-  # Validate that the total capacity across all ticket tiers doesn't exceed event max_attendees
-  defp validate_event_capacity(changeset) do
-    event_id = get_field(changeset, :event_id)
-    quantity = get_field(changeset, :quantity)
-
-    # Skip validation if no event_id or quantity is nil (unlimited)
-    if event_id && quantity do
-      # Get the event to check max_attendees
-      case Ysc.Repo.get(Ysc.Events.Event, event_id) do
-        nil ->
-          changeset
-
-        event when is_nil(event.max_attendees) ->
-          # No max_attendees limit set, allow any quantity
-          changeset
-
-        event ->
-          # Calculate total capacity across all ticket tiers for this event
-          total_capacity = calculate_total_event_capacity(event_id, changeset)
-
-          if total_capacity > event.max_attendees do
-            add_error(
-              changeset,
-              :quantity,
-              "would exceed event capacity of #{event.max_attendees} attendees. Total capacity would be #{total_capacity}"
-            )
-          else
-            changeset
-          end
-      end
-    else
-      changeset
     end
   end
 

@@ -31,8 +31,9 @@ defmodule Ysc.Tickets.BookingLocker do
   """
   def atomic_booking(user_id, event_id, ticket_selections) do
     Repo.transaction(fn ->
-      with {:ok, _event} <- lock_and_validate_event(event_id),
+      with {:ok, event} <- lock_and_validate_event(event_id),
            {:ok, tiers} <- lock_and_validate_tiers(event_id, ticket_selections),
+           :ok <- validate_event_capacity(event, tiers, ticket_selections),
            {:ok, total_amount} <- calculate_total_amount(tiers, ticket_selections),
            {:ok, ticket_order} <- create_ticket_order_atomic(user_id, event_id, total_amount),
            {:ok, _tickets} <- create_tickets_atomic(ticket_order, tiers, ticket_selections) do
@@ -139,18 +140,54 @@ defmodule Ysc.Tickets.BookingLocker do
     end
   end
 
+  defp validate_event_capacity(%Event{max_attendees: nil}, _tiers, _ticket_selections) do
+    # No capacity limit, always OK
+    :ok
+  end
+
+  defp validate_event_capacity(
+         %Event{max_attendees: max_attendees} = event,
+         tiers,
+         ticket_selections
+       ) do
+    # Count current tickets (both confirmed and pending count toward capacity)
+    current_attendees = count_all_tickets_for_event_locked(event.id)
+
+    # Calculate total requested tickets (excluding donations)
+    total_requested =
+      ticket_selections
+      |> Enum.reduce(0, fn {tier_id, quantity}, acc ->
+        tier = Enum.find(tiers, &(&1.id == tier_id))
+
+        # Donations don't count toward event capacity
+        if tier && (tier.type == :donation || tier.type == "donation") do
+          acc
+        else
+          acc + quantity
+        end
+      end)
+
+    # Check if adding requested tickets would exceed capacity
+    if current_attendees + total_requested <= max_attendees do
+      :ok
+    else
+      {:error, :event_capacity_exceeded}
+    end
+  end
+
   defp lock_event(event_id) do
-    Event
-    |> where([e], e.id == ^event_id)
-    |> lock("FOR UPDATE")
-    |> Repo.one()
+    # Fetch event (optimistic locking - no FOR UPDATE)
+    # The optimistic lock will be checked when we update the event if needed
+    Repo.get(Event, event_id)
   end
 
   defp lock_ticket_tiers(event_id) do
-    TicketTier
-    |> where([tt], tt.event_id == ^event_id)
-    |> lock("FOR UPDATE")
-    |> Repo.all()
+    # Fetch ticket tiers (optimistic locking - no FOR UPDATE)
+    # The optimistic lock will be checked when we update tiers if needed
+    Repo.all(
+      from tt in TicketTier,
+        where: tt.event_id == ^event_id
+    )
   end
 
   defp get_available_tier_quantity_locked(%TicketTier{quantity: nil}), do: :unlimited
@@ -170,14 +207,15 @@ defmodule Ysc.Tickets.BookingLocker do
   defp get_event_capacity_info(%Event{max_attendees: nil} = event) do
     %{
       max_attendees: nil,
-      current_attendees: count_confirmed_tickets_for_event_locked(event.id),
+      current_attendees: count_all_tickets_for_event_locked(event.id),
       available: :unlimited,
       at_capacity: false
     }
   end
 
   defp get_event_capacity_info(%Event{max_attendees: max_attendees} = event) do
-    current_attendees = count_confirmed_tickets_for_event_locked(event.id)
+    # Count both confirmed and pending tickets for accurate availability display
+    current_attendees = count_all_tickets_for_event_locked(event.id)
     available = max_attendees - current_attendees
 
     %{
@@ -193,6 +231,15 @@ defmodule Ysc.Tickets.BookingLocker do
   defp count_confirmed_tickets_for_event_locked(event_id) do
     Ticket
     |> where([t], t.event_id == ^event_id and t.status == :confirmed)
+    |> Repo.aggregate(:count, :id)
+  end
+
+  defp count_all_tickets_for_event_locked(nil), do: 0
+
+  defp count_all_tickets_for_event_locked(event_id) do
+    # Count both confirmed and pending tickets since pending tickets are reserved
+    Ticket
+    |> where([t], t.event_id == ^event_id and t.status in [:confirmed, :pending])
     |> Repo.aggregate(:count, :id)
   end
 

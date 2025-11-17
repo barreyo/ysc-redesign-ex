@@ -20,6 +20,76 @@ defmodule YscWeb.AdminDashboardLive do
       <div class="mb-6">
         <.live_component module={YscWeb.AdminSearchComponent} id="admin-search" />
       </div>
+      <!-- Pending Approval Users Module -->
+      <div class="bg-white rounded border p-6 lg:col-span-2 mb-6">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold text-zinc-800">Pending Application Reviews</h2>
+          <.link navigate={~p"/admin/users"} class="text-sm text-blue-600 hover:underline font-medium">
+            View all users
+          </.link>
+        </div>
+        <div :if={Enum.empty?(@pending_users)} class="text-sm text-zinc-500 py-4">
+          No pending applications
+        </div>
+        <div :if={not Enum.empty?(@pending_users)} class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-zinc-200">
+            <thead class="bg-zinc-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-700 uppercase tracking-wider">
+                  Name
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-700 uppercase tracking-wider">
+                  Email
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-700 uppercase tracking-wider">
+                  Submitted
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-700 uppercase tracking-wider">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-zinc-200">
+              <tr :for={user <- @pending_users} class="hover:bg-zinc-50">
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-800">
+                  <%= "#{user.first_name} #{user.last_name}" %>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-600">
+                  <%= user.email %>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-600">
+                  <span :if={user.registration_form && user.registration_form.completed}>
+                    <%= Timex.format!(
+                      Timex.Timezone.convert(
+                        user.registration_form.completed,
+                        "America/Los_Angeles"
+                      ),
+                      "{YYYY}-{0M}-{0D}"
+                    ) %>
+                    <span class="text-zinc-400 ml-1">
+                      (<%= Timex.from_now(user.registration_form.completed) %>)
+                    </span>
+                  </span>
+                  <span
+                    :if={!user.registration_form || !user.registration_form.completed}
+                    class="text-zinc-400"
+                  >
+                    Not available
+                  </span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                  <.link
+                    navigate={~p"/admin/users/#{user.id}/review"}
+                    class="text-blue-600 hover:text-blue-800 font-semibold hover:underline"
+                  >
+                    Review
+                  </.link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 pb-10">
         <!-- Latest Comments Module -->
@@ -121,79 +191,6 @@ defmodule YscWeb.AdminDashboardLive do
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-        <!-- Pending Approval Users Module -->
-        <div class="bg-white rounded border p-6 lg:col-span-2">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold text-zinc-800">Pending Application Reviews</h2>
-            <.link
-              navigate={~p"/admin/users"}
-              class="text-sm text-blue-600 hover:underline font-medium"
-            >
-              View all users
-            </.link>
-          </div>
-          <div :if={Enum.empty?(@pending_users)} class="text-sm text-zinc-500 py-4">
-            No pending applications
-          </div>
-          <div :if={not Enum.empty?(@pending_users)} class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-zinc-200">
-              <thead class="bg-zinc-50">
-                <tr>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-700 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-700 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-700 uppercase tracking-wider">
-                    Submitted
-                  </th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-700 uppercase tracking-wider">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-zinc-200">
-                <tr :for={user <- @pending_users} class="hover:bg-zinc-50">
-                  <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-800">
-                    <%= "#{user.first_name} #{user.last_name}" %>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-600">
-                    <%= user.email %>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-600">
-                    <span :if={user.registration_form && user.registration_form.completed}>
-                      <%= Timex.format!(
-                        Timex.Timezone.convert(
-                          user.registration_form.completed,
-                          "America/Los_Angeles"
-                        ),
-                        "{YYYY}-{0M}-{0D}"
-                      ) %>
-                      <span class="text-zinc-400 ml-1">
-                        (<%= Timex.from_now(user.registration_form.completed) %>)
-                      </span>
-                    </span>
-                    <span
-                      :if={!user.registration_form || !user.registration_form.completed}
-                      class="text-zinc-400"
-                    >
-                      Not available
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                    <.link
-                      navigate={~p"/admin/users/#{user.id}/review"}
-                      class="text-blue-600 hover:text-blue-800 font-semibold hover:underline"
-                    >
-                      Review
-                    </.link>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </div>
       </div>

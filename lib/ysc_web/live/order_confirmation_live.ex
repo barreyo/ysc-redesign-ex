@@ -52,7 +52,7 @@ defmodule YscWeb.OrderConfirmationLive do
   def render(assigns) do
     ~H"""
     <div class="py-8 lg:py-10 max-w-screen-lg mx-auto px-4">
-      <div class="max-w-xl mx-auto lg:mx-0">
+      <div class="max-w-xl mx-auto">
         <!-- Success Header -->
         <div class="text-center mb-8">
           <div class="text-green-500 mb-4">

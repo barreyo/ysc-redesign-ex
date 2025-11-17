@@ -2215,7 +2215,9 @@ defmodule YscWeb.TahoeBookingLive do
 
       {:error, :insufficient_capacity} ->
         {:noreply,
-         assign(socket,
+         socket
+         |> put_flash(:error, "Sorry, there is not enough capacity for your requested dates.")
+         |> assign(
            form_errors: %{
              general: "Sorry, there is not enough capacity for your requested dates."
            },
@@ -2225,7 +2227,9 @@ defmodule YscWeb.TahoeBookingLive do
 
       {:error, :property_unavailable} ->
         {:noreply,
-         assign(socket,
+         socket
+         |> put_flash(:error, "Sorry, the property is not available for your requested dates.")
+         |> assign(
            form_errors: %{
              general: "Sorry, the property is not available for your requested dates."
            },
@@ -2235,7 +2239,9 @@ defmodule YscWeb.TahoeBookingLive do
 
       {:error, :rooms_already_booked} ->
         {:noreply,
-         assign(socket,
+         socket
+         |> put_flash(:error, "Sorry, some rooms are already booked for your requested dates.")
+         |> assign(
            form_errors: %{
              general: "Sorry, some rooms are already booked for your requested dates."
            },
@@ -2243,22 +2249,69 @@ defmodule YscWeb.TahoeBookingLive do
            price_error: "Rooms unavailable"
          )}
 
+      {:error, :room_unavailable} ->
+        # Map room_unavailable to rooms_already_booked for consistent error handling
+        {:noreply,
+         socket
+         |> put_flash(:error, "Sorry, some rooms are already booked for your requested dates.")
+         |> assign(
+           form_errors: %{
+             general: "Sorry, some rooms are already booked for your requested dates."
+           },
+           calculated_price: nil,
+           price_error: "Rooms unavailable"
+         )}
+
+      {:error, :stale_inventory} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "The availability changed while you were booking. Please refresh the calendar and try again."
+         )
+         |> assign(
+           form_errors: %{
+             general:
+               "The availability changed while you were booking. Please refresh the calendar and try again."
+           },
+           calculated_price: nil,
+           price_error: "Availability changed"
+         )}
+
       {:error, :invalid_parameters} ->
         {:noreply,
-         assign(socket,
+         socket
+         |> put_flash(:error, "Please fill in all required fields.")
+         |> assign(
            form_errors: %{general: "Please fill in all required fields."},
            calculated_price: nil,
            price_error: "Invalid parameters"
          )}
 
-      {:error, changeset} ->
+      {:error, %Ecto.Changeset{} = changeset} ->
         form_errors = format_errors(changeset)
+        error_message = "Please fix the errors above and try again."
 
         {:noreply,
-         assign(socket,
+         socket
+         |> put_flash(:error, error_message)
+         |> assign(
            form_errors: form_errors,
            calculated_price: nil,
            price_error: "Please fix the errors above"
+         )}
+
+      {:error, reason} ->
+        # Handle any other error atoms that weren't explicitly handled above
+        {:noreply,
+         socket
+         |> put_flash(:error, "An error occurred while creating your booking. Please try again.")
+         |> assign(
+           form_errors: %{
+             general: "An error occurred while creating your booking. Please try again."
+           },
+           calculated_price: nil,
+           price_error: "Booking failed"
          )}
     end
   end
@@ -2733,6 +2786,9 @@ defmodule YscWeb.TahoeBookingLive do
 
       {:error, :room_unavailable} ->
         {:error, :rooms_already_booked}
+
+      {:error, :stale_inventory} ->
+        {:error, :stale_inventory}
 
       {:error, reason} ->
         {:error, reason}

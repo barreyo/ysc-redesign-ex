@@ -18,6 +18,8 @@ defmodule Ysc.Bookings.RoomInventory do
     field :held, :boolean, default: false
     field :booked, :boolean, default: false
 
+    field :lock_version, :integer, default: 1
+
     field :updated_at, :utc_datetime
   end
 
@@ -26,5 +28,6 @@ defmodule Ysc.Bookings.RoomInventory do
     room_inventory
     |> cast(attrs, [:room_id, :day, :held, :booked])
     |> validate_required([:room_id, :day])
+    |> optimistic_lock(:lock_version)
   end
 end

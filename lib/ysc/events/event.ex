@@ -142,7 +142,8 @@ defmodule Ysc.Events.Event do
       :start_date,
       :start_time,
       :end_date,
-      :end_time
+      :end_time,
+      :lock_version
     ])
     |> validate_required([
       :state,
@@ -156,6 +157,7 @@ defmodule Ysc.Events.Event do
     |> unique_constraint(:reference_id)
     |> validate_publish_dates()
     |> validate_start_end()
+    |> optimistic_lock(:lock_version)
   end
 
   defp validate_start_end(changeset) do

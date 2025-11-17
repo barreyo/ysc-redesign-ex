@@ -131,7 +131,15 @@ defmodule Ysc.Settings do
   end
 
   def clear_cache() do
+    # Clear the main settings cache
     Cachex.del(:ysc_cache, @settings_cache_key)
-    Cachex.del(:ysc_cache, "site-settings:*")
+
+    # Clear all individual setting caches by fetching all settings and deleting their cache keys
+    # Cachex doesn't support wildcard deletion, so we need to delete each key individually
+    all_settings = Repo.all(from s in SiteSetting, select: s.name)
+
+    Enum.each(all_settings, fn name ->
+      Cachex.del(:ysc_cache, setting_cache_key(name))
+    end)
   end
 end

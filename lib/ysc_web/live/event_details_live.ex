@@ -592,12 +592,14 @@ defmodule YscWeb.EventDetailsLive do
                   </p>
                 </div>
 
+                <% available_capacity = get_event_available_capacity(@event.id) %>
                 <div
                   :if={
                     !is_donation && !is_sold_out && !is_pre_sale && !is_sale_ended &&
                       @event.max_attendees &&
+                      available_capacity != :unlimited &&
                       calculate_total_selected_tickets(@selected_tickets, @event.id) >=
-                        @event.max_attendees
+                        available_capacity
                   }
                   class="mt-2"
                 >
@@ -1817,6 +1819,24 @@ defmodule YscWeb.EventDetailsLive do
          )
          |> assign(:show_ticket_modal, false)}
 
+      {:error, :event_capacity_exceeded} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Sorry, the event has reached its maximum capacity. The selected tickets are no longer available."
+         )
+         |> assign(:show_ticket_modal, false)}
+
+      {:error, :stale_inventory} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "The ticket availability changed while you were booking. Please refresh and try again."
+         )
+         |> assign(:show_ticket_modal, false)}
+
       {:error, :event_not_available} ->
         {:noreply,
          socket
@@ -2184,25 +2204,46 @@ defmodule YscWeb.EventDetailsLive do
     end
   end
 
-  defp can_increase_quantity?(ticket_tier, current_quantity, _selected_tickets, event) do
+  defp can_increase_quantity?(ticket_tier, current_quantity, selected_tickets, event) do
     # Can't increase if not on sale
     if !tier_on_sale?(ticket_tier) do
       false
     else
-      # Use the atomic booking locker for real-time availability
-      case Ysc.Tickets.BookingLocker.check_availability_with_lock(event.id) do
-        {:ok, availability} ->
-          tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
-          event_at_capacity = availability.event_capacity.at_capacity
+      # Donations don't count toward capacity
+      if ticket_tier.type == "donation" || ticket_tier.type == :donation do
+        true
+      else
+        # Use the atomic booking locker for real-time availability
+        case Ysc.Tickets.BookingLocker.check_availability_with_lock(event.id) do
+          {:ok, availability} ->
+            tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
+            event_capacity = availability.event_capacity
 
-          cond do
-            event_at_capacity -> false
-            tier_info.available == :unlimited -> true
-            true -> current_quantity < tier_info.available
-          end
+            # Check tier availability first
+            tier_available =
+              cond do
+                tier_info.available == :unlimited -> true
+                true -> current_quantity < tier_info.available
+              end
 
-        {:error, _} ->
-          false
+            # Check event global capacity
+            event_available =
+              case event_capacity.available do
+                :unlimited ->
+                  true
+
+                available ->
+                  # Calculate total selected tickets (excluding donations)
+                  total_selected = calculate_total_selected_tickets(selected_tickets, event.id)
+                  # Check if adding one more ticket would exceed capacity
+                  total_selected + 1 <= available
+              end
+
+            tier_available && event_available
+
+          {:error, _} ->
+            false
+        end
       end
     end
   end
@@ -2219,6 +2260,16 @@ defmodule YscWeb.EventDetailsLive do
         acc
       end
     end)
+  end
+
+  defp get_event_available_capacity(event_id) do
+    case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
+      {:ok, availability} ->
+        availability.event_capacity.available
+
+      {:error, _} ->
+        :unlimited
+    end
   end
 
   defp has_any_tickets_selected?(selected_tickets) do

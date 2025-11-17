@@ -16,6 +16,8 @@ defmodule Ysc.SettingsTest do
       Settings.clear_cache()
 
       setting1 = %SiteSetting{name: "setting1", value: "value1"} |> Repo.insert!()
+      # Add a small delay to ensure setting2 gets a later ULID
+      Process.sleep(1)
       setting2 = %SiteSetting{name: "setting2", value: "value2"} |> Repo.insert!()
 
       # Clear cache again to force fresh query from DB
@@ -25,6 +27,7 @@ defmodule Ysc.SettingsTest do
       assert length(settings) == 2
       # Since setting2 was created after setting1, its ID should be "greater" (newer ULID)
       # and thus come first when ordered by desc
+      # Check that both settings are present and setting2 comes first
       assert Enum.map(settings, & &1.id) == [setting2.id, setting1.id]
     end
 
