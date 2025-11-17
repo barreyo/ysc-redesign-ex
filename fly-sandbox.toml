@@ -13,11 +13,22 @@ kill_signal = 'SIGTERM'
 release_command = '/app/bin/migrate'
 
 [env]
+ENVIRONMENT = 'sandbox'
 PHX_HOST = 'ysc-sandbox.fly.dev'
 PORT = '4000'
 ERL_AFLAGS = '-proto_dist inet6_tcp'
 ECTO_IPV6 = 'true'
-
+STRIPE_SINGLE_PRICE_ID = 'price_1SUZVAREiftrEncLCHpFzbJY'
+STRIPE_FAMILY_PRICE_ID = 'price_1SUZVcREiftrEncLSSYnzi6N'
+EMAIL_FROM = "info+sandbox@ysc.org"
+EMAIL_FROM_NAME = "YSC Test Sandbox"
+EMAIL_CONTACT = "info+sandbox@ysc.org"
+EMAIL_ADMIN = "admin+sandbox@ysc.org"
+EMAIL_MEMBERSHIP = "membership+sandbox@ysc.org"
+EMAIL_BOARD = "board+sandbox@ysc.org"
+EMAIL_VOLUNTEER = "volunteer+sandbox@ysc.org"
+EMAIL_TAHOE = "tahoe+sandbox@ysc.org"
+EMAIL_CLEAR_LAKE = "clearlake+sandbox@ysc.org"
 
 [http_service]
 internal_port = 4000

@@ -85,6 +85,7 @@ defmodule Ysc.MixProject do
       {:plug_cowboy, "~> 2.6"},
       {:postgrex, "~> 0.20"},
       {:sentry, "~> 11.0"},
+      {:gen_smtp, "~> 1.0"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:stripity_stripe, "~> 2.17"},
       {:swoosh, "~> 1.14"},
