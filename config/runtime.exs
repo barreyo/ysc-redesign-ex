@@ -61,7 +61,11 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: port
     ],
-    secret_key_base: secret_key_base
+    secret_key_base: secret_key_base,
+    render_errors: [
+      formats: [html: YscWeb.ErrorHTML, json: YscWeb.ErrorJSON],
+      layout: {YscWeb.Layouts, :error}
+    ]
 
   config :ysc, dns_cluster_query: System.get_env("DNS_CLUSTER_QUERY")
 

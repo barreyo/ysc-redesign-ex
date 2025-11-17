@@ -10,7 +10,7 @@ kill_signal = 'SIGTERM'
 [build]
 
 [deploy]
-release_command = "/bin/sh -lc 'DATABASE_URL=${RAW_DATABASE_URL} /app/bin/migrate'"
+release_command = "/bin/sh -lc 'DATABASE_URL=${RAW_DATABASE_URL} /app/bin/migrate && /app/bin/seed'"
 
 [env]
 ENVIRONMENT = 'sandbox'
@@ -45,3 +45,4 @@ soft_limit = 1000
 
 [[vm]]
 size = 'shared-cpu-1x'
+memory = 512

@@ -144,6 +144,8 @@ release:  ## Build and tag a docker image for release
 
 .PHONY: deploy-sandbox
 deploy-sandbox:  ## Deploy the sandbox application to Fly.io
+	@echo "$(BOLD)Deploying sandbox application to Fly.io...$(RESET)"
+	@echo "$(BOLD)Version: $(VERSION_LONG)$(RESET)"
 	@fly deploy --dockerfile $(DOCKER_DIR)/Dockerfile -a ysc-sandbox -c etc/fly/fly-sandbox.toml --image-label $(VERSION_LONG)
 
 ##

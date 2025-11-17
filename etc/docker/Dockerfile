@@ -73,23 +73,29 @@ RUN chown app /app
 
 WORKDIR /app
 
-# Set environment variables
-ENV PORT=4000 \
-    LANG=C.UTF-8 \
-    LANGUAGE=en_US:en \
-    LC_ALL=en_US.UTF-8 \
-    MIX_ENV=prod
-
 # Copy the release from the builder stage
 COPY --from=builder --chown=app:app /app/rel rel
 COPY --from=builder --chown=app:app /app/_build/prod/rel/ysc ./
 COPY --from=builder --chown=app:app /app/priv/static ./priv/static
 
+# Ensure bin scripts have execute permissions
+RUN chmod +x bin/* 2>/dev/null || true
+
+ENTRYPOINT ["/sbin/tini", "-s", "--"]
+
 # Use the non-root user
 USER app
 
+# Set environment variables
+ENV PORT=4000 \
+    LANG=C.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8 \
+    MIX_ENV=prod \
+    PHX_SERVER=true
+
 # Set the default command
-CMD ["/tini", "--", "/app/bin/server"]
+CMD ["/app/bin/server", "start"]
 
 # Expose the port
 EXPOSE 4000
