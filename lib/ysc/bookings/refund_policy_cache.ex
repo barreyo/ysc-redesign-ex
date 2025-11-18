@@ -62,21 +62,37 @@ defmodule Ysc.Bookings.RefundPolicyCache do
   Invalidates the refund policy cache by bumping the version.
 
   This should be called when refund policies or rules are created, updated, or deleted.
+  Gracefully handles cases where the cache is not initialized (e.g., in seed scripts).
   """
   def invalidate do
     # Bump version to invalidate all cached policies
     new_version = System.system_time(:second)
-    Cachex.put(@cache_name, @cache_version_key, new_version)
 
-    # Broadcast invalidation event via PubSub
-    Phoenix.PubSub.broadcast(
-      Ysc.PubSub,
-      "refund_policy_cache:invalidate",
-      {:refund_policy_cache_invalidated, new_version}
-    )
+    # Try to update cache version, but don't fail if cache isn't initialized
+    case Cachex.put(@cache_name, @cache_version_key, new_version) do
+      {:ok, _} ->
+        # Cache is available - broadcast invalidation event via PubSub
+        if Process.whereis(Ysc.PubSub) do
+          Phoenix.PubSub.broadcast(
+            Ysc.PubSub,
+            "refund_policy_cache:invalidate",
+            {:refund_policy_cache_invalidated, new_version}
+          )
+        end
 
-    Logger.debug("Refund policy cache invalidated", version: new_version)
-    :ok
+        Logger.debug("Refund policy cache invalidated", version: new_version)
+        :ok
+
+      {:error, _reason} ->
+        # Cache not available (e.g., in seed scripts) - silently ignore
+        Logger.debug("Refund policy cache not available, skipping invalidation")
+        :ok
+    end
+  rescue
+    ArgumentError ->
+      # Cache table doesn't exist (e.g., in seed scripts) - silently ignore
+      Logger.debug("Refund policy cache not initialized, skipping invalidation")
+      :ok
   end
 
   # Private functions

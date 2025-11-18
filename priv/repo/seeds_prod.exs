@@ -607,8 +607,9 @@ IO.puts("  ✅ Created Tahoe property-level fallback pricing")
 IO.puts("📋 Creating refund policies...")
 
 # Tahoe Full Cabin (Buyout) Policy
+# Use direct database query to avoid cache initialization issues in seed scripts
 tahoe_buyout_policy =
-  case Bookings.get_active_refund_policy(:tahoe, :buyout) do
+  case Bookings.get_active_refund_policy_db(:tahoe, :buyout) do
     nil ->
       policy =
         Bookings.create_refund_policy!(%{
@@ -669,8 +670,9 @@ if tahoe_buyout_policy do
 end
 
 # Tahoe Rooms Policy
+# Use direct database query to avoid cache initialization issues in seed scripts
 tahoe_room_policy =
-  case Bookings.get_active_refund_policy(:tahoe, :room) do
+  case Bookings.get_active_refund_policy_db(:tahoe, :room) do
     nil ->
       policy =
         Bookings.create_refund_policy!(%{
@@ -731,8 +733,9 @@ if tahoe_room_policy do
 end
 
 # Clear Lake Buyout Policy
+# Use direct database query to avoid cache initialization issues in seed scripts
 clear_lake_buyout_policy =
-  case Bookings.get_active_refund_policy(:clear_lake, :buyout) do
+  case Bookings.get_active_refund_policy_db(:clear_lake, :buyout) do
     nil ->
       policy =
         Bookings.create_refund_policy!(%{
@@ -793,8 +796,9 @@ if clear_lake_buyout_policy do
 end
 
 # Clear Lake Day Policy
+# Use direct database query to avoid cache initialization issues in seed scripts
 clear_lake_day_policy =
-  case Bookings.get_active_refund_policy(:clear_lake, :day) do
+  case Bookings.get_active_refund_policy_db(:clear_lake, :day) do
     nil ->
       policy =
         Bookings.create_refund_policy!(%{

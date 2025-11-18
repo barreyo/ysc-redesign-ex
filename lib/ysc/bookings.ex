@@ -1295,6 +1295,37 @@ defmodule Ysc.Bookings do
   end
 
   @doc """
+  Gets the active refund policy directly from the database, bypassing cache.
+  Useful for seed scripts and migrations where the cache may not be initialized.
+  """
+  def get_active_refund_policy_db(property, booking_mode) do
+    import Ecto.Query
+    alias Ysc.Bookings.{RefundPolicy, RefundPolicyRule}
+
+    policy =
+      from(rp in RefundPolicy,
+        where: rp.property == ^property,
+        where: rp.booking_mode == ^booking_mode,
+        where: rp.is_active == true
+      )
+      |> Repo.one()
+
+    if policy do
+      # Load rules ordered by days_before_checkin descending
+      rules =
+        from(r in RefundPolicyRule,
+          where: r.refund_policy_id == ^policy.id
+        )
+        |> RefundPolicyRule.ordered_by_days()
+        |> Repo.all()
+
+      %{policy | rules: rules}
+    else
+      nil
+    end
+  end
+
+  @doc """
   Creates a refund policy.
   """
   def create_refund_policy(attrs \\ %{}) do
