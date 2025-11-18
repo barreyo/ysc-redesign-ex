@@ -44,7 +44,16 @@ COPY lib lib
 
 # Compile assets
 RUN mix sentry.package_source_code
+# Preserve original webmanifest before digesting (browsers need exact filename)
+RUN if [ -f priv/static/site.webmanifest ]; then \
+      cp priv/static/site.webmanifest priv/static/site.webmanifest.orig; \
+    fi || true
 RUN mix assets.deploy
+# Restore original webmanifest file after digesting
+RUN if [ -f priv/static/site.webmanifest.orig ]; then \
+      cp priv/static/site.webmanifest.orig priv/static/site.webmanifest; \
+      rm priv/static/site.webmanifest.orig; \
+    fi || true
 
 # Compile the application
 RUN mix do compile --warnings-as-errors + release

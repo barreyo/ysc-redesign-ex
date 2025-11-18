@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <link phx-track-static rel="manifest" href={~p"/site.webmanifest"} />
+    <link rel="manifest" href={~p"/site.webmanifest"} />
     <link phx-track-static rel="preload" as="image" href={~p"/images/tahoe-cabin-feature.jpg"} />
     <.live_title suffix=" · The Young Scandinavians Club">
       <%= assigns[:page_title] || "YSC" %>

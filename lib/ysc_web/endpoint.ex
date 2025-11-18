@@ -15,6 +15,14 @@ defmodule YscWeb.Endpoint do
   socket "/live", Phoenix.LiveView.Socket,
     websocket: [connect_info: [:peer_data, session: @session_options]]
 
+  # Serve webmanifest without digest hash (browsers expect exact filename)
+  # This must come first to take precedence over the digested static files
+  plug Plug.Static,
+    at: "/",
+    from: {:ysc, "priv/static"},
+    gzip: false,
+    only: ~w(site.webmanifest)
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # You should set gzip to true if you are running phx.digest
@@ -22,7 +30,7 @@ defmodule YscWeb.Endpoint do
   plug Plug.Static,
     at: "/",
     from: :ysc,
-    gzip: false,
+    gzip: true,
     brotli: true,
     only: YscWeb.static_paths()
 
