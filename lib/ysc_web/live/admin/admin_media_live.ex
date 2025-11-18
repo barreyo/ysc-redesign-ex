@@ -455,7 +455,13 @@ defmodule YscWeb.AdminMediaLive do
   defp error_to_string(:too_large), do: "Too large"
   defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
   defp error_to_string(:too_many_files), do: "You have selected too many files"
-  defp error_to_string(:external_client_failure), do: "External client failure"
+
+  defp error_to_string(:external_client_failure) do
+    "Upload failed: The file could not be uploaded to storage. " <>
+      "This may be due to network issues, CORS configuration, or invalid credentials. " <>
+      "Please check the browser console for more details."
+  end
+
   defp error_to_string(_), do: "An error occurred"
 
   # Helper function to get a specific image version path

@@ -1,6 +1,6 @@
 let Uploaders = {}
 
-Uploaders.S3 = function (entries, onViewError) {
+Uploaders.S3 = function(entries, onViewError) {
     entries.forEach(entry => {
         let formData = new FormData()
         let { url, fields } = entry.meta
@@ -8,8 +8,32 @@ Uploaders.S3 = function (entries, onViewError) {
         formData.append("file", entry.file)
         let xhr = new XMLHttpRequest()
         onViewError(() => xhr.abort())
-        xhr.onload = () => xhr.status === 204 ? entry.progress(100) : entry.error()
-        xhr.onerror = () => entry.error()
+
+        xhr.onload = () => {
+            if (xhr.status === 204) {
+                entry.progress(100)
+            } else {
+                // Log error details for debugging
+                console.error("S3 upload failed:", {
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    response: xhr.responseText,
+                    url: url
+                })
+                entry.error()
+            }
+        }
+
+        xhr.onerror = () => {
+            // Log network/CORS errors for debugging
+            console.error("S3 upload network error:", {
+                url: url,
+                readyState: xhr.readyState,
+                status: xhr.status
+            })
+            entry.error()
+        }
+
         xhr.upload.addEventListener("progress", (event) => {
             if (event.lengthComputable) {
                 let percent = Math.round((event.loaded / event.total) * 100)
