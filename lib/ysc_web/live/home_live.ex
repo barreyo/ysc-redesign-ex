@@ -138,8 +138,12 @@ defmodule YscWeb.HomeLive do
             </p>
 
             <form phx-submit="subscribe_newsletter" class="py-2">
+              <label for="newsletter-email" class="sr-only">
+                Email address
+              </label>
               <input
                 type="email"
+                id="newsletter-email"
                 name="email"
                 value={@newsletter_email}
                 class="px-3 py-2 block w-full border rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400 mb-4"
