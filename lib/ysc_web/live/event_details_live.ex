@@ -1912,10 +1912,7 @@ defmodule YscWeb.EventDetailsLive do
   def date_for_add_to_cal(nil), do: nil
 
   def date_for_add_to_cal(dt) do
-    ts = Timex.Timezone.get("America/Los_Angeles", Timex.now())
-    new_date = Timex.Timezone.convert(dt, ts)
-
-    Timex.format!(new_date, "%Y-%m-%d", :strftime)
+    Timex.format!(dt, "%Y-%m-%d", :strftime)
   end
 
   defp get_end_time_for_calendar(event) do
