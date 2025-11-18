@@ -632,7 +632,7 @@ defmodule YscWeb.EventDetailsLive do
             </div>
 
             <div>
-              <h2 class="text-lg font-semibold mb-6"><%= @event.title %></h2>
+              <h2 class="text-lg font-semibold mb-6 hidden lg:block"><%= @event.title %></h2>
               <h3 class="font-semibold mb-2">Order Summary</h3>
             </div>
 
