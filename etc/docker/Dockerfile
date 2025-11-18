@@ -47,7 +47,7 @@ RUN mix sentry.package_source_code
 RUN mix assets.deploy
 
 # Compile the application
-RUN mix do compile --warnings-as-errors, release
+RUN mix do compile --warnings-as-errors + release
 
 # ===============================================
 # Stage 2: Create the final production image
