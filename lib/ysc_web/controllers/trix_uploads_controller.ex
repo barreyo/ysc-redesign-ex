@@ -2,6 +2,7 @@ defmodule YscWeb.TrixUploadsController do
   alias Ysc.Posts
   alias Ysc.Accounts.User
   alias Ysc.Media
+  alias Ysc.S3Config
   use YscWeb, :controller
 
   @temp_dir "/tmp/image_processor"
@@ -39,8 +40,18 @@ defmodule YscWeb.TrixUploadsController do
     upload_result = Media.upload_file_to_s3(tmp_path)
     raw_s3_path = upload_result[:body][:location]
 
-    IO.inspect(raw_s3_path)
-    IO.inspect(upload_result)
+    # Defensive check: ensure location is not empty (should be handled by upload_file_to_s3, but double-check)
+    raw_s3_path =
+      if raw_s3_path == "" or is_nil(raw_s3_path) do
+        # Fallback: construct URL from key if location is still empty
+        key = upload_result[:body][:key] || Path.basename(tmp_path)
+        S3Config.object_url(key)
+      else
+        raw_s3_path
+      end
+
+    IO.inspect(raw_s3_path, label: "Raw S3 path")
+    IO.inspect(upload_result, label: "Upload result")
 
     {:ok, new_image} =
       Media.add_new_image(

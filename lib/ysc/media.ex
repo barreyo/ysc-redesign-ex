@@ -363,10 +363,33 @@ defmodule Ysc.Media do
     IO.puts("☁️ [Media] upload_file_to_s3 result:")
     IO.inspect(result, label: "Upload request result")
 
-    location = result[:body][:location]
-    IO.puts("☁️ [Media] Upload location: #{inspect(location)}")
+    # Tigris doesn't return location in response, so construct it from the key
+    location =
+      case result[:body][:location] do
+        "" ->
+          # Location is empty (Tigris behavior), construct URL from key
+          key = result[:body][:key] || file_name
+          constructed_url = S3Config.object_url(key)
+          IO.puts("☁️ [Media] Location was empty, constructed URL: #{constructed_url}")
+          constructed_url
 
-    result
+        loc when is_binary(loc) and loc != "" ->
+          # Location is provided (AWS S3 behavior)
+          IO.puts("☁️ [Media] Using location from response: #{loc}")
+          loc
+
+        _ ->
+          # Fallback: construct from key
+          key = result[:body][:key] || file_name
+          constructed_url = S3Config.object_url(key)
+          IO.puts("☁️ [Media] Location was nil/empty, constructed URL: #{constructed_url}")
+          constructed_url
+      end
+
+    IO.puts("☁️ [Media] Final upload location: #{inspect(location)}")
+
+    # Return result with location in body for compatibility
+    put_in(result, [:body, :location], location)
   end
 
   defp upload_files_to_s3(files) do
