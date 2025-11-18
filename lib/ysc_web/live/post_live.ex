@@ -76,7 +76,7 @@ defmodule YscWeb.PostLive do
 
       <div :if={@post != nil} class="max-w-screen-lg mx-auto px-4">
         <article class="prose prose-zinc prose-base prose-a:text-blue-600 max-w-xl mx-auto">
-          <div id="article-body" class="py-8 post-render">
+          <div id="article-body" class="py-8 post-render" phx-hook="GLightboxHook">
             <%= raw(@post.raw_body) %>
           </div>
         </article>

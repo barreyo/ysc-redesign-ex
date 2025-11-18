@@ -40,6 +40,7 @@ import CheckoutTimer from "./checkout_timer";
 import PanelResizer from "./panel_resizer";
 import EmailPreview from "./email_preview";
 import AdminSearch from "./admin_search";
+import GLightboxHook from "./glightbox_hook";
 
 let Hooks = {
     StickyNavbar,
@@ -59,6 +60,7 @@ let Hooks = {
     PanelResizer,
     EmailPreview,
     AdminSearch,
+    GLightboxHook,
 };
 Hooks.LivePhone = LivePhone;
 

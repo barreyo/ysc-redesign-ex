@@ -19,6 +19,14 @@
     </script>
     <script src="https://js.stripe.com/v3/" defer>
     </script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/glightbox/dist/css/glightbox.min.css"
+      defer
+      async
+    />
+    <script src="https://unpkg.com/glightbox/dist/js/glightbox.min.js" defer async>
+    </script>
     <script>
       window.stripePublishableKey = "<%= Application.get_env(:stripity_stripe, :public_key) %>";
       window.radarPublicKey = "<%= Application.get_env(:ysc, :radar)[:public_key] %>";
