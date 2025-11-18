@@ -10,7 +10,9 @@ Uploaders.S3 = function(entries, onViewError) {
         onViewError(() => xhr.abort())
 
         xhr.onload = () => {
-            if (xhr.status === 204) {
+            // S3 returns 204 No Content on success, but Tigris returns 200 OK
+            // Accept both as success for compatibility
+            if (xhr.status === 204 || xhr.status === 200) {
                 entry.progress(100)
             } else {
                 // Log error details for debugging
