@@ -172,7 +172,7 @@ defmodule YscWeb.Components.ImageUploadComponent do
     meta = %{
       uploader: "S3",
       key: key,
-      url: S3Config.base_url(),
+      url: S3Config.upload_url(),
       fields: fields
     }
 

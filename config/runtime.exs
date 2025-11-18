@@ -127,25 +127,32 @@ if config_env() == :prod do
   #
   # Configure Tigris storage settings (S3-compatible) based on environment variables.
   # For production: Uses Tigris endpoint (https://fly.storage.tigris.dev)
+  # Object URLs use virtual-hosted style: https://<bucket-name>.fly.storage.tigris.dev/key
   # Set BUCKET_NAME, AWS_REGION (defaults to "auto" for Tigris), and optionally AWS_ENDPOINT_URL_S3
   # If AWS_ENDPOINT_URL_S3 is not set, defaults to Tigris endpoint.
   s3_bucket = System.get_env("BUCKET_NAME") || "media"
   s3_region = System.get_env("AWS_REGION") || "auto"
   s3_base_url = System.get_env("AWS_ENDPOINT_URL_S3") || "https://fly.storage.tigris.dev"
 
-  aws_access_key_id = System.get_env("AWS_ACCESS_KEY_ID")
-  aws_secret_access_key = System.get_env("AWS_SECRET_ACCESS_KEY")
-
+  # Store S3 config for application use
   config :ysc,
     s3_bucket: s3_bucket,
     s3_region: s3_region,
     s3_base_url: s3_base_url,
-    aws_access_key_id: aws_access_key_id,
-    aws_secret_access_key: aws_secret_access_key
+    aws_access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY")
+
+  # Configure ExAws for S3 access to Tigris
+  # Following Tigris documentation format
+  config :ex_aws,
+    debug_requests: false,
+    json_codec: Jason,
+    access_key_id: {:system, "AWS_ACCESS_KEY_ID"},
+    secret_access_key: {:system, "AWS_SECRET_ACCESS_KEY"}
 
   # Configure ExAws S3 endpoint
   # Dev/Test: Uses localstack
-  # Production: Uses Tigris endpoint (https://fly.storage.tigris.dev)
+  # Production: Uses Tigris endpoint (fly.storage.tigris.dev for Fly, or t3.storage.dev for general Tigris)
   ex_aws_s3_config =
     cond do
       # Local development with localstack
@@ -159,16 +166,17 @@ if config_env() == :prod do
       # Production - use Tigris endpoint
       true ->
         uri = URI.parse(s3_base_url)
+        # Extract hostname (e.g., "fly.storage.tigris.dev" from "https://fly.storage.tigris.dev")
+        host = uri.host || "fly.storage.tigris.dev"
 
         [
-          scheme: uri.scheme <> "://",
-          host: uri.host
+          scheme: "https://",
+          host: host,
+          region: s3_region
         ]
         |> Enum.concat(if uri.port, do: [port: uri.port], else: [])
         |> Enum.reject(fn {_, v} -> is_nil(v) end)
     end
 
-  if ex_aws_s3_config != [] do
-    config :ex_aws, s3: ex_aws_s3_config
-  end
+  config :ex_aws, :s3, ex_aws_s3_config
 end

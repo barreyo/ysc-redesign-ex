@@ -2,15 +2,21 @@ defmodule YscWeb.S3.SimpleS3Upload do
   @moduledoc """
   Dependency-free S3 Form Upload using HTTP POST sigv4
   https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-post-example.html
+
+  Works with S3-compatible storage including Tigris.
+  For Tigris, use region "auto" and virtual-hosted style endpoint URLs.
   """
 
   @doc """
   Signs a form upload.
   The configuration is a map which must contain the following keys:
-    * `:region` - The AWS region, such as "us-east-1"
+    * `:region` - The AWS region, such as "us-east-1" or "auto" for Tigris
     * `:access_key_id` - The AWS access key id
     * `:secret_access_key` - The AWS secret access key
   Returns a map of form fields to be used on the client via the JavaScript `FormData` API.
+
+  For Tigris, the region should be set to "auto" and the upload URL should use
+  virtual-hosted style format: https://<bucket-name>.fly.storage.tigris.dev
 
   ## Options
     * `:key` - The required key of the object to be uploaded.

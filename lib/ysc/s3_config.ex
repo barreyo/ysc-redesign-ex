@@ -29,6 +29,34 @@ defmodule Ysc.S3Config do
   end
 
   @doc """
+  Returns the S3 upload endpoint URL for form uploads.
+  For Tigris: Uses virtual-hosted style (https://<bucket-name>.fly.storage.tigris.dev)
+  For localstack: Uses the base URL
+  """
+  def upload_url do
+    base = base_url()
+    bucket = bucket_name()
+
+    case base do
+      url when is_binary(url) and url != "" ->
+        base_url = String.trim_trailing(base, "/")
+        # Check if this is Tigris endpoint
+        if String.contains?(base_url, "tigris.dev") do
+          # Tigris virtual-hosted style: https://<bucket-name>.fly.storage.tigris.dev
+          base_url
+          |> String.replace("fly.storage.tigris.dev", "#{bucket}.fly.storage.tigris.dev")
+        else
+          # Localstack or other custom endpoint
+          base_url
+        end
+
+      _ ->
+        # Fallback: use Tigris virtual-hosted style
+        "https://#{bucket}.fly.storage.tigris.dev"
+    end
+  end
+
+  @doc """
   Returns the region for S3 operations.
   For Tigris, this defaults to "auto" (Tigris handles region automatically).
   """
@@ -57,7 +85,7 @@ defmodule Ysc.S3Config do
   @doc """
   Constructs the full URL for an S3 object given a key.
   This is used for constructing the final object URL after upload.
-  For Tigris: https://fly.storage.tigris.dev/bucket-name/key
+  For Tigris (virtual-hosted style): https://<bucket-name>.fly.storage.tigris.dev/key
   """
   def object_url(key) do
     base = base_url()
@@ -69,16 +97,22 @@ defmodule Ysc.S3Config do
         base_url = String.trim_trailing(base, "/")
         # Check if this is Tigris endpoint
         if String.contains?(base_url, "tigris.dev") do
-          # Tigris format: https://fly.storage.tigris.dev/bucket-name/key
-          "#{base_url}/#{bucket}/#{key}"
+          # Tigris virtual-hosted style: https://<bucket-name>.fly.storage.tigris.dev/key
+          # Replace the base endpoint hostname with bucket-prefixed hostname
+          # e.g., https://fly.storage.tigris.dev -> https://<bucket>.fly.storage.tigris.dev
+          virtual_hosted_url =
+            base_url
+            |> String.replace("fly.storage.tigris.dev", "#{bucket}.fly.storage.tigris.dev")
+
+          "#{virtual_hosted_url}/#{key}"
         else
           # Localstack or other custom endpoint - bucket may be in hostname
           "#{base_url}/#{key}"
         end
 
       _ ->
-        # Fallback: use Tigris format
-        "https://fly.storage.tigris.dev/#{bucket}/#{key}"
+        # Fallback: use Tigris virtual-hosted style
+        "https://#{bucket}.fly.storage.tigris.dev/#{key}"
     end
   end
 
