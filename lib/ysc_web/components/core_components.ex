@@ -1096,8 +1096,8 @@ defmodule YscWeb.CoreComponents do
         type="button"
         id={"#{@id}Link"}
         data-dropdown-toggle={@id}
-        class={"flex items-center justify-between w-full px-3 py-2 font-bold transition duration-200 ease-in-out rounded lg:w-auto #{@class}"}
-        phx-click={show_dropdown("##{@id}")}
+        class={"group flex items-center justify-between w-full px-3 py-2 font-bold transition duration-200 ease-in-out rounded lg:w-auto #{@class}"}
+        phx-click={toggle_dropdown("##{@id}")}
       >
         <%= render_slot(@button_block) %>
       </button>
@@ -1112,7 +1112,7 @@ defmodule YscWeb.CoreComponents do
           !@mobile && "absolute shadow",
           @wide && "wide"
         ]}
-        phx-click-away={hide_dropdown("##{@id}")}
+        phx-click-away={toggle_dropdown("##{@id}")}
       >
         <%= render_slot(@inner_block) %>
       </div>
@@ -2240,7 +2240,38 @@ defmodule YscWeb.CoreComponents do
     |> JS.set_attribute({"aria-expanded", "false"}, to: to)
   end
 
+  def toggle_dropdown(to) do
+    # Extract the ID from the selector (e.g., "#about" -> "about")
+    id = String.replace(to, "#", "")
+    button_id = "##{id}Link"
+
+    # Toggle the dropdown: if it has aria-expanded="true", hide it; otherwise show it
+    # Use conditional operations based on the aria-expanded attribute
+    JS.toggle_class("hidden", to: to)
+    |> JS.toggle_class("dropdown-open", to: button_id)
+    # If element will be visible (not hidden), set aria-expanded to true
+    |> JS.set_attribute({"aria-expanded", "true"}, to: "#{to}:not(.hidden)")
+    # If element will be hidden, remove aria-expanded
+    |> JS.remove_attribute("aria-expanded", to: "#{to}.hidden")
+    # Apply show/hide transitions conditionally
+    |> JS.show(
+      to: "#{to}:not(.hidden)",
+      transition:
+        {"transition ease-out duration-75", "transform opacity-0 scale-95",
+         "transform opacity-100 scale-100"}
+    )
+    |> JS.hide(
+      to: "#{to}.hidden",
+      transition:
+        {"transition ease-in duration-75", "transform opacity-100 scale-100",
+         "transform opacity-0 scale-95"}
+    )
+  end
+
   def show_dropdown(to) do
+    # Extract the ID from the selector (e.g., "#about" -> "about")
+    id = String.replace(to, "#", "")
+
     JS.show(
       to: to,
       transition:
@@ -2248,9 +2279,13 @@ defmodule YscWeb.CoreComponents do
          "transform opacity-100 scale-100"}
     )
     |> JS.set_attribute({"aria-expanded", "true"}, to: to)
+    |> JS.add_class("dropdown-open", to: "##{id}Link")
   end
 
   def hide_dropdown(to) do
+    # Extract the ID from the selector (e.g., "#about" -> "about")
+    id = String.replace(to, "#", "")
+
     JS.hide(
       to: to,
       transition:
@@ -2258,6 +2293,7 @@ defmodule YscWeb.CoreComponents do
          "transform opacity-0 scale-95"}
     )
     |> JS.remove_attribute("aria-expanded", to: to)
+    |> JS.remove_class("dropdown-open", to: "##{id}Link")
   end
 
   @spec translate_error({binary(), keyword() | map()}) :: binary()
