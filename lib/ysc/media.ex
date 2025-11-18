@@ -241,7 +241,30 @@ defmodule Ysc.Media do
     # Use the optimized image we just created (it's already in temp directory)
     # This ensures we don't create files in the seed directory
     IO.puts("🎨 [Media] Generating blurhash...")
-    blur_hash = generate_blur_hash_safely(optimized_output_path, path)
+    IO.puts("🎨 [Media] Blurhash input file: #{optimized_output_path}")
+    IO.puts("🎨 [Media] Blurhash input file exists: #{File.exists?(optimized_output_path)}")
+
+    blur_hash =
+      try do
+        generate_blur_hash_safely(optimized_output_path, path)
+      rescue
+        e ->
+          IO.puts("❌ [Media] Blurhash generation failed: #{inspect(e)}")
+          IO.puts("❌ [Media] Blurhash error type: #{inspect(e.__struct__)}")
+          IO.puts("❌ [Media] Blurhash stacktrace:")
+          IO.inspect(Process.info(self(), :current_stacktrace), label: "Stacktrace")
+          # Return a default blurhash on failure
+          "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+      catch
+        kind, reason ->
+          IO.puts(
+            "❌ [Media] Blurhash generation caught error: #{inspect(kind)}, #{inspect(reason)}"
+          )
+
+          # Return a default blurhash on failure
+          "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+      end
+
     IO.puts("✅ [Media] Blurhash generated: #{String.slice(blur_hash, 0, 20)}...")
 
     # Use original dimensions for database (not resized dimensions)
@@ -420,9 +443,39 @@ defmodule Ysc.Media do
     # Use the temp image file (optimized_output_path) which is already in /tmp
     # This ensures Blurhash won't create files in the seed directory
 
+    IO.puts("🎨 [Media] generate_blur_hash_safely called")
+
+    IO.inspect(
+      %{
+        temp_image_path: temp_image_path,
+        original_path: original_path,
+        temp_file_exists: File.exists?(temp_image_path),
+        temp_file_size:
+          if(File.exists?(temp_image_path), do: File.stat!(temp_image_path).size, else: 0)
+      },
+      label: "Blurhash generation input"
+    )
+
     # Generate blurhash from the temp file
-    {:ok, blur_hash} =
-      Blurhash.downscale_and_encode(temp_image_path, @blur_hash_comp_x, @blur_hash_comp_y)
+    result = Blurhash.downscale_and_encode(temp_image_path, @blur_hash_comp_x, @blur_hash_comp_y)
+
+    IO.puts("🎨 [Media] Blurhash.downscale_and_encode result:")
+    IO.inspect(result, label: "Blurhash result")
+
+    blur_hash =
+      case result do
+        {:ok, hash} ->
+          IO.puts("✅ [Media] Blurhash generated successfully")
+          hash
+
+        {:error, reason} ->
+          IO.puts("❌ [Media] Blurhash generation returned error: #{inspect(reason)}")
+          raise "Blurhash generation failed: #{inspect(reason)}"
+
+        other ->
+          IO.puts("❌ [Media] Blurhash generation returned unexpected result: #{inspect(other)}")
+          raise "Blurhash generation returned unexpected result: #{inspect(other)}"
+      end
 
     # Clean up any PNG file that Blurhash might have created in the original directory
     # (Blurhash.downscale_and_encode may create a temporary PNG file in the source directory)

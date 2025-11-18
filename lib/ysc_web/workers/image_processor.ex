@@ -41,12 +41,16 @@ defmodule YscWeb.Workers.ImageProcessor do
           stream: to_charlist(tmp_output_file)
         )
 
-      Media.process_image_upload(
-        image,
-        tmp_output_file,
-        thumbnail_output_path,
-        optimized_output_path
-      )
+      result =
+        Media.process_image_upload(
+          image,
+          tmp_output_file,
+          thumbnail_output_path,
+          optimized_output_path
+        )
+
+      Logger.info("Image processing completed successfully for: #{image.id}")
+      Logger.info("Result: #{inspect(result)}")
 
       # Get the actual file paths with correct extensions for cleanup
       # The process_image_upload function will have set the correct extensions
@@ -54,7 +58,39 @@ defmodule YscWeb.Workers.ImageProcessor do
       _optimized_path = find_file_with_pattern("#{tmp_output_file}_optimized")
       _thumbnail_path = find_file_with_pattern("#{tmp_output_file}_thumb")
 
-      :ok
+      {:ok, result}
+    rescue
+      e ->
+        Logger.error("Image processing failed for #{image.id}: #{inspect(e)}")
+        Logger.error("Error type: #{inspect(e.__struct__)}")
+        Logger.error("Stacktrace:")
+        Logger.error(Exception.format_stacktrace(__STACKTRACE__))
+
+        # Update image state to failed
+        try do
+          Media.set_image_processing_state(image, :failed)
+        rescue
+          _ -> :ok
+        end
+
+        {:error, e}
+    catch
+      kind, reason ->
+        Logger.error(
+          "Image processing caught error for #{image.id}: #{inspect(kind)}, #{inspect(reason)}"
+        )
+
+        Logger.error("Stacktrace:")
+        Logger.error(Exception.format_stacktrace(__STACKTRACE__))
+
+        # Update image state to failed
+        try do
+          Media.set_image_processing_state(image, :failed)
+        rescue
+          _ -> :ok
+        end
+
+        {:error, {kind, reason}}
     after
       Logger.info("Cleaning up generated files")
       # Clean up files - try multiple possible extensions
