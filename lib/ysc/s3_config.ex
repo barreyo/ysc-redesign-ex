@@ -1,7 +1,8 @@
 defmodule Ysc.S3Config do
   @moduledoc """
   Centralized S3 configuration for different environments.
-  Provides environment-specific S3 bucket names, URLs, and AWS regions.
+  Provides environment-specific S3 bucket names, URLs, and regions.
+  Uses Tigris (S3-compatible) storage for production.
   """
 
   @doc """
@@ -14,20 +15,13 @@ defmodule Ysc.S3Config do
   @doc """
   Returns the S3 base URL for the current environment.
   For localstack: http://media.s3.localhost.localstack.cloud:4566
-  For production: Uses the configured S3 endpoint URL or constructs from bucket and region
+  For production: Uses Tigris endpoint (https://fly.storage.tigris.dev)
   """
   def base_url do
     case Application.get_env(:ysc, :s3_base_url) do
       nil ->
-        default = default_base_url()
-        # If default is nil (production), construct from bucket and region
-        if default == nil do
-          bucket = bucket_name()
-          region = region()
-          "https://#{bucket}.s3.#{region}.amazonaws.com"
-        else
-          default
-        end
+        # Use default based on environment (localstack for dev/test, Tigris for prod)
+        default_base_url()
 
       url ->
         url
@@ -35,10 +29,11 @@ defmodule Ysc.S3Config do
   end
 
   @doc """
-  Returns the AWS region for S3 operations.
+  Returns the region for S3 operations.
+  For Tigris, this defaults to "auto" (Tigris handles region automatically).
   """
   def region do
-    Application.get_env(:ysc, :s3_region, "us-west-1")
+    Application.get_env(:ysc, :s3_region, "auto")
   end
 
   def aws_access_key_id do
@@ -62,23 +57,28 @@ defmodule Ysc.S3Config do
   @doc """
   Constructs the full URL for an S3 object given a key.
   This is used for constructing the final object URL after upload.
+  For Tigris: https://fly.storage.tigris.dev/bucket-name/key
   """
   def object_url(key) do
     base = base_url()
+    bucket = bucket_name()
+    key = String.trim_leading(key, "/")
 
     case base do
       url when is_binary(url) and url != "" ->
-        # Localstack or custom endpoint - bucket is already in hostname
         base_url = String.trim_trailing(base, "/")
-        key = String.trim_leading(key, "/")
-        "#{base_url}/#{key}"
+        # Check if this is Tigris endpoint
+        if String.contains?(base_url, "tigris.dev") do
+          # Tigris format: https://fly.storage.tigris.dev/bucket-name/key
+          "#{base_url}/#{bucket}/#{key}"
+        else
+          # Localstack or other custom endpoint - bucket may be in hostname
+          "#{base_url}/#{key}"
+        end
 
       _ ->
-        # Production AWS S3 - construct from bucket and region
-        bucket = bucket_name()
-        region = region()
-        key = String.trim_leading(key, "/")
-        "https://#{bucket}.s3.#{region}.amazonaws.com/#{key}"
+        # Fallback: use Tigris format
+        "https://fly.storage.tigris.dev/#{bucket}/#{key}"
     end
   end
 
@@ -95,8 +95,8 @@ defmodule Ysc.S3Config do
         "http://media.s3.localhost.localstack.cloud:4566"
 
       _ ->
-        # Production - will be configured via runtime.exs or constructed from bucket/region
-        nil
+        # Production - use Tigris endpoint
+        "https://fly.storage.tigris.dev"
     end
   end
 end

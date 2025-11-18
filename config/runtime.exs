@@ -123,15 +123,15 @@ if config_env() == :prod do
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
 
-  # ## S3 Configuration
+  # ## S3 Configuration (Tigris)
   #
-  # Configure S3 settings based on environment variables.
-  # For production: Set S3_BUCKET, S3_REGION, and optionally S3_BASE_URL
-  # For sandbox: Set S3_BUCKET (e.g., ysc-media-sandbox), S3_REGION, and optionally S3_BASE_URL
-  # If S3_BASE_URL is not set, it will be constructed from bucket and region.
+  # Configure Tigris storage settings (S3-compatible) based on environment variables.
+  # For production: Uses Tigris endpoint (https://fly.storage.tigris.dev)
+  # Set BUCKET_NAME, AWS_REGION (defaults to "auto" for Tigris), and optionally AWS_ENDPOINT_URL_S3
+  # If AWS_ENDPOINT_URL_S3 is not set, defaults to Tigris endpoint.
   s3_bucket = System.get_env("BUCKET_NAME") || "media"
-  s3_region = System.get_env("AWS_REGION") || "us-west-1"
-  s3_base_url = System.get_env("AWS_ENDPOINT_URL_S3")
+  s3_region = System.get_env("AWS_REGION") || "auto"
+  s3_base_url = System.get_env("AWS_ENDPOINT_URL_S3") || "https://fly.storage.tigris.dev"
 
   aws_access_key_id = System.get_env("AWS_ACCESS_KEY_ID")
   aws_secret_access_key = System.get_env("AWS_SECRET_ACCESS_KEY")
@@ -143,8 +143,9 @@ if config_env() == :prod do
     aws_access_key_id: aws_access_key_id,
     aws_secret_access_key: aws_secret_access_key
 
-  # Configure ExAws S3 endpoint if we're using localstack (dev/test)
-  # or a custom endpoint (sandbox/prod might use custom endpoints)
+  # Configure ExAws S3 endpoint
+  # Dev/Test: Uses localstack
+  # Production: Uses Tigris endpoint (https://fly.storage.tigris.dev)
   ex_aws_s3_config =
     cond do
       # Local development with localstack
@@ -155,20 +156,16 @@ if config_env() == :prod do
           port: "4566"
         ]
 
-      # Production - may use custom endpoint or default AWS
-      s3_base_url != nil ->
+      # Production - use Tigris endpoint
+      true ->
         uri = URI.parse(s3_base_url)
 
         [
           scheme: uri.scheme <> "://",
-          host: uri.host,
-          port: uri.port
+          host: uri.host
         ]
+        |> Enum.concat(if uri.port, do: [port: uri.port], else: [])
         |> Enum.reject(fn {_, v} -> is_nil(v) end)
-
-      # Default AWS S3 endpoint
-      true ->
-        []
     end
 
   if ex_aws_s3_config != [] do
