@@ -97,8 +97,8 @@ defmodule YscWeb.HomeLive do
 
           <ul>
             <li>
-              <strong>Clear Lake Bliss:</strong>
-              Imagine sunny days spent swimming, boating, and relaxing by the lake at our charming cabin.
+              <strong>Clear Lake Getaways:</strong>
+              Swim, boat, and unwind at our peaceful lakeside cabin.
             </li>
             <li>
               <strong>A Calendar Full of Fun:</strong>
@@ -106,9 +106,11 @@ defmodule YscWeb.HomeLive do
             </li>
             <li>
               <strong>Tahoe Adventures:</strong>
-              Picture yourself skiing down snowy slopes in the winter and hiking through breathtaking scenery in the summer – all from the comfort of our Lake Tahoe cabin.
+              Ski in winter, hike in summer, and relax year-round at our Lake Tahoe retreat.
             </li>
           </ul>
+
+          <p>Join us and experience Scandinavian culture, friendship, and fun — all year long.</p>
 
           <p><strong>We offer two membership options to fit your lifestyle:</strong></p>
 
