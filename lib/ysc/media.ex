@@ -40,6 +40,18 @@ defmodule Ysc.Media do
     |> Repo.aggregate(:count, :id)
   end
 
+  @doc """
+  Lists all images that are in :unprocessed or :processing state.
+  These are images that need to be processed or reprocessed.
+  """
+  def list_unprocessed_images do
+    Repo.all(
+      from i in Media.Image,
+        where: i.processing_state in [:unprocessed, :processing],
+        order_by: [asc: :inserted_at]
+    )
+  end
+
   @spec list_images_per_year() :: any()
   def list_images_per_year() do
     {:ok, images} = list_images()

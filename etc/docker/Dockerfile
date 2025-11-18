@@ -69,7 +69,8 @@ RUN apk add --no-cache \
     openssl \
     ncurses-libs \
     ca-certificates \
-    tini
+    tini \
+    imagemagick
 
 # Create non-root user
 RUN adduser -D app

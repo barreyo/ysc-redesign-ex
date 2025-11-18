@@ -85,7 +85,8 @@ config :ysc, Oban,
      crontab: [
        {"0 * * * *", YscWeb.Workers.FileExportCleanUp},
        {"*/30 * * * *", Ysc.PropertyOutages.OutageScraperWorker},
-       {"*/5 * * * *", Ysc.Bookings.HoldExpiryWorker}
+       {"*/5 * * * *", Ysc.Bookings.HoldExpiryWorker},
+       {"0 2 * * *", YscWeb.Workers.ImageReprocessor}
      ]}
   ]
 
