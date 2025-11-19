@@ -24,11 +24,7 @@ config :swoosh, api_client: Swoosh.ApiClient.Finch, finch_name: Ysc.Finch
 # Disable Swoosh Local Memory Storage
 config :swoosh, local: false
 
-config :ysc, Ysc.Mailer,
-  adapter: Swoosh.Adapters.AmazonSES,
-  region: "us-west-1",
-  access_key_id: System.get_env("SES_AWS_ACCESS_KEY_ID"),
-  secret_access_key: System.get_env("SES_AWS_SECRET_ACCESS_KEY")
+# Mailer configuration is moved to runtime.exs for runtime evaluation
 
 # Do not print debug messages in production
 config :logger, level: :info

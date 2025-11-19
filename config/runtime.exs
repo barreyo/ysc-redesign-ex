@@ -123,6 +123,29 @@ if config_env() == :prod do
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
 
+  # ## Mailer Configuration (AWS SES)
+  #
+  # Configure Swoosh to use Amazon SES for sending emails in production.
+  # The adapter expects `access_key` and `secret` (not `access_key_id` and `secret_access_key`).
+  ses_access_key = System.get_env("SES_AWS_ACCESS_KEY_ID") || System.get_env("AWS_ACCESS_KEY_ID")
+
+  ses_secret_key =
+    System.get_env("SES_AWS_SECRET_ACCESS_KEY") || System.get_env("AWS_SECRET_ACCESS_KEY")
+
+  if ses_access_key && ses_secret_key do
+    config :ysc, Ysc.Mailer,
+      adapter: Swoosh.Adapters.AmazonSES,
+      region: System.get_env("SES_AWS_REGION") || "us-west-1",
+      access_key: ses_access_key,
+      secret: ses_secret_key
+  else
+    raise """
+    Missing AWS SES credentials. Please set either:
+    - SES_AWS_ACCESS_KEY_ID and SES_AWS_SECRET_ACCESS_KEY, or
+    - AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+    """
+  end
+
   # ## S3 Configuration (Tigris)
   #
   # Configure Tigris storage settings (S3-compatible) based on environment variables.
