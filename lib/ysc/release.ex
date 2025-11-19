@@ -51,6 +51,8 @@ defmodule Ysc.Release do
       for repo <- repos() do
         {:ok, _, result} =
           Ecto.Migrator.with_repo(repo, fn _repo ->
+            ensure_oban_started()
+
             require Logger
 
             Logger.info("Re-queuing failed email messages...")
@@ -93,19 +95,31 @@ defmodule Ysc.Release do
 
             stats = Ysc.Messages.Requeue.get_stats()
 
-            Logger.info("Failed email job statistics:")
-            Logger.info("Total Failed: #{stats.total_failed}")
-            Logger.info("Discarded (exhausted retries): #{stats.discarded}")
-            Logger.info("Retryable (can still retry): #{stats.retryable}")
-            Logger.info("Recent Failures (24h): #{stats.recent_failures_24h}")
+            Logger.info("")
+            Logger.info("═══════════════════════════════════════════════════════════")
+            Logger.info("  Failed Email Job Statistics")
+            Logger.info("═══════════════════════════════════════════════════════════")
+            Logger.info("")
+            Logger.info("  Total Failed:        #{stats.total_failed}")
+            Logger.info("  ├─ Discarded:        #{stats.discarded} (exhausted retries)")
+            Logger.info("  └─ Retryable:        #{stats.retryable} (can still retry)")
+            Logger.info("")
+            Logger.info("  Recent Failures:     #{stats.recent_failures_24h} (last 24 hours)")
+            Logger.info("")
 
             if not Enum.empty?(stats.by_template) do
-              Logger.info("By Template:")
+              Logger.info("  Breakdown by Template:")
+              Logger.info("")
 
               Enum.each(stats.by_template, fn {template, count} ->
-                Logger.info("  #{template}: #{count}")
+                Logger.info("    • #{String.pad_trailing(template, 40)} #{count}")
               end)
+
+              Logger.info("")
             end
+
+            Logger.info("═══════════════════════════════════════════════════════════")
+            Logger.info("")
 
             stats
           end)
@@ -130,6 +144,8 @@ defmodule Ysc.Release do
     for repo <- repos() do
       {:ok, _, result} =
         Ecto.Migrator.with_repo(repo, fn _repo ->
+          ensure_oban_started()
+
           require Logger
 
           Logger.info("Re-queuing job: #{job_id}")
@@ -165,5 +181,47 @@ defmodule Ysc.Release do
 
   defp load_app do
     Application.load(@app)
+  end
+
+  defp ensure_oban_started do
+    # Check if Oban is already running
+    case Process.whereis(Oban.Registry) do
+      nil ->
+        # Oban is not running, start it
+        oban_config = Application.fetch_env!(@app, Oban)
+
+        # Try to start under the supervisor if it exists
+        case Process.whereis(Ysc.Supervisor) do
+          nil ->
+            # Supervisor not running, start Oban standalone
+            case Oban.start_link(oban_config) do
+              {:ok, _pid} ->
+                :ok
+
+              {:error, {:already_started, _pid}} ->
+                :ok
+
+              {:error, reason} ->
+                raise "Failed to start Oban: #{inspect(reason)}"
+            end
+
+          _supervisor_pid ->
+            # Supervisor is running, start as child
+            case Supervisor.start_child(Ysc.Supervisor, {Oban, oban_config}) do
+              {:ok, _pid} ->
+                :ok
+
+              {:error, {:already_started, _pid}} ->
+                :ok
+
+              {:error, reason} ->
+                raise "Failed to start Oban: #{inspect(reason)}"
+            end
+        end
+
+      _pid ->
+        # Oban is already running
+        :ok
+    end
   end
 end
