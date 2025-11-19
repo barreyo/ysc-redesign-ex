@@ -27,13 +27,16 @@ defmodule Ysc.Messages.Requeue do
       from(j in Job,
         where: j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
         where: j.state in ["discarded", "retryable"],
-        order_by: [desc: j.discarded_at, desc: j.updated_at],
+        order_by: [
+          desc: fragment("COALESCE(?, ?)", j.discarded_at, j.inserted_at),
+          desc: j.inserted_at
+        ],
         limit: ^limit
       )
 
     query =
       if since do
-        where(query, [j], j.discarded_at >= ^since or j.updated_at >= ^since)
+        where(query, [j], fragment("COALESCE(?, ?)", j.discarded_at, j.inserted_at) >= ^since)
       else
         query
       end
@@ -93,7 +96,7 @@ defmodule Ysc.Messages.Requeue do
       from(j in Job,
         where: j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
         where: j.state in ["discarded", "retryable"],
-        where: j.discarded_at >= ^since_24h or j.updated_at >= ^since_24h,
+        where: fragment("COALESCE(?, ?)", j.discarded_at, j.inserted_at) >= ^since_24h,
         select: count()
       )
       |> Repo.one()

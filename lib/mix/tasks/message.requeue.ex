@@ -82,7 +82,7 @@ defmodule Mix.Tasks.Message.Requeue do
         Logger.info("  Recipient: #{recipient}")
         Logger.info("  Template: #{template}")
         Logger.info("  Attempt: #{job.attempt}/#{job.max_attempts}")
-        Logger.info("  Failed At: #{format_datetime(job.discarded_at || job.updated_at)}")
+        Logger.info("  Failed At: #{format_datetime(job.discarded_at || job.inserted_at)}")
         Logger.info("  Created At: #{format_datetime(job.inserted_at)}")
 
         if job.errors && length(job.errors) > 0 do
