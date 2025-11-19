@@ -73,6 +73,28 @@ if config_env() == :prod do
     site_key: System.fetch_env!("TURNSTILE_SITE_KEY"),
     secret_key: System.fetch_env!("TURNSTILE_SECRET_KEY")
 
+  # ## Stripe Configuration
+  #
+  # Configure Stripe API keys for production.
+  # These must be set at runtime for releases to work properly.
+  stripe_secret = System.get_env("STRIPE_SECRET")
+  stripe_public_key = System.get_env("STRIPE_PUBLIC_KEY")
+  stripe_webhook_secret = System.get_env("STRIPE_WEBHOOK_SECRET")
+
+  if stripe_secret && stripe_public_key && stripe_webhook_secret do
+    config :stripity_stripe,
+      api_key: stripe_secret,
+      public_key: stripe_public_key,
+      webhook_secret: stripe_webhook_secret
+  else
+    raise """
+    Missing Stripe credentials. Please set:
+    - STRIPE_SECRET
+    - STRIPE_PUBLIC_KEY
+    - STRIPE_WEBHOOK_SECRET
+    """
+  end
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key

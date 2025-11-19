@@ -99,6 +99,9 @@ config :ex_aws,
 
 config :flop, repo: Ysc.Repo
 
+# Stripe configuration
+# Note: In production, Stripe is configured at runtime in config/runtime.exs
+# This config is for dev/test environments only
 config :stripity_stripe,
   api_key: System.get_env("STRIPE_SECRET"),
   public_key: System.get_env("STRIPE_PUBLIC_KEY"),
