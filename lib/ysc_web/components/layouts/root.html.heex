@@ -91,7 +91,10 @@
                     <.link
                       navigate={~p"/news"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
-                      phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
+                      phx-click={
+                        JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                        |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                      }
                     >
                       News
                     </.link>
@@ -100,7 +103,10 @@
                     <.link
                       navigate={~p"/events"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
-                      phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
+                      phx-click={
+                        JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                        |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                      }
                     >
                       Events
                     </.link>
@@ -109,7 +115,10 @@
                     <.link
                       navigate={~p"/bookings/tahoe"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
-                      phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
+                      phx-click={
+                        JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                        |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                      }
                     >
                       Tahoe Cabin
                     </.link>
@@ -118,7 +127,10 @@
                     <.link
                       navigate={~p"/bookings/clear-lake"}
                       class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
-                      phx-click={JS.remove_class("expanded", to: "#navbar-dropdown.expanded")}
+                      phx-click={
+                        JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                        |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                      }
                     >
                       Clear Lake Cabin
                     </.link>
@@ -133,7 +145,7 @@
                         About
                         <.icon
                           name="hero-chevron-down"
-                          class="w-4 h-4 ms-2 text-color-zinc-800 transition-transform duration-200 ease-in-out"
+                          class="w-5 h-5 ms-2 text-color-zinc-800 transition-transform duration-200 ease-in-out"
                         />
                       </:button_block>
                       <ul
@@ -146,6 +158,7 @@
                             class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
                             phx-click={
                               JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
                             }
                           >
                             Contact Us
@@ -157,6 +170,7 @@
                             class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
                             phx-click={
                               JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
                             }
                           >
                             Volunteer
@@ -168,6 +182,7 @@
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                             phx-click={
                               JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
                             }
                           >
                             Report Conduct Violation
@@ -180,6 +195,7 @@
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                             phx-click={
                               JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
                             }
                           >
                             History
@@ -192,6 +208,7 @@
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                             phx-click={
                               JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
                             }
                           >
                             Board of Directors
@@ -204,6 +221,7 @@
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                             phx-click={
                               JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
                             }
                           >
                             Financials & Annual Meetings
@@ -216,6 +234,7 @@
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                             phx-click={
                               JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
                             }
                           >
                             Bylaws
@@ -228,6 +247,7 @@
                             class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                             phx-click={
                               JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
+                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
                             }
                           >
                             Non-Discrimination Code of Conduct

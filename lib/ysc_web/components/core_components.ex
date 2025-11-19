@@ -1460,7 +1460,12 @@ defmodule YscWeb.CoreComponents do
           aria-expanded="false"
           phx-click={toggle_expanded(@toggle_id)}
         >
-          <.icon name="hero-bars-3" class="w-6 h-6 fill-inherit" />
+          <div id={"#{@toggle_id}-hamburger"} class="nav-icon">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
           <span class="ml-2 font-bold text-zinc-900 hover:text-black">
             Menu
           </span>
@@ -2186,6 +2191,7 @@ defmodule YscWeb.CoreComponents do
       "expanded",
       to: "##{id}:not(.expanded)"
     )
+    |> JS.toggle_class("open", to: "##{id}-hamburger")
   end
 
   def hide_expanded(js \\ %JS{}, id) do
@@ -2194,6 +2200,11 @@ defmodule YscWeb.CoreComponents do
       "expanded",
       to: "##{id}.expanded"
     )
+    |> JS.remove_class("open", to: "##{id}-hamburger")
+  end
+
+  def close_menu(js \\ %JS{}, id) do
+    hide_expanded(js, id)
   end
 
   def show_modal(js \\ %JS{}, id) when is_binary(id) do
