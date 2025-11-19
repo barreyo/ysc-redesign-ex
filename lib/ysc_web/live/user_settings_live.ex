@@ -512,7 +512,9 @@ defmodule YscWeb.UserSettingsLive do
                       <.radio_fieldset
                         field={@membership_form[:membership_type]}
                         options={
-                          Enum.map(@membership_plans, fn plan ->
+                          @membership_plans
+                          |> Enum.filter(&(&1.id != :lifetime))
+                          |> Enum.map(fn plan ->
                             {plan.id,
                              %{
                                option: "#{plan.id}",
@@ -1806,62 +1808,72 @@ defmodule YscWeb.UserSettingsLive do
           if current_type == :lifetime do
             {:noreply, put_flash(socket, :error, "Lifetime memberships cannot be changed.")}
           else
-            if current_type == new_atom do
-              {:noreply, put_flash(socket, :info, "You are already on that plan.")}
+            if new_atom == :lifetime do
+              {:noreply,
+               put_flash(
+                 socket,
+                 :error,
+                 "Lifetime membership can only be awarded by an administrator."
+               )}
             else
-              plans = Application.get_env(:ysc, :membership_plans)
-              current_plan = Enum.find(plans, &(&1.id == current_type))
-              new_plan = Enum.find(plans, &(&1.id == new_atom))
+              if current_type == new_atom do
+                {:noreply, put_flash(socket, :info, "You are already on that plan.")}
+              else
+                plans = Application.get_env(:ysc, :membership_plans)
+                current_plan = Enum.find(plans, &(&1.id == current_type))
+                new_plan = Enum.find(plans, &(&1.id == new_atom))
 
-              new_price_id = new_plan[:stripe_price_id]
+                new_price_id = new_plan[:stripe_price_id]
 
-              direction = if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
+                direction =
+                  if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
 
-              case Subscriptions.change_membership_plan(
-                     current_membership,
-                     new_price_id,
-                     direction
-                   ) do
-                {:ok, _} ->
-                  # Optimistically update UI to reflect new plan immediately
-                  updated_membership =
-                    case current_membership.subscription_items do
-                      [first | rest] ->
-                        updated_first = %{first | stripe_price_id: new_price_id}
-                        %{current_membership | subscription_items: [updated_first | rest]}
+                case Subscriptions.change_membership_plan(
+                       current_membership,
+                       new_price_id,
+                       direction
+                     ) do
+                  {:ok, _} ->
+                    # Optimistically update UI to reflect new plan immediately
+                    updated_membership =
+                      case current_membership.subscription_items do
+                        [first | rest] ->
+                          updated_first = %{first | stripe_price_id: new_price_id}
+                          %{current_membership | subscription_items: [updated_first | rest]}
 
-                      _ ->
-                        current_membership
-                    end
+                        _ ->
+                          current_membership
+                      end
 
-                  {:noreply,
-                   socket
-                   |> assign(:current_membership, updated_membership)
-                   |> assign(:active_plan_type, new_atom)
-                   |> assign(:change_membership_button, false)
-                   |> assign(
-                     :membership_form,
-                     to_form(%{"membership_type" => Atom.to_string(new_atom)})
-                   )
-                   |> put_flash(:info, "Your membership plan has been changed.")
-                   |> redirect(to: ~p"/users/membership")}
+                    {:noreply,
+                     socket
+                     |> assign(:current_membership, updated_membership)
+                     |> assign(:active_plan_type, new_atom)
+                     |> assign(:change_membership_button, false)
+                     |> assign(
+                       :membership_form,
+                       to_form(%{"membership_type" => Atom.to_string(new_atom)})
+                     )
+                     |> put_flash(:info, "Your membership plan has been changed.")
+                     |> redirect(to: ~p"/users/membership")}
 
-                {:scheduled, _schedule} ->
-                  {:noreply,
-                   put_flash(
-                     socket,
-                     :info,
-                     "Your membership plan will switch at your next renewal."
-                   )
-                   |> redirect(to: ~p"/users/membership")}
+                  {:scheduled, _schedule} ->
+                    {:noreply,
+                     put_flash(
+                       socket,
+                       :info,
+                       "Your membership plan will switch at your next renewal."
+                     )
+                     |> redirect(to: ~p"/users/membership")}
 
-                {:error, reason} ->
-                  {:noreply,
-                   put_flash(
-                     socket,
-                     :error,
-                     "Failed to change membership: #{inspect(reason)}"
-                   )}
+                  {:error, reason} ->
+                    {:noreply,
+                     put_flash(
+                       socket,
+                       :error,
+                       "Failed to change membership: #{inspect(reason)}"
+                     )}
+                end
               end
             end
           end
