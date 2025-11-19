@@ -183,7 +183,7 @@ defmodule Ysc.Bookings.BookingLocker do
             Repo.update_all(
               from(pi2 in PropertyInventory,
                 where:
-                  pi2.property == ^pi.property and pi2.day == ^pi.day and
+                  pi2.property == ^property and pi2.day == ^pi.day and
                     pi2.lock_version == ^pi.lock_version and
                     pi2.buyout_held == false and pi2.buyout_booked == false and
                     (^property != :clear_lake or
@@ -686,7 +686,7 @@ defmodule Ysc.Bookings.BookingLocker do
             Repo.update_all(
               from(pi2 in PropertyInventory,
                 where:
-                  pi2.property == ^pi.property and pi2.day == ^pi.day and
+                  pi2.property == ^property and pi2.day == ^pi.day and
                     pi2.lock_version == ^pi.lock_version and
                     pi2.buyout_held == false and pi2.buyout_booked == false and
                     pi2.capacity_booked + pi2.capacity_held + ^guests_count <= pi2.capacity_total

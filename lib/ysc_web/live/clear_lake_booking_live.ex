@@ -78,6 +78,9 @@ defmodule YscWeb.ClearLakeBookingLive do
     {day_booking_allowed, buyout_booking_allowed} =
       allowed_booking_modes(:clear_lake, checkin_date, checkout_date, current_season)
 
+    # Resolve booking mode based on allowed modes (handles defaults and invalid selections)
+    booking_mode = resolve_booking_mode(booking_mode, day_booking_allowed, buyout_booking_allowed)
+
     # Load active bookings for the user
     active_bookings = if user_with_subs, do: get_active_bookings(user_with_subs.id), else: []
 
@@ -231,6 +234,12 @@ defmodule YscWeb.ClearLakeBookingLive do
       {day_booking_allowed, buyout_booking_allowed} =
         allowed_booking_modes(:clear_lake, checkin_date, checkout_date, current_season)
 
+      # Resolve booking mode based on allowed modes
+      # This ensures we default to a valid mode if the requested one is not allowed
+      # or if no mode was requested (booking_mode is nil)
+      resolved_booking_mode =
+        resolve_booking_mode(booking_mode, day_booking_allowed, buyout_booking_allowed)
+
       # Validate all conditions (availability, booking mode, guests, etc.)
       # This ensures URL parameters are validated even if user manipulates them
       socket =
@@ -245,7 +254,7 @@ defmodule YscWeb.ClearLakeBookingLive do
           season_start_date: season_start_date,
           season_end_date: season_end_date,
           guests_count: guests_count,
-          selected_booking_mode: booking_mode,
+          selected_booking_mode: resolved_booking_mode,
           calculated_price: nil,
           price_error: nil,
           availability_error: nil,
@@ -262,7 +271,7 @@ defmodule YscWeb.ClearLakeBookingLive do
         |> validate_all_conditions(
           checkin_date,
           checkout_date,
-          booking_mode,
+          resolved_booking_mode,
           guests_count,
           current_season
         )
@@ -556,6 +565,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 max={@max_booking_date}
                 property={:clear_lake}
                 today={@today}
+                guests_count={@guests_count}
               />
               <div :if={@checkin_date || @checkout_date} class="mt-4 flex justify-end">
                 <button
@@ -2125,7 +2135,33 @@ defmodule YscWeb.ClearLakeBookingLive do
     case Map.get(params, "booking_mode") do
       "buyout" -> :buyout
       "day" -> :day
-      _ -> :day
+      _ -> nil
+    end
+  end
+
+  defp resolve_booking_mode(mode, day_allowed, buyout_allowed) do
+    cond do
+      # If mode is explicitly valid, use it
+      mode == :day && day_allowed ->
+        :day
+
+      mode == :buyout && buyout_allowed ->
+        :buyout
+
+      # If mode is nil (default), prefer day if allowed, else buyout
+      is_nil(mode) ->
+        if day_allowed, do: :day, else: :buyout
+
+      # If mode is invalid (e.g. day requested but not allowed), try the other
+      mode == :day && buyout_allowed ->
+        :buyout
+
+      mode == :buyout && day_allowed ->
+        :day
+
+      # If nothing works, just return day (error will likely be shown elsewhere)
+      true ->
+        :day
     end
   end
 
@@ -2421,22 +2457,47 @@ defmodule YscWeb.ClearLakeBookingLive do
 
   # Determines which booking modes are allowed based on season settings for the selected dates
   # Returns a tuple: {day_booking_allowed, buyout_booking_allowed}
-  defp allowed_booking_modes(property, checkin_date, _checkout_date, _current_season) do
+  defp allowed_booking_modes(property, checkin_date, _checkout_date, current_season) do
     case property do
       :clear_lake ->
-        # For Clear Lake, check if dates are selected and validate against season
-        if checkin_date do
-          # Check the season for the checkin date
-          _season = Bookings.Season.for_date(:clear_lake, checkin_date)
+        # Determine the effective season
+        # If dates are selected, use the check-in date's season
+        # If not, use the current season (based on today)
+        season =
+          if checkin_date do
+            Bookings.Season.for_date(:clear_lake, checkin_date)
+          else
+            current_season
+          end
 
-          # Currently, Clear Lake allows both booking modes for all seasons
-          # This can be extended in the future to restrict modes based on season settings
-          # Example: if season && season.name == "Winter", only allow day bookings
-          {true, true}
-        else
-          # No dates selected yet - allow both modes
-          {true, true}
-        end
+        season_id = if season, do: season.id, else: nil
+
+        # Check if pricing rules exist for each mode in this season
+        # This ensures we only allow booking modes that have valid pricing configured for the season
+        day_pricing_rule =
+          Ysc.Bookings.PricingRule.find_most_specific(
+            :clear_lake,
+            season_id,
+            nil,
+            nil,
+            :day,
+            :per_guest_per_day
+          )
+
+        buyout_pricing_rule =
+          Ysc.Bookings.PricingRule.find_most_specific(
+            :clear_lake,
+            season_id,
+            nil,
+            nil,
+            :buyout,
+            :buyout_fixed
+          )
+
+        day_booking_allowed = !is_nil(day_pricing_rule)
+        buyout_booking_allowed = !is_nil(buyout_pricing_rule)
+
+        {day_booking_allowed, buyout_booking_allowed}
 
       _ ->
         # Default: allow both modes

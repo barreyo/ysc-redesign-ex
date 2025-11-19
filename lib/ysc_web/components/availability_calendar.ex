@@ -568,8 +568,9 @@ defmodule YscWeb.Components.AvailabilityCalendar do
               !day_info.can_book_buyout
 
             assigns.selected_booking_mode == :day ->
-              # Unavailable for day booking if full or bought out
-              !day_info.can_book_day
+              # Unavailable for day booking if full or bought out OR not enough spots for selected guests
+              !day_info.can_book_day ||
+                (assigns[:guests_count] && day_info.spots_available < assigns.guests_count)
 
             true ->
               true
@@ -670,7 +671,14 @@ defmodule YscWeb.Components.AvailabilityCalendar do
             "Blackout date"
 
           :bookings ->
-            "Fully booked"
+            day_info = Map.get(assigns.availability, day)
+
+            if assigns.selected_booking_mode == :day && day_info &&
+                 day_info.spots_available < (assigns[:guests_count] || 1) do
+              "Not enough spots"
+            else
+              "Fully booked"
+            end
 
           :other ->
             if check_other_rules(
@@ -695,10 +703,19 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
     if day_info do
       cond do
-        day_info.is_blacked_out -> :blackout
-        assigns.selected_booking_mode == :day && !day_info.can_book_day -> :bookings
-        assigns.selected_booking_mode == :buyout && !day_info.can_book_buyout -> :bookings
-        true -> :other
+        day_info.is_blacked_out ->
+          :blackout
+
+        assigns.selected_booking_mode == :day &&
+            (!day_info.can_book_day ||
+               (assigns[:guests_count] && day_info.spots_available < assigns.guests_count)) ->
+          :bookings
+
+        assigns.selected_booking_mode == :buyout && !day_info.can_book_buyout ->
+          :bookings
+
+        true ->
+          :other
       end
     else
       :other

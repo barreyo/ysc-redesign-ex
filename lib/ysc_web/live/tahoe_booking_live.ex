@@ -35,6 +35,7 @@ defmodule YscWeb.TahoeBookingLive do
     guests_count = parse_guests_from_params(parsed_params)
     children_count = parse_children_from_params(parsed_params)
     requested_tab = parse_tab_from_params(parsed_params)
+    booking_mode = parse_booking_mode_from_params(parsed_params) || :room
 
     date_form =
       to_form(
@@ -123,7 +124,7 @@ defmodule YscWeb.TahoeBookingLive do
         seasons: seasons,
         selected_room_id: nil,
         selected_room_ids: [],
-        selected_booking_mode: :room,
+        selected_booking_mode: booking_mode,
         guests_count: guests_count,
         children_count: children_count,
         guests_dropdown_open: false,
@@ -171,6 +172,7 @@ defmodule YscWeb.TahoeBookingLive do
     guests_count = parse_guests_from_params(params)
     children_count = parse_children_from_params(params)
     requested_tab = parse_tab_from_params(params)
+    booking_mode = parse_booking_mode_from_params(params) || :room
 
     # Check if user can book (re-check in case user state changed)
     user = socket.assigns.current_user
@@ -203,6 +205,7 @@ defmodule YscWeb.TahoeBookingLive do
          checkout_date != socket.assigns.checkout_date ||
          guests_count != socket.assigns.guests_count ||
          children_count != socket.assigns.children_count ||
+         booking_mode != socket.assigns.selected_booking_mode ||
          tab_changed do
       today = Date.utc_today()
       seasons = socket.assigns.seasons
@@ -258,6 +261,7 @@ defmodule YscWeb.TahoeBookingLive do
           season_end_date: season_end_date,
           guests_count: guests_count,
           children_count: children_count,
+          selected_booking_mode: booking_mode,
           selected_room_id: nil,
           selected_room_ids: [],
           guests_dropdown_open: false,
@@ -278,7 +282,8 @@ defmodule YscWeb.TahoeBookingLive do
           if checkin_date != socket.assigns.checkin_date ||
                checkout_date != socket.assigns.checkout_date ||
                guests_count != socket.assigns.guests_count ||
-               children_count != socket.assigns.children_count do
+               children_count != socket.assigns.children_count ||
+               booking_mode != socket.assigns.selected_booking_mode do
             s
             |> enforce_season_booking_mode()
             |> validate_dates()
@@ -698,6 +703,9 @@ defmodule YscWeb.TahoeBookingLive do
             <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm mt-1">
               <%= @date_validation_errors[:season_date_range] %>
             </p>
+            <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm mt-1">
+              <%= @date_validation_errors[:availability] %>
+            </p>
           </div>
           <!-- Booking Mode Selection -->
           <div
@@ -722,64 +730,64 @@ defmodule YscWeb.TahoeBookingLive do
               <legend class="block text-sm font-semibold text-zinc-700 mb-2">
                 Booking Type
               </legend>
-              <div class="flex gap-4" role="radiogroup">
-                <label class="flex items-center">
-                  <input
-                    type="radio"
-                    id="booking-mode-room"
-                    name="booking_mode"
-                    value="room"
-                    checked={@selected_booking_mode == :room}
-                    phx-change="booking-mode-changed"
-                    class="mr-2"
-                  />
-                  <span>Individual Room(s)</span>
-                </label>
-                <label class={[
-                  "flex items-center",
-                  if(not can_select_booking_mode?(@seasons, @checkin_date),
-                    do: "opacity-50 cursor-not-allowed",
-                    else: ""
-                  )
-                ]}>
-                  <input
-                    type="radio"
-                    id="booking-mode-buyout"
-                    name="booking_mode"
-                    value="buyout"
-                    checked={@selected_booking_mode == :buyout}
-                    disabled={not can_select_booking_mode?(@seasons, @checkin_date)}
-                    phx-change="booking-mode-changed"
-                    class={[
-                      "mr-2",
-                      if(not can_select_booking_mode?(@seasons, @checkin_date),
-                        do: "cursor-not-allowed opacity-50",
-                        else: ""
-                      )
-                    ]}
-                    onclick={
-                      if(not can_select_booking_mode?(@seasons, @checkin_date),
-                        do: "return false;",
-                        else: ""
-                      )
-                    }
-                  />
-                  <span class={
+              <form phx-change="booking-mode-changed">
+                <div class="flex gap-4" role="radiogroup">
+                  <label class="flex items-center">
+                    <input
+                      type="radio"
+                      id="booking-mode-room"
+                      name="booking_mode"
+                      value="room"
+                      checked={@selected_booking_mode == :room}
+                      class="mr-2"
+                    />
+                    <span>Individual Room(s)</span>
+                  </label>
+                  <label class={[
+                    "flex items-center",
                     if(not can_select_booking_mode?(@seasons, @checkin_date),
-                      do: "text-zinc-400",
+                      do: "opacity-50 cursor-not-allowed",
                       else: ""
                     )
-                  }>
-                    Full Buyout
-                  </span>
-                </label>
-              </div>
+                  ]}>
+                    <input
+                      type="radio"
+                      id="booking-mode-buyout"
+                      name="booking_mode"
+                      value="buyout"
+                      checked={@selected_booking_mode == :buyout}
+                      disabled={not can_select_booking_mode?(@seasons, @checkin_date)}
+                      class={[
+                        "mr-2",
+                        if(not can_select_booking_mode?(@seasons, @checkin_date),
+                          do: "cursor-not-allowed opacity-50",
+                          else: ""
+                        )
+                      ]}
+                      onclick={
+                        if(not can_select_booking_mode?(@seasons, @checkin_date),
+                          do: "return false;",
+                          else: ""
+                        )
+                      }
+                    />
+                    <span class={
+                      if(not can_select_booking_mode?(@seasons, @checkin_date),
+                        do: "text-zinc-400",
+                        else: ""
+                      )
+                    }>
+                      Full Buyout
+                    </span>
+                  </label>
+                </div>
+              </form>
             </fieldset>
             <p
               :if={not can_select_booking_mode?(@seasons, @checkin_date)}
               class="text-sm text-zinc-500 mt-2 ml-6"
             >
-              Full buyout is only available during summer season.
+              Full buyout is not available for the selected dates.
             </p>
           </div>
           <!-- Room Selection (for room bookings) -->
@@ -1136,7 +1144,8 @@ defmodule YscWeb.TahoeBookingLive do
               }
               class="text-blue-600 text-sm mt-2"
             >
-              💡 Family membership: You can book up to <%= max_rooms_for_user(assigns) %> rooms in the same reservation.
+              <.icon name="hero-light-bulb-solid" class="w-4 h-4 text-blue-600 inline-block me-1" />
+              Family membership: You can book up to <%= max_rooms_for_user(assigns) %> rooms in the same reservation.
             </p>
             <p
               :if={
@@ -1146,69 +1155,220 @@ defmodule YscWeb.TahoeBookingLive do
               }
               class="text-amber-600 text-sm mt-2"
             >
-              ⚠️ Cannot book multiple rooms with only 1 guest. Please select more guests to book additional rooms.
+              <.icon
+                name="hero-exclamation-triangle-solid"
+                class="w-4 h-4 text-amber-600 inline-block me-1"
+              />
+              Cannot book multiple rooms with only 1 guest. Please select more guests to book additional rooms.
             </p>
           </div>
-          <!-- Price Display -->
-          <div :if={@calculated_price} class="bg-zinc-50 rounded-md p-4">
-            <div class="flex justify-between items-center mb-3">
-              <span class="text-lg font-semibold text-zinc-900">Total Price:</span>
-              <span class="text-2xl font-bold text-blue-600">
-                <%= MoneyHelper.format_money!(@calculated_price) %>
-              </span>
-            </div>
-            <!-- Price Breakdown -->
-            <div :if={@price_breakdown} class="border-t border-zinc-200 pt-3 mt-3 space-y-2">
-              <div class="flex justify-between text-sm">
-                <span class="text-zinc-600">
-                  Base Price
-                  <%= if @price_breakdown.nights && @price_breakdown.adult_price_per_night do %>
-                    <% # Always use billable_people for display (respects min_billable_occupancy)
-                    # For multiple rooms with use_actual_guests=true, billable_people equals guests_count
-                    # For single room, billable_people respects room's min_billable_occupancy
-                    adult_count =
-                      @price_breakdown.billable_people || @price_breakdown.guests_count || 0 %> (<%= adult_count %> <%= if adult_count ==
-                                                                                                                             1,
-                                                                                                                           do:
-                                                                                                                             "adult",
-                                                                                                                           else:
-                                                                                                                             "adults" %> × <%= MoneyHelper.format_money!(
-                      @price_breakdown.adult_price_per_night
-                    ) %> × <%= @price_breakdown.nights %> night<%= if @price_breakdown.nights != 1,
-                      do: "s",
-                      else: "" %>)
-                  <% end %>
-                </span>
-                <span class="text-zinc-900 font-medium">
-                  <%= MoneyHelper.format_money!(@price_breakdown.base) %>
-                </span>
-              </div>
-              <div
-                :if={@price_breakdown.children && @price_breakdown.children_per_night}
-                class="flex justify-between text-sm"
-              >
-                <span class="text-zinc-600">
-                  Children (5-17)
-                  <%= if @price_breakdown.nights && @price_breakdown.children_price_per_night do %>
-                    (<%= @price_breakdown.children_count || 0 %> <%= if (@price_breakdown.children_count ||
-                                                                           0) == 1,
-                                                                        do: "child",
-                                                                        else: "children" %> × <%= MoneyHelper.format_money!(
-                      @price_breakdown.children_price_per_night
-                    ) %> × <%= @price_breakdown.nights %> night<%= if @price_breakdown.nights != 1,
-                      do: "s",
-                      else: "" %>)
-                  <% end %>
-                </span>
-                <span class="text-zinc-900 font-medium">
-                  <%= MoneyHelper.format_money!(@price_breakdown.children) %>
-                </span>
+          <!-- Buyout Selection (for buyout bookings) -->
+          <div :if={@selected_booking_mode == :buyout && @checkin_date && @checkout_date}>
+            <div class="mb-4 p-3 bg-zinc-50 border border-zinc-200 rounded-md">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-zinc-900">Selected Dates</p>
+                  <p class="text-sm text-zinc-600">
+                    <%= Calendar.strftime(@checkin_date, "%B %d, %Y") %> - <%= Calendar.strftime(
+                      @checkout_date,
+                      "%B %d, %Y"
+                    ) %>
+                  </p>
+                  <p class="text-xs text-zinc-500 mt-1">
+                    <%= Date.diff(@checkout_date, @checkin_date) %> night(s)
+                  </p>
+                </div>
               </div>
             </div>
 
-            <p :if={@checkin_date && @checkout_date} class="text-sm text-zinc-600 mt-3">
-              <%= Date.diff(@checkout_date, @checkin_date) %> night(s)
-            </p>
+            <div class={[
+              "border-2 rounded-lg p-6 text-center mb-6",
+              if(@date_validation_errors[:availability],
+                do: "border-red-200 bg-red-50",
+                else: "border-indigo-100 bg-indigo-50"
+              )
+            ]}>
+              <div class={[
+                "inline-flex items-center justify-center w-12 h-12 rounded-full mb-4",
+                if(@date_validation_errors[:availability],
+                  do: "bg-red-100 text-red-600",
+                  else: "bg-indigo-100 text-indigo-600"
+                )
+              ]}>
+                <.icon
+                  name={
+                    if @date_validation_errors[:availability],
+                      do: "hero-exclamation-circle",
+                      else: "hero-home-modern"
+                  }
+                  class="w-6 h-6"
+                />
+              </div>
+              <h3 class={[
+                "text-xl font-semibold mb-2",
+                if(@date_validation_errors[:availability],
+                  do: "text-red-900",
+                  else: "text-indigo-900"
+                )
+              ]}>
+                <%= if @date_validation_errors[:availability],
+                  do: "Buyout Unavailable",
+                  else: "Full Cabin Buyout" %>
+              </h3>
+              <p class={[
+                "mb-4 max-w-md mx-auto",
+                if(@date_validation_errors[:availability],
+                  do: "text-red-800",
+                  else: "text-indigo-800"
+                )
+              ]}>
+                <%= if @date_validation_errors[:availability] do %>
+                  <%= @date_validation_errors[:availability] %>
+                <% else %>
+                  You are reserving the entire Tahoe cabin for your group.
+                  This includes exclusive use of all 7 bedrooms, 3 bathrooms, and the sauna.
+                <% end %>
+              </p>
+              <div
+                :if={!@date_validation_errors[:availability]}
+                class="flex flex-wrap justify-center gap-3 text-sm font-medium text-indigo-700"
+              >
+                <span class="bg-white px-3 py-1 rounded-full border border-indigo-200">
+                  Up to 17 Guests
+                </span>
+                <span class="bg-white px-3 py-1 rounded-full border border-indigo-200">
+                  Exclusive Access
+                </span>
+                <span class="bg-white px-3 py-1 rounded-full border border-indigo-200">
+                  Fixed Nightly Rate
+                </span>
+              </div>
+            </div>
+          </div>
+          <!-- Reservation Summary & Price Display -->
+          <div
+            :if={@calculated_price && @checkin_date && @checkout_date}
+            class="bg-zinc-50 rounded-md p-6 space-y-4"
+          >
+            <div>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-4">Reservation Summary</h3>
+              <!-- Dates -->
+              <div class="space-y-2 mb-4">
+                <div class="flex items-center text-sm">
+                  <span class="font-semibold text-zinc-700 w-24">Check-in:</span>
+                  <span class="text-zinc-900">
+                    <%= Calendar.strftime(@checkin_date, "%B %d, %Y") %>
+                  </span>
+                </div>
+                <div class="flex items-center text-sm">
+                  <span class="font-semibold text-zinc-700 w-24">Check-out:</span>
+                  <span class="text-zinc-900">
+                    <%= Calendar.strftime(@checkout_date, "%B %d, %Y") %>
+                  </span>
+                </div>
+                <div class="flex items-center text-sm">
+                  <span class="font-semibold text-zinc-700 w-24">Nights:</span>
+                  <span class="text-zinc-900">
+                    <%= Date.diff(@checkout_date, @checkin_date) %> night(s)
+                  </span>
+                </div>
+              </div>
+              <!-- Reservation Type Description -->
+              <div class="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                <p class="text-sm text-blue-900">
+                  <span :if={@selected_booking_mode == :room}>
+                    <strong>Individual Room(s):</strong>
+                    You are booking specific rooms. You will share common areas (kitchen, living room, sauna) with other members.
+                  </span>
+                  <span :if={@selected_booking_mode == :buyout}>
+                    <strong>Full Buyout (Exclusive Rental):</strong>
+                    You'll have the entire cabin exclusively for your group. Perfect for larger groups or special occasions!
+                  </span>
+                </p>
+              </div>
+              <!-- Price Breakdown -->
+              <div :if={@price_breakdown} class="border-t border-zinc-200 pt-4">
+                <h4 class="text-sm font-semibold text-zinc-700 mb-3">Price Breakdown</h4>
+                <div class="space-y-2 text-sm">
+                  <!-- Buyout Breakdown -->
+                  <div :if={@selected_booking_mode == :buyout} class="flex justify-between text-sm">
+                    <span class="text-zinc-600">
+                      Full Buyout
+                      <%= if @price_breakdown.nights && @price_breakdown.price_per_night do %>
+                        (<%= MoneyHelper.format_money!(@price_breakdown.price_per_night) %> × <%= @price_breakdown.nights %> night<%= if @price_breakdown.nights !=
+                                                                                                                                           1,
+                                                                                                                                         do:
+                                                                                                                                           "s",
+                                                                                                                                         else:
+                                                                                                                                           "" %>)
+                      <% end %>
+                    </span>
+                    <span class="font-medium text-zinc-900">
+                      <%= MoneyHelper.format_money!(@calculated_price) %>
+                    </span>
+                  </div>
+                  <!-- Room Breakdown -->
+                  <div :if={@selected_booking_mode == :room}>
+                    <div class="flex justify-between text-sm">
+                      <span class="text-zinc-600">
+                        Base Price
+                        <%= if @price_breakdown.nights && @price_breakdown[:adult_price_per_night] do %>
+                          <% # Always use billable_people for display (respects min_billable_occupancy)
+                          # For multiple rooms with use_actual_guests=true, billable_people equals guests_count
+                          # For single room, billable_people respects room's min_billable_occupancy
+                          adult_count =
+                            @price_breakdown[:billable_people] || @price_breakdown[:guests_count] ||
+                              0 %> (<%= adult_count %> <%= if adult_count ==
+                                                                1,
+                                                              do: "adult",
+                                                              else: "adults" %> × <%= MoneyHelper.format_money!(
+                            @price_breakdown.adult_price_per_night
+                          ) %> × <%= @price_breakdown.nights %> night<%= if @price_breakdown.nights !=
+                                                                              1,
+                                                                            do: "s",
+                                                                            else: "" %>)
+                        <% end %>
+                      </span>
+                      <span class="font-medium text-zinc-900">
+                        <%= if @price_breakdown[:base],
+                          do: MoneyHelper.format_money!(@price_breakdown.base) %>
+                      </span>
+                    </div>
+                    <div
+                      :if={@price_breakdown[:children] && @price_breakdown[:children_per_night]}
+                      class="flex justify-between text-sm mt-2"
+                    >
+                      <span class="text-zinc-600">
+                        Children (5-17)
+                        <%= if @price_breakdown.nights && @price_breakdown[:children_price_per_night] do %>
+                          (<%= @price_breakdown[:children_count] || 0 %> <%= if (@price_breakdown[
+                                                                                   :children_count
+                                                                                 ] ||
+                                                                                   0) == 1,
+                                                                                do: "child",
+                                                                                else: "children" %> × <%= MoneyHelper.format_money!(
+                            @price_breakdown.children_price_per_night
+                          ) %> × <%= @price_breakdown.nights %> night<%= if @price_breakdown.nights !=
+                                                                              1,
+                                                                            do: "s",
+                                                                            else: "" %>)
+                        <% end %>
+                      </span>
+                      <span class="font-medium text-zinc-900">
+                        <%= MoneyHelper.format_money!(@price_breakdown.children) %>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex justify-between items-center mt-4 pt-4 border-t border-zinc-300">
+                  <span class="text-lg font-semibold text-zinc-900">Total Price:</span>
+                  <span class="text-2xl font-bold text-blue-600">
+                    <%= MoneyHelper.format_money!(@calculated_price) %>
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <p :if={@price_error} class="text-red-600 text-sm">
@@ -1232,7 +1392,8 @@ defmodule YscWeb.TahoeBookingLive do
                   get_selected_rooms_for_submit(assigns),
                   @capacity_error,
                   @price_error,
-                  @form_errors
+                  @form_errors,
+                  @date_validation_errors
                 )
               }
               class={
@@ -1243,7 +1404,8 @@ defmodule YscWeb.TahoeBookingLive do
                      get_selected_rooms_for_submit(assigns),
                      @capacity_error,
                      @price_error,
-                     @form_errors
+                     @form_errors,
+                     @date_validation_errors
                    ) do
                   "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-md transition duration-200"
                 else
@@ -1310,7 +1472,7 @@ defmodule YscWeb.TahoeBookingLive do
             <ul>
               <li>7 bedrooms</li>
               <li>3 bathrooms</li>
-              <li>Beautiful authentic sauna</li>
+              <li>Traditional Scandinavian sauna</li>
               <li>Sleeps up to 17 guests</li>
               <li>Fully equipped kitchen</li>
               <li>Wood fireplace</li>
@@ -1921,13 +2083,25 @@ defmodule YscWeb.TahoeBookingLive do
         price_error: nil
       )
       |> update_available_rooms()
+      # Validate availability immediately
+      |> validate_dates()
       |> calculate_price_if_ready()
+      |> then(fn s ->
+        update_url_with_search_params(
+          s,
+          s.assigns.checkin_date,
+          s.assigns.checkout_date,
+          s.assigns.guests_count,
+          s.assigns.children_count,
+          :room
+        )
+      end)
 
     {:noreply, socket}
   end
 
   def handle_event("booking-mode-changed", %{"booking_mode" => "buyout"}, socket) do
-    # Prevent switching to buyout during winter season
+    # Prevent switching to buyout if not allowed
     if can_select_booking_mode?(socket, socket.assigns.checkin_date) do
       socket =
         socket
@@ -1939,11 +2113,23 @@ defmodule YscWeb.TahoeBookingLive do
           calculated_price: nil,
           price_error: nil
         )
+        # Validate availability immediately
+        |> validate_dates()
         |> calculate_price_if_ready()
+        |> then(fn s ->
+          update_url_with_search_params(
+            s,
+            s.assigns.checkin_date,
+            s.assigns.checkout_date,
+            s.assigns.guests_count,
+            s.assigns.children_count,
+            :buyout
+          )
+        end)
 
       {:noreply, socket}
     else
-      # Winter season: ignore buyout selection and keep room mode
+      # Mode not allowed: ignore buyout selection and keep room mode
       {:noreply, socket}
     end
   end
@@ -2098,7 +2284,8 @@ defmodule YscWeb.TahoeBookingLive do
         socket.assigns.checkin_date,
         socket.assigns.checkout_date,
         new_count,
-        socket.assigns.children_count
+        socket.assigns.children_count,
+        socket.assigns.selected_booking_mode
       )
       |> update_available_rooms()
       |> calculate_price_if_ready()
@@ -2118,7 +2305,8 @@ defmodule YscWeb.TahoeBookingLive do
         socket.assigns.checkin_date,
         socket.assigns.checkout_date,
         new_count,
-        socket.assigns.children_count
+        socket.assigns.children_count,
+        socket.assigns.selected_booking_mode
       )
       |> update_available_rooms()
       |> calculate_price_if_ready()
@@ -2137,7 +2325,8 @@ defmodule YscWeb.TahoeBookingLive do
         socket.assigns.checkin_date,
         socket.assigns.checkout_date,
         socket.assigns.guests_count,
-        new_count
+        new_count,
+        socket.assigns.selected_booking_mode
       )
       |> update_available_rooms()
       |> calculate_price_if_ready()
@@ -2157,7 +2346,8 @@ defmodule YscWeb.TahoeBookingLive do
         socket.assigns.checkin_date,
         socket.assigns.checkout_date,
         socket.assigns.guests_count,
-        new_count
+        new_count,
+        socket.assigns.selected_booking_mode
       )
       |> update_available_rooms()
       |> calculate_price_if_ready()
@@ -2345,7 +2535,8 @@ defmodule YscWeb.TahoeBookingLive do
           socket.assigns.checkout_date,
           socket.assigns.guests_count,
           socket.assigns.children_count,
-          active_tab
+          active_tab,
+          socket.assigns.selected_booking_mode
         )
 
       socket =
@@ -2668,11 +2859,22 @@ defmodule YscWeb.TahoeBookingLive do
 
   # Helper function that works with seasons and checkin_date (for template usage)
   defp can_select_booking_mode?(seasons, checkin_date) when is_list(seasons) do
-    # Check if the current season allows buyout mode
+    # Check if pricing rules allow buyout mode for the selected date's season
     if checkin_date do
-      today = Date.utc_today()
-      current_season = Season.find_season_for_date(seasons, today)
-      current_season && current_season.name == "Summer"
+      season = Season.find_season_for_date(seasons, checkin_date)
+      season_id = if season, do: season.id, else: nil
+
+      pricing_rule =
+        PricingRule.find_most_specific(
+          :tahoe,
+          season_id,
+          nil,
+          nil,
+          :buyout,
+          :buyout_fixed
+        )
+
+      !is_nil(pricing_rule)
     else
       false
     end
@@ -2690,7 +2892,8 @@ defmodule YscWeb.TahoeBookingLive do
          room_ids_or_id,
          capacity_error,
          price_error,
-         form_errors
+         form_errors,
+         date_validation_errors
        ) do
     has_rooms? =
       case room_ids_or_id do
@@ -2702,7 +2905,8 @@ defmodule YscWeb.TahoeBookingLive do
     has_errors? =
       (capacity_error && capacity_error != "") ||
         (price_error && price_error != "") ||
-        (form_errors && map_size(form_errors) > 0)
+        (form_errors && map_size(form_errors) > 0) ||
+        (date_validation_errors && map_size(date_validation_errors) > 0)
 
     checkin_date && checkout_date &&
       (booking_mode == :buyout || (booking_mode == :room && has_rooms?)) &&
@@ -2984,13 +3188,30 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
+  defp parse_booking_mode_from_params(params) do
+    case Map.get(params, "booking_mode") do
+      "buyout" -> :buyout
+      "room" -> :room
+      # Default handled by resolve logic or socket default
+      _ -> nil
+    end
+  end
+
   defp update_url_with_dates(socket, checkin_date, checkout_date) do
     guests_count = socket.assigns.guests_count || 1
     children_count = socket.assigns.children_count || 0
     active_tab = socket.assigns.active_tab || :booking
+    booking_mode = socket.assigns.selected_booking_mode || :room
 
     query_params =
-      build_query_params(checkin_date, checkout_date, guests_count, children_count, active_tab)
+      build_query_params(
+        checkin_date,
+        checkout_date,
+        guests_count,
+        children_count,
+        active_tab,
+        booking_mode
+      )
 
     if map_size(query_params) > 0 do
       push_patch(socket, to: ~p"/bookings/tahoe?#{URI.encode_query(query_params)}")
@@ -3004,12 +3225,20 @@ defmodule YscWeb.TahoeBookingLive do
          checkin_date,
          checkout_date,
          guests_count,
-         children_count
+         children_count,
+         booking_mode
        ) do
     active_tab = socket.assigns.active_tab || :booking
 
     query_params =
-      build_query_params(checkin_date, checkout_date, guests_count, children_count, active_tab)
+      build_query_params(
+        checkin_date,
+        checkout_date,
+        guests_count,
+        children_count,
+        active_tab,
+        booking_mode
+      )
 
     if map_size(query_params) > 0 do
       push_patch(socket, to: ~p"/bookings/tahoe?#{URI.encode_query(query_params)}")
@@ -3023,7 +3252,8 @@ defmodule YscWeb.TahoeBookingLive do
          checkout_date,
          guests_count,
          children_count,
-         active_tab
+         active_tab,
+         booking_mode
        ) do
     params = %{}
 
@@ -3064,18 +3294,26 @@ defmodule YscWeb.TahoeBookingLive do
         params
       end
 
+    params =
+      if booking_mode && booking_mode != :room do
+        Map.put(params, "booking_mode", Atom.to_string(booking_mode))
+      else
+        params
+      end
+
     params
   end
 
   # Real-time validation functions
 
-  # Enforces season rules: Winter = room only, Summer = room or buyout
+  # Enforces booking mode rules based on pricing availability
   defp enforce_season_booking_mode(socket) do
-    if socket.assigns.current_season do
-      season = socket.assigns.current_season
+    checkin_date = socket.assigns.checkin_date
+    booking_mode = socket.assigns.selected_booking_mode
 
-      if season.name == "Winter" && socket.assigns.selected_booking_mode == :buyout do
-        # Winter season: force booking mode to room
+    if checkin_date && booking_mode == :buyout do
+      if !can_select_booking_mode?(socket.assigns.seasons, checkin_date) do
+        # Force booking mode to room if buyout not allowed
         socket
         |> assign(
           selected_booking_mode: :room,
@@ -3106,6 +3344,7 @@ defmodule YscWeb.TahoeBookingLive do
         |> validate_weekend_rule(socket.assigns.checkin_date, socket.assigns.checkout_date)
         |> validate_max_nights(socket.assigns.checkin_date, socket.assigns.checkout_date)
         |> validate_season_booking_mode(socket)
+        |> validate_buyout_availability(socket)
       else
         errors
       end
@@ -3137,19 +3376,61 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   defp validate_season_booking_mode(errors, socket) do
-    if socket.assigns.checkin_date && socket.assigns.selected_booking_mode do
-      # Use current season for validation
-      current_season = socket.assigns.current_season
-
-      if current_season && current_season.name == "Winter" &&
-           socket.assigns.selected_booking_mode == :buyout do
+    if socket.assigns.checkin_date && socket.assigns.selected_booking_mode == :buyout do
+      if !can_select_booking_mode?(socket.assigns.seasons, socket.assigns.checkin_date) do
         Map.put(
           errors,
           :season_booking_mode,
-          "Winter season only allows individual room bookings, not buyouts"
+          "Full buyout is not available for the selected dates"
         )
       else
         errors
+      end
+    else
+      errors
+    end
+  end
+
+  defp validate_buyout_availability(errors, socket) do
+    if socket.assigns.selected_booking_mode == :buyout && socket.assigns.checkin_date &&
+         socket.assigns.checkout_date do
+      checkin = socket.assigns.checkin_date
+      checkout = socket.assigns.checkout_date
+
+      # 1. Check for blackouts
+      # has_blackout? uses inclusive overlap, which is safer for availability checks
+      if Bookings.has_blackout?(:tahoe, checkin, checkout) do
+        Map.put(
+          errors,
+          :availability,
+          "Selected dates are not available due to blackout dates."
+        )
+      else
+        # 2. Check for ANY existing active bookings (rooms or buyouts)
+        # list_bookings returns potentially overlapping bookings (inclusive)
+        # We filter for status and strict overlap to be precise
+        overlaps = Bookings.list_bookings(:tahoe, checkin, checkout)
+
+        has_conflict =
+          Enum.any?(overlaps, fn booking ->
+            booking.status in [:hold, :complete] &&
+              Bookings.bookings_overlap?(
+                checkin,
+                checkout,
+                booking.checkin_date,
+                booking.checkout_date
+              )
+          end)
+
+        if has_conflict do
+          Map.put(
+            errors,
+            :availability,
+            "Selected dates are not available due to existing bookings."
+          )
+        else
+          errors
+        end
       end
     else
       errors

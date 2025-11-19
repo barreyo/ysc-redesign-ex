@@ -860,8 +860,8 @@ defmodule Ysc.Bookings do
     # and sum up the prices
     date_range = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
 
-    total =
-      Enum.reduce(date_range, Money.new(0, :USD), fn date, acc ->
+    {total, price_per_night} =
+      Enum.reduce(date_range, {Money.new(0, :USD), nil}, fn date, {acc, price_acc} ->
         season = Season.for_date(property, date)
         season_id = if season, do: season.id, else: nil
 
@@ -876,16 +876,26 @@ defmodule Ysc.Bookings do
           )
 
         if pricing_rule do
+          # Capture price per night if not yet captured
+          new_price_acc = price_acc || pricing_rule.amount
+
           case Money.add(acc, pricing_rule.amount) do
-            {:ok, new_total} -> new_total
-            {:error, _} -> acc
+            {:ok, new_total} -> {new_total, new_price_acc}
+            {:error, _} -> {acc, new_price_acc}
           end
         else
-          acc
+          {acc, price_acc}
         end
       end)
 
-    {:ok, total}
+    nights = length(date_range)
+
+    breakdown = %{
+      nights: nights,
+      price_per_night: price_per_night
+    }
+
+    {:ok, total, breakdown}
   end
 
   defp calculate_room_price(
@@ -1104,11 +1114,17 @@ defmodule Ysc.Bookings do
     end
   end
 
-  defp calculate_day_price(property, _checkin_date, _checkout_date, guests_count, nights) do
+  defp calculate_day_price(property, checkin_date, _checkout_date, guests_count, nights) do
     # For day bookings, price is per guest per day
     # Clear Lake uses this model
+
+    # Determine season for checkin date to find correct pricing rule
+    # This is important because pricing rules might be season-specific (e.g., Summer only)
+    season = Season.for_date(property, checkin_date)
+    season_id = if season, do: season.id, else: nil
+
     pricing_rule =
-      PricingRule.find_most_specific(property, nil, nil, nil, :day, :per_guest_per_day)
+      PricingRule.find_most_specific(property, season_id, nil, nil, :day, :per_guest_per_day)
 
     if pricing_rule do
       total_days = nights
