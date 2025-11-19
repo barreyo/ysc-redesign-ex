@@ -1,6 +1,9 @@
 defmodule YscWeb.AdminSettingsLive do
   alias Ysc.Settings
+  alias Ysc.Repo
+  alias Oban.Job
   use YscWeb, :live_view
+  import Ecto.Query
 
   def render(assigns) do
     ~H"""
@@ -64,6 +67,81 @@ defmodule YscWeb.AdminSettingsLive do
             System Dashboard
           </.link>
         </div>
+        <!-- Recent Oban Jobs -->
+        <div class="w-full py-4">
+          <h2 class="text-lg leading-8 font-semibold text-zinc-800 mb-4">Recent Oban Jobs</h2>
+          <div class="bg-white shadow rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-zinc-200">
+              <thead class="bg-zinc-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    Job ID
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    Worker
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    Queue
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    State
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    Processed At
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    Attempts
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-zinc-200">
+                <tr :for={job <- @recent_jobs}>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-zinc-900">
+                    <%= String.slice(to_string(job.id), 0..20) %>...
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
+                    <span class="font-medium"><%= job.worker %></span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
+                    <%= job.queue %>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span class={"px-2 inline-flex text-xs leading-5 font-semibold rounded-full #{get_job_state_color(job.state)}"}>
+                      <%= job.state %>
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
+                    <%= if job.completed_at do
+                      Calendar.strftime(job.completed_at, "%Y-%m-%d %H:%M:%S")
+                    else
+                      "N/A"
+                    end %>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
+                    <%= job.attempt %>/<%= job.max_attempts %>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <.button
+                      phx-click="reschedule_job"
+                      phx-value-job_id={job.id}
+                      class="bg-green-600 hover:bg-green-700"
+                    >
+                      Re-schedule
+                    </.button>
+                  </td>
+                </tr>
+                <tr :if={Enum.empty?(@recent_jobs)}>
+                  <td colspan="7" class="px-6 py-4 text-center text-sm text-zinc-500">
+                    No completed jobs found.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </.side_menu>
     """
@@ -74,6 +152,7 @@ defmodule YscWeb.AdminSettingsLive do
     all_settings = Settings.settings_grouped_by_scope()
 
     form = to_form(all_settings, as: "settings")
+    recent_jobs = list_recent_jobs(limit: 50)
 
     {:ok,
      socket
@@ -81,7 +160,9 @@ defmodule YscWeb.AdminSettingsLive do
      |> assign(:active_page, :admin_settings)
      |> assign(:grouped_settings, all_settings)
      |> assign(:scopes, scopes)
-     |> assign(form: form), temporary_assigns: [scopes: [], grouped_settings: %{}, form: nil]}
+     |> assign(:recent_jobs, recent_jobs)
+     |> assign(form: form),
+     temporary_assigns: [scopes: [], grouped_settings: %{}, form: nil, recent_jobs: []]}
   end
 
   def handle_event("update-settings", %{"settings" => settings}, socket) do
@@ -91,5 +172,80 @@ defmodule YscWeb.AdminSettingsLive do
 
     {:noreply,
      socket |> put_flash(:info, "Settings Updated") |> redirect(to: ~p"/admin/settings")}
+  end
+
+  def handle_event("reschedule_job", %{"job_id" => job_id}, socket) do
+    case reschedule_job(job_id) do
+      {:ok, _new_job} ->
+        recent_jobs = list_recent_jobs(limit: 50)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Job re-scheduled successfully")
+         |> assign(:recent_jobs, recent_jobs)}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to re-schedule job: #{inspect(reason)}")}
+    end
+  end
+
+  defp list_recent_jobs(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 50)
+
+    from(j in Job,
+      where: j.state == "completed",
+      order_by: [desc: j.completed_at],
+      limit: ^limit
+    )
+    |> Repo.all()
+  end
+
+  defp reschedule_job(job_id) do
+    case Repo.get(Job, job_id) do
+      nil ->
+        {:error, :not_found}
+
+      job ->
+        # Get the worker module from the job.worker string
+        worker_module =
+          job.worker
+          |> String.split(".")
+          |> Module.concat()
+
+        # Check if the module exists and has the new/1 function
+        if Code.ensure_loaded?(worker_module) and function_exported?(worker_module, :new, 1) do
+          # Create a new job with the same args
+          try do
+            new_job = apply(worker_module, :new, [job.args])
+
+            case Oban.insert(new_job) do
+              {:ok, inserted_job} ->
+                {:ok, inserted_job}
+
+              {:error, changeset} ->
+                {:error, changeset}
+            end
+          rescue
+            error ->
+              {:error, Exception.message(error)}
+          end
+        else
+          {:error, "Worker module #{job.worker} not found or does not export new/1"}
+        end
+    end
+  end
+
+  defp get_job_state_color(state) do
+    case state do
+      "completed" -> "bg-green-100 text-green-800"
+      "discarded" -> "bg-red-100 text-red-800"
+      "retryable" -> "bg-yellow-100 text-yellow-800"
+      "available" -> "bg-blue-100 text-blue-800"
+      "scheduled" -> "bg-purple-100 text-purple-800"
+      "executing" -> "bg-orange-100 text-orange-800"
+      _ -> "bg-zinc-100 text-zinc-800"
+    end
   end
 end

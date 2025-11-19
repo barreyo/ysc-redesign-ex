@@ -170,4 +170,59 @@ defmodule Ysc.Webhooks do
         {:ok, webhook_event}
     end
   end
+
+  @doc """
+  Lists webhook events with optional filters.
+
+  Options:
+  - `:provider` - Filter by provider (e.g., "stripe")
+  - `:state` - Filter by state (e.g., :processed, :failed, :pending, :processing)
+  - `:start_date` - Filter events inserted after this DateTime
+  - `:end_date` - Filter events inserted before this DateTime
+  - `:limit` - Maximum number of events to return (default: 100)
+  - `:order_by` - Order by :inserted_at (default: :desc)
+  """
+  def list_webhook_events(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 100)
+    order_by = Keyword.get(opts, :order_by, :desc)
+
+    query =
+      WebhookEvent
+      |> maybe_filter_by_provider(Keyword.get(opts, :provider))
+      |> maybe_filter_by_state(Keyword.get(opts, :state))
+      |> maybe_filter_by_date_range(
+        Keyword.get(opts, :start_date),
+        Keyword.get(opts, :end_date)
+      )
+      |> order_by([w], [{^order_by, w.inserted_at}])
+      |> limit(^limit)
+
+    Repo.all(query)
+  end
+
+  defp maybe_filter_by_provider(query, nil), do: query
+
+  defp maybe_filter_by_provider(query, provider) do
+    where(query, [w], w.provider == ^provider)
+  end
+
+  defp maybe_filter_by_state(query, nil), do: query
+
+  defp maybe_filter_by_state(query, state) do
+    where(query, [w], w.state == ^state)
+  end
+
+  defp maybe_filter_by_date_range(query, nil, nil), do: query
+
+  defp maybe_filter_by_date_range(query, start_date, nil) do
+    where(query, [w], w.inserted_at >= ^start_date)
+  end
+
+  defp maybe_filter_by_date_range(query, nil, end_date) do
+    where(query, [w], w.inserted_at <= ^end_date)
+  end
+
+  defp maybe_filter_by_date_range(query, start_date, end_date) do
+    where(query, [w], w.inserted_at >= ^start_date and w.inserted_at <= ^end_date)
+  end
 end

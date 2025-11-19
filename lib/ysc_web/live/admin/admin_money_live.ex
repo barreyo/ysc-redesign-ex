@@ -3,6 +3,7 @@ defmodule YscWeb.AdminMoneyLive do
 
   alias Ysc.Ledgers
   alias Ysc.Accounts
+  alias Ysc.Webhooks
 
   @impl true
   def mount(_params, _session, socket) do
@@ -14,18 +15,29 @@ defmodule YscWeb.AdminMoneyLive do
     accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
     recent_payments = Ledgers.get_recent_payments(start_date, end_date)
 
+    webhook_events =
+      Webhooks.list_webhook_events(
+        provider: "stripe",
+        start_date: start_date,
+        end_date: end_date,
+        limit: 100
+      )
+
     {:ok,
      socket
      |> assign(:page_title, "Money")
      |> assign(:active_page, :money)
      |> assign(:accounts_with_balances, accounts_with_balances)
      |> assign(:recent_payments, recent_payments)
+     |> assign(:webhook_events, webhook_events)
      |> assign(:start_date, start_date)
      |> assign(:end_date, end_date)
      |> assign(:show_refund_modal, false)
      |> assign(:show_credit_modal, false)
+     |> assign(:show_webhook_modal, false)
      |> assign(:selected_payment, nil)
      |> assign(:selected_user, nil)
+     |> assign(:selected_webhook, nil)
      |> assign(:refund_form, to_form(%{}, as: :refund))
      |> assign(:credit_form, to_form(%{}, as: :credit))}
   end
@@ -69,6 +81,24 @@ defmodule YscWeb.AdminMoneyLive do
   end
 
   @impl true
+  def handle_event("show_webhook_modal", %{"webhook_id" => webhook_id}, socket) do
+    webhook = Webhooks.get_webhook_event(webhook_id)
+
+    {:noreply,
+     socket
+     |> assign(:show_webhook_modal, true)
+     |> assign(:selected_webhook, webhook)}
+  end
+
+  @impl true
+  def handle_event("close_webhook_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_webhook_modal, false)
+     |> assign(:selected_webhook, nil)}
+  end
+
+  @impl true
   def handle_event("process_refund", %{"refund" => refund_params}, socket) do
     %{selected_payment: payment} = socket.assigns
 
@@ -88,13 +118,22 @@ defmodule YscWeb.AdminMoneyLive do
             accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
             recent_payments = Ledgers.get_recent_payments(start_date, end_date)
 
+            webhook_events =
+              Webhooks.list_webhook_events(
+                provider: "stripe",
+                start_date: start_date,
+                end_date: end_date,
+                limit: 100
+              )
+
             {:noreply,
              socket
              |> put_flash(:info, "Refund processed successfully")
              |> assign(:show_refund_modal, false)
              |> assign(:selected_payment, nil)
              |> assign(:accounts_with_balances, accounts_with_balances)
-             |> assign(:recent_payments, recent_payments)}
+             |> assign(:recent_payments, recent_payments)
+             |> assign(:webhook_events, webhook_events)}
 
           {:error, _changeset} ->
             {:noreply,
@@ -130,13 +169,22 @@ defmodule YscWeb.AdminMoneyLive do
             accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
             recent_payments = Ledgers.get_recent_payments(start_date, end_date)
 
+            webhook_events =
+              Webhooks.list_webhook_events(
+                provider: "stripe",
+                start_date: start_date,
+                end_date: end_date,
+                limit: 100
+              )
+
             {:noreply,
              socket
              |> put_flash(:info, "Credit added successfully")
              |> assign(:show_credit_modal, false)
              |> assign(:selected_user, nil)
              |> assign(:accounts_with_balances, accounts_with_balances)
-             |> assign(:recent_payments, recent_payments)}
+             |> assign(:recent_payments, recent_payments)
+             |> assign(:webhook_events, webhook_events)}
 
           {:error, _changeset} ->
             {:noreply,
@@ -185,10 +233,19 @@ defmodule YscWeb.AdminMoneyLive do
     accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
     recent_payments = Ledgers.get_recent_payments(start_date, end_date)
 
+    webhook_events =
+      Webhooks.list_webhook_events(
+        provider: "stripe",
+        start_date: start_date,
+        end_date: end_date,
+        limit: 100
+      )
+
     {:noreply,
      socket
      |> assign(:accounts_with_balances, accounts_with_balances)
      |> assign(:recent_payments, recent_payments)
+     |> assign(:webhook_events, webhook_events)
      |> assign(:start_date, start_date)
      |> assign(:end_date, end_date)}
   end
@@ -359,6 +416,65 @@ defmodule YscWeb.AdminMoneyLive do
           </table>
         </div>
       </div>
+      <!-- Stripe Webhooks -->
+      <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">Stripe Webhook Events</h2>
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+          <table class="min-w-full divide-y divide-zinc-200">
+            <thead class="bg-zinc-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                  Event ID
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                  Event Type
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                  State
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                  Received At
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-zinc-200">
+              <tr :for={webhook <- @webhook_events}>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-zinc-900">
+                  <%= String.slice(webhook.event_id, 0..20) %>...
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
+                  <span class="font-medium"><%= webhook.event_type %></span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class={"px-2 inline-flex text-xs leading-5 font-semibold rounded-full #{get_webhook_state_color(webhook.state)}"}>
+                    <%= webhook.state %>
+                  </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
+                  <%= Calendar.strftime(webhook.inserted_at, "%Y-%m-%d %H:%M:%S") %>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <.button
+                    phx-click="show_webhook_modal"
+                    phx-value-webhook_id={webhook.id}
+                    class="bg-blue-600 hover:bg-blue-700"
+                  >
+                    View Details
+                  </.button>
+                </td>
+              </tr>
+              <tr :if={Enum.empty?(@webhook_events)}>
+                <td colspan="5" class="px-6 py-4 text-center text-sm text-zinc-500">
+                  No webhook events found for the selected date range.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <!-- Refund Modal -->
       <.modal :if={@show_refund_modal} id="refund-modal" show>
         <h3 class="text-lg font-medium text-zinc-900 mb-4">Process Refund</h3>
@@ -489,6 +605,68 @@ defmodule YscWeb.AdminMoneyLive do
           </div>
         </.form>
       </.modal>
+      <!-- Webhook Details Modal -->
+      <.modal :if={@show_webhook_modal && @selected_webhook} id="webhook-modal" show>
+        <h3 class="text-lg font-medium text-zinc-900 mb-4">Webhook Event Details</h3>
+
+        <div class="mb-4 space-y-2">
+          <div>
+            <p class="text-sm">
+              <strong class="text-zinc-900">Event ID:</strong>
+              <span class="text-zinc-600 font-mono text-xs ml-2">
+                <%= @selected_webhook.event_id %>
+              </span>
+            </p>
+          </div>
+          <div>
+            <p class="text-sm">
+              <strong class="text-zinc-900">Event Type:</strong>
+              <span class="text-zinc-600 ml-2"><%= @selected_webhook.event_type %></span>
+            </p>
+          </div>
+          <div>
+            <p class="text-sm">
+              <strong class="text-zinc-900">Provider:</strong>
+              <span class="text-zinc-600 ml-2 capitalize"><%= @selected_webhook.provider %></span>
+            </p>
+          </div>
+          <div>
+            <p class="text-sm">
+              <strong class="text-zinc-900">State:</strong>
+              <span class={"px-2 inline-flex text-xs leading-5 font-semibold rounded-full ml-2 #{get_webhook_state_color(@selected_webhook.state)}"}>
+                <%= @selected_webhook.state %>
+              </span>
+            </p>
+          </div>
+          <div>
+            <p class="text-sm">
+              <strong class="text-zinc-900">Received At:</strong>
+              <span class="text-zinc-600 ml-2">
+                <%= Calendar.strftime(@selected_webhook.inserted_at, "%Y-%m-%d %H:%M:%S UTC") %>
+              </span>
+            </p>
+          </div>
+          <div>
+            <p class="text-sm">
+              <strong class="text-zinc-900">Last Updated:</strong>
+              <span class="text-zinc-600 ml-2">
+                <%= Calendar.strftime(@selected_webhook.updated_at, "%Y-%m-%d %H:%M:%S UTC") %>
+              </span>
+            </p>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-zinc-900 mb-2">Payload</label>
+          <pre class="bg-zinc-50 border border-zinc-200 rounded p-4 text-xs overflow-auto max-h-96 font-mono text-zinc-800"><%= Jason.encode!(@selected_webhook.payload, pretty: true) %></pre>
+        </div>
+
+        <div class="flex justify-end gap-2">
+          <.button type="button" phx-click="close_webhook_modal" class="bg-zinc-500 hover:bg-zinc-600">
+            Close
+          </.button>
+        </div>
+      </.modal>
     </.side_menu>
     """
   end
@@ -579,6 +757,16 @@ defmodule YscWeb.AdminMoneyLive do
           {:error, _} ->
             Ecto.Changeset.add_error(changeset, :amount, "invalid amount format")
         end
+    end
+  end
+
+  defp get_webhook_state_color(state) do
+    case state do
+      :processed -> "bg-green-100 text-green-800"
+      :failed -> "bg-red-100 text-red-800"
+      :processing -> "bg-yellow-100 text-yellow-800"
+      :pending -> "bg-blue-100 text-blue-800"
+      _ -> "bg-zinc-100 text-zinc-800"
     end
   end
 end
