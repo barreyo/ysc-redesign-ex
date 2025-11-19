@@ -47,22 +47,33 @@ defmodule Ysc.Release do
   def requeue_failed_messages(opts \\ []) do
     load_app()
 
-    require Logger
+    result =
+      for repo <- repos() do
+        {:ok, _, result} =
+          Ecto.Migrator.with_repo(repo, fn _repo ->
+            require Logger
 
-    Logger.info("Re-queuing failed email messages...")
+            Logger.info("Re-queuing failed email messages...")
 
-    result = Ysc.Messages.Requeue.requeue_all(opts)
+            result = Ysc.Messages.Requeue.requeue_all(opts)
 
-    Logger.info("Summary:")
-    Logger.info("Total Found: #{result.total_found}")
-    Logger.info("Successfully Re-queued: #{result.successful}")
-    Logger.info("Failed to Re-queue: #{result.failed}")
+            Logger.info("Summary:")
+            Logger.info("Total Found: #{result.total_found}")
+            Logger.info("Successfully Re-queued: #{result.successful}")
+            Logger.info("Failed to Re-queue: #{result.failed}")
 
-    if result.failed > 0 do
-      Logger.warning("Some jobs failed to re-queue. Check logs for details.")
-    end
+            if result.failed > 0 do
+              Logger.warning("Some jobs failed to re-queue. Check logs for details.")
+            end
 
-    result
+            result
+          end)
+
+        result
+      end
+      |> List.first()
+
+    result || %{total_found: 0, successful: 0, failed: 0, results: []}
   end
 
   @doc """
@@ -74,25 +85,37 @@ defmodule Ysc.Release do
   def show_failed_message_stats do
     load_app()
 
-    require Logger
+    stats =
+      for repo <- repos() do
+        {:ok, _, stats} =
+          Ecto.Migrator.with_repo(repo, fn _repo ->
+            require Logger
 
-    stats = Ysc.Messages.Requeue.get_stats()
+            stats = Ysc.Messages.Requeue.get_stats()
 
-    Logger.info("Failed email job statistics:")
-    Logger.info("Total Failed: #{stats.total_failed}")
-    Logger.info("Discarded (exhausted retries): #{stats.discarded}")
-    Logger.info("Retryable (can still retry): #{stats.retryable}")
-    Logger.info("Recent Failures (24h): #{stats.recent_failures_24h}")
+            Logger.info("Failed email job statistics:")
+            Logger.info("Total Failed: #{stats.total_failed}")
+            Logger.info("Discarded (exhausted retries): #{stats.discarded}")
+            Logger.info("Retryable (can still retry): #{stats.retryable}")
+            Logger.info("Recent Failures (24h): #{stats.recent_failures_24h}")
 
-    if not Enum.empty?(stats.by_template) do
-      Logger.info("By Template:")
+            if not Enum.empty?(stats.by_template) do
+              Logger.info("By Template:")
 
-      Enum.each(stats.by_template, fn {template, count} ->
-        Logger.info("  #{template}: #{count}")
-      end)
-    end
+              Enum.each(stats.by_template, fn {template, count} ->
+                Logger.info("  #{template}: #{count}")
+              end)
+            end
 
-    stats
+            stats
+          end)
+
+        stats
+      end
+      |> List.first()
+
+    stats ||
+      %{total_failed: 0, discarded: 0, retryable: 0, by_template: %{}, recent_failures_24h: 0}
   end
 
   @doc """
@@ -104,28 +127,36 @@ defmodule Ysc.Release do
   def requeue_failed_message(job_id) do
     load_app()
 
-    require Logger
+    for repo <- repos() do
+      {:ok, _, result} =
+        Ecto.Migrator.with_repo(repo, fn _repo ->
+          require Logger
 
-    Logger.info("Re-queuing job: #{job_id}")
+          Logger.info("Re-queuing job: #{job_id}")
 
-    case Ysc.Messages.Requeue.requeue_job_by_id(job_id) do
-      {:ok, new_job} ->
-        Logger.info("✅ Successfully re-queued job #{job_id}")
-        Logger.info("New Job ID: #{new_job.id}")
-        {:ok, new_job}
+          case Ysc.Messages.Requeue.requeue_job_by_id(job_id) do
+            {:ok, new_job} ->
+              Logger.info("✅ Successfully re-queued job #{job_id}")
+              Logger.info("New Job ID: #{new_job.id}")
+              {:ok, new_job}
 
-      {:error, :not_found} ->
-        Logger.error("❌ Job #{job_id} not found")
-        {:error, :not_found}
+            {:error, :not_found} ->
+              Logger.error("❌ Job #{job_id} not found")
+              {:error, :not_found}
 
-      {:error, :not_an_email_job} ->
-        Logger.error("❌ Job #{job_id} is not an email job")
-        {:error, :not_an_email_job}
+            {:error, :not_an_email_job} ->
+              Logger.error("❌ Job #{job_id} is not an email job")
+              {:error, :not_an_email_job}
 
-      {:error, reason} ->
-        Logger.error("❌ Failed to re-queue job #{job_id}: #{inspect(reason)}")
-        {:error, reason}
+            {:error, reason} ->
+              Logger.error("❌ Failed to re-queue job #{job_id}: #{inspect(reason)}")
+              {:error, reason}
+          end
+        end)
+
+      result
     end
+    |> List.first()
   end
 
   defp repos do
