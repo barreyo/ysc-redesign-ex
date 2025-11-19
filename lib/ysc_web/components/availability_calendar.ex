@@ -65,18 +65,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
           <div :for={day <- Enum.flat_map(@current.week_rows, & &1)} class="relative overflow-visible">
             <div
               :if={
-                date_disabled?(
-                  day,
-                  @min,
-                  @checkin_date,
-                  @state,
-                  @max,
-                  @property,
-                  @today,
-                  @selected_booking_mode,
-                  @availability,
-                  @seasons
-                ) && !other_month?(day, @current.date) && !selected_start?(day, @checkin_date)
+                date_disabled?(day, assigns) && !other_month?(day, @current.date) &&
+                  !selected_start?(day, @checkin_date)
               }
               class="group relative overflow-visible"
             >
@@ -86,120 +76,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                 phx-click="pick-date"
                 phx-value-date={Calendar.strftime(day, "%Y-%m-%d")}
                 disabled={true}
-                class={
-                  [
-                    "calendar-day overflow-hidden py-2 h-16 rounded w-full focus:z-10 transition duration-300 flex flex-col items-center justify-center",
-                    today?(day) && "font-bold border-2 border-zinc-400",
-                    # Red styling for dates with day bookings when in buyout mode
-                    # Buyout cannot be booked if there are ANY day bookings on that day
-                    if @selected_booking_mode == :buyout do
-                      case Map.get(@availability, day) do
-                        %{day_bookings_count: count} when count > 0 ->
-                          "bg-red-200 border border-red-300 text-zinc-900 cursor-not-allowed"
-
-                        _ ->
-                          nil
-                      end
-                    else
-                      nil
-                    end,
-                    # Fully red styling for dates with both checkout and checkin (not selectable at all)
-                    case Map.get(@availability, day) do
-                      %{has_checkout: checkout, has_checkin: checkin}
-                      when checkout == true and checkin == true ->
-                        if !is_blacked_out?(day, @availability) do
-                          "bg-red-200 border border-red-300 text-zinc-900 cursor-not-allowed"
-                        else
-                          nil
-                        end
-
-                      _ ->
-                        nil
-                    end,
-                    # Half green / half red styling for dates with check-in but no checkout
-                    # Only show gradients for buyout mode (not for shared/day mode bookings)
-                    if @selected_booking_mode == :buyout do
-                      case Map.get(@availability, day) do
-                        %{has_checkin: checkin, has_checkout: checkout}
-                        when checkin == true and checkout != true ->
-                          if !is_blacked_out?(day, @availability) do
-                            "bg-gradient-to-r from-green-50 to-red-100 border-l-2 border-r-2 border-l-green-200 border-r-red-300 text-zinc-900"
-                          else
-                            nil
-                          end
-
-                        _ ->
-                          nil
-                      end
-                    else
-                      nil
-                    end,
-                    # Half green / half red styling for dates with checkout but no check-in
-                    # Only show gradients for buyout mode (not for shared/day mode bookings)
-                    if @selected_booking_mode == :buyout do
-                      case Map.get(@availability, day) do
-                        %{has_checkout: checkout, has_checkin: checkin}
-                        when checkout == true and checkin != true ->
-                          if !is_blacked_out?(day, @availability) do
-                            "bg-gradient-to-r from-red-100 to-green-50 border-l-2 border-r-2 border-l-red-300 border-r-green-200 text-zinc-900"
-                          else
-                            nil
-                          end
-
-                        _ ->
-                          nil
-                      end
-                    else
-                      nil
-                    end,
-                    # Different colors based on unavailability reason (only if not a changeover day)
-                    !has_checkout?(day, @availability) &&
-                      !has_checkin?(day, @availability) &&
-                      unavailability_type(
-                        day,
-                        @min,
-                        @checkin_date,
-                        @state,
-                        @max,
-                        @property,
-                        @today,
-                        @selected_booking_mode,
-                        @availability,
-                        @seasons
-                      ) == :blackout &&
-                      "text-red-100 cursor-not-allowed bg-red-800 border border-red-900",
-                    !has_checkout?(day, @availability) &&
-                      !has_checkin?(day, @availability) &&
-                      unavailability_type(
-                        day,
-                        @min,
-                        @checkin_date,
-                        @state,
-                        @max,
-                        @property,
-                        @today,
-                        @selected_booking_mode,
-                        @availability,
-                        @seasons
-                      ) == :bookings &&
-                      "text-red-200 cursor-not-allowed bg-red-200 border border-red-300",
-                    !has_checkout?(day, @availability) &&
-                      !has_checkin?(day, @availability) &&
-                      unavailability_type(
-                        day,
-                        @min,
-                        @checkin_date,
-                        @state,
-                        @max,
-                        @property,
-                        @today,
-                        @selected_booking_mode,
-                        @availability,
-                        @seasons
-                      ) == :other &&
-                      "text-zinc-300 cursor-not-allowed opacity-50 bg-zinc-100"
-                  ]
-                }
+                class={day_classes(day, assigns)}
               >
                 <time class="text-sm font-medium" datetime={Calendar.strftime(day, "%Y-%m-%d")}>
                   <%= Calendar.strftime(day, "%d") %>
@@ -213,335 +90,32 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                   "text-left"
                 ]}
               >
-                <%= unavailability_reason(
-                  day,
-                  @min,
-                  @checkin_date,
-                  @state,
-                  @max,
-                  @property,
-                  @today,
-                  @selected_booking_mode,
-                  @availability,
-                  @seasons
-                ) %>
+                <%= unavailability_reason(day, assigns) %>
               </span>
             </div>
             <button
               :if={
-                !date_disabled?(
-                  day,
-                  @min,
-                  @checkin_date,
-                  @state,
-                  @max,
-                  @property,
-                  @today,
-                  @selected_booking_mode,
-                  @availability,
-                  @seasons
-                ) || other_month?(day, @current.date) || selected_start?(day, @checkin_date)
+                !date_disabled?(day, assigns) || other_month?(day, @current.date) ||
+                  selected_start?(day, @checkin_date)
               }
               type="button"
               phx-target={@myself}
               phx-click="pick-date"
               phx-value-date={Calendar.strftime(day, "%Y-%m-%d")}
-              disabled={
-                date_disabled?(
-                  day,
-                  @min,
-                  @checkin_date,
-                  @state,
-                  @max,
-                  @property,
-                  @today,
-                  @selected_booking_mode,
-                  @availability,
-                  @seasons
-                ) && !selected_start?(day, @checkin_date)
-              }
-              class={
-                [
-                  "calendar-day overflow-hidden py-2 h-16 rounded w-full focus:z-10 transition duration-300 flex flex-col items-center justify-center",
-                  # Highlight start date with nicer styling (highest priority - must come first)
-                  selected_start?(day, @checkin_date) &&
-                    "bg-gradient-to-br from-blue-600 to-blue-700 text-white font-bold shadow-lg ring-4 ring-blue-200 ring-offset-2 transform scale-105 relative z-30",
-                  # Highlight end date (actual or hovered) with nicer styling
-                  (selected_end?(day, @checkout_date) ||
-                     (@state == :set_end && @hover_checkout_date && day == @hover_checkout_date)) &&
-                    !selected_start?(day, @checkin_date) &&
-                    "bg-gradient-to-br from-blue-600 to-blue-700 text-white font-bold shadow-lg ring-4 ring-blue-200 ring-offset-2 transform scale-105 relative z-30",
-                  # Highlight dates in the selected or hovered range (but not start/end dates)
-                  (selected_range?(day, @checkin_date, @hover_checkout_date || @checkout_date) ||
-                     (in_hover_range?(day, @checkin_date, @hover_checkout_date) && @state == :set_end)) &&
-                    !selected_start?(day, @checkin_date) &&
-                    !selected_end?(day, @checkout_date) &&
-                    !(@state == :set_end && @hover_checkout_date && day == @hover_checkout_date) &&
-                    "bg-blue-400 text-white hover:bg-blue-500",
-                  # Red styling for dates with day bookings when in buyout mode
-                  # Buyout cannot be booked if there are ANY day bookings on that day
-                  if @selected_booking_mode == :buyout &&
-                       !other_month?(day, @current.date) &&
-                       !selected_start?(day, @checkin_date) &&
-                       !selected_end?(day, @checkout_date) &&
-                       !(@state == :set_end && @hover_checkout_date && day == @hover_checkout_date) &&
-                       !selected_range?(day, @checkin_date, @hover_checkout_date || @checkout_date) &&
-                       !(in_hover_range?(day, @checkin_date, @hover_checkout_date) &&
-                           @state == :set_end) do
-                    case Map.get(@availability, day) do
-                      %{day_bookings_count: count} when count > 0 ->
-                        "bg-red-200 border border-red-300 text-zinc-900 cursor-not-allowed"
-
-                      _ ->
-                        nil
-                    end
-                  else
-                    nil
-                  end,
-                  # Fully red styling for dates with both checkout and checkin (not selectable at all)
-                  # Must come before other styling to take precedence
-                  if !other_month?(day, @current.date) &&
-                       !selected_start?(day, @checkin_date) &&
-                       !selected_end?(day, @checkout_date) &&
-                       !(@state == :set_end && @hover_checkout_date && day == @hover_checkout_date) &&
-                       !selected_range?(day, @checkin_date, @hover_checkout_date || @checkout_date) &&
-                       !(in_hover_range?(day, @checkin_date, @hover_checkout_date) &&
-                           @state == :set_end) do
-                    case Map.get(@availability, day) do
-                      %{has_checkout: checkout, has_checkin: checkin}
-                      when checkout == true and checkin == true ->
-                        if !is_blacked_out?(day, @availability) do
-                          "bg-red-200 border border-red-300 text-zinc-900 cursor-not-allowed"
-                        else
-                          nil
-                        end
-
-                      _ ->
-                        nil
-                    end
-                  else
-                    nil
-                  end,
-                  # Half green / half red styling for dates with check-in but no checkout
-                  # Only show gradients for buyout mode (not for shared/day mode bookings)
-                  # These can be used as checkout dates for same-day turnarounds
-                  if @selected_booking_mode == :buyout &&
-                       !other_month?(day, @current.date) &&
-                       !selected_start?(day, @checkin_date) &&
-                       !selected_end?(day, @checkout_date) &&
-                       !(@state == :set_end && @hover_checkout_date && day == @hover_checkout_date) &&
-                       !selected_range?(day, @checkin_date, @hover_checkout_date || @checkout_date) &&
-                       !(in_hover_range?(day, @checkin_date, @hover_checkout_date) &&
-                           @state == :set_end) do
-                    case Map.get(@availability, day) do
-                      %{has_checkin: checkin, has_checkout: checkout}
-                      when checkin == true and checkout != true ->
-                        if !is_blacked_out?(day, @availability) do
-                          "bg-gradient-to-r from-green-50 to-red-100 border-l-2 border-r-2 border-l-green-200 border-r-red-300 text-zinc-900"
-                        else
-                          nil
-                        end
-
-                      _ ->
-                        nil
-                    end
-                  else
-                    nil
-                  end,
-                  # Half green / half red styling for dates with checkout but no check-in
-                  # Only show gradients for buyout mode (not for shared/day mode bookings)
-                  # These can be used as check-in dates for same-day turnarounds
-                  # Left side red (checkout happening), right side green (available for check-in)
-                  if @selected_booking_mode == :buyout &&
-                       !other_month?(day, @current.date) &&
-                       !selected_start?(day, @checkin_date) &&
-                       !selected_end?(day, @checkout_date) &&
-                       !(@state == :set_end && @hover_checkout_date && day == @hover_checkout_date) &&
-                       !selected_range?(day, @checkin_date, @hover_checkout_date || @checkout_date) &&
-                       !(in_hover_range?(day, @checkin_date, @hover_checkout_date) &&
-                           @state == :set_end) do
-                    case Map.get(@availability, day) do
-                      %{has_checkout: checkout, has_checkin: checkin}
-                      when checkout == true and checkin != true ->
-                        if !is_blacked_out?(day, @availability) do
-                          "bg-gradient-to-r from-red-100 to-green-50 border-l-2 border-r-2 border-l-red-300 border-r-green-200 text-zinc-900"
-                        else
-                          nil
-                        end
-
-                      _ ->
-                        nil
-                    end
-                  else
-                    nil
-                  end,
-                  # Light green background for available dates (not disabled, not selected, not in range, not other month, and has availability data)
-                  !date_disabled?(
-                    day,
-                    @min,
-                    @checkin_date,
-                    @state,
-                    @max,
-                    @property,
-                    @today,
-                    @selected_booking_mode,
-                    @availability,
-                    @seasons
-                  ) &&
-                    !other_month?(day, @current.date) &&
-                    !selected_start?(day, @checkin_date) &&
-                    !selected_end?(day, @checkout_date) &&
-                    !(@state == :set_end && @hover_checkout_date && day == @hover_checkout_date) &&
-                    !selected_range?(day, @checkin_date, @hover_checkout_date || @checkout_date) &&
-                    !(in_hover_range?(day, @checkin_date, @hover_checkout_date) && @state == :set_end) &&
-                    Map.has_key?(@availability, day) &&
-                    !is_changeover_day?(day, @availability) &&
-                    "bg-green-50 border border-green-200 text-zinc-900",
-                  today?(day) && "font-bold border-2 border-zinc-400",
-                  # Show hover effect only when not in range selection mode and not disabled
-                  !date_disabled?(
-                    day,
-                    @min,
-                    @checkin_date,
-                    @state,
-                    @max,
-                    @property,
-                    @today,
-                    @selected_booking_mode,
-                    @availability,
-                    @seasons
-                  ) &&
-                    !before_min_date?(day, @min) &&
-                    @state != :set_end &&
-                    is_changeover_day?(day, @availability) &&
-                    "hover:from-green-100 hover:to-red-200",
-                  !date_disabled?(
-                    day,
-                    @min,
-                    @checkin_date,
-                    @state,
-                    @max,
-                    @property,
-                    @today,
-                    @selected_booking_mode,
-                    @availability,
-                    @seasons
-                  ) &&
-                    !before_min_date?(day, @min) &&
-                    @state != :set_end &&
-                    !is_changeover_day?(day, @availability) &&
-                    "hover:bg-green-100 hover:border-green-300",
-                  # Different colors for disabled dates based on reason (but not if it's the selected start date)
-                  # Exclude dates with check-in/checkout from disabled styling (they have special styling)
-                  date_disabled?(
-                    day,
-                    @min,
-                    @checkin_date,
-                    @state,
-                    @max,
-                    @property,
-                    @today,
-                    @selected_booking_mode,
-                    @availability,
-                    @seasons
-                  ) &&
-                    !selected_start?(day, @checkin_date) &&
-                    !has_checkout?(day, @availability) &&
-                    !has_checkin?(day, @availability) &&
-                    unavailability_type(
-                      day,
-                      @min,
-                      @checkin_date,
-                      @state,
-                      @max,
-                      @property,
-                      @today,
-                      @selected_booking_mode,
-                      @availability,
-                      @seasons
-                    ) == :blackout &&
-                    "text-red-100 cursor-not-allowed bg-red-800 border border-red-900",
-                  date_disabled?(
-                    day,
-                    @min,
-                    @checkin_date,
-                    @state,
-                    @max,
-                    @property,
-                    @today,
-                    @selected_booking_mode,
-                    @availability,
-                    @seasons
-                  ) &&
-                    !selected_start?(day, @checkin_date) &&
-                    !has_checkout?(day, @availability) &&
-                    !has_checkin?(day, @availability) &&
-                    unavailability_type(
-                      day,
-                      @min,
-                      @checkin_date,
-                      @state,
-                      @max,
-                      @property,
-                      @today,
-                      @selected_booking_mode,
-                      @availability,
-                      @seasons
-                    ) == :bookings &&
-                    "text-red-200 cursor-not-allowed bg-red-200 border border-red-300",
-                  date_disabled?(
-                    day,
-                    @min,
-                    @checkin_date,
-                    @state,
-                    @max,
-                    @property,
-                    @today,
-                    @selected_booking_mode,
-                    @availability,
-                    @seasons
-                  ) &&
-                    !selected_start?(day, @checkin_date) &&
-                    !has_checkout?(day, @availability) &&
-                    !has_checkin?(day, @availability) &&
-                    unavailability_type(
-                      day,
-                      @min,
-                      @checkin_date,
-                      @state,
-                      @max,
-                      @property,
-                      @today,
-                      @selected_booking_mode,
-                      @availability,
-                      @seasons
-                    ) == :other &&
-                    "text-zinc-300 cursor-not-allowed opacity-50 bg-zinc-100",
-                  other_month?(day, @current.date) && "text-zinc-400"
-                ]
-              }
+              disabled={date_disabled?(day, assigns) && !selected_start?(day, @checkin_date)}
+              class={day_classes(day, assigns)}
             >
               <time class="text-sm font-medium" datetime={Calendar.strftime(day, "%Y-%m-%d")}>
                 <%= Calendar.strftime(day, "%d") %>
               </time>
               <div
                 :if={
-                  (!date_disabled?(
-                     day,
-                     @min,
-                     @checkin_date,
-                     @state,
-                     @max,
-                     @property,
-                     @today,
-                     @selected_booking_mode,
-                     @availability,
-                     @seasons
-                   ) || selected_start?(day, @checkin_date)) && !other_month?(day, @current.date)
+                  (!date_disabled?(day, assigns) || selected_start?(day, @checkin_date)) &&
+                    !other_month?(day, @current.date)
                 }
                 class="text-xs mt-1"
               >
-                <%= availability_display(day, @selected_booking_mode, @availability) %>
+                <%= availability_display(day, @selected_booking_mode, @availability, assigns) %>
               </div>
             </button>
           </div>
@@ -562,11 +136,17 @@ defmodule YscWeb.Components.AvailabilityCalendar do
           </div>
           <div class="flex items-center gap-2">
             <div class="w-4 h-4 bg-red-200 border border-red-300 rounded"></div>
-            <span>Unavailable (bookings)</span>
+            <span>Unavailable</span>
           </div>
           <div class="flex items-center gap-2">
-            <div class="w-4 h-4 bg-zinc-100 border border-zinc-300 rounded"></div>
-            <span>Other restrictions</span>
+            <div class="w-4 h-4 bg-gradient-to-r from-red-200 to-green-50 border border-zinc-300 rounded">
+            </div>
+            <span>Check-out allowed</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-4 h-4 bg-gradient-to-r from-green-50 to-red-200 border border-zinc-300 rounded">
+            </div>
+            <span>Check-in allowed</span>
           </div>
         </div>
       </div>
@@ -593,10 +173,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
   @impl true
   def update(assigns, socket) do
-    # Calculate date range for availability (show 3 months)
     today = assigns[:today] || Date.utc_today()
 
-    # Preserve current date if we have one, otherwise use today
     current_date =
       if socket.assigns[:current] && socket.assigns.current[:date] do
         socket.assigns.current.date
@@ -604,13 +182,9 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         today
       end
 
-    # Calculate availability range to include the visible calendar month
-    # We need to ensure the range covers at least the current month being viewed
-    # Calculate start and end dates to cover the visible month plus buffer
+    # Calculate availability range
     visible_month_start = Date.beginning_of_month(current_date)
     visible_month_end = Date.end_of_month(current_date)
-
-    # Expand range to cover visible month plus 30 days before and after for context
     month_start_minus_30 = Date.add(visible_month_start, -30)
 
     start_date =
@@ -618,14 +192,13 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
     end_date = Date.add(visible_month_end, 30)
 
-    # Also ensure we cover any selected dates
+    # Expand range if needed for selections
     checkin_date = assigns[:checkin_date]
     checkout_date = assigns[:checkout_date]
 
     {start_date, end_date} =
       cond do
         checkin_date && checkout_date ->
-          # Expand range to include selected dates
           {
             if(Date.compare(start_date, checkin_date) == :gt, do: checkin_date, else: start_date)
             |> Date.add(-30),
@@ -634,7 +207,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
           }
 
         checkin_date ->
-          # Expand range to include check-in date
           {
             if(Date.compare(start_date, checkin_date) == :gt, do: checkin_date, else: start_date)
             |> Date.add(-30),
@@ -646,21 +218,13 @@ defmodule YscWeb.Components.AvailabilityCalendar do
           {start_date, end_date}
       end
 
-    # Check if we need to reload availability data
-    # Only reload if the date range has changed or if we don't have availability data yet
-    # Compare dates using Date.compare to handle struct comparison correctly
-    # Also check if the availability data covers the needed date range
+    # Check if reload needed
     existing_today = socket.assigns[:today]
-    _today_changed = is_nil(existing_today) || Date.compare(existing_today, today) != :eq
-
-    # Check if existing availability data covers the needed range
     existing_availability = socket.assigns[:availability]
 
     has_valid_availability =
       if !is_nil(existing_availability) && !is_nil(existing_today) &&
            Date.compare(existing_today, today) == :eq do
-        # Check if the existing availability covers the needed range
-        # Get the min and max dates from the availability map
         availability_dates = Map.keys(existing_availability)
 
         if Enum.empty?(availability_dates) do
@@ -669,7 +233,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
           existing_min = Enum.min(availability_dates)
           existing_max = Enum.max(availability_dates)
 
-          # Check if existing range covers the needed range
           Date.compare(existing_min, start_date) != :gt &&
             Date.compare(existing_max, end_date) != :lt
         end
@@ -677,55 +240,33 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         false
       end
 
-    # Compare booking mode, handling nil values (nil means :day by default)
     existing_booking_mode = socket.assigns[:selected_booking_mode] || :day
     new_booking_mode = assigns[:selected_booking_mode] || :day
     booking_mode_changed = existing_booking_mode != new_booking_mode
 
-    needs_availability_reload =
-      !has_valid_availability ||
-        booking_mode_changed
-
-    # Get availability data only if needed
     availability =
-      if needs_availability_reload do
+      if !has_valid_availability || booking_mode_changed do
         Bookings.get_clear_lake_daily_availability(start_date, end_date)
       else
         socket.assigns[:availability]
       end
 
-    # Pre-load seasons for the property to avoid repeated queries
     property = assigns[:property] || :clear_lake
 
     seasons =
       if socket.assigns[:seasons] && socket.assigns[:property] == property do
-        # Reuse cached seasons if property hasn't changed
         socket.assigns[:seasons]
       else
-        # Load seasons once
         Bookings.list_seasons(property)
       end
 
-    checkin_date = assigns[:checkin_date]
-    checkout_date = assigns[:checkout_date]
-
-    # Determine state: if we have checkin but no checkout, we're selecting end date
     new_state =
       cond do
-        checkin_date && checkout_date ->
-          # Both dates selected - ready for new selection
-          :set_start
-
-        checkin_date && !checkout_date ->
-          # Only checkin selected - waiting for checkout
-          :set_end
-
-        true ->
-          # No dates selected - ready for checkin
-          :set_start
+        checkin_date && checkout_date -> :set_start
+        checkin_date && !checkout_date -> :set_end
+        true -> :set_start
       end
 
-    # Assign all parent assigns first, then override with component-specific assigns
     updated_socket =
       socket
       |> assign(assigns)
@@ -746,10 +287,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
   def handle_event("prev-month", _, socket) do
     new_date = prev_month_date(socket.assigns.current.date)
     socket = socket |> assign(:current, format_date(new_date))
-
-    # Check if we need to reload availability for the new month
     socket = reload_availability_if_needed(socket, new_date)
-
     {:noreply, socket}
   end
 
@@ -757,84 +295,60 @@ defmodule YscWeb.Components.AvailabilityCalendar do
   def handle_event("next-month", _, socket) do
     new_date = next_month_date(socket.assigns.current.date)
     socket = socket |> assign(:current, format_date(new_date))
-
-    # Check if we need to reload availability for the new month
     socket = reload_availability_if_needed(socket, new_date)
-
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("today", _, socket) do
     today = Date.utc_today()
-    {:noreply, socket |> assign(:current, format_date(today))}
+    socket = socket |> assign(:current, format_date(today))
+    socket = reload_availability_if_needed(socket, today)
+    {:noreply, socket}
   end
 
   @impl true
   def handle_event("pick-date", %{"date" => date_str}, socket) do
     date = Date.from_iso8601!(date_str)
 
-    # Check if date is disabled
-    if date_disabled?(
-         date,
-         socket.assigns.min,
-         socket.assigns.checkin_date,
-         socket.assigns.state,
-         socket.assigns[:max],
-         socket.assigns[:property],
-         socket.assigns[:today],
-         socket.assigns[:selected_booking_mode],
-         socket.assigns[:availability],
-         socket.assigns[:seasons]
-       ) do
+    if date_disabled?(date, socket.assigns) do
       {:noreply, socket}
     else
       case socket.assigns.state do
         :set_start ->
-          {
-            :noreply,
-            socket
-            |> assign(:checkin_date, date)
-            |> assign(:checkout_date, nil)
-            |> assign(:state, :set_end)
-            |> send_date_update()
-          }
+          {:noreply,
+           socket
+           |> assign(:checkin_date, date)
+           |> assign(:checkout_date, nil)
+           |> assign(:state, :set_end)
+           |> send_date_update()}
 
         :set_end ->
           checkin_date = socket.assigns.checkin_date
 
-          # If clicking on the same check-in date again, reset the selection
           if Date.compare(date, checkin_date) == :eq do
-            {
-              :noreply,
-              socket
-              |> assign(:checkin_date, nil)
-              |> assign(:checkout_date, nil)
-              |> assign(:hover_checkout_date, nil)
-              |> assign(:state, :set_start)
-              |> send_date_update()
-            }
+            {:noreply,
+             socket
+             |> assign(:checkin_date, nil)
+             |> assign(:checkout_date, nil)
+             |> assign(:hover_checkout_date, nil)
+             |> assign(:state, :set_start)
+             |> send_date_update()}
           else
             if Date.compare(date, checkin_date) == :lt do
-              # If selected date is before check-in, make it the new check-in
-              {
-                :noreply,
-                socket
-                |> assign(:checkin_date, date)
-                |> assign(:checkout_date, nil)
-                |> assign(:state, :set_end)
-                |> send_date_update()
-              }
+              {:noreply,
+               socket
+               |> assign(:checkin_date, date)
+               |> assign(:checkout_date, nil)
+               |> assign(:state, :set_end)
+               |> send_date_update()}
             else
-              # Validate the range
               if valid_date_range?(checkin_date, date, socket.assigns) do
-                {
-                  :noreply,
-                  socket
-                  |> assign(:checkout_date, date)
-                  |> assign(:state, :set_start)
-                  |> send_date_update()
-                }
+                {:noreply,
+                 socket
+                 |> assign(:checkout_date, date)
+                 |> assign(:state, :set_start)
+                 |> send_date_update()}
               else
                 {:noreply, socket}
               end
@@ -846,7 +360,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
   @impl true
   def handle_event("cursor-move", date_str, socket) do
-    # Handle both string and map formats
     date_string =
       if is_map(date_str),
         do: Map.get(date_str, "date") || Map.get(date_str, :date) || "",
@@ -854,38 +367,19 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
     date =
       case Date.from_iso8601(date_string) do
-        {:ok, d} ->
-          d
-
-        _ ->
-          # Try parsing as just a date string if ISO8601 fails
-          case date_string do
-            "" -> nil
-            _ -> Date.from_iso8601!(date_string)
-          end
+        {:ok, d} -> d
+        _ -> if date_string != "", do: Date.from_iso8601!(date_string), else: nil
       end
 
     if is_nil(date) do
       {:noreply, socket}
     else
-      # Show hover range when we have a start date and are selecting end date
       if socket.assigns.state == :set_end && socket.assigns.checkin_date do
         checkin_date = socket.assigns.checkin_date
 
         hover_checkout_date =
           if Date.compare(date, checkin_date) != :lt &&
-               !date_disabled?(
-                 date,
-                 socket.assigns.min,
-                 checkin_date,
-                 socket.assigns.state,
-                 socket.assigns[:max],
-                 socket.assigns[:property],
-                 socket.assigns[:today],
-                 socket.assigns[:selected_booking_mode],
-                 socket.assigns[:availability],
-                 socket.assigns[:seasons]
-               ) &&
+               !date_disabled?(date, socket.assigns) &&
                valid_date_range?(checkin_date, date, socket.assigns) do
             date
           else
@@ -894,7 +388,6 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
         {:noreply, socket |> assign(:hover_checkout_date, hover_checkout_date)}
       else
-        # Clear hover when not in set_end state
         {:noreply, socket |> assign(:hover_checkout_date, nil)}
       end
     end
@@ -902,8 +395,377 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
   @impl true
   def handle_event("cursor-leave", _params, socket) do
-    # Clear hover when mouse leaves the calendar
     {:noreply, socket |> assign(:hover_checkout_date, nil)}
+  end
+
+  # --- Helpers ---
+
+  defp day_classes(day, assigns) do
+    base =
+      "calendar-day overflow-hidden py-2 h-16 rounded w-full focus:z-10 transition duration-300 flex flex-col items-center justify-center relative"
+
+    # 1. Check if other month (lowest priority)
+    is_other_month = other_month?(day, assigns.current.date)
+
+    if is_other_month do
+      "#{base} text-zinc-400 bg-zinc-50/50"
+    else
+      # 2. Check selection states (highest priority)
+      is_start = selected_start?(day, assigns.checkin_date)
+      is_end = selected_end?(day, assigns.checkout_date)
+
+      hover_end =
+        assigns.state == :set_end && assigns.hover_checkout_date &&
+          day == assigns.hover_checkout_date
+
+      is_range = selected_range?(day, assigns.checkin_date, assigns.checkout_date)
+
+      is_hover_range =
+        assigns.state == :set_end &&
+          in_hover_range?(day, assigns.checkin_date, assigns.hover_checkout_date)
+
+      cond do
+        is_start ->
+          "#{base} bg-gradient-to-br from-blue-600 to-blue-700 text-white font-bold shadow-lg ring-4 ring-blue-200 ring-offset-2 transform scale-105 z-30"
+
+        is_end || hover_end ->
+          "#{base} bg-gradient-to-br from-blue-600 to-blue-700 text-white font-bold shadow-lg ring-4 ring-blue-200 ring-offset-2 transform scale-105 z-30"
+
+        is_range || is_hover_range ->
+          "#{base} bg-blue-400 text-white hover:bg-blue-500"
+
+        true ->
+          # 3. Availability colors
+          # Determine status of morning (based on yesterday) and afternoon (based on today)
+          yesterday = Date.add(day, -1)
+
+          # Morning is blocked if yesterday was unavailable
+          morning_blocked = date_unavailable_for_stay?(yesterday, assigns)
+          # Afternoon is blocked if today is unavailable
+          afternoon_blocked = date_unavailable_for_stay?(day, assigns)
+
+          # Determine styles for blocks
+          morning_style =
+            if morning_blocked, do: get_unavailable_style(yesterday, assigns), else: :available
+
+          afternoon_style =
+            if afternoon_blocked, do: get_unavailable_style(day, assigns), else: :available
+
+          classes =
+            cond do
+              morning_blocked && afternoon_blocked ->
+                # Fully blocked. Use the style of the afternoon (current day).
+                case afternoon_style do
+                  :gray ->
+                    "bg-zinc-100 text-zinc-400 border border-zinc-200 cursor-not-allowed opacity-60"
+
+                  :blackout ->
+                    "bg-red-800 text-red-100 border border-red-900 cursor-not-allowed"
+
+                  :booked ->
+                    "bg-red-200 text-red-900 border border-red-300 cursor-not-allowed"
+
+                  _ ->
+                    "bg-zinc-100 text-zinc-400 border border-zinc-200 cursor-not-allowed opacity-60"
+                end
+
+              !morning_blocked && !afternoon_blocked ->
+                # Fully available
+                "bg-green-50 text-zinc-900 border border-green-200 hover:bg-green-100"
+
+              morning_blocked && !afternoon_blocked ->
+                # Check-out day (Blocked -> Available)
+                case morning_style do
+                  :gray ->
+                    # If yesterday was gray (past/scope), and today is available, just show green
+                    "bg-green-50 text-zinc-900 border border-green-200 hover:bg-green-100"
+
+                  :blackout ->
+                    "bg-gradient-to-r from-red-800 to-green-50 text-zinc-900 border border-zinc-300"
+
+                  :booked ->
+                    "bg-gradient-to-r from-red-200 to-green-50 text-zinc-900 border border-zinc-300"
+
+                  _ ->
+                    "bg-green-50 text-zinc-900 border border-green-200 hover:bg-green-100"
+                end
+
+              !morning_blocked && afternoon_blocked ->
+                # Check-in day (Available -> Blocked)
+                case afternoon_style do
+                  :gray ->
+                    "bg-gradient-to-r from-green-50 to-zinc-100 text-zinc-900 border border-zinc-300"
+
+                  :blackout ->
+                    "bg-gradient-to-r from-green-50 to-red-800 text-zinc-900 border border-zinc-300"
+
+                  :booked ->
+                    "bg-gradient-to-r from-green-50 to-red-200 text-zinc-900 border border-zinc-300"
+
+                  _ ->
+                    "bg-gradient-to-r from-green-50 to-zinc-100 text-zinc-900 border border-zinc-300"
+                end
+            end
+
+          # Add Today border
+          if today?(day) do
+            "#{base} #{classes} font-bold border-2 border-zinc-400"
+          else
+            "#{base} #{classes}"
+          end
+      end
+    end
+  end
+
+  defp get_unavailable_style(day, assigns) do
+    cond do
+      Date.compare(day, assigns.min) == :lt ->
+        :gray
+
+      assigns.max && Date.compare(day, assigns.max) == :gt ->
+        :gray
+
+      assigns[:property] && assigns[:today] &&
+          !is_date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) ->
+        :gray
+
+      true ->
+        # Check availability map
+        case unavailability_type(day, assigns) do
+          :blackout -> :blackout
+          :bookings -> :booked
+          :other -> :gray
+        end
+    end
+  end
+
+  # Returns true if the date is "Unavailable" for staying the night.
+  # This logic drives the red/green coloring.
+  defp date_unavailable_for_stay?(day, assigns) do
+    # Basic checks first
+    if Date.compare(day, assigns.min) == :lt or
+         (assigns.max && Date.compare(day, assigns.max) == :gt) do
+      true
+    else
+      # Season check
+      if assigns[:property] && assigns[:today] &&
+           !is_date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) do
+        true
+      else
+        # Availability Check
+        availability = assigns.availability
+        day_info = Map.get(availability, day)
+
+        if day_info do
+          cond do
+            day_info.is_blacked_out ->
+              true
+
+            assigns.selected_booking_mode == :buyout ->
+              # Unavailable for buyout if any day bookings exist or already bought out
+              # Note: has_buyout logic in Bookings context handles existing bookings
+              # We simply check if we can book buyout
+              !day_info.can_book_buyout
+
+            assigns.selected_booking_mode == :day ->
+              # Unavailable for day booking if full or bought out
+              !day_info.can_book_day
+
+            true ->
+              true
+          end
+        else
+          # Not in loaded range -> consider unavailable
+          true
+        end
+      end
+    end
+  end
+
+  # Date is disabled for SELECTION (clicking)
+  defp date_disabled?(day, assigns) do
+    # 1. Must be selectable for a stay (Green or Green-half)
+    # BUT:
+    # - If selecting check-in: Can select a "Check-out day" (Red->Green)? YES.
+    # - If selecting check-out: Can select a "Check-in day" (Green->Red)? YES (if it's after check-in).
+    # - Can select a fully Green day? YES.
+    # - Can select a fully Red day? NO.
+
+    yesterday = Date.add(day, -1)
+    morning_blocked = date_unavailable_for_stay?(yesterday, assigns)
+    afternoon_blocked = date_unavailable_for_stay?(day, assigns)
+
+    fully_blocked = morning_blocked && afternoon_blocked
+
+    if fully_blocked do
+      # Special case: Check for blackout explicitly.
+      # If it's blacked out, it's disabled.
+      # If it's "Full" (Red), it's disabled.
+      true
+    else
+      # It is at least partially green.
+
+      # Other validation rules (Saturdays, etc.)
+      if check_other_rules(
+           day,
+           assigns.checkin_date,
+           assigns.state,
+           assigns[:property],
+           assigns[:availability],
+           assigns[:selected_booking_mode],
+           assigns[:seasons]
+         ) do
+        true
+      else
+        # If partial block, we need to check context
+        case assigns.state do
+          :set_start ->
+            # Picking check-in date.
+            # We arrive in afternoon. Afternoon must be free.
+            # So 'afternoon_blocked' must be false.
+            if afternoon_blocked do
+              true
+            else
+              false
+            end
+
+          :set_end ->
+            # Picking check-out date.
+            # We leave in morning. Morning must be free (from *other* bookings).
+            # Actually, if we are booking, we occupy the previous night.
+            # So the day *we click* is the checkout day.
+            # The night *before* this day must be available for us to book.
+            # This is validated by valid_date_range?.
+            # For the *click* itself, is the date disabled?
+            # If I click Jan 3 as checkout, I am not staying Jan 3 night.
+            # So Jan 3 afternoon availability doesn't matter.
+            # Jan 3 morning availability matters?
+            # If Jan 3 morning is "occupied" by someone else... I can't check out?
+            # No, if someone else is there, I can't have stayed the night Jan 2-3.
+            # valid_date_range? checks the *span*.
+            # So for the click target, we mainly check if it's a valid date in general.
+            false
+        end
+      end
+    end
+  end
+
+  defp unavailability_reason(day, assigns) do
+    cond do
+      Date.compare(day, assigns.min) == :lt ->
+        "Past date"
+
+      assigns.max && Date.compare(day, assigns.max) == :gt ->
+        "Too far in future"
+
+      assigns[:property] && assigns[:today] &&
+          !is_date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) ->
+        "Season closed"
+
+      true ->
+        type = unavailability_type(day, assigns)
+
+        case type do
+          :blackout ->
+            "Blackout date"
+
+          :bookings ->
+            "Fully booked"
+
+          :other ->
+            if check_other_rules(
+                 day,
+                 assigns.checkin_date,
+                 assigns.state,
+                 assigns[:property],
+                 assigns[:availability],
+                 assigns[:selected_booking_mode],
+                 assigns[:seasons]
+               ) do
+              "Restricted (e.g. min/max stay)"
+            else
+              "Unavailable"
+            end
+        end
+    end
+  end
+
+  defp unavailability_type(day, assigns) do
+    day_info = Map.get(assigns.availability, day)
+
+    if day_info do
+      cond do
+        day_info.is_blacked_out -> :blackout
+        assigns.selected_booking_mode == :day && !day_info.can_book_day -> :bookings
+        assigns.selected_booking_mode == :buyout && !day_info.can_book_buyout -> :bookings
+        true -> :other
+      end
+    else
+      :other
+    end
+  end
+
+  defp check_other_rules(day, checkin_date, state, property, _availability, _mode, seasons) do
+    # Saturday check-in rule (Tahoe only)
+    if Date.day_of_week(day) == 6 && property == :tahoe && state != :set_end do
+      true
+    else
+      case state do
+        :set_end when not is_nil(checkin_date) ->
+          # Rules for checkout date
+          nights = Date.diff(day, checkin_date)
+          max_nights = get_max_nights(property, checkin_date, seasons)
+
+          cond do
+            nights < 1 -> true
+            nights > max_nights -> true
+            # No Sat checkout for Tahoe
+            Date.day_of_week(day) == 6 && property == :tahoe -> true
+            true -> false
+          end
+
+        _ ->
+          false
+      end
+    end
+  end
+
+  defp get_max_nights(property, date, seasons) do
+    if seasons && date do
+      season = Ysc.Bookings.Season.find_season_for_date(seasons, date)
+      Ysc.Bookings.Season.get_max_nights(season, property || :clear_lake)
+    else
+      case property do
+        :tahoe -> 4
+        :clear_lake -> 30
+        _ -> 4
+      end
+    end
+  end
+
+  defp valid_date_range?(checkin_date, checkout_date, assigns) do
+    # Validate that every night in the range is available
+    # Range is checkin..(checkout-1)
+    nights = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+
+    all_available =
+      Enum.all?(nights, fn night ->
+        !date_unavailable_for_stay?(night, assigns)
+      end)
+
+    # Also check max nights / min nights / saturday rules
+    rules_pass =
+      !check_other_rules(
+        checkout_date,
+        checkin_date,
+        :set_end,
+        assigns[:property],
+        nil,
+        nil,
+        assigns[:seasons]
+      )
+
+    all_available && rules_pass
   end
 
   defp send_date_update(socket) do
@@ -917,833 +779,94 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     socket
   end
 
-  # Reloads availability if the given date is outside the current availability range
   defp reload_availability_if_needed(socket, date) do
-    today = socket.assigns[:today] || Date.utc_today()
-    existing_availability = socket.assigns[:availability]
+    # Logic to reload availability if month changed significantly
+    # Reusing simplified logic: just reload if month changed
+    today = socket.assigns.today
+    start_date = Date.beginning_of_month(date) |> Date.add(-30)
+    start_date = if Date.compare(start_date, today) == :lt, do: today, else: start_date
+    end_date = Date.end_of_month(date) |> Date.add(30)
 
-    # Calculate if the new month is within the existing availability range
-    needs_reload =
-      if !is_nil(existing_availability) && map_size(existing_availability) > 0 do
-        availability_dates = Map.keys(existing_availability)
-        existing_min = Enum.min_by(availability_dates, &Date.to_erl/1)
-        existing_max = Enum.max_by(availability_dates, &Date.to_erl/1)
-
-        # Check if the new month is outside the range
-        month_start = Date.beginning_of_month(date)
-        month_end = Date.end_of_month(date)
-
-        Date.compare(month_start, existing_min) == :lt ||
-          Date.compare(month_end, existing_max) == :gt
-      else
-        true
-      end
-
-    if needs_reload do
-      # Calculate new availability range
-      visible_month_start = Date.beginning_of_month(date)
-      visible_month_end = Date.end_of_month(date)
-
-      month_start_minus_30 = Date.add(visible_month_start, -30)
-
-      start_date =
-        if Date.compare(month_start_minus_30, today) == :lt, do: today, else: month_start_minus_30
-
-      end_date = Date.add(visible_month_end, 30)
-
-      # Also include selected dates if any
-      {start_date, end_date} =
-        if socket.assigns[:checkin_date] do
-          checkin = socket.assigns[:checkin_date]
-          checkout = socket.assigns[:checkout_date]
-
-          if checkout do
-            {
-              if(Date.compare(start_date, checkin) == :gt, do: checkin, else: start_date)
-              |> Date.add(-30),
-              if(Date.compare(end_date, checkout) == :lt, do: checkout, else: end_date)
-              |> Date.add(30)
-            }
-          else
-            {
-              if(Date.compare(start_date, checkin) == :gt, do: checkin, else: start_date)
-              |> Date.add(-30),
-              if(Date.compare(end_date, checkin) == :lt, do: checkin, else: end_date)
-              |> Date.add(30)
-            }
-          end
-        else
-          {start_date, end_date}
-        end
-
-      new_availability = Bookings.get_clear_lake_daily_availability(start_date, end_date)
-
-      socket |> assign(:availability, new_availability)
-    else
-      socket
-    end
+    new_availability = Bookings.get_clear_lake_daily_availability(start_date, end_date)
+    socket |> assign(:availability, new_availability)
   end
 
-  defp prev_month_date(date) do
-    date
-    |> Date.beginning_of_month()
-    |> Date.add(-1)
-  end
+  defp prev_month_date(date), do: date |> Date.beginning_of_month() |> Date.add(-1)
+  defp next_month_date(date), do: date |> Date.end_of_month() |> Date.add(1)
 
-  defp next_month_date(date) do
-    date
-    |> Date.end_of_month()
-    |> Date.add(1)
-  end
+  defp today?(day), do: day == Date.utc_today()
 
-  defp before_min_date?(day, min) do
-    Date.compare(day, min) == :lt
-  end
+  defp other_month?(day, current),
+    do: Date.beginning_of_month(day) != Date.beginning_of_month(current)
 
-  defp date_disabled?(
-         day,
-         min,
-         checkin_date,
-         state,
-         max,
-         property,
-         today,
-         selected_booking_mode,
-         availability,
-         seasons
-       ) do
-    # Always disable dates before minimum
-    if Date.compare(day, min) == :lt do
-      IO.puts("[DEBUG] date_disabled? #{Date.to_string(day)}: true (before min)")
-      true
-    else
-      # Check if date is after maximum (if max is set)
-      if max && Date.compare(day, max) == :gt do
-        IO.puts("[DEBUG] date_disabled? #{Date.to_string(day)}: true (after max)")
-        true
-      else
-        # Check season restrictions if property is provided
-        if property && today do
-          unless is_date_selectable_cached?(property, day, today, seasons) do
-            IO.puts("[DEBUG] date_disabled? #{Date.to_string(day)}: true (season restriction)")
-            true
-          else
-            # Check availability
-            day_availability = Map.get(availability, day)
+  defp selected_start?(day, start), do: start && day == start
+  defp selected_end?(day, end_d), do: end_d && day == end_d
 
-            if day_availability do
-              disabled_reason =
-                cond do
-                  # Rule: Cannot book if blacked out (applies to both buyout and day mode)
-                  day_availability.is_blacked_out ->
-                    "blacked_out"
+  defp selected_range?(day, start, end_d),
+    do: start && end_d && Date.compare(day, start) != :lt && Date.compare(day, end_d) != :gt
 
-                  # Rule: For buyout mode - cannot book if there are ANY day bookings on that day
-                  # Checkout is at 11:00 AM, check-in is at 15:00 (3 PM), so same-day turnarounds are allowed
-                  selected_booking_mode == :buyout ->
-                    # Check if there are day bookings (shared/per person) on this date
-                    if day_availability.day_bookings_count > 0 do
-                      "cannot_book_buyout (has_day_bookings: #{day_availability.day_bookings_count})"
-                    else
-                      # Check if there's a buyout staying (not checking out/in today)
-                      # Allow same-day turnarounds: checkout at 12:00, check-in at 15:00
-                      is_checkout_date = state == :set_end
-                      is_checkin_date = state == :set_start || is_nil(checkin_date)
+  defp in_hover_range?(day, start, hover),
+    do: start && hover && Date.compare(day, start) != :lt && Date.compare(day, hover) != :gt
 
-                      if day_availability.has_buyout do
-                        # Check if same-day turnaround is possible
-                        can_same_day_turnaround =
-                          (is_checkout_date && day_availability.has_checkin) ||
-                            (is_checkin_date && day_availability.has_checkout)
-
-                        if can_same_day_turnaround do
-                          # Same-day turnaround allowed - check other rules
-                          other_rules_result =
-                            check_other_rules(
-                              day,
-                              checkin_date,
-                              state,
-                              property,
-                              availability,
-                              selected_booking_mode,
-                              seasons
-                            )
-
-                          if other_rules_result do
-                            "other_rules"
-                          else
-                            nil
-                          end
-                        else
-                          "cannot_book_buyout (has_buyout_staying: true)"
-                        end
-                      else
-                        # No buyout, no day bookings - check other rules
-                        other_rules_result =
-                          check_other_rules(
-                            day,
-                            checkin_date,
-                            state,
-                            property,
-                            availability,
-                            selected_booking_mode,
-                            seasons
-                          )
-
-                        if other_rules_result do
-                          "other_rules"
-                        else
-                          nil
-                        end
-                      end
-                    end
-
-                  # Rule: For day/shared mode - cannot book if there's a buyout or blackout
-                  # 12 person max is already handled in can_book_day
-                  selected_booking_mode == :day ->
-                    if day_availability.has_buyout do
-                      "cannot_book_day (has_buyout: true)"
-                    else
-                      # Check if there are spots available (12 person max)
-                      # Checkout is at 11:00 AM, check-in is at 15:00 (3 PM), so same-day turnarounds are allowed
-                      if day_availability.spots_available <= 0 do
-                        "cannot_book_day (no_spots_available: #{day_availability.spots_available})"
-                      else
-                        # Check other rules
-                        other_rules_result =
-                          check_other_rules(
-                            day,
-                            checkin_date,
-                            state,
-                            property,
-                            availability,
-                            selected_booking_mode,
-                            seasons
-                          )
-
-                        if other_rules_result do
-                          "other_rules"
-                        else
-                          nil
-                        end
-                      end
-                    end
-
-                  true ->
-                    # Check other rules (Saturday, range validation, etc.)
-                    other_rules_result =
-                      check_other_rules(
-                        day,
-                        checkin_date,
-                        state,
-                        property,
-                        availability,
-                        selected_booking_mode,
-                        seasons
-                      )
-
-                    if other_rules_result do
-                      "other_rules"
-                    else
-                      nil
-                    end
-                end
-
-              if disabled_reason do
-                IO.puts("""
-                [DEBUG] date_disabled? #{Date.to_string(day)}: true (#{disabled_reason})
-                  - selected_booking_mode: #{selected_booking_mode}
-                  - has_checkout: #{day_availability.has_checkout}
-                  - has_checkin: #{day_availability.has_checkin}
-                  - is_changeover_day: #{day_availability.is_changeover_day}
-                """)
-
-                true
-              else
-                IO.puts("[DEBUG] date_disabled? #{Date.to_string(day)}: false (available)")
-                false
-              end
-            else
-              # Date not in availability map (outside loaded range) - disable it
-              # This prevents selecting dates that haven't been loaded yet
-              IO.puts(
-                "[DEBUG] date_disabled? #{Date.to_string(day)}: true (not in availability map)"
-              )
-
-              true
-            end
-          end
-        else
-          result =
-            check_other_rules(
-              day,
-              checkin_date,
-              state,
-              property,
-              availability,
-              selected_booking_mode,
-              nil
-            )
-
-          IO.puts(
-            "[DEBUG] date_disabled? #{Date.to_string(day)}: #{result} (no property/today check)"
-          )
-
-          result
-        end
-      end
-    end
-  end
-
-  # Cached version of is_date_selectable? that uses pre-loaded seasons
   defp is_date_selectable_cached?(property, date, today, seasons) do
     season =
-      if seasons do
-        # Use pre-loaded seasons
-        Ysc.Bookings.Season.find_season_for_date(seasons, date)
-      else
-        # Fallback to querying (shouldn't happen if seasons are loaded)
-        Ysc.Bookings.Season.for_date(property, date)
-      end
+      if seasons,
+        do: Ysc.Bookings.Season.find_season_for_date(seasons, date),
+        else: Ysc.Bookings.Season.for_date(property, date)
 
     if season && season.advance_booking_days && season.advance_booking_days > 0 do
-      # Season has a limit - check if date is within the advance booking window
-      max_booking_date = Date.add(today, season.advance_booking_days)
-      Date.compare(date, max_booking_date) != :gt
+      max_date = Date.add(today, season.advance_booking_days)
+      Date.compare(date, max_date) != :gt
     else
-      # No limit for this season - date is selectable
       true
     end
   end
 
-  defp check_other_rules(
-         day,
-         checkin_date,
-         state,
-         property,
-         availability,
-         selected_booking_mode,
-         seasons
-       ) do
-    # Cannot check in on Saturday (day 6) - this applies to Tahoe only
-    # Clear Lake allows Saturday check-ins
-    if Date.day_of_week(day) == 6 && property == :tahoe do
-      true
-    else
-      # When selecting end date (state is :set_end), validate against start date
-      case state do
-        :set_end when not is_nil(checkin_date) ->
-          nights = Date.diff(day, checkin_date)
+  defp availability_display(day, mode, availability, assigns \\ nil) do
+    info = Map.get(availability, day)
 
-          # Get max nights from season for check-in date
-          max_nights =
-            if seasons && checkin_date do
-              season = Ysc.Bookings.Season.find_season_for_date(seasons, checkin_date)
-              Ysc.Bookings.Season.get_max_nights(season, property || :clear_lake)
-            else
-              # Fallback to property defaults
-              case property do
-                :tahoe -> 4
-                :clear_lake -> 30
-                _ -> 4
-              end
-            end
-
-          # Disable if:
-          # 1. More than max_nights
-          # 2. Less than 1 night (end date before or same as start)
-          # 3. Ends on Saturday (Tahoe only - Clear Lake allows Saturday checkouts)
-          # 4. If range includes Saturday, must also include Sunday (Tahoe only)
-          # 5. If any date in the range is blacked out or unavailable
-          cond do
-            nights > max_nights ->
-              true
-
-            nights < 1 ->
-              true
-
-            Date.day_of_week(day) == 6 && property == :tahoe ->
-              true
-
-            true ->
-              # Check if all dates in the range are available
-              # Note: Exclude the checkout date (day) from validation since checkout is at 11 AM
-              # and check-in is at 3 PM, allowing same-day turnarounds
-              date_range =
-                if Date.compare(day, checkin_date) == :gt do
-                  # Exclude checkout date - only validate nights that will be stayed
-                  Date.range(checkin_date, Date.add(day, -1)) |> Enum.to_list()
-                else
-                  # Edge case: same day check-in/check-out (shouldn't happen, but handle gracefully)
-                  []
-                end
-
-              # Check if any date in the range is blacked out or unavailable
-              range_has_unavailable_date =
-                if availability do
-                  Enum.any?(date_range, fn range_day ->
-                    day_availability = Map.get(availability, range_day)
-
-                    if day_availability do
-                      # Check if this day is blacked out or unavailable for the selected booking mode
-                      day_availability.is_blacked_out ||
-                        (selected_booking_mode == :day && not day_availability.can_book_day) ||
-                        (selected_booking_mode == :buyout && not day_availability.can_book_buyout)
-                    else
-                      # Date not in availability map - consider it unavailable
-                      true
-                    end
-                  end)
-                else
-                  false
-                end
-
-              if range_has_unavailable_date do
-                true
-              else
-                # Weekend rule (Saturday must include Sunday) only applies to Tahoe
-                if property == :tahoe do
-                  # Check if range includes Saturday - if so, must also include Sunday
-                  day_of_weeks = Enum.map(date_range, &Date.day_of_week/1)
-                  has_saturday = 6 in day_of_weeks
-                  has_sunday = 7 in day_of_weeks
-
-                  if has_saturday && not has_sunday do
-                    # Range includes Saturday but not Sunday - invalid (Tahoe only)
-                    true
-                  else
-                    false
-                  end
-                else
-                  # Clear Lake doesn't have the weekend rule
-                  false
-                end
-              end
-          end
-
-        _ ->
+    if info do
+      # Check if this is a valid checkout date in the current context
+      is_valid_checkout =
+        if assigns && assigns.state == :set_end && assigns.checkin_date do
+          # If we are selecting an end date, and this date is after start date
+          # And the previous night was available (meaning we can stay until this morning)
+          Date.compare(day, assigns.checkin_date) == :gt &&
+            !date_unavailable_for_stay?(Date.add(day, -1), assigns)
+        else
           false
-      end
-    end
-  end
-
-  # Determines the type of unavailability for styling purposes
-  # Returns :blackout, :bookings, or :other
-  defp unavailability_type(
-         day,
-         min,
-         checkin_date,
-         state,
-         max,
-         property,
-         today,
-         selected_booking_mode,
-         availability,
-         seasons
-       ) do
-    # Check if date is before minimum or after maximum (these are "other" reasons)
-    if Date.compare(day, min) == :lt or (max && Date.compare(day, max) == :gt) do
-      :other
-    else
-      # Check season restrictions
-      if property && today do
-        unless is_date_selectable_cached?(property, day, today, seasons) do
-          :other
-        else
-          # Check availability
-          day_availability = Map.get(availability, day)
-
-          if day_availability do
-            cond do
-              day_availability.is_blacked_out ->
-                :blackout
-
-              selected_booking_mode == :day && not day_availability.can_book_day ->
-                # Unavailable due to bookings (not blacked out, but can't book day)
-                :bookings
-
-              selected_booking_mode == :buyout && not day_availability.can_book_buyout ->
-                # Unavailable due to bookings (not blacked out, but can't book buyout)
-                :bookings
-
-              true ->
-                # Other rules (Saturday, range validation, etc.)
-                :other
-            end
-          else
-            # Date not in availability map (outside loaded range) - mark as other/unavailable
-            :other
-          end
         end
-      else
-        # No property/today - check other rules
-        if check_other_rules(
-             day,
-             checkin_date,
-             state,
-             property,
-             availability,
-             selected_booking_mode,
-             nil
-           ) do
-          :other
-        else
-          :other
-        end
-      end
-    end
-  end
 
-  defp valid_date_range?(checkin_date, checkout_date, assigns) do
-    nights = Date.diff(checkout_date, checkin_date)
-    property = assigns[:property]
-    date_range = Date.range(checkin_date, checkout_date) |> Enum.to_list()
+      cond do
+        info.is_blacked_out ->
+          "Blackout"
 
-    # Get max nights from season for check-in date
-    max_nights =
-      if assigns[:seasons] && checkin_date do
-        season = Ysc.Bookings.Season.find_season_for_date(assigns[:seasons], checkin_date)
-        Ysc.Bookings.Season.get_max_nights(season, property || :clear_lake)
-      else
-        # Fallback to property defaults
-        case property do
-          :tahoe -> 4
-          :clear_lake -> 30
-          _ -> 4
-        end
-      end
-
-    if nights < 1 or nights > max_nights do
-      false
-    else
-      # Cannot end on Saturday (Tahoe only - Clear Lake allows Saturday checkouts)
-      if Date.day_of_week(checkout_date) == 6 && property == :tahoe do
-        false
-      else
-        # Weekend rule (Saturday must include Sunday) only applies to Tahoe
-        weekend_rule_passes =
-          if property == :tahoe do
-            # If range includes Saturday, must also include Sunday
-            day_of_weeks = Enum.map(date_range, &Date.day_of_week/1)
-            has_saturday = 6 in day_of_weeks
-            has_sunday = 7 in day_of_weeks
-
-            if has_saturday && not has_sunday do
-              false
-            else
-              true
-            end
+        mode == :buyout && !info.can_book_buyout ->
+          if is_valid_checkout do
+            "Check-out only"
           else
-            # Clear Lake doesn't have the weekend rule
-            true
+            "Busy"
           end
 
-        if not weekend_rule_passes do
-          false
-        else
-          # Check that ALL dates in the range are available
-          # This ensures no unavailable dates in the middle of the range
-          # For dates in the middle, we only check availability (not end-date rules)
-          # For the end date, we check both availability and end-date rules
-          all_dates_available =
-            Enum.all?(date_range, fn day ->
-              # For the end date, use :set_end state to check end-date rules
-              # For dates in the middle, use :set_start to only check availability
-              state_to_use =
-                if day == checkout_date do
-                  :set_end
-                else
-                  :set_start
-                end
-
-              !date_disabled?(
-                day,
-                assigns[:min],
-                checkin_date,
-                state_to_use,
-                assigns[:max],
-                assigns[:property],
-                assigns[:today],
-                assigns[:selected_booking_mode],
-                assigns[:availability],
-                assigns[:seasons]
-              )
-            end)
-
-          all_dates_available
-        end
-      end
-    end
-  end
-
-  defp unavailability_reason(
-         day,
-         min,
-         checkin_date,
-         state,
-         max,
-         property,
-         today,
-         selected_booking_mode,
-         availability,
-         seasons
-       ) do
-    # Check if date is before minimum
-    if Date.compare(day, min) == :lt do
-      "This date is in the past"
-    else
-      # Check if date is after maximum
-      if max && Date.compare(day, max) == :gt do
-        "This date is beyond the maximum booking date"
-      else
-        # Check season restrictions
-        if property && today do
-          unless is_date_selectable_cached?(property, day, today, seasons) do
-            "This date is outside the booking season"
+        mode == :day && !info.can_book_day ->
+          if is_valid_checkout do
+            "Check-out only"
           else
-            # Check availability
-            day_availability = Map.get(availability, day)
-
-            if day_availability do
-              cond do
-                day_availability.is_blacked_out ->
-                  "This date is blacked out (maintenance or special event)"
-
-                selected_booking_mode == :day && day_availability.has_buyout ->
-                  "Full buyout is booked for this date"
-
-                selected_booking_mode == :day && day_availability.spots_available == 0 ->
-                  "No spots available (#{day_availability.day_bookings_count} of 12 guests already booked)"
-
-                selected_booking_mode == :buyout && day_availability.has_buyout ->
-                  "Full buyout is already booked for this date"
-
-                selected_booking_mode == :buyout && day_availability.day_bookings_count > 0 ->
-                  "Day bookings exist for this date (buyout not available)"
-
-                Date.day_of_week(day) == 6 && property == :tahoe ->
-                  "Check-in is not allowed on Saturdays"
-
-                state == :set_end && checkin_date ->
-                  nights = Date.diff(day, checkin_date)
-
-                  # Get max nights from season for check-in date
-                  max_nights =
-                    if seasons && checkin_date do
-                      season = Ysc.Bookings.Season.find_season_for_date(seasons, checkin_date)
-                      Ysc.Bookings.Season.get_max_nights(season, property || :clear_lake)
-                    else
-                      # Fallback to property defaults
-                      case property do
-                        :tahoe -> 4
-                        :clear_lake -> 30
-                        _ -> 4
-                      end
-                    end
-
-                  cond do
-                    nights > max_nights ->
-                      "Maximum stay is #{max_nights} nights"
-
-                    nights < 1 ->
-                      "Check-out date must be after check-in date"
-
-                    Date.day_of_week(day) == 6 && property == :tahoe ->
-                      "Check-out is not allowed on Saturdays"
-
-                    true ->
-                      # Check if range includes Saturday but not Sunday (Tahoe only)
-                      if property == :tahoe do
-                        date_range = Date.range(checkin_date, day) |> Enum.to_list()
-                        day_of_weeks = Enum.map(date_range, &Date.day_of_week/1)
-                        has_saturday = 6 in day_of_weeks
-                        has_sunday = 7 in day_of_weeks
-
-                        if has_saturday && not has_sunday do
-                          "If your stay includes Saturday, it must also include Sunday"
-                        else
-                          "This date is unavailable"
-                        end
-                      else
-                        "This date is unavailable"
-                      end
-                  end
-
-                true ->
-                  "This date is unavailable"
-              end
-            else
-              # Date not in availability map (outside loaded range)
-              "Availability data not loaded for this date"
-            end
-          end
-        else
-          if Date.day_of_week(day) == 6 && property == :tahoe do
-            "Check-in is not allowed on Saturdays"
-          else
-            "This date is unavailable"
-          end
-        end
-      end
-    end
-  end
-
-  defp availability_display(day, selected_booking_mode, availability) do
-    day_availability = Map.get(availability, day)
-
-    if day_availability do
-      case selected_booking_mode do
-        :day ->
-          if day_availability.is_blacked_out do
-            "Blacked out"
-          else
-            if day_availability.has_buyout do
-              "Buyout"
-            else
-              "#{day_availability.spots_available} spots"
-            end
+            "Full"
           end
 
-        :buyout ->
-          if day_availability.is_blacked_out do
-            "Blacked out"
-          else
-            if day_availability.has_buyout do
-              "Booked"
-            else
-              if day_availability.day_bookings_count > 0 do
-                "Day bookings"
-              else
-                "Available"
-              end
-            end
-          end
+        mode == :day ->
+          "#{info.spots_available} spots"
 
-        _ ->
+        mode == :buyout ->
+          "Available"
+
+        true ->
           ""
       end
     else
       ""
     end
-  end
-
-  defp today?(day), do: day == Date.utc_today()
-
-  defp other_month?(day, current_date) do
-    Date.beginning_of_month(day) != Date.beginning_of_month(current_date)
-  end
-
-  defp is_changeover_day?(day, availability) do
-    case Map.get(availability, day) do
-      %{is_changeover_day: true} = info ->
-        IO.puts("""
-        [DEBUG] is_changeover_day? for #{Date.to_string(day)}: true
-          - has_checkout: #{Map.get(info, :has_checkout, false)}
-          - has_checkin: #{Map.get(info, :has_checkin, false)}
-          - is_changeover_day: #{Map.get(info, :is_changeover_day, false)}
-        """)
-
-        true
-
-      info ->
-        if info do
-          IO.puts("""
-          [DEBUG] is_changeover_day? for #{Date.to_string(day)}: false
-            - has_checkout: #{Map.get(info, :has_checkout, false)}
-            - has_checkin: #{Map.get(info, :has_checkin, false)}
-            - is_changeover_day: #{Map.get(info, :is_changeover_day, false)}
-          """)
-        end
-
-        false
-    end
-  end
-
-  defp is_blacked_out?(day, availability) do
-    case Map.get(availability, day) do
-      %{is_blacked_out: true} -> true
-      _ -> false
-    end
-  end
-
-  defp has_checkin?(day, availability) do
-    case Map.get(availability, day) do
-      %{has_checkin: true} = info ->
-        IO.puts(
-          "[DEBUG] has_checkin? #{Date.to_string(day)}: true (has_checkin: #{Map.get(info, :has_checkin, false)}, has_checkout: #{Map.get(info, :has_checkout, false)})"
-        )
-
-        true
-
-      info ->
-        if info do
-          IO.puts(
-            "[DEBUG] has_checkin? #{Date.to_string(day)}: false (has_checkin: #{Map.get(info, :has_checkin, false)}, has_checkout: #{Map.get(info, :has_checkout, false)})"
-          )
-        end
-
-        false
-    end
-  end
-
-  defp has_checkout?(day, availability) do
-    case Map.get(availability, day) do
-      %{has_checkout: true} = info ->
-        IO.puts(
-          "[DEBUG] has_checkout? #{Date.to_string(day)}: true (has_checkin: #{Map.get(info, :has_checkin, false)}, has_checkout: #{Map.get(info, :has_checkout, false)})"
-        )
-
-        true
-
-      info ->
-        if info do
-          IO.puts(
-            "[DEBUG] has_checkout? #{Date.to_string(day)}: false (has_checkin: #{Map.get(info, :has_checkin, false)}, has_checkout: #{Map.get(info, :has_checkout, false)})"
-          )
-        end
-
-        false
-    end
-  end
-
-  defp selected_range?(day, checkin_date, checkout_date) do
-    if checkin_date && checkout_date do
-      day in Date.range(checkin_date, checkout_date)
-    else
-      false
-    end
-  end
-
-  defp in_hover_range?(day, checkin_date, hover_checkout_date) do
-    if checkin_date && hover_checkout_date do
-      day in Date.range(checkin_date, hover_checkout_date)
-    else
-      false
-    end
-  end
-
-  defp selected_start?(day, checkin_date) do
-    checkin_date && day == checkin_date
-  end
-
-  defp selected_end?(day, checkout_date) do
-    checkout_date && day == checkout_date
-  end
-
-  defp week_rows(current_date) do
-    first =
-      current_date
-      |> Date.beginning_of_month()
-      |> Date.beginning_of_week(@week_start_at)
-
-    last =
-      current_date
-      |> Date.end_of_month()
-      |> Date.end_of_week(@week_start_at)
-
-    Date.range(first, last)
-    |> Enum.map(& &1)
-    |> Enum.chunk_every(7)
   end
 
   defp format_date(date) do
@@ -1752,5 +875,11 @@ defmodule YscWeb.Components.AvailabilityCalendar do
       month: Calendar.strftime(date, "%B %Y"),
       week_rows: week_rows(date)
     }
+  end
+
+  defp week_rows(date) do
+    first = date |> Date.beginning_of_month() |> Date.beginning_of_week(@week_start_at)
+    last = date |> Date.end_of_month() |> Date.end_of_week(@week_start_at)
+    Date.range(first, last) |> Enum.map(& &1) |> Enum.chunk_every(7)
   end
 end

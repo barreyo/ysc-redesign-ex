@@ -34,6 +34,15 @@ Repo.insert!(
   on_conflict: :nothing
 )
 
+Repo.insert!(
+  SiteSetting.site_setting_changeset(%SiteSetting{}, %{
+    group: "socials",
+    name: "discord",
+    value: "https://discord.gg/dn2gdXRZbW"
+  }),
+  on_conflict: :nothing
+)
+
 first_names = [
   "Karl",
   "Erik",

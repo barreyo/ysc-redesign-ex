@@ -153,6 +153,11 @@ defmodule Ysc.Bookings.BookingLocker do
         end
       end
 
+      # Validate no blackout overlap
+      if Bookings.has_blackout?(property, checkin_date, checkout_date) do
+        Repo.rollback({:error, :blackout_conflict})
+      end
+
       # Validate no buyout held/booked and no per-guest counts (Clear Lake)
       invalid_days =
         Enum.filter(prop_inv, fn pi ->
@@ -650,6 +655,11 @@ defmodule Ysc.Bookings.BookingLocker do
             where:
               pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date
         )
+
+      # Validate no blackout overlap
+      if Bookings.has_blackout?(property, checkin_date, checkout_date) do
+        Repo.rollback({:error, :blackout_conflict})
+      end
 
       # Validate for each day: buyout flags false and capacity_booked + capacity_held + guests <= capacity_total
       invalid_days =

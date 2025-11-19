@@ -1310,9 +1310,11 @@ defmodule YscWeb.TahoeBookingLive do
             <ul>
               <li>7 bedrooms</li>
               <li>3 bathrooms</li>
-              <li>Sleeps up to 15 guests</li>
+              <li>Beautiful authentic sauna</li>
+              <li>Sleeps up to 17 guests</li>
               <li>Fully equipped kitchen</li>
-              <li>Modern amenities with rustic charm</li>
+              <li>Wood fireplace</li>
+              <li>During summer season the cabin has kayaks available for use</li>
             </ul>
             <p>
               <strong>📍 Location:</strong>
