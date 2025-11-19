@@ -1490,7 +1490,7 @@ defmodule YscWeb.CoreComponents do
   def badge(assigns) do
     ~H"""
     <span class={[
-      "text-xs font-medium me-2 px-2 py-1 rounded text-left #{@class}",
+      "inline-block text-xs font-medium me-2 px-2 py-1 rounded whitespace-nowrap #{@class}",
       @type == "sky" && "bg-sky-100 text-sky-800",
       @type == "green" && "bg-green-100 text-green-800",
       @type == "yellow" && "bg-yellow-100 text-yellow-800",

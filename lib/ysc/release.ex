@@ -51,8 +51,6 @@ defmodule Ysc.Release do
       for repo <- repos() do
         {:ok, _, result} =
           Ecto.Migrator.with_repo(repo, fn _repo ->
-            ensure_oban_started()
-
             require Logger
 
             Logger.info("Re-queuing failed email messages...")
@@ -144,8 +142,6 @@ defmodule Ysc.Release do
     for repo <- repos() do
       {:ok, _, result} =
         Ecto.Migrator.with_repo(repo, fn _repo ->
-          ensure_oban_started()
-
           require Logger
 
           Logger.info("Re-queuing job: #{job_id}")
@@ -181,47 +177,5 @@ defmodule Ysc.Release do
 
   defp load_app do
     Application.load(@app)
-  end
-
-  defp ensure_oban_started do
-    # Check if Oban is already running
-    case Process.whereis(Oban.Registry) do
-      nil ->
-        # Oban is not running, start it
-        oban_config = Application.fetch_env!(@app, Oban)
-
-        # Try to start under the supervisor if it exists
-        case Process.whereis(Ysc.Supervisor) do
-          nil ->
-            # Supervisor not running, start Oban standalone
-            case Oban.start_link(oban_config) do
-              {:ok, _pid} ->
-                :ok
-
-              {:error, {:already_started, _pid}} ->
-                :ok
-
-              {:error, reason} ->
-                raise "Failed to start Oban: #{inspect(reason)}"
-            end
-
-          _supervisor_pid ->
-            # Supervisor is running, start as child
-            case Supervisor.start_child(Ysc.Supervisor, {Oban, oban_config}) do
-              {:ok, _pid} ->
-                :ok
-
-              {:error, {:already_started, _pid}} ->
-                :ok
-
-              {:error, reason} ->
-                raise "Failed to start Oban: #{inspect(reason)}"
-            end
-        end
-
-      _pid ->
-        # Oban is already running
-        :ok
-    end
   end
 end

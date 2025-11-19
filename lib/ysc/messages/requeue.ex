@@ -175,20 +175,24 @@ defmodule Ysc.Messages.Requeue do
 
   defp requeue_job(job) do
     # Create a new job with the same args to re-queue it
-    new_job =
-      %{
-        "recipient" => get_in(job.args, ["recipient"]),
-        "idempotency_key" => get_in(job.args, ["idempotency_key"]),
-        "subject" => get_in(job.args, ["subject"]),
-        "template" => get_in(job.args, ["template"]),
-        "params" => get_in(job.args, ["params"]),
-        "text_body" => get_in(job.args, ["text_body"]),
-        "user_id" => get_in(job.args, ["user_id"]),
-        "category" => get_in(job.args, ["category"])
-      }
-      |> YscWeb.Workers.EmailNotifier.new()
+    job_attrs = %{
+      "recipient" => get_in(job.args, ["recipient"]),
+      "idempotency_key" => get_in(job.args, ["idempotency_key"]),
+      "subject" => get_in(job.args, ["subject"]),
+      "template" => get_in(job.args, ["template"]),
+      "params" => get_in(job.args, ["params"]),
+      "text_body" => get_in(job.args, ["text_body"]),
+      "user_id" => get_in(job.args, ["user_id"]),
+      "category" => get_in(job.args, ["category"])
+    }
 
-    case Oban.insert(new_job) do
+    # Create the Oban job struct
+    new_job = YscWeb.Workers.EmailNotifier.new(job_attrs)
+
+    # Insert directly into the database using Ecto instead of Oban.insert
+    # This works even when Oban isn't running
+    # Oban.Job is an Ecto schema, so we can insert it directly
+    case Repo.insert(new_job) do
       {:ok, inserted_job} ->
         {:ok, inserted_job}
 
