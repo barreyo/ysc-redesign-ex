@@ -95,6 +95,70 @@ if config_env() == :prod do
     """
   end
 
+  # ## Membership Plans Configuration
+  #
+  # Configure membership plans with Stripe Price IDs for production.
+  # These must be set at runtime for releases to work properly.
+  stripe_single_price_id = System.get_env("STRIPE_SINGLE_PRICE_ID")
+  stripe_family_price_id = System.get_env("STRIPE_FAMILY_PRICE_ID")
+
+  if stripe_single_price_id && stripe_family_price_id do
+    config :ysc,
+      membership_plans: [
+        %{
+          id: :single,
+          name: "Single",
+          interval: "year",
+          amount: 45,
+          currency: "usd",
+          trial_period_days: 0,
+          stripe_price_id: stripe_single_price_id,
+          statement_descriptor: "Single Membership",
+          description: "Membership just for yourself",
+          metadata: %{
+            "plan_type" => "membership",
+            "interval" => "year"
+          }
+        },
+        %{
+          id: :family,
+          name: "Family",
+          interval: "year",
+          amount: 65,
+          currency: "usd",
+          trial_period_days: 0,
+          stripe_price_id: stripe_family_price_id,
+          statement_descriptor: "Family Membership",
+          description: "For you, your Spouse and your children under 18",
+          metadata: %{
+            "plan_type" => "membership",
+            "interval" => "year"
+          }
+        },
+        %{
+          id: :lifetime,
+          name: "Lifetime",
+          interval: "lifetime",
+          amount: 0,
+          currency: "usd",
+          trial_period_days: 0,
+          stripe_price_id: nil,
+          statement_descriptor: "Lifetime Membership",
+          description: "Lifetime membership with all Family membership perks - never expires",
+          metadata: %{
+            "plan_type" => "membership",
+            "interval" => "lifetime"
+          }
+        }
+      ]
+  else
+    raise """
+    Missing Stripe Price IDs. Please set:
+    - STRIPE_SINGLE_PRICE_ID
+    - STRIPE_FAMILY_PRICE_ID
+    """
+  end
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key

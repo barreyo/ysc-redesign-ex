@@ -130,6 +130,9 @@ config :ysc, :quickbooks,
   client_id: System.get_env("QUICKBOOKS_CLIENT_ID"),
   client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET")
 
+# Membership plans configuration
+# Note: In production, membership plans are configured at runtime in config/runtime.exs
+# This config is for dev/test environments only
 config :ysc,
   membership_plans: [
     %{
