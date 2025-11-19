@@ -191,7 +191,7 @@ defmodule YscWeb.AdminSettingsLive do
     end
   end
 
-  defp list_recent_jobs(opts \\ []) do
+  defp list_recent_jobs(opts) do
     limit = Keyword.get(opts, :limit, 50)
 
     from(j in Job,
