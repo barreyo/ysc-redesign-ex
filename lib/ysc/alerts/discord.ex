@@ -36,7 +36,6 @@ defmodule Ysc.Alerts.Discord do
   require Logger
 
   @webhook_url Application.compile_env(:ysc, [__MODULE__, :webhook_url])
-  @enabled Application.compile_env(:ysc, [__MODULE__, :enabled], false)
 
   # Discord color codes
   @colors %{
@@ -278,7 +277,7 @@ defmodule Ysc.Alerts.Discord do
   ## Private Functions
 
   defp enabled? do
-    @enabled && webhook_url() != nil
+    Application.get_env(:ysc, __MODULE__)[:enabled] != false && webhook_url() != nil
   end
 
   defp webhook_url do
