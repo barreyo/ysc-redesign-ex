@@ -167,26 +167,119 @@ defmodule Ysc.Bookings.PricingHelpers do
       # Use the first room to get pricing rules, but calculate for total guests
       room_count = length(room_ids)
 
+      # Calculate minimum billable people across all selected rooms
+      # This ensures we charge for at least the sum of minimum occupancies
+      # Children count towards minimum occupancy, so we need to account for them
+      billable_people =
+        if room_count > 1 do
+          # Multiple rooms: sum the min_billable_occupancy of all rooms
+          # Use available_rooms from socket assigns if available, otherwise query
+          available_rooms = socket.assigns[:available_rooms] || []
+
+          room_minimums =
+            room_ids
+            |> Enum.map(fn room_id ->
+              # Try to find room in available_rooms first (already loaded)
+              # Convert both to strings for comparison to handle binary_id vs string mismatches
+              room =
+                Enum.find(available_rooms, fn r ->
+                  to_string(r.id) == to_string(room_id)
+                end) ||
+                  try do
+                    Bookings.get_room!(room_id)
+                  rescue
+                    _ -> nil
+                  end
+
+              case room do
+                nil ->
+                  # Default to 1 if room not found
+                  1
+
+                r ->
+                  # Get min_billable_occupancy, defaulting to 1
+                  Map.get(r, :min_billable_occupancy) || 1
+              end
+            end)
+
+          # For multiple rooms, sum the individual room minimums
+          # Each room must satisfy its own minimum, so we need enough people for all rooms combined
+          total_min_occupancy =
+            if Enum.empty?(room_minimums) do
+              1
+            else
+              Enum.sum(room_minimums)
+            end
+
+          # Check if total people (adults + children) meets the total minimum across all rooms
+          # If yes, charge only for actual adults. If no, charge for enough adults to meet minimum.
+          total_people = guests_count + children_count
+
+          if total_people >= total_min_occupancy do
+            # Total people meets minimum, charge only for actual adults
+            guests_count
+          else
+            # Total people doesn't meet minimum, need to charge for more adults
+            min_adults_needed = max(0, total_min_occupancy - children_count)
+            max(guests_count, min_adults_needed)
+          end
+        else
+          # Single room: calculate billable people accounting for children
+          room_id = List.first(room_ids)
+          available_rooms = socket.assigns[:available_rooms] || []
+
+          room =
+            Enum.find(available_rooms, &(&1.id == room_id)) ||
+              try do
+                Bookings.get_room!(room_id)
+              rescue
+                _ -> nil
+              end
+
+          if room do
+            min_occupancy = room.min_billable_occupancy || 1
+            # If total people (adults + children) is less than minimum,
+            # we need to charge for more adults to meet the minimum
+            min_adults_needed = max(0, min_occupancy - children_count)
+            max(guests_count, min_adults_needed)
+          else
+            guests_count
+          end
+        end
+
       case Bookings.calculate_booking_price(
              property,
              socket.assigns.checkin_date,
              socket.assigns.checkout_date,
              :room,
              List.first(room_ids),
-             guests_count,
+             billable_people,
              children_count,
              nil,
              true
            ) do
         {:ok, price, breakdown} ->
+          # Ensure billable_people is set correctly in the breakdown
+          # This is important for display - it should reflect the minimum occupancy calculation
+          # Check if minimum occupancy pricing is being applied (billable_people > actual guests_count)
+          using_minimum_pricing = billable_people > guests_count
+
+          final_breakdown =
+            (breakdown || %{})
+            |> Map.merge(%{
+              room_count: room_count,
+              guests_count: guests_count,
+              billable_people: billable_people,
+              children_count: children_count,
+              using_minimum_pricing: using_minimum_pricing
+            })
+            # Explicitly set billable_people to ensure it's not overridden
+            |> Map.put(:billable_people, billable_people)
+            |> Map.put(:using_minimum_pricing, using_minimum_pricing)
+
           assign(socket,
             calculated_price: price,
-            price_breakdown:
-              Map.merge(breakdown || %{}, %{
-                room_count: room_count,
-                guests_count: guests_count,
-                children_count: children_count
-              }),
+            price_breakdown: final_breakdown,
             price_error: nil
           )
 

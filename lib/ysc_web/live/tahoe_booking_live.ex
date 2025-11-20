@@ -832,9 +832,11 @@ defmodule YscWeb.TahoeBookingLive do
                     (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) ||
                       (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id) %>
                   <% guests_count = parse_guests_count(@guests_count) || 1 %>
-                  <% only_one_guest_selected = guests_count == 1 %>
+                  <% children_count = parse_children_count(@children_count) || 0 %>
+                  <% total_people = guests_count + children_count %>
+                  <% only_one_person_selected = total_people == 1 %>
                   <% cannot_add_second_room =
-                    can_select_multiple_rooms?(assigns) && only_one_guest_selected &&
+                    can_select_multiple_rooms?(assigns) && only_one_person_selected &&
                       length(@selected_room_ids) > 0 && !room_already_selected %>
                   <% is_disabled =
                     (is_unavailable && !room_already_selected) ||
@@ -1151,7 +1153,8 @@ defmodule YscWeb.TahoeBookingLive do
               :if={
                 can_select_multiple_rooms?(assigns) &&
                   length(@selected_room_ids) > 0 &&
-                  (parse_guests_count(@guests_count) || 1) == 1
+                  (parse_guests_count(@guests_count) || 1) +
+                    (parse_children_count(@children_count) || 0) == 1
               }
               class="text-amber-600 text-sm mt-2"
             >
@@ -1159,7 +1162,7 @@ defmodule YscWeb.TahoeBookingLive do
                 name="hero-exclamation-triangle-solid"
                 class="w-4 h-4 text-amber-600 inline-block me-1"
               />
-              Cannot book multiple rooms with only 1 guest. Please select more guests to book additional rooms.
+              Cannot book multiple rooms with only 1 person. Please select more people to book additional rooms.
             </p>
           </div>
           <!-- Buyout Selection (for buyout bookings) -->
@@ -1309,6 +1312,23 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                   <!-- Room Breakdown -->
                   <div :if={@selected_booking_mode == :room}>
+                    <div
+                      :if={@price_breakdown[:using_minimum_pricing]}
+                      class="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-md"
+                    >
+                      <div class="flex items-start gap-2">
+                        <.icon
+                          name="hero-information-circle"
+                          class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"
+                        />
+                        <p class="text-xs text-amber-800">
+                          <strong>Minimum occupancy pricing applied:</strong>
+                          You're being charged for <%= @price_breakdown[:billable_people] %> adults to meet the room's minimum occupancy requirement (you selected <%= @price_breakdown[
+                            :guests_count
+                          ] %> adult<%= if @price_breakdown[:guests_count] != 1, do: "s", else: "" %>).
+                        </p>
+                      </div>
+                    </div>
                     <div class="flex justify-between text-sm">
                       <span class="text-zinc-600">
                         Base Price
@@ -1327,6 +1347,9 @@ defmodule YscWeb.TahoeBookingLive do
                                                                               1,
                                                                             do: "s",
                                                                             else: "" %>)
+                          <%= if @price_breakdown[:using_minimum_pricing] do %>
+                            <span class="text-amber-600 text-xs ml-1">(minimum)</span>
+                          <% end %>
                         <% end %>
                       </span>
                       <span class="font-medium text-zinc-900">
@@ -2194,9 +2217,12 @@ defmodule YscWeb.TahoeBookingLive do
             # Check: add to list (but respect max limit and minimum guests requirement)
             max_rooms = max_rooms_for_user(socket.assigns)
 
-            # Prevent selecting multiple rooms when only 1 adult is selected
-            if guests_count == 1 && length(current_ids) > 0 do
-              # Can't add a second room with only 1 adult
+            # Prevent selecting multiple rooms when only 1 person total (adults + children) is selected
+            children_count = parse_children_count(socket.assigns.children_count) || 0
+            total_people = guests_count + children_count
+
+            if total_people == 1 && length(current_ids) > 0 do
+              # Can't add a second room with only 1 person total
               current_ids
             else
               if length(current_ids) < max_rooms do
@@ -2670,9 +2696,11 @@ defmodule YscWeb.TahoeBookingLive do
               if total_people > 0, do: room.capacity_max >= total_people, else: true
             end
 
-          # Check if trying to add second room with only 1 guest
+          # Check if trying to add second room with only 1 person total (adults + children)
           guests_count = parse_guests_count(socket.assigns.guests_count) || 1
-          only_one_guest = guests_count == 1
+          children_count = parse_children_count(socket.assigns.children_count) || 0
+          total_people = guests_count + children_count
+          only_one_person = total_people == 1
 
           trying_to_add_second_room =
             can_select_multiple && length(selected_room_ids) > 0 && not room_already_selected
@@ -2714,9 +2742,9 @@ defmodule YscWeb.TahoeBookingLive do
 
                 {:unavailable, error_message}
 
-              only_one_guest && trying_to_add_second_room ->
+              only_one_person && trying_to_add_second_room ->
                 {:unavailable,
-                 "Cannot book multiple rooms with only 1 guest. Please select more guests or book a single room."}
+                 "Cannot book multiple rooms with only 1 person. Please select more people or book a single room."}
 
               not capacity_ok ->
                 if can_select_multiple do
