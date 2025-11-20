@@ -770,6 +770,13 @@ defmodule Ysc.Stripe.WebhookHandler do
       case Stripe.Charge.retrieve(charge_id, expand: ["balance_transaction"]) do
         {:ok, %Stripe.Charge{balance_transaction: %Stripe.BalanceTransaction{fee: fee}}} ->
           # fee is already in cents, convert to dollars
+          # Log the fee for debugging
+          Logger.info("Extracted Stripe fee from balance transaction",
+            charge_id: charge_id,
+            fee_cents: fee,
+            fee_dollars: MoneyHelper.cents_to_dollars(fee)
+          )
+
           Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
 
         {:ok, %Stripe.Charge{}} ->
@@ -847,7 +854,7 @@ defmodule Ysc.Stripe.WebhookHandler do
     # amount is a Decimal from cents_to_dollars, so 30¢ = 0.30
     estimated_fee = Decimal.add(Decimal.mult(amount, Decimal.new("0.029")), Decimal.new("0.30"))
     # Return Money directly with the fee in dollars (no need to convert back to cents)
-    Money.new(:USD, estimated_fee)
+    Money.new(estimated_fee, :USD)
   end
 
   # Helper function to resolve subscription ID from invoice
@@ -966,16 +973,51 @@ defmodule Ysc.Stripe.WebhookHandler do
 
   # Helper function to extract Stripe fee from invoice
   defp extract_stripe_fee_from_invoice(invoice) do
+    require Logger
+
     # Check if fee is provided in metadata first
     metadata = invoice[:metadata] || invoice["metadata"] || %{}
     charge_id = invoice[:charge] || invoice["charge"]
 
     case metadata do
       %{"stripe_fee" => fee_str} ->
+        # Try to parse as integer (cents) first
         case Integer.parse(fee_str) do
-          # fee is already in cents, convert to dollars
-          {fee, _} -> Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
-          :error -> fetch_actual_stripe_fee_from_charge(charge_id)
+          {fee, _} ->
+            # If fee seems too large (likely already in dollars), treat as dollars
+            # A fee over $1000 would be unusual for most payments
+            if fee > 100_000 do
+              Logger.warning("Fee in metadata seems unusually large, treating as dollars",
+                fee_value: fee,
+                charge_id: charge_id
+              )
+
+              # Treat as dollars (already converted)
+              Money.new(Decimal.new(fee_str), :USD)
+            else
+              # fee is in cents, convert to dollars
+              Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
+            end
+
+          :error ->
+            # Try parsing as decimal (might be in dollars already)
+            case Decimal.parse(fee_str) do
+              {decimal, _} ->
+                Logger.info("Fee in metadata parsed as decimal (treating as dollars)",
+                  fee_value: fee_str,
+                  charge_id: charge_id
+                )
+
+                Money.new(decimal, :USD)
+
+              :error ->
+                Logger.warning("Could not parse fee from metadata, fetching from charge",
+                  fee_value: fee_str,
+                  charge_id: charge_id
+                )
+
+                fetch_actual_stripe_fee_from_charge(charge_id)
+            end
         end
 
       _ ->

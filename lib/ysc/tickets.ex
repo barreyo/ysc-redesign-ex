@@ -713,20 +713,20 @@ defmodule Ysc.Tickets do
         case get_balance_transaction(charge.balance_transaction) do
           {:ok, balance_transaction} ->
             fee_cents = balance_transaction.fee || 0
-            Money.new(:USD, Ysc.MoneyHelper.cents_to_dollars(fee_cents))
+            Money.new(Ysc.MoneyHelper.cents_to_dollars(fee_cents), :USD)
 
           {:error, _} ->
             # Fallback to estimated fee calculation
             amount_cents = payment_intent.amount
             estimated_fee_cents = trunc(amount_cents * 0.029 + 30)
-            Money.new(:USD, Ysc.MoneyHelper.cents_to_dollars(estimated_fee_cents))
+            Money.new(Ysc.MoneyHelper.cents_to_dollars(estimated_fee_cents), :USD)
         end
 
       {:error, _} ->
         # Fallback to estimated fee calculation
         amount_cents = payment_intent.amount
         estimated_fee_cents = trunc(amount_cents * 0.029 + 30)
-        Money.new(:USD, Ysc.MoneyHelper.cents_to_dollars(estimated_fee_cents))
+        Money.new(Ysc.MoneyHelper.cents_to_dollars(estimated_fee_cents), :USD)
     end
   end
 
