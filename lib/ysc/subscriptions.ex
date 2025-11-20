@@ -577,7 +577,7 @@ defmodule Ysc.Subscriptions do
                    proration_behavior: "always_invoice",
                    billing_cycle_anchor: "unchanged"
                  }) do
-              {:ok, stripe_subscription} ->
+              {:ok, _stripe_subscription} ->
                 # Retrieve updated subscription to sync with Stripe
                 case Stripe.Subscription.retrieve(subscription.stripe_id) do
                   {:ok, updated_stripe_subscription} ->

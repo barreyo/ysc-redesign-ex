@@ -785,9 +785,9 @@ defmodule YscWeb.AdminMoneyLive do
   # For credit-normal accounts, positive is good (green)
   # For debit-normal accounts, positive is good (green)
   # Negative balances are shown in red for both types
-  defp get_balance_color(balance, normal_balance) when is_nil(balance), do: "text-zinc-600"
+  defp get_balance_color(balance, _normal_balance) when is_nil(balance), do: "text-zinc-600"
 
-  defp get_balance_color(balance, normal_balance) do
+  defp get_balance_color(balance, _normal_balance) do
     is_positive = Money.positive?(balance)
     is_zero = Money.equal?(balance, Money.new(0, :USD))
 
