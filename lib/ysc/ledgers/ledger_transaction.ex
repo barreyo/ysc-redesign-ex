@@ -14,6 +14,7 @@ defmodule Ysc.Ledgers.LedgerTransaction do
   schema "ledger_transactions" do
     field :type, LedgerTransactionType
     belongs_to :payment, Ysc.Ledgers.Payment, foreign_key: :payment_id, references: :id
+    belongs_to :refund, Ysc.Ledgers.Refund, foreign_key: :refund_id, references: :id
     field :total_amount, Money.Ecto.Composite.Type, default_currency: :USD
     field :status, LedgerTransactionStatus
 
@@ -22,8 +23,9 @@ defmodule Ysc.Ledgers.LedgerTransaction do
 
   def changeset(transaction, attrs) do
     transaction
-    |> cast(attrs, [:type, :payment_id, :total_amount, :status])
+    |> cast(attrs, [:type, :payment_id, :refund_id, :total_amount, :status])
     |> validate_required([:type, :total_amount, :status])
     |> foreign_key_constraint(:payment_id)
+    |> foreign_key_constraint(:refund_id)
   end
 end

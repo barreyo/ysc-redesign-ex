@@ -2,7 +2,7 @@ defmodule Ysc.LedgersTest do
   use Ysc.DataCase, async: true
 
   alias Ysc.Ledgers
-  alias Ysc.Ledgers.{LedgerAccount, LedgerTransaction, Payment}
+  alias Ysc.Ledgers.{LedgerAccount, LedgerTransaction, Payment, Refund}
   import Ysc.AccountsFixtures
 
   describe "ledger account management" do
@@ -130,21 +130,54 @@ defmodule Ysc.LedgersTest do
         external_refund_id: "re_test_123"
       }
 
-      assert {:ok, {refund_transaction, entries}} = Ledgers.process_refund(refund_attrs)
+      assert {:ok, {refund, refund_transaction, entries}} = Ledgers.process_refund(refund_attrs)
+
+      # Check refund record was created
+      assert %Refund{} = refund
+      assert refund.amount == refund_amount
+      assert refund.status == :completed
+      assert refund.reason == "Customer requested partial refund"
+      assert refund.external_refund_id == "re_test_123"
+      assert refund.external_provider == :stripe
+      assert refund.user_id == payment.user_id
+      assert refund.payment_id == payment.id
 
       # Check refund transaction was created
       assert %LedgerTransaction{} = refund_transaction
       assert refund_transaction.type == :refund
       assert refund_transaction.total_amount == refund_amount
       assert refund_transaction.status == :completed
+      assert refund_transaction.refund_id == refund.id
+      assert refund_transaction.payment_id == payment.id
 
-      # Check entries were created (should be 2: refund expense debit, cash credit)
-      assert length(entries) == 2
+      # Check entries were created
+      # Should have at least: refund expense debit, stripe account credit
+      # May also have revenue reversal debit if revenue entry found
+      assert length(entries) >= 2
+      assert length(entries) <= 3
 
       # Verify all entries have the correct payment_id
       Enum.each(entries, fn entry ->
         assert entry.payment_id == payment.id
       end)
+
+      # Verify we have a refund expense entry (debit - positive)
+      refund_expense_entry =
+        Enum.find(entries, fn e ->
+          e.description =~ "Refund issued" && Money.positive?(e.amount)
+        end)
+
+      assert refund_expense_entry != nil
+      assert refund_expense_entry.amount == refund_amount
+
+      # Verify we have a stripe account credit entry (credit - negative)
+      stripe_credit_entry =
+        Enum.find(entries, fn e ->
+          e.description =~ "Refund processed through Stripe" && Money.negative?(e.amount)
+        end)
+
+      assert stripe_credit_entry != nil
+      assert Money.equal?(Money.abs(stripe_credit_entry.amount), refund_amount)
     end
   end
 

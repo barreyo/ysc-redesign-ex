@@ -11,9 +11,46 @@ defmodule Ysc.Stripe.WebhookHandler do
   alias Ysc.Ledgers
   alias Ysc.MoneyHelper
 
+  # Maximum age for webhook events (5 minutes in seconds)
+  @webhook_max_age_seconds 300
+
   def handle_event(event) do
     require Logger
     Logger.info("Processing Stripe webhook event", event_id: event.id, event_type: event.type)
+
+    # Check for replay attacks - reject webhooks older than 5 minutes
+    case check_webhook_age(event) do
+      :ok ->
+        process_webhook(event)
+
+      {:error, :webhook_too_old} = error ->
+        Logger.warning("Rejecting old webhook event (possible replay attack)",
+          event_id: event.id,
+          event_type: event.type,
+          event_created: event.created,
+          age_seconds: DateTime.diff(DateTime.utc_now(), DateTime.from_unix!(event.created))
+        )
+
+        error
+    end
+  end
+
+  # Check if webhook is within acceptable age
+  defp check_webhook_age(event) do
+    event_timestamp = DateTime.from_unix!(event.created)
+    current_time = DateTime.utc_now()
+    age_seconds = DateTime.diff(current_time, event_timestamp)
+
+    if age_seconds > @webhook_max_age_seconds do
+      {:error, :webhook_too_old}
+    else
+      :ok
+    end
+  end
+
+  # Process webhook after age validation
+  defp process_webhook(event) do
+    require Logger
 
     # Write the webhook event to the database first
     # IF already exists, try to lock and process it
@@ -169,14 +206,27 @@ defmodule Ysc.Stripe.WebhookHandler do
       if status == "incomplete_expired" do
         Subscriptions.delete_subscription(subscription)
       else
-        # Update subscription
-        user = Ysc.Accounts.get_user_from_stripe_id(event.customer)
+        # Build update attrs from Stripe subscription
+        attrs = %{
+          stripe_status: event.status,
+          start_date: event.start_date && DateTime.from_unix!(event.start_date),
+          current_period_start:
+            event.current_period_start && DateTime.from_unix!(event.current_period_start),
+          current_period_end:
+            event.current_period_end && DateTime.from_unix!(event.current_period_end),
+          trial_ends_at: event.trial_end && DateTime.from_unix!(event.trial_end),
+          ends_at: event.ended_at && DateTime.from_unix!(event.ended_at)
+        }
 
-        subscription_changeset =
-          Subscriptions.subscription_struct_from_stripe_subscription(user, event)
-          |> maybe_put_cancellation_end(event)
+        # Add cancellation info if present
+        attrs =
+          if event.cancel_at do
+            Map.put(attrs, :ends_at, DateTime.from_unix!(event.cancel_at))
+          else
+            attrs
+          end
 
-        case Ysc.Repo.update(subscription_changeset) do
+        case Subscriptions.update_subscription(subscription, attrs) do
           {:ok, updated_subscription} ->
             # Update subscription items
             update_subscription_items(updated_subscription, event.items.data)
@@ -335,15 +385,19 @@ defmodule Ysc.Stripe.WebhookHandler do
             :ok
           else
             # Process the subscription payment with ledger entries
+            # Use find_or_create_subscription_reference to handle race condition
+            # where invoice arrives before subscription.created webhook
+            entity_id = find_or_create_subscription_reference(subscription_id, user)
+
             amount_paid = invoice[:amount_paid] || invoice["amount_paid"]
             description = invoice[:description] || invoice["description"]
             number = invoice[:number] || invoice["number"]
 
             payment_attrs = %{
               user_id: user.id,
-              amount: Money.new(:USD, MoneyHelper.cents_to_dollars(amount_paid)),
+              amount: Money.new(MoneyHelper.cents_to_dollars(amount_paid), :USD),
               entity_type: :membership,
-              entity_id: find_subscription_id_from_stripe_id(subscription_id, user),
+              entity_id: entity_id,
               external_payment_id: invoice_id,
               stripe_fee: extract_stripe_fee_from_invoice(invoice),
               description: "Membership payment - #{description || "Invoice #{number}"}",
@@ -356,7 +410,8 @@ defmodule Ysc.Stripe.WebhookHandler do
                 Logger.info("Subscription payment processed successfully in ledger",
                   invoice_id: invoice_id,
                   user_id: user.id,
-                  subscription_id: subscription_id
+                  subscription_id: subscription_id,
+                  entity_id: entity_id
                 )
 
                 :ok
@@ -365,10 +420,12 @@ defmodule Ysc.Stripe.WebhookHandler do
                 Logger.error("Failed to process subscription payment in ledger",
                   invoice_id: invoice_id,
                   user_id: user.id,
+                  subscription_id: subscription_id,
                   error: reason
                 )
 
-                :ok
+                # Raise error to mark webhook as failed
+                raise "Failed to process payment: #{inspect(reason)}"
             end
           end
         else
@@ -377,7 +434,8 @@ defmodule Ysc.Stripe.WebhookHandler do
             customer_id: customer_id
           )
 
-          :ok
+          # Raise error to mark webhook as failed - missing customer is a critical error
+          raise "No user found for customer_id: #{customer_id}"
         end
     end
   end
@@ -470,13 +528,39 @@ defmodule Ysc.Stripe.WebhookHandler do
   defp handle("charge.refunded", %Stripe.Charge{} = charge) do
     require Logger
 
-    Logger.info("Charge refunded",
+    Logger.info("Charge refunded event received",
       charge_id: charge.id,
       payment_intent_id: charge.payment_intent
     )
 
-    # Process refund in ledger
-    process_refund_from_charge(charge)
+    # Note: We prefer to handle refunds via the refund.created webhook
+    # which fires for each individual refund. This event can contain
+    # multiple refunds, making it harder to track individual refund IDs.
+    # However, we'll process it as a fallback in case refund.created is missed.
+
+    # Process each refund individually to ensure proper idempotency
+    case charge.refunds do
+      %Stripe.List{data: refunds} when is_list(refunds) and length(refunds) > 0 ->
+        Enum.each(refunds, fn refund ->
+          result = process_refund_from_refund_object(refund)
+
+          case result do
+            {:error, {:already_processed, _, _}} ->
+              Logger.debug("Refund already processed (from charge.refunded event)",
+                refund_id: Map.get(refund, :id),
+                charge_id: charge.id
+              )
+
+            _ ->
+              :ok
+          end
+        end)
+
+      _ ->
+        Logger.warning("No refunds data in charge.refunded event",
+          charge_id: charge.id
+        )
+    end
 
     :ok
   end
@@ -491,7 +575,19 @@ defmodule Ysc.Stripe.WebhookHandler do
     )
 
     # Process refund in ledger
-    process_refund_from_refund_object(refund)
+    result = process_refund_from_refund_object(refund)
+
+    # Handle idempotency case
+    case result do
+      {:error, {:already_processed, _, _}} ->
+        Logger.info("Refund already processed, skipping (idempotency)",
+          refund_id: refund.id,
+          charge_id: refund.charge
+        )
+
+      _ ->
+        :ok
+    end
 
     :ok
   end
@@ -509,7 +605,19 @@ defmodule Ysc.Stripe.WebhookHandler do
     )
 
     # Process refund in ledger
-    process_refund_from_refund_object(refund)
+    result = process_refund_from_refund_object(refund)
+
+    # Handle idempotency case
+    case result do
+      {:error, {:already_processed, _, _}} ->
+        Logger.info("Refund already processed, skipping (idempotency)",
+          refund_id: refund_id,
+          charge_id: charge_id
+        )
+
+      _ ->
+        :ok
+    end
 
     :ok
   end
@@ -573,7 +681,7 @@ defmodule Ysc.Stripe.WebhookHandler do
       end
 
     # Convert amount from cents to Money struct
-    payout_amount = Money.new(currency, MoneyHelper.cents_to_dollars(amount_cents))
+    payout_amount = Money.new(MoneyHelper.cents_to_dollars(amount_cents), currency)
 
     # Process the payout in the ledger
     case Ledgers.process_stripe_payout(%{
@@ -605,21 +713,6 @@ defmodule Ysc.Stripe.WebhookHandler do
 
         :ok
     end
-  end
-
-  defp maybe_put_cancellation_end(changeset, %Stripe.Subscription{} = event) do
-    ends_at =
-      case Map.get(event, :cancel_at_period_end) do
-        true ->
-          event.current_period_end
-          |> DateTime.from_unix!()
-          |> DateTime.truncate(:second)
-
-        _ ->
-          nil
-      end
-
-    Ecto.Changeset.change(changeset, %{ends_at: ends_at})
   end
 
   @doc """
@@ -676,8 +769,8 @@ defmodule Ysc.Stripe.WebhookHandler do
       # Fetch the charge with expanded balance transaction to get actual fees
       case Stripe.Charge.retrieve(charge_id, expand: ["balance_transaction"]) do
         {:ok, %Stripe.Charge{balance_transaction: %Stripe.BalanceTransaction{fee: fee}}} ->
-          # fee is already in cents
-          Money.new(:USD, MoneyHelper.cents_to_dollars(fee))
+          # fee is already in cents, convert to dollars
+          Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
 
         {:ok, %Stripe.Charge{}} ->
           Logger.warning("Charge retrieved but no balance transaction fee found",
@@ -818,11 +911,56 @@ defmodule Ysc.Stripe.WebhookHandler do
     end
   end
 
-  # Helper function to find subscription ID from Stripe subscription ID
-  defp find_subscription_id_from_stripe_id(stripe_subscription_id, _user) do
+  # Helper function to find or create subscription reference from Stripe
+  # This handles the race condition where invoice.payment_succeeded arrives before customer.subscription.created
+  defp find_or_create_subscription_reference(stripe_subscription_id, user) do
+    require Logger
+
+    # Try to find existing subscription
     case Ysc.Subscriptions.get_subscription_by_stripe_id(stripe_subscription_id) do
-      nil -> nil
-      subscription -> subscription.id
+      nil ->
+        # Subscription doesn't exist locally yet
+        # Fetch from Stripe and create it to ensure proper entity_id linkage
+        Logger.info(
+          "Subscription not found locally, fetching from Stripe to prevent race condition",
+          stripe_subscription_id: stripe_subscription_id,
+          user_id: user.id
+        )
+
+        case Stripe.Subscription.retrieve(stripe_subscription_id) do
+          {:ok, stripe_subscription} ->
+            case Subscriptions.create_subscription_from_stripe(user, stripe_subscription) do
+              {:ok, subscription} ->
+                Logger.info("Created subscription from Stripe before processing payment",
+                  subscription_id: subscription.id,
+                  stripe_subscription_id: stripe_subscription_id,
+                  user_id: user.id
+                )
+
+                subscription.id
+
+              {:error, reason} ->
+                Logger.error("Failed to create subscription from Stripe",
+                  stripe_subscription_id: stripe_subscription_id,
+                  user_id: user.id,
+                  error: inspect(reason)
+                )
+
+                nil
+            end
+
+          {:error, reason} ->
+            Logger.error("Failed to fetch subscription from Stripe",
+              stripe_subscription_id: stripe_subscription_id,
+              user_id: user.id,
+              error: inspect(reason)
+            )
+
+            nil
+        end
+
+      subscription ->
+        subscription.id
     end
   end
 
@@ -835,8 +973,8 @@ defmodule Ysc.Stripe.WebhookHandler do
     case metadata do
       %{"stripe_fee" => fee_str} ->
         case Integer.parse(fee_str) do
-          # fee is already in cents
-          {fee, _} -> Money.new(:USD, MoneyHelper.cents_to_dollars(fee))
+          # fee is already in cents, convert to dollars
+          {fee, _} -> Money.new(MoneyHelper.cents_to_dollars(fee), :USD)
           :error -> fetch_actual_stripe_fee_from_charge(charge_id)
         end
 
@@ -930,100 +1068,6 @@ defmodule Ysc.Stripe.WebhookHandler do
     end
   end
 
-  # Process refund from Stripe charge object
-  defp process_refund_from_charge(%Stripe.Charge{} = charge) do
-    require Logger
-
-    # Get the payment intent ID from the charge
-    payment_intent_id = charge.payment_intent
-
-    if payment_intent_id do
-      # Find the payment by external_payment_id
-      payment = Ledgers.get_payment_by_external_id(payment_intent_id)
-
-      if payment do
-        # Get refund amount from charge refunds
-        refund_amount =
-          case charge.refunds do
-            %Stripe.List{data: refunds} when is_list(refunds) ->
-              # Sum all refund amounts
-              total_cents =
-                Enum.reduce(refunds, 0, fn refund, acc ->
-                  case refund do
-                    %Stripe.Refund{amount: amount} -> acc + amount
-                    %{amount: amount} when is_integer(amount) -> acc + amount
-                    _ -> acc
-                  end
-                end)
-
-              Money.new(:USD, MoneyHelper.cents_to_dollars(total_cents))
-
-            _ ->
-              # Fallback: if we can't get refunds, try to get from charge amount
-              # This is a partial fallback - ideally we should have the refund object
-              Money.new(:USD, MoneyHelper.cents_to_dollars(charge.amount))
-          end
-
-        # Get refund reason from metadata or use default
-        reason =
-          case charge.metadata do
-            %{"reason" => reason} when is_binary(reason) -> reason
-            %{reason: reason} when is_binary(reason) -> reason
-            _ -> "Booking cancellation refund"
-          end
-
-        # Get refund ID from the first refund
-        refund_id =
-          case charge.refunds do
-            %Stripe.List{data: [%Stripe.Refund{id: id} | _]} -> id
-            %Stripe.List{data: [%{id: id} | _]} when is_binary(id) -> id
-            [%Stripe.Refund{id: id} | _] -> id
-            [%{id: id} | _] when is_binary(id) -> id
-            _ -> nil
-          end
-
-        # Process refund in ledger
-        case Ledgers.process_refund(%{
-               payment_id: payment.id,
-               refund_amount: refund_amount,
-               reason: reason,
-               external_refund_id: refund_id
-             }) do
-          {:ok, {_refund_transaction, _entries}} ->
-            Logger.info("Refund processed successfully in ledger",
-              payment_id: payment.id,
-              refund_id: refund_id,
-              amount: Money.to_string!(refund_amount)
-            )
-
-            :ok
-
-          {:error, reason} ->
-            Logger.error("Failed to process refund in ledger",
-              payment_id: payment.id,
-              refund_id: refund_id,
-              error: inspect(reason)
-            )
-
-            :ok
-        end
-      else
-        Logger.warning("Payment not found for refund",
-          payment_intent_id: payment_intent_id,
-          charge_id: charge.id
-        )
-
-        :ok
-      end
-    else
-      Logger.warning("No payment intent ID found in charge",
-        charge_id: charge.id
-      )
-
-      :ok
-    end
-  end
-
   # Process refund from Stripe refund object (can be struct or map)
   defp process_refund_from_refund_object(%Stripe.Refund{} = refund) do
     # Convert struct to map for unified processing
@@ -1068,8 +1112,8 @@ defmodule Ysc.Stripe.WebhookHandler do
       payment = Ledgers.get_payment_by_external_id(payment_intent_id)
 
       if payment do
-        # Convert refund amount from cents to Money
-        refund_amount = Money.new(:USD, MoneyHelper.cents_to_dollars(amount))
+        # Convert refund amount from cents to dollars
+        refund_amount = Money.new(MoneyHelper.cents_to_dollars(amount), :USD)
 
         # Get refund reason from metadata or use default
         reason =
@@ -1086,7 +1130,7 @@ defmodule Ysc.Stripe.WebhookHandler do
                reason: reason,
                external_refund_id: refund_id
              }) do
-          {:ok, {_refund_transaction, _entries}} ->
+          {:ok, {_refund, _refund_transaction, _entries}} ->
             Logger.info("Refund processed successfully in ledger",
               payment_id: payment.id,
               refund_id: refund_id,
@@ -1095,6 +1139,10 @@ defmodule Ysc.Stripe.WebhookHandler do
 
             :ok
 
+          {:error, {:already_processed, refund, refund_transaction}} ->
+            # Return the error tuple so caller can handle idempotency
+            {:error, {:already_processed, refund, refund_transaction}}
+
           {:error, reason} ->
             Logger.error("Failed to process refund in ledger",
               payment_id: payment.id,
@@ -1102,7 +1150,7 @@ defmodule Ysc.Stripe.WebhookHandler do
               error: inspect(reason)
             )
 
-            :ok
+            {:error, reason}
         end
       else
         Logger.warning("Payment not found for refund",
@@ -1260,34 +1308,46 @@ defmodule Ysc.Stripe.WebhookHandler do
                   payment = Ledgers.get_payment_by_external_id(payment_intent_id)
 
                   if payment do
-                    # Find the refund transaction for this payment
-                    refund_transaction =
-                      from(t in Ysc.Ledgers.LedgerTransaction,
-                        where: t.payment_id == ^payment.id,
-                        where: t.type == "refund",
-                        order_by: [desc: t.inserted_at],
-                        limit: 1
-                      )
-                      |> Ysc.Repo.one()
+                    # First try to find the Refund by external_refund_id
+                    refund = Ledgers.get_refund_by_external_id(stripe_refund_id)
 
-                    if refund_transaction do
-                      case Ledgers.link_refund_to_payout(payout, refund_transaction) do
-                        {:ok, _} ->
-                          Logger.info("Linked refund to payout",
-                            payout_id: payout.stripe_payout_id,
-                            refund_transaction_id: refund_transaction.id,
-                            stripe_refund_id: stripe_refund_id
-                          )
+                    if refund do
+                      # Find the ledger transaction for this refund
+                      refund_transaction =
+                        from(t in Ysc.Ledgers.LedgerTransaction,
+                          where: t.refund_id == ^refund.id,
+                          where: t.type == "refund",
+                          order_by: [desc: t.inserted_at],
+                          limit: 1
+                        )
+                        |> Ysc.Repo.one()
 
-                        {:error, reason} ->
-                          Logger.warning("Failed to link refund to payout",
-                            payout_id: payout.stripe_payout_id,
-                            refund_transaction_id: refund_transaction.id,
-                            error: inspect(reason)
-                          )
+                      if refund_transaction do
+                        case Ledgers.link_refund_to_payout(payout, refund_transaction) do
+                          {:ok, _} ->
+                            Logger.info("Linked refund to payout",
+                              payout_id: payout.stripe_payout_id,
+                              refund_id: refund.id,
+                              refund_transaction_id: refund_transaction.id,
+                              stripe_refund_id: stripe_refund_id
+                            )
+
+                          {:error, reason} ->
+                            Logger.warning("Failed to link refund to payout",
+                              payout_id: payout.stripe_payout_id,
+                              refund_id: refund.id,
+                              refund_transaction_id: refund_transaction.id,
+                              error: inspect(reason)
+                            )
+                        end
+                      else
+                        Logger.debug("Refund transaction not found for refund",
+                          refund_id: refund.id,
+                          stripe_refund_id: stripe_refund_id
+                        )
                       end
                     else
-                      Logger.debug("Refund transaction not found for payment",
+                      Logger.debug("Refund not found for Stripe refund ID",
                         payment_id: payment.id,
                         stripe_refund_id: stripe_refund_id
                       )

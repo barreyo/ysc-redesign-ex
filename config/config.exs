@@ -78,7 +78,7 @@ config :argon2_elixir,
 config :ysc, Oban,
   repo: Ysc.Repo,
   notifier: Oban.Notifiers.PG,
-  queues: [default: 10, media: 5, exports: 3, mailers: 20],
+  queues: [default: 10, media: 5, exports: 3, mailers: 20, maintenance: 2],
   log: false,
   plugins: [
     # Maintain for 5 days
@@ -89,7 +89,8 @@ config :ysc, Oban,
        {"*/30 * * * *", Ysc.PropertyOutages.OutageScraperWorker},
        {"*/5 * * * *", Ysc.Bookings.HoldExpiryWorker},
        {"*/5 * * * *", Ysc.Tickets.TimeoutWorker},
-       {"0 2 * * *", YscWeb.Workers.ImageReprocessor}
+       {"0 2 * * *", YscWeb.Workers.ImageReprocessor},
+       {"0 0 * * *", Ysc.Ledgers.BalanceCheckWorker}
      ]}
   ]
 

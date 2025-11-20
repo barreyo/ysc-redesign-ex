@@ -12,7 +12,7 @@ defmodule Ysc.Ledgers do
 
   import Ecto.Query, warn: false
   alias Ysc.Repo
-  alias Ysc.Ledgers.{LedgerAccount, LedgerEntry, LedgerTransaction, Payment, Payout}
+  alias Ysc.Ledgers.{LedgerAccount, LedgerEntry, LedgerTransaction, Payment, Refund, Payout}
 
   # Basic account names for the system
   @basic_accounts [
@@ -170,6 +170,15 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
+  Creates a refund record.
+  """
+  def create_refund(attrs \\ %{}) do
+    %Refund{}
+    |> Refund.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
   Creates a ledger transaction.
   """
   def create_transaction(attrs \\ %{}) do
@@ -234,12 +243,14 @@ defmodule Ysc.Ledgers do
 
     entries = [stripe_receivable_entry | entries]
 
-    # Entry 2: Credit Revenue (positive amount for revenue)
+    # Entry 2: Credit Revenue (negative amount for credit)
+    {:ok, negative_amount} = Money.mult(amount, -1)
+
     {:ok, revenue_entry} =
       create_entry(%{
         account_id: revenue_account.id,
         payment_id: payment.id,
-        amount: amount,
+        amount: negative_amount,
         description: "Revenue from #{entity_type}: #{description}",
         related_entity_type: entity_type,
         related_entity_id: entity_id
@@ -318,11 +329,49 @@ defmodule Ysc.Ledgers do
       # Get original payment
       payment = Repo.get!(Payment, payment_id)
 
+      # Check if this refund has already been processed (idempotency)
+      if external_refund_id do
+        existing_refund = get_refund_by_external_id(external_refund_id)
+
+        if existing_refund do
+          require Logger
+
+          Logger.info("Refund already processed, returning existing refund (idempotency)",
+            external_refund_id: external_refund_id,
+            refund_id: existing_refund.id
+          )
+
+          # Find the transaction for this refund
+          existing_transaction =
+            from(t in LedgerTransaction,
+              where: t.refund_id == ^existing_refund.id,
+              where: t.type == "refund"
+            )
+            |> Repo.one()
+
+          # Return the existing refund wrapped in the error tuple for the caller to handle
+          Repo.rollback({:already_processed, existing_refund, existing_transaction})
+        end
+      end
+
+      # Create refund record
+      {:ok, refund} =
+        create_refund(%{
+          payment_id: payment_id,
+          user_id: payment.user_id,
+          amount: refund_amount,
+          external_provider: :stripe,
+          external_refund_id: external_refund_id,
+          reason: reason,
+          status: :completed
+        })
+
       # Create refund transaction
       {:ok, refund_transaction} =
         create_transaction(%{
           type: :refund,
           payment_id: payment_id,
+          refund_id: refund.id,
           total_amount: refund_amount,
           status: :completed
         })
@@ -333,8 +382,7 @@ defmodule Ysc.Ledgers do
           payment: payment,
           transaction: refund_transaction,
           refund_amount: refund_amount,
-          reason: reason,
-          external_refund_id: external_refund_id
+          reason: reason
         })
 
       # Update original payment status if fully refunded
@@ -342,7 +390,7 @@ defmodule Ysc.Ledgers do
         update_payment(payment, %{status: :refunded})
       end
 
-      {refund_transaction, entries}
+      {refund, refund_transaction, entries}
     end)
   end
 
@@ -360,10 +408,10 @@ defmodule Ysc.Ledgers do
 
     # Determine original revenue account
     original_entries = get_entries_by_payment(payment.id)
-    # Find the revenue entry (should be positive now)
+    # Find the revenue entry (should be negative as a credit)
     revenue_entry =
       Enum.find(original_entries, fn entry ->
-        entry.account.account_type == "revenue" && entry.amount.amount > 0
+        entry.account.account_type == "revenue" && Decimal.negative?(entry.amount.amount)
       end)
 
     stripe_account = get_account_by_name("stripe_account")
@@ -403,8 +451,8 @@ defmodule Ysc.Ledgers do
           create_entry(%{
             account_id: revenue_entry.account_id,
             payment_id: payment.id,
-            # Credit (negative) - reversing the original revenue
-            amount: elem(Money.mult(refund_amount, -1), 1),
+            # Debit (positive) - reversing the original revenue credit
+            amount: refund_amount,
             description: "Revenue reversal for refund: #{reason}",
             related_entity_type: :administration,
             related_entity_id: payment.id
@@ -1038,6 +1086,29 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
+  Gets a refund by external refund ID.
+  """
+  def get_refund_by_external_id(external_refund_id) do
+    Repo.get_by(Refund, external_refund_id: external_refund_id)
+  end
+
+  @doc """
+  Gets a refund by ID.
+  """
+  def get_refund(id) do
+    Repo.get(Refund, id)
+  end
+
+  @doc """
+  Updates a refund record.
+  """
+  def update_refund(%Refund{} = refund, attrs) do
+    refund
+    |> Refund.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
   Gets recent payments within a date range.
   """
   def get_recent_payments(start_date, end_date, limit \\ 50) do
@@ -1145,8 +1216,9 @@ defmodule Ysc.Ledgers do
         nil
 
       entry ->
-        # Filter for positive amounts in Elixir since we can't do it in the query
-        if entry.amount.amount > 0, do: entry, else: nil
+        # Filter for negative amounts (credits) in Elixir since we can't do it in the query
+        # Revenue entries are credits (negative values)
+        if Decimal.negative?(entry.amount.amount), do: entry, else: nil
     end
   end
 
@@ -1224,5 +1296,203 @@ defmodule Ysc.Ledgers do
       end
 
     "#{property} Booking"
+  end
+
+  ## Ledger Integrity
+
+  @doc """
+  Verifies that the ledger is balanced (debits = credits).
+
+  In double-entry accounting, the sum of all debits should equal the sum of all credits.
+  This function checks that invariant and returns the balance status.
+
+  Returns:
+  - `{:ok, :balanced}` if the ledger is balanced
+  - `{:error, {:imbalanced, difference}}` if there's an imbalance
+
+  ## Examples
+
+      iex> verify_ledger_balance()
+      {:ok, :balanced}
+
+      iex> verify_ledger_balance()
+      {:error, {:imbalanced, %Money{amount: 100, currency: :USD}}}
+
+  """
+  def verify_ledger_balance do
+    require Logger
+
+    # Get total debits (positive amounts)
+    total_debits_query =
+      from(e in LedgerEntry,
+        where: fragment("(?.amount).amount > 0", e),
+        select: sum(fragment("(?.amount).amount", e))
+      )
+
+    total_debits_cents = Repo.one(total_debits_query) || Decimal.new(0)
+
+    # Get total credits (negative amounts)
+    total_credits_query =
+      from(e in LedgerEntry,
+        where: fragment("(?.amount).amount < 0", e),
+        select: sum(fragment("(?.amount).amount", e))
+      )
+
+    total_credits_cents = Repo.one(total_credits_query) || Decimal.new(0)
+
+    # Convert to Money for proper addition
+    # Money.new(amount, currency) returns Money.t() directly
+    total_debits = Money.new(total_debits_cents, :USD)
+    total_credits = Money.new(total_credits_cents, :USD)
+
+    # In double-entry accounting, debits + credits should equal zero
+    # (debits are positive, credits are negative)
+    # Money.add returns {:ok, money} so we need to unwrap
+    {:ok, balance} = Money.add(total_debits, total_credits)
+
+    if Money.equal?(balance, Money.new(0, :USD)) do
+      Logger.info("Ledger balance verified",
+        total_debits: Money.to_string!(total_debits),
+        total_credits: Money.to_string!(total_credits),
+        balance: "balanced"
+      )
+
+      {:ok, :balanced}
+    else
+      Logger.error("LEDGER IMBALANCE DETECTED!",
+        total_debits: Money.to_string!(total_debits),
+        total_credits: Money.to_string!(total_credits),
+        difference: Money.to_string!(balance)
+      )
+
+      {:error, {:imbalanced, balance}}
+    end
+  end
+
+  @doc """
+  Verifies ledger balance and raises if imbalanced.
+  Useful for periodic checks and alerts.
+  """
+  def verify_ledger_balance! do
+    case verify_ledger_balance() do
+      {:ok, :balanced} ->
+        :ok
+
+      {:error, {:imbalanced, difference}} ->
+        raise "Ledger imbalance detected! Difference: #{Money.to_string!(difference)}"
+    end
+  end
+
+  @doc """
+  Identifies which accounts are imbalanced by checking the balance of each account.
+
+  In a balanced ledger, each account's total should follow double-entry rules.
+  This function helps identify which specific accounts have issues.
+
+  Returns a list of tuples: `{account, balance}` for accounts that have unexpected balances.
+
+  ## Examples
+
+      iex> get_account_balances()
+      [
+        {%LedgerAccount{name: "stripe_account"}, %Money{amount: 1000, currency: :USD}},
+        {%LedgerAccount{name: "cash"}, %Money{amount: 500, currency: :USD}}
+      ]
+
+  """
+  def get_account_balances do
+    # Get all accounts
+    accounts = Repo.all(LedgerAccount)
+
+    # Calculate balance for each account
+    Enum.map(accounts, fn account ->
+      balance = calculate_account_balance(account.id)
+      {account, balance}
+    end)
+    |> Enum.filter(fn {_account, balance} ->
+      # Only include accounts with non-zero balances
+      not Money.equal?(balance, Money.new(0, :USD))
+    end)
+    |> Enum.sort_by(fn {_account, balance} -> Money.to_decimal(balance) end, :desc)
+  end
+
+  @doc """
+  Calculates the balance for a specific account.
+
+  Returns the sum of all entries for that account.
+  """
+  def calculate_account_balance(account_id) do
+    result =
+      from(e in LedgerEntry,
+        where: e.account_id == ^account_id,
+        select: sum(fragment("(?.amount).amount", e))
+      )
+      |> Repo.one()
+
+    case result do
+      nil -> Money.new(0, :USD)
+      decimal -> Money.new(decimal, :USD)
+    end
+  end
+
+  @doc """
+  Gets detailed imbalance information including which accounts are off.
+
+  Returns:
+  - `{:ok, :balanced}` if balanced
+  - `{:error, {:imbalanced, difference, imbalanced_accounts}}` if imbalanced
+
+  The `imbalanced_accounts` will include accounts that have unusual balances
+  and could be the source of the imbalance.
+
+  ## Examples
+
+      iex> get_ledger_imbalance_details()
+      {:ok, :balanced}
+
+      iex> get_ledger_imbalance_details()
+      {:error, {:imbalanced, difference, [
+        {%LedgerAccount{name: "stripe_account", account_type: "asset"}, %Money{...}},
+        {%LedgerAccount{name: "membership_revenue", account_type: "revenue"}, %Money{...}}
+      ]}}
+
+  """
+  def get_ledger_imbalance_details do
+    require Logger
+
+    case verify_ledger_balance() do
+      {:ok, :balanced} = result ->
+        result
+
+      {:error, {:imbalanced, difference}} ->
+        # Get all account balances to identify problematic accounts
+        account_balances = get_account_balances()
+
+        # Group by account type for analysis
+        balances_by_type =
+          Enum.group_by(account_balances, fn {account, _balance} ->
+            account.account_type
+          end)
+
+        Logger.error("Ledger imbalance details",
+          total_difference: Money.to_string!(difference),
+          account_count: length(account_balances),
+          asset_accounts: length(Map.get(balances_by_type, "asset", [])),
+          liability_accounts: length(Map.get(balances_by_type, "liability", [])),
+          revenue_accounts: length(Map.get(balances_by_type, "revenue", [])),
+          expense_accounts: length(Map.get(balances_by_type, "expense", []))
+        )
+
+        # Log each account with significant balance
+        Enum.each(account_balances, fn {account, balance} ->
+          Logger.error("Account balance",
+            account_name: account.name,
+            account_type: account.account_type,
+            balance: Money.to_string!(balance)
+          )
+        end)
+
+        {:error, {:imbalanced, difference, account_balances}}
+    end
   end
 end
