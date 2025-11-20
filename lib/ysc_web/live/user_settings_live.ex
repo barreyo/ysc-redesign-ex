@@ -5,6 +5,7 @@ defmodule YscWeb.UserSettingsLive do
   alias Ysc.Accounts.UserNotifier
   alias Ysc.Customers
   alias Ysc.Ledgers
+  alias Ysc.Repo
   alias Ysc.Subscriptions
 
   alias Ysc.Subscriptions.Subscription
@@ -528,6 +529,95 @@ defmodule YscWeb.UserSettingsLive do
                         checked_value={@membership_form.params["membership_type"]}
                       />
                     </fieldset>
+
+                    <div
+                      :if={@membership_change_info != nil}
+                      class={[
+                        "rounded-lg p-4 border mb-4",
+                        if(@membership_change_info.direction == :upgrade,
+                          do: "bg-blue-50 border-blue-200",
+                          else: "bg-amber-50 border-amber-200"
+                        )
+                      ]}
+                    >
+                      <div class="flex">
+                        <div class="flex-shrink-0">
+                          <.icon
+                            name={
+                              if(@membership_change_info.direction == :upgrade,
+                                do: "hero-arrow-trending-up",
+                                else: "hero-arrow-trending-down"
+                              )
+                            }
+                            class={[
+                              "h-5 w-5",
+                              if(@membership_change_info.direction == :upgrade,
+                                do: "text-blue-400",
+                                else: "text-amber-400"
+                              )
+                            ]}
+                          />
+                        </div>
+                        <div class="ml-3 flex-1">
+                          <h4 class={[
+                            "text-sm font-semibold mb-2",
+                            if(@membership_change_info.direction == :upgrade,
+                              do: "text-blue-900",
+                              else: "text-amber-900"
+                            )
+                          ]}>
+                            <%= if @membership_change_info.direction == :upgrade do %>
+                              Upgrade to <%= String.capitalize(
+                                "#{@membership_change_info.new_plan.id}"
+                              ) %> Membership
+                            <% else %>
+                              Downgrade to <%= String.capitalize(
+                                "#{@membership_change_info.new_plan.id}"
+                              ) %> Membership
+                            <% end %>
+                          </h4>
+                          <div class={[
+                            "text-sm space-y-1",
+                            if(@membership_change_info.direction == :upgrade,
+                              do: "text-blue-800",
+                              else: "text-amber-800"
+                            )
+                          ]}>
+                            <%= if @membership_change_info.direction == :upgrade do %>
+                              <p>
+                                You will be charged a prorated amount immediately to upgrade from <%= String.capitalize(
+                                  "#{@membership_change_info.current_plan.id}"
+                                ) %> to <%= String.capitalize(
+                                  "#{@membership_change_info.new_plan.id}"
+                                ) %> membership.
+                              </p>
+                              <p class="text-xs mt-2 opacity-90">
+                                The prorated charge will be calculated based on the remaining time in your current billing period. The maximum charge will be
+                                <strong>
+                                  <%= Ysc.MoneyHelper.format_money!(
+                                    Money.new(:USD, @membership_change_info.price_difference)
+                                  ) %>
+                                </strong>
+                                (the full annual difference), but will be less based on how much time remains in your current period.
+                              </p>
+                            <% else %>
+                              <p>
+                                Your membership will change from <%= String.capitalize(
+                                  "#{@membership_change_info.current_plan.id}"
+                                ) %> to <%= String.capitalize(
+                                  "#{@membership_change_info.new_plan.id}"
+                                ) %> at your next renewal date.
+                              </p>
+                              <p class="text-xs mt-2 opacity-90">
+                                You will continue to have <%= String.capitalize(
+                                  "#{@membership_change_info.current_plan.id}"
+                                ) %> benefits until then. No immediate charges or credits will be applied.
+                              </p>
+                            <% end %>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
                     <div :if={@change_membership_button} class="flex w-full flex-row justify-end pt-4">
                       <.button
@@ -1134,6 +1224,7 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:current_email, user.email)
       # |> assign(:invoices, invoices)
       |> assign(:change_membership_button, false)
+      |> assign(:membership_change_info, nil)
       |> assign(:default_payment_method, default_payment_method)
       |> assign(:all_payment_methods, all_payment_methods)
       |> assign(:show_new_payment_form, false)
@@ -1399,9 +1490,34 @@ defmodule YscWeb.UserSettingsLive do
           assigns.active_plan_type !=
             membership_atom
 
+      # Calculate change information if a different plan is selected
+      change_info =
+        if change_membership_button && assigns.active_plan_type != nil do
+          plans = assigns.membership_plans
+          current_plan = Enum.find(plans, &(&1.id == assigns.active_plan_type))
+          new_plan = Enum.find(plans, &(&1.id == membership_atom))
+
+          if current_plan && new_plan do
+            direction = if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
+            price_difference = abs(new_plan.amount - current_plan.amount)
+
+            %{
+              direction: direction,
+              current_plan: current_plan,
+              new_plan: new_plan,
+              price_difference: price_difference
+            }
+          else
+            nil
+          end
+        else
+          nil
+        end
+
       {:noreply,
        socket
        |> assign(change_membership_button: change_membership_button)
+       |> assign(:membership_change_info, change_info)
        |> assign(:membership_form, to_form(%{"membership_type" => membership_type}))}
     end
   end
@@ -1833,16 +1949,20 @@ defmodule YscWeb.UserSettingsLive do
                        new_price_id,
                        direction
                      ) do
-                  {:ok, _} ->
-                    # Optimistically update UI to reflect new plan immediately
+                  {:ok, updated_subscription} ->
+                    # Reload subscription with items to get updated data from Stripe
                     updated_membership =
-                      case current_membership.subscription_items do
-                        [first | rest] ->
-                          updated_first = %{first | stripe_price_id: new_price_id}
-                          %{current_membership | subscription_items: [updated_first | rest]}
+                      updated_subscription
+                      |> Repo.preload(:subscription_items)
 
-                        _ ->
-                          current_membership
+                    # Determine success message based on direction
+                    success_message =
+                      case direction do
+                        :upgrade ->
+                          "Your membership plan has been upgraded. You have been charged the prorated difference."
+
+                        :downgrade ->
+                          "Your membership plan change has been scheduled. The new price will take effect at your next renewal."
                       end
 
                     {:noreply,
@@ -1850,11 +1970,12 @@ defmodule YscWeb.UserSettingsLive do
                      |> assign(:current_membership, updated_membership)
                      |> assign(:active_plan_type, new_atom)
                      |> assign(:change_membership_button, false)
+                     |> assign(:membership_change_info, nil)
                      |> assign(
                        :membership_form,
                        to_form(%{"membership_type" => Atom.to_string(new_atom)})
                      )
-                     |> put_flash(:info, "Your membership plan has been changed.")
+                     |> put_flash(:info, success_message)
                      |> redirect(to: ~p"/users/membership")}
 
                   {:scheduled, _schedule} ->

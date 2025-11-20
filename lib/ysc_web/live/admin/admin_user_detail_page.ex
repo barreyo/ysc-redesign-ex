@@ -1154,6 +1154,7 @@ defmodule YscWeb.AdminUserDetailsLive do
 
   def handle_event("update_lifetime_membership", %{"lifetime" => lifetime_params}, socket) do
     selected_user = socket.assigns[:selected_user]
+    active_subscription = socket.assigns[:active_subscription]
 
     has_lifetime =
       lifetime_params["has_lifetime"] == "true" || lifetime_params["has_lifetime"] == true
@@ -1177,6 +1178,45 @@ defmodule YscWeb.AdminUserDetailsLive do
         # Reload user to get updated lifetime membership status
         updated_user = Accounts.get_user!(updated_user.id)
 
+        # If awarding lifetime membership and user has an active :single or :family subscription,
+        # cancel it in Stripe so they are no longer charged
+        cancelled_subscription =
+          if has_lifetime && active_subscription && Subscriptions.active?(active_subscription) do
+            membership_type = get_current_membership_type_from_subscription(active_subscription)
+
+            if membership_type in [:single, :family] do
+              case Subscriptions.cancel(active_subscription) do
+                {:ok, cancelled_sub} ->
+                  cancelled_sub
+
+                {:error, error} ->
+                  # Log error but don't fail the lifetime membership update
+                  require Logger
+
+                  Logger.warning(
+                    "Failed to cancel subscription when awarding lifetime membership",
+                    user_id: updated_user.id,
+                    subscription_id: active_subscription.id,
+                    error: inspect(error)
+                  )
+
+                  nil
+              end
+            else
+              nil
+            end
+          else
+            nil
+          end
+
+        # Reload subscription if it was cancelled
+        updated_active_subscription =
+          if cancelled_subscription do
+            Repo.preload(cancelled_subscription, :subscription_items)
+          else
+            active_subscription
+          end
+
         lifetime_changeset =
           %{
             has_lifetime: Accounts.has_lifetime_membership?(updated_user),
@@ -1184,18 +1224,24 @@ defmodule YscWeb.AdminUserDetailsLive do
           }
           |> lifetime_membership_changeset()
 
+        flash_message =
+          if has_lifetime do
+            if cancelled_subscription do
+              "Lifetime membership awarded and active subscription cancelled in Stripe"
+            else
+              "Lifetime membership awarded"
+            end
+          else
+            "Lifetime membership revoked"
+          end
+
         {:noreply,
          socket
          |> assign(:selected_user, updated_user)
+         |> assign(:active_subscription, updated_active_subscription)
          |> assign(:has_lifetime_membership, Accounts.has_lifetime_membership?(updated_user))
          |> assign(:lifetime_form, to_form(lifetime_changeset, as: "lifetime"))
-         |> put_flash(
-           :info,
-           if(has_lifetime,
-             do: "Lifetime membership awarded",
-             else: "Lifetime membership revoked"
-           )
-         )}
+         |> put_flash(:info, flash_message)}
 
       {:error, changeset} ->
         {:noreply,

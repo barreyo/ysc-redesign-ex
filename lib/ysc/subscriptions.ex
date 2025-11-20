@@ -496,32 +496,41 @@ defmodule Ysc.Subscriptions do
   end
 
   # Helper function to create subscription schedule
+  # Uses a two-step approach: first create schedule from subscription, then update with phases
   defp create_subscription_schedule(stripe_sub, end_timestamp) do
-    # Prepare subscription items for the schedule phase
-    items =
-      Enum.map(stripe_sub.items.data, fn item ->
-        %{
-          price: item.price.id,
-          quantity: item.quantity
+    # Step 1: Create schedule from subscription (without phases)
+    case Stripe.SubscriptionSchedule.create(%{
+           from_subscription: stripe_sub.id
+         }) do
+      {:ok, schedule} ->
+        # Step 2: Prepare subscription items for the schedule phase
+        items =
+          Enum.map(stripe_sub.items.data, fn item ->
+            %{
+              price: item.price.id,
+              quantity: item.quantity
+            }
+          end)
+
+        # Get the current period start from the subscription
+        start_timestamp = stripe_sub.current_period_start
+
+        # Step 3: Update the schedule with a phase that ends at the desired date
+        phase = %{
+          items: items,
+          start_date: start_timestamp,
+          end_date: end_timestamp
         }
-      end)
 
-    # Create a single phase that ends at the desired date
-    # When using 'from_subscription', Stripe automatically sets the start_date
-    # from the subscription's current period, so we only specify end_date
-    phase = %{
-      items: items,
-      end_date: end_timestamp
-    }
+        # Update the schedule with the new phase
+        Stripe.SubscriptionSchedule.update(schedule.id, %{
+          phases: [phase],
+          end_behavior: "release"
+        })
 
-    # Create the schedule from the existing subscription
-    # The 'from_subscription' parameter will inherit the subscription's settings
-    params = %{
-      from_subscription: stripe_sub.id,
-      phases: [phase]
-    }
-
-    Stripe.SubscriptionSchedule.create(params)
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -557,22 +566,26 @@ defmodule Ysc.Subscriptions do
       if current_price_id == new_price_id do
         {:ok, subscription}
       else
-        # Use SubscriptionItem.update to directly update the existing item
-        # This avoids the error about adding a duplicate price
-        update_params = %{
-          price: new_price_id,
-          quantity: 1
-        }
-
         case direction do
           :upgrade ->
-            case Stripe.SubscriptionItem.update(stripe_item_id, update_params) do
-              {:ok, _updated_item} ->
-                # Retrieve updated subscription to get new period end
+            # For upgrades: charge proration delta immediately and update subscription
+            # Use proration_behavior: "always_invoice" to ensure immediate charge
+            update_items = [%{id: stripe_item_id, price: new_price_id, quantity: 1}]
+
+            case Stripe.Subscription.update(subscription.stripe_id, %{
+                   items: update_items,
+                   proration_behavior: "always_invoice",
+                   billing_cycle_anchor: "unchanged"
+                 }) do
+              {:ok, stripe_subscription} ->
+                # Retrieve updated subscription to sync with Stripe
                 case Stripe.Subscription.retrieve(subscription.stripe_id) do
                   {:ok, updated_stripe_subscription} ->
                     update_subscription(subscription, %{
                       stripe_status: updated_stripe_subscription.status,
+                      current_period_start:
+                        updated_stripe_subscription.current_period_start &&
+                          DateTime.from_unix!(updated_stripe_subscription.current_period_start),
                       current_period_end:
                         updated_stripe_subscription.current_period_end &&
                           DateTime.from_unix!(updated_stripe_subscription.current_period_end)
@@ -587,8 +600,9 @@ defmodule Ysc.Subscriptions do
             end
 
           :downgrade ->
-            # For downgrades, we still need to update the item, but also ensure proration is handled
-            # We'll update via subscription to set proration_behavior
+            # For downgrades: schedule change for next renewal (no immediate charge/credit)
+            # Use proration_behavior: "none" to prevent immediate proration
+            # This keeps current period at old price, new price takes effect at renewal
             update_items = [%{id: stripe_item_id, price: new_price_id, quantity: 1}]
 
             case Stripe.Subscription.update(subscription.stripe_id, %{
@@ -597,8 +611,13 @@ defmodule Ysc.Subscriptions do
                    billing_cycle_anchor: "unchanged"
                  }) do
               {:ok, stripe_subscription} ->
+                # Subscription is updated but current period remains unchanged
+                # New price will apply at next renewal
                 update_subscription(subscription, %{
                   stripe_status: stripe_subscription.status,
+                  current_period_start:
+                    stripe_subscription.current_period_start &&
+                      DateTime.from_unix!(stripe_subscription.current_period_start),
                   current_period_end:
                     stripe_subscription.current_period_end &&
                       DateTime.from_unix!(stripe_subscription.current_period_end)
