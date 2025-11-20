@@ -398,7 +398,7 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         "charge" => nil
       }
 
-      event = build_stripe_event("invoice.payment_succeeded", invoice_data)
+      _event = build_stripe_event("invoice.payment_succeeded", invoice_data)
 
       # Mock Stripe API call (in real test, you'd use Mox)
       # For this test, we'll just verify it attempts to create

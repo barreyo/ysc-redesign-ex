@@ -1,0 +1,690 @@
+defmodule Ysc.Ledgers.Reconciliation do
+  @moduledoc """
+  Reconciliation module to ensure data consistency between business entities
+  (payments, refunds, bookings, tickets, subscriptions) and ledger entries.
+
+  This module provides comprehensive checks to verify:
+  - All payments have corresponding ledger entries
+  - All refunds have corresponding ledger entries
+  - Entity totals match ledger totals
+  - No orphaned ledger entries exist
+  - The ledger is balanced
+
+  ## Usage
+
+      # Run full reconciliation
+      {:ok, report} = Reconciliation.run_full_reconciliation()
+
+      # Run specific checks
+      {:ok, payment_report} = Reconciliation.reconcile_payments()
+      {:ok, refund_report} = Reconciliation.reconcile_refunds()
+  """
+
+  import Ecto.Query, warn: false
+  alias Ysc.Repo
+  alias Ysc.Ledgers
+  alias Ysc.Ledgers.{Payment, Refund, LedgerEntry, LedgerTransaction}
+  require Logger
+
+  @doc """
+  Runs a full reconciliation check across all financial entities.
+
+  Returns a comprehensive report with all findings.
+  """
+  def run_full_reconciliation do
+    Logger.info("Starting full reconciliation process")
+    start_time = System.monotonic_time(:millisecond)
+
+    # Run all reconciliation checks
+    payment_check = reconcile_payments()
+    refund_check = reconcile_refunds()
+    ledger_balance_check = check_ledger_balance()
+    orphaned_entries_check = check_orphaned_entries()
+    entity_totals_check = reconcile_entity_totals()
+
+    end_time = System.monotonic_time(:millisecond)
+    duration_ms = end_time - start_time
+
+    # Compile overall report
+    report = %{
+      timestamp: DateTime.utc_now(),
+      duration_ms: duration_ms,
+      overall_status:
+        determine_overall_status([
+          payment_check,
+          refund_check,
+          ledger_balance_check,
+          orphaned_entries_check,
+          entity_totals_check
+        ]),
+      checks: %{
+        payments: payment_check,
+        refunds: refund_check,
+        ledger_balance: ledger_balance_check,
+        orphaned_entries: orphaned_entries_check,
+        entity_totals: entity_totals_check
+      }
+    }
+
+    log_reconciliation_results(report)
+
+    {:ok, report}
+  end
+
+  @doc """
+  Reconciles payments with their ledger entries.
+
+  Checks:
+  - Every payment has a ledger transaction
+  - Every payment has corresponding ledger entries
+  - Payment amounts match ledger entry totals
+  """
+  def reconcile_payments do
+    Logger.info("Reconciling payments with ledger entries")
+
+    # Get all payments
+    payments = Repo.all(Payment)
+    total_payments = length(payments)
+
+    # Check each payment
+    discrepancies =
+      Enum.reduce(payments, [], fn payment, acc ->
+        case check_payment_consistency(payment) do
+          {:ok, _} -> acc
+          {:error, issues} -> [%{payment_id: payment.id, issues: issues} | acc]
+        end
+      end)
+
+    # Calculate totals
+    total_payment_amount =
+      payments
+      |> Enum.reduce(Money.new(0, :USD), fn payment, acc ->
+        {:ok, sum} = Money.add(acc, payment.amount)
+        sum
+      end)
+
+    # Get total from ledger entries for payments
+    ledger_payment_total = calculate_payment_total_from_ledger()
+
+    amount_match = Money.equal?(total_payment_amount, ledger_payment_total)
+
+    %{
+      status: if(Enum.empty?(discrepancies) && amount_match, do: :ok, else: :error),
+      total_payments: total_payments,
+      discrepancies_count: length(discrepancies),
+      discrepancies: discrepancies,
+      totals: %{
+        payments_table: total_payment_amount,
+        ledger_entries: ledger_payment_total,
+        match: amount_match
+      }
+    }
+  end
+
+  @doc """
+  Reconciles refunds with their ledger entries.
+
+  Checks:
+  - Every refund has a ledger transaction
+  - Every refund has corresponding ledger entries
+  - Refund amounts match ledger entry totals
+  """
+  def reconcile_refunds do
+    Logger.info("Reconciling refunds with ledger entries")
+
+    # Get all refunds
+    refunds = Repo.all(Refund)
+    total_refunds = length(refunds)
+
+    # Check each refund
+    discrepancies =
+      Enum.reduce(refunds, [], fn refund, acc ->
+        case check_refund_consistency(refund) do
+          {:ok, _} -> acc
+          {:error, issues} -> [%{refund_id: refund.id, issues: issues} | acc]
+        end
+      end)
+
+    # Calculate totals
+    total_refund_amount =
+      refunds
+      |> Enum.reduce(Money.new(0, :USD), fn refund, acc ->
+        {:ok, sum} = Money.add(acc, refund.amount)
+        sum
+      end)
+
+    # Get total from ledger entries for refunds
+    ledger_refund_total = calculate_refund_total_from_ledger()
+
+    amount_match = Money.equal?(total_refund_amount, ledger_refund_total)
+
+    %{
+      status: if(Enum.empty?(discrepancies) && amount_match, do: :ok, else: :error),
+      total_refunds: total_refunds,
+      discrepancies_count: length(discrepancies),
+      discrepancies: discrepancies,
+      totals: %{
+        refunds_table: total_refund_amount,
+        ledger_entries: ledger_refund_total,
+        match: amount_match
+      }
+    }
+  end
+
+  @doc """
+  Checks if the ledger is balanced (debits = credits).
+  """
+  def check_ledger_balance do
+    case Ledgers.verify_ledger_balance() do
+      {:ok, :balanced} ->
+        %{
+          status: :ok,
+          balanced: true,
+          message: "Ledger is balanced"
+        }
+
+      {:error, {:imbalanced, difference}} ->
+        # Get detailed imbalance information
+        {:error, details} = Ledgers.get_ledger_imbalance_details()
+
+        %{
+          status: :error,
+          balanced: false,
+          difference: difference,
+          message: "Ledger is imbalanced by #{Money.to_string!(difference)}",
+          details: details
+        }
+    end
+  end
+
+  @doc """
+  Checks for orphaned ledger entries (entries without valid parent records).
+  """
+  def check_orphaned_entries do
+    Logger.info("Checking for orphaned ledger entries")
+
+    # Check for entries with invalid payment_id
+    orphaned_payment_entries = find_orphaned_payment_entries()
+
+    # Check for transactions with invalid payment_id
+    orphaned_transactions = find_orphaned_transactions()
+
+    %{
+      status:
+        if(Enum.empty?(orphaned_payment_entries) && Enum.empty?(orphaned_transactions),
+          do: :ok,
+          else: :error
+        ),
+      orphaned_entries_count: length(orphaned_payment_entries),
+      orphaned_entries: orphaned_payment_entries,
+      orphaned_transactions_count: length(orphaned_transactions),
+      orphaned_transactions: orphaned_transactions
+    }
+  end
+
+  @doc """
+  Reconciles entity-specific totals (bookings, tickets, subscriptions) with ledger entries.
+  """
+  def reconcile_entity_totals do
+    Logger.info("Reconciling entity-specific totals")
+
+    membership_check = reconcile_membership_payments()
+    booking_check = reconcile_booking_payments()
+    event_check = reconcile_event_payments()
+
+    all_ok =
+      membership_check.status == :ok &&
+        booking_check.status == :ok &&
+        event_check.status == :ok
+
+    %{
+      status: if(all_ok, do: :ok, else: :error),
+      memberships: membership_check,
+      bookings: booking_check,
+      events: event_check
+    }
+  end
+
+  ## Private Helper Functions
+
+  defp check_payment_consistency(payment) do
+    issues = []
+
+    # Check if payment has a ledger transaction
+    transaction = get_transaction_for_payment(payment.id)
+
+    issues =
+      if transaction == nil do
+        ["No ledger transaction found" | issues]
+      else
+        # Check if transaction amount matches payment amount
+        if !Money.equal?(transaction.total_amount, payment.amount) do
+          [
+            "Transaction amount (#{Money.to_string!(transaction.total_amount)}) doesn't match payment amount (#{Money.to_string!(payment.amount)})"
+            | issues
+          ]
+        else
+          issues
+        end
+      end
+
+    # Check if payment has ledger entries
+    entries = Ledgers.get_entries_by_payment(payment.id)
+
+    issues =
+      if Enum.empty?(entries) do
+        ["No ledger entries found" | issues]
+      else
+        # Check if ledger entries balance
+        total = calculate_entries_total(entries)
+
+        if !Money.equal?(total, Money.new(0, :USD)) do
+          ["Ledger entries don't balance (total: #{Money.to_string!(total)})" | issues]
+        else
+          issues
+        end
+      end
+
+    if Enum.empty?(issues) do
+      {:ok, :consistent}
+    else
+      {:error, issues}
+    end
+  end
+
+  defp check_refund_consistency(refund) do
+    issues = []
+
+    # Check if refund has a ledger transaction
+    transaction = get_transaction_for_refund(refund.id)
+
+    issues =
+      if transaction == nil do
+        ["No ledger transaction found" | issues]
+      else
+        # Check if transaction amount matches refund amount
+        if !Money.equal?(transaction.total_amount, refund.amount) do
+          [
+            "Transaction amount (#{Money.to_string!(transaction.total_amount)}) doesn't match refund amount (#{Money.to_string!(refund.amount)})"
+            | issues
+          ]
+        else
+          issues
+        end
+      end
+
+    # Check if refund's payment exists
+    payment = Repo.get(Payment, refund.payment_id)
+
+    issues =
+      if payment == nil do
+        ["Referenced payment not found" | issues]
+      else
+        issues
+      end
+
+    # Check if refund has ledger entries (via payment_id)
+    entries = Ledgers.get_entries_by_payment(refund.payment_id)
+
+    refund_entries =
+      Enum.filter(entries, fn entry ->
+        entry.description =~ "Refund" || entry.description =~ "refund"
+      end)
+
+    issues =
+      if Enum.empty?(refund_entries) do
+        ["No refund ledger entries found" | issues]
+      else
+        issues
+      end
+
+    if Enum.empty?(issues) do
+      {:ok, :consistent}
+    else
+      {:error, issues}
+    end
+  end
+
+  defp get_transaction_for_payment(payment_id) do
+    from(t in LedgerTransaction,
+      where: t.payment_id == ^payment_id,
+      where: t.type == :payment,
+      limit: 1
+    )
+    |> Repo.one()
+  end
+
+  defp get_transaction_for_refund(refund_id) do
+    from(t in LedgerTransaction,
+      where: t.refund_id == ^refund_id,
+      where: t.type == :refund,
+      limit: 1
+    )
+    |> Repo.one()
+  end
+
+  defp calculate_entries_total(entries) do
+    Enum.reduce(entries, Money.new(0, :USD), fn entry, acc ->
+      {:ok, sum} = Money.add(acc, entry.amount)
+      sum
+    end)
+  end
+
+  defp calculate_payment_total_from_ledger do
+    # Sum all positive entries for stripe_account (receivables from payments)
+    # This represents all money coming in from payments
+    query =
+      from(e in LedgerEntry,
+        join: a in assoc(e, :account),
+        join: t in LedgerTransaction,
+        on: t.payment_id == e.payment_id,
+        where: a.name == "stripe_account",
+        where: t.type == :payment,
+        where: fragment("(?.amount).amount > 0", e),
+        select: sum(fragment("(?.amount).amount", e))
+      )
+
+    case Repo.one(query) do
+      nil -> Money.new(0, :USD)
+      amount -> Money.new(amount, :USD)
+    end
+  end
+
+  defp calculate_refund_total_from_ledger do
+    # Sum all refund expense entries (positive amounts)
+    query =
+      from(e in LedgerEntry,
+        join: a in assoc(e, :account),
+        join: t in LedgerTransaction,
+        on: t.payment_id == e.payment_id,
+        where: a.name == "refund_expense",
+        where: t.type == :refund,
+        where: fragment("(?.amount).amount > 0", e),
+        select: sum(fragment("(?.amount).amount", e))
+      )
+
+    case Repo.one(query) do
+      nil -> Money.new(0, :USD)
+      amount -> Money.new(amount, :USD)
+    end
+  end
+
+  defp find_orphaned_payment_entries do
+    query =
+      from(e in LedgerEntry,
+        left_join: p in Payment,
+        on: e.payment_id == p.id,
+        where: not is_nil(e.payment_id),
+        where: is_nil(p.id),
+        select: %{
+          entry_id: e.id,
+          payment_id: e.payment_id,
+          amount: e.amount,
+          description: e.description
+        }
+      )
+
+    Repo.all(query)
+  end
+
+  defp find_orphaned_transactions do
+    # Check for transactions with invalid payment_id
+    payment_orphans =
+      from(t in LedgerTransaction,
+        left_join: p in Payment,
+        on: t.payment_id == p.id,
+        where: not is_nil(t.payment_id),
+        where: is_nil(p.id),
+        select: %{
+          transaction_id: t.id,
+          type: t.type,
+          payment_id: t.payment_id,
+          refund_id: t.refund_id,
+          reason: "payment_not_found"
+        }
+      )
+      |> Repo.all()
+
+    # Check for refund transactions with invalid refund_id
+    refund_orphans =
+      from(t in LedgerTransaction,
+        left_join: r in Refund,
+        on: t.refund_id == r.id,
+        where: not is_nil(t.refund_id),
+        where: is_nil(r.id),
+        select: %{
+          transaction_id: t.id,
+          type: t.type,
+          payment_id: t.payment_id,
+          refund_id: t.refund_id,
+          reason: "refund_not_found"
+        }
+      )
+      |> Repo.all()
+
+    payment_orphans ++ refund_orphans
+  end
+
+  defp reconcile_membership_payments do
+    # Get all membership payments from ledger entries
+    ledger_total =
+      from(e in LedgerEntry,
+        join: a in assoc(e, :account),
+        where: a.name == "membership_revenue",
+        where: fragment("(?.amount).amount < 0", e),
+        select: sum(fragment("(?.amount).amount", e))
+      )
+      |> Repo.one()
+      |> case do
+        nil -> Money.new(0, :USD)
+        amount -> Money.new(Decimal.abs(amount), :USD)
+      end
+
+    # Get all membership payments from payment records
+    payments_total =
+      from(e in LedgerEntry,
+        join: p in Payment,
+        on: e.payment_id == p.id,
+        where: e.related_entity_type == :membership,
+        where: fragment("(?.amount).amount > 0", e),
+        select: sum(fragment("(?.amount).amount", e))
+      )
+      |> Repo.one()
+      |> case do
+        nil -> Money.new(0, :USD)
+        amount -> Money.new(amount, :USD)
+      end
+
+    %{
+      status: if(Money.equal?(ledger_total, payments_total), do: :ok, else: :error),
+      ledger_revenue: ledger_total,
+      payment_total: payments_total,
+      match: Money.equal?(ledger_total, payments_total)
+    }
+  end
+
+  defp reconcile_booking_payments do
+    # Similar logic for bookings
+    ledger_totals = %{
+      tahoe: get_revenue_total("tahoe_booking_revenue"),
+      clear_lake: get_revenue_total("clear_lake_booking_revenue"),
+      general: get_revenue_total("booking_revenue")
+    }
+
+    {:ok, total} = Money.add(ledger_totals.tahoe, ledger_totals.clear_lake)
+    {:ok, total} = Money.add(total, ledger_totals.general)
+
+    # Get booking payments
+    payments_total =
+      from(e in LedgerEntry,
+        join: p in Payment,
+        on: e.payment_id == p.id,
+        where: e.related_entity_type == :booking,
+        where: fragment("(?.amount).amount > 0", e),
+        select: sum(fragment("(?.amount).amount", e))
+      )
+      |> Repo.one()
+      |> case do
+        nil -> Money.new(0, :USD)
+        amount -> Money.new(amount, :USD)
+      end
+
+    %{
+      status: if(Money.equal?(total, payments_total), do: :ok, else: :error),
+      ledger_revenue: total,
+      payment_total: payments_total,
+      breakdown: ledger_totals,
+      match: Money.equal?(total, payments_total)
+    }
+  end
+
+  defp reconcile_event_payments do
+    ledger_total = get_revenue_total("event_revenue")
+
+    # Get event payments
+    payments_total =
+      from(e in LedgerEntry,
+        join: p in Payment,
+        on: e.payment_id == p.id,
+        where: e.related_entity_type == :event,
+        where: fragment("(?.amount).amount > 0", e),
+        select: sum(fragment("(?.amount).amount", e))
+      )
+      |> Repo.one()
+      |> case do
+        nil -> Money.new(0, :USD)
+        amount -> Money.new(amount, :USD)
+      end
+
+    %{
+      status: if(Money.equal?(ledger_total, payments_total), do: :ok, else: :error),
+      ledger_revenue: ledger_total,
+      payment_total: payments_total,
+      match: Money.equal?(ledger_total, payments_total)
+    }
+  end
+
+  defp get_revenue_total(account_name) do
+    from(e in LedgerEntry,
+      join: a in assoc(e, :account),
+      where: a.name == ^account_name,
+      where: fragment("(?.amount).amount < 0", e),
+      select: sum(fragment("(?.amount).amount", e))
+    )
+    |> Repo.one()
+    |> case do
+      nil -> Money.new(0, :USD)
+      amount -> Money.new(Decimal.abs(amount), :USD)
+    end
+  end
+
+  defp determine_overall_status(checks) do
+    all_ok =
+      Enum.all?(checks, fn check ->
+        check.status == :ok
+      end)
+
+    if all_ok, do: :ok, else: :error
+  end
+
+  defp log_reconciliation_results(report) do
+    case report.overall_status do
+      :ok ->
+        Logger.info("✅ Reconciliation completed successfully",
+          duration_ms: report.duration_ms,
+          timestamp: report.timestamp
+        )
+
+      :error ->
+        Logger.error("❌ Reconciliation found discrepancies",
+          duration_ms: report.duration_ms,
+          timestamp: report.timestamp,
+          payment_issues: report.checks.payments.discrepancies_count,
+          refund_issues: report.checks.refunds.discrepancies_count,
+          ledger_balanced: report.checks.ledger_balance.balanced
+        )
+
+        # Log specific issues
+        if report.checks.payments.discrepancies_count > 0 do
+          Logger.error("Payment discrepancies found",
+            count: report.checks.payments.discrepancies_count
+          )
+        end
+
+        if report.checks.refunds.discrepancies_count > 0 do
+          Logger.error("Refund discrepancies found",
+            count: report.checks.refunds.discrepancies_count
+          )
+        end
+
+        if !report.checks.ledger_balance.balanced do
+          Logger.error("Ledger is imbalanced",
+            difference: Money.to_string!(report.checks.ledger_balance.difference)
+          )
+        end
+
+        if report.checks.orphaned_entries.orphaned_entries_count > 0 do
+          Logger.error("Orphaned ledger entries found",
+            count: report.checks.orphaned_entries.orphaned_entries_count
+          )
+        end
+    end
+  end
+
+  @doc """
+  Generates a human-readable report from reconciliation results.
+  """
+  def format_report(report) do
+    """
+    ╔══════════════════════════════════════════════════════════════════
+    ║ FINANCIAL RECONCILIATION REPORT
+    ╠══════════════════════════════════════════════════════════════════
+    ║ Status: #{format_status(report.overall_status)}
+    ║ Timestamp: #{report.timestamp}
+    ║ Duration: #{report.duration_ms}ms
+    ╠══════════════════════════════════════════════════════════════════
+    ║ PAYMENTS
+    ╠══════════════════════════════════════════════════════════════════
+    ║ Total Payments: #{report.checks.payments.total_payments}
+    ║ Discrepancies: #{report.checks.payments.discrepancies_count}
+    ║ Payments Table Total: #{Money.to_string!(report.checks.payments.totals.payments_table)}
+    ║ Ledger Entries Total: #{Money.to_string!(report.checks.payments.totals.ledger_entries)}
+    ║ Amounts Match: #{format_boolean(report.checks.payments.totals.match)}
+    ╠══════════════════════════════════════════════════════════════════
+    ║ REFUNDS
+    ╠══════════════════════════════════════════════════════════════════
+    ║ Total Refunds: #{report.checks.refunds.total_refunds}
+    ║ Discrepancies: #{report.checks.refunds.discrepancies_count}
+    ║ Refunds Table Total: #{Money.to_string!(report.checks.refunds.totals.refunds_table)}
+    ║ Ledger Entries Total: #{Money.to_string!(report.checks.refunds.totals.ledger_entries)}
+    ║ Amounts Match: #{format_boolean(report.checks.refunds.totals.match)}
+    ╠══════════════════════════════════════════════════════════════════
+    ║ LEDGER BALANCE
+    ╠══════════════════════════════════════════════════════════════════
+    ║ Balanced: #{format_boolean(report.checks.ledger_balance.balanced)}
+    #{if !report.checks.ledger_balance.balanced do
+      "║ Difference: #{Money.to_string!(report.checks.ledger_balance.difference)}"
+    else
+      ""
+    end}
+    ╠══════════════════════════════════════════════════════════════════
+    ║ ORPHANED ENTRIES
+    ╠══════════════════════════════════════════════════════════════════
+    ║ Orphaned Entries: #{report.checks.orphaned_entries.orphaned_entries_count}
+    ║ Orphaned Transactions: #{report.checks.orphaned_entries.orphaned_transactions_count}
+    ╠══════════════════════════════════════════════════════════════════
+    ║ ENTITY TOTALS
+    ╠══════════════════════════════════════════════════════════════════
+    ║ Memberships Match: #{format_boolean(report.checks.entity_totals.memberships.match)}
+    ║ Bookings Match: #{format_boolean(report.checks.entity_totals.bookings.match)}
+    ║ Events Match: #{format_boolean(report.checks.entity_totals.events.match)}
+    ╚══════════════════════════════════════════════════════════════════
+    """
+  end
+
+  defp format_status(:ok), do: "✅ PASS"
+  defp format_status(:error), do: "❌ FAIL"
+
+  defp format_boolean(true), do: "✅ Yes"
+  defp format_boolean(false), do: "❌ No"
+end

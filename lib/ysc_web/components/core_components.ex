@@ -1409,6 +1409,20 @@ defmodule YscWeb.CoreComponents do
 
     assigns = assign(assigns, :subtitle, subtitle)
 
+    # Truncate full name if total length exceeds 30 characters to prevent layout shifts
+    first_name = String.capitalize(assigns[:first_name] || "")
+    last_name = String.capitalize(assigns[:last_name] || "")
+    full_name = "#{first_name} #{last_name}"
+
+    display_name =
+      if String.length(full_name) > 30 do
+        String.slice(full_name, 0, 27) <> "..."
+      else
+        full_name
+      end
+
+    assigns = assign(assigns, :display_name, display_name)
+
     ~H"""
     <div class={"flex items-center whitespace-nowrap h-10 #{@class}"}>
       <.user_avatar_image
@@ -1430,7 +1444,7 @@ defmodule YscWeb.CoreComponents do
         !@right && "ps-3"
       ]}>
         <div class="text-sm font-semibold text-zinc-800 text-left">
-          <%= "#{String.capitalize(@first_name)} #{String.capitalize(@last_name)}" %>
+          <%= @display_name %>
         </div>
         <div :if={@show_subtitle} class="font-normal text-sm text-zinc-500">
           <%= @subtitle %>

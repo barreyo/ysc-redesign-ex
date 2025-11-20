@@ -33,7 +33,8 @@ config :ysc, Ysc.Mailer, adapter: Swoosh.Adapters.Test
 config :swoosh, :api_client, false
 
 # Print only warnings and errors during test
-config :logger, level: :warning
+# Suppress error logs for cleaner test output
+config :logger, level: :error
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
@@ -45,3 +46,10 @@ config :ysc, sql_sandbox_timeout: 30_000
 config :phoenix_test, :endpoint, YscWeb.Endpoint
 config :ysc, :stripe_customer, Stripe.CustomerMock
 config :ysc, :accounts_module, Ysc.AccountsMock
+
+# Discord alerts configuration for testing
+config :ysc, Ysc.Alerts.Discord,
+  webhook_url: "https://discord.com/api/webhooks/test/token",
+  enabled: true
+
+config :ysc, :environment, "test"

@@ -90,7 +90,8 @@ config :ysc, Oban,
        {"*/5 * * * *", Ysc.Bookings.HoldExpiryWorker},
        {"*/5 * * * *", Ysc.Tickets.TimeoutWorker},
        {"0 2 * * *", YscWeb.Workers.ImageReprocessor},
-       {"0 0 * * *", Ysc.Ledgers.BalanceCheckWorker}
+       {"0 0 * * *", Ysc.Ledgers.BalanceCheckWorker},
+       {"0 1 * * *", Ysc.Ledgers.ReconciliationWorker}
      ]}
   ]
 
@@ -110,6 +111,11 @@ config :stripity_stripe,
   api_key: System.get_env("STRIPE_SECRET"),
   public_key: System.get_env("STRIPE_PUBLIC_KEY"),
   webhook_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
+
+# Discord alerts configuration
+config :ysc, Ysc.Alerts.Discord,
+  webhook_url: System.get_env("DISCORD_WEBHOOK_URL"),
+  enabled: false
 
 config :stripity_stripe, :retries, max_attempts: 3, base_backoff: 500, max_backoff: 2_000
 

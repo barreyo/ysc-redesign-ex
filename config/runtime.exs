@@ -7,6 +7,10 @@ import Config
 # any compile-time configuration in here, as it won't be applied.
 # The block below contains prod specific runtime configuration.
 
+# Set environment name for alerting and logging
+config :ysc,
+  environment: System.get_env("APP_ENV") || to_string(config_env())
+
 # ## Using releases
 #
 # If you use `mix release`, you need to explicitly enable the server
@@ -288,4 +292,9 @@ if config_env() == :prod do
     end
 
   config :ex_aws, :s3, ex_aws_s3_config
+
+  # Discord alerts configuration
+  config :ysc, Ysc.Alerts.Discord,
+    webhook_url: System.fetch_env!("DISCORD_WEBHOOK_URL"),
+    enabled: true
 end
