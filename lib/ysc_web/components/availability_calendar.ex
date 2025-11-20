@@ -839,7 +839,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     end
   end
 
-  defp availability_display(day, mode, availability, assigns \\ nil) do
+  defp availability_display(day, mode, availability, assigns) do
     info = Map.get(availability, day)
 
     if info do
