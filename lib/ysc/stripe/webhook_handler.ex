@@ -761,8 +761,19 @@ defmodule Ysc.Stripe.WebhookHandler do
 
   # Helper functions for extracting data from payment intents
 
-  # Helper function to fetch actual Stripe fee from charge
-  defp fetch_actual_stripe_fee_from_charge(charge_id) when is_binary(charge_id) do
+  @doc """
+  Fetches the actual Stripe fee from a charge by retrieving the balance transaction.
+
+  This is the preferred method for getting accurate fee information.
+  Falls back to estimated fee calculation if the charge cannot be retrieved.
+
+  ## Parameters:
+  - `charge_id`: Stripe charge ID
+
+  ## Returns:
+  - `%Money{}` - The Stripe fee amount
+  """
+  def fetch_actual_stripe_fee_from_charge(charge_id) when is_binary(charge_id) do
     require Logger
 
     try do
@@ -808,15 +819,25 @@ defmodule Ysc.Stripe.WebhookHandler do
     end
   end
 
-  defp fetch_actual_stripe_fee_from_charge(nil) do
+  def fetch_actual_stripe_fee_from_charge(nil) do
     require Logger
     Logger.warning("No charge ID provided for fee calculation")
     # Return zero fee if no charge ID
     Money.new(0, :USD)
   end
 
-  # Helper function to calculate estimated fee when we can't fetch actual fee
-  defp calculate_estimated_fee_from_charge_amount(charge_id) do
+  @doc """
+  Calculates an estimated Stripe fee when we can't fetch the actual fee.
+
+  Uses the charge amount to estimate: 2.9% + $0.30
+
+  ## Parameters:
+  - `charge_id`: Stripe charge ID
+
+  ## Returns:
+  - `%Money{}` - The estimated Stripe fee amount
+  """
+  def calculate_estimated_fee_from_charge_amount(charge_id) do
     require Logger
 
     try do
@@ -848,8 +869,18 @@ defmodule Ysc.Stripe.WebhookHandler do
     end
   end
 
-  # Helper function to calculate estimated Stripe fee (fallback only)
-  defp calculate_estimated_fee(amount) do
+  @doc """
+  Calculates an estimated Stripe fee based on payment amount.
+
+  Formula: 2.9% + $0.30
+
+  ## Parameters:
+  - `amount`: Payment amount as a Decimal (in dollars)
+
+  ## Returns:
+  - `%Money{}` - The estimated Stripe fee amount
+  """
+  def calculate_estimated_fee(amount) do
     # 2.9% + 30¢ for domestic cards
     # amount is a Decimal from cents_to_dollars, so 30¢ = 0.30
     estimated_fee = Decimal.add(Decimal.mult(amount, Decimal.new("0.029")), Decimal.new("0.30"))
@@ -971,8 +1002,18 @@ defmodule Ysc.Stripe.WebhookHandler do
     end
   end
 
-  # Helper function to extract Stripe fee from invoice
-  defp extract_stripe_fee_from_invoice(invoice) do
+  @doc """
+  Extracts Stripe fee from an invoice.
+
+  First checks invoice metadata for a fee, then falls back to fetching from the charge.
+
+  ## Parameters:
+  - `invoice`: Stripe invoice (map or struct)
+
+  ## Returns:
+  - `%Money{}` - The Stripe fee amount
+  """
+  def extract_stripe_fee_from_invoice(invoice) do
     require Logger
 
     # Check if fee is provided in metadata first
@@ -1024,6 +1065,123 @@ defmodule Ysc.Stripe.WebhookHandler do
         fetch_actual_stripe_fee_from_charge(charge_id)
     end
   end
+
+  @doc """
+  Extracts Stripe fee from a payment intent.
+
+  Retrieves the charge from the payment intent and fetches the actual fee from the balance transaction.
+  Falls back to estimated fee if the charge cannot be retrieved.
+
+  ## Parameters:
+  - `payment_intent`: Stripe payment intent (struct or map with :id or "id")
+
+  ## Returns:
+  - `%Money{}` - The Stripe fee amount
+  """
+  def extract_stripe_fee_from_payment_intent(payment_intent) do
+    require Logger
+
+    payment_intent_id = get_payment_intent_id(payment_intent)
+
+    # Try to get the charge from the payment intent
+    case get_charge_from_payment_intent(payment_intent) do
+      {:ok, %{id: charge_id}} when is_binary(charge_id) ->
+        # We have a charge ID, fetch actual fee
+        fetch_actual_stripe_fee_from_charge(charge_id)
+
+      {:ok, charge} when is_map(charge) ->
+        # We have a charge struct, extract the ID
+        charge_id = Map.get(charge, :id) || Map.get(charge, "id")
+
+        if charge_id do
+          fetch_actual_stripe_fee_from_charge(charge_id)
+        else
+          # No charge ID found, estimate from payment intent
+          estimate_fee_from_payment_intent(payment_intent)
+        end
+
+      {:error, _reason} ->
+        # Fallback: try to retrieve payment intent with charges expanded
+        case retrieve_payment_intent_with_charges(payment_intent_id) do
+          {:ok, payment_intent_with_charges} ->
+            case get_charge_from_payment_intent(payment_intent_with_charges) do
+              {:ok, %{id: charge_id}} when is_binary(charge_id) ->
+                fetch_actual_stripe_fee_from_charge(charge_id)
+
+              {:ok, charge} when is_map(charge) ->
+                charge_id = Map.get(charge, :id) || Map.get(charge, "id")
+
+                if charge_id do
+                  fetch_actual_stripe_fee_from_charge(charge_id)
+                else
+                  estimate_fee_from_payment_intent(payment_intent)
+                end
+
+              {:error, _} ->
+                # Final fallback: estimate from payment intent amount
+                estimate_fee_from_payment_intent(payment_intent)
+            end
+
+          {:error, _} ->
+            # Fallback to estimated fee
+            estimate_fee_from_payment_intent(payment_intent)
+        end
+    end
+  end
+
+  # Helper to get payment intent ID from struct or map
+  defp get_payment_intent_id(%{id: id}) when is_binary(id), do: id
+  defp get_payment_intent_id(%{"id" => id}) when is_binary(id), do: id
+  defp get_payment_intent_id(_), do: nil
+
+  # Helper to get charge from payment intent
+  defp get_charge_from_payment_intent(%{charges: %Stripe.List{data: [charge | _]}})
+       when is_map(charge),
+       do: {:ok, charge}
+
+  defp get_charge_from_payment_intent(%{"charges" => %{"data" => [charge | _]}})
+       when is_map(charge),
+       do: {:ok, charge}
+
+  defp get_charge_from_payment_intent(%{latest_charge: charge_id}) when is_binary(charge_id),
+    do: {:ok, %{id: charge_id}}
+
+  defp get_charge_from_payment_intent(%{"latest_charge" => charge_id}) when is_binary(charge_id),
+    do: {:ok, %{id: charge_id}}
+
+  defp get_charge_from_payment_intent(_), do: {:error, :no_charge_found}
+
+  # Helper to retrieve payment intent with charges expanded
+  defp retrieve_payment_intent_with_charges(nil), do: {:error, :no_payment_intent_id}
+
+  defp retrieve_payment_intent_with_charges(payment_intent_id) do
+    case Stripe.PaymentIntent.retrieve(payment_intent_id, %{
+           expand: ["charges.data.balance_transaction"]
+         }) do
+      {:ok, payment_intent} -> {:ok, payment_intent}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Helper to estimate fee from payment intent amount
+  defp estimate_fee_from_payment_intent(payment_intent) do
+    require Logger
+
+    amount_cents = get_payment_intent_amount(payment_intent)
+
+    if amount_cents do
+      amount_dollars = MoneyHelper.cents_to_dollars(amount_cents)
+      calculate_estimated_fee(amount_dollars)
+    else
+      Logger.warning("Could not determine payment intent amount for fee estimation")
+      Money.new(0, :USD)
+    end
+  end
+
+  # Helper to get amount from payment intent
+  defp get_payment_intent_amount(%{amount: amount}) when is_integer(amount), do: amount
+  defp get_payment_intent_amount(%{"amount" => amount}) when is_integer(amount), do: amount
+  defp get_payment_intent_amount(_), do: nil
 
   # Helper function to update subscription items
   defp update_subscription_items(subscription, stripe_items) do

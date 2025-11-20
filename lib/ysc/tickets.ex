@@ -692,68 +692,21 @@ defmodule Ysc.Tickets do
   end
 
   defp process_ledger_payment(ticket_order, payment_intent) do
+    # Use consolidated fee extraction from Stripe.WebhookHandler
+    stripe_fee = Ysc.Stripe.WebhookHandler.extract_stripe_fee_from_payment_intent(payment_intent)
+
     Ledgers.process_payment(%{
       user_id: ticket_order.user_id,
       amount: ticket_order.total_amount,
       entity_type: :event,
       entity_id: ticket_order.event_id,
       external_payment_id: payment_intent.id,
-      stripe_fee: extract_stripe_fee(payment_intent),
+      stripe_fee: stripe_fee,
       description: "Event tickets - Order #{ticket_order.reference_id}",
       property: nil,
       payment_method_id: extract_payment_method_id(payment_intent, ticket_order.user_id)
     })
   end
-
-  defp extract_stripe_fee(payment_intent) do
-    # Get the actual Stripe fee from the charge
-    case get_charge_from_payment_intent(payment_intent) do
-      {:ok, charge} ->
-        # Get the balance transaction to extract the fee
-        case get_balance_transaction(charge.balance_transaction) do
-          {:ok, balance_transaction} ->
-            fee_cents = balance_transaction.fee || 0
-            Money.new(Ysc.MoneyHelper.cents_to_dollars(fee_cents), :USD)
-
-          {:error, _} ->
-            # Fallback to estimated fee calculation
-            amount_cents = payment_intent.amount
-            estimated_fee_cents = trunc(amount_cents * 0.029 + 30)
-            Money.new(Ysc.MoneyHelper.cents_to_dollars(estimated_fee_cents), :USD)
-        end
-
-      {:error, _} ->
-        # Fallback to estimated fee calculation
-        amount_cents = payment_intent.amount
-        estimated_fee_cents = trunc(amount_cents * 0.029 + 30)
-        Money.new(Ysc.MoneyHelper.cents_to_dollars(estimated_fee_cents), :USD)
-    end
-  end
-
-  defp get_charge_from_payment_intent(payment_intent) do
-    case payment_intent.charges do
-      %Stripe.List{data: [charge | _]} ->
-        {:ok, charge}
-
-      _ ->
-        {:error, :no_charge_found}
-    end
-  end
-
-  defp get_balance_transaction(balance_transaction_id) when is_binary(balance_transaction_id) do
-    case Stripe.BalanceTransaction.retrieve(balance_transaction_id) do
-      {:ok, balance_transaction} ->
-        {:ok, balance_transaction}
-
-      {:error, %Stripe.Error{} = error} ->
-        {:error, error.message}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp get_balance_transaction(_), do: {:error, :invalid_balance_transaction_id}
 
   defp extract_payment_method_id(payment_intent, user_id) do
     require Logger
