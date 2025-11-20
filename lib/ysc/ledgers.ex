@@ -32,7 +32,6 @@ defmodule Ysc.Ledgers do
     # Revenue accounts (credit-normal)
     {"membership_revenue", "revenue", "credit", "Revenue from membership subscriptions"},
     {"event_revenue", "revenue", "credit", "Revenue from event registrations"},
-    {"booking_revenue", "revenue", "credit", "Revenue from cabin bookings"},
     {"tahoe_booking_revenue", "revenue", "credit", "Revenue from Tahoe cabin bookings"},
     {"clear_lake_booking_revenue", "revenue", "credit", "Revenue from Clear Lake cabin bookings"},
     {"donation_revenue", "revenue", "credit", "Revenue from donations"},
@@ -225,10 +224,22 @@ defmodule Ysc.Ledgers do
 
         :booking ->
           case property do
-            :tahoe -> "tahoe_booking_revenue"
-            :clear_lake -> "clear_lake_booking_revenue"
-            # fallback to general booking revenue
-            _ -> "booking_revenue"
+            :tahoe ->
+              "tahoe_booking_revenue"
+
+            :clear_lake ->
+              "clear_lake_booking_revenue"
+
+            _ ->
+              require Logger
+
+              Logger.error(
+                "Booking payment requires property to be specified (tahoe or clear_lake)",
+                entity_id: entity_id,
+                property: property
+              )
+
+              raise "Booking payment requires property to be specified (tahoe or clear_lake)"
           end
 
         :donation ->

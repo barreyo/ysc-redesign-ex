@@ -625,7 +625,8 @@ defmodule YscWeb.BookingCheckoutLive do
 
   defp process_ledger_payment(booking, payment_intent) do
     amount = cents_to_money(payment_intent.amount, :USD)
-    stripe_fee = calculate_stripe_fee(amount)
+    # Use consolidated fee extraction from Stripe.WebhookHandler
+    stripe_fee = Ysc.Stripe.WebhookHandler.extract_stripe_fee_from_payment_intent(payment_intent)
 
     # Extract and sync payment method to get our internal ULID
     payment_method_id = extract_and_sync_payment_method(payment_intent, booking.user_id)
@@ -648,23 +649,6 @@ defmodule YscWeb.BookingCheckoutLive do
 
       {:error, reason} ->
         {:error, reason}
-    end
-  end
-
-  defp calculate_stripe_fee(amount) do
-    # Stripe fee is 2.9% + $0.30
-    fee_percentage = Decimal.new("0.029")
-    flat_fee = Money.new(30, :USD)
-
-    case Money.mult(amount, fee_percentage) do
-      {:ok, percentage_fee} ->
-        case Money.add(percentage_fee, flat_fee) do
-          {:ok, total_fee} -> total_fee
-          {:error, _} -> flat_fee
-        end
-
-      {:error, _} ->
-        flat_fee
     end
   end
 

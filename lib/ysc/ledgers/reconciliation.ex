@@ -507,12 +507,10 @@ defmodule Ysc.Ledgers.Reconciliation do
     # Similar logic for bookings
     ledger_totals = %{
       tahoe: get_revenue_total("tahoe_booking_revenue"),
-      clear_lake: get_revenue_total("clear_lake_booking_revenue"),
-      general: get_revenue_total("booking_revenue")
+      clear_lake: get_revenue_total("clear_lake_booking_revenue")
     }
 
     {:ok, total} = Money.add(ledger_totals.tahoe, ledger_totals.clear_lake)
-    {:ok, total} = Money.add(total, ledger_totals.general)
 
     # Get booking payments
     payments_total =
