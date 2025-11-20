@@ -15,29 +15,32 @@ defmodule Ysc.Ledgers do
   alias Ysc.Ledgers.{LedgerAccount, LedgerEntry, LedgerTransaction, Payment, Refund, Payout}
 
   # Basic account names for the system
+  # Format: {name, account_type, normal_balance, description}
+  # Assets and Expenses are debit-normal
+  # Liabilities, Revenue, and Equity are credit-normal
   @basic_accounts [
-    # Asset accounts
-    {"cash", "asset", "Cash account for holding funds"},
-    {"stripe_account", "asset", "Stripe account balance"},
-    {"accounts_receivable", "asset", "Outstanding payments from customers"},
+    # Asset accounts (debit-normal)
+    {"cash", "asset", "debit", "Cash account for holding funds"},
+    {"stripe_account", "asset", "debit", "Stripe account balance"},
+    {"accounts_receivable", "asset", "debit", "Outstanding payments from customers"},
 
-    # Liability accounts
-    {"accounts_payable", "liability", "Outstanding payments to vendors"},
-    {"deferred_revenue", "liability", "Prepaid subscriptions and bookings"},
-    {"refund_liability", "liability", "Pending refunds"},
+    # Liability accounts (credit-normal)
+    {"accounts_payable", "liability", "credit", "Outstanding payments to vendors"},
+    {"deferred_revenue", "liability", "credit", "Prepaid subscriptions and bookings"},
+    {"refund_liability", "liability", "credit", "Pending refunds"},
 
-    # Revenue accounts
-    {"membership_revenue", "revenue", "Revenue from membership subscriptions"},
-    {"event_revenue", "revenue", "Revenue from event registrations"},
-    {"booking_revenue", "revenue", "Revenue from cabin bookings"},
-    {"tahoe_booking_revenue", "revenue", "Revenue from Tahoe cabin bookings"},
-    {"clear_lake_booking_revenue", "revenue", "Revenue from Clear Lake cabin bookings"},
-    {"donation_revenue", "revenue", "Revenue from donations"},
+    # Revenue accounts (credit-normal)
+    {"membership_revenue", "revenue", "credit", "Revenue from membership subscriptions"},
+    {"event_revenue", "revenue", "credit", "Revenue from event registrations"},
+    {"booking_revenue", "revenue", "credit", "Revenue from cabin bookings"},
+    {"tahoe_booking_revenue", "revenue", "credit", "Revenue from Tahoe cabin bookings"},
+    {"clear_lake_booking_revenue", "revenue", "credit", "Revenue from Clear Lake cabin bookings"},
+    {"donation_revenue", "revenue", "credit", "Revenue from donations"},
 
-    # Expense accounts
-    {"stripe_fees", "expense", "Stripe processing fees"},
-    {"operating_expenses", "expense", "General operating expenses"},
-    {"refund_expense", "expense", "Refunds issued to customers"}
+    # Expense accounts (debit-normal)
+    {"stripe_fees", "expense", "debit", "Stripe processing fees"},
+    {"operating_expenses", "expense", "debit", "General operating expenses"},
+    {"refund_expense", "expense", "debit", "Refunds issued to customers"}
   ]
 
   ## Account Management
@@ -47,10 +50,18 @@ defmodule Ysc.Ledgers do
   Creates accounts if they don't exist.
   """
   def ensure_basic_accounts do
-    Enum.each(@basic_accounts, fn {name, type, description} ->
+    Enum.each(@basic_accounts, fn {name, type, normal_balance, description} ->
       case get_account_by_name(name) do
-        nil -> create_account(%{name: name, account_type: type, description: description})
-        _account -> :ok
+        nil ->
+          create_account(%{
+            name: name,
+            account_type: type,
+            normal_balance: normal_balance,
+            description: description
+          })
+
+        _account ->
+          :ok
       end
     end)
   end
@@ -981,8 +992,14 @@ defmodule Ysc.Ledgers do
 
   @doc """
   Gets account balance for a specific account.
+
+  The balance is normalized based on the account's normal_balance:
+  - Credit-normal accounts (revenue, liabilities): negative raw balance = positive actual balance
+  - Debit-normal accounts (assets, expenses): positive raw balance = positive actual balance
   """
   def get_account_balance(account_id) do
+    account = get_account(account_id)
+
     entries =
       from(e in LedgerEntry,
         where: e.account_id == ^account_id,
@@ -991,19 +1008,29 @@ defmodule Ysc.Ledgers do
       |> Repo.all()
 
     # Sum the money amounts manually
-    Enum.reduce(entries, Money.new(0, :USD), fn entry_amount, acc ->
-      case Money.add(acc, entry_amount) do
-        {:ok, result} -> result
-        # If addition fails, keep the accumulator
-        {:error, _reason} -> acc
-      end
-    end)
+    raw_balance =
+      Enum.reduce(entries, Money.new(0, :USD), fn entry_amount, acc ->
+        case Money.add(acc, entry_amount) do
+          {:ok, result} -> result
+          # If addition fails, keep the accumulator
+          {:error, _reason} -> acc
+        end
+      end)
+
+    # Normalize balance based on account's normal_balance
+    normalize_balance_for_account(raw_balance, account)
   end
 
   @doc """
   Gets account balance for a specific account within a date range.
+
+  The balance is normalized based on the account's normal_balance:
+  - Credit-normal accounts (revenue, liabilities): negative raw balance = positive actual balance
+  - Debit-normal accounts (assets, expenses): positive raw balance = positive actual balance
   """
   def get_account_balance(account_id, start_date, end_date) do
+    account = get_account(account_id)
+
     entries =
       from(e in LedgerEntry,
         join: p in Payment,
@@ -1016,13 +1043,17 @@ defmodule Ysc.Ledgers do
       |> Repo.all()
 
     # Sum the money amounts manually
-    Enum.reduce(entries, Money.new(0, :USD), fn entry_amount, acc ->
-      case Money.add(acc, entry_amount) do
-        {:ok, result} -> result
-        # If addition fails, keep the accumulator
-        {:error, _reason} -> acc
-      end
-    end)
+    raw_balance =
+      Enum.reduce(entries, Money.new(0, :USD), fn entry_amount, acc ->
+        case Money.add(acc, entry_amount) do
+          {:ok, result} -> result
+          # If addition fails, keep the accumulator
+          {:error, _reason} -> acc
+        end
+      end)
+
+    # Normalize balance based on account's normal_balance
+    normalize_balance_for_account(raw_balance, account)
   end
 
   @doc """
@@ -1419,9 +1450,11 @@ defmodule Ysc.Ledgers do
   @doc """
   Calculates the balance for a specific account.
 
-  Returns the sum of all entries for that account.
+  Returns the sum of all entries for that account, normalized based on normal_balance.
   """
   def calculate_account_balance(account_id) do
+    account = get_account(account_id)
+
     result =
       from(e in LedgerEntry,
         where: e.account_id == ^account_id,
@@ -1429,10 +1462,40 @@ defmodule Ysc.Ledgers do
       )
       |> Repo.one()
 
-    case result do
-      nil -> Money.new(0, :USD)
-      decimal -> Money.new(decimal, :USD)
+    raw_balance =
+      case result do
+        nil -> Money.new(0, :USD)
+        decimal -> Money.new(decimal, :USD)
+      end
+
+    # Normalize balance based on account's normal_balance
+    normalize_balance_for_account(raw_balance, account)
+  end
+
+  # Helper function to normalize balance based on account's normal_balance
+  # Credit-normal accounts: credits are stored as negative, so negate to show positive
+  # Debit-normal accounts: debits are stored as positive, so keep as-is
+  defp normalize_balance_for_account(balance, %LedgerAccount{normal_balance: "credit"}) do
+    # Credit-normal: negative raw balance = positive actual balance
+    case Money.mult(balance, -1) do
+      {:ok, normalized} -> normalized
+      {:error, _} -> balance
     end
+  end
+
+  defp normalize_balance_for_account(balance, %LedgerAccount{normal_balance: "debit"}) do
+    # Debit-normal: positive raw balance = positive actual balance (keep as-is)
+    balance
+  end
+
+  defp normalize_balance_for_account(balance, nil) do
+    # If account not found, return balance as-is
+    balance
+  end
+
+  defp normalize_balance_for_account(balance, _) do
+    # Fallback: return balance as-is if normal_balance is not set
+    balance
   end
 
   @doc """

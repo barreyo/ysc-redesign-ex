@@ -3,38 +3,43 @@ defmodule Ysc.Repo.Migrations.SeedBasicLedgerAccounts do
 
   def up do
     # Basic account names for the system
+    # Format: {name, account_type, normal_balance, description}
+    # Assets and Expenses are debit-normal
+    # Liabilities, Revenue, and Equity are credit-normal
     basic_accounts = [
-      # Asset accounts
-      {"cash", "asset", "Cash account for holding funds"},
-      {"stripe_account", "asset", "Stripe account balance"},
-      {"accounts_receivable", "asset", "Outstanding payments from customers"},
+      # Asset accounts (debit-normal)
+      {"cash", "asset", "debit", "Cash account for holding funds"},
+      {"stripe_account", "asset", "debit", "Stripe account balance"},
+      {"accounts_receivable", "asset", "debit", "Outstanding payments from customers"},
 
-      # Liability accounts
-      {"accounts_payable", "liability", "Outstanding payments to vendors"},
-      {"deferred_revenue", "liability", "Prepaid subscriptions and bookings"},
-      {"refund_liability", "liability", "Pending refunds"},
+      # Liability accounts (credit-normal)
+      {"accounts_payable", "liability", "credit", "Outstanding payments to vendors"},
+      {"deferred_revenue", "liability", "credit", "Prepaid subscriptions and bookings"},
+      {"refund_liability", "liability", "credit", "Pending refunds"},
 
-      # Revenue accounts
-      {"membership_revenue", "revenue", "Revenue from membership subscriptions"},
-      {"event_revenue", "revenue", "Revenue from event registrations"},
-      {"booking_revenue", "revenue", "Revenue from cabin bookings"},
-      {"tahoe_booking_revenue", "revenue", "Revenue from Tahoe cabin bookings"},
-      {"clear_lake_booking_revenue", "revenue", "Revenue from Clear Lake cabin bookings"},
-      {"donation_revenue", "revenue", "Revenue from donations"},
+      # Revenue accounts (credit-normal)
+      {"membership_revenue", "revenue", "credit", "Revenue from membership subscriptions"},
+      {"event_revenue", "revenue", "credit", "Revenue from event registrations"},
+      {"booking_revenue", "revenue", "credit", "Revenue from cabin bookings"},
+      {"tahoe_booking_revenue", "revenue", "credit", "Revenue from Tahoe cabin bookings"},
+      {"clear_lake_booking_revenue", "revenue", "credit",
+       "Revenue from Clear Lake cabin bookings"},
+      {"donation_revenue", "revenue", "credit", "Revenue from donations"},
 
-      # Expense accounts
-      {"stripe_fees", "expense", "Stripe processing fees"},
-      {"operating_expenses", "expense", "General operating expenses"},
-      {"refund_expense", "expense", "Refunds issued to customers"}
+      # Expense accounts (debit-normal)
+      {"stripe_fees", "expense", "debit", "Stripe processing fees"},
+      {"operating_expenses", "expense", "debit", "General operating expenses"},
+      {"refund_expense", "expense", "debit", "Refunds issued to customers"}
     ]
 
     # Insert basic accounts
-    Enum.each(basic_accounts, fn {name, account_type, description} ->
+    Enum.each(basic_accounts, fn {name, account_type, normal_balance, description} ->
       execute """
-        INSERT INTO ledger_accounts (id, account_type, name, description, inserted_at, updated_at)
+        INSERT INTO ledger_accounts (id, account_type, normal_balance, name, description, inserted_at, updated_at)
         VALUES (
           gen_random_uuid(),
           '#{account_type}',
+          '#{normal_balance}',
           '#{name}',
           '#{description}',
           NOW(),

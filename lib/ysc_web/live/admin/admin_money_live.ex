@@ -313,12 +313,19 @@ defmodule YscWeb.AdminMoneyLive do
             :for={account_data <- @accounts_with_balances}
             class="bg-white p-4 rounded-lg shadow border"
           >
-            <h3 class="font-medium text-zinc-900"><%= account_data.account.name %></h3>
-            <p class="text-sm text-zinc-600"><%= account_data.account.description %></p>
-            <p class="text-lg font-semibold mt-2">
+            <div class="flex justify-between items-start mb-2">
+              <h3 class="font-medium text-zinc-900"><%= account_data.account.name %></h3>
+              <span class={"px-2 py-1 text-xs font-semibold rounded #{get_normal_balance_badge_color(account_data.account.normal_balance)}"}>
+                <%= String.capitalize(to_string(account_data.account.normal_balance || "debit")) %>-normal
+              </span>
+            </div>
+            <p class="text-sm text-zinc-600 mb-2"><%= account_data.account.description %></p>
+            <p class={"text-lg font-semibold mt-2 #{get_balance_color(account_data.balance, account_data.account.normal_balance)}"}>
               <%= Money.to_string!(account_data.balance || Money.new(:USD, 0)) %>
             </p>
-            <p class="text-xs text-zinc-500 capitalize"><%= account_data.account.account_type %></p>
+            <p class="text-xs text-zinc-500 capitalize mt-1">
+              <%= account_data.account.account_type %>
+            </p>
           </div>
         </div>
       </div>
@@ -767,6 +774,27 @@ defmodule YscWeb.AdminMoneyLive do
       :processing -> "bg-yellow-100 text-yellow-800"
       :pending -> "bg-blue-100 text-blue-800"
       _ -> "bg-zinc-100 text-zinc-800"
+    end
+  end
+
+  defp get_normal_balance_badge_color("credit"), do: "bg-blue-100 text-blue-800"
+  defp get_normal_balance_badge_color("debit"), do: "bg-purple-100 text-purple-800"
+  defp get_normal_balance_badge_color(_), do: "bg-zinc-100 text-zinc-800"
+
+  # Determine balance color based on whether it's positive or negative
+  # For credit-normal accounts, positive is good (green)
+  # For debit-normal accounts, positive is good (green)
+  # Negative balances are shown in red for both types
+  defp get_balance_color(balance, normal_balance) when is_nil(balance), do: "text-zinc-600"
+
+  defp get_balance_color(balance, normal_balance) do
+    is_positive = Money.positive?(balance)
+    is_zero = Money.equal?(balance, Money.new(0, :USD))
+
+    cond do
+      is_zero -> "text-zinc-600"
+      is_positive -> "text-green-600"
+      true -> "text-red-600"
     end
   end
 end

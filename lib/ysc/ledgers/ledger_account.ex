@@ -13,6 +13,7 @@ defmodule Ysc.Ledgers.LedgerAccount do
   @timestamps_opts [type: :utc_datetime]
   schema "ledger_accounts" do
     field :account_type, LedgerAccountType
+    field :normal_balance, LedgerNormalBalance
     field :name, :string
     field :description, :string
 
@@ -21,8 +22,8 @@ defmodule Ysc.Ledgers.LedgerAccount do
 
   def changeset(account, attrs) do
     account
-    |> cast(attrs, [:account_type, :name, :description])
-    |> validate_required([:account_type, :name])
+    |> cast(attrs, [:account_type, :normal_balance, :name, :description])
+    |> validate_required([:account_type, :normal_balance, :name])
     |> validate_length(:name, min: 1, max: 255)
     |> validate_length(:description, max: 1000)
     |> unique_constraint(:name)
