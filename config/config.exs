@@ -67,7 +67,9 @@ config :phoenix, :json_library, Jason
 
 config :phoenix,
   static_compressors: [
-    PhoenixBakery.Brotli
+    PhoenixBakery.Gzip,
+    PhoenixBakery.Brotli,
+    PhoenixBakery.Zstd
   ]
 
 config :argon2_elixir,

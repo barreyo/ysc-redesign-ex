@@ -183,8 +183,6 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
           _ -> false
         end)
 
-      failed_bookings = Enum.count(results, &match?({:ok, {:error, _}}, &1))
-
       # Verify total successful bookings don't exceed tier capacities
       tier1_tickets =
         Ticket
@@ -291,7 +289,7 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         )
         |> Enum.to_list()
 
-      successful_bookings = Enum.count(results, &match?({:ok, {:ok, _}}, &1))
+      _successful_bookings = Enum.count(results, &match?({:ok, {:ok, _}}, &1))
 
       # Count total confirmed tickets (event capacity check uses confirmed status)
       total_confirmed_tickets =
@@ -433,7 +431,7 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
       users: users,
       event: event,
       tier1: tier1,
-      sandbox_owner: owner
+      sandbox_owner: _owner
     } do
       # Book tickets rapidly one after another (not truly concurrent, but tests sequential logic)
       concurrent_users = Enum.take(users, 60)

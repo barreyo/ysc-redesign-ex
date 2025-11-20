@@ -30,6 +30,7 @@ defmodule YscWeb.Endpoint do
   plug Plug.Static,
     at: "/",
     from: :ysc,
+    encodings: [{"zstd", ".zst"}],
     gzip: true,
     brotli: true,
     only: YscWeb.static_paths()

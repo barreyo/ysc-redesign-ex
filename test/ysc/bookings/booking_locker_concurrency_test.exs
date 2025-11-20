@@ -631,7 +631,7 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       tahoe_room1: room,
       checkin_date: checkin_date,
       checkout_date: checkout_date,
-      sandbox_owner: owner
+      sandbox_owner: _owner
     } do
       # First user books buyout
       [user1 | rest_users] = users
@@ -685,7 +685,7 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       users: users,
       checkin_date: checkin_date,
       checkout_date: checkout_date,
-      sandbox_owner: owner
+      sandbox_owner: _owner
     } do
       # First user books buyout
       [user1 | rest_users] = users
@@ -849,7 +849,7 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       tahoe_room1: room,
       checkin_date: checkin_date,
       checkout_date: checkout_date,
-      sandbox_owner: owner
+      sandbox_owner: _owner
     } do
       # First user creates a hold booking
       [user1 | rest_users] = users
@@ -904,7 +904,7 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       tahoe_room1: room,
       checkin_date: checkin_date,
       checkout_date: checkout_date,
-      sandbox_owner: owner
+      sandbox_owner: _owner
     } do
       # First user creates a hold booking
       [user1 | rest_users] = users
