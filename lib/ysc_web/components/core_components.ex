@@ -1412,7 +1412,14 @@ defmodule YscWeb.CoreComponents do
     # Truncate full name if total length exceeds 30 characters to prevent layout shifts
     first_name = String.capitalize(assigns[:first_name] || "")
     last_name = String.capitalize(assigns[:last_name] || "")
-    full_name = "#{first_name} #{last_name}"
+
+    full_name =
+      cond do
+        first_name != "" && last_name != "" -> "#{first_name} #{last_name}"
+        first_name != "" -> first_name
+        last_name != "" -> last_name
+        true -> assigns[:email] || "Unknown User"
+      end
 
     display_name =
       if String.length(full_name) > 30 do
@@ -1421,6 +1428,7 @@ defmodule YscWeb.CoreComponents do
         full_name
       end
 
+    # Always ensure display_name is set (defensive against stale compiled code)
     assigns = assign(assigns, :display_name, display_name)
 
     ~H"""
