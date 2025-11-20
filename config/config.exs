@@ -112,11 +112,6 @@ config :stripity_stripe,
   public_key: System.get_env("STRIPE_PUBLIC_KEY"),
   webhook_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
 
-# Discord alerts configuration
-config :ysc, Ysc.Alerts.Discord,
-  webhook_url: System.get_env("DISCORD_WEBHOOK_URL"),
-  enabled: false
-
 config :stripity_stripe, :retries, max_attempts: 3, base_backoff: 500, max_backoff: 2_000
 
 config :ysc, :radar,
