@@ -9,7 +9,8 @@ RUN apk add --no-cache \
     git \
     python3 \
     nodejs \
-    npm
+    npm \
+    zstd
 
 # Set environment variables
 ENV MIX_ENV=prod \
