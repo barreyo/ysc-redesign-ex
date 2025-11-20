@@ -3,6 +3,8 @@ defmodule Ysc.SettingsTest do
   alias Ysc.Settings
   alias Ysc.SiteSettings.SiteSetting
 
+  @moduletag skip_settings_setup: true
+
   setup do
     # Clear out any existing settings and cache before each test
     Repo.delete_all(SiteSetting)

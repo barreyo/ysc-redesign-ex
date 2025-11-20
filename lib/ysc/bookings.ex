@@ -755,7 +755,17 @@ defmodule Ysc.Bookings do
 
       has_overlapping_bookings = Repo.exists?(overlapping_bookings_query)
 
-      if has_overlapping_bookings do
+      # Check for property buyout
+      # If there is a buyout, no rooms are available
+      has_buyout =
+        Repo.exists?(
+          from pi in PropertyInventory,
+            where: pi.property == ^room.property,
+            where: pi.day >= ^checkin_date and pi.day < ^checkout_date,
+            where: pi.buyout_held == true or pi.buyout_booked == true
+        )
+
+      if has_overlapping_bookings or has_buyout do
         false
       else
         # Check for blackouts

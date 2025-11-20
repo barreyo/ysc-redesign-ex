@@ -296,7 +296,8 @@ defmodule Ysc.Stripe.WebhookHandler do
       description: invoice.description,
       number: invoice.number,
       charge: invoice.charge,
-      metadata: invoice.metadata
+      metadata: invoice.metadata,
+      billing_reason: Map.get(invoice, :billing_reason)
     }
 
     handle("invoice.payment_succeeded", invoice_map)
@@ -308,7 +309,7 @@ defmodule Ysc.Stripe.WebhookHandler do
     # This webhook is specifically for subscription payments
     # It's more reliable than payment_intent.succeeded for subscription billing
     # Handle both atom and string keys for compatibility
-    subscription_id = invoice[:subscription] || invoice["subscription"]
+    subscription_id = resolve_subscription_id(invoice)
 
     case subscription_id do
       nil ->
@@ -754,6 +755,67 @@ defmodule Ysc.Stripe.WebhookHandler do
     estimated_fee = Decimal.add(Decimal.mult(amount, Decimal.new("0.029")), Decimal.new("0.30"))
     # Return Money directly with the fee in dollars (no need to convert back to cents)
     Money.new(:USD, estimated_fee)
+  end
+
+  # Helper function to resolve subscription ID from invoice
+  # Sometimes the initial subscription invoice has subscription: null but billing_reason: subscription_create
+  defp resolve_subscription_id(invoice) do
+    subscription_id = invoice[:subscription] || invoice["subscription"]
+
+    if subscription_id do
+      subscription_id
+    else
+      billing_reason = invoice[:billing_reason] || invoice["billing_reason"]
+      customer_id = invoice[:customer] || invoice["customer"]
+
+      if billing_reason == "subscription_create" && customer_id do
+        require Logger
+
+        Logger.info("Subscription ID missing in invoice, attempting to resolve from customer",
+          customer_id: customer_id,
+          billing_reason: billing_reason
+        )
+
+        user = Ysc.Accounts.get_user_from_stripe_id(customer_id)
+
+        if user do
+          case Ysc.Subscriptions.list_subscriptions(user) do
+            [] ->
+              Logger.warning("No subscriptions found for user when resolving invoice",
+                user_id: user.id
+              )
+
+              nil
+
+            subscriptions ->
+              # Get the most recently created subscription
+              # We sort by inserted_at to find the one we just created
+              subscription =
+                subscriptions
+                |> Enum.sort_by(& &1.inserted_at, {:desc, DateTime})
+                |> List.first()
+
+              if subscription do
+                Logger.info("Resolved subscription ID from user subscriptions",
+                  resolved_subscription_id: subscription.stripe_id
+                )
+
+                subscription.stripe_id
+              else
+                nil
+              end
+          end
+        else
+          Logger.warning("User not found when resolving invoice subscription",
+            stripe_customer_id: customer_id
+          )
+
+          nil
+        end
+      else
+        nil
+      end
+    end
   end
 
   # Helper function to find subscription ID from Stripe subscription ID

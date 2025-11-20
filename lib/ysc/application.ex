@@ -43,9 +43,6 @@ defmodule Ysc.Application do
     opts = [strategy: :one_for_one, name: Ysc.Supervisor]
     {:ok, supervisor} = Supervisor.start_link(children, opts)
 
-    # Start the ticket timeout scheduler
-    Ysc.Tickets.Scheduler.start_scheduler()
-
     # Start the outage scraper scheduler
     Ysc.PropertyOutages.Scheduler.start_scheduler()
 

@@ -134,12 +134,57 @@ defmodule Ysc.Settings do
     # Clear the main settings cache
     Cachex.del(:ysc_cache, @settings_cache_key)
 
-    # Clear all individual setting caches by fetching all settings and deleting their cache keys
-    # Cachex doesn't support wildcard deletion, so we need to delete each key individually
-    all_settings = Repo.all(from s in SiteSetting, select: s.name)
+    # Clear all individual setting caches
+    # We need to clear all keys that match the pattern "site-settings:*"
+    # Since Cachex doesn't support wildcard deletion, we use Cachex.keys/1 to get all keys
+    # and then filter for setting keys
+    case Cachex.keys(:ysc_cache) do
+      {:ok, keys} ->
+        keys
+        |> Enum.filter(&String.starts_with?(to_string(&1), "site-settings:"))
+        |> Enum.each(&Cachex.del(:ysc_cache, &1))
 
-    Enum.each(all_settings, fn name ->
-      Cachex.del(:ysc_cache, setting_cache_key(name))
-    end)
+      _ ->
+        :ok
+    end
+  end
+
+  @doc """
+  Ensures that all default site settings exist in the database.
+  Useful for tests and initial setup.
+
+  Note: This function does NOT update the cache. If you need the cache
+  to be updated, call cache_all_settings() after this function.
+  """
+  def ensure_settings_exist do
+    default_settings = [
+      %{group: "general", name: "site_name", value: "YSC"},
+      %{group: "general", name: "contact_email", value: "support@ysc.org"},
+      %{group: "socials", name: "instagram", value: "https://www.instagram.com/theysc"},
+      %{
+        group: "socials",
+        name: "facebook",
+        value: "https://www.facebook.com/YoungScandinaviansClub/"
+      },
+      %{group: "socials", name: "discord", value: "https://discord.gg/dn2gdXRZbW"}
+    ]
+
+    for setting <- default_settings do
+      case Repo.get_by(SiteSetting, name: setting.name) do
+        nil ->
+          Repo.insert!(%SiteSetting{
+            group: setting.group,
+            name: setting.name,
+            value: setting.value
+          })
+
+        _ ->
+          :ok
+      end
+    end
+
+    # Don't update cache here - let the cache be lazy-loaded on first access
+    # This prevents cache pollution in tests that clear the cache in their setup
+    :ok
   end
 end

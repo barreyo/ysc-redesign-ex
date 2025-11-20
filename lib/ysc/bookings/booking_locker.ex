@@ -183,10 +183,11 @@ defmodule Ysc.Bookings.BookingLocker do
             Repo.update_all(
               from(pi2 in PropertyInventory,
                 where:
-                  pi2.property == ^property and pi2.day == ^pi.day and
+                  pi2.property == type(^property, Ysc.Bookings.BookingProperty) and
+                    pi2.day == ^pi.day and
                     pi2.lock_version == ^pi.lock_version and
                     pi2.buyout_held == false and pi2.buyout_booked == false and
-                    (^property != :clear_lake or
+                    (type(^property, Ysc.Bookings.BookingProperty) != :clear_lake or
                        (pi2.capacity_held == 0 and pi2.capacity_booked == 0))
               ),
               set: [
@@ -232,11 +233,31 @@ defmodule Ysc.Bookings.BookingLocker do
               "nights" => nights,
               "price_per_night" => %{
                 "amount" => Decimal.to_string(price_per_night.amount),
-                "currency" => Atom.to_string(price_per_night.currency)
+                "currency" => to_string(price_per_night.currency)
               },
               "total" => %{
                 "amount" => Decimal.to_string(total.amount),
-                "currency" => Atom.to_string(total.currency)
+                "currency" => to_string(total.currency)
+              }
+            }
+
+            {total, items}
+
+          {:ok, total, _breakdown} ->
+            # Handle 3-tuple return value with breakdown
+            nights = Date.diff(checkout_date, checkin_date)
+            price_per_night = if nights > 0, do: Money.div(total, nights) |> elem(1), else: total
+
+            items = %{
+              "type" => "buyout",
+              "nights" => nights,
+              "price_per_night" => %{
+                "amount" => Decimal.to_string(price_per_night.amount),
+                "currency" => to_string(price_per_night.currency)
+              },
+              "total" => %{
+                "amount" => Decimal.to_string(total.amount),
+                "currency" => to_string(total.currency)
               }
             }
 
@@ -568,7 +589,7 @@ defmodule Ysc.Bookings.BookingLocker do
           "children_count" => children_count,
           "total" => %{
             "amount" => Decimal.to_string(total.amount),
-            "currency" => Atom.to_string(total.currency)
+            "currency" => to_string(total.currency)
           }
         }
 
@@ -742,11 +763,11 @@ defmodule Ysc.Bookings.BookingLocker do
               "guests_count" => guests_count,
               "price_per_guest_per_night" => %{
                 "amount" => Decimal.to_string(price_per_guest_per_night.amount),
-                "currency" => Atom.to_string(price_per_guest_per_night.currency)
+                "currency" => to_string(price_per_guest_per_night.currency)
               },
               "total" => %{
                 "amount" => Decimal.to_string(total.amount),
-                "currency" => Atom.to_string(total.currency)
+                "currency" => to_string(total.currency)
               }
             }
 
@@ -1175,7 +1196,7 @@ defmodule Ysc.Bookings.BookingLocker do
       "children_count" => children_count,
       "total" => %{
         "amount" => Decimal.to_string(total.amount),
-        "currency" => Atom.to_string(total.currency)
+        "currency" => to_string(total.currency)
       }
     }
 
@@ -1185,7 +1206,7 @@ defmodule Ysc.Bookings.BookingLocker do
         breakdown
         |> Enum.map(fn
           {key, value} when is_atom(key) ->
-            {Atom.to_string(key), convert_money_to_map(value)}
+            {to_string(key), convert_money_to_map(value)}
 
           {key, value} ->
             {key, convert_money_to_map(value)}
@@ -1202,7 +1223,7 @@ defmodule Ysc.Bookings.BookingLocker do
   defp convert_money_to_map(%Money{} = money) do
     %{
       "amount" => Decimal.to_string(money.amount),
-      "currency" => Atom.to_string(money.currency)
+      "currency" => to_string(money.currency)
     }
   end
 

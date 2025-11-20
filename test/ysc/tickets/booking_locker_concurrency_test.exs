@@ -5,8 +5,11 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
   These tests simulate high-concurrency scenarios where multiple users attempt to book
   tickets simultaneously, verifying that optimistic locking mechanisms prevent
   double-booking and ensure capacity limits are respected.
+
+  Note: These tests use async: false because concurrent tasks within a test need
+  to share the same database connection pool to properly test optimistic locking.
   """
-  use Ysc.DataCase, async: true
+  use Ysc.DataCase, async: false
 
   alias Ysc.Tickets.BookingLocker
   alias Ysc.Events
@@ -14,10 +17,11 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
   alias Ysc.Repo
   import Ysc.AccountsFixtures
 
-  setup do
+  setup context do
     # Create users for concurrent booking tests with active memberships
+    # Create 100 users to support tests that need more than 50
     users =
-      Enum.map(1..50, fn _ ->
+      Enum.map(1..100, fn _ ->
         user = user_fixture()
         # Give user lifetime membership so they can purchase tickets
         user
@@ -75,14 +79,15 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         event_id: event.id
       })
 
-    %{
-      users: users,
-      event: event,
-      tier1: tier1,
-      tier2: tier2,
-      tier_unlimited: tier_unlimited,
-      organizer: organizer
-    }
+    {:ok,
+     Map.merge(context, %{
+       users: users,
+       event: event,
+       tier1: tier1,
+       tier2: tier2,
+       tier_unlimited: tier_unlimited,
+       organizer: organizer
+     })}
   end
 
   describe "concurrent ticket bookings - tier capacity limits" do
@@ -113,8 +118,6 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          # Handle both patterns
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -177,7 +180,6 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -231,7 +233,6 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -413,7 +414,6 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 

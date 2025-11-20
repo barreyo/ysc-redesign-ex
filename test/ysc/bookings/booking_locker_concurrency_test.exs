@@ -8,15 +8,18 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
   - Tahoe room bookings
   - Clear Lake per-guest bookings
   - Buyout bookings
+
+  Note: These tests use async: false because concurrent tasks within a test need
+  to share the same database connection pool to properly test optimistic locking.
   """
-  use Ysc.DataCase, async: true
+  use Ysc.DataCase, async: false
 
   alias Ysc.Bookings.BookingLocker
   alias Ysc.Bookings.{Booking, PropertyInventory, RoomInventory, Room}
   alias Ysc.Repo
   import Ysc.AccountsFixtures
 
-  setup do
+  setup context do
     users = Enum.map(1..50, fn _ -> user_fixture() end)
 
     # Create Tahoe rooms directly
@@ -63,15 +66,16 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
     # 3 nights
     checkout_date = Date.add(checkin_date, 3)
 
-    %{
-      users: users,
-      tahoe_room1: tahoe_room1,
-      tahoe_room2: tahoe_room2,
-      tahoe_room3: tahoe_room3,
-      clear_lake_room1: clear_lake_room1,
-      checkin_date: checkin_date,
-      checkout_date: checkout_date
-    }
+    {:ok,
+     Map.merge(context, %{
+       users: users,
+       tahoe_room1: tahoe_room1,
+       tahoe_room2: tahoe_room2,
+       tahoe_room3: tahoe_room3,
+       clear_lake_room1: clear_lake_room1,
+       checkin_date: checkin_date,
+       checkout_date: checkout_date
+     })}
   end
 
   describe "concurrent Tahoe room bookings" do
@@ -110,7 +114,6 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -146,7 +149,9 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       checkout_date: checkout_date,
       sandbox_owner: owner
     } do
-      # 30 users try to book different rooms simultaneously
+      # 30 users try to book different rooms simultaneously for the same dates
+      # Since each room can only be booked once for a given date range,
+      # only 1 booking per room should succeed (3 total)
       concurrent_users = Enum.take(users, 30)
 
       results =
@@ -176,30 +181,31 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         )
         |> Enum.to_list()
 
-      successful_bookings =
-        Enum.count(results, fn
-          {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
-          _ -> false
-        end)
+      successful_bookings = Enum.count(results, &match?({:ok, {:ok, _}}, &1))
+      failed_bookings = Enum.count(results, &match?({:ok, {:error, _}}, &1))
 
-      # All bookings should succeed (different rooms)
-      assert successful_bookings == 30,
-             "Expected all 30 bookings to succeed for different rooms, got #{successful_bookings}"
+      # Only 3 bookings should succeed (1 per room for the same dates)
+      assert successful_bookings == 3,
+             "Expected 3 successful bookings (1 per room), got #{successful_bookings}"
 
-      # Verify each room has exactly 10 bookings
-      room1_bookings =
-        Booking
-        |> where([b], b.property == :tahoe)
-        |> join(:inner, [b], br in assoc(b, :rooms))
-        |> where([b, br], br.id == ^room1.id)
-        |> where([b], b.checkin_date == ^checkin_date)
-        |> where([b], b.checkout_date == ^checkout_date)
-        |> where([b], b.status in [:hold, :complete])
-        |> Repo.aggregate(:count, :id)
+      assert failed_bookings == 27,
+             "Expected 27 failed bookings, got #{failed_bookings}"
 
-      assert room1_bookings == 10,
-             "Expected 10 bookings for room1, got #{room1_bookings}"
+      # Verify each room has exactly 1 booking
+      for room <- [room1, room2, room3] do
+        room_bookings =
+          Booking
+          |> where([b], b.property == :tahoe)
+          |> join(:inner, [b], br in assoc(b, :rooms))
+          |> where([b, br], br.id == ^room.id)
+          |> where([b], b.checkin_date == ^checkin_date)
+          |> where([b], b.checkout_date == ^checkout_date)
+          |> where([b], b.status in [:hold, :complete])
+          |> Repo.aggregate(:count, :id)
+
+        assert room_bookings == 1,
+               "Expected 1 booking for room #{room.id}, got #{room_bookings}"
+      end
     end
 
     test "prevents overlapping date bookings for same room", %{
@@ -251,7 +257,6 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -285,6 +290,8 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         )
 
       # Other users book non-overlapping dates (after checkout)
+      # Since they're all booking the SAME non-overlapping dates concurrently,
+      # only 1 should succeed
       non_overlapping_checkin = checkout_date
       non_overlapping_checkout = Date.add(non_overlapping_checkin, 2)
 
@@ -310,10 +317,26 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         |> Enum.to_list()
 
       successful_bookings = Enum.count(results, &match?({:ok, {:ok, _}}, &1))
+      failed_bookings = Enum.count(results, &match?({:ok, {:error, _}}, &1))
 
-      # All non-overlapping bookings should succeed
-      assert successful_bookings == 5,
-             "Expected all 5 non-overlapping bookings to succeed, got #{successful_bookings}"
+      # Only 1 non-overlapping booking should succeed (same dates, same room)
+      assert successful_bookings == 1,
+             "Expected 1 successful booking, got #{successful_bookings}"
+
+      assert failed_bookings == 4,
+             "Expected 4 failed bookings, got #{failed_bookings}"
+
+      # Verify total bookings for the room
+      total_bookings =
+        Booking
+        |> where([b], b.property == :tahoe)
+        |> join(:inner, [b], br in assoc(b, :rooms))
+        |> where([b, br], br.id == ^room.id)
+        |> where([b], b.status in [:hold, :complete])
+        |> Repo.aggregate(:count, :id)
+
+      assert total_bookings == 2,
+             "Expected 2 total bookings (1 original + 1 non-overlapping), got #{total_bookings}"
     end
   end
 
@@ -350,7 +373,6 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -412,7 +434,6 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -467,7 +488,6 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -524,7 +544,6 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -594,7 +613,6 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -650,7 +668,6 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -705,7 +722,6 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 
@@ -925,7 +941,6 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       successful_bookings =
         Enum.count(results, fn
           {:ok, {:ok, _}} -> true
-          {:ok, _} -> true
           _ -> false
         end)
 

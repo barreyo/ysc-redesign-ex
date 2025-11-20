@@ -29,6 +29,11 @@ defmodule Ysc.DataCase do
 
   setup tags do
     owner = Ysc.DataCase.setup_sandbox(tags)
+    # Ensure basic site settings exist, unless the test explicitly opts out
+    unless tags[:skip_settings_setup] do
+      Ysc.Settings.ensure_settings_exist()
+    end
+
     {:ok, sandbox_owner: owner}
   end
 
