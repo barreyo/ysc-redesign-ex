@@ -178,7 +178,7 @@ defmodule Ysc.Events do
 
   # Batch load pricing info for all events to avoid N+1 queries
   defp add_pricing_info_batch(events) when is_list(events) do
-    if length(events) == 0 do
+    if events == [] do
       []
     else
       event_ids = Enum.map(events, & &1.id)
@@ -216,7 +216,7 @@ defmodule Ysc.Events do
 
   # Batch load images for multiple image IDs
   defp batch_load_images(image_ids) when is_list(image_ids) do
-    if length(image_ids) == 0 do
+    if image_ids == [] do
       %{}
     else
       alias Ysc.Media.Image
@@ -229,7 +229,7 @@ defmodule Ysc.Events do
 
   # Batch load ticket tiers for multiple events
   defp batch_load_ticket_tiers(event_ids) when is_list(event_ids) do
-    if length(event_ids) == 0 do
+    if event_ids == [] do
       %{}
     else
       from(tt in TicketTier,
@@ -276,7 +276,7 @@ defmodule Ysc.Events do
 
   # Batch load ticket counts for multiple events
   defp batch_load_ticket_counts(event_ids) when is_list(event_ids) do
-    if length(event_ids) == 0 do
+    if event_ids == [] do
       %{}
     else
       from(t in Ticket,

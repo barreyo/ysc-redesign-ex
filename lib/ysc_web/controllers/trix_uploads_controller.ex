@@ -50,9 +50,6 @@ defmodule YscWeb.TrixUploadsController do
         raw_s3_path
       end
 
-    IO.inspect(raw_s3_path, label: "Raw S3 path")
-    IO.inspect(upload_result, label: "Upload result")
-
     {:ok, new_image} =
       Media.add_new_image(
         %{

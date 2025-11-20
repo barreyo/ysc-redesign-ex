@@ -99,47 +99,8 @@ defmodule Ysc.Media do
   end
 
   def update_processed_image(%Media.Image{} = image, attrs) do
-    IO.puts("💾 [Media] update_processed_image called")
-
-    IO.inspect(
-      %{
-        image_id: image.id,
-        attrs: attrs
-      },
-      label: "Update processed image input"
-    )
-
     changeset = Media.Image.processed_image_changeset(image, attrs)
-    IO.puts("💾 [Media] Changeset created:")
-
-    IO.inspect(
-      %{
-        valid?: changeset.valid?,
-        changes: changeset.changes,
-        errors: changeset.errors
-      },
-      label: "Changeset details"
-    )
-
-    if not changeset.valid? do
-      IO.puts("❌ [Media] Changeset is invalid!")
-      IO.inspect(changeset.errors, label: "Changeset errors")
-    end
-
-    result = Repo.update!(changeset)
-    IO.puts("💾 [Media] Database update completed:")
-
-    IO.inspect(
-      %{
-        id: result.id,
-        optimized_image_path: result.optimized_image_path,
-        thumbnail_path: result.thumbnail_path,
-        processing_state: result.processing_state
-      },
-      label: "Updated image from DB"
-    )
-
-    result
+    Repo.update!(changeset)
   end
 
   def process_image_upload(
@@ -148,97 +109,44 @@ defmodule Ysc.Media do
         thumbnail_output_path,
         optimized_output_path
       ) do
-    IO.puts("🔵 [Media] Starting process_image_upload")
-
-    IO.inspect(
-      %{
-        image_id: image.id,
-        original_path: path,
-        thumbnail_output_path: thumbnail_output_path,
-        optimized_output_path: optimized_output_path
-      },
-      label: "Input parameters"
-    )
-
     {:ok, parsed_image} = Image.open(path)
     {:ok, meta_free_image} = Image.remove_metadata(parsed_image)
 
     # Get original dimensions
     original_width = Image.width(parsed_image)
     original_height = Image.height(parsed_image)
-    IO.puts("📐 [Media] Original dimensions: #{original_width}x#{original_height}")
 
     # Detect original format from file extension
     original_format = detect_image_format(path)
-    IO.puts("🎨 [Media] Original format: #{inspect(original_format)}")
 
     # Determine output format - prefer WEBP for better compression, fallback to original format
     output_format = determine_output_format(original_format)
-    IO.puts("🎨 [Media] Output format: #{inspect(output_format)}")
 
     # Ensure optimized output path uses correct extension
     optimized_output_path = ensure_format_extension(optimized_output_path, output_format)
     thumbnail_output_path = ensure_format_extension(thumbnail_output_path, output_format)
-    IO.puts("📁 [Media] Final paths:")
-
-    IO.inspect(
-      %{
-        optimized_output_path: optimized_output_path,
-        thumbnail_output_path: thumbnail_output_path
-      },
-      label: "Final output paths"
-    )
 
     # Create optimized version: maintain aspect ratio, cap at max dimensions, preserve quality
     optimized_image =
       if original_width > @max_optimized_width or original_height > @max_optimized_height do
-        IO.puts("🔄 [Media] Resizing image (exceeds max dimensions)")
         # Resize if too large, maintaining aspect ratio
-        # Image.resize/3 signature: resize(image, scale, options)
-        # scale is a float scale factor, not width/height
         scale =
           min(@max_optimized_width / original_width, @max_optimized_height / original_height)
 
-        IO.puts("📏 [Media] Resize scale: #{scale}")
         {:ok, resized} = Image.resize(meta_free_image, scale)
         resized
       else
-        IO.puts("✅ [Media] Image within size limits, keeping original size")
         # Keep original size if within limits
         meta_free_image
       end
 
     # Write optimized image with quality settings
     write_options = get_write_options(output_format, @optimized_quality)
-    IO.puts("💾 [Media] Writing optimized image to: #{optimized_output_path}")
-    write_result = Image.write(optimized_image, optimized_output_path, write_options)
-    IO.inspect(write_result, label: "Optimized image write result")
-
-    optimized_file_exists = File.exists?(optimized_output_path)
-
-    optimized_file_size =
-      if optimized_file_exists, do: File.stat!(optimized_output_path).size, else: 0
-
-    IO.puts(
-      "✅ [Media] Optimized file exists: #{optimized_file_exists}, size: #{optimized_file_size} bytes"
-    )
+    _write_result = Image.write(optimized_image, optimized_output_path, write_options)
 
     # Create thumbnail (always 500px on longest side)
     {:ok, thumbnail_image} = Image.thumbnail(meta_free_image, @thumbnail_size)
-    IO.puts("💾 [Media] Writing thumbnail to: #{thumbnail_output_path}")
-    thumbnail_write_result = Image.write(thumbnail_image, thumbnail_output_path, write_options)
-    IO.inspect(thumbnail_write_result, label: "Thumbnail write result")
-
-    thumbnail_file_exists = File.exists?(thumbnail_output_path)
-
-    thumbnail_file_size =
-      if thumbnail_file_exists, do: File.stat!(thumbnail_output_path).size, else: 0
-
-    IO.puts(
-      "✅ [Media] Thumbnail file exists: #{thumbnail_file_exists}, size: #{thumbnail_file_size} bytes"
-    )
-
-    IO.puts("☁️ [Media] Starting S3 uploads...")
+    _thumbnail_write_result = Image.write(thumbnail_image, thumbnail_output_path, write_options)
 
     upload_result =
       upload_files_to_s3(
@@ -246,38 +154,19 @@ defmodule Ysc.Media do
         optimized: optimized_output_path
       )
 
-    IO.puts("☁️ [Media] S3 upload result:")
-    IO.inspect(upload_result, label: "Upload result")
-
     # Downscale to very small and generate blurhash
-    # Use the optimized image we just created (it's already in temp directory)
-    # This ensures we don't create files in the seed directory
-    IO.puts("🎨 [Media] Generating blurhash...")
-    IO.puts("🎨 [Media] Blurhash input file: #{optimized_output_path}")
-    IO.puts("🎨 [Media] Blurhash input file exists: #{File.exists?(optimized_output_path)}")
-
     blur_hash =
       try do
         generate_blur_hash_safely(optimized_output_path, path)
       rescue
-        e ->
-          IO.puts("❌ [Media] Blurhash generation failed: #{inspect(e)}")
-          IO.puts("❌ [Media] Blurhash error type: #{inspect(e.__struct__)}")
-          IO.puts("❌ [Media] Blurhash stacktrace:")
-          IO.inspect(Process.info(self(), :current_stacktrace), label: "Stacktrace")
+        _e ->
           # Return a default blurhash on failure
           "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
       catch
-        kind, reason ->
-          IO.puts(
-            "❌ [Media] Blurhash generation caught error: #{inspect(kind)}, #{inspect(reason)}"
-          )
-
+        _kind, _reason ->
           # Return a default blurhash on failure
           "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
       end
-
-    IO.puts("✅ [Media] Blurhash generated: #{String.slice(blur_hash, 0, 20)}...")
 
     # Use original dimensions for database (not resized dimensions)
     update_attrs = %{
@@ -289,39 +178,7 @@ defmodule Ysc.Media do
       processing_state: "completed"
     }
 
-    IO.puts("💾 [Media] Preparing database update with attrs:")
-    IO.inspect(update_attrs, label: "Update attrs")
-
-    IO.puts("💾 [Media] Current image state before update:")
-
-    IO.inspect(
-      %{
-        id: image.id,
-        optimized_image_path: image.optimized_image_path,
-        thumbnail_path: image.thumbnail_path,
-        processing_state: image.processing_state
-      },
-      label: "Current image state"
-    )
-
-    result = update_processed_image(image, update_attrs)
-    IO.puts("✅ [Media] Database update result:")
-    IO.inspect(result, label: "Update result")
-
-    IO.puts("💾 [Media] Image state after update:")
-
-    IO.inspect(
-      %{
-        id: result.id,
-        optimized_image_path: result.optimized_image_path,
-        thumbnail_path: result.thumbnail_path,
-        processing_state: result.processing_state
-      },
-      label: "Updated image state"
-    )
-
-    IO.puts("🔵 [Media] Finished process_image_upload")
-    result
+    update_processed_image(image, update_attrs)
   end
 
   # Detect image format from file extension
@@ -376,27 +233,11 @@ defmodule Ysc.Media do
     file_name = Path.basename(path)
     bucket_name = S3Config.bucket_name()
 
-    IO.puts("☁️ [Media] upload_file_to_s3 called")
-
-    IO.inspect(
-      %{
-        path: path,
-        file_name: file_name,
-        bucket_name: bucket_name,
-        file_exists: File.exists?(path),
-        file_size: if(File.exists?(path), do: File.stat!(path).size, else: 0)
-      },
-      label: "Upload file details"
-    )
-
     result =
       path
       |> ExAws.S3.Upload.stream_file()
       |> ExAws.S3.upload(bucket_name, file_name)
       |> ExAws.request!()
-
-    IO.puts("☁️ [Media] upload_file_to_s3 result:")
-    IO.inspect(result, label: "Upload request result")
 
     # Tigris doesn't return location in response, so construct it from the key
     location =
@@ -404,50 +245,29 @@ defmodule Ysc.Media do
         "" ->
           # Location is empty (Tigris behavior), construct URL from key
           key = result[:body][:key] || file_name
-          constructed_url = S3Config.object_url(key)
-          IO.puts("☁️ [Media] Location was empty, constructed URL: #{constructed_url}")
-          constructed_url
+          S3Config.object_url(key)
 
         loc when is_binary(loc) and loc != "" ->
           # Location is provided (AWS S3 behavior)
-          IO.puts("☁️ [Media] Using location from response: #{loc}")
           loc
 
         _ ->
           # Fallback: construct from key
           key = result[:body][:key] || file_name
-          constructed_url = S3Config.object_url(key)
-          IO.puts("☁️ [Media] Location was nil/empty, constructed URL: #{constructed_url}")
-          constructed_url
+          S3Config.object_url(key)
       end
-
-    IO.puts("☁️ [Media] Final upload location: #{inspect(location)}")
 
     # Return result with location in body for compatibility
     put_in(result, [:body, :location], location)
   end
 
   defp upload_files_to_s3(files) do
-    IO.puts("☁️ [Media] upload_files_to_s3 called with files:")
-    IO.inspect(files, label: "Files to upload")
-
-    result =
-      Enum.map(files, fn {k, v} ->
-        IO.puts("☁️ [Media] Uploading #{k}: #{v}")
-        upload_response = upload_file_to_s3(v)
-        IO.puts("☁️ [Media] Upload response for #{k}:")
-        IO.inspect(upload_response, label: "Upload response")
-
-        location = upload_response[:body][:location]
-        IO.puts("☁️ [Media] Extracted location for #{k}: #{inspect(location)}")
-        {k, location}
-      end)
-      |> Enum.into(%{})
-
-    IO.puts("☁️ [Media] upload_files_to_s3 final result:")
-    IO.inspect(result, label: "Final upload result")
-
-    result
+    Enum.map(files, fn {k, v} ->
+      upload_response = upload_file_to_s3(v)
+      location = upload_response[:body][:location]
+      {k, location}
+    end)
+    |> Enum.into(%{})
   end
 
   # Generate blurhash safely, ensuring we don't create files in source directories
@@ -455,37 +275,18 @@ defmodule Ysc.Media do
     # Use the temp image file (optimized_output_path) which is already in /tmp
     # This ensures Blurhash won't create files in the seed directory
 
-    IO.puts("🎨 [Media] generate_blur_hash_safely called")
-
-    IO.inspect(
-      %{
-        temp_image_path: temp_image_path,
-        original_path: original_path,
-        temp_file_exists: File.exists?(temp_image_path),
-        temp_file_size:
-          if(File.exists?(temp_image_path), do: File.stat!(temp_image_path).size, else: 0)
-      },
-      label: "Blurhash generation input"
-    )
-
     # Generate blurhash from the temp file
     result = Blurhash.downscale_and_encode(temp_image_path, @blur_hash_comp_x, @blur_hash_comp_y)
-
-    IO.puts("🎨 [Media] Blurhash.downscale_and_encode result:")
-    IO.inspect(result, label: "Blurhash result")
 
     blur_hash =
       case result do
         {:ok, hash} ->
-          IO.puts("✅ [Media] Blurhash generated successfully")
           hash
 
         {:error, reason} ->
-          IO.puts("❌ [Media] Blurhash generation returned error: #{inspect(reason)}")
           raise "Blurhash generation failed: #{inspect(reason)}"
 
         other ->
-          IO.puts("❌ [Media] Blurhash generation returned unexpected result: #{inspect(other)}")
           raise "Blurhash generation returned unexpected result: #{inspect(other)}"
       end
 

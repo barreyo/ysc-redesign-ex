@@ -369,7 +369,7 @@ defmodule Ysc.Bookings.BookingLocker do
     hold_duration = Keyword.get(opts, :hold_duration_minutes, @hold_duration_minutes)
     hold_expires_at = DateTime.add(DateTime.utc_now(), hold_duration, :minute)
 
-    if length(room_ids) == 0 do
+    if room_ids == [] do
       {:error, :no_rooms_provided}
     else
       Repo.transaction(fn ->

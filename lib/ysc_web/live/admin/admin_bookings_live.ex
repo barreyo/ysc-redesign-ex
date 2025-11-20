@@ -4243,7 +4243,7 @@ defmodule YscWeb.AdminBookingsLive do
 
     buyout_bookings =
       Enum.filter(active_bookings, fn booking ->
-        !Ecto.assoc_loaded?(booking.rooms) || length(booking.rooms) == 0
+        !Ecto.assoc_loaded?(booking.rooms) || booking.rooms == []
       end)
 
     socket

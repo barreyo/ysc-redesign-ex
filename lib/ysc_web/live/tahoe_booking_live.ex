@@ -2946,7 +2946,7 @@ defmodule YscWeb.TahoeBookingLive do
               if socket.assigns.selected_room_id, do: [socket.assigns.selected_room_id], else: []
             end
 
-          if length(room_ids) == 0 do
+          if room_ids == [] do
             {:error, :invalid_parameters}
           else
             # Create room bookings using BookingLocker

@@ -482,7 +482,7 @@ defmodule YscWeb.BookingCheckoutLive do
               []
             end
 
-          if length(room_ids) == 0 do
+          if room_ids == [] do
             {:error, :rooms_required}
           else
             # Calculate price for all rooms
