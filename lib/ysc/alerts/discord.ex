@@ -35,8 +35,6 @@ defmodule Ysc.Alerts.Discord do
 
   require Logger
 
-  @webhook_url Application.compile_env(:ysc, [__MODULE__, :webhook_url])
-
   # Discord color codes
   @colors %{
     # Blue
@@ -281,7 +279,8 @@ defmodule Ysc.Alerts.Discord do
   end
 
   defp webhook_url do
-    @webhook_url || System.get_env("DISCORD_WEBHOOK_URL")
+    # Read from runtime configuration first, then fall back to environment variable
+    Application.get_env(:ysc, __MODULE__)[:webhook_url] || System.get_env("DISCORD_WEBHOOK_URL")
   end
 
   defp get_environment do
