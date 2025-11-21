@@ -11,7 +11,7 @@ defmodule YscWeb.UserForgotPasswordLive do
         href={~p"/"}
         class="flex items-center text-center justify-center py-10 hover:opacity-80 transition duration-200 ease-in-out"
       >
-        <.ysc_logo class="h-20" />
+        <.ysc_logo class="h-24" />
       </.link>
       <.header class="text-center">
         Forgot your password?
