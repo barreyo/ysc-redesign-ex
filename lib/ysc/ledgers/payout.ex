@@ -29,9 +29,9 @@ defmodule Ysc.Ledgers.Payout do
       join_through: "payout_payments",
       join_keys: [payout_id: :id, payment_id: :id]
 
-    many_to_many :refunds, Ysc.Ledgers.LedgerTransaction,
+    many_to_many :refunds, Ysc.Ledgers.Refund,
       join_through: "payout_refunds",
-      join_keys: [payout_id: :id, refund_transaction_id: :id]
+      join_keys: [payout_id: :id, refund_id: :id]
 
     timestamps()
   end

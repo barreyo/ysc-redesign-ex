@@ -23,6 +23,7 @@ defmodule Ysc.Ledgers.LedgerEntry do
 
     field :description, :string
     field :amount, Money.Ecto.Composite.Type, default_currency: :USD
+    field :debit_credit, LedgerEntryDebitCredit
 
     timestamps()
   end
@@ -35,9 +36,10 @@ defmodule Ysc.Ledgers.LedgerEntry do
       :related_entity_id,
       :payment_id,
       :description,
-      :amount
+      :amount,
+      :debit_credit
     ])
-    |> validate_required([:account_id, :amount])
+    |> validate_required([:account_id, :amount, :debit_credit])
     |> validate_length(:description, max: 1000)
     |> foreign_key_constraint(:account_id)
     |> foreign_key_constraint(:payment_id)

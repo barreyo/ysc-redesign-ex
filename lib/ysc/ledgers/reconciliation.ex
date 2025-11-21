@@ -365,14 +365,24 @@ defmodule Ysc.Ledgers.Reconciliation do
 
   defp calculate_entries_total(entries) do
     Enum.reduce(entries, Money.new(0, :USD), fn entry, acc ->
-      {:ok, sum} = Money.add(acc, entry.amount)
-      sum
+      case entry.debit_credit do
+        "debit" ->
+          {:ok, sum} = Money.add(acc, entry.amount)
+          sum
+
+        "credit" ->
+          {:ok, sum} = Money.subtract(acc, entry.amount)
+          sum
+
+        _ ->
+          acc
+      end
     end)
   end
 
   defp calculate_payment_total_from_ledger do
     # Sum all positive entries for stripe_account (receivables from payments)
-    # This represents all money coming in from payments
+    # This represents all money coming in from payments (debit entries to stripe_account)
     query =
       from(e in LedgerEntry,
         join: a in assoc(e, :account),
@@ -380,7 +390,7 @@ defmodule Ysc.Ledgers.Reconciliation do
         on: t.payment_id == e.payment_id,
         where: a.name == "stripe_account",
         where: t.type == :payment,
-        where: fragment("(?.amount).amount > 0", e),
+        where: e.debit_credit == "debit",
         select: sum(fragment("(?.amount).amount", e))
       )
 
@@ -391,7 +401,7 @@ defmodule Ysc.Ledgers.Reconciliation do
   end
 
   defp calculate_refund_total_from_ledger do
-    # Sum all refund expense entries (positive amounts)
+    # Sum all refund expense entries (debit entries)
     query =
       from(e in LedgerEntry,
         join: a in assoc(e, :account),
@@ -399,7 +409,7 @@ defmodule Ysc.Ledgers.Reconciliation do
         on: t.payment_id == e.payment_id,
         where: a.name == "refund_expense",
         where: t.type == :refund,
-        where: fragment("(?.amount).amount > 0", e),
+        where: e.debit_credit == "debit",
         select: sum(fragment("(?.amount).amount", e))
       )
 
@@ -466,27 +476,27 @@ defmodule Ysc.Ledgers.Reconciliation do
   end
 
   defp reconcile_membership_payments do
-    # Get all membership payments from ledger entries
+    # Get all membership payments from ledger entries (credit entries to revenue account)
     ledger_total =
       from(e in LedgerEntry,
         join: a in assoc(e, :account),
         where: a.name == "membership_revenue",
-        where: fragment("(?.amount).amount < 0", e),
+        where: e.debit_credit == "credit",
         select: sum(fragment("(?.amount).amount", e))
       )
       |> Repo.one()
       |> case do
         nil -> Money.new(0, :USD)
-        amount -> Money.new(Decimal.abs(amount), :USD)
+        amount -> Money.new(amount, :USD)
       end
 
-    # Get all membership payments from payment records
+    # Get all membership payments from payment records (debit entries to stripe_account)
     payments_total =
       from(e in LedgerEntry,
         join: p in Payment,
         on: e.payment_id == p.id,
         where: e.related_entity_type == :membership,
-        where: fragment("(?.amount).amount > 0", e),
+        where: e.debit_credit == "debit",
         select: sum(fragment("(?.amount).amount", e))
       )
       |> Repo.one()
@@ -512,13 +522,13 @@ defmodule Ysc.Ledgers.Reconciliation do
 
     {:ok, total} = Money.add(ledger_totals.tahoe, ledger_totals.clear_lake)
 
-    # Get booking payments
+    # Get booking payments (debit entries to stripe_account)
     payments_total =
       from(e in LedgerEntry,
         join: p in Payment,
         on: e.payment_id == p.id,
         where: e.related_entity_type == :booking,
-        where: fragment("(?.amount).amount > 0", e),
+        where: e.debit_credit == "debit",
         select: sum(fragment("(?.amount).amount", e))
       )
       |> Repo.one()
@@ -539,13 +549,13 @@ defmodule Ysc.Ledgers.Reconciliation do
   defp reconcile_event_payments do
     ledger_total = get_revenue_total("event_revenue")
 
-    # Get event payments
+    # Get event payments (debit entries to stripe_account)
     payments_total =
       from(e in LedgerEntry,
         join: p in Payment,
         on: e.payment_id == p.id,
         where: e.related_entity_type == :event,
-        where: fragment("(?.amount).amount > 0", e),
+        where: e.debit_credit == "debit",
         select: sum(fragment("(?.amount).amount", e))
       )
       |> Repo.one()
@@ -566,13 +576,13 @@ defmodule Ysc.Ledgers.Reconciliation do
     from(e in LedgerEntry,
       join: a in assoc(e, :account),
       where: a.name == ^account_name,
-      where: fragment("(?.amount).amount < 0", e),
+      where: e.debit_credit == "credit",
       select: sum(fragment("(?.amount).amount", e))
     )
     |> Repo.one()
     |> case do
       nil -> Money.new(0, :USD)
-      amount -> Money.new(Decimal.abs(amount), :USD)
+      amount -> Money.new(amount, :USD)
     end
   end
 

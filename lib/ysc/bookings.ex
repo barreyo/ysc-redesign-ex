@@ -1588,21 +1588,19 @@ defmodule Ysc.Bookings do
     import Ecto.Query
 
     # Find ledger entries for this booking
-    # Note: We filter by amount > 0 in Elixir since Money comparison in queries is complex
-    entries =
+    # Payment entries are debit entries to stripe_account
+    entry =
       from(e in Ysc.Ledgers.LedgerEntry,
+        join: a in Ysc.Ledgers.LedgerAccount,
+        on: e.account_id == a.id,
         where: e.related_entity_type == ^:booking,
         where: e.related_entity_id == ^booking.id,
-        order_by: [desc: e.inserted_at]
+        where: e.debit_credit == "debit",
+        where: a.name == "stripe_account",
+        order_by: [desc: e.inserted_at],
+        limit: 1
       )
-      |> Repo.all()
-
-    # Filter for positive amounts and get the first one
-    entry =
-      entries
-      |> Enum.find(fn e ->
-        e.amount && Money.positive?(e.amount)
-      end)
+      |> Repo.one()
 
     if entry do
       {:ok, entry.amount}
@@ -1770,22 +1768,20 @@ defmodule Ysc.Bookings do
     import Ecto.Query
 
     # Find the payment via ledger entries
-    # Note: We filter by amount > 0 in Elixir since Money comparison in queries is complex
-    entries =
+    # Payment entries are debit entries to stripe_account
+    entry =
       from(e in Ysc.Ledgers.LedgerEntry,
+        join: a in Ysc.Ledgers.LedgerAccount,
+        on: e.account_id == a.id,
         where: e.related_entity_type == ^:booking,
         where: e.related_entity_id == ^booking.id,
+        where: e.debit_credit == "debit",
+        where: a.name == "stripe_account",
         preload: [:payment],
-        order_by: [desc: e.inserted_at]
+        order_by: [desc: e.inserted_at],
+        limit: 1
       )
-      |> Repo.all()
-
-    # Filter for positive amounts and get the first one
-    entry =
-      entries
-      |> Enum.find(fn e ->
-        e.amount && Money.positive?(e.amount)
-      end)
+      |> Repo.one()
 
     if entry && entry.payment do
       {:ok, entry.payment}

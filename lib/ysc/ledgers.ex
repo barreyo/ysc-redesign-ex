@@ -258,6 +258,7 @@ defmodule Ysc.Ledgers do
         account_id: stripe_receivable_account.id,
         payment_id: payment.id,
         amount: amount,
+        debit_credit: :debit,
         description: "Payment receivable from Stripe: #{description}",
         related_entity_type: entity_type,
         related_entity_id: entity_id
@@ -265,14 +266,13 @@ defmodule Ysc.Ledgers do
 
     entries = [stripe_receivable_entry | entries]
 
-    # Entry 2: Credit Revenue (negative amount for credit)
-    {:ok, negative_amount} = Money.mult(amount, -1)
-
+    # Entry 2: Credit Revenue (explicit credit with positive amount)
     {:ok, revenue_entry} =
       create_entry(%{
         account_id: revenue_account.id,
         payment_id: payment.id,
-        amount: negative_amount,
+        amount: amount,
+        debit_credit: :credit,
         description: "Revenue from #{entity_type}: #{description}",
         related_entity_type: entity_type,
         related_entity_id: entity_id
@@ -292,6 +292,7 @@ defmodule Ysc.Ledgers do
             account_id: stripe_fee_account.id,
             payment_id: payment.id,
             amount: stripe_fee,
+            debit_credit: :debit,
             description: "Stripe processing fee for payment #{payment.reference_id}",
             related_entity_type: :administration,
             related_entity_id: payment.id
@@ -302,8 +303,8 @@ defmodule Ysc.Ledgers do
           create_entry(%{
             account_id: stripe_account.id,
             payment_id: payment.id,
-            # Credit (negative) - reducing our receivable by the fee amount
-            amount: elem(Money.mult(stripe_fee, -1), 1),
+            amount: stripe_fee,
+            debit_credit: :credit,
             description: "Stripe fee deduction from receivable - #{payment.reference_id}",
             related_entity_type: :administration,
             related_entity_id: payment.id
@@ -430,10 +431,10 @@ defmodule Ysc.Ledgers do
 
     # Determine original revenue account
     original_entries = get_entries_by_payment(payment.id)
-    # Find the revenue entry (should be negative as a credit)
+    # Find the revenue entry (should be a credit entry)
     revenue_entry =
       Enum.find(original_entries, fn entry ->
-        entry.account.account_type == "revenue" && Decimal.negative?(entry.amount.amount)
+        entry.account.account_type == "revenue" && entry.debit_credit == "credit"
       end)
 
     stripe_account = get_account_by_name("stripe_account")
@@ -445,6 +446,7 @@ defmodule Ysc.Ledgers do
         account_id: refund_expense_account.id,
         payment_id: payment.id,
         amount: refund_amount,
+        debit_credit: :debit,
         description: "Refund issued: #{reason}",
         related_entity_type: :administration,
         related_entity_id: payment.id
@@ -457,8 +459,8 @@ defmodule Ysc.Ledgers do
       create_entry(%{
         account_id: stripe_account.id,
         payment_id: payment.id,
-        # Credit (negative) - increasing our liability to Stripe
-        amount: elem(Money.mult(refund_amount, -1), 1),
+        amount: refund_amount,
+        debit_credit: :credit,
         description: "Refund processed through Stripe: #{reason}",
         related_entity_type: :administration,
         related_entity_id: payment.id
@@ -473,8 +475,8 @@ defmodule Ysc.Ledgers do
           create_entry(%{
             account_id: revenue_entry.account_id,
             payment_id: payment.id,
-            # Debit (positive) - reversing the original revenue credit
             amount: refund_amount,
+            debit_credit: :debit,
             description: "Revenue reversal for refund: #{reason}",
             related_entity_type: :administration,
             related_entity_id: payment.id
@@ -585,6 +587,7 @@ defmodule Ysc.Ledgers do
         account_id: cash_account.id,
         payment_id: payment.id,
         amount: payout_amount,
+        debit_credit: :debit,
         description: "Stripe payout received: #{description}",
         related_entity_type: :administration,
         related_entity_id: payment.id
@@ -597,8 +600,8 @@ defmodule Ysc.Ledgers do
       create_entry(%{
         account_id: stripe_account.id,
         payment_id: payment.id,
-        # Credit (negative) - reducing our receivable
-        amount: elem(Money.mult(payout_amount, -1), 1),
+        amount: payout_amount,
+        debit_credit: :credit,
         description: "Stripe payout processed: #{description}",
         related_entity_type: :administration,
         related_entity_id: payment.id
@@ -659,13 +662,13 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
-  Links a refund transaction to a payout.
+  Links a refund to a payout.
   """
-  def link_refund_to_payout(payout, refund_transaction) do
+  def link_refund_to_payout(payout, refund) do
     # Check if already linked
     existing_link =
       from(pr in "payout_refunds",
-        where: pr.payout_id == ^payout.id and pr.refund_transaction_id == ^refund_transaction.id,
+        where: pr.payout_id == ^payout.id and pr.refund_id == ^refund.id,
         limit: 1
       )
       |> Repo.one()
@@ -676,7 +679,7 @@ defmodule Ysc.Ledgers do
       payout
       |> Repo.preload(:refunds)
       |> Ecto.Changeset.change()
-      |> Ecto.Changeset.put_assoc(:refunds, [refund_transaction | payout.refunds])
+      |> Ecto.Changeset.put_assoc(:refunds, [refund | payout.refunds])
       |> Repo.update()
     end
   end
@@ -695,15 +698,14 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
-  Gets all refund transactions linked to a payout.
+  Gets all refunds linked to a payout.
   """
   def get_payout_refunds(payout_id) do
-    from(t in LedgerTransaction,
+    from(r in Refund,
       join: pr in "payout_refunds",
-      on: pr.refund_transaction_id == t.id,
+      on: pr.refund_id == r.id,
       where: pr.payout_id == ^payout_id,
-      where: t.type == "refund",
-      preload: [:payment]
+      preload: [:payment, :user]
     )
     |> Repo.all()
   end
@@ -790,6 +792,7 @@ defmodule Ysc.Ledgers do
         account_id: accounts_receivable_account.id,
         payment_id: payment.id,
         amount: amount,
+        debit_credit: :debit,
         description: "Credit issued: #{reason}",
         related_entity_type: entity_type || :administration,
         related_entity_id: entity_id || payment.id
@@ -802,8 +805,8 @@ defmodule Ysc.Ledgers do
       create_entry(%{
         account_id: cash_account.id,
         payment_id: payment.id,
-        # Credit (negative)
-        amount: elem(Money.mult(amount, -1), 1),
+        amount: amount,
+        debit_credit: :credit,
         description: "Customer credit liability: #{reason}",
         related_entity_type: entity_type || :administration,
         related_entity_id: entity_id || payment.id
@@ -1004,9 +1007,9 @@ defmodule Ysc.Ledgers do
   @doc """
   Gets account balance for a specific account.
 
-  The balance is normalized based on the account's normal_balance:
-  - Credit-normal accounts (revenue, liabilities): negative raw balance = positive actual balance
-  - Debit-normal accounts (assets, expenses): positive raw balance = positive actual balance
+  The balance is calculated using explicit debit/credit fields:
+  - Debits increase debit-normal accounts (assets, expenses) and decrease credit-normal accounts (revenue, liabilities)
+  - Credits decrease debit-normal accounts and increase credit-normal accounts
   """
   def get_account_balance(account_id) do
     account = get_account(account_id)
@@ -1014,30 +1017,45 @@ defmodule Ysc.Ledgers do
     entries =
       from(e in LedgerEntry,
         where: e.account_id == ^account_id,
-        select: e.amount
+        select: {e.amount, e.debit_credit}
       )
       |> Repo.all()
 
-    # Sum the money amounts manually
-    raw_balance =
-      Enum.reduce(entries, Money.new(0, :USD), fn entry_amount, acc ->
-        case Money.add(acc, entry_amount) do
-          {:ok, result} -> result
-          # If addition fails, keep the accumulator
-          {:error, _reason} -> acc
+    # Calculate balance based on debit/credit and account's normal_balance
+    balance =
+      Enum.reduce(entries, Money.new(0, :USD), fn {entry_amount, debit_credit}, acc ->
+        # Determine if this entry increases or decreases the account balance
+        increases_balance? =
+          case {account.normal_balance, debit_credit} do
+            {"debit", "debit"} -> true
+            {"debit", "credit"} -> false
+            {"credit", "debit"} -> false
+            {"credit", "credit"} -> true
+            _ -> false
+          end
+
+        if increases_balance? do
+          case Money.add(acc, entry_amount) do
+            {:ok, result} -> result
+            {:error, _reason} -> acc
+          end
+        else
+          case Money.subtract(acc, entry_amount) do
+            {:ok, result} -> result
+            {:error, _reason} -> acc
+          end
         end
       end)
 
-    # Normalize balance based on account's normal_balance
-    normalize_balance_for_account(raw_balance, account)
+    balance
   end
 
   @doc """
   Gets account balance for a specific account within a date range.
 
-  The balance is normalized based on the account's normal_balance:
-  - Credit-normal accounts (revenue, liabilities): negative raw balance = positive actual balance
-  - Debit-normal accounts (assets, expenses): positive raw balance = positive actual balance
+  The balance is calculated using explicit debit/credit fields:
+  - Debits increase debit-normal accounts (assets, expenses) and decrease credit-normal accounts (revenue, liabilities)
+  - Credits decrease debit-normal accounts and increase credit-normal accounts
   """
   def get_account_balance(account_id, start_date, end_date) do
     account = get_account(account_id)
@@ -1049,22 +1067,37 @@ defmodule Ysc.Ledgers do
         where: e.account_id == ^account_id,
         where: p.payment_date >= ^start_date,
         where: p.payment_date <= ^end_date,
-        select: e.amount
+        select: {e.amount, e.debit_credit}
       )
       |> Repo.all()
 
-    # Sum the money amounts manually
-    raw_balance =
-      Enum.reduce(entries, Money.new(0, :USD), fn entry_amount, acc ->
-        case Money.add(acc, entry_amount) do
-          {:ok, result} -> result
-          # If addition fails, keep the accumulator
-          {:error, _reason} -> acc
+    # Calculate balance based on debit/credit and account's normal_balance
+    balance =
+      Enum.reduce(entries, Money.new(0, :USD), fn {entry_amount, debit_credit}, acc ->
+        # Determine if this entry increases or decreases the account balance
+        increases_balance? =
+          case {account.normal_balance, debit_credit} do
+            {"debit", "debit"} -> true
+            {"debit", "credit"} -> false
+            {"credit", "debit"} -> false
+            {"credit", "credit"} -> true
+            _ -> false
+          end
+
+        if increases_balance? do
+          case Money.add(acc, entry_amount) do
+            {:ok, result} -> result
+            {:error, _reason} -> acc
+          end
+        else
+          case Money.subtract(acc, entry_amount) do
+            {:ok, result} -> result
+            {:error, _reason} -> acc
+          end
         end
       end)
 
-    # Normalize balance based on account's normal_balance
-    normalize_balance_for_account(raw_balance, account)
+    balance
   end
 
   @doc """
@@ -1075,6 +1108,7 @@ defmodule Ysc.Ledgers do
     accounts = Repo.all(LedgerAccount)
 
     # Then calculate balances for each account
+    # Note: get_account_balance already normalizes based on normal_balance
     Enum.map(accounts, fn account ->
       balance = get_account_balance(account.id)
       %{account: account, balance: balance}
@@ -1089,6 +1123,7 @@ defmodule Ysc.Ledgers do
     accounts = Repo.all(LedgerAccount)
 
     # Then calculate balances for each account within the date range
+    # Note: get_account_balance already normalizes based on normal_balance
     Enum.map(accounts, fn account ->
       balance = get_account_balance(account.id, start_date, end_date)
       %{account: account, balance: balance}
@@ -1258,9 +1293,8 @@ defmodule Ysc.Ledgers do
         nil
 
       entry ->
-        # Filter for negative amounts (credits) in Elixir since we can't do it in the query
-        # Revenue entries are credits (negative values)
-        if Decimal.negative?(entry.amount.amount), do: entry, else: nil
+        # Filter for credit entries (revenue entries are credits)
+        if entry.debit_credit == "credit", do: entry, else: nil
     end
   end
 
@@ -1364,33 +1398,31 @@ defmodule Ysc.Ledgers do
   def verify_ledger_balance do
     require Logger
 
-    # Get total debits (positive amounts)
+    # Get total debits (all amounts with debit_credit = 'debit')
     total_debits_query =
       from(e in LedgerEntry,
-        where: fragment("(?.amount).amount > 0", e),
+        where: e.debit_credit == "debit",
         select: sum(fragment("(?.amount).amount", e))
       )
 
     total_debits_cents = Repo.one(total_debits_query) || Decimal.new(0)
 
-    # Get total credits (negative amounts)
+    # Get total credits (all amounts with debit_credit = 'credit')
     total_credits_query =
       from(e in LedgerEntry,
-        where: fragment("(?.amount).amount < 0", e),
+        where: e.debit_credit == "credit",
         select: sum(fragment("(?.amount).amount", e))
       )
 
     total_credits_cents = Repo.one(total_credits_query) || Decimal.new(0)
 
-    # Convert to Money for proper addition
-    # Money.new(amount, currency) returns Money.t() directly
+    # Convert to Money for proper subtraction
     total_debits = Money.new(total_debits_cents, :USD)
     total_credits = Money.new(total_credits_cents, :USD)
 
-    # In double-entry accounting, debits + credits should equal zero
-    # (debits are positive, credits are negative)
-    # Money.add returns {:ok, money} so we need to unwrap
-    {:ok, balance} = Money.add(total_debits, total_credits)
+    # In double-entry accounting, total debits should equal total credits
+    # Since both are now positive, we subtract credits from debits
+    {:ok, balance} = Money.subtract(total_debits, total_credits)
 
     if Money.equal?(balance, Money.new(0, :USD)) do
       Logger.info("Ledger balance verified",
@@ -1461,53 +1493,14 @@ defmodule Ysc.Ledgers do
   @doc """
   Calculates the balance for a specific account.
 
-  Returns the sum of all entries for that account, normalized based on normal_balance.
+  Returns the balance calculated using explicit debit/credit fields.
   """
   def calculate_account_balance(account_id) do
-    account = get_account(account_id)
-
-    result =
-      from(e in LedgerEntry,
-        where: e.account_id == ^account_id,
-        select: sum(fragment("(?.amount).amount", e))
-      )
-      |> Repo.one()
-
-    raw_balance =
-      case result do
-        nil -> Money.new(0, :USD)
-        decimal -> Money.new(decimal, :USD)
-      end
-
-    # Normalize balance based on account's normal_balance
-    normalize_balance_for_account(raw_balance, account)
+    get_account_balance(account_id)
   end
 
-  # Helper function to normalize balance based on account's normal_balance
-  # Credit-normal accounts: credits are stored as negative, so negate to show positive
-  # Debit-normal accounts: debits are stored as positive, so keep as-is
-  defp normalize_balance_for_account(balance, %LedgerAccount{normal_balance: "credit"}) do
-    # Credit-normal: negative raw balance = positive actual balance
-    case Money.mult(balance, -1) do
-      {:ok, normalized} -> normalized
-      {:error, _} -> balance
-    end
-  end
-
-  defp normalize_balance_for_account(balance, %LedgerAccount{normal_balance: "debit"}) do
-    # Debit-normal: positive raw balance = positive actual balance (keep as-is)
-    balance
-  end
-
-  defp normalize_balance_for_account(balance, nil) do
-    # If account not found, return balance as-is
-    balance
-  end
-
-  defp normalize_balance_for_account(balance, _) do
-    # Fallback: return balance as-is if normal_balance is not set
-    balance
-  end
+  # Note: normalize_balance_for_account is no longer needed since we use explicit debit/credit fields
+  # All amounts are positive and balances are calculated directly based on debit/credit
 
   @doc """
   Gets detailed imbalance information including which accounts are off.
