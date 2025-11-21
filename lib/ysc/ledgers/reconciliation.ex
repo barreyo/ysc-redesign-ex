@@ -371,7 +371,7 @@ defmodule Ysc.Ledgers.Reconciliation do
           sum
 
         "credit" ->
-          {:ok, sum} = Money.subtract(acc, entry.amount)
+          {:ok, sum} = Money.sub(acc, entry.amount)
           sum
 
         _ ->

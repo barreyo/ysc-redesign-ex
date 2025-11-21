@@ -1040,7 +1040,7 @@ defmodule Ysc.Ledgers do
             {:error, _reason} -> acc
           end
         else
-          case Money.subtract(acc, entry_amount) do
+          case Money.sub(acc, entry_amount) do
             {:ok, result} -> result
             {:error, _reason} -> acc
           end
@@ -1090,7 +1090,7 @@ defmodule Ysc.Ledgers do
             {:error, _reason} -> acc
           end
         else
-          case Money.subtract(acc, entry_amount) do
+          case Money.sub(acc, entry_amount) do
             {:ok, result} -> result
             {:error, _reason} -> acc
           end
@@ -1422,7 +1422,7 @@ defmodule Ysc.Ledgers do
 
     # In double-entry accounting, total debits should equal total credits
     # Since both are now positive, we subtract credits from debits
-    {:ok, balance} = Money.subtract(total_debits, total_credits)
+    {:ok, balance} = Money.sub(total_debits, total_credits)
 
     if Money.equal?(balance, Money.new(0, :USD)) do
       Logger.info("Ledger balance verified",
