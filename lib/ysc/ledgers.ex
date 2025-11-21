@@ -73,6 +73,13 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
+  Gets all ledger accounts.
+  """
+  def list_accounts do
+    Repo.all(LedgerAccount)
+  end
+
+  @doc """
   Gets a ledger account by ID.
   """
   def get_account(id), do: Repo.get(LedgerAccount, id)
@@ -831,6 +838,96 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
+  Gets a single ledger entry by ID with preloaded associations.
+  """
+  def get_entry(id) do
+    from(e in LedgerEntry,
+      where: e.id == ^id,
+      preload: [:account, :payment]
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Updates a ledger entry and its corresponding entry to maintain double-entry balance.
+
+  This is a development tool and should be used with caution.
+  When updating an entry's amount, the corresponding entry (same payment_id, opposite debit_credit)
+  will be updated to maintain balance.
+  """
+  def update_entry_with_balance(entry_id, attrs) do
+    Repo.transaction(fn ->
+      entry = get_entry(entry_id)
+
+      if is_nil(entry) do
+        Repo.rollback({:error, :not_found})
+      end
+
+      # If amount is being changed and entry has a payment, find and update the corresponding entry
+      updated_entry =
+        if Map.has_key?(attrs, :amount) && entry.payment_id do
+          new_amount = Map.get(attrs, :amount, entry.amount)
+
+          # Find the corresponding entry (same payment, opposite debit_credit, same amount)
+          # We look for entries with the same amount to find the matching pair
+          opposite_type = if entry.debit_credit == "debit", do: "credit", else: "debit"
+
+          corresponding_entry =
+            from(e in LedgerEntry,
+              where: e.payment_id == ^entry.payment_id,
+              where: e.debit_credit == ^opposite_type,
+              where: e.id != ^entry.id,
+              where:
+                fragment("(?.amount).amount", e) == fragment("(?.amount).amount", ^entry.amount),
+              preload: [:account],
+              limit: 1
+            )
+            |> Repo.one()
+
+          # Update the main entry
+          case update_entry(entry, attrs) do
+            {:ok, updated_entry} ->
+              # If we found a corresponding entry, update it too to maintain balance
+              if corresponding_entry do
+                case update_entry(corresponding_entry, %{amount: new_amount}) do
+                  {:ok, _updated_corresponding} ->
+                    updated_entry
+
+                  {:error, changeset} ->
+                    Repo.rollback({:error, {:corresponding_entry_update_failed, changeset}})
+                end
+              else
+                # No corresponding entry found - this might be okay for some entries
+                # but we'll still update the main entry
+                updated_entry
+              end
+
+            {:error, changeset} ->
+              Repo.rollback({:error, changeset})
+          end
+        else
+          # No amount change, just update the entry normally
+          case update_entry(entry, attrs) do
+            {:ok, updated_entry} -> updated_entry
+            {:error, changeset} -> Repo.rollback({:error, changeset})
+          end
+        end
+
+      # Reload with associations
+      get_entry(updated_entry.id)
+    end)
+  end
+
+  @doc """
+  Updates a ledger entry.
+  """
+  def update_entry(%LedgerEntry{} = entry, attrs) do
+    entry
+    |> LedgerEntry.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
   Gets all payments for a user.
   """
   def get_payments_by_user(user_id) do
@@ -1213,6 +1310,20 @@ defmodule Ysc.Ledgers do
     )
     |> Repo.all()
     |> Enum.map(&add_payment_type_info/1)
+  end
+
+  @doc """
+  Gets ledger entries within a date range.
+  """
+  def get_ledger_entries(start_date, end_date, limit \\ 500) do
+    from(e in LedgerEntry,
+      preload: [:account, :payment],
+      where: e.inserted_at >= ^start_date,
+      where: e.inserted_at <= ^end_date,
+      order_by: [desc: e.inserted_at],
+      limit: ^limit
+    )
+    |> Repo.all()
   end
 
   @doc """
