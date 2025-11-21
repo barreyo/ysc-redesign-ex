@@ -870,15 +870,19 @@ defmodule Ysc.Ledgers do
 
           # Find the corresponding entry (same payment, opposite debit_credit, same amount)
           # We look for entries with the same amount to find the matching pair
-          opposite_type = if entry.debit_credit == "debit", do: "credit", else: "debit"
+          # Convert to string to handle EctoEnum atoms
+          entry_debit_credit_str = to_string(entry.debit_credit)
+          opposite_type = if entry_debit_credit_str == "debit", do: "credit", else: "debit"
+
+          # Extract the decimal amount from the Money struct for comparison
+          entry_amount_decimal = Money.to_decimal(entry.amount)
 
           corresponding_entry =
             from(e in LedgerEntry,
               where: e.payment_id == ^entry.payment_id,
               where: e.debit_credit == ^opposite_type,
               where: e.id != ^entry.id,
-              where:
-                fragment("(?.amount).amount", e) == fragment("(?.amount).amount", ^entry.amount),
+              where: fragment("(?.amount).amount", e) == ^entry_amount_decimal,
               preload: [:account],
               limit: 1
             )
