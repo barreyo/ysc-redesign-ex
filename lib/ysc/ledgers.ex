@@ -1122,8 +1122,12 @@ defmodule Ysc.Ledgers do
     balance =
       Enum.reduce(entries, Money.new(0, :USD), fn {entry_amount, debit_credit}, acc ->
         # Determine if this entry increases or decreases the account balance
+        # Convert to strings to handle EctoEnum atoms/strings
+        normal_balance_str = to_string(account.normal_balance)
+        debit_credit_str = to_string(debit_credit)
+
         increases_balance? =
-          case {account.normal_balance, debit_credit} do
+          case {normal_balance_str, debit_credit_str} do
             {"debit", "debit"} -> true
             {"debit", "credit"} -> false
             {"credit", "debit"} -> false
@@ -1172,8 +1176,12 @@ defmodule Ysc.Ledgers do
     balance =
       Enum.reduce(entries, Money.new(0, :USD), fn {entry_amount, debit_credit}, acc ->
         # Determine if this entry increases or decreases the account balance
+        # Convert to strings to handle EctoEnum atoms/strings
+        normal_balance_str = to_string(account.normal_balance)
+        debit_credit_str = to_string(debit_credit)
+
         increases_balance? =
-          case {account.normal_balance, debit_credit} do
+          case {normal_balance_str, debit_credit_str} do
             {"debit", "debit"} -> true
             {"debit", "credit"} -> false
             {"credit", "debit"} -> false
