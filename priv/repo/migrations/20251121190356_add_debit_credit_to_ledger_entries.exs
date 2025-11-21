@@ -17,7 +17,7 @@ defmodule Ysc.Repo.Migrations.AddDebitCreditToLedgerEntries do
         ELSE 'debit'
       END,
       amount = CASE
-        WHEN (amount).amount < 0 THEN ROW(-(amount).amount, (amount).currency)::money_with_currency
+        WHEN (amount).amount < 0 THEN ROW((amount).currency_code, -(amount).amount)::money_with_currency
         ELSE amount
       END;
     """
@@ -36,7 +36,7 @@ defmodule Ysc.Repo.Migrations.AddDebitCreditToLedgerEntries do
     execute """
       UPDATE ledger_entries
       SET amount = CASE
-        WHEN debit_credit = 'credit' THEN ROW(-(amount).amount, (amount).currency)::money_with_currency
+        WHEN debit_credit = 'credit' THEN ROW((amount).currency_code, -(amount).amount)::money_with_currency
         ELSE amount
       END;
     """
