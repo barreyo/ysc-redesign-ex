@@ -1164,6 +1164,8 @@ defmodule YscWeb.AdminMoneyLive do
 
   defp get_normal_balance_badge_color("credit"), do: "bg-blue-100 text-blue-800"
   defp get_normal_balance_badge_color("debit"), do: "bg-purple-100 text-purple-800"
+  defp get_normal_balance_badge_color(:credit), do: "bg-blue-100 text-blue-800"
+  defp get_normal_balance_badge_color(:debit), do: "bg-purple-100 text-purple-800"
   defp get_normal_balance_badge_color(_), do: "bg-zinc-100 text-zinc-800"
 
   # Determine balance color based on whether it's positive or negative
