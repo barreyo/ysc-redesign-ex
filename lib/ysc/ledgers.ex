@@ -441,7 +441,9 @@ defmodule Ysc.Ledgers do
     # Find the revenue entry (should be a credit entry)
     revenue_entry =
       Enum.find(original_entries, fn entry ->
-        entry.account.account_type == "revenue" && entry.debit_credit == "credit"
+        # Convert to strings to handle EctoEnum atoms
+        to_string(entry.account.account_type) == "revenue" &&
+          to_string(entry.debit_credit) == "credit"
       end)
 
     stripe_account = get_account_by_name("stripe_account")
@@ -1406,7 +1408,7 @@ defmodule Ysc.Ledgers do
       join: a in LedgerAccount,
       on: e.account_id == a.id,
       where: e.payment_id == ^payment_id,
-      where: a.account_type == "revenue",
+      where: a.account_type == ^"revenue",
       preload: [:account],
       limit: 1
     )
@@ -1417,7 +1419,8 @@ defmodule Ysc.Ledgers do
 
       entry ->
         # Filter for credit entries (revenue entries are credits)
-        if entry.debit_credit == "credit", do: entry, else: nil
+        # Convert to string to handle EctoEnum atoms
+        if to_string(entry.debit_credit) == "credit", do: entry, else: nil
     end
   end
 

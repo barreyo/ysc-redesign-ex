@@ -1185,10 +1185,14 @@ defmodule YscWeb.AdminMoneyLive do
 
   defp get_debit_credit_badge_color("debit"), do: "bg-purple-100 text-purple-800"
   defp get_debit_credit_badge_color("credit"), do: "bg-blue-100 text-blue-800"
+  defp get_debit_credit_badge_color(:debit), do: "bg-purple-100 text-purple-800"
+  defp get_debit_credit_badge_color(:credit), do: "bg-blue-100 text-blue-800"
   defp get_debit_credit_badge_color(_), do: "bg-zinc-100 text-zinc-800"
 
   defp get_debit_credit_amount_color("debit"), do: "text-purple-700"
   defp get_debit_credit_amount_color("credit"), do: "text-blue-700"
+  defp get_debit_credit_amount_color(:debit), do: "text-purple-700"
+  defp get_debit_credit_amount_color(:credit), do: "text-blue-700"
   defp get_debit_credit_amount_color(_), do: "text-zinc-900"
 
   defp entry_changeset(params) do
