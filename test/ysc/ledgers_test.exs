@@ -41,6 +41,37 @@ defmodule Ysc.LedgersTest do
       user = user_fixture()
       Ledgers.ensure_basic_accounts()
 
+      # Configure QuickBooks client to use mock (prevents errors when sync jobs run)
+      Application.put_env(:ysc, :quickbooks_client, Ysc.Quickbooks.ClientMock)
+
+      # Set up QuickBooks configuration for tests
+      Application.put_env(:ysc, :quickbooks,
+        client_id: "test_client_id",
+        client_secret: "test_client_secret",
+        realm_id: "test_realm_id",
+        access_token: "test_access_token",
+        refresh_token: "test_refresh_token",
+        event_item_id: "event_item_123",
+        donation_item_id: "donation_item_123",
+        bank_account_id: "bank_account_123",
+        stripe_account_id: "stripe_account_123"
+      )
+
+      # Set up default mocks for automatic sync jobs
+      import Mox
+
+      stub(Ysc.Quickbooks.ClientMock, :create_customer, fn _params ->
+        {:ok, %{"Id" => "qb_customer_default"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_sales_receipt, fn _params ->
+        {:ok, %{"Id" => "qb_sr_default", "TotalAmt" => "0.00"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_deposit, fn _params ->
+        {:ok, %{"Id" => "qb_deposit_default", "TotalAmt" => "0.00"}}
+      end)
+
       %{user: user}
     end
 
@@ -99,6 +130,37 @@ defmodule Ysc.LedgersTest do
     setup do
       user = user_fixture()
       Ledgers.ensure_basic_accounts()
+
+      # Configure QuickBooks client to use mock (prevents errors when sync jobs run)
+      Application.put_env(:ysc, :quickbooks_client, Ysc.Quickbooks.ClientMock)
+
+      # Set up QuickBooks configuration for tests
+      Application.put_env(:ysc, :quickbooks,
+        client_id: "test_client_id",
+        client_secret: "test_client_secret",
+        realm_id: "test_realm_id",
+        access_token: "test_access_token",
+        refresh_token: "test_refresh_token",
+        event_item_id: "event_item_123",
+        donation_item_id: "donation_item_123",
+        bank_account_id: "bank_account_123",
+        stripe_account_id: "stripe_account_123"
+      )
+
+      # Set up default mocks for automatic sync jobs
+      import Mox
+
+      stub(Ysc.Quickbooks.ClientMock, :create_customer, fn _params ->
+        {:ok, %{"Id" => "qb_customer_default"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_sales_receipt, fn _params ->
+        {:ok, %{"Id" => "qb_sr_default", "TotalAmt" => "0.00"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_deposit, fn _params ->
+        {:ok, %{"Id" => "qb_deposit_default", "TotalAmt" => "0.00"}}
+      end)
 
       # Create a test payment first
       amount = Money.new(5000, :USD)
@@ -162,23 +224,29 @@ defmodule Ysc.LedgersTest do
         assert entry.payment_id == payment.id
       end)
 
-      # Verify we have a refund expense entry (debit - positive)
+      # Verify we have a refund expense entry (debit - positive amount, debit_credit: :debit)
       refund_expense_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Refund issued" && Money.positive?(e.amount)
+          e.description =~ "Refund issued" &&
+            e.debit_credit == :debit &&
+            Money.positive?(e.amount)
         end)
 
       assert refund_expense_entry != nil
       assert refund_expense_entry.amount == refund_amount
+      assert refund_expense_entry.debit_credit == :debit
 
-      # Verify we have a stripe account credit entry (credit - negative)
+      # Verify we have a stripe account credit entry (credit - positive amount, debit_credit: :credit)
       stripe_credit_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Refund processed through Stripe" && Money.negative?(e.amount)
+          e.description =~ "Refund processed through Stripe" &&
+            e.debit_credit == :credit &&
+            Money.positive?(e.amount)
         end)
 
       assert stripe_credit_entry != nil
-      assert Money.equal?(Money.abs(stripe_credit_entry.amount), refund_amount)
+      assert Money.equal?(stripe_credit_entry.amount, refund_amount)
+      assert stripe_credit_entry.debit_credit == :credit
     end
   end
 
@@ -186,6 +254,37 @@ defmodule Ysc.LedgersTest do
     setup do
       user = user_fixture()
       Ledgers.ensure_basic_accounts()
+
+      # Configure QuickBooks client to use mock (prevents errors when sync jobs run)
+      Application.put_env(:ysc, :quickbooks_client, Ysc.Quickbooks.ClientMock)
+
+      # Set up QuickBooks configuration for tests
+      Application.put_env(:ysc, :quickbooks,
+        client_id: "test_client_id",
+        client_secret: "test_client_secret",
+        realm_id: "test_realm_id",
+        access_token: "test_access_token",
+        refresh_token: "test_refresh_token",
+        event_item_id: "event_item_123",
+        donation_item_id: "donation_item_123",
+        bank_account_id: "bank_account_123",
+        stripe_account_id: "stripe_account_123"
+      )
+
+      # Set up default mocks for automatic sync jobs
+      import Mox
+
+      stub(Ysc.Quickbooks.ClientMock, :create_customer, fn _params ->
+        {:ok, %{"Id" => "qb_customer_default"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_sales_receipt, fn _params ->
+        {:ok, %{"Id" => "qb_sr_default", "TotalAmt" => "0.00"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_deposit, fn _params ->
+        {:ok, %{"Id" => "qb_deposit_default", "TotalAmt" => "0.00"}}
+      end)
 
       %{user: user}
     end

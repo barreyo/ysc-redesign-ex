@@ -23,6 +23,14 @@ defmodule Ysc.Ledgers.Refund do
     field :reason, :string
     field :status, LedgerPaymentStatus
 
+    # QuickBooks sync fields
+    field :quickbooks_sales_receipt_id, :string
+    field :quickbooks_sync_status, :string
+    field :quickbooks_sync_error, :map
+    field :quickbooks_response, :map
+    field :quickbooks_synced_at, :utc_datetime
+    field :quickbooks_last_sync_attempt_at, :utc_datetime
+
     # Reference to the original payment being refunded
     belongs_to :payment, Ysc.Ledgers.Payment, foreign_key: :payment_id, references: :id
 
@@ -41,7 +49,13 @@ defmodule Ysc.Ledgers.Refund do
       :reason,
       :status,
       :payment_id,
-      :user_id
+      :user_id,
+      :quickbooks_sales_receipt_id,
+      :quickbooks_sync_status,
+      :quickbooks_sync_error,
+      :quickbooks_response,
+      :quickbooks_synced_at,
+      :quickbooks_last_sync_attempt_at
     ])
     |> validate_required([
       :external_provider,

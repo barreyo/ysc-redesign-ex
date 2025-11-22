@@ -21,6 +21,14 @@ defmodule Ysc.Ledgers.Payout do
     field :description, :string
     field :metadata, :map
 
+    # QuickBooks sync fields
+    field :quickbooks_deposit_id, :string
+    field :quickbooks_sync_status, :string
+    field :quickbooks_sync_error, :map
+    field :quickbooks_response, :map
+    field :quickbooks_synced_at, :utc_datetime
+    field :quickbooks_last_sync_attempt_at, :utc_datetime
+
     # Link to the payment record created for this payout in the ledger
     belongs_to :payment, Ysc.Ledgers.Payment, foreign_key: :payment_id, references: :id
 
@@ -46,7 +54,13 @@ defmodule Ysc.Ledgers.Payout do
       :arrival_date,
       :description,
       :metadata,
-      :payment_id
+      :payment_id,
+      :quickbooks_deposit_id,
+      :quickbooks_sync_status,
+      :quickbooks_sync_error,
+      :quickbooks_response,
+      :quickbooks_synced_at,
+      :quickbooks_last_sync_attempt_at
     ])
     |> validate_required([:stripe_payout_id, :amount, :currency, :status])
     |> validate_length(:stripe_payout_id, max: 255)

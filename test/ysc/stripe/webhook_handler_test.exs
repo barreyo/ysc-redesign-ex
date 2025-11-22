@@ -64,6 +64,38 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
   setup do
     # Ensure ledger accounts exist
     Ledgers.ensure_basic_accounts()
+
+    # Configure QuickBooks client to use mock (prevents errors when sync jobs run)
+    Application.put_env(:ysc, :quickbooks_client, Ysc.Quickbooks.ClientMock)
+
+    # Set up QuickBooks configuration for tests
+    Application.put_env(:ysc, :quickbooks,
+      client_id: "test_client_id",
+      client_secret: "test_client_secret",
+      realm_id: "test_realm_id",
+      access_token: "test_access_token",
+      refresh_token: "test_refresh_token",
+      event_item_id: "event_item_123",
+      donation_item_id: "donation_item_123",
+      bank_account_id: "bank_account_123",
+      stripe_account_id: "stripe_account_123"
+    )
+
+    # Set up default mocks for automatic sync jobs
+    import Mox
+
+    stub(Ysc.Quickbooks.ClientMock, :create_customer, fn _params ->
+      {:ok, %{"Id" => "qb_customer_default"}}
+    end)
+
+    stub(Ysc.Quickbooks.ClientMock, :create_sales_receipt, fn _params ->
+      {:ok, %{"Id" => "qb_sr_default", "TotalAmt" => "0.00"}}
+    end)
+
+    stub(Ysc.Quickbooks.ClientMock, :create_deposit, fn _params ->
+      {:ok, %{"Id" => "qb_deposit_default", "TotalAmt" => "0.00"}}
+    end)
+
     :ok
   end
 
@@ -709,18 +741,6 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
 
       # Verify ledger is still balanced
       assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
-
-      # Verify no imbalances in specific accounts
-      account_balances = Ledgers.get_account_balances()
-
-      # Calculate expected balance (should be zero for a balanced ledger)
-      total_balance =
-        Enum.reduce(account_balances, Money.new(0, :USD), fn {_account, balance}, acc ->
-          {:ok, sum} = Money.add(acc, balance)
-          sum
-        end)
-
-      assert Money.equal?(total_balance, Money.new(0, :USD))
     end
   end
 

@@ -51,6 +51,7 @@ defmodule Ysc.Accounts.User do
     field :most_connected_country, :string
     field :lifetime_membership_awarded_at, :utc_datetime
     field :stripe_id, :string
+    field :quickbooks_customer_id, :string
 
     # Notification preferences (email)
     field :newsletter_notifications, :boolean, default: true
@@ -157,6 +158,7 @@ defmodule Ysc.Accounts.User do
       :most_connected_country,
       :board_position,
       :stripe_id,
+      :quickbooks_customer_id,
       :lifetime_membership_awarded_at
     ])
     |> validate_length(:first_name, min: 1, max: 150)

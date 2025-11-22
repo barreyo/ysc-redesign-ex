@@ -18,6 +18,37 @@ defmodule Ysc.Ledgers.ReconciliationTest do
     # Ensure basic accounts exist for all tests
     Ledgers.ensure_basic_accounts()
 
+    # Configure QuickBooks client to use mock (prevents errors when sync jobs run)
+    Application.put_env(:ysc, :quickbooks_client, Ysc.Quickbooks.ClientMock)
+
+    # Set up QuickBooks configuration for tests
+    Application.put_env(:ysc, :quickbooks,
+      client_id: "test_client_id",
+      client_secret: "test_client_secret",
+      realm_id: "test_realm_id",
+      access_token: "test_access_token",
+      refresh_token: "test_refresh_token",
+      event_item_id: "event_item_123",
+      donation_item_id: "donation_item_123",
+      bank_account_id: "bank_account_123",
+      stripe_account_id: "stripe_account_123"
+    )
+
+    # Set up default mocks for automatic sync jobs
+    import Mox
+
+    stub(Ysc.Quickbooks.ClientMock, :create_customer, fn _params ->
+      {:ok, %{"Id" => "qb_customer_default"}}
+    end)
+
+    stub(Ysc.Quickbooks.ClientMock, :create_sales_receipt, fn _params ->
+      {:ok, %{"Id" => "qb_sr_default", "TotalAmt" => "0.00"}}
+    end)
+
+    stub(Ysc.Quickbooks.ClientMock, :create_deposit, fn _params ->
+      {:ok, %{"Id" => "qb_deposit_default", "TotalAmt" => "0.00"}}
+    end)
+
     user = user_fixture()
 
     %{user: user}
@@ -82,7 +113,8 @@ defmodule Ysc.Ledgers.ReconciliationTest do
         account_id: stripe_account.id,
         amount: Money.new(5000, :USD),
         description: "Orphaned entry",
-        payment_id: payment.id
+        payment_id: payment.id,
+        debit_credit: :debit
       })
 
       # Run reconciliation
@@ -134,7 +166,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       Ecto.Adapters.SQL.query!(
         Repo,
-        "INSERT INTO ledger_entries (id, account_id, amount, description, payment_id, inserted_at, updated_at) VALUES (gen_random_uuid(), $1, ROW('USD', 3000), 'Orphaned', $2, NOW(), NOW())",
+        "INSERT INTO ledger_entries (id, account_id, amount, description, payment_id, debit_credit, inserted_at, updated_at) VALUES (gen_random_uuid(), $1, ROW('USD', 3000), 'Orphaned', $2, 'debit', NOW(), NOW())",
         [
           to_uuid(stripe_account.id),
           to_uuid(fake_payment_id)
@@ -290,7 +322,8 @@ defmodule Ysc.Ledgers.ReconciliationTest do
         account_id: stripe_account.id,
         amount: Money.new(10000, :USD),
         description: "Debit without credit",
-        payment_id: payment.id
+        payment_id: payment.id,
+        debit_credit: :debit
       })
 
       result = Reconciliation.reconcile_payments()
@@ -638,7 +671,8 @@ defmodule Ysc.Ledgers.ReconciliationTest do
         account_id: stripe_account.id,
         amount: Money.new(5000, :USD),
         description: "Imbalancing entry",
-        payment_id: payment.id
+        payment_id: payment.id,
+        debit_credit: :debit
       })
 
       result = Reconciliation.check_ledger_balance()
@@ -724,7 +758,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       Ecto.Adapters.SQL.query!(
         Repo,
-        "INSERT INTO ledger_entries (id, account_id, amount, description, payment_id, inserted_at, updated_at) VALUES (gen_random_uuid(), $1, ROW('USD', 5000), 'Orphaned entry', $2, NOW(), NOW())",
+        "INSERT INTO ledger_entries (id, account_id, amount, description, payment_id, debit_credit, inserted_at, updated_at) VALUES (gen_random_uuid(), $1, ROW('USD', 5000), 'Orphaned entry', $2, 'debit', NOW(), NOW())",
         [
           to_uuid(stripe_account.id),
           payment_uuid
@@ -907,7 +941,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
         payment_method_id: nil
       })
 
-      # Create booking payment
+      # Create booking payment (must specify property for bookings)
       Ledgers.process_payment(%{
         user_id: user.id,
         amount: Money.new(15000, :USD),
@@ -916,7 +950,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
         entity_id: Ecto.ULID.generate(),
         stripe_fee: Money.new(450, :USD),
         description: "Test booking payment",
-        property: :general,
+        property: :tahoe,
         payment_method_id: nil
       })
 
@@ -966,10 +1000,11 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       Repo.insert!(%LedgerEntry{
         account_id: membership_revenue.id,
-        amount: Money.new(-5000, :USD),
+        amount: Money.new(5000, :USD),
         description: "Extra revenue",
         payment_id: payment.id,
-        related_entity_type: :membership
+        related_entity_type: :membership,
+        debit_credit: :credit
       })
 
       result = Reconciliation.reconcile_entity_totals()
@@ -1035,7 +1070,8 @@ defmodule Ysc.Ledgers.ReconciliationTest do
         account_id: stripe_account.id,
         amount: Money.new(5000, :USD),
         description: "Imbalance",
-        payment_id: payment.id
+        payment_id: payment.id,
+        debit_credit: :debit
       })
 
       {:ok, report} = Reconciliation.run_full_reconciliation()

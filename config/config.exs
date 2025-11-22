@@ -91,7 +91,8 @@ config :ysc, Oban,
        {"*/5 * * * *", Ysc.Tickets.TimeoutWorker},
        {"0 2 * * *", YscWeb.Workers.ImageReprocessor},
        {"0 0 * * *", Ysc.Ledgers.BalanceCheckWorker},
-       {"0 1 * * *", Ysc.Ledgers.ReconciliationWorker}
+       {"0 1 * * *", Ysc.Ledgers.ReconciliationWorker},
+       {"0 3 * * *", YscWeb.Workers.QuickbooksSyncRetryWorker}
      ]}
   ]
 
@@ -130,10 +131,6 @@ config :ysc, :emails,
   clear_lake_email: System.get_env("EMAIL_CLEAR_LAKE", "clearlake@ysc.org")
 
 # Removed Bling configuration - using internal subscription management
-
-config :ysc, :quickbooks,
-  client_id: System.get_env("QUICKBOOKS_CLIENT_ID"),
-  client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET")
 
 # Membership plans configuration
 # Note: In production, membership plans are configured at runtime in config/runtime.exs
@@ -197,6 +194,18 @@ config :ysc, :mailpoet,
   api_url: System.get_env("MAILPOET_API_URL"),
   api_key: System.get_env("MAILPOET_API_KEY"),
   default_list_id: if(mailpoet_list_id, do: String.to_integer(mailpoet_list_id), else: nil)
+
+# Accounting settings
+config :ysc, :accounting,
+  default_currency: :USD,
+  quickbooks_classes: ["Administration", "Events", "Clear Lake", "Tahoe"]
+
+config :ysc, :quickbooks,
+  client_id: System.get_env("QUICKBOOKS_CLIENT_ID"),
+  client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET"),
+  realm_id: System.get_env("QUICKBOOKS_REALM_ID"),
+  access_token: System.get_env("QUICKBOOKS_ACCESS_TOKEN"),
+  refresh_token: System.get_env("QUICKBOOKS_REFRESH_TOKEN")
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

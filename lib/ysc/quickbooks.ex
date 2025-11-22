@@ -1,0 +1,386 @@
+defmodule Ysc.Quickbooks do
+  @moduledoc """
+  QuickBooks Online integration context.
+
+  This module provides high-level functions for common QuickBooks operations,
+  wrapping the lower-level `Ysc.Quickbooks.Client` module.
+
+  ## Examples
+
+      # Create a sales receipt for a purchase
+      alias Ysc.Quickbooks
+
+      Quickbooks.create_purchase_sales_receipt(%{
+        customer_id: "123",
+        item_id: "456",
+        quantity: 1,
+        unit_price: 100.00,
+        payment_method_id: "789",
+        txn_date: ~D[2024-01-15]
+      })
+
+      # Create a sales receipt for a refund
+      Quickbooks.create_refund_sales_receipt(%{
+        customer_id: "123",
+        item_id: "456",
+        quantity: 1,
+        unit_price: 50.00,
+        payment_method_id: "789",
+        txn_date: ~D[2024-01-15]
+      })
+
+      # Create a deposit for a Stripe payout
+      Quickbooks.create_stripe_payout_deposit(%{
+        bank_account_id: "789",
+        stripe_account_id: "101112",
+        amount: 500.00,
+        txn_date: ~D[2024-01-15],
+        memo: "Stripe payout for period ending 2024-01-15"
+      })
+  """
+
+  alias Ysc.Accounts.User
+
+  defp client_module do
+    Application.get_env(:ysc, :quickbooks_client, Ysc.Quickbooks.Client)
+  end
+
+  @doc """
+  Creates a sales receipt for a purchase.
+
+  ## Parameters
+
+    - `params` - Map containing:
+      - `customer_id` (required) - QuickBooks customer ID
+      - `item_id` (required) - QuickBooks item ID
+      - `quantity` (required) - Quantity purchased
+      - `unit_price` (required) - Unit price
+      - `payment_method_id` (optional) - Payment method ID
+      - `deposit_to_account_id` (optional) - Account to deposit to
+      - `txn_date` (optional) - Transaction date (Date struct or ISO 8601 string)
+      - `description` (optional) - Line item description
+      - `memo` (optional) - Public memo
+      - `private_note` (optional) - Private note
+      - `class_ref` (optional) - Class reference for categorization
+      - `tax_code_ref` (optional) - Tax code reference
+
+  """
+  @spec create_purchase_sales_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+  def create_purchase_sales_receipt(params) do
+    total_amt = Decimal.mult(Decimal.new(params.quantity), params.unit_price)
+
+    sales_item_detail = %{
+      item_ref: %{value: params.item_id},
+      quantity: params.quantity,
+      unit_price: params.unit_price
+    }
+
+    sales_item_detail =
+      if params[:class_ref],
+        do: Map.put(sales_item_detail, :class_ref, %{value: params.class_ref}),
+        else: sales_item_detail
+
+    sales_item_detail =
+      if params[:tax_code_ref],
+        do: Map.put(sales_item_detail, :tax_code_ref, %{value: params.tax_code_ref}),
+        else: sales_item_detail
+
+    line_item = %{
+      amount: total_amt,
+      detail_type: "SalesItemLineDetail",
+      sales_item_line_detail: sales_item_detail
+    }
+
+    line_item =
+      if params[:description],
+        do: Map.put(line_item, :description, params.description),
+        else: line_item
+
+    sales_receipt_params = %{
+      customer_ref: %{value: params.customer_id},
+      line: [line_item],
+      total_amt: total_amt
+    }
+
+    sales_receipt_params =
+      if params[:payment_method_id],
+        do:
+          Map.put(sales_receipt_params, :payment_method_ref, %{value: params.payment_method_id}),
+        else: sales_receipt_params
+
+    sales_receipt_params =
+      if params[:deposit_to_account_id],
+        do:
+          Map.put(sales_receipt_params, :deposit_to_account_ref, %{
+            value: params.deposit_to_account_id
+          }),
+        else: sales_receipt_params
+
+    sales_receipt_params =
+      if params[:txn_date],
+        do: Map.put(sales_receipt_params, :txn_date, format_date(params.txn_date)),
+        else: sales_receipt_params
+
+    sales_receipt_params =
+      if params[:memo],
+        do: Map.put(sales_receipt_params, :memo, params.memo),
+        else: sales_receipt_params
+
+    sales_receipt_params =
+      if params[:private_note],
+        do: Map.put(sales_receipt_params, :private_note, params.private_note),
+        else: sales_receipt_params
+
+    client_module().create_sales_receipt(sales_receipt_params)
+  end
+
+  @doc """
+  Creates a sales receipt for a refund.
+
+  This is similar to a purchase but with negative amounts.
+
+  ## Parameters
+
+    - `params` - Map containing:
+      - `customer_id` (required) - QuickBooks customer ID
+      - `item_id` (required) - QuickBooks item ID
+      - `quantity` (required) - Quantity refunded
+      - `unit_price` (required) - Unit price (positive value, will be negated)
+      - `payment_method_id` (optional) - Payment method ID
+      - `deposit_to_account_id` (optional) - Account to deposit to
+      - `txn_date` (optional) - Transaction date (Date struct or ISO 8601 string)
+      - `description` (optional) - Line item description
+      - `memo` (optional) - Public memo
+      - `private_note` (optional) - Private note
+      - `class_ref` (optional) - Class reference for categorization
+      - `tax_code_ref` (optional) - Tax code reference
+
+  """
+  @spec create_refund_sales_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+  def create_refund_sales_receipt(params) do
+    # Refunds use negative amounts
+    unit_price = Decimal.negate(Decimal.abs(params.unit_price))
+    total_amt = Decimal.mult(Decimal.new(params.quantity), unit_price)
+
+    sales_item_detail = %{
+      item_ref: %{value: params.item_id},
+      quantity: params.quantity,
+      unit_price: unit_price
+    }
+
+    sales_item_detail =
+      if params[:class_ref],
+        do: Map.put(sales_item_detail, :class_ref, %{value: params.class_ref}),
+        else: sales_item_detail
+
+    sales_item_detail =
+      if params[:tax_code_ref],
+        do: Map.put(sales_item_detail, :tax_code_ref, %{value: params.tax_code_ref}),
+        else: sales_item_detail
+
+    line_item = %{
+      amount: total_amt,
+      detail_type: "SalesItemLineDetail",
+      sales_item_line_detail: sales_item_detail,
+      description: params[:description] || "Refund"
+    }
+
+    sales_receipt_params = %{
+      customer_ref: %{value: params.customer_id},
+      line: [line_item],
+      total_amt: total_amt
+    }
+
+    sales_receipt_params =
+      if params[:payment_method_id],
+        do:
+          Map.put(sales_receipt_params, :payment_method_ref, %{value: params.payment_method_id}),
+        else: sales_receipt_params
+
+    sales_receipt_params =
+      if params[:deposit_to_account_id],
+        do:
+          Map.put(sales_receipt_params, :deposit_to_account_ref, %{
+            value: params.deposit_to_account_id
+          }),
+        else: sales_receipt_params
+
+    sales_receipt_params =
+      if params[:txn_date],
+        do: Map.put(sales_receipt_params, :txn_date, format_date(params.txn_date)),
+        else: sales_receipt_params
+
+    sales_receipt_params =
+      if params[:memo],
+        do: Map.put(sales_receipt_params, :memo, params.memo),
+        else: sales_receipt_params
+
+    sales_receipt_params =
+      if params[:private_note],
+        do: Map.put(sales_receipt_params, :private_note, params.private_note),
+        else: sales_receipt_params
+
+    client_module().create_sales_receipt(sales_receipt_params)
+  end
+
+  @doc """
+  Creates a deposit for a Stripe payout.
+
+  ## Parameters
+
+    - `params` - Map containing:
+      - `bank_account_id` (required) - QuickBooks bank account ID to deposit to
+      - `stripe_account_id` (required) - QuickBooks account ID representing Stripe
+      - `amount` (required) - Deposit amount
+      - `txn_date` (optional) - Transaction date (Date struct or ISO 8601 string)
+      - `memo` (optional) - Public memo
+      - `private_note` (optional) - Private note
+      - `class_ref` (optional) - Class reference for categorization
+      - `payment_method_ref` (optional) - Payment method reference
+
+  """
+  @spec create_stripe_payout_deposit(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+  def create_stripe_payout_deposit(params) do
+    deposit_line_detail = %{
+      account_ref: %{value: params.stripe_account_id}
+    }
+
+    deposit_line_detail =
+      if params[:class_ref],
+        do: Map.put(deposit_line_detail, :class_ref, %{value: params.class_ref}),
+        else: deposit_line_detail
+
+    deposit_line_detail =
+      if params[:payment_method_ref],
+        do:
+          Map.put(deposit_line_detail, :payment_method_ref, %{value: params.payment_method_ref}),
+        else: deposit_line_detail
+
+    line_item = %{
+      amount: params.amount,
+      detail_type: "DepositLineDetail",
+      deposit_line_detail: deposit_line_detail,
+      description: params[:description] || "Stripe payout"
+    }
+
+    deposit_params = %{
+      deposit_to_account_ref: %{value: params.bank_account_id},
+      line: [line_item],
+      total_amt: params.amount
+    }
+
+    deposit_params =
+      if params[:txn_date],
+        do: Map.put(deposit_params, :txn_date, format_date(params.txn_date)),
+        else: deposit_params
+
+    deposit_params =
+      if params[:memo], do: Map.put(deposit_params, :memo, params.memo), else: deposit_params
+
+    deposit_params =
+      if params[:private_note],
+        do: Map.put(deposit_params, :private_note, params.private_note),
+        else: deposit_params
+
+    client_module().create_deposit(deposit_params)
+  end
+
+  @doc """
+  Gets or creates a QuickBooks customer for a user.
+
+  If the user already has a `quickbooks_customer_id`, returns it.
+  Otherwise, creates a new customer in QuickBooks and updates the user.
+
+  ## Parameters
+
+    - `user` - The user to get or create a QuickBooks customer for
+
+  ## Examples
+
+      alias Ysc.Quickbooks
+      alias Ysc.Accounts
+
+      user = Accounts.get_user!(123)
+      case Quickbooks.get_or_create_customer(user) do
+        {:ok, customer_id} ->
+          # Use customer_id for creating sales receipts
+        {:error, reason} ->
+          # Handle error
+      end
+
+  """
+  @spec get_or_create_customer(User.t()) :: {:ok, String.t()} | {:error, atom() | String.t()}
+  def get_or_create_customer(%User{} = user) do
+    alias Ysc.Repo
+
+    # If user already has a QuickBooks customer ID, return it
+    if user.quickbooks_customer_id do
+      {:ok, user.quickbooks_customer_id}
+    else
+      # Create customer in QuickBooks
+      display_name = build_display_name(user)
+
+      if is_nil(display_name) do
+        {:error, :missing_name}
+      else
+        customer_params = %{
+          display_name: display_name,
+          given_name: user.first_name,
+          family_name: user.last_name,
+          email: user.email,
+          phone: user.phone_number
+        }
+
+        case client_module().create_customer(customer_params) do
+          {:ok, customer} ->
+            customer_id = Map.get(customer, "Id")
+
+            if customer_id do
+              # Update user with QuickBooks customer ID
+              changeset = User.update_user_changeset(user, %{quickbooks_customer_id: customer_id})
+
+              case Repo.update(changeset) do
+                {:ok, _updated_user} ->
+                  {:ok, customer_id}
+
+                {:error, changeset} ->
+                  require Logger
+
+                  Logger.error("Failed to update user with quickbooks_customer_id",
+                    user_id: user.id,
+                    quickbooks_customer_id: customer_id,
+                    changeset_errors: inspect(changeset.errors)
+                  )
+
+                  # Still return success for the customer creation
+                  # The quickbooks_customer_id can be set manually later
+                  {:ok, customer_id}
+              end
+            else
+              {:error, :invalid_customer_response}
+            end
+
+          {:error, error} ->
+            {:error, error}
+        end
+      end
+    end
+  end
+
+  defp format_date(nil), do: nil
+  defp format_date(%Date{} = date), do: Date.to_iso8601(date)
+  defp format_date(date) when is_binary(date), do: date
+  defp format_date(_), do: nil
+
+  defp build_display_name(%User{first_name: first_name, last_name: last_name}) do
+    first = String.trim(first_name || "")
+    last = String.trim(last_name || "")
+
+    case {first, last} do
+      {"", ""} -> nil
+      {first, ""} -> first
+      {"", last} -> last
+      {first, last} -> "#{first} #{last}"
+    end
+  end
+end

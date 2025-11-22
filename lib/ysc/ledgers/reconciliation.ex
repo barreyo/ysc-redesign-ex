@@ -365,7 +365,15 @@ defmodule Ysc.Ledgers.Reconciliation do
 
   defp calculate_entries_total(entries) do
     Enum.reduce(entries, Money.new(0, :USD), fn entry, acc ->
-      case entry.debit_credit do
+      # Handle both atom and string values for debit_credit (EctoEnum)
+      debit_credit =
+        case entry.debit_credit do
+          atom when is_atom(atom) -> to_string(atom)
+          str when is_binary(str) -> str
+          _ -> nil
+        end
+
+      case debit_credit do
         "debit" ->
           {:ok, sum} = Money.add(acc, entry.amount)
           sum

@@ -23,6 +23,14 @@ defmodule Ysc.Ledgers.Payment do
     field :status, LedgerPaymentStatus
     field :payment_date, :utc_datetime
 
+    # QuickBooks sync fields
+    field :quickbooks_sales_receipt_id, :string
+    field :quickbooks_sync_status, :string
+    field :quickbooks_sync_error, :map
+    field :quickbooks_response, :map
+    field :quickbooks_synced_at, :utc_datetime
+    field :quickbooks_last_sync_attempt_at, :utc_datetime
+
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
 
     belongs_to :payment_method, Ysc.Payments.PaymentMethod,
@@ -42,7 +50,13 @@ defmodule Ysc.Ledgers.Payment do
       :status,
       :payment_date,
       :user_id,
-      :payment_method_id
+      :payment_method_id,
+      :quickbooks_sales_receipt_id,
+      :quickbooks_sync_status,
+      :quickbooks_sync_error,
+      :quickbooks_response,
+      :quickbooks_synced_at,
+      :quickbooks_last_sync_attempt_at
     ])
     |> validate_required([
       :external_provider,

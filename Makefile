@@ -91,6 +91,9 @@ setup-dev-db:  ## Create, migrate and seed the local dev database
 
 .PHONY: tests
 tests:  ## Run the test suite (starts postgres if needed)
+	@echo "$(BOLD)Ensuring PostgreSQL is running...$(RESET)"
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up -d postgres || true
+	@DBNAME=postgres ./etc/scripts/_wait_db_connection.sh true
 	@echo "$(BOLD)Running test suite...$(RESET)"
 	@MIX_ENV=test mix test --trace
 

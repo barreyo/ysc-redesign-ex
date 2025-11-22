@@ -702,6 +702,10 @@ defmodule Ysc.Stripe.WebhookHandler do
         # Fetch and link payments/refunds from Stripe
         link_payout_transactions(payout, payout_id)
 
+        # After linking is complete, check if we should enqueue QuickBooks sync
+        # Only sync if all linked payments/refunds are already synced
+        enqueue_quickbooks_sync_payout_if_ready(payout)
+
         :ok
 
       {:error, reason} ->
@@ -1558,5 +1562,69 @@ defmodule Ysc.Stripe.WebhookHandler do
           error: Exception.message(error)
         )
     end
+  end
+
+  # Helper function to enqueue QuickBooks sync for payout only if all linked payments/refunds are synced
+  defp enqueue_quickbooks_sync_payout_if_ready(%Ledgers.Payout{} = payout) do
+    require Logger
+
+    # Reload payout with payments and refunds
+    payout = Ledgers.get_payout!(payout.id)
+
+    # Check if all linked payments are synced
+    all_payments_synced =
+      Enum.all?(payout.payments, fn payment ->
+        payment.quickbooks_sync_status == "synced" && payment.quickbooks_sales_receipt_id != nil
+      end)
+
+    # Check if all linked refunds are synced
+    all_refunds_synced =
+      Enum.all?(payout.refunds, fn refund ->
+        refund.quickbooks_sync_status == "synced" && refund.quickbooks_sales_receipt_id != nil
+      end)
+
+    if all_payments_synced && all_refunds_synced &&
+         (length(payout.payments) > 0 || length(payout.refunds) > 0) do
+      Logger.info("All payments and refunds synced, enqueueing QuickBooks sync for payout",
+        payout_id: payout.id,
+        payments_count: length(payout.payments),
+        refunds_count: length(payout.refunds)
+      )
+
+      # Mark payout as pending sync
+      payout
+      |> Ledgers.Payout.changeset(%{quickbooks_sync_status: "pending"})
+      |> Ysc.Repo.update()
+
+      # Enqueue sync job
+      %{payout_id: to_string(payout.id)}
+      |> YscWeb.Workers.QuickbooksSyncPayoutWorker.new()
+      |> Oban.insert()
+
+      :ok
+    else
+      unsynced_payments = Enum.count(payout.payments, &(&1.quickbooks_sync_status != "synced"))
+      unsynced_refunds = Enum.count(payout.refunds, &(&1.quickbooks_sync_status != "synced"))
+
+      Logger.info("Payout not ready for QuickBooks sync - waiting for payments/refunds to sync",
+        payout_id: payout.id,
+        unsynced_payments: unsynced_payments,
+        unsynced_refunds: unsynced_refunds,
+        total_payments: length(payout.payments),
+        total_refunds: length(payout.refunds)
+      )
+
+      :ok
+    end
+  rescue
+    error ->
+      require Logger
+
+      Logger.error("Failed to check if payout is ready for QuickBooks sync",
+        payout_id: payout.id,
+        error: inspect(error)
+      )
+
+      :ok
   end
 end

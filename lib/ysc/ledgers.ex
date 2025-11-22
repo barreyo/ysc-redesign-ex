@@ -14,6 +14,11 @@ defmodule Ysc.Ledgers do
   alias Ysc.Repo
   alias Ysc.Ledgers.{LedgerAccount, LedgerEntry, LedgerTransaction, Payment, Refund, Payout}
 
+  alias YscWeb.Workers.{
+    QuickbooksSyncPaymentWorker,
+    QuickbooksSyncRefundWorker
+  }
+
   # Basic account names for the system
   # Format: {name, account_type, normal_balance, description}
   # Assets and Expenses are debit-normal
@@ -175,6 +180,39 @@ defmodule Ysc.Ledgers do
 
       {payment, transaction, entries}
     end)
+    |> case do
+      {:ok, {payment, transaction, entries}} ->
+        # Enqueue QuickBooks sync job after successful payment creation
+        enqueue_quickbooks_sync_payment(payment)
+        {:ok, {payment, transaction, entries}}
+
+      error ->
+        error
+    end
+  end
+
+  defp enqueue_quickbooks_sync_payment(%Payment{} = payment) do
+    # Mark payment as pending sync
+    payment
+    |> Payment.changeset(%{quickbooks_sync_status: "pending"})
+    |> Repo.update()
+
+    # Enqueue sync job
+    %{payment_id: to_string(payment.id)}
+    |> QuickbooksSyncPaymentWorker.new()
+    |> Oban.insert()
+
+    :ok
+  rescue
+    error ->
+      require Logger
+
+      Logger.error("Failed to enqueue QuickBooks sync for payment",
+        payment_id: payment.id,
+        error: inspect(error)
+      )
+
+      :ok
   end
 
   @doc """
@@ -422,6 +460,43 @@ defmodule Ysc.Ledgers do
 
       {refund, refund_transaction, entries}
     end)
+    |> case do
+      {:ok, {refund, refund_transaction, entries}} ->
+        # Enqueue QuickBooks sync job after successful refund creation
+        enqueue_quickbooks_sync_refund(refund)
+        {:ok, {refund, refund_transaction, entries}}
+
+      {:error, {:already_processed, existing_refund, existing_transaction}} ->
+        # Refund was already processed, return it
+        {:ok, {existing_refund, existing_transaction, []}}
+
+      error ->
+        error
+    end
+  end
+
+  defp enqueue_quickbooks_sync_refund(%Refund{} = refund) do
+    # Mark refund as pending sync
+    refund
+    |> Refund.changeset(%{quickbooks_sync_status: "pending"})
+    |> Repo.update()
+
+    # Enqueue sync job
+    %{refund_id: to_string(refund.id)}
+    |> QuickbooksSyncRefundWorker.new()
+    |> Oban.insert()
+
+    :ok
+  rescue
+    error ->
+      require Logger
+
+      Logger.error("Failed to enqueue QuickBooks sync for refund",
+        refund_id: refund.id,
+        error: inspect(error)
+      )
+
+      :ok
   end
 
   @doc """
@@ -463,7 +538,7 @@ defmodule Ysc.Ledgers do
 
     entries = [refund_expense_entry | entries]
 
-    # Entry 2: Credit Stripe Account (increasing our receivable - we owe Stripe for the refund)
+    # Entry 2: Credit Stripe Account (we owe Stripe for the refund, reducing receivable)
     {:ok, stripe_credit_entry} =
       create_entry(%{
         account_id: stripe_account.id,
@@ -478,8 +553,14 @@ defmodule Ysc.Ledgers do
     entries = [stripe_credit_entry | entries]
 
     # Entry 3: Reverse the original revenue (if we found the revenue entry)
+    # To reverse revenue, we debit the revenue account (decreases revenue)
+    # and credit stripe_account to balance (further reducing the receivable)
+    # This is correct: we credit stripe_account twice - once for the refund expense,
+    # and once for the revenue reversal, because we're reducing both the expense
+    # and the revenue recognition
     entries =
       if revenue_entry do
+        # Debit revenue account (decreases revenue, which is a credit account)
         {:ok, revenue_reversal_entry} =
           create_entry(%{
             account_id: revenue_entry.account_id,
@@ -491,7 +572,19 @@ defmodule Ysc.Ledgers do
             related_entity_id: payment.id
           })
 
-        [revenue_reversal_entry | entries]
+        # Credit stripe_account to balance the revenue debit (further reduces receivable)
+        {:ok, stripe_revenue_reversal_entry} =
+          create_entry(%{
+            account_id: stripe_account.id,
+            payment_id: payment.id,
+            amount: refund_amount,
+            debit_credit: :credit,
+            description: "Revenue reversal - stripe account adjustment: #{reason}",
+            related_entity_type: :administration,
+            related_entity_id: payment.id
+          })
+
+        [revenue_reversal_entry, stripe_revenue_reversal_entry | entries]
       else
         entries
       end
@@ -573,6 +666,15 @@ defmodule Ysc.Ledgers do
 
       {payout_payment, transaction, entries, payout}
     end)
+    |> case do
+      {:ok, {payout_payment, transaction, entries, payout}} ->
+        # Don't enqueue QuickBooks sync yet - wait for payments/refunds to be linked
+        # The sync will be triggered after linking is complete (see webhook handler)
+        {:ok, {payout_payment, transaction, entries, payout}}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -652,9 +754,23 @@ defmodule Ysc.Ledgers do
   """
   def link_payment_to_payout(payout, payment) do
     # Check if already linked
+    # Convert ULIDs to binary for comparison with join table's binary_id columns
+    payout_id_binary =
+      case Ecto.ULID.dump(payout.id) do
+        {:ok, binary} -> binary
+        _ -> payout.id
+      end
+
+    payment_id_binary =
+      case Ecto.ULID.dump(payment.id) do
+        {:ok, binary} -> binary
+        _ -> payment.id
+      end
+
     existing_link =
       from(pp in "payout_payments",
-        where: pp.payout_id == ^payout.id and pp.payment_id == ^payment.id,
+        where: pp.payout_id == ^payout_id_binary and pp.payment_id == ^payment_id_binary,
+        select: pp.id,
         limit: 1
       )
       |> Repo.one()
@@ -675,9 +791,23 @@ defmodule Ysc.Ledgers do
   """
   def link_refund_to_payout(payout, refund) do
     # Check if already linked
+    # Convert ULIDs to binary for comparison with join table's binary_id columns
+    payout_id_binary =
+      case Ecto.ULID.dump(payout.id) do
+        {:ok, binary} -> binary
+        _ -> payout.id
+      end
+
+    refund_id_binary =
+      case Ecto.ULID.dump(refund.id) do
+        {:ok, binary} -> binary
+        _ -> refund.id
+      end
+
     existing_link =
       from(pr in "payout_refunds",
-        where: pr.payout_id == ^payout.id and pr.refund_id == ^refund.id,
+        where: pr.payout_id == ^payout_id_binary and pr.refund_id == ^refund_id_binary,
+        select: pr.id,
         limit: 1
       )
       |> Repo.one()
