@@ -32,19 +32,47 @@ defmodule Ysc.Repo.Migrations.SeedBasicLedgerAccounts do
     ]
 
     # Insert basic accounts
+    # Note: normal_balance is conditionally included if the column exists.
+    # If it doesn't exist yet, it will be backfilled by the add_normal_balance_to_ledger_accounts migration.
     Enum.each(basic_accounts, fn {name, account_type, normal_balance, description} ->
+      # Use a DO block to conditionally include normal_balance if the column exists
       execute """
-        INSERT INTO ledger_accounts (id, account_type, normal_balance, name, description, inserted_at, updated_at)
-        VALUES (
-          gen_random_uuid(),
-          '#{account_type}',
-          '#{normal_balance}',
-          '#{name}',
-          '#{description}',
-          NOW(),
-          NOW()
-        )
-        ON CONFLICT (account_type, name) DO NOTHING;
+        DO $$
+        DECLARE
+          column_exists boolean;
+        BEGIN
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'ledger_accounts'
+            AND column_name = 'normal_balance'
+          ) INTO column_exists;
+
+          IF column_exists THEN
+            INSERT INTO ledger_accounts (id, account_type, normal_balance, name, description, inserted_at, updated_at)
+            VALUES (
+              gen_random_uuid(),
+              '#{account_type}',
+              '#{normal_balance}',
+              '#{name}',
+              '#{description}',
+              NOW(),
+              NOW()
+            )
+            ON CONFLICT (account_type, name) DO NOTHING;
+          ELSE
+            INSERT INTO ledger_accounts (id, account_type, name, description, inserted_at, updated_at)
+            VALUES (
+              gen_random_uuid(),
+              '#{account_type}',
+              '#{name}',
+              '#{description}',
+              NOW(),
+              NOW()
+            )
+            ON CONFLICT (account_type, name) DO NOTHING;
+          END IF;
+        END $$;
       """
     end)
   end

@@ -3604,10 +3604,15 @@ defmodule YscWeb.TahoeBookingLive do
   defp check_booking_eligibility(user, active_bookings)
 
   defp check_booking_eligibility(nil, _active_bookings) do
+    sign_in_path = ~p"/users/log-in"
+
+    sign_in_link =
+      ~s(<a href="#{sign_in_path}" class="font-semibold text-amber-900 hover:text-amber-950 underline">sign in</a>)
+
     {
       false,
       "Sign In Required",
-      "You must be signed in to make a booking. Please sign in to continue."
+      "You must be signed in to make a booking. Please #{sign_in_link} to continue."
     }
   end
 

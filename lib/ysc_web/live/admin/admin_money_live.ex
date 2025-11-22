@@ -392,7 +392,7 @@ defmodule YscWeb.AdminMoneyLive do
         </h1>
       </div>
       <!-- Date Range Filter -->
-      <div class="mb-6 bg-white p-4 rounded-lg shadow border">
+      <div class="mb-6 bg-white p-4 rounded border">
         <h3 class="text-lg font-medium text-zinc-900 mb-4">Date Range Filter</h3>
         <form phx-submit="update_date_range" class="flex gap-4 items-end">
           <div>
@@ -431,7 +431,7 @@ defmodule YscWeb.AdminMoneyLive do
         </p>
       </div>
       <!-- Account Balances -->
-      <div class="mb-8 bg-white rounded-lg shadow border">
+      <div class="mb-8 bg-white rounded border">
         <button
           phx-click="toggle_section"
           phx-value-section="accounts"
@@ -447,10 +447,7 @@ defmodule YscWeb.AdminMoneyLive do
         </button>
         <div :if={!@sections_collapsed.accounts} class="p-4 pt-0">
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div
-              :for={account_data <- @accounts_with_balances}
-              class="bg-white p-4 rounded-lg shadow border"
-            >
+            <div :for={account_data <- @accounts_with_balances} class="bg-white p-4 rounded border">
               <div class="flex justify-between items-start mb-2">
                 <h3 class="font-medium text-zinc-900"><%= account_data.account.name %></h3>
                 <span class={"px-2 py-1 text-xs font-semibold rounded #{get_normal_balance_badge_color(account_data.account.normal_balance)}"}>
@@ -469,7 +466,7 @@ defmodule YscWeb.AdminMoneyLive do
         </div>
       </div>
       <!-- Quick Actions -->
-      <div class="mb-8 bg-white rounded-lg shadow border">
+      <div class="mb-8 bg-white rounded border">
         <button
           phx-click="toggle_section"
           phx-value-section="quick_actions"
@@ -498,7 +495,7 @@ defmodule YscWeb.AdminMoneyLive do
         </div>
       </div>
       <!-- Recent Payments -->
-      <div class="mb-8 bg-white rounded-lg shadow border">
+      <div class="mb-8 bg-white rounded border">
         <button
           phx-click="toggle_section"
           phx-value-section="payments"
@@ -591,7 +588,7 @@ defmodule YscWeb.AdminMoneyLive do
         </div>
       </div>
       <!-- Ledger Entries -->
-      <div class="mb-8 bg-white rounded-lg shadow border">
+      <div class="mb-8 rounded border">
         <button
           phx-click="toggle_section"
           phx-value-section="ledger_entries"
@@ -710,7 +707,7 @@ defmodule YscWeb.AdminMoneyLive do
         </div>
       </div>
       <!-- Stripe Webhooks -->
-      <div class="mb-8 bg-white rounded-lg shadow border">
+      <div class="mb-8 rounded border">
         <button
           phx-click="toggle_section"
           phx-value-section="webhooks"

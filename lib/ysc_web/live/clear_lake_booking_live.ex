@@ -406,7 +406,7 @@ defmodule YscWeb.ClearLakeBookingLive do
             <div class="ms-2 flex-1">
               <h3 class="text-sm font-semibold text-amber-900">Booking Not Available</h3>
               <div class="mt-2 text-sm text-amber-800">
-                <p><%= @booking_disabled_reason %></p>
+                <p><%= raw(@booking_disabled_reason) %></p>
               </div>
             </div>
           </div>
@@ -1881,9 +1881,14 @@ defmodule YscWeb.ClearLakeBookingLive do
   end
 
   defp check_booking_eligibility(nil) do
+    sign_in_path = ~p"/users/log-in"
+
+    sign_in_link =
+      ~s(<a href="#{sign_in_path}" class="font-semibold text-amber-900 hover:text-amber-950 underline">sign in</a>)
+
     {
       false,
-      "You must be signed in to make a booking. Please sign in to continue."
+      "You must be signed in to make a booking. Please #{sign_in_link} to continue."
     }
   end
 
