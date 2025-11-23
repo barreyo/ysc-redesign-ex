@@ -62,6 +62,7 @@ defmodule Ysc.MoneyHelper do
     cents
     |> Decimal.new()
     |> Decimal.div(Decimal.new(100))
+    |> Decimal.round(2)
   end
 
   def cents_to_dollars(_), do: Decimal.new("0.0")

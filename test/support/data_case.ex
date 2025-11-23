@@ -18,6 +18,8 @@ defmodule Ysc.DataCase do
 
   using do
     quote do
+      use Oban.Testing, repo: Ysc.Repo
+
       alias Ysc.Repo
 
       import Ecto

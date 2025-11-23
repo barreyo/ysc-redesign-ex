@@ -48,7 +48,7 @@ defmodule Ysc.LedgersTest do
       Application.put_env(:ysc, :quickbooks,
         client_id: "test_client_id",
         client_secret: "test_client_secret",
-        realm_id: "test_realm_id",
+        company_id: "test_company_id",
         access_token: "test_access_token",
         refresh_token: "test_refresh_token",
         event_item_id: "event_item_123",
@@ -138,7 +138,7 @@ defmodule Ysc.LedgersTest do
       Application.put_env(:ysc, :quickbooks,
         client_id: "test_client_id",
         client_secret: "test_client_secret",
-        realm_id: "test_realm_id",
+        company_id: "test_company_id",
         access_token: "test_access_token",
         refresh_token: "test_refresh_token",
         event_item_id: "event_item_123",
@@ -215,9 +215,10 @@ defmodule Ysc.LedgersTest do
 
       # Check entries were created
       # Should have at least: refund expense debit, stripe account credit
-      # May also have revenue reversal debit if revenue entry found
+      # If revenue entry found, also creates: revenue reversal debit, stripe account credit (for revenue reversal)
+      # So total can be 2 (no revenue entry) or 4 (with revenue entry)
       assert length(entries) >= 2
-      assert length(entries) <= 3
+      assert length(entries) <= 4
 
       # Verify all entries have the correct payment_id
       Enum.each(entries, fn entry ->
@@ -262,7 +263,7 @@ defmodule Ysc.LedgersTest do
       Application.put_env(:ysc, :quickbooks,
         client_id: "test_client_id",
         client_secret: "test_client_secret",
-        realm_id: "test_realm_id",
+        company_id: "test_company_id",
         access_token: "test_access_token",
         refresh_token: "test_refresh_token",
         event_item_id: "event_item_123",
@@ -540,7 +541,7 @@ defmodule Ysc.LedgersTest do
       Application.put_env(:ysc, :quickbooks,
         client_id: "test_client_id",
         client_secret: "test_client_secret",
-        realm_id: "test_realm_id",
+        company_id: "test_company_id",
         access_token: "test_access_token",
         refresh_token: "test_refresh_token",
         event_item_id: "event_item_123",

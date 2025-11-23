@@ -1453,21 +1453,13 @@ defmodule Ysc.Stripe.WebhookHandler do
             payment = Ledgers.get_payment_by_external_id(payment_intent_id)
 
             if payment do
-              case Ledgers.link_payment_to_payout(payout, payment) do
-                {:ok, _} ->
-                  Logger.info("Linked payment to payout",
-                    payout_id: payout.stripe_payout_id,
-                    payment_id: payment.id,
-                    charge_id: charge_id
-                  )
+              {:ok, _} = Ledgers.link_payment_to_payout(payout, payment)
 
-                {:error, reason} ->
-                  Logger.warning("Failed to link payment to payout",
-                    payout_id: payout.stripe_payout_id,
-                    payment_id: payment.id,
-                    error: inspect(reason)
-                  )
-              end
+              Logger.info("Linked payment to payout",
+                payout_id: payout.stripe_payout_id,
+                payment_id: payment.id,
+                charge_id: charge_id
+              )
             else
               Logger.debug("Payment not found for charge",
                 charge_id: charge_id,
@@ -1516,22 +1508,13 @@ defmodule Ysc.Stripe.WebhookHandler do
                     refund = Ledgers.get_refund_by_external_id(stripe_refund_id)
 
                     if refund do
-                      case Ledgers.link_refund_to_payout(payout, refund) do
-                        {:ok, _} ->
-                          Logger.info("Linked refund to payout",
-                            payout_id: payout.stripe_payout_id,
-                            refund_id: refund.id,
-                            stripe_refund_id: stripe_refund_id
-                          )
+                      {:ok, _} = Ledgers.link_refund_to_payout(payout, refund)
 
-                        {:error, reason} ->
-                          Logger.warning("Failed to link refund to payout",
-                            payout_id: payout.stripe_payout_id,
-                            refund_id: refund.id,
-                            stripe_refund_id: stripe_refund_id,
-                            error: inspect(reason)
-                          )
-                      end
+                      Logger.info("Linked refund to payout",
+                        payout_id: payout.stripe_payout_id,
+                        refund_id: refund.id,
+                        stripe_refund_id: stripe_refund_id
+                      )
                     else
                       Logger.debug("Refund not found for Stripe refund ID",
                         payment_id: payment.id,

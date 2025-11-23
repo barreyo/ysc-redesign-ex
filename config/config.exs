@@ -203,9 +203,9 @@ config :ysc, :accounting,
 config :ysc, :quickbooks,
   client_id: System.get_env("QUICKBOOKS_CLIENT_ID"),
   client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET"),
-  realm_id: System.get_env("QUICKBOOKS_REALM_ID"),
-  access_token: System.get_env("QUICKBOOKS_ACCESS_TOKEN"),
-  refresh_token: System.get_env("QUICKBOOKS_REFRESH_TOKEN")
+  company_id: System.get_env("QUICKBOOKS_COMPANY_ID"),
+  url: System.get_env("QUICKBOOKS_BASE_URL", "https://sandbox-quickbooks.api.intuit.com/v3"),
+  app_id: System.get_env("QUICKBOOKS_APP_ID")
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

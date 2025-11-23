@@ -57,7 +57,52 @@ defmodule Ysc.ReferenceGeneratorTest do
     test "rejects invalid checksum" do
       # Generate a valid ID and modify the checksum
       valid_id = ReferenceGenerator.generate_reference_id("PMT")
-      invalid_id = String.slice(valid_id, 0..-2//1) <> "X"
+
+      # Extract the base parts to compute what the checksum should be
+      [_, prefix, date, random_part, correct_checksum] =
+        Regex.run(~r/^([A-Z]{3})-(\d{6})-([A-Z0-9]{4})([A-Z0-9])$/, valid_id)
+
+      # Find a character that's guaranteed to be different from the correct checksum
+      # Valid checksum characters are: 2-9, A-Z (excluding O and I)
+      # We'll try characters in order until we find one that's different
+      invalid_checksum =
+        [
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "P",
+          "Q",
+          "R",
+          "S",
+          "T",
+          "U",
+          "V",
+          "W",
+          "X",
+          "Y",
+          "Z"
+        ]
+        |> Enum.find(fn char -> char != correct_checksum end)
+
+      invalid_id = String.slice(valid_id, 0..-2//1) <> invalid_checksum
 
       assert {:error, "Checksum validation failed"} =
                ReferenceGenerator.validate_reference_id(invalid_id)

@@ -986,9 +986,17 @@ defmodule Ysc.Ledgers do
           _ -> payment.id
         end
 
+      join_table_id =
+        Ecto.ULID.generate()
+        |> Ecto.ULID.dump()
+        |> case do
+          {:ok, binary} -> binary
+          _ -> raise "Failed to dump ULID to binary"
+        end
+
       Repo.insert_all("payout_payments", [
         %{
-          id: Ecto.UUID.generate(),
+          id: join_table_id,
           payout_id: payout_id_binary,
           payment_id: payment_id_binary,
           inserted_at: DateTime.utc_now(),
@@ -1031,21 +1039,17 @@ defmodule Ysc.Ledgers do
     else
       # Insert directly into join table instead of using put_assoc
       # This avoids changeset validation issues with many-to-many associations
-      payout_id_binary =
-        case Ecto.ULID.dump(payout.id) do
+      join_table_id =
+        Ecto.ULID.generate()
+        |> Ecto.ULID.dump()
+        |> case do
           {:ok, binary} -> binary
-          _ -> payout.id
-        end
-
-      refund_id_binary =
-        case Ecto.ULID.dump(refund.id) do
-          {:ok, binary} -> binary
-          _ -> refund.id
+          _ -> raise "Failed to dump ULID to binary"
         end
 
       Repo.insert_all("payout_refunds", [
         %{
-          id: Ecto.UUID.generate(),
+          id: join_table_id,
           payout_id: payout_id_binary,
           refund_id: refund_id_binary,
           inserted_at: DateTime.utc_now(),

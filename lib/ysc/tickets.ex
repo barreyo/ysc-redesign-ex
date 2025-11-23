@@ -733,7 +733,7 @@ defmodule Ysc.Tickets do
   end
 
   # Calculate event revenue amount and donation amount from ticket order
-  defp calculate_event_and_donation_amounts(ticket_order) do
+  def calculate_event_and_donation_amounts(ticket_order) do
     if ticket_order && ticket_order.tickets do
       # Calculate non-donation ticket costs (regular event revenue)
       event_amount =

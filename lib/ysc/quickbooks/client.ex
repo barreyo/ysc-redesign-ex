@@ -11,7 +11,8 @@ defmodule Ysc.Quickbooks.Client do
 
   require Logger
 
-  @api_base_url "https://quickbooks.api.intuit.com/v3/company"
+  # Default base URL (production)
+  @default_api_base_url "https://quickbooks.api.intuit.com/v3"
   @token_url "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
   # Latest minor version as of 2024
   @minor_version "65"
@@ -27,7 +28,7 @@ defmodule Ysc.Quickbooks.Client do
   The following environment variables are required:
   - `QUICKBOOKS_CLIENT_ID` - Your QuickBooks app client ID
   - `QUICKBOOKS_CLIENT_SECRET` - Your QuickBooks app client secret
-  - `QUICKBOOKS_REALM_ID` - Your QuickBooks company/realm ID
+  - `QUICKBOOKS_COMPANY_ID` - Your QuickBooks company ID
   - `QUICKBOOKS_ACCESS_TOKEN` - OAuth2 access token (can be refreshed)
   - `QUICKBOOKS_REFRESH_TOKEN` - OAuth2 refresh token
 
@@ -124,13 +125,13 @@ defmodule Ysc.Quickbooks.Client do
   @spec create_sales_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
   def create_sales_receipt(params) do
     with {:ok, access_token} <- get_access_token(),
-         {:ok, realm_id} <- get_realm_id() do
-      url = build_url(realm_id, "salesreceipt")
+         {:ok, company_id} <- get_company_id() do
+      url = build_url(company_id, "salesreceipt")
       headers = build_headers(access_token)
       body = build_sales_receipt_body(params)
 
       Logger.info("Creating QuickBooks SalesReceipt",
-        realm_id: realm_id,
+        company_id: company_id,
         total_amt: Map.get(params, :total_amt)
       )
 
@@ -260,13 +261,13 @@ defmodule Ysc.Quickbooks.Client do
   @spec create_deposit(map()) :: {:ok, map()} | {:error, atom() | String.t()}
   def create_deposit(params) do
     with {:ok, access_token} <- get_access_token(),
-         {:ok, realm_id} <- get_realm_id() do
-      url = build_url(realm_id, "deposit")
+         {:ok, company_id} <- get_company_id() do
+      url = build_url(company_id, "deposit")
       headers = build_headers(access_token)
       body = build_deposit_body(params)
 
       Logger.info("Creating QuickBooks Deposit",
-        realm_id: realm_id,
+        company_id: company_id,
         total_amt: Map.get(params, :total_amt)
       )
 
@@ -386,13 +387,13 @@ defmodule Ysc.Quickbooks.Client do
   @spec create_customer(map()) :: {:ok, map()} | {:error, atom() | String.t()}
   def create_customer(params) do
     with {:ok, access_token} <- get_access_token(),
-         {:ok, realm_id} <- get_realm_id() do
-      url = build_url(realm_id, "customer")
+         {:ok, company_id} <- get_company_id() do
+      url = build_url(company_id, "customer")
       headers = build_headers(access_token)
       body = build_customer_body(params)
 
       Logger.info("Creating QuickBooks Customer",
-        realm_id: realm_id,
+        company_id: company_id,
         display_name: params.display_name
       )
 
@@ -485,8 +486,25 @@ defmodule Ysc.Quickbooks.Client do
 
   # Private functions
 
-  defp build_url(realm_id, endpoint) do
-    "#{@api_base_url}/#{realm_id}/#{endpoint}?minorversion=#{@minor_version}"
+  defp build_url(company_id, endpoint) do
+    base_url = get_api_base_url()
+    # Ensure base_url doesn't have trailing slash and doesn't already include /company
+    base_url = String.trim_trailing(base_url, "/")
+
+    base_url =
+      if String.ends_with?(base_url, "/company"),
+        do: String.replace_suffix(base_url, "/company", ""),
+        else: base_url
+
+    "#{base_url}/company/#{company_id}/#{endpoint}?minorversion=#{@minor_version}"
+  end
+
+  defp get_api_base_url do
+    case Application.get_env(:ysc, :quickbooks)[:url] do
+      nil -> @default_api_base_url
+      url when is_binary(url) -> url
+      _ -> @default_api_base_url
+    end
   end
 
   defp build_headers(access_token) do
@@ -694,10 +712,10 @@ defmodule Ysc.Quickbooks.Client do
     end
   end
 
-  defp get_realm_id do
-    case Application.get_env(:ysc, :quickbooks)[:realm_id] do
-      nil -> {:error, :quickbooks_realm_id_not_configured}
-      realm_id -> {:ok, realm_id}
+  defp get_company_id do
+    case Application.get_env(:ysc, :quickbooks)[:company_id] do
+      nil -> {:error, :quickbooks_company_id_not_configured}
+      company_id -> {:ok, company_id}
     end
   end
 

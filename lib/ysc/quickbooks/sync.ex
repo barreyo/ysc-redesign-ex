@@ -393,7 +393,7 @@ defmodule Ysc.Quickbooks.Sync do
       create_mixed_payment_sales_receipt(payment, customer_id, entity_info)
     else
       # Single entity type payment - use existing logic
-      # Convert from cents to dollars for QuickBooks
+      # Money.to_decimal returns cents, so divide by 100 to get dollars
       amount =
         Money.to_decimal(payment.amount)
         |> Decimal.div(Decimal.new(100))
@@ -438,6 +438,7 @@ defmodule Ysc.Quickbooks.Sync do
       # Add event line item if event entry exists and has positive amount
       line_items =
         if entity_info.event_entry && Money.positive?(entity_info.event_entry.amount) do
+          # Money.to_decimal returns cents, so divide by 100 to get dollars
           event_amount =
             Money.to_decimal(entity_info.event_entry.amount)
             |> Decimal.div(Decimal.new(100))
@@ -459,6 +460,7 @@ defmodule Ysc.Quickbooks.Sync do
       # Add donation line item if donation entry exists and has positive amount
       line_items =
         if entity_info.donation_entry && Money.positive?(entity_info.donation_entry.amount) do
+          # Money.to_decimal returns cents, so divide by 100 to get dollars
           donation_amount =
             Money.to_decimal(entity_info.donation_entry.amount)
             |> Decimal.div(Decimal.new(100))
