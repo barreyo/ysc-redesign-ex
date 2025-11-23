@@ -250,6 +250,284 @@ defmodule Ysc.LedgersTest do
     end
   end
 
+  describe "event payment with donations" do
+    setup do
+      user = user_fixture()
+      Ledgers.ensure_basic_accounts()
+
+      # Configure QuickBooks client to use mock (prevents errors when sync jobs run)
+      Application.put_env(:ysc, :quickbooks_client, Ysc.Quickbooks.ClientMock)
+
+      # Set up QuickBooks configuration for tests
+      Application.put_env(:ysc, :quickbooks,
+        client_id: "test_client_id",
+        client_secret: "test_client_secret",
+        realm_id: "test_realm_id",
+        access_token: "test_access_token",
+        refresh_token: "test_refresh_token",
+        event_item_id: "event_item_123",
+        donation_item_id: "donation_item_123",
+        bank_account_id: "bank_account_123",
+        stripe_account_id: "stripe_account_123"
+      )
+
+      # Set up default mocks for automatic sync jobs
+      import Mox
+
+      stub(Ysc.Quickbooks.ClientMock, :create_customer, fn _params ->
+        {:ok, %{"Id" => "qb_customer_default"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_sales_receipt, fn _params ->
+        {:ok, %{"Id" => "qb_sr_default", "TotalAmt" => "0.00"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_deposit, fn _params ->
+        {:ok, %{"Id" => "qb_deposit_default", "TotalAmt" => "0.00"}}
+      end)
+
+      %{user: user}
+    end
+
+    test "process_event_payment_with_donations/1 creates separate revenue entries for event and donation",
+         %{
+           user: user
+         } do
+      # $100.00 total: $60.00 event + $40.00 donation
+      total_amount = Money.new(10_000, :USD)
+      event_amount = Money.new(6_000, :USD)
+      donation_amount = Money.new(4_000, :USD)
+      stripe_fee = Money.new(320, :USD)
+      event_id = Ecto.ULID.generate()
+
+      payment_attrs = %{
+        user_id: user.id,
+        total_amount: total_amount,
+        event_amount: event_amount,
+        donation_amount: donation_amount,
+        event_id: event_id,
+        external_payment_id: "pi_mixed_123",
+        stripe_fee: stripe_fee,
+        description: "Event tickets with donation - Order ORD123",
+        payment_method_id: nil
+      }
+
+      assert {:ok, {payment, transaction, entries}} =
+               Ledgers.process_event_payment_with_donations(payment_attrs)
+
+      # Check payment was created
+      assert %Payment{} = payment
+      assert payment.amount == total_amount
+      assert payment.external_payment_id == "pi_mixed_123"
+      assert payment.status == :completed
+
+      # Check transaction was created
+      assert %LedgerTransaction{} = transaction
+      assert transaction.type == :payment
+      assert transaction.total_amount == total_amount
+      assert transaction.status == :completed
+
+      # Check entries were created
+      # Should have: stripe receivable debit, event revenue credit, donation revenue credit,
+      # stripe fee debit, stripe account credit (for fee)
+      assert length(entries) == 5
+
+      # Verify all entries have the correct payment_id
+      Enum.each(entries, fn entry ->
+        assert entry.payment_id == payment.id
+      end)
+
+      # Verify Stripe receivable entry (debit)
+      stripe_receivable_entry =
+        Enum.find(entries, fn e ->
+          e.description =~ "Payment receivable from Stripe" && e.debit_credit == :debit
+        end)
+
+      assert stripe_receivable_entry != nil
+      assert stripe_receivable_entry.amount == total_amount
+      assert stripe_receivable_entry.related_entity_type in [:event, "event"]
+      assert stripe_receivable_entry.related_entity_id == event_id
+
+      # Verify event revenue entry (credit)
+      event_revenue_entry =
+        Enum.find(entries, fn e ->
+          e.description =~ "Event revenue from tickets" && e.debit_credit == :credit
+        end)
+
+      assert event_revenue_entry != nil
+      assert event_revenue_entry.amount == event_amount
+      assert event_revenue_entry.related_entity_type in [:event, "event"]
+      assert event_revenue_entry.related_entity_id == event_id
+
+      # Verify donation revenue entry (credit)
+      donation_revenue_entry =
+        Enum.find(entries, fn e ->
+          e.description =~ "Donation revenue from tickets" && e.debit_credit == :credit
+        end)
+
+      assert donation_revenue_entry != nil
+      assert donation_revenue_entry.amount == donation_amount
+      assert donation_revenue_entry.related_entity_type in [:donation, "donation"]
+      assert donation_revenue_entry.related_entity_id == event_id
+
+      # Verify Stripe fee entries
+      fee_expense_entry =
+        Enum.find(entries, fn e ->
+          e.description =~ "Stripe processing fee" && e.debit_credit == :debit
+        end)
+
+      assert fee_expense_entry != nil
+      assert fee_expense_entry.amount == stripe_fee
+
+      # Verify ledger balance
+      assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
+    end
+
+    test "process_event_payment_with_donations/1 handles donation-only payments", %{user: user} do
+      # $50.00 donation only (no event tickets)
+      total_amount = Money.new(5_000, :USD)
+      event_amount = Money.new(0, :USD)
+      donation_amount = Money.new(5_000, :USD)
+      stripe_fee = Money.new(160, :USD)
+      event_id = Ecto.ULID.generate()
+
+      payment_attrs = %{
+        user_id: user.id,
+        total_amount: total_amount,
+        event_amount: event_amount,
+        donation_amount: donation_amount,
+        event_id: event_id,
+        external_payment_id: "pi_donation_only_123",
+        stripe_fee: stripe_fee,
+        description: "Donation only - Order ORD456",
+        payment_method_id: nil
+      }
+
+      assert {:ok, {payment, _transaction, entries}} =
+               Ledgers.process_event_payment_with_donations(payment_attrs)
+
+      # Check payment was created
+      assert %Payment{} = payment
+      assert payment.amount == total_amount
+
+      # Check entries - should NOT have event revenue entry
+      event_revenue_entry =
+        Enum.find(entries, fn e ->
+          e.description =~ "Event revenue from tickets"
+        end)
+
+      assert event_revenue_entry == nil
+
+      # Should have donation revenue entry
+      donation_revenue_entry =
+        Enum.find(entries, fn e ->
+          e.description =~ "Donation revenue from tickets" && e.debit_credit == :credit
+        end)
+
+      assert donation_revenue_entry != nil
+      assert donation_revenue_entry.amount == donation_amount
+
+      # Verify ledger balance
+      assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
+    end
+
+    test "process_event_payment_with_donations/1 handles event-only payments", %{user: user} do
+      # $75.00 event only (no donations)
+      total_amount = Money.new(7_500, :USD)
+      event_amount = Money.new(7_500, :USD)
+      donation_amount = Money.new(0, :USD)
+      stripe_fee = Money.new(240, :USD)
+      event_id = Ecto.ULID.generate()
+
+      payment_attrs = %{
+        user_id: user.id,
+        total_amount: total_amount,
+        event_amount: event_amount,
+        donation_amount: donation_amount,
+        event_id: event_id,
+        external_payment_id: "pi_event_only_123",
+        stripe_fee: stripe_fee,
+        description: "Event tickets only - Order ORD789",
+        payment_method_id: nil
+      }
+
+      assert {:ok, {payment, _transaction, entries}} =
+               Ledgers.process_event_payment_with_donations(payment_attrs)
+
+      # Check payment was created
+      assert %Payment{} = payment
+      assert payment.amount == total_amount
+
+      # Check entries - should have event revenue entry
+      event_revenue_entry =
+        Enum.find(entries, fn e ->
+          e.description =~ "Event revenue from tickets" && e.debit_credit == :credit
+        end)
+
+      assert event_revenue_entry != nil
+      assert event_revenue_entry.amount == event_amount
+
+      # Should NOT have donation revenue entry
+      donation_revenue_entry =
+        Enum.find(entries, fn e ->
+          e.description =~ "Donation revenue from tickets"
+        end)
+
+      assert donation_revenue_entry == nil
+
+      # Verify ledger balance
+      assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
+    end
+
+    test "process_event_payment_with_donations/1 creates correct account balances", %{user: user} do
+      # $100.00 total: $60.00 event + $40.00 donation
+      total_amount = Money.new(10_000, :USD)
+      event_amount = Money.new(6_000, :USD)
+      donation_amount = Money.new(4_000, :USD)
+      stripe_fee = Money.new(320, :USD)
+      event_id = Ecto.ULID.generate()
+
+      payment_attrs = %{
+        user_id: user.id,
+        total_amount: total_amount,
+        event_amount: event_amount,
+        donation_amount: donation_amount,
+        event_id: event_id,
+        external_payment_id: "pi_balance_test_123",
+        stripe_fee: stripe_fee,
+        description: "Balance test - Order ORD999",
+        payment_method_id: nil
+      }
+
+      assert {:ok, {_payment, _transaction, _entries}} =
+               Ledgers.process_event_payment_with_donations(payment_attrs)
+
+      # Check account balances
+      event_revenue_account = Ledgers.get_account_by_name("event_revenue")
+      donation_revenue_account = Ledgers.get_account_by_name("donation_revenue")
+      stripe_account = Ledgers.get_account_by_name("stripe_account")
+      stripe_fees_account = Ledgers.get_account_by_name("stripe_fees")
+
+      event_balance = Ledgers.get_account_balance(event_revenue_account.id)
+      donation_balance = Ledgers.get_account_balance(donation_revenue_account.id)
+      stripe_balance = Ledgers.get_account_balance(stripe_account.id)
+      fees_balance = Ledgers.get_account_balance(stripe_fees_account.id)
+
+      # Event revenue should be credited (positive balance for credit-normal account)
+      assert Money.equal?(event_balance, event_amount)
+
+      # Donation revenue should be credited (positive balance for credit-normal account)
+      assert Money.equal?(donation_balance, donation_amount)
+
+      # Stripe account should have net receivable (total - fee)
+      expected_stripe_balance = Money.sub(total_amount, stripe_fee) |> elem(1)
+      assert Money.equal?(stripe_balance, expected_stripe_balance)
+
+      # Stripe fees should be debited (positive balance for debit-normal account)
+      assert Money.equal?(fees_balance, stripe_fee)
+    end
+  end
+
   describe "credit management" do
     setup do
       user = user_fixture()

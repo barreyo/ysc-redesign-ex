@@ -695,17 +695,83 @@ defmodule Ysc.Tickets do
     # Use consolidated fee extraction from Stripe.WebhookHandler
     stripe_fee = Ysc.Stripe.WebhookHandler.extract_stripe_fee_from_payment_intent(payment_intent)
 
-    Ledgers.process_payment(%{
-      user_id: ticket_order.user_id,
-      amount: ticket_order.total_amount,
-      entity_type: :event,
-      entity_id: ticket_order.event_id,
-      external_payment_id: payment_intent.id,
-      stripe_fee: stripe_fee,
-      description: "Event tickets - Order #{ticket_order.reference_id}",
-      property: nil,
-      payment_method_id: extract_payment_method_id(payment_intent, ticket_order.user_id)
-    })
+    # Load ticket order with tickets and ticket tiers to check for donations
+    ticket_order_with_tickets =
+      get_ticket_order(ticket_order.id)
+
+    # Calculate donation vs regular ticket amounts
+    {event_amount, donation_amount} =
+      calculate_event_and_donation_amounts(ticket_order_with_tickets)
+
+    # If there are donations, use the mixed payment processor
+    if Money.positive?(donation_amount) do
+      Ledgers.process_event_payment_with_donations(%{
+        user_id: ticket_order.user_id,
+        total_amount: ticket_order.total_amount,
+        event_amount: event_amount,
+        donation_amount: donation_amount,
+        event_id: ticket_order.event_id,
+        external_payment_id: payment_intent.id,
+        stripe_fee: stripe_fee,
+        description: "Event tickets - Order #{ticket_order.reference_id}",
+        payment_method_id: extract_payment_method_id(payment_intent, ticket_order.user_id)
+      })
+    else
+      # No donations, use regular event payment processing
+      Ledgers.process_payment(%{
+        user_id: ticket_order.user_id,
+        amount: ticket_order.total_amount,
+        entity_type: :event,
+        entity_id: ticket_order.event_id,
+        external_payment_id: payment_intent.id,
+        stripe_fee: stripe_fee,
+        description: "Event tickets - Order #{ticket_order.reference_id}",
+        property: nil,
+        payment_method_id: extract_payment_method_id(payment_intent, ticket_order.user_id)
+      })
+    end
+  end
+
+  # Calculate event revenue amount and donation amount from ticket order
+  defp calculate_event_and_donation_amounts(ticket_order) do
+    if ticket_order && ticket_order.tickets do
+      # Calculate non-donation ticket costs (regular event revenue)
+      event_amount =
+        ticket_order.tickets
+        |> Enum.filter(fn t ->
+          tier_type = t.ticket_tier.type
+
+          tier_type != "donation" && tier_type != :donation && tier_type != "free" &&
+            tier_type != :free
+        end)
+        |> Enum.reduce(Money.new(0, :USD), fn ticket, acc ->
+          case ticket.ticket_tier.price do
+            nil ->
+              acc
+
+            price when is_struct(price, Money) ->
+              case Money.add(acc, price) do
+                {:ok, new_total} -> new_total
+                _ -> acc
+              end
+
+            _ ->
+              acc
+          end
+        end)
+
+      # Calculate donation amount (total - event amount)
+      donation_amount =
+        case Money.sub(ticket_order.total_amount, event_amount) do
+          {:ok, amount} -> amount
+          _ -> Money.new(0, :USD)
+        end
+
+      {event_amount, donation_amount}
+    else
+      # If we can't load tickets, assume all is event revenue
+      {ticket_order.total_amount, Money.new(0, :USD)}
+    end
   end
 
   defp extract_payment_method_id(payment_intent, user_id) do

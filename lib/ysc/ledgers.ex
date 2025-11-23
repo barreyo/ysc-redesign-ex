@@ -191,6 +191,86 @@ defmodule Ysc.Ledgers do
     end
   end
 
+  @doc """
+  Processes an event payment that may include donations.
+
+  This function handles ticket orders that contain both regular tickets and donation tickets.
+  It creates separate revenue entries for event revenue and donation revenue.
+
+  ## Parameters:
+  - `user_id`: The user making the payment
+  - `total_amount`: Total payment amount
+  - `event_amount`: Amount for regular event tickets
+  - `donation_amount`: Amount for donation tickets
+  - `event_id`: Event ID
+  - `external_payment_id`: External payment provider ID (e.g., Stripe payment intent)
+  - `stripe_fee`: Stripe processing fee (optional)
+  - `description`: Description of the payment
+  - `payment_method_id`: ID of the payment method used (optional)
+  """
+  def process_event_payment_with_donations(attrs) do
+    %{
+      user_id: user_id,
+      total_amount: total_amount,
+      event_amount: event_amount,
+      donation_amount: donation_amount,
+      event_id: event_id,
+      external_payment_id: external_payment_id,
+      stripe_fee: stripe_fee,
+      description: description,
+      payment_method_id: payment_method_id
+    } = attrs
+
+    ensure_basic_accounts()
+
+    Repo.transaction(fn ->
+      # Create payment record
+      {:ok, payment} =
+        create_payment(%{
+          user_id: user_id,
+          amount: total_amount,
+          external_provider: :stripe,
+          external_payment_id: external_payment_id,
+          status: :completed,
+          payment_date: DateTime.utc_now(),
+          payment_method_id: payment_method_id
+        })
+
+      # Create ledger transaction
+      {:ok, transaction} =
+        create_transaction(%{
+          type: :payment,
+          payment_id: payment.id,
+          total_amount: total_amount,
+          status: :completed
+        })
+
+      # Create double-entry entries for mixed event/donation payment
+      entries =
+        create_mixed_event_donation_entries(%{
+          payment: payment,
+          transaction: transaction,
+          total_amount: total_amount,
+          event_amount: event_amount,
+          donation_amount: donation_amount,
+          event_id: event_id,
+          stripe_fee: stripe_fee,
+          description: description
+        })
+
+      {payment, transaction, entries}
+    end)
+    |> case do
+      {:ok, {payment, transaction, entries}} ->
+        # Enqueue QuickBooks sync job after successful payment creation
+        enqueue_quickbooks_sync_payment(payment)
+        {:ok, {payment, transaction, entries}}
+
+      error ->
+        error
+    end
+  end
+
   defp enqueue_quickbooks_sync_payment(%Payment{} = payment) do
     # Mark payment as pending sync
     payment
@@ -326,6 +406,120 @@ defmodule Ysc.Ledgers do
     entries = [revenue_entry | entries]
 
     # Entry 3: If there's a Stripe fee, track the flow through Stripe account
+    entries =
+      if stripe_fee && Money.positive?(stripe_fee) do
+        stripe_fee_account = get_account_by_name("stripe_fees")
+        stripe_account = get_account_by_name("stripe_account")
+
+        # Entry 3a: Debit Stripe Fee Expense
+        {:ok, fee_expense_entry} =
+          create_entry(%{
+            account_id: stripe_fee_account.id,
+            payment_id: payment.id,
+            amount: stripe_fee,
+            debit_credit: :debit,
+            description: "Stripe processing fee for payment #{payment.reference_id}",
+            related_entity_type: :administration,
+            related_entity_id: payment.id
+          })
+
+        # Entry 3b: Credit Stripe Account (reducing receivable by fee amount)
+        {:ok, stripe_fee_deduction_entry} =
+          create_entry(%{
+            account_id: stripe_account.id,
+            payment_id: payment.id,
+            amount: stripe_fee,
+            debit_credit: :credit,
+            description: "Stripe fee deduction from receivable - #{payment.reference_id}",
+            related_entity_type: :administration,
+            related_entity_id: payment.id
+          })
+
+        [fee_expense_entry, stripe_fee_deduction_entry | entries]
+      else
+        entries
+      end
+
+    entries
+  end
+
+  @doc """
+  Creates double-entry ledger entries for a mixed event/donation payment.
+
+  This handles ticket orders that contain both regular tickets and donation tickets.
+  Creates separate revenue entries for each type while maintaining double-entry balance.
+  """
+  def create_mixed_event_donation_entries(attrs) do
+    %{
+      payment: payment,
+      total_amount: total_amount,
+      event_amount: event_amount,
+      donation_amount: donation_amount,
+      event_id: event_id,
+      stripe_fee: stripe_fee,
+      description: description
+    } = attrs
+
+    entries = []
+
+    stripe_receivable_account = get_account_by_name("stripe_account")
+    event_revenue_account = get_account_by_name("event_revenue")
+    donation_revenue_account = get_account_by_name("donation_revenue")
+
+    # Entry 1: Debit Stripe Receivable (Asset) - money owed to us by Stripe
+    {:ok, stripe_receivable_entry} =
+      create_entry(%{
+        account_id: stripe_receivable_account.id,
+        payment_id: payment.id,
+        amount: total_amount,
+        debit_credit: :debit,
+        description: "Payment receivable from Stripe: #{description}",
+        related_entity_type: :event,
+        related_entity_id: event_id
+      })
+
+    entries = [stripe_receivable_entry | entries]
+
+    # Entry 2a: Credit Event Revenue (if there's event revenue)
+    entries =
+      if Money.positive?(event_amount) do
+        {:ok, event_revenue_entry} =
+          create_entry(%{
+            account_id: event_revenue_account.id,
+            payment_id: payment.id,
+            amount: event_amount,
+            debit_credit: :credit,
+            description: "Event revenue from tickets: #{description}",
+            related_entity_type: :event,
+            related_entity_id: event_id
+          })
+
+        [event_revenue_entry | entries]
+      else
+        entries
+      end
+
+    # Entry 2b: Credit Donation Revenue (if there's donation revenue)
+    entries =
+      if Money.positive?(donation_amount) do
+        {:ok, donation_revenue_entry} =
+          create_entry(%{
+            account_id: donation_revenue_account.id,
+            payment_id: payment.id,
+            amount: donation_amount,
+            debit_credit: :credit,
+            description: "Donation revenue from tickets: #{description}",
+            related_entity_type: :donation,
+            related_entity_id: event_id
+          })
+
+        [donation_revenue_entry | entries]
+      else
+        entries
+      end
+
+    # Entry 3: If there's a Stripe fee, track the flow through Stripe account
+    # We'll assign the fee proportionally or to event revenue (simpler approach)
     entries =
       if stripe_fee && Money.positive?(stripe_fee) do
         stripe_fee_account = get_account_by_name("stripe_fees")
@@ -778,11 +972,31 @@ defmodule Ysc.Ledgers do
     if existing_link do
       {:ok, payout}
     else
-      payout
-      |> Repo.preload(:payments)
-      |> Ecto.Changeset.change()
-      |> Ecto.Changeset.put_assoc(:payments, [payment | payout.payments])
-      |> Repo.update()
+      # Insert directly into join table instead of using put_assoc
+      # This avoids changeset validation issues with many-to-many associations
+      payout_id_binary =
+        case Ecto.ULID.dump(payout.id) do
+          {:ok, binary} -> binary
+          _ -> payout.id
+        end
+
+      payment_id_binary =
+        case Ecto.ULID.dump(payment.id) do
+          {:ok, binary} -> binary
+          _ -> payment.id
+        end
+
+      Repo.insert_all("payout_payments", [
+        %{
+          id: Ecto.UUID.generate(),
+          payout_id: payout_id_binary,
+          payment_id: payment_id_binary,
+          inserted_at: DateTime.utc_now(),
+          updated_at: DateTime.utc_now()
+        }
+      ])
+
+      {:ok, Repo.reload!(payout)}
     end
   end
 
@@ -815,11 +1029,31 @@ defmodule Ysc.Ledgers do
     if existing_link do
       {:ok, payout}
     else
-      payout
-      |> Repo.preload(:refunds)
-      |> Ecto.Changeset.change()
-      |> Ecto.Changeset.put_assoc(:refunds, [refund | payout.refunds])
-      |> Repo.update()
+      # Insert directly into join table instead of using put_assoc
+      # This avoids changeset validation issues with many-to-many associations
+      payout_id_binary =
+        case Ecto.ULID.dump(payout.id) do
+          {:ok, binary} -> binary
+          _ -> payout.id
+        end
+
+      refund_id_binary =
+        case Ecto.ULID.dump(refund.id) do
+          {:ok, binary} -> binary
+          _ -> refund.id
+        end
+
+      Repo.insert_all("payout_refunds", [
+        %{
+          id: Ecto.UUID.generate(),
+          payout_id: payout_id_binary,
+          refund_id: refund_id_binary,
+          inserted_at: DateTime.utc_now(),
+          updated_at: DateTime.utc_now()
+        }
+      ])
+
+      {:ok, Repo.reload!(payout)}
     end
   end
 

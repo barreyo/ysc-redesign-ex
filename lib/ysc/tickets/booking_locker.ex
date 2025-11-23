@@ -266,9 +266,10 @@ defmodule Ysc.Tickets.BookingLocker do
 
           :donation ->
             # For donations, amount_or_quantity is already in cents
-            # Convert cents to dollars Decimal, then create Money
+            # Convert cents to dollars Decimal, then create Money using Money.new(decimal, :USD)
+            # This matches the pattern used in webhook_handler.ex: Money.new(MoneyHelper.cents_to_dollars(...), :USD)
             dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
-            donation_amount = Money.new(:USD, dollars_decimal)
+            donation_amount = Money.new(dollars_decimal, :USD)
 
             case Money.add(acc, donation_amount) do
               {:ok, new_total} -> new_total
@@ -277,9 +278,10 @@ defmodule Ysc.Tickets.BookingLocker do
 
           "donation" ->
             # For donations, amount_or_quantity is already in cents
-            # Convert cents to dollars Decimal, then create Money
+            # Convert cents to dollars Decimal, then create Money using Money.new(decimal, :USD)
+            # This matches the pattern used in webhook_handler.ex: Money.new(MoneyHelper.cents_to_dollars(...), :USD)
             dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
-            donation_amount = Money.new(:USD, dollars_decimal)
+            donation_amount = Money.new(dollars_decimal, :USD)
 
             case Money.add(acc, donation_amount) do
               {:ok, new_total} -> new_total

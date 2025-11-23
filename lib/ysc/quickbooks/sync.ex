@@ -97,13 +97,19 @@ defmodule Ysc.Quickbooks.Sync do
   # Private functions
 
   defp do_sync_payment(%Payment{} = payment) do
+    # Reload payment to ensure we have the latest state
+    payment = Repo.reload!(payment)
+
     # Mark as attempting sync
     update_sync_status(payment, "pending", nil, nil)
+
+    # Reload again after status update to ensure we have the updated payment
+    payment = Repo.reload!(payment)
 
     with {:ok, user} <- get_user(payment.user_id),
          {:ok, customer_id} <- get_or_create_customer(user),
          {:ok, entity_info} <- get_payment_entity_info(payment),
-         {:ok, item_id} <- get_quickbooks_item_id(entity_info),
+         {:ok, item_id} <- get_item_id_for_entity(entity_info),
          {:ok, sales_receipt} <-
            create_payment_sales_receipt(payment, customer_id, item_id, entity_info) do
       sales_receipt_id = Map.get(sales_receipt, "Id")
@@ -216,37 +222,83 @@ defmodule Ysc.Quickbooks.Sync do
   end
 
   defp get_payment_entity_info(%Payment{} = payment) do
-    # Get the first revenue entry for this payment to determine entity type
-    entry =
+    # Get all revenue entries for this payment to detect mixed event/donation payments
+    entries =
       from(e in LedgerEntry,
+        join: a in assoc(e, :account),
         where: e.payment_id == ^payment.id,
         where: e.debit_credit == "credit",
         where: e.related_entity_type in ^["event", "booking", "donation", "membership"],
+        where: a.account_type == "revenue",
         order_by: [desc: e.inserted_at],
-        limit: 1
+        preload: [:account]
       )
-      |> Repo.one()
+      |> Repo.all()
 
-    if entry do
-      entity_type =
-        case entry.related_entity_type do
-          atom when is_atom(atom) -> atom
-          string when is_binary(string) -> String.to_existing_atom(string)
-        end
+    # Check if we have both event and donation entries (mixed payment)
+    event_entry = Enum.find(entries, fn e -> e.related_entity_type in [:event, "event"] end)
 
-      # For bookings, we need to determine if it's Tahoe or Clear Lake
-      # Check if there are entries with property-specific descriptions
-      property =
-        if entity_type == :booking do
-          determine_booking_property(payment)
-        else
-          nil
-        end
+    donation_entry =
+      Enum.find(entries, fn e -> e.related_entity_type in [:donation, "donation"] end)
 
-      {:ok, %{entity_type: entity_type, property: property, entry: entry}}
-    else
+    cond do
+      # Mixed event/donation payment
+      event_entry && donation_entry ->
+        {:ok,
+         %{
+           entity_type: :mixed_event_donation,
+           property: nil,
+           event_entry: event_entry,
+           donation_entry: donation_entry,
+           entries: entries
+         }}
+
+      # Single entity type payment
+      event_entry ->
+        entity_type =
+          case event_entry.related_entity_type do
+            atom when is_atom(atom) -> atom
+            string when is_binary(string) -> String.to_existing_atom(string)
+          end
+
+        property =
+          if entity_type == :booking do
+            determine_booking_property(payment)
+          else
+            nil
+          end
+
+        {:ok, %{entity_type: entity_type, property: property, entry: event_entry}}
+
+      donation_entry ->
+        entity_type =
+          case donation_entry.related_entity_type do
+            atom when is_atom(atom) -> atom
+            string when is_binary(string) -> String.to_existing_atom(string)
+          end
+
+        {:ok, %{entity_type: entity_type, property: nil, entry: donation_entry}}
+
+      # Try to find any revenue entry
+      entry = List.first(entries) ->
+        entity_type =
+          case entry.related_entity_type do
+            atom when is_atom(atom) -> atom
+            string when is_binary(string) -> String.to_existing_atom(string)
+          end
+
+        property =
+          if entity_type == :booking do
+            determine_booking_property(payment)
+          else
+            nil
+          end
+
+        {:ok, %{entity_type: entity_type, property: property, entry: entry}}
+
       # Default to membership if no entity type found
-      {:ok, %{entity_type: :membership, property: nil, entry: nil}}
+      true ->
+        {:ok, %{entity_type: :membership, property: nil, entry: nil}}
     end
   end
 
@@ -283,6 +335,15 @@ defmodule Ysc.Quickbooks.Sync do
           true -> nil
         end
     end
+  end
+
+  defp get_item_id_for_entity(%{entity_type: :mixed_event_donation}) do
+    # For mixed payments, item_id is not needed (handled in create_payment_sales_receipt)
+    {:ok, nil}
+  end
+
+  defp get_item_id_for_entity(entity_info) do
+    get_quickbooks_item_id(entity_info)
   end
 
   defp get_quickbooks_item_id(%{entity_type: entity_type, property: property}) do
@@ -327,35 +388,146 @@ defmodule Ysc.Quickbooks.Sync do
   end
 
   defp create_payment_sales_receipt(payment, customer_id, item_id, entity_info) do
-    # Convert from cents to dollars for QuickBooks
-    amount =
-      Money.to_decimal(payment.amount)
-      |> Decimal.div(Decimal.new(100))
-      |> Decimal.round(2)
+    # Handle mixed event/donation payments with separate line items
+    if entity_info.entity_type == :mixed_event_donation do
+      create_mixed_payment_sales_receipt(payment, customer_id, entity_info)
+    else
+      # Single entity type payment - use existing logic
+      # Convert from cents to dollars for QuickBooks
+      amount =
+        Money.to_decimal(payment.amount)
+        |> Decimal.div(Decimal.new(100))
+        |> Decimal.round(2)
 
-    account_class = get_account_and_class(entity_info)
+      account_class = get_account_and_class(entity_info)
 
-    params = %{
-      customer_id: customer_id,
-      item_id: item_id,
-      quantity: 1,
-      unit_price: amount,
-      txn_date: payment.payment_date || payment.inserted_at,
-      description: "Payment #{payment.reference_id}",
-      memo: "Payment: #{payment.reference_id}",
-      private_note: "External Payment ID: #{payment.external_payment_id}"
+      params = %{
+        customer_id: customer_id,
+        item_id: item_id,
+        quantity: 1,
+        unit_price: amount,
+        txn_date: payment.payment_date || payment.inserted_at,
+        description: "Payment #{payment.reference_id}",
+        memo: "Payment: #{payment.reference_id}",
+        private_note: "External Payment ID: #{payment.external_payment_id}"
+      }
+
+      params =
+        if account_class do
+          params
+          |> Map.put(:class_ref, account_class.class)
+        else
+          params
+        end
+
+      Quickbooks.create_purchase_sales_receipt(params)
+    end
+  end
+
+  defp create_mixed_payment_sales_receipt(payment, customer_id, entity_info) do
+    # Get item IDs for event and donation
+    event_item_id = Application.get_env(:ysc, :quickbooks)[:event_item_id]
+    donation_item_id = Application.get_env(:ysc, :quickbooks)[:donation_item_id]
+
+    if is_nil(event_item_id) or is_nil(donation_item_id) do
+      {:error, :quickbooks_item_ids_not_configured}
+    else
+      # Build line items - only include non-zero amounts
+      line_items = []
+
+      # Add event line item if event entry exists and has positive amount
+      line_items =
+        if entity_info.event_entry && Money.positive?(entity_info.event_entry.amount) do
+          event_amount =
+            Money.to_decimal(entity_info.event_entry.amount)
+            |> Decimal.div(Decimal.new(100))
+            |> Decimal.round(2)
+
+          event_line_item =
+            build_sales_line_item(
+              event_item_id,
+              event_amount,
+              "Event tickets - Order #{payment.reference_id}",
+              @account_class_mapping[:event].class
+            )
+
+          [event_line_item | line_items]
+        else
+          line_items
+        end
+
+      # Add donation line item if donation entry exists and has positive amount
+      line_items =
+        if entity_info.donation_entry && Money.positive?(entity_info.donation_entry.amount) do
+          donation_amount =
+            Money.to_decimal(entity_info.donation_entry.amount)
+            |> Decimal.div(Decimal.new(100))
+            |> Decimal.round(2)
+
+          donation_line_item =
+            build_sales_line_item(
+              donation_item_id,
+              donation_amount,
+              "Donation - Order #{payment.reference_id}",
+              @account_class_mapping[:donation].class
+            )
+
+          [donation_line_item | line_items]
+        else
+          line_items
+        end
+
+      # Calculate total from line items
+      total_amount =
+        Enum.reduce(line_items, Decimal.new(0), fn item, acc ->
+          Decimal.add(acc, item.amount)
+        end)
+
+      # Build sales receipt params
+      sales_receipt_params = %{
+        customer_ref: %{value: customer_id},
+        line: Enum.reverse(line_items),
+        total_amt: total_amount,
+        txn_date: format_payment_date(payment.payment_date || payment.inserted_at),
+        memo: "Payment: #{payment.reference_id}",
+        private_note: "External Payment ID: #{payment.external_payment_id}"
+      }
+
+      # Use client directly to create sales receipt with multiple line items
+      client_module = Application.get_env(:ysc, :quickbooks_client, Ysc.Quickbooks.Client)
+      client_module.create_sales_receipt(sales_receipt_params)
+    end
+  end
+
+  defp build_sales_line_item(item_id, amount, description, class_ref) do
+    sales_item_detail = %{
+      item_ref: %{value: item_id},
+      quantity: Decimal.new(1),
+      unit_price: amount
     }
 
-    params =
-      if account_class do
-        params
-        |> Map.put(:class_ref, account_class.class)
+    sales_item_detail =
+      if class_ref do
+        Map.put(sales_item_detail, :class_ref, %{value: class_ref})
       else
-        params
+        sales_item_detail
       end
 
-    Quickbooks.create_purchase_sales_receipt(params)
+    %{
+      amount: amount,
+      detail_type: "SalesItemLineDetail",
+      sales_item_line_detail: sales_item_detail,
+      description: description
+    }
   end
+
+  defp format_payment_date(%DateTime{} = datetime) do
+    datetime
+    |> DateTime.to_date()
+    |> Date.to_iso8601()
+  end
+
+  defp format_payment_date(nil), do: nil
 
   defp create_refund_sales_receipt(refund, customer_id, item_id, entity_info) do
     # Convert from cents to dollars for QuickBooks (will be negated later)
@@ -677,13 +849,25 @@ defmodule Ysc.Quickbooks.Sync do
       timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
     }
 
-    payment
-    |> Payment.changeset(%{
-      quickbooks_sync_status: "failed",
-      quickbooks_sync_error: error_map,
-      quickbooks_last_sync_attempt_at: DateTime.utc_now()
-    })
-    |> Repo.update()
+    # Reload payment to ensure we have the latest state
+    payment = Repo.reload!(payment)
+
+    case payment
+         |> Payment.changeset(%{
+           quickbooks_sync_status: "failed",
+           quickbooks_sync_error: error_map,
+           quickbooks_last_sync_attempt_at: DateTime.utc_now()
+         })
+         |> Repo.update() do
+      {:ok, _updated_payment} ->
+        :ok
+
+      {:error, changeset} ->
+        Logger.error("Failed to update payment sync failure",
+          payment_id: payment.id,
+          error: inspect(changeset.errors)
+        )
+    end
   end
 
   # Update functions for Refund
