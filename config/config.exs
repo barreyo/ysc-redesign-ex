@@ -215,6 +215,8 @@ config :ysc, :quickbooks,
   tahoe_booking_item_id: System.get_env("QUICKBOOKS_TAHOE_BOOKING_ITEM_ID"),
   clear_lake_booking_item_id: System.get_env("QUICKBOOKS_CLEAR_LAKE_BOOKING_ITEM_ID"),
   membership_item_id: System.get_env("QUICKBOOKS_MEMBERSHIP_ITEM_ID"),
+  single_membership_item_id: System.get_env("QUICKBOOKS_SINGLE_MEMBERSHIP_ITEM_ID"),
+  family_membership_item_id: System.get_env("QUICKBOOKS_FAMILY_MEMBERSHIP_ITEM_ID"),
   default_item_id: System.get_env("QUICKBOOKS_DEFAULT_ITEM_ID"),
   stripe_fee_item_id: System.get_env("QUICKBOOKS_STRIPE_FEE_ITEM_ID"),
   # QuickBooks Account IDs (required - cannot be auto-created)

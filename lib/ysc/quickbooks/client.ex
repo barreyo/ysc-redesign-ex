@@ -847,8 +847,9 @@ defmodule Ysc.Quickbooks.Client do
     |> maybe_put("DepositToAccountRef", params[:deposit_to_account_ref])
     |> maybe_put("DocNumber", params[:doc_number])
     |> maybe_put("TxnDate", params[:txn_date])
-    |> maybe_put("PrivateNote", params[:private_note])
-    |> maybe_put("Memo", params[:memo])
+    # Note: PrivateNote is not supported for SalesReceipt in QuickBooks Online API
+    # Use Memo instead if you need to store additional notes
+    |> maybe_put("Memo", params[:memo] || params[:private_note])
   end
 
   defp build_deposit_body(params) do
@@ -897,7 +898,7 @@ defmodule Ysc.Quickbooks.Client do
 
           sales_detail = %{
             "ItemRef" => detail.item_ref,
-            "Quantity" => detail.quantity,
+            "Qty" => detail.quantity,
             "UnitPrice" => detail.unit_price
           }
 
@@ -994,6 +995,136 @@ defmodule Ysc.Quickbooks.Client do
 
       _ ->
         base
+    end
+  end
+
+  @doc """
+  Queries for a QuickBooks Account by name.
+
+  Returns {:ok, account_id} if found, {:error, :not_found} otherwise.
+  """
+  @spec query_account_by_name(String.t()) :: {:ok, String.t()} | {:error, atom()}
+  def query_account_by_name(name) do
+    with {:ok, access_token} <- get_access_token(),
+         {:ok, company_id} <- get_company_id() do
+      # Query for account by name
+      query =
+        "SELECT Id, Name FROM Account WHERE Name = '#{escape_query_string(name)}' AND Active = true"
+
+      url = build_query_url(company_id, query)
+      headers = build_headers(access_token)
+
+      Logger.debug("[QB Client] query_account_by_name: Querying for account",
+        name: name,
+        query: query
+      )
+
+      request = Finch.build(:get, url, headers)
+
+      case Finch.request(request, Ysc.Finch) do
+        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+          case Jason.decode(response_body) do
+            {:ok, %{"QueryResponse" => %{"Account" => accounts}}}
+            when is_list(accounts) and length(accounts) > 0 ->
+              account = List.first(accounts)
+              account_id = Map.get(account, "Id")
+
+              Logger.debug("[QB Client] query_account_by_name: Found account",
+                name: name,
+                account_id: account_id
+              )
+
+              {:ok, account_id}
+
+            {:ok, %{"QueryResponse" => %{"Account" => account}}} when is_map(account) ->
+              account_id = Map.get(account, "Id")
+
+              Logger.debug("[QB Client] query_account_by_name: Found account",
+                name: name,
+                account_id: account_id
+              )
+
+              {:ok, account_id}
+
+            {:ok, %{"QueryResponse" => _}} ->
+              Logger.debug("[QB Client] query_account_by_name: Account not found",
+                name: name
+              )
+
+              {:error, :not_found}
+
+            {:ok, data} ->
+              Logger.error("[QB Client] query_account_by_name: Unexpected response format",
+                name: name,
+                data: inspect(data)
+              )
+
+              {:error, :invalid_response}
+
+            {:error, error} ->
+              Logger.error("[QB Client] query_account_by_name: Failed to parse response",
+                name: name,
+                error: inspect(error)
+              )
+
+              {:error, :invalid_response}
+          end
+
+        {:ok, %Finch.Response{status: 401, body: _response_body}} ->
+          Logger.warning(
+            "[QB Client] query_account_by_name: Authentication failed, attempting token refresh"
+          )
+
+          case refresh_access_token() do
+            {:ok, new_access_token} ->
+              headers = build_headers(new_access_token)
+              request = Finch.build(:get, url, headers)
+
+              case Finch.request(request, Ysc.Finch) do
+                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                when status in 200..299 ->
+                  case Jason.decode(retry_response_body) do
+                    {:ok, %{"QueryResponse" => %{"Account" => accounts}}}
+                    when is_list(accounts) and length(accounts) > 0 ->
+                      account = List.first(accounts)
+                      account_id = Map.get(account, "Id")
+                      {:ok, account_id}
+
+                    {:ok, %{"QueryResponse" => %{"Account" => account}}} when is_map(account) ->
+                      account_id = Map.get(account, "Id")
+                      {:ok, account_id}
+
+                    _ ->
+                      {:error, :not_found}
+                  end
+
+                _ ->
+                  {:error, :not_found}
+              end
+
+            error ->
+              error
+          end
+
+        {:ok, %Finch.Response{status: status, body: response_body}} ->
+          error = parse_error_response(response_body)
+
+          Logger.error("[QB Client] query_account_by_name: Failed to query account",
+            name: name,
+            status: status,
+            error: error
+          )
+
+          {:error, error}
+
+        {:error, error} ->
+          Logger.error("[QB Client] query_account_by_name: Request failed",
+            name: name,
+            error: inspect(error)
+          )
+
+          {:error, :request_failed}
+      end
     end
   end
 

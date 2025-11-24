@@ -12,6 +12,7 @@ defmodule Ysc.Quickbooks.Sync do
   alias Ysc.Quickbooks
   alias Ysc.Accounts.User
   alias Ysc.Bookings
+  alias Ysc.Subscriptions
   alias YscWeb.Workers.QuickbooksSyncPayoutWorker
   import Ecto.Query
 
@@ -600,6 +601,31 @@ defmodule Ysc.Quickbooks.Sync do
 
           {:ok, %{entity_type: entity_type, property: property, entry: entry}}
 
+        # Check for membership entry
+        membership_entry =
+            Enum.find(entries, fn e -> e.related_entity_type in [:membership, "membership"] end) ->
+          entity_type =
+            case membership_entry.related_entity_type do
+              atom when is_atom(atom) -> atom
+              string when is_binary(string) -> String.to_existing_atom(string)
+            end
+
+          Logger.debug("[QB Sync] get_payment_entity_info: Detected membership entry",
+            payment_id: payment.id,
+            entity_type: entity_type,
+            entity_id: membership_entry.related_entity_id
+          )
+
+          # Get membership type (single vs family) from subscription
+          membership_type = get_membership_type_from_entity_id(membership_entry.related_entity_id)
+
+          Logger.debug("[QB Sync] get_payment_entity_info: Membership type determined",
+            payment_id: payment.id,
+            membership_type: membership_type
+          )
+
+          {:ok, %{entity_type: entity_type, property: membership_type, entry: membership_entry}}
+
         # Default to membership if no entity type found
         true ->
           Logger.debug(
@@ -607,7 +633,7 @@ defmodule Ysc.Quickbooks.Sync do
             payment_id: payment.id
           )
 
-          {:ok, %{entity_type: :membership, property: nil, entry: nil}}
+          {:ok, %{entity_type: :membership, property: :single, entry: nil}}
       end
 
     Logger.debug("[QB Sync] get_payment_entity_info: Final result",
@@ -616,6 +642,48 @@ defmodule Ysc.Quickbooks.Sync do
     )
 
     result
+  end
+
+  defp get_membership_type_from_entity_id(nil), do: :single
+
+  defp get_membership_type_from_entity_id(subscription_id) do
+    Logger.debug("[QB Sync] get_membership_type_from_entity_id: Getting membership type",
+      subscription_id: subscription_id
+    )
+
+    case Subscriptions.get_subscription(subscription_id) do
+      {:ok, subscription} ->
+        subscription = Repo.preload(subscription, :subscription_items)
+
+        membership_type =
+          case subscription.subscription_items do
+            [item | _] ->
+              membership_plans = Application.get_env(:ysc, :membership_plans, [])
+
+              case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
+                %{id: plan_id} when plan_id in [:family, "family"] -> :family
+                _ -> :single
+              end
+
+            _ ->
+              :single
+          end
+
+        Logger.debug("[QB Sync] get_membership_type_from_entity_id: Membership type determined",
+          subscription_id: subscription_id,
+          membership_type: membership_type
+        )
+
+        membership_type
+
+      _ ->
+        Logger.debug(
+          "[QB Sync] get_membership_type_from_entity_id: Subscription not found, defaulting to single",
+          subscription_id: subscription_id
+        )
+
+        :single
+    end
   end
 
   defp determine_booking_property(%Payment{} = payment) do
@@ -773,7 +841,9 @@ defmodule Ysc.Quickbooks.Sync do
         {:donation, _} -> "Donations"
         {:booking, :tahoe} -> "Tahoe Bookings"
         {:booking, :clear_lake} -> "Clear Lake Bookings"
-        {:membership, _} -> "Membership"
+        {:membership, :family} -> "Family Membership"
+        {:membership, :single} -> "Single Membership"
+        {:membership, _} -> "Single Membership"
         _ -> "General Revenue"
       end
 
@@ -790,7 +860,9 @@ defmodule Ysc.Quickbooks.Sync do
         {:donation, _} -> :donation_item_id
         {:booking, :tahoe} -> :tahoe_booking_item_id
         {:booking, :clear_lake} -> :clear_lake_booking_item_id
-        {:membership, _} -> :membership_item_id
+        {:membership, :family} -> :family_membership_item_id
+        {:membership, :single} -> :single_membership_item_id
+        {:membership, _} -> :single_membership_item_id
         _ -> :default_item_id
       end
 
@@ -803,7 +875,52 @@ defmodule Ysc.Quickbooks.Sync do
           item_name: item_name
         )
 
-        case Quickbooks.Client.get_or_create_item(item_name) do
+        # Get the income account for this item type
+        income_account_name =
+          case {entity_type, property} do
+            {:event, _} -> "Events Inc"
+            {:donation, _} -> "Donations"
+            {:booking, :tahoe} -> "Tahoe Inc"
+            {:booking, :clear_lake} -> "Clear Lake Inc"
+            {:membership, _} -> "Membership Revenue"
+            _ -> "General Revenue"
+          end
+
+        Logger.debug("[QB Sync] get_quickbooks_item_id: Getting income account",
+          income_account_name: income_account_name
+        )
+
+        income_account_ref =
+          case Quickbooks.Client.query_account_by_name(income_account_name) do
+            {:ok, account_id} ->
+              Logger.debug("[QB Sync] get_quickbooks_item_id: Found income account",
+                account_name: income_account_name,
+                account_id: account_id
+              )
+
+              %{value: account_id}
+
+            {:error, :not_found} ->
+              Logger.warning(
+                "[QB Sync] get_quickbooks_item_id: Income account not found, item creation may fail",
+                account_name: income_account_name
+              )
+
+              nil
+
+            error ->
+              Logger.warning(
+                "[QB Sync] get_quickbooks_item_id: Failed to query income account, item creation may fail",
+                account_name: income_account_name,
+                error: inspect(error)
+              )
+
+              nil
+          end
+
+        case Quickbooks.Client.get_or_create_item(item_name,
+               income_account_ref: income_account_ref
+             ) do
           {:ok, item_id} ->
             Logger.debug("[QB Sync] get_quickbooks_item_id: Item ID obtained via API",
               item_name: item_name,
@@ -844,7 +961,8 @@ defmodule Ysc.Quickbooks.Sync do
         {:donation, _} -> @account_class_mapping[:donation]
         {:booking, :tahoe} -> @account_class_mapping[:tahoe_booking]
         {:booking, :clear_lake} -> @account_class_mapping[:clear_lake_booking]
-        _ -> nil
+        {:membership, _} -> %{account: "Membership Revenue", class: "Administration"}
+        _ -> %{account: nil, class: "Administration"}
       end
 
     Logger.debug("[QB Sync] get_account_and_class: Result",
@@ -905,22 +1023,15 @@ defmodule Ysc.Quickbooks.Sync do
         private_note: "External Payment ID: #{payment.external_payment_id}"
       }
 
-      params =
-        if account_class do
-          Logger.debug("[QB Sync] create_payment_sales_receipt: Adding class reference",
-            payment_id: payment.id,
-            class: account_class.class
-          )
+      # Always set a class - get_account_and_class now always returns a class (defaults to "Administration")
+      class_to_use = account_class.class
 
-          params
-          |> Map.put(:class_ref, account_class.class)
-        else
-          Logger.debug("[QB Sync] create_payment_sales_receipt: No class reference",
-            payment_id: payment.id
-          )
+      Logger.debug("[QB Sync] create_payment_sales_receipt: Adding class reference",
+        payment_id: payment.id,
+        class: class_to_use
+      )
 
-          params
-        end
+      params = Map.put(params, :class_ref, class_to_use)
 
       Logger.debug(
         "[QB Sync] create_payment_sales_receipt: Calling Quickbooks.create_purchase_sales_receipt",
@@ -953,9 +1064,9 @@ defmodule Ysc.Quickbooks.Sync do
     )
 
     with {:ok, event_item_id} <-
-           get_or_create_item_with_fallback("Event Tickets", :event_item_id),
+           get_or_create_item_with_fallback("Event Tickets", :event_item_id, "Events Inc"),
          {:ok, donation_item_id} <-
-           get_or_create_item_with_fallback("Donations", :donation_item_id) do
+           get_or_create_item_with_fallback("Donations", :donation_item_id, "Donations") do
       Logger.debug("[QB Sync] create_mixed_payment_sales_receipt: Item IDs obtained",
         payment_id: payment.id,
         event_item_id: event_item_id,
@@ -1118,12 +1229,32 @@ defmodule Ysc.Quickbooks.Sync do
     end
   end
 
-  defp get_or_create_item_with_fallback(item_name, config_key) do
+  defp get_or_create_item_with_fallback(item_name, config_key, income_account_name \\ nil) do
     # First check if there's a configured override
     case Application.get_env(:ysc, :quickbooks, [])[config_key] do
       nil ->
         # No override, get or create via API
-        Quickbooks.Client.get_or_create_item(item_name)
+        # Get income account if provided
+        income_account_ref =
+          if income_account_name do
+            case Quickbooks.Client.query_account_by_name(income_account_name) do
+              {:ok, account_id} ->
+                Logger.debug(
+                  "[QB Sync] get_or_create_item_with_fallback: Found income account",
+                  account_name: income_account_name,
+                  account_id: account_id
+                )
+
+                %{value: account_id}
+
+              _ ->
+                nil
+            end
+          else
+            nil
+          end
+
+        Quickbooks.Client.get_or_create_item(item_name, income_account_ref: income_account_ref)
 
       configured_item_id ->
         # Use configured override
@@ -1132,18 +1263,21 @@ defmodule Ysc.Quickbooks.Sync do
   end
 
   defp build_sales_line_item(item_id, amount, description, class_ref) do
+    # Always set a class - default to "Administration" if not provided
+    class_to_use = class_ref || "Administration"
+
+    Logger.debug("[QB Sync] build_sales_line_item: Building line item with class",
+      item_id: item_id,
+      class: class_to_use,
+      was_provided: not is_nil(class_ref)
+    )
+
     sales_item_detail = %{
       item_ref: %{value: item_id},
       quantity: Decimal.new(1),
-      unit_price: amount
+      unit_price: amount,
+      class_ref: %{value: class_to_use}
     }
-
-    sales_item_detail =
-      if class_ref do
-        Map.put(sales_item_detail, :class_ref, %{value: class_ref})
-      else
-        sales_item_detail
-      end
 
     %{
       amount: amount,
@@ -1226,22 +1360,15 @@ defmodule Ysc.Quickbooks.Sync do
       private_note: private_note
     }
 
-    params =
-      if account_class do
-        Logger.debug("[QB Sync] create_refund_sales_receipt: Adding class reference",
-          refund_id: refund.id,
-          class: account_class.class
-        )
+    # Always set a class - get_account_and_class now always returns a class (defaults to "Administration")
+    class_to_use = account_class.class
 
-        params
-        |> Map.put(:class_ref, account_class.class)
-      else
-        Logger.debug("[QB Sync] create_refund_sales_receipt: No class reference",
-          refund_id: refund.id
-        )
+    Logger.debug("[QB Sync] create_refund_sales_receipt: Adding class reference",
+      refund_id: refund.id,
+      class: class_to_use
+    )
 
-        params
-      end
+    params = Map.put(params, :class_ref, class_to_use)
 
     Logger.debug(
       "[QB Sync] create_refund_sales_receipt: Calling Quickbooks.create_refund_sales_receipt",
@@ -1607,7 +1734,38 @@ defmodule Ysc.Quickbooks.Sync do
       nil ->
         # No override, get or create via API
         Logger.debug("[QB Sync] get_or_create_stripe_fee_item: No config override, using API")
-        Quickbooks.Client.get_or_create_item("Stripe Fees")
+
+        # Stripe fees use the "Stripe Fees" expense account, but Service items require IncomeAccountRef
+        # Query for an income account (we'll use a general revenue account as fallback)
+        income_account_ref =
+          case Quickbooks.Client.query_account_by_name("Stripe Fees") do
+            {:ok, account_id} ->
+              Logger.debug(
+                "[QB Sync] get_or_create_stripe_fee_item: Found Stripe Fees account",
+                account_id: account_id
+              )
+
+              %{value: account_id}
+
+            _ ->
+              # Fallback to a general revenue account if Stripe Fees account not found
+              case Quickbooks.Client.query_account_by_name("General Revenue") do
+                {:ok, account_id} ->
+                  Logger.debug(
+                    "[QB Sync] get_or_create_stripe_fee_item: Using General Revenue as fallback",
+                    account_id: account_id
+                  )
+
+                  %{value: account_id}
+
+                _ ->
+                  nil
+              end
+          end
+
+        Quickbooks.Client.get_or_create_item("Stripe Fees",
+          income_account_ref: income_account_ref
+        )
 
       configured_item_id ->
         Logger.debug("[QB Sync] get_or_create_stripe_fee_item: Using configured item ID",
