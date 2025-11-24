@@ -3987,6 +3987,9 @@ defmodule YscWeb.AdminBookingsLive do
   end
 
   def handle_event("save-refund-policy-rule", %{"refund_policy_rule" => rule_params}, socket) do
+    # Ensure refund_policy_id is included
+    rule_params = Map.put(rule_params, "refund_policy_id", socket.assigns.refund_policy.id)
+
     # Convert refund_percentage to Decimal
     rule_params =
       if percentage_str = rule_params["refund_percentage"] do
@@ -4032,8 +4035,18 @@ defmodule YscWeb.AdminBookingsLive do
          |> assign(:refund_policy_rule_form, rule_form)}
 
       {:error, changeset} ->
+        Logger.error("Failed to create refund policy rule",
+          errors: inspect(changeset.errors),
+          params: inspect(rule_params)
+        )
+
         {:noreply,
-         assign(socket, :refund_policy_rule_form, to_form(changeset, as: "refund_policy_rule"))}
+         socket
+         |> put_flash(
+           :error,
+           "Failed to save refund policy rule. Please check the form for errors."
+         )
+         |> assign(:refund_policy_rule_form, to_form(changeset, as: "refund_policy_rule"))}
     end
   end
 
@@ -4742,10 +4755,18 @@ defmodule YscWeb.AdminBookingsLive do
     }
 
     query_params =
-      if current_section == :reservations do
-        Map.put(query_params, "section", "reservations")
-      else
-        query_params
+      cond do
+        current_section == :reservations ->
+          Map.put(query_params, "section", "reservations")
+
+        current_section == :config ->
+          Map.put(query_params, "section", "config")
+
+        current_section == :pending_refunds ->
+          Map.put(query_params, "section", "pending_refunds")
+
+        true ->
+          query_params
       end
 
     # Preserve search and filter parameters from reservation_params if on reservations tab

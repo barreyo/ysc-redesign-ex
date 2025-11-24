@@ -912,10 +912,70 @@ defmodule Ysc.Bookings.BookingLocker do
           confirmed_booking.id
         )
 
+        # Send booking confirmation email
+        send_booking_confirmation_email(confirmed_booking)
+
         {:ok, confirmed_booking}
 
       error ->
         error
+    end
+  end
+
+  defp send_booking_confirmation_email(booking) do
+    require Logger
+
+    try do
+      # Reload booking with associations
+      booking = Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload([:user, :rooms])
+
+      if booking && booking.user do
+        # Prepare email data
+        email_data = YscWeb.Emails.BookingConfirmation.prepare_email_data(booking)
+
+        # Generate idempotency key
+        idempotency_key = "booking_confirmation_#{booking.id}"
+
+        # Schedule email
+        result =
+          YscWeb.Emails.Notifier.schedule_email(
+            booking.user.email,
+            idempotency_key,
+            YscWeb.Emails.BookingConfirmation.get_subject(),
+            "booking_confirmation",
+            email_data,
+            "",
+            booking.user_id
+          )
+
+        case result do
+          %Oban.Job{} = job ->
+            Logger.info("Booking confirmation email scheduled successfully",
+              booking_id: booking.id,
+              user_id: booking.user_id,
+              user_email: booking.user.email,
+              job_id: job.id
+            )
+
+          {:error, reason} ->
+            Logger.error("Failed to schedule booking confirmation email",
+              booking_id: booking.id,
+              user_id: booking.user_id,
+              error: reason
+            )
+        end
+      else
+        Logger.warning("Skipping booking confirmation email - missing booking or user",
+          booking_id: booking && booking.id
+        )
+      end
+    rescue
+      error ->
+        Logger.error("Failed to send booking confirmation email",
+          booking_id: booking && booking.id,
+          error: inspect(error),
+          stacktrace: __STACKTRACE__
+        )
     end
   end
 

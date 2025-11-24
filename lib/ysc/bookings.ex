@@ -1735,6 +1735,13 @@ defmodule Ysc.Bookings do
                          |> PendingRefund.changeset(pending_refund_attrs)
                          |> Repo.insert() do
                       {:ok, pending_refund} ->
+                        # Send pending refund email
+                        send_booking_refund_pending_email(
+                          pending_refund,
+                          canceled_booking,
+                          payment
+                        )
+
                         {:ok, canceled_booking, actual_refund_amount, pending_refund}
 
                       {:error, changeset} ->
@@ -2104,6 +2111,74 @@ defmodule Ysc.Bookings do
       reviewed_at: DateTime.utc_now()
     })
     |> Repo.update()
+  end
+
+  defp send_booking_refund_pending_email(pending_refund, booking, payment) do
+    require Logger
+
+    try do
+      # Reload associations
+      booking = Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
+      payment = Ysc.Ledgers.get_payment_with_associations(payment.id)
+
+      if booking && booking.user && payment do
+        # Prepare email data
+        email_data =
+          YscWeb.Emails.BookingRefundPending.prepare_email_data(
+            pending_refund,
+            booking,
+            payment
+          )
+
+        # Generate idempotency key
+        idempotency_key = "booking_refund_pending_#{pending_refund.id}"
+
+        # Schedule email
+        result =
+          YscWeb.Emails.Notifier.schedule_email(
+            booking.user.email,
+            idempotency_key,
+            YscWeb.Emails.BookingRefundPending.get_subject(),
+            "booking_refund_pending",
+            email_data,
+            "",
+            booking.user_id
+          )
+
+        case result do
+          %Oban.Job{} = job ->
+            Logger.info("Booking refund pending email scheduled successfully",
+              pending_refund_id: pending_refund.id,
+              booking_id: booking.id,
+              user_id: booking.user_id,
+              user_email: booking.user.email,
+              job_id: job.id
+            )
+
+          {:error, reason} ->
+            Logger.error("Failed to schedule booking refund pending email",
+              pending_refund_id: pending_refund.id,
+              booking_id: booking.id,
+              user_id: booking.user_id,
+              error: reason
+            )
+        end
+      else
+        Logger.warning("Skipping booking refund pending email - missing associations",
+          pending_refund_id: pending_refund.id,
+          booking_id: booking && booking.id,
+          payment_id: payment && payment.id
+        )
+      end
+    rescue
+      error ->
+        Logger.error("Failed to send booking refund pending email",
+          pending_refund_id: pending_refund.id,
+          booking_id: booking && booking.id,
+          error: inspect(error),
+          stacktrace: __STACKTRACE__
+        )
+    end
   end
 
   ## Private Functions

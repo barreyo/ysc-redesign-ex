@@ -206,8 +206,11 @@ defmodule YscWeb.Workers.EmailNotifier do
             job_id: job.id,
             recipient: recipient,
             idempotency_key: idempotency_key,
-            error: error,
-            stacktrace: __STACKTRACE__
+            template: template,
+            error: inspect(error),
+            error_type: inspect(error.__struct__),
+            error_message: Exception.message(error),
+            stacktrace: Exception.format_stacktrace(__STACKTRACE__)
           )
 
           {:error, error}

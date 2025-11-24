@@ -658,6 +658,10 @@ defmodule Ysc.Ledgers do
       {:ok, {refund, refund_transaction, entries}} ->
         # Enqueue QuickBooks sync job after successful refund creation
         enqueue_quickbooks_sync_refund(refund)
+        # Send refund confirmation email
+        # Reload payment with associations for email
+        payment = get_payment_with_associations(payment_id)
+        send_refund_email(refund, payment)
         {:ok, {refund, refund_transaction, entries}}
 
       {:error, {:already_processed, existing_refund, existing_transaction}} ->
@@ -666,6 +670,206 @@ defmodule Ysc.Ledgers do
 
       error ->
         error
+    end
+  end
+
+  defp send_refund_email(refund, payment) do
+    require Logger
+
+    try do
+      # Reload payment with associations
+      payment = get_payment_with_associations(payment.id)
+
+      if payment.user do
+        # Determine if this is for a booking or ticket order
+        case get_payment_related_entity(payment) do
+          {:booking, booking} ->
+            # Send booking refund processed email
+            send_booking_refund_processed_email(refund, booking, payment)
+
+          {:ticket_order, ticket_order} ->
+            # Send ticket order refund email
+            send_ticket_order_refund_email(refund, ticket_order)
+
+          _ ->
+            # Unknown entity type, skip email
+            Logger.debug("Skipping refund email - unknown entity type",
+              refund_id: refund.id,
+              payment_id: payment.id
+            )
+        end
+      else
+        Logger.warning("Skipping refund email - payment missing user",
+          refund_id: refund.id,
+          payment_id: payment.id
+        )
+      end
+    rescue
+      error ->
+        Logger.error("Failed to send refund email",
+          refund_id: refund.id,
+          payment_id: payment.id,
+          error: inspect(error),
+          stacktrace: __STACKTRACE__
+        )
+    end
+  end
+
+  defp send_booking_refund_processed_email(refund, booking, payment) do
+    require Logger
+
+    try do
+      # Reload booking with associations
+      booking = Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
+
+      if booking && booking.user && payment && payment.user do
+        # Prepare email data
+        email_data =
+          YscWeb.Emails.BookingRefundProcessed.prepare_email_data(refund, booking, payment)
+
+        # Generate idempotency key
+        idempotency_key = "booking_refund_processed_#{refund.id}"
+
+        # Schedule email
+        result =
+          YscWeb.Emails.Notifier.schedule_email(
+            payment.user.email,
+            idempotency_key,
+            YscWeb.Emails.BookingRefundProcessed.get_subject(),
+            "booking_refund_processed",
+            email_data,
+            "",
+            payment.user_id
+          )
+
+        case result do
+          %Oban.Job{} = job ->
+            Logger.info("Booking refund processed email scheduled successfully",
+              refund_id: refund.id,
+              booking_id: booking.id,
+              user_id: payment.user_id,
+              user_email: payment.user.email,
+              job_id: job.id
+            )
+
+          {:error, reason} ->
+            Logger.error("Failed to schedule booking refund processed email",
+              refund_id: refund.id,
+              booking_id: booking.id,
+              user_id: payment.user_id,
+              error: reason
+            )
+        end
+      else
+        Logger.warning("Skipping booking refund processed email - missing booking or user",
+          refund_id: refund.id,
+          booking_id: booking && booking.id
+        )
+      end
+    rescue
+      error ->
+        Logger.error("Failed to send booking refund processed email",
+          refund_id: refund.id,
+          booking_id: booking && booking.id,
+          error: inspect(error),
+          stacktrace: __STACKTRACE__
+        )
+    end
+  end
+
+  defp send_ticket_order_refund_email(refund, ticket_order) do
+    require Logger
+
+    try do
+      # Reload ticket order with associations
+      ticket_order =
+        case Ysc.Tickets.get_ticket_order(ticket_order.id) do
+          nil ->
+            Logger.warning("Ticket order not found for refund email",
+              refund_id: refund.id,
+              ticket_order_id: ticket_order.id
+            )
+
+            nil
+
+          loaded_order ->
+            loaded_order
+        end
+
+      if ticket_order && ticket_order.user do
+        # Get refunded tickets - we need to find which tickets were refunded
+        # For now, we'll get all tickets from the order and filter by cancelled status
+        # This is a simplification - ideally we'd track which specific tickets were refunded
+        refunded_tickets =
+          from(t in Ysc.Events.Ticket,
+            where: t.ticket_order_id == ^ticket_order.id,
+            where: t.status == :cancelled,
+            preload: [:ticket_tier]
+          )
+          |> Repo.all()
+
+        if Enum.empty?(refunded_tickets) do
+          Logger.warning("No refunded tickets found for ticket order refund email",
+            refund_id: refund.id,
+            ticket_order_id: ticket_order.id
+          )
+        else
+          # Prepare email data
+          email_data =
+            YscWeb.Emails.TicketOrderRefund.prepare_email_data(
+              refund,
+              ticket_order,
+              refunded_tickets
+            )
+
+          # Generate idempotency key
+          idempotency_key = "ticket_order_refund_#{refund.id}"
+
+          # Schedule email
+          result =
+            YscWeb.Emails.Notifier.schedule_email(
+              ticket_order.user.email,
+              idempotency_key,
+              YscWeb.Emails.TicketOrderRefund.get_subject(),
+              "ticket_order_refund",
+              email_data,
+              "",
+              ticket_order.user_id
+            )
+
+          case result do
+            %Oban.Job{} = job ->
+              Logger.info("Ticket order refund email scheduled successfully",
+                refund_id: refund.id,
+                ticket_order_id: ticket_order.id,
+                user_id: ticket_order.user_id,
+                user_email: ticket_order.user.email,
+                job_id: job.id
+              )
+
+            {:error, reason} ->
+              Logger.error("Failed to schedule ticket order refund email",
+                refund_id: refund.id,
+                ticket_order_id: ticket_order.id,
+                user_id: ticket_order.user_id,
+                error: reason
+              )
+          end
+        end
+      else
+        Logger.warning("Skipping ticket order refund email - missing ticket order or user",
+          refund_id: refund.id,
+          ticket_order_id: ticket_order && ticket_order.id
+        )
+      end
+    rescue
+      error ->
+        Logger.error("Failed to send ticket order refund email",
+          refund_id: refund.id,
+          ticket_order_id: ticket_order && ticket_order.id,
+          error: inspect(error),
+          stacktrace: __STACKTRACE__
+        )
     end
   end
 
@@ -1211,6 +1415,47 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
+  Gets the related entity (booking or ticket order) for a payment.
+
+  Returns:
+  - `{:booking, booking}` if payment is for a booking
+  - `{:ticket_order, ticket_order}` if payment is for a ticket order
+  - `nil` if no related entity found
+  """
+  def get_payment_related_entity(payment) do
+    # Look for ledger entries with related_entity_type
+    entries = get_entries_by_payment(payment.id)
+
+    # Check for booking entry
+    booking_entry =
+      Enum.find(entries, fn entry ->
+        to_string(entry.related_entity_type) == "booking" && entry.related_entity_id
+      end)
+
+    if booking_entry do
+      case Repo.get(Ysc.Bookings.Booking, booking_entry.related_entity_id) do
+        nil -> nil
+        booking -> {:booking, booking}
+      end
+    else
+      # Check for ticket order by looking for event entry or checking payment_id on ticket_order
+      ticket_order =
+        from(to in Ysc.Tickets.TicketOrder,
+          where: to.payment_id == ^payment.id,
+          preload: [:user, :event, :payment, tickets: :ticket_tier],
+          limit: 1
+        )
+        |> Repo.one()
+
+      if ticket_order do
+        {:ticket_order, ticket_order}
+      else
+        nil
+      end
+    end
+  end
+
+  @doc """
   Gets a single ledger entry by ID with preloaded associations.
   """
   def get_entry(id) do
@@ -1385,7 +1630,7 @@ defmodule Ysc.Ledgers do
     booking =
       if entity_type == :booking && entity_id do
         try do
-          Ysc.Bookings.get_booking!(entity_id)
+          Repo.get!(Ysc.Bookings.Booking, entity_id)
         rescue
           Ecto.NoResultsError -> nil
         end

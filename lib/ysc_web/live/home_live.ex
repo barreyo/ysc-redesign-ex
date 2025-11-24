@@ -246,12 +246,20 @@ defmodule YscWeb.HomeLive do
                             <span class="text-sm font-medium text-zinc-900">
                               <%= format_property_name(booking.property) %>
                             </span>
-                            <%= if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do %>
-                              <span class="text-sm text-zinc-600">
-                                · <%= Enum.map_join(booking.rooms, ", ", fn room -> room.name end) %>
-                              </span>
-                            <% else %>
+                            <%= if booking.booking_mode == :buyout do %>
                               <span class="text-sm text-zinc-600">· Full Buyout</span>
+                            <% else %>
+                              <%= if booking.booking_mode == :day do %>
+                                <span class="text-sm text-zinc-600">· A la Carte</span>
+                              <% else %>
+                                <%= if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do %>
+                                  <span class="text-sm text-zinc-600">
+                                    · <%= Enum.map_join(booking.rooms, ", ", fn room -> room.name end) %>
+                                  </span>
+                                <% else %>
+                                  <span class="text-sm text-zinc-600">· Full Buyout</span>
+                                <% end %>
+                              <% end %>
                             <% end %>
                           </div>
                           <div class="flex items-center text-sm text-zinc-600 mb-1">
@@ -276,17 +284,31 @@ defmodule YscWeb.HomeLive do
                               <%= Calendar.strftime(booking.checkout_date, "%B %d, %Y") %>
                             </span>
                           </div>
-                          <div class="flex items-center text-sm text-zinc-600">
-                            <.icon name="hero-users" class="w-4 h-4 mr-1" />
-                            <%= booking.guests_count %> <%= if booking.guests_count == 1,
-                              do: "guest",
-                              else: "guests" %>
-                            <%= if booking.children_count > 0 do %>
-                              , <%= booking.children_count %> <%= if booking.children_count == 1,
-                                do: "child",
-                                else: "children" %>
-                            <% end %>
-                          </div>
+                          <%= if booking.booking_mode != :buyout do %>
+                            <div class="flex items-center text-sm text-zinc-600">
+                              <.icon name="hero-users" class="w-4 h-4 mr-1" />
+                              <% adults_count = booking.guests_count - (booking.children_count || 0)
+                              total_guests = booking.guests_count %>
+                              <%= if adults_count > 0 do %>
+                                <%= adults_count %> <%= if adults_count == 1,
+                                  do: "adult",
+                                  else: "adults" %>
+                              <% end %>
+                              <%= if (booking.children_count || 0) > 0 do %>
+                                <%= if adults_count > 0, do: ", ", else: "" %><%= booking.children_count %> <%= if booking.children_count ==
+                                                                                                                     1,
+                                                                                                                   do:
+                                                                                                                     "child",
+                                                                                                                   else:
+                                                                                                                     "children" %>
+                              <% end %>
+                              <span class="ml-1 text-zinc-500">
+                                (Total: <%= total_guests %> <%= if total_guests == 1,
+                                  do: "guest",
+                                  else: "guests" %>)
+                              </span>
+                            </div>
+                          <% end %>
                         </div>
                         <div class="ml-4 flex-shrink-0">
                           <.link

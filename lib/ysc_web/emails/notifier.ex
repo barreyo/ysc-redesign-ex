@@ -27,6 +27,10 @@ defmodule YscWeb.Emails.Notifier do
     "conduct_violation_confirmation" => YscWeb.Emails.ConductViolationConfirmation,
     "conduct_violation_board_notification" => YscWeb.Emails.ConductViolationBoardNotification,
     "ticket_purchase_confirmation" => YscWeb.Emails.TicketPurchaseConfirmation,
+    "ticket_order_refund" => YscWeb.Emails.TicketOrderRefund,
+    "booking_confirmation" => YscWeb.Emails.BookingConfirmation,
+    "booking_refund_processed" => YscWeb.Emails.BookingRefundProcessed,
+    "booking_refund_pending" => YscWeb.Emails.BookingRefundPending,
     "volunteer_confirmation" => YscWeb.Emails.VolunteerConfirmation,
     "volunteer_board_notification" => YscWeb.Emails.VolunteerBoardNotification,
     "outage_notification" => YscWeb.Emails.OutageNotification

@@ -25,7 +25,12 @@ defmodule Ysc.Accounts.EmailCategories do
     "volunteer_board_notification" => :account,
     # Event notifications (can be disabled)
     "ticket_purchase_confirmation" => :account,
-    "outage_notification" => :account
+    "ticket_order_refund" => :account,
+    "outage_notification" => :account,
+    # Booking notifications (can be disabled)
+    "booking_confirmation" => :account,
+    "booking_refund_processed" => :account,
+    "booking_refund_pending" => :account
     # Newsletter notifications (can be disabled)
     # Note: Newsletter emails are handled by Mailpoet, not through this system
   }
