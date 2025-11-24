@@ -1495,9 +1495,26 @@ defmodule YscWeb.AdminBookingsLive do
                   </span>
                 </:col>
                 <:col :let={{_, booking}} label="Guests" field={:guests_count}>
-                  <span class="text-sm text-zinc-600">
-                    <%= booking.guests_count %>
-                  </span>
+                  <% adults_count = booking.guests_count - (booking.children_count || 0)
+                  total_guests = booking.guests_count %>
+                  <div class="text-sm text-zinc-600">
+                    <%= if adults_count > 0 do %>
+                      <%= adults_count %> <%= if adults_count == 1, do: "adult", else: "adults" %>
+                    <% end %>
+                    <%= if (booking.children_count || 0) > 0 do %>
+                      <%= if adults_count > 0, do: ", ", else: "" %><%= booking.children_count %> <%= if booking.children_count ==
+                                                                                                           1,
+                                                                                                         do:
+                                                                                                           "child",
+                                                                                                         else:
+                                                                                                           "children" %>
+                    <% end %>
+                    <span class="text-zinc-500 ml-1">
+                      (Total: <%= total_guests %> <%= if total_guests == 1,
+                        do: "guest",
+                        else: "guests" %>)
+                    </span>
+                  </div>
                 </:col>
                 <:col :let={{_, booking}} label="Room" field={:booking_mode}>
                   <%= if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do %>

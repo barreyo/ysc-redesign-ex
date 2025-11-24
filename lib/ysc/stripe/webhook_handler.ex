@@ -10,6 +10,7 @@ defmodule Ysc.Stripe.WebhookHandler do
   alias Ysc.Subscriptions
   alias Ysc.Ledgers
   alias Ysc.MoneyHelper
+  alias Ysc.Repo
 
   # Maximum age for webhook events (5 minutes in seconds)
   @webhook_max_age_seconds 300
@@ -1397,10 +1398,89 @@ defmodule Ysc.Stripe.WebhookHandler do
   defp link_payout_transactions(payout, stripe_payout_id) do
     require Logger
 
+    # First, try to get fees from the payout's balance transaction (most reliable)
+    # The payout's balance transaction contains the total fees for all charges/refunds in the payout
+    updated_payout =
+      case Stripe.Payout.retrieve(stripe_payout_id, expand: ["balance_transaction"]) do
+        {:ok,
+         %Stripe.Payout{balance_transaction: %Stripe.BalanceTransaction{fee: fee_cents} = bt}}
+        when is_integer(fee_cents) and fee_cents > 0 ->
+          Logger.info("Retrieved payout balance transaction with fee",
+            payout_id: stripe_payout_id,
+            balance_transaction_id: bt.id,
+            fee_cents: fee_cents
+          )
+
+          currency = payout.currency || "usd"
+          currency_atom = currency |> String.downcase() |> String.to_atom()
+          fee_total = Money.new(MoneyHelper.cents_to_dollars(fee_cents), currency_atom)
+
+          Logger.info("Extracted fee from payout balance transaction",
+            payout_id: stripe_payout_id,
+            fee_cents: fee_cents,
+            fee_total: Money.to_string!(fee_total)
+          )
+
+          # Update the payout's fee_total
+          changeset = Ysc.Ledgers.Payout.changeset(payout, %{fee_total: fee_total})
+
+          case Repo.update(changeset) do
+            {:ok, updated} ->
+              Logger.info("Updated payout fee_total from balance transaction",
+                payout_id: stripe_payout_id,
+                fee_total: Money.to_string!(fee_total)
+              )
+
+              updated
+
+            {:error, changeset} ->
+              Logger.error("Failed to update payout fee_total",
+                payout_id: stripe_payout_id,
+                errors: inspect(changeset.errors)
+              )
+
+              payout
+          end
+
+        {:ok, %Stripe.Payout{balance_transaction: %Stripe.BalanceTransaction{fee: fee_cents}}} ->
+          Logger.debug("Payout balance transaction has no fee or zero fee",
+            payout_id: stripe_payout_id,
+            fee_cents: fee_cents
+          )
+
+          # Fallback to listing balance transactions
+          try_calculate_fees_from_balance_transactions(payout, stripe_payout_id)
+
+        {:ok, %Stripe.Payout{balance_transaction: nil}} ->
+          Logger.warning("Payout balance transaction is nil",
+            payout_id: stripe_payout_id
+          )
+
+          # Fallback to listing balance transactions
+          try_calculate_fees_from_balance_transactions(payout, stripe_payout_id)
+
+        {:ok, %Stripe.Payout{}} ->
+          Logger.debug("Payout retrieved but balance transaction not expanded",
+            payout_id: stripe_payout_id
+          )
+
+          # Fallback to listing balance transactions
+          try_calculate_fees_from_balance_transactions(payout, stripe_payout_id)
+
+        {:error, reason} ->
+          Logger.warning("Failed to retrieve payout with balance transaction",
+            payout_id: stripe_payout_id,
+            error: inspect(reason)
+          )
+
+          # Fallback to listing balance transactions
+          try_calculate_fees_from_balance_transactions(payout, stripe_payout_id)
+      end
+
+    # Now link all balance transactions to the payout
     try do
       # Fetch balance transactions for this payout from Stripe
-      # Balance transactions show all charges, refunds, and fees included in the payout
-      # Note: Using apply to avoid compile-time warning about undefined function
+      # Balance transactions show all charges, refunds included in the payout
       result =
         if Code.ensure_loaded(Stripe.BalanceTransaction) &&
              function_exported?(Stripe.BalanceTransaction, :list, 1) do
@@ -1410,14 +1490,21 @@ defmodule Ysc.Stripe.WebhookHandler do
         end
 
       case result do
-        {:ok, %Stripe.List{data: balance_transactions}} ->
+        {:ok, %Stripe.List{data: balance_transactions}} when is_list(balance_transactions) ->
           Logger.info("Found #{length(balance_transactions)} balance transactions for payout",
             payout_id: stripe_payout_id
           )
 
+          # Link transactions to payout
           Enum.each(balance_transactions, fn balance_transaction ->
-            link_balance_transaction_to_payout(payout, balance_transaction)
+            link_balance_transaction_to_payout(updated_payout, balance_transaction)
           end)
+
+        {:ok, %Stripe.List{data: balance_transactions}} ->
+          Logger.warning("Balance transactions data is not a list",
+            payout_id: stripe_payout_id,
+            data_type: inspect(balance_transactions)
+          )
 
         {:error, reason} ->
           Logger.warning("Failed to fetch balance transactions for payout",
@@ -1427,10 +1514,107 @@ defmodule Ysc.Stripe.WebhookHandler do
       end
     rescue
       error ->
-        Logger.error("Exception while linking payout transactions",
+        Logger.error("Exception while linking balance transactions",
+          payout_id: stripe_payout_id,
+          error: Exception.message(error),
+          stacktrace: Exception.format_stacktrace(__STACKTRACE__)
+        )
+    end
+  end
+
+  # Fallback: Calculate fees from listing all balance transactions for the payout
+  defp try_calculate_fees_from_balance_transactions(payout, stripe_payout_id) do
+    require Logger
+
+    try do
+      result =
+        if Code.ensure_loaded(Stripe.BalanceTransaction) &&
+             function_exported?(Stripe.BalanceTransaction, :list, 1) do
+          apply(Stripe.BalanceTransaction, :list, [%{payout: stripe_payout_id, limit: 100}])
+        else
+          {:error, :not_available}
+        end
+
+      case result do
+        {:ok, %Stripe.List{data: balance_transactions}} when is_list(balance_transactions) ->
+          Logger.info(
+            "Found #{length(balance_transactions)} balance transactions for fee calculation",
+            payout_id: stripe_payout_id
+          )
+
+          # Calculate total fees from balance transactions
+          total_fee_cents =
+            Enum.reduce(balance_transactions, 0, fn balance_transaction, acc ->
+              fee_cents =
+                cond do
+                  is_struct(balance_transaction) &&
+                      function_exported?(balance_transaction, :fee, 0) ->
+                    balance_transaction.fee || 0
+
+                  is_map(balance_transaction) ->
+                    balance_transaction[:fee] || balance_transaction["fee"] || 0
+
+                  true ->
+                    0
+                end
+
+              acc + fee_cents
+            end)
+
+          if total_fee_cents > 0 do
+            currency = payout.currency || "usd"
+            currency_atom = currency |> String.downcase() |> String.to_atom()
+            fee_total = Money.new(MoneyHelper.cents_to_dollars(total_fee_cents), currency_atom)
+
+            Logger.info("Calculated total fees from balance transactions list",
+              payout_id: stripe_payout_id,
+              fee_cents: total_fee_cents,
+              fee_total: Money.to_string!(fee_total)
+            )
+
+            changeset = Ysc.Ledgers.Payout.changeset(payout, %{fee_total: fee_total})
+
+            case Repo.update(changeset) do
+              {:ok, updated} ->
+                Logger.info("Updated payout fee_total from balance transactions list",
+                  payout_id: stripe_payout_id,
+                  fee_total: Money.to_string!(fee_total)
+                )
+
+                updated
+
+              {:error, changeset} ->
+                Logger.error("Failed to update payout fee_total",
+                  payout_id: stripe_payout_id,
+                  errors: inspect(changeset.errors)
+                )
+
+                payout
+            end
+          else
+            Logger.debug("No fees found in balance transactions list",
+              payout_id: stripe_payout_id
+            )
+
+            payout
+          end
+
+        {:error, reason} ->
+          Logger.warning("Failed to fetch balance transactions for fee calculation",
+            payout_id: stripe_payout_id,
+            error: inspect(reason)
+          )
+
+          payout
+      end
+    rescue
+      error ->
+        Logger.error("Exception while calculating fees from balance transactions",
           payout_id: stripe_payout_id,
           error: Exception.message(error)
         )
+
+        payout
     end
   end
 
