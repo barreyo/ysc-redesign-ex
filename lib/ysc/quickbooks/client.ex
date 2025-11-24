@@ -135,6 +135,17 @@ defmodule Ysc.Quickbooks.Client do
         total_amt: Map.get(params, :total_amt)
       )
 
+      # Print the full request body in a readable JSON format for debugging
+      body_json = Jason.encode!(body, pretty: true)
+
+      Logger.info(
+        "[QB Client] create_sales_receipt: Full request body being sent to QuickBooks:\n#{body_json}"
+      )
+
+      Logger.debug("[QB Client] create_sales_receipt: Request body (structured)",
+        body: inspect(body, limit: :infinity, pretty: true)
+      )
+
       request = Finch.build(:post, url, headers, Jason.encode!(body))
 
       case Finch.request(request, Ysc.Finch) do
@@ -838,18 +849,57 @@ defmodule Ysc.Quickbooks.Client do
   end
 
   defp build_sales_receipt_body(params) do
-    %{
-      "CustomerRef" => params.customer_ref,
-      "Line" => Enum.map(params.line, &normalize_line_item/1),
-      "TotalAmt" => params.total_amt
-    }
-    |> maybe_put("PaymentMethodRef", params[:payment_method_ref])
-    |> maybe_put("DepositToAccountRef", params[:deposit_to_account_ref])
-    |> maybe_put("DocNumber", params[:doc_number])
-    |> maybe_put("TxnDate", params[:txn_date])
-    # Note: PrivateNote is not supported for SalesReceipt in QuickBooks Online API
-    # Use Memo instead if you need to store additional notes
-    |> maybe_put("Memo", params[:memo] || params[:private_note])
+    Logger.info(
+      "[QB Client] build_sales_receipt_body: Input params:\n#{inspect(params, limit: :infinity, pretty: true)}"
+    )
+
+    # Convert TotalAmt to number if it's a Decimal
+    total_amt_value =
+      case params.total_amt do
+        %Decimal{} = amt -> Decimal.to_float(amt)
+        amt when is_number(amt) -> amt
+        _ -> 0
+      end
+
+    # Ensure CustomerRef has both value and name if available
+    customer_ref =
+      case params.customer_ref do
+        %{value: value, name: name} -> %{value: value, name: name}
+        %{value: value} -> %{value: value}
+        _ -> params.customer_ref
+      end
+
+    # Ensure DepositToAccountRef has both value and name if available
+    deposit_to_account_ref =
+      if params[:deposit_to_account_ref] do
+        case params[:deposit_to_account_ref] do
+          %{value: value, name: name} -> %{value: value, name: name}
+          %{value: value} -> %{value: value}
+          _ -> params[:deposit_to_account_ref]
+        end
+      else
+        nil
+      end
+
+    # Do not include Id field for create operations (QuickBooks will assign it)
+    body =
+      %{
+        "CustomerRef" => customer_ref,
+        "Line" => Enum.map(params.line, &normalize_line_item/1),
+        "TotalAmt" => total_amt_value
+      }
+      |> maybe_put("DepositToAccountRef", deposit_to_account_ref)
+      |> maybe_put("PaymentMethodRef", params[:payment_method_ref])
+      |> maybe_put("DocNumber", params[:doc_number])
+      |> maybe_put("TxnDate", params[:txn_date])
+      |> maybe_put("CustomerMemo", if(params[:memo], do: %{value: params[:memo]}, else: nil))
+      |> maybe_put("PrivateNote", params[:private_note])
+
+    Logger.info(
+      "[QB Client] build_sales_receipt_body: Final body structure:\n#{inspect(body, limit: :infinity, pretty: true)}"
+    )
+
+    body
   end
 
   defp build_deposit_body(params) do
@@ -886,8 +936,21 @@ defmodule Ysc.Quickbooks.Client do
   end
 
   defp normalize_line_item(item) do
+    Logger.debug("[QB Client] normalize_line_item: Input item",
+      item: inspect(item, limit: :infinity)
+    )
+
+    # Do not include Id field for create operations (QuickBooks will assign it)
+    # Convert Amount to number if it's a Decimal
+    amount_value =
+      case item.amount do
+        %Decimal{} = amt -> Decimal.to_float(amt)
+        amt when is_number(amt) -> amt
+        _ -> 0
+      end
+
     base = %{
-      "Amount" => item.amount,
+      "Amount" => amount_value,
       "DetailType" => item.detail_type
     }
 
@@ -896,10 +959,45 @@ defmodule Ysc.Quickbooks.Client do
         "SalesItemLineDetail" ->
           detail = item.sales_item_line_detail
 
+          Logger.debug("[QB Client] normalize_line_item: SalesItemLineDetail",
+            detail: inspect(detail, limit: :infinity)
+          )
+
+          # Convert quantity to number if it's a Decimal
+          qty_value =
+            case detail.quantity do
+              %Decimal{} = qty -> Decimal.to_float(qty)
+              qty when is_number(qty) -> qty
+              _ -> 1
+            end
+
+          # Convert unit_price to number if it's a Decimal
+          unit_price_value =
+            case detail.unit_price do
+              %Decimal{} = price -> Decimal.to_float(price)
+              price when is_number(price) -> price
+              _ -> 0
+            end
+
+          Logger.debug("[QB Client] normalize_line_item: Converted values",
+            qty_value: qty_value,
+            unit_price_value: unit_price_value,
+            qty_type: inspect(qty_value),
+            unit_price_type: inspect(unit_price_value)
+          )
+
+          # Ensure ItemRef has both value and name if available
+          item_ref =
+            case detail.item_ref do
+              %{value: value, name: name} -> %{value: value, name: name}
+              %{value: value} -> %{value: value}
+              _ -> detail.item_ref
+            end
+
           sales_detail = %{
-            "ItemRef" => detail.item_ref,
-            "Qty" => detail.quantity,
-            "UnitPrice" => detail.unit_price
+            "ItemRef" => item_ref,
+            "Qty" => qty_value,
+            "UnitPrice" => unit_price_value
           }
 
           sales_detail =
@@ -908,9 +1006,46 @@ defmodule Ysc.Quickbooks.Client do
               else: sales_detail
 
           sales_detail =
-            if detail[:class_ref],
-              do: Map.put(sales_detail, "ClassRef", detail.class_ref),
-              else: sales_detail
+            if detail[:class_ref] do
+              class_ref_value = detail.class_ref
+
+              Logger.debug("[QB Client] normalize_line_item: Adding ClassRef",
+                class_ref: inspect(class_ref_value)
+              )
+
+              # ClassRef must be flat: {value: "id", name: "name"}
+              # value and name are sibling properties, not nested
+              class_ref_map =
+                case class_ref_value do
+                  # Already in correct format - use directly
+                  %{value: value, name: name} when is_binary(value) ->
+                    %{"value" => value, "name" => name}
+
+                  # Has value but no name
+                  %{value: value} when is_binary(value) ->
+                    %{"value" => value}
+
+                  # String - treat as ID
+                  ref when is_binary(ref) ->
+                    %{"value" => ref}
+
+                  # Any other format - try to extract value
+                  other ->
+                    Logger.warning(
+                      "[QB Client] normalize_line_item: Unexpected class_ref format",
+                      class_ref: inspect(other)
+                    )
+
+                    case other do
+                      %{value: v} when is_binary(v) -> %{"value" => v}
+                      _ -> %{"value" => to_string(other)}
+                    end
+                end
+
+              Map.put(sales_detail, "ClassRef", class_ref_map)
+            else
+              sales_detail
+            end
 
           Map.put(base, "SalesItemLineDetail", sales_detail)
 
@@ -995,6 +1130,136 @@ defmodule Ysc.Quickbooks.Client do
 
       _ ->
         base
+    end
+  end
+
+  @doc """
+  Queries for a QuickBooks Class by name.
+
+  Returns {:ok, class_id} if found, {:error, :not_found} otherwise.
+  """
+  @spec query_class_by_name(String.t()) :: {:ok, String.t()} | {:error, atom()}
+  def query_class_by_name(name) do
+    with {:ok, access_token} <- get_access_token(),
+         {:ok, company_id} <- get_company_id() do
+      # Query for class by name
+      query =
+        "SELECT Id, Name FROM Class WHERE Name = '#{escape_query_string(name)}' AND Active = true"
+
+      url = build_query_url(company_id, query)
+      headers = build_headers(access_token)
+
+      Logger.debug("[QB Client] query_class_by_name: Querying for class",
+        name: name,
+        query: query
+      )
+
+      request = Finch.build(:get, url, headers)
+
+      case Finch.request(request, Ysc.Finch) do
+        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+          case Jason.decode(response_body) do
+            {:ok, %{"QueryResponse" => %{"Class" => classes}}}
+            when is_list(classes) and length(classes) > 0 ->
+              class = List.first(classes)
+              class_id = Map.get(class, "Id")
+
+              Logger.debug("[QB Client] query_class_by_name: Found class",
+                name: name,
+                class_id: class_id
+              )
+
+              {:ok, class_id}
+
+            {:ok, %{"QueryResponse" => %{"Class" => class}}} when is_map(class) ->
+              class_id = Map.get(class, "Id")
+
+              Logger.debug("[QB Client] query_class_by_name: Found class",
+                name: name,
+                class_id: class_id
+              )
+
+              {:ok, class_id}
+
+            {:ok, %{"QueryResponse" => _}} ->
+              Logger.debug("[QB Client] query_class_by_name: Class not found",
+                name: name
+              )
+
+              {:error, :not_found}
+
+            {:ok, data} ->
+              Logger.error("[QB Client] query_class_by_name: Unexpected response format",
+                name: name,
+                data: inspect(data)
+              )
+
+              {:error, :invalid_response}
+
+            {:error, error} ->
+              Logger.error("[QB Client] query_class_by_name: Failed to parse response",
+                name: name,
+                error: inspect(error)
+              )
+
+              {:error, :invalid_response}
+          end
+
+        {:ok, %Finch.Response{status: 401, body: _response_body}} ->
+          Logger.warning(
+            "[QB Client] query_class_by_name: Authentication failed, attempting token refresh"
+          )
+
+          case refresh_access_token() do
+            {:ok, new_access_token} ->
+              headers = build_headers(new_access_token)
+              request = Finch.build(:get, url, headers)
+
+              case Finch.request(request, Ysc.Finch) do
+                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                when status in 200..299 ->
+                  case Jason.decode(retry_response_body) do
+                    {:ok, %{"QueryResponse" => %{"Class" => classes}}}
+                    when is_list(classes) and length(classes) > 0 ->
+                      class = List.first(classes)
+                      class_id = Map.get(class, "Id")
+                      {:ok, class_id}
+
+                    {:ok, %{"QueryResponse" => %{"Class" => class}}} when is_map(class) ->
+                      class_id = Map.get(class, "Id")
+                      {:ok, class_id}
+
+                    _ ->
+                      {:error, :not_found}
+                  end
+
+                _ ->
+                  {:error, :not_found}
+              end
+
+            error ->
+              error
+          end
+
+        {:ok, %Finch.Response{status: status, body: response_body}} ->
+          error = parse_error_response(response_body)
+
+          Logger.error("[QB Client] query_class_by_name: Failed to query class",
+            name: name,
+            status: status,
+            error: error
+          )
+
+          {:error, error}
+
+        {:error, error} ->
+          Logger.error("[QB Client] query_class_by_name: Request failed",
+            name: name,
+            error: inspect(error)
+          )
+
+          {:error, :request_failed}
+      end
     end
   end
 

@@ -69,16 +69,29 @@ defmodule Ysc.Quickbooks do
   def create_purchase_sales_receipt(params) do
     total_amt = Decimal.mult(Decimal.new(params.quantity), params.unit_price)
 
+    # Convert quantity to Decimal if it's not already
+    quantity =
+      case params.quantity do
+        %Decimal{} = qty -> qty
+        qty when is_integer(qty) -> Decimal.new(qty)
+        qty when is_float(qty) -> Decimal.from_float(qty)
+        _ -> Decimal.new(1)
+      end
+
     sales_item_detail = %{
       item_ref: %{value: params.item_id},
-      quantity: params.quantity,
+      quantity: quantity,
       unit_price: params.unit_price
     }
 
     sales_item_detail =
-      if params[:class_ref],
-        do: Map.put(sales_item_detail, :class_ref, %{value: params.class_ref}),
-        else: sales_item_detail
+      if params[:class_ref] do
+        # class_ref should already be in the format %{value: "id", name: "name"}
+        # Use it directly, don't wrap it in another value
+        Map.put(sales_item_detail, :class_ref, params.class_ref)
+      else
+        sales_item_detail
+      end
 
     sales_item_detail =
       if params[:tax_code_ref],
@@ -109,12 +122,19 @@ defmodule Ysc.Quickbooks do
         else: sales_receipt_params
 
     sales_receipt_params =
-      if params[:deposit_to_account_id],
-        do:
-          Map.put(sales_receipt_params, :deposit_to_account_ref, %{
-            value: params.deposit_to_account_id
-          }),
-        else: sales_receipt_params
+      if params[:deposit_to_account_id] do
+        # Include name if provided, otherwise just value
+        deposit_ref =
+          if params[:deposit_to_account_name] do
+            %{value: params.deposit_to_account_id, name: params.deposit_to_account_name}
+          else
+            %{value: params.deposit_to_account_id}
+          end
+
+        Map.put(sales_receipt_params, :deposit_to_account_ref, deposit_ref)
+      else
+        sales_receipt_params
+      end
 
     sales_receipt_params =
       if params[:txn_date],
@@ -169,9 +189,13 @@ defmodule Ysc.Quickbooks do
     }
 
     sales_item_detail =
-      if params[:class_ref],
-        do: Map.put(sales_item_detail, :class_ref, %{value: params.class_ref}),
-        else: sales_item_detail
+      if params[:class_ref] do
+        # class_ref should already be in the format %{value: "id", name: "name"}
+        # Use it directly, don't wrap it in another value
+        Map.put(sales_item_detail, :class_ref, params.class_ref)
+      else
+        sales_item_detail
+      end
 
     sales_item_detail =
       if params[:tax_code_ref],

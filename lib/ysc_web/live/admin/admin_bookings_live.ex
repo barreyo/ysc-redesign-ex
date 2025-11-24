@@ -4,6 +4,8 @@ defmodule YscWeb.AdminBookingsLive do
   alias Ysc.Bookings
   alias Ysc.MoneyHelper
   alias Ysc.Accounts
+  alias Ysc.Ledgers
+  alias Ysc.Ledgers.{Payment, Refund}
   alias Ysc.Repo
   import Ecto.Query
   require Logger
@@ -23,9 +25,17 @@ defmodule YscWeb.AdminBookingsLive do
         :if={@live_action in [:new_blackout, :edit_blackout]}
         id="blackout-modal"
         on_cancel={
-          JS.navigate(
-            ~p"/admin/bookings?property=#{@selected_property}&from_date=#{Date.to_string(@calendar_start_date)}&to_date=#{Date.to_string(@calendar_end_date)}"
-          )
+          query_params =
+            build_booking_modal_close_params(
+              @selected_property,
+              @calendar_start_date,
+              @calendar_end_date,
+              @current_section,
+              @reservation_params
+            )
+
+          query_string = URI.encode_query(flatten_query_params(query_params))
+          JS.navigate("/admin/bookings?#{query_string}")
         }
         show
       >
@@ -92,7 +102,17 @@ defmodule YscWeb.AdminBookingsLive do
         :if={@live_action in [:new_pricing_rule, :edit_pricing_rule]}
         id="pricing-rule-modal"
         on_cancel={
-          JS.navigate(~p"/admin/bookings?property=#{@selected_property}&section=#{@current_section}")
+          query_params =
+            build_booking_modal_close_params(
+              @selected_property,
+              @calendar_start_date,
+              @calendar_end_date,
+              @current_section,
+              @reservation_params
+            )
+
+          query_string = URI.encode_query(flatten_query_params(query_params))
+          JS.navigate("/admin/bookings?#{query_string}")
         }
         show
       >
@@ -513,6 +533,13 @@ defmodule YscWeb.AdminBookingsLive do
               </p>
             </div>
 
+            <div :if={@booking.inserted_at}>
+              <label class="block text-sm font-semibold text-zinc-700 mb-1">Date Booked</label>
+              <p class="text-sm text-zinc-900">
+                <%= Calendar.strftime(@booking.inserted_at, "%B %d, %Y at %I:%M %p") %>
+              </p>
+            </div>
+
             <div :if={Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0}>
               <label class="block text-sm font-semibold text-zinc-700 mb-1">
                 <%= if length(@booking.rooms) == 1, do: "Room", else: "Rooms" %>
@@ -529,36 +556,200 @@ defmodule YscWeb.AdminBookingsLive do
               </div>
             </div>
           </div>
-
-          <div :if={@booking.inserted_at} class="pt-4 border-t border-zinc-200">
-            <p class="text-xs text-zinc-500">
-              Created: <%= Calendar.strftime(@booking.inserted_at, "%B %d, %Y at %I:%M %p") %>
+          <!-- Payments Section -->
+          <div class="pt-4 border-t border-zinc-200">
+            <h3 class="text-sm font-semibold text-zinc-700 mb-3">Payments</h3>
+            <div :if={length(@booking_payments) > 0} class="space-y-2">
+              <%= for payment <- @booking_payments do %>
+                <% status_class =
+                  case payment.status do
+                    :completed -> "bg-green-100 text-green-800"
+                    :pending -> "bg-yellow-100 text-yellow-800"
+                    :failed -> "bg-red-100 text-red-800"
+                    _ -> "bg-zinc-100 text-zinc-800"
+                  end %>
+                <div class="bg-zinc-50 rounded-lg p-3 border border-zinc-200">
+                  <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span class="text-sm font-medium text-zinc-900">
+                          <%= payment.reference_id %>
+                        </span>
+                        <span class={"text-xs px-2 py-0.5 rounded-full #{status_class}"}>
+                          <%= String.capitalize(to_string(payment.status)) %>
+                        </span>
+                      </div>
+                      <p class="text-sm text-zinc-600">
+                        <%= MoneyHelper.format_money!(payment.amount) %>
+                      </p>
+                      <p :if={payment.payment_date} class="text-xs text-zinc-500 mt-1">
+                        <%= Calendar.strftime(payment.payment_date, "%B %d, %Y at %I:%M %p") %>
+                      </p>
+                      <p :if={payment.external_payment_id} class="text-xs text-zinc-500 mt-1">
+                        Stripe: <%= String.slice(payment.external_payment_id, 0, 20) %>...
+                      </p>
+                      <p :if={payment.quickbooks_sales_receipt_id} class="text-xs text-green-600 mt-1">
+                        QuickBooks: <%= payment.quickbooks_sales_receipt_id %>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+            <p :if={length(@booking_payments) == 0} class="text-sm text-zinc-500">
+              No payments found for this booking.
             </p>
-            <p
-              :if={@booking.updated_at && @booking.updated_at != @booking.inserted_at}
-              class="text-xs text-zinc-500 mt-1"
-            >
-              Updated: <%= Calendar.strftime(@booking.updated_at, "%B %d, %Y at %I:%M %p") %>
+          </div>
+          <!-- Refunds Section -->
+          <div class="pt-4 border-t border-zinc-200">
+            <h3 class="text-sm font-semibold text-zinc-700 mb-3">Refunds</h3>
+            <div :if={length(@booking_refunds) > 0} class="space-y-2">
+              <%= for refund <- @booking_refunds do %>
+                <% status_class =
+                  case refund.status do
+                    :completed -> "bg-green-100 text-green-800"
+                    :pending -> "bg-yellow-100 text-yellow-800"
+                    :failed -> "bg-red-100 text-red-800"
+                    _ -> "bg-zinc-100 text-zinc-800"
+                  end %>
+                <div class="bg-zinc-50 rounded-lg p-3 border border-zinc-200">
+                  <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span class="text-sm font-medium text-zinc-900">
+                          <%= refund.reference_id %>
+                        </span>
+                        <span class={"text-xs px-2 py-0.5 rounded-full #{status_class}"}>
+                          <%= String.capitalize(to_string(refund.status)) %>
+                        </span>
+                      </div>
+                      <p class="text-sm text-zinc-600">
+                        <%= MoneyHelper.format_money!(refund.amount) %>
+                      </p>
+                      <p :if={refund.reason} class="text-xs text-zinc-600 mt-1">
+                        Reason: <%= refund.reason %>
+                      </p>
+                      <p :if={refund.inserted_at} class="text-xs text-zinc-500 mt-1">
+                        <%= Calendar.strftime(refund.inserted_at, "%B %d, %Y at %I:%M %p") %>
+                      </p>
+                      <p :if={refund.external_refund_id} class="text-xs text-zinc-500 mt-1">
+                        Stripe: <%= String.slice(refund.external_refund_id, 0, 20) %>...
+                      </p>
+                      <p :if={refund.quickbooks_sales_receipt_id} class="text-xs text-green-600 mt-1">
+                        QuickBooks: <%= refund.quickbooks_sales_receipt_id %>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+            <p :if={length(@booking_refunds) == 0} class="text-sm text-zinc-500">
+              No refunds found for this booking.
             </p>
           </div>
         </div>
 
-        <div class="flex justify-end mt-6">
-          <.button phx-click={
-            JS.navigate(
-              ~p"/admin/bookings?property=#{@selected_property}&from_date=#{Date.to_string(@calendar_start_date)}&to_date=#{Date.to_string(@calendar_end_date)}"
-            )
-          }>
-            Close
-          </.button>
+        <div class="flex justify-between items-center mt-6 pt-4 border-t border-zinc-200">
+          <div>
+            <.button
+              :if={@primary_payment && length(@booking_refunds) == 0}
+              phx-click="show-booking-refund-modal"
+              class="bg-red-600 hover:bg-red-700 text-white"
+            >
+              <.icon name="hero-arrow-uturn-left" class="w-4 h-4 -mt-0.5" />
+              <span class="ms-1">Process Refund</span>
+            </.button>
+          </div>
+          <div>
+            <.button phx-click={
+              query_params =
+                build_booking_modal_close_params(
+                  @selected_property,
+                  @calendar_start_date,
+                  @calendar_end_date,
+                  @current_section,
+                  @reservation_params
+                )
+
+              query_string = URI.encode_query(flatten_query_params(query_params))
+              JS.navigate("/admin/bookings?#{query_string}")
+            }>
+              Close
+            </.button>
+          </div>
         </div>
+      </.modal>
+      <!-- Refund Modal for Booking -->
+      <.modal :if={@show_refund_modal && @primary_payment} id="booking-refund-modal" show>
+        <.header>
+          Process Refund
+        </.header>
+
+        <div class="mb-4">
+          <p class="text-sm text-zinc-600 mb-2">
+            <strong>Payment:</strong> <%= @primary_payment.reference_id %>
+          </p>
+          <p class="text-sm text-zinc-600 mb-2">
+            <strong>Amount:</strong> <%= MoneyHelper.format_money!(@primary_payment.amount) %>
+          </p>
+          <p class="text-sm text-zinc-600 mb-2">
+            <strong>Booking:</strong> <%= @booking.reference_id || @booking.id %>
+          </p>
+          <p :if={@booking.user} class="text-sm text-zinc-600">
+            <strong>User:</strong> <%= @booking.user.email %>
+          </p>
+        </div>
+
+        <.simple_form
+          for={@refund_form}
+          id="booking-refund-form"
+          phx-submit="process-booking-refund"
+          phx-change="validate-booking-refund"
+        >
+          <.input
+            field={@refund_form[:amount]}
+            type="text"
+            label="Refund Amount"
+            placeholder="e.g., 25.00"
+            required
+          />
+
+          <.input
+            field={@refund_form[:reason]}
+            type="textarea"
+            label="Reason for Refund"
+            placeholder="Enter reason for refund..."
+            required
+          />
+
+          <:actions>
+            <div class="flex justify-end gap-2 w-full">
+              <.button type="button" phx-click="close-booking-refund-modal">
+                Cancel
+              </.button>
+              <.button type="submit" class="bg-red-600 hover:bg-red-700">
+                Process Refund
+              </.button>
+            </div>
+          </:actions>
+        </.simple_form>
       </.modal>
       <!-- New/Edit Refund Policy Modal -->
       <.modal
         :if={@live_action in [:new_refund_policy, :edit_refund_policy]}
         id="refund-policy-modal"
         on_cancel={
-          JS.navigate(~p"/admin/bookings?property=#{@selected_property}&section=#{@current_section}")
+          query_params =
+            build_booking_modal_close_params(
+              @selected_property,
+              @calendar_start_date,
+              @calendar_end_date,
+              @current_section,
+              @reservation_params
+            )
+
+          query_string = URI.encode_query(flatten_query_params(query_params))
+          JS.navigate("/admin/bookings?#{query_string}")
         }
         show
       >
@@ -632,7 +823,17 @@ defmodule YscWeb.AdminBookingsLive do
         :if={@live_action == :manage_refund_policy_rules}
         id="refund-policy-rules-modal"
         on_cancel={
-          JS.navigate(~p"/admin/bookings?property=#{@selected_property}&section=#{@current_section}")
+          query_params =
+            build_booking_modal_close_params(
+              @selected_property,
+              @calendar_start_date,
+              @calendar_end_date,
+              @current_section,
+              @reservation_params
+            )
+
+          query_string = URI.encode_query(flatten_query_params(query_params))
+          JS.navigate("/admin/bookings?#{query_string}")
         }
         show
       >
@@ -748,9 +949,17 @@ defmodule YscWeb.AdminBookingsLive do
 
           <div class="flex justify-end mt-6 pt-4 border-t border-zinc-200">
             <.button phx-click={
-              JS.navigate(
-                ~p"/admin/bookings?property=#{@selected_property}&section=#{@current_section}"
-              )
+              query_params =
+                build_booking_modal_close_params(
+                  @selected_property,
+                  @calendar_start_date,
+                  @calendar_end_date,
+                  @current_section,
+                  @reservation_params
+                )
+
+              query_string = URI.encode_query(flatten_query_params(query_params))
+              JS.navigate("/admin/bookings?#{query_string}")
             }>
               Close
             </.button>
@@ -762,9 +971,17 @@ defmodule YscWeb.AdminBookingsLive do
         :if={@live_action == :new_booking}
         id="booking-form-modal"
         on_cancel={
-          JS.navigate(
-            ~p"/admin/bookings?property=#{@selected_property}&from_date=#{Date.to_string(@calendar_start_date)}&to_date=#{Date.to_string(@calendar_end_date)}"
-          )
+          query_params =
+            build_booking_modal_close_params(
+              @selected_property,
+              @calendar_start_date,
+              @calendar_end_date,
+              @current_section,
+              @reservation_params
+            )
+
+          query_string = URI.encode_query(flatten_query_params(query_params))
+          JS.navigate("/admin/bookings?#{query_string}")
         }
         show
       >
@@ -2025,6 +2242,11 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:calendar_end_date, calendar_end)
      |> assign(:room_bookings, [])
      |> assign(:buyout_bookings, [])
+     |> assign(:booking_payments, [])
+     |> assign(:booking_refunds, [])
+     |> assign(:primary_payment, nil)
+     |> assign(:show_refund_modal, false)
+     |> assign(:refund_form, nil)
      |> assign(:calendar_range_form, changeset)
      |> assign(:users, users)
      |> assign(:date_selection_type, nil)
@@ -2417,9 +2639,31 @@ defmodule YscWeb.AdminBookingsLive do
         |> assign(:calendar_end_date, end_date)
       end
 
+    # Get payments and refunds related to this booking
+    payments = get_booking_payments(booking.id)
+    refunds = get_booking_refunds(booking.id)
+
+    # Get the primary payment for refund processing
+    primary_payment = List.first(payments)
+
+    # Initialize refund form if there's a payment
+    refund_form =
+      if primary_payment do
+        {%{}, %{amount: :string, reason: :string}}
+        |> Ecto.Changeset.cast(%{}, [:amount, :reason])
+        |> to_form(as: "refund")
+      else
+        nil
+      end
+
     socket
     |> assign(:page_title, "Booking Details")
     |> assign(:booking, booking)
+    |> assign(:booking_payments, payments)
+    |> assign(:booking_refunds, refunds)
+    |> assign(:primary_payment, primary_payment)
+    |> assign(:show_refund_modal, false)
+    |> assign(:refund_form, refund_form)
   end
 
   defp apply_action(socket, :new_booking, params) do
@@ -2483,6 +2727,8 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:booking_type, booking_type)
     |> assign(:booking_form, form)
     |> assign(:booking, nil)
+    |> assign(:booking_payments, [])
+    |> assign(:booking_refunds, [])
   end
 
   defp apply_action(socket, :new_refund_policy, _params) do
@@ -2566,6 +2812,8 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:booking, nil)
     |> assign(:booking_form, nil)
     |> assign(:booking_type, nil)
+    |> assign(:booking_payments, [])
+    |> assign(:booking_refunds, [])
     |> assign(:season, nil)
     |> assign(:season_form, nil)
     |> assign(:refund_policy, nil)
@@ -3153,6 +3401,111 @@ defmodule YscWeb.AdminBookingsLive do
      socket
      |> assign(:selected_pending_refund, nil)
      |> assign(:reject_refund_form, nil)}
+  end
+
+  # Booking refund handlers
+  def handle_event("show-booking-refund-modal", _params, socket) do
+    {:noreply, assign(socket, :show_refund_modal, true)}
+  end
+
+  def handle_event("close-booking-refund-modal", _params, socket) do
+    {:noreply, assign(socket, :show_refund_modal, false)}
+  end
+
+  def handle_event("validate-booking-refund", %{"refund" => refund_params}, socket) do
+    # Simple validation changeset for the form
+    changeset =
+      {%{}, %{amount: :string, reason: :string}}
+      |> Ecto.Changeset.cast(refund_params, [:amount, :reason])
+      |> Ecto.Changeset.validate_required([:amount, :reason])
+      |> Ecto.Changeset.validate_length(:reason, min: 1, max: 1000)
+      |> validate_amount_format()
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :refund_form, to_form(changeset, as: "refund"))}
+  end
+
+  defp validate_amount_format(changeset) do
+    case Ecto.Changeset.get_change(changeset, :amount) do
+      nil ->
+        changeset
+
+      amount_string ->
+        case MoneyHelper.parse_money(amount_string) do
+          nil ->
+            Ecto.Changeset.add_error(changeset, :amount, "Invalid amount format")
+
+          _money ->
+            changeset
+        end
+    end
+  end
+
+  def handle_event("process-booking-refund", %{"refund" => refund_params}, socket) do
+    %{primary_payment: payment, booking: booking} = socket.assigns
+
+    case MoneyHelper.parse_money(refund_params["amount"]) do
+      nil ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Invalid amount format")
+         |> assign(
+           :refund_form,
+           {%{}, %{amount: :string, reason: :string}}
+           |> Ecto.Changeset.cast(refund_params, [:amount, :reason])
+           |> Map.put(:action, :validate)
+           |> to_form(as: "refund")
+         )}
+
+      refund_amount ->
+        refund_attrs = %{
+          payment_id: payment.id,
+          refund_amount: refund_amount,
+          reason: refund_params["reason"],
+          external_refund_id: "admin_refund_#{Ecto.ULID.generate()}"
+        }
+
+        case Ledgers.process_refund(refund_attrs) do
+          {:ok, _transaction, _entries} ->
+            # Reload booking data to show the new refund
+            booking = Bookings.get_booking!(booking.id)
+            booking = Ysc.Repo.preload(booking, [:user, rooms: :room_category])
+            payments = get_booking_payments(booking.id)
+            refunds = get_booking_refunds(booking.id)
+            primary_payment = List.first(payments)
+
+            refund_form =
+              if primary_payment do
+                {%{}, %{amount: :string, reason: :string}}
+                |> Ecto.Changeset.cast(%{}, [:amount, :reason])
+                |> to_form(as: "refund")
+              else
+                nil
+              end
+
+            {:noreply,
+             socket
+             |> put_flash(:info, "Refund processed successfully")
+             |> assign(:show_refund_modal, false)
+             |> assign(:booking, booking)
+             |> assign(:booking_payments, payments)
+             |> assign(:booking_refunds, refunds)
+             |> assign(:primary_payment, primary_payment)
+             |> assign(:refund_form, refund_form)}
+
+          {:error, changeset} ->
+            {:noreply,
+             socket
+             |> put_flash(:error, "Failed to process refund")
+             |> assign(:refund_form, to_form(changeset, as: "refund"))}
+
+          {:already_processed, _existing_refund, _existing_transaction} ->
+            {:noreply,
+             socket
+             |> put_flash(:error, "This refund has already been processed")
+             |> assign(:show_refund_modal, false)}
+        end
+    end
   end
 
   def handle_event("prev-month", _, socket) do
@@ -4461,6 +4814,75 @@ defmodule YscWeb.AdminBookingsLive do
     ~p"/admin/bookings?#{URI.encode_query(final_params)}"
   end
 
+  # Build query params for closing booking modal, preserving all state
+  defp build_booking_modal_close_params(
+         property,
+         start_date,
+         end_date,
+         current_section,
+         reservation_params
+       ) do
+    query_params = %{
+      "property" => Atom.to_string(property),
+      "from_date" => Date.to_string(start_date),
+      "to_date" => Date.to_string(end_date)
+    }
+
+    query_params =
+      if current_section == :reservations do
+        Map.put(query_params, "section", "reservations")
+      else
+        query_params
+      end
+
+    # Preserve search and filter parameters from reservation_params if on reservations tab
+    query_params =
+      if current_section == :reservations && reservation_params do
+        # Preserve search query if it exists
+        query_params =
+          if reservation_params["search"] do
+            Map.put(query_params, "search", reservation_params["search"])
+          else
+            query_params
+          end
+
+        # Preserve date range filters if they exist
+        query_params =
+          if reservation_params["filter"] do
+            filter_params = reservation_params["filter"]
+            filter_map = %{}
+
+            filter_map =
+              if filter_params["filter_start_date"] do
+                Map.put(filter_map, "filter_start_date", filter_params["filter_start_date"])
+              else
+                filter_map
+              end
+
+            filter_map =
+              if filter_params["filter_end_date"] do
+                Map.put(filter_map, "filter_end_date", filter_params["filter_end_date"])
+              else
+                filter_map
+              end
+
+            if map_size(filter_map) > 0 do
+              Map.put(query_params, "filter", filter_map)
+            else
+              query_params
+            end
+          else
+            query_params
+          end
+
+        query_params
+      else
+        query_params
+      end
+
+    query_params
+  end
+
   # Flatten nested maps for URI encoding
   # Converts %{"search" => %{"query" => "test"}} to %{"search[query]" => "test"}
   # Filters out list values that have indexed equivalents (e.g., order_by list when order_by[0] exists)
@@ -4527,6 +4949,46 @@ defmodule YscWeb.AdminBookingsLive do
   end
 
   defp flatten_query_params(params, _prefix), do: params
+
+  # Get all payments related to a booking via ledger entries
+  defp get_booking_payments(booking_id) do
+    from(p in Payment,
+      join: e in Ysc.Ledgers.LedgerEntry,
+      on: e.payment_id == p.id,
+      where: e.related_entity_type == ^:booking,
+      where: e.related_entity_id == ^booking_id,
+      preload: [:user, :payment_method],
+      order_by: [desc: p.payment_date],
+      distinct: true
+    )
+    |> Repo.all()
+  end
+
+  # Get all refunds related to a booking via the payment's ledger entries
+  defp get_booking_refunds(booking_id) do
+    # First get the payment IDs for this booking
+    payment_ids =
+      from(e in Ysc.Ledgers.LedgerEntry,
+        where: e.related_entity_type == ^:booking,
+        where: e.related_entity_id == ^booking_id,
+        where: not is_nil(e.payment_id),
+        select: e.payment_id,
+        distinct: true
+      )
+      |> Repo.all()
+
+    # Then get refunds for those payments
+    if Enum.empty?(payment_ids) do
+      []
+    else
+      from(r in Refund,
+        where: r.payment_id in ^payment_ids,
+        preload: [:payment, :user],
+        order_by: [desc: r.inserted_at]
+      )
+      |> Repo.all()
+    end
+  end
 
   # Check if there are no results
   defp no_results?([]), do: true

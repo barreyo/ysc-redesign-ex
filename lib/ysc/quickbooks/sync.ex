@@ -998,10 +998,9 @@ defmodule Ysc.Quickbooks.Sync do
       )
 
       # Single entity type payment - use existing logic
-      # Money.to_decimal returns cents, so divide by 100 to get dollars
+      # Money.to_decimal returns dollars (database stores amounts in dollars)
       amount =
         Money.to_decimal(payment.amount)
-        |> Decimal.div(Decimal.new(100))
         |> Decimal.round(2)
 
       Logger.debug("[QB Sync] create_payment_sales_receipt: Calculated amount",
@@ -1012,6 +1011,36 @@ defmodule Ysc.Quickbooks.Sync do
 
       account_class = get_account_and_class(entity_info)
 
+      # Get or create "Undeposited Funds" account for deposit
+      deposit_account_ref =
+        case Quickbooks.Client.query_account_by_name("Undeposited Funds") do
+          {:ok, account_id} ->
+            Logger.debug(
+              "[QB Sync] create_payment_sales_receipt: Found Undeposited Funds account",
+              payment_id: payment.id,
+              account_id: account_id
+            )
+
+            %{value: account_id, name: "Undeposited Funds"}
+
+          {:error, :not_found} ->
+            Logger.warning(
+              "[QB Sync] create_payment_sales_receipt: Undeposited Funds account not found, sales receipt may fail",
+              payment_id: payment.id
+            )
+
+            nil
+
+          error ->
+            Logger.warning(
+              "[QB Sync] create_payment_sales_receipt: Failed to query Undeposited Funds account",
+              payment_id: payment.id,
+              error: inspect(error)
+            )
+
+            nil
+        end
+
       params = %{
         customer_id: customer_id,
         item_id: item_id,
@@ -1020,18 +1049,57 @@ defmodule Ysc.Quickbooks.Sync do
         txn_date: payment.payment_date || payment.inserted_at,
         description: "Payment #{payment.reference_id}",
         memo: "Payment: #{payment.reference_id}",
-        private_note: "External Payment ID: #{payment.external_payment_id}"
+        private_note: "External Payment ID: #{payment.external_payment_id}",
+        deposit_to_account_id: deposit_account_ref && deposit_account_ref.value,
+        deposit_to_account_name: deposit_account_ref && deposit_account_ref.name
       }
 
       # Always set a class - get_account_and_class now always returns a class (defaults to "Administration")
-      class_to_use = account_class.class
+      # Query QuickBooks to get the class ID (not just the name)
+      class_name = account_class.class
 
-      Logger.debug("[QB Sync] create_payment_sales_receipt: Adding class reference",
+      Logger.debug("[QB Sync] create_payment_sales_receipt: Querying for class ID",
         payment_id: payment.id,
-        class: class_to_use
+        class_name: class_name
       )
 
-      params = Map.put(params, :class_ref, class_to_use)
+      class_ref =
+        case Quickbooks.Client.query_class_by_name(class_name) do
+          {:ok, class_id} ->
+            Logger.debug("[QB Sync] create_payment_sales_receipt: Found class ID",
+              payment_id: payment.id,
+              class_name: class_name,
+              class_id: class_id
+            )
+
+            %{value: class_id, name: class_name}
+
+          {:error, :not_found} ->
+            Logger.warning(
+              "[QB Sync] create_payment_sales_receipt: Class not found, sales receipt may fail",
+              payment_id: payment.id,
+              class_name: class_name
+            )
+
+            nil
+
+          error ->
+            Logger.warning(
+              "[QB Sync] create_payment_sales_receipt: Failed to query class",
+              payment_id: payment.id,
+              class_name: class_name,
+              error: inspect(error)
+            )
+
+            nil
+        end
+
+      params =
+        if class_ref do
+          Map.put(params, :class_ref, class_ref)
+        else
+          params
+        end
 
       Logger.debug(
         "[QB Sync] create_payment_sales_receipt: Calling Quickbooks.create_purchase_sales_receipt",
@@ -1086,10 +1154,9 @@ defmodule Ysc.Quickbooks.Sync do
 
       line_items =
         if entity_info.event_entry && Money.positive?(entity_info.event_entry.amount) do
-          # Money.to_decimal returns cents, so divide by 100 to get dollars
+          # Money.to_decimal returns dollars (database stores amounts in dollars)
           event_amount =
             Money.to_decimal(entity_info.event_entry.amount)
-            |> Decimal.div(Decimal.new(100))
             |> Decimal.round(2)
 
           Logger.debug("[QB Sync] create_mixed_payment_sales_receipt: Building event line item",
@@ -1132,10 +1199,9 @@ defmodule Ysc.Quickbooks.Sync do
 
       line_items =
         if entity_info.donation_entry && Money.positive?(entity_info.donation_entry.amount) do
-          # Money.to_decimal returns cents, so divide by 100 to get dollars
+          # Money.to_decimal returns dollars (database stores amounts in dollars)
           donation_amount =
             Money.to_decimal(entity_info.donation_entry.amount)
-            |> Decimal.div(Decimal.new(100))
             |> Decimal.round(2)
 
           Logger.debug(
@@ -1263,21 +1329,66 @@ defmodule Ysc.Quickbooks.Sync do
   end
 
   defp build_sales_line_item(item_id, amount, description, class_ref) do
-    # Always set a class - default to "Administration" if not provided
-    class_to_use = class_ref || "Administration"
+    # class_ref should be a map with {value: class_id, name: class_name} or nil
+    # If it's a string (class name), we need to query for the ID
+    class_ref_map =
+      case class_ref do
+        %{value: _} = ref ->
+          # Already a proper ref map
+          ref
+
+        class_name when is_binary(class_name) ->
+          # Query for class ID
+          case Quickbooks.Client.query_class_by_name(class_name) do
+            {:ok, class_id} ->
+              Logger.debug("[QB Sync] build_sales_line_item: Found class ID",
+                class_name: class_name,
+                class_id: class_id
+              )
+
+              %{value: class_id, name: class_name}
+
+            _ ->
+              Logger.warning(
+                "[QB Sync] build_sales_line_item: Class not found, line item may fail",
+                class_name: class_name
+              )
+
+              nil
+          end
+
+        _ ->
+          # Default to "Administration" if not provided
+          case Quickbooks.Client.query_class_by_name("Administration") do
+            {:ok, class_id} ->
+              %{value: class_id, name: "Administration"}
+
+            _ ->
+              nil
+          end
+      end
 
     Logger.debug("[QB Sync] build_sales_line_item: Building line item with class",
       item_id: item_id,
-      class: class_to_use,
+      class_ref: inspect(class_ref_map),
       was_provided: not is_nil(class_ref)
     )
 
-    sales_item_detail = %{
-      item_ref: %{value: item_id},
-      quantity: Decimal.new(1),
-      unit_price: amount,
-      class_ref: %{value: class_to_use}
-    }
+    sales_item_detail =
+      if class_ref_map do
+        %{
+          item_ref: %{value: item_id},
+          quantity: Decimal.new(1),
+          unit_price: amount,
+          class_ref: class_ref_map
+        }
+      else
+        %{
+          item_ref: %{value: item_id},
+          quantity: Decimal.new(1),
+          unit_price: amount
+        }
+      end
 
     %{
       amount: amount,
@@ -1303,10 +1414,10 @@ defmodule Ysc.Quickbooks.Sync do
       entity_type: entity_info.entity_type
     )
 
-    # Convert from cents to dollars for QuickBooks (will be negated later)
+    # Money.to_decimal returns dollars (database stores amounts in dollars)
+    # Will be negated later for refund
     amount =
       Money.to_decimal(refund.amount)
-      |> Decimal.div(Decimal.new(100))
       |> Decimal.round(2)
 
     Logger.debug("[QB Sync] create_refund_sales_receipt: Calculated amount",
@@ -1361,14 +1472,51 @@ defmodule Ysc.Quickbooks.Sync do
     }
 
     # Always set a class - get_account_and_class now always returns a class (defaults to "Administration")
-    class_to_use = account_class.class
+    # Query QuickBooks to get the class ID (not just the name)
+    class_name = account_class.class
 
-    Logger.debug("[QB Sync] create_refund_sales_receipt: Adding class reference",
+    Logger.debug("[QB Sync] create_refund_sales_receipt: Querying for class ID",
       refund_id: refund.id,
-      class: class_to_use
+      class_name: class_name
     )
 
-    params = Map.put(params, :class_ref, class_to_use)
+    class_ref =
+      case Quickbooks.Client.query_class_by_name(class_name) do
+        {:ok, class_id} ->
+          Logger.debug("[QB Sync] create_refund_sales_receipt: Found class ID",
+            refund_id: refund.id,
+            class_name: class_name,
+            class_id: class_id
+          )
+
+          %{value: class_id, name: class_name}
+
+        {:error, :not_found} ->
+          Logger.warning(
+            "[QB Sync] create_refund_sales_receipt: Class not found, sales receipt may fail",
+            refund_id: refund.id,
+            class_name: class_name
+          )
+
+          nil
+
+        error ->
+          Logger.warning(
+            "[QB Sync] create_refund_sales_receipt: Failed to query class",
+            refund_id: refund.id,
+            class_name: class_name,
+            error: inspect(error)
+          )
+
+          nil
+      end
+
+    params =
+      if class_ref do
+        Map.put(params, :class_ref, class_ref)
+      else
+        params
+      end
 
     Logger.debug(
       "[QB Sync] create_refund_sales_receipt: Calling Quickbooks.create_refund_sales_receipt",
@@ -1422,10 +1570,9 @@ defmodule Ysc.Quickbooks.Sync do
         )
 
         # Fallback: create single line item with total amount
-        # Convert from cents to dollars for QuickBooks
+        # Money.to_decimal returns dollars (database stores amounts in dollars)
         amount =
           Money.to_decimal(payout.amount)
-          |> Decimal.div(Decimal.new(100))
           |> Decimal.round(2)
 
         Logger.debug("[QB Sync] create_payout_deposit: Using fallback single line item",
@@ -1489,9 +1636,9 @@ defmodule Ysc.Quickbooks.Sync do
           if stripe_fees && Money.positive?(stripe_fees) do
             with {:ok, stripe_fee_item_id} <- get_or_create_stripe_fee_item() do
               # Fees are expenses, so they should be negative in the deposit
+              # Money.to_decimal returns dollars (database stores amounts in dollars)
               fee_amount =
                 Money.to_decimal(stripe_fees)
-                |> Decimal.div(Decimal.new(100))
                 |> Decimal.round(2)
                 |> Decimal.negate()
 
@@ -1579,10 +1726,9 @@ defmodule Ysc.Quickbooks.Sync do
 
         # Only include payments that have been synced to QuickBooks
         if payment.quickbooks_sync_status == "synced" && payment.quickbooks_sales_receipt_id do
-          # Convert from cents to dollars for QuickBooks
+          # Money.to_decimal returns dollars (database stores amounts in dollars)
           amount =
             Money.to_decimal(payment.amount)
-            |> Decimal.div(Decimal.new(100))
             |> Decimal.round(2)
 
           Logger.debug("[QB Sync] build_payout_line_items: Payment line item created",
@@ -1633,10 +1779,10 @@ defmodule Ysc.Quickbooks.Sync do
 
         # Only include refunds that have been synced to QuickBooks
         if refund.quickbooks_sync_status == "synced" && refund.quickbooks_sales_receipt_id do
-          # Convert from cents to dollars for QuickBooks, then negate (refunds are negative)
+          # Money.to_decimal returns dollars (database stores amounts in dollars)
+          # Negate for refunds (negative amounts)
           amount =
             Money.to_decimal(refund.amount)
-            |> Decimal.div(Decimal.new(100))
             |> Decimal.round(2)
             |> Decimal.negate()
 
