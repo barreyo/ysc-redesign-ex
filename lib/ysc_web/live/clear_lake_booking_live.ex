@@ -1678,6 +1678,32 @@ defmodule YscWeb.ClearLakeBookingLive do
            calculated_price: nil,
            price_error: "Please fix the errors above"
          )}
+
+      {:error, {:error, %Ecto.Changeset{} = changeset}} ->
+        # Handle nested error from Repo.rollback({:error, changeset})
+        form_errors = format_errors(changeset)
+        error_message = "Please fix the errors above and try again."
+
+        {:noreply,
+         socket
+         |> put_flash(:error, error_message)
+         |> assign(
+           form_errors: form_errors,
+           calculated_price: nil,
+           price_error: "Please fix the errors above"
+         )}
+
+      {:error, {:error, reason}} when is_atom(reason) ->
+        # Handle nested error from Repo.rollback({:error, reason})
+        error_message = format_booking_error(reason)
+
+        {:noreply,
+         socket
+         |> put_flash(:error, error_message)
+         |> assign(
+           form_errors: %{general: error_message},
+           calculated_price: socket.assigns.calculated_price
+         )}
     end
   end
 

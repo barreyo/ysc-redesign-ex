@@ -21,7 +21,6 @@ defmodule Ysc.Quickbooks.Client do
   Creates a SalesReceipt in QuickBooks.
 
   SalesReceipts are used to record sales transactions where payment is received immediately.
-  This can be used for both purchases and refunds (use negative amounts for refunds).
 
   ## Configuration
 
@@ -228,6 +227,111 @@ defmodule Ysc.Quickbooks.Client do
 
         {:error, error} ->
           Logger.error("Failed to create QuickBooks SalesReceipt", error: inspect(error))
+          {:error, :request_failed}
+      end
+    end
+  end
+
+  @doc """
+  Creates a Refund Receipt in QuickBooks.
+
+  Refund Receipts are used to record refunds. Unlike SalesReceipts,
+  Refund Receipts use positive amounts - the transaction type determines the direction.
+  """
+  @spec create_refund_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+  def create_refund_receipt(params) do
+    with {:ok, access_token} <- get_access_token(),
+         {:ok, company_id} <- get_company_id() do
+      url = build_url(company_id, "refundreceipt")
+      headers = build_headers(access_token)
+      body = build_refund_receipt_body(params)
+
+      Logger.info("Creating QuickBooks Refund Receipt",
+        company_id: company_id,
+        customer_id: params.customer_ref[:value]
+      )
+
+      request = Finch.build(:post, url, headers, Jason.encode!(body))
+
+      case Finch.request(request, Ysc.Finch) do
+        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+          case Jason.decode(response_body) do
+            {:ok, data} ->
+              refund_receipt = get_response_entity(data, "RefundReceipt")
+
+              Logger.info("Successfully created QuickBooks Refund Receipt",
+                refund_receipt_id: Map.get(refund_receipt, "Id")
+              )
+
+              {:ok, refund_receipt}
+
+            {:error, error} ->
+              Logger.error("Failed to parse QuickBooks response",
+                error: inspect(error),
+                response: response_body
+              )
+
+              {:error, :invalid_response}
+          end
+
+        {:ok, %Finch.Response{status: 401, body: _response_body}} ->
+          Logger.warning("QuickBooks authentication failed, attempting token refresh")
+          # Try to refresh token and retry once
+          case refresh_access_token() do
+            {:ok, new_access_token} ->
+              # Retry with new token
+              headers = build_headers(new_access_token)
+              request = Finch.build(:post, url, headers, Jason.encode!(body))
+
+              case Finch.request(request, Ysc.Finch) do
+                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                when status in 200..299 ->
+                  case Jason.decode(retry_response_body) do
+                    {:ok, data} ->
+                      refund_receipt = get_response_entity(data, "RefundReceipt")
+                      {:ok, refund_receipt}
+
+                    {:error, error} ->
+                      Logger.error("Failed to parse QuickBooks response after retry",
+                        error: inspect(error)
+                      )
+
+                      {:error, :invalid_response}
+                  end
+
+                {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+                  error = parse_error_response(retry_response_body)
+
+                  Logger.error("QuickBooks API error after token refresh",
+                    status: status,
+                    error: error
+                  )
+
+                  {:error, error}
+
+                {:error, error} ->
+                  Logger.error("Request failed after token refresh", error: inspect(error))
+                  {:error, :request_failed}
+              end
+
+            error ->
+              Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+              {:error, :authentication_failed}
+          end
+
+        {:ok, %Finch.Response{status: status, body: response_body}} ->
+          error = parse_error_response(response_body)
+
+          Logger.error("QuickBooks API error",
+            status: status,
+            error: error,
+            endpoint: "refundreceipt"
+          )
+
+          {:error, error}
+
+        {:error, error} ->
+          Logger.error("Failed to create QuickBooks Refund Receipt", error: inspect(error))
           {:error, :request_failed}
       end
     end
@@ -740,7 +844,7 @@ defmodule Ysc.Quickbooks.Client do
                       item_id = Map.get(item, "Id")
                       {:ok, item_id}
 
-                    error ->
+                    _error ->
                       {:error, :invalid_response}
                   end
 
@@ -902,6 +1006,47 @@ defmodule Ysc.Quickbooks.Client do
     body
   end
 
+  defp build_refund_receipt_body(params) do
+    Logger.info(
+      "[QB Client] build_refund_receipt_body: Input params:\n#{inspect(params, limit: :infinity, pretty: true)}"
+    )
+
+    # Convert TotalAmt to number if it's a Decimal
+    # Refund Receipts use POSITIVE amounts - the transaction type determines direction
+    total_amt_value =
+      case params.total_amt do
+        %Decimal{} = amt -> Decimal.to_float(Decimal.abs(amt))
+        amt when is_number(amt) -> abs(amt)
+        _ -> 0
+      end
+
+    # Ensure CustomerRef has both value and name if available
+    customer_ref =
+      case params.customer_ref do
+        %{value: value, name: name} -> %{value: value, name: name}
+        %{value: value} -> %{value: value}
+        _ -> params.customer_ref
+      end
+
+    # Refund Receipts use positive amounts - the transaction type determines the direction
+    body =
+      %{
+        "CustomerRef" => customer_ref,
+        "Line" => Enum.map(params.line, &normalize_line_item/1),
+        "TotalAmt" => total_amt_value
+      }
+      |> maybe_put("DocNumber", params[:doc_number])
+      |> maybe_put("TxnDate", params[:txn_date])
+      |> maybe_put("CustomerMemo", if(params[:memo], do: %{value: params[:memo]}, else: nil))
+      |> maybe_put("PrivateNote", params[:private_note])
+
+    Logger.info(
+      "[QB Client] build_refund_receipt_body: Final body structure:\n#{inspect(body, limit: :infinity, pretty: true)}"
+    )
+
+    body
+  end
+
   defp build_deposit_body(params) do
     %{
       "DepositToAccountRef" => params.deposit_to_account_ref,
@@ -942,10 +1087,11 @@ defmodule Ysc.Quickbooks.Client do
 
     # Do not include Id field for create operations (QuickBooks will assign it)
     # Convert Amount to number if it's a Decimal
+    # For refund receipts, amounts should be positive (transaction type determines direction)
     amount_value =
       case item.amount do
-        %Decimal{} = amt -> Decimal.to_float(amt)
-        amt when is_number(amt) -> amt
+        %Decimal{} = amt -> Decimal.to_float(Decimal.abs(amt))
+        amt when is_number(amt) -> abs(amt)
         _ -> 0
       end
 
@@ -972,10 +1118,11 @@ defmodule Ysc.Quickbooks.Client do
             end
 
           # Convert unit_price to number if it's a Decimal
+          # For refund receipts, unit_price should be positive (transaction type determines direction)
           unit_price_value =
             case detail.unit_price do
-              %Decimal{} = price -> Decimal.to_float(price)
-              price when is_number(price) -> price
+              %Decimal{} = price -> Decimal.to_float(Decimal.abs(price))
+              price when is_number(price) -> abs(price)
               _ -> 0
             end
 

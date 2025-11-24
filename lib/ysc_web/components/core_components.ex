@@ -42,16 +42,19 @@ defmodule YscWeb.CoreComponents do
   attr :fullscreen, :boolean, default: false
   attr :max_width, :string, default: "max-w-3xl"
   attr :on_cancel, JS, default: %JS{}
+  attr :z_index, :string, default: "z-50"
   slot :inner_block, required: true
 
   def modal(assigns) do
+    z_index = assigns[:z_index] || "z-50"
+
     ~H"""
     <div
       id={@id}
       phx-mounted={@show && show_modal(@id)}
       phx-remove={hide_modal(@id)}
       data-cancel={JS.exec(@on_cancel, "phx-remove")}
-      class="relative z-50 hidden"
+      class={"relative #{z_index} hidden"}
     >
       <div id={"#{@id}-bg"} class="fixed inset-0 transition-opacity bg-zinc-50/90" aria-hidden="true" />
       <div

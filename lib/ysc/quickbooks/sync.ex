@@ -255,27 +255,27 @@ defmodule Ysc.Quickbooks.Sync do
          {:ok, customer_id} <- get_or_create_customer(user),
          {:ok, entity_info} <- get_payment_entity_info(payment),
          {:ok, item_id} <- get_quickbooks_item_id(entity_info),
-         {:ok, sales_receipt} <-
+         {:ok, refund_receipt} <-
            create_refund_sales_receipt(refund, customer_id, item_id, entity_info) do
-      sales_receipt_id = Map.get(sales_receipt, "Id")
+      refund_receipt_id = Map.get(refund_receipt, "Id")
 
-      Logger.debug("[QB Sync] do_sync_refund: Sales receipt created successfully",
+      Logger.debug("[QB Sync] do_sync_refund: Refund receipt created successfully",
         refund_id: refund.id,
-        sales_receipt_id: sales_receipt_id,
-        sales_receipt: inspect(sales_receipt, limit: :infinity)
+        refund_receipt_id: refund_receipt_id,
+        refund_receipt: inspect(refund_receipt, limit: :infinity)
       )
 
       # Update refund with sync success
       Logger.debug("[QB Sync] do_sync_refund: Updating refund with sync success",
         refund_id: refund.id,
-        sales_receipt_id: sales_receipt_id
+        refund_receipt_id: refund_receipt_id
       )
 
-      update_sync_success_refund(refund, sales_receipt_id, sales_receipt)
+      update_sync_success_refund(refund, refund_receipt_id, refund_receipt)
 
       Logger.info("[QB Sync] Successfully synced refund to QuickBooks",
         refund_id: refund.id,
-        sales_receipt_id: sales_receipt_id
+        refund_receipt_id: refund_receipt_id
       )
 
       # Check if any payouts are now ready to sync
@@ -285,7 +285,7 @@ defmodule Ysc.Quickbooks.Sync do
 
       check_and_enqueue_payout_syncs_for_refund(refund)
 
-      {:ok, sales_receipt}
+      {:ok, refund_receipt}
     else
       {:error, reason} = error ->
         Logger.error(
@@ -1865,7 +1865,11 @@ defmodule Ysc.Quickbooks.Sync do
       Logger.debug("[QB Sync] calculate_payout_stripe_fees: Total fees calculated",
         payout_id: payout.id,
         total_fees: inspect(total_fees),
-        fees_cents: if(total_fees, do: Money.to_integer(total_fees), else: 0)
+        fees_cents:
+          if(total_fees,
+            do: total_fees.amount |> Decimal.mult(100) |> Decimal.to_integer(),
+            else: 0
+          )
       )
 
       total_fees

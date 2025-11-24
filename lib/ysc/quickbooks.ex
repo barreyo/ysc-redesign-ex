@@ -178,8 +178,8 @@ defmodule Ysc.Quickbooks do
   """
   @spec create_refund_sales_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
   def create_refund_sales_receipt(params) do
-    # Refunds use negative amounts
-    unit_price = Decimal.negate(Decimal.abs(params.unit_price))
+    # Refund Receipts use positive amounts - the transaction type determines direction
+    unit_price = Decimal.abs(params.unit_price)
     total_amt = Decimal.mult(Decimal.new(params.quantity), unit_price)
 
     sales_item_detail = %{

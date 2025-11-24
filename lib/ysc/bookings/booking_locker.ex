@@ -1138,6 +1138,106 @@ defmodule Ysc.Bookings.BookingLocker do
     end)
   end
 
+  @doc """
+  Marks a complete booking as refunded and optionally releases inventory.
+
+  This is similar to cancel_complete_booking but sets the status to :refunded
+  instead of :canceled, making it clear the booking was refunded.
+
+  ## Parameters:
+  - `booking_id`: The booking to mark as refunded
+  - `release_inventory`: If true, releases the inventory (dates/rooms become available)
+
+  ## Returns:
+  - `{:ok, %Booking{}}` on success
+  - `{:error, reason}` on failure
+  """
+  def refund_complete_booking(booking_id, release_inventory \\ true) do
+    Repo.transaction(fn ->
+      booking = Repo.get!(Booking, booking_id) |> Repo.preload(:rooms)
+
+      if booking.status != :complete do
+        Repo.rollback({:error, :invalid_status})
+      end
+
+      # Release inventory if requested
+      if release_inventory do
+        case booking.booking_mode do
+          :buyout ->
+            # Reset buyout_booked = false
+            {count, _} =
+              Repo.update_all(
+                from(pi in PropertyInventory,
+                  where:
+                    pi.property == ^booking.property and
+                      pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+                ),
+                set: [
+                  buyout_booked: false,
+                  updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                ]
+              )
+
+            if count == 0 do
+              Repo.rollback({:error, :inventory_update_failed})
+            end
+
+          :room ->
+            # Clear booked for all rooms
+            room_ids = Enum.map(booking.rooms, & &1.id)
+
+            if length(room_ids) > 0 do
+              {count, _} =
+                Repo.update_all(
+                  from(ri in RoomInventory,
+                    where:
+                      ri.room_id in ^room_ids and
+                        ri.day >= ^booking.checkin_date and ri.day < ^booking.checkout_date
+                  ),
+                  set: [booked: false, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+                )
+
+              if count == 0 do
+                Repo.rollback({:error, :inventory_update_failed})
+              end
+            end
+
+          :day ->
+            # Decrement booked
+            {count, _} =
+              Repo.update_all(
+                from(pi in PropertyInventory,
+                  where:
+                    pi.property == ^booking.property and
+                      pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+                ),
+                inc: [capacity_booked: -booking.guests_count],
+                set: [updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+              )
+
+            if count == 0 do
+              Repo.rollback({:error, :inventory_update_failed})
+            end
+        end
+      end
+
+      # Update booking status to refunded
+      # Pass existing rooms to avoid Ecto thinking we're removing them
+      case booking
+           |> Booking.changeset(%{status: :refunded, hold_expires_at: nil},
+             rooms: booking.rooms,
+             skip_validation: true
+           )
+           |> Repo.update() do
+        {:ok, updated_booking} ->
+          updated_booking
+
+        {:error, changeset} ->
+          Repo.rollback({:error, changeset})
+      end
+    end)
+  end
+
   ## Private Functions
 
   defp ensure_property_inventory_row(property, day, capacity_total) do

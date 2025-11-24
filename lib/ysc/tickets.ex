@@ -92,8 +92,17 @@ defmodule Ysc.Tickets do
   end
 
   @doc """
-  Gets a ticket order by reference ID.
+  Gets a ticket order by payment ID with preloaded associations.
   """
+  def get_ticket_order_by_payment_id(payment_id) do
+    from(to in TicketOrder,
+      where: to.payment_id == ^payment_id,
+      limit: 1,
+      preload: [:user, event: [], tickets: :ticket_tier]
+    )
+    |> Repo.one()
+  end
+
   def get_ticket_order_by_reference(reference_id) do
     TicketOrder
     |> where([to], to.reference_id == ^reference_id)
@@ -220,6 +229,151 @@ defmodule Ysc.Tickets do
 
       error ->
         error
+    end
+  end
+
+  @doc """
+  Refunds individual tickets from a ticket order.
+
+  This function:
+  - Cancels the specified tickets (returns them to stock)
+  - Calculates the refund amount based on ticket prices
+  - Updates the ticket order if all tickets are refunded
+
+  ## Parameters:
+  - `ticket_order`: The ticket order to refund from
+  - `ticket_ids`: List of ticket IDs to refund
+  - `reason`: Reason for the refund
+
+  ## Returns:
+  - `{:ok, %{refund_amount: Money.t(), refunded_tickets: list(), ticket_order: TicketOrder.t()}}` on success
+  - `{:error, reason}` on failure
+  """
+  def refund_tickets(ticket_order, ticket_ids, reason \\ "Admin refund") do
+    result =
+      Repo.transaction(fn ->
+        # Get the tickets to refund
+        tickets_to_refund =
+          from(t in Ticket,
+            where: t.id in ^ticket_ids,
+            where: t.ticket_order_id == ^ticket_order.id,
+            where: t.status in [:confirmed, :pending],
+            preload: [:ticket_tier]
+          )
+          |> Repo.all()
+
+        if Enum.empty?(tickets_to_refund) do
+          Repo.rollback({:error, :no_valid_tickets})
+        end
+
+        # Calculate refund amount
+        refund_amount =
+          tickets_to_refund
+          |> Enum.reduce(Money.new(0, :USD), fn ticket, acc ->
+            case ticket.ticket_tier.type do
+              :free ->
+                acc
+
+              :donation ->
+                # For donation tickets, we need to get the actual donation amount
+                # Since donation tickets store the amount in the payment, we'll use a proportional split
+                # This is a simplification - ideally we'd store the donation amount per ticket
+                if ticket_order.total_amount && ticket_order.payment_id do
+                  # Count total donation tickets in the order
+                  donation_tickets_count =
+                    from(t in Ticket,
+                      join: tt in TicketTier,
+                      on: t.ticket_tier_id == tt.id,
+                      where: t.ticket_order_id == ^ticket_order.id,
+                      where: tt.type == :donation
+                    )
+                    |> Repo.aggregate(:count, :id)
+
+                  if donation_tickets_count > 0 do
+                    case Money.div(ticket_order.total_amount, donation_tickets_count) do
+                      {:ok, ticket_amount} ->
+                        case Money.add(acc, ticket_amount) do
+                          {:ok, new_total} -> new_total
+                          {:error, _} -> acc
+                        end
+
+                      {:error, _} ->
+                        acc
+                    end
+                  else
+                    acc
+                  end
+                else
+                  acc
+                end
+
+              _ ->
+                # For paid tickets, use the tier price
+                if ticket.ticket_tier.price do
+                  case Money.add(acc, ticket.ticket_tier.price) do
+                    {:ok, new_total} -> new_total
+                    {:error, _} -> acc
+                  end
+                else
+                  acc
+                end
+            end
+          end)
+
+        # Cancel the tickets (this returns them to stock)
+        Enum.each(tickets_to_refund, fn ticket ->
+          ticket
+          |> Ticket.changeset(%{status: :cancelled})
+          |> Repo.update()
+        end)
+
+        # Check if all tickets in the order are now cancelled
+        remaining_tickets =
+          from(t in Ticket,
+            where: t.ticket_order_id == ^ticket_order.id,
+            where: t.status in [:confirmed, :pending]
+          )
+          |> Repo.aggregate(:count, :id)
+
+        # Update ticket order status if all tickets are refunded
+        updated_order =
+          if remaining_tickets == 0 do
+            case ticket_order
+                 |> TicketOrder.status_changeset(%{
+                   status: :cancelled,
+                   cancelled_at: DateTime.utc_now(),
+                   cancellation_reason: reason
+                 })
+                 |> Repo.update() do
+              {:ok, order} -> order
+              {:error, _} -> ticket_order
+            end
+          else
+            ticket_order
+          end
+
+        %{
+          refund_amount: refund_amount,
+          refunded_tickets: tickets_to_refund,
+          ticket_order: updated_order
+        }
+      end)
+
+    case result do
+      {:ok, refund_info} ->
+        require Logger
+
+        Logger.info("Refunded individual tickets",
+          ticket_order_id: ticket_order.id,
+          ticket_ids: ticket_ids,
+          refund_amount: Money.to_string!(refund_info.refund_amount),
+          reason: reason
+        )
+
+        {:ok, refund_info}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

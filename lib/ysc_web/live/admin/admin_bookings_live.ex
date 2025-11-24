@@ -408,63 +408,7 @@ defmodule YscWeb.AdminBookingsLive do
       <.modal
         :if={@live_action == :view_booking}
         id="booking-modal"
-        on_cancel={
-          query_params = %{
-            "property" => Atom.to_string(@selected_property),
-            "from_date" => Date.to_string(@calendar_start_date),
-            "to_date" => Date.to_string(@calendar_end_date)
-          }
-
-          query_params =
-            if @current_section == :reservations,
-              do: Map.put(query_params, "section", "reservations"),
-              else: query_params
-
-          # Preserve search and filter parameters from reservation_params if on reservations tab
-          query_params =
-            if @current_section == :reservations && @reservation_params do
-              reservation_params = @reservation_params
-
-              # Preserve search query if it exists
-              query_params =
-                if reservation_params["search"],
-                  do: Map.put(query_params, "search", reservation_params["search"]),
-                  else: query_params
-
-              # Preserve date range filters if they exist
-              query_params =
-                if reservation_params["filter"] do
-                  filter_params = reservation_params["filter"]
-                  filter_map = %{}
-
-                  filter_map =
-                    if filter_params["filter_start_date"],
-                      do:
-                        Map.put(filter_map, "filter_start_date", filter_params["filter_start_date"]),
-                      else: filter_map
-
-                  filter_map =
-                    if filter_params["filter_end_date"],
-                      do: Map.put(filter_map, "filter_end_date", filter_params["filter_end_date"]),
-                      else: filter_map
-
-                  if map_size(filter_map) > 0 do
-                    Map.put(query_params, "filter", filter_map)
-                  else
-                    query_params
-                  end
-                else
-                  query_params
-                end
-
-              query_params
-            else
-              query_params
-            end
-
-          query_string = URI.encode_query(flatten_query_params(query_params))
-          JS.navigate("/admin/bookings?#{query_string}")
-        }
+        on_cancel={JS.push("close-booking-modal")}
         show
       >
         <.header>
@@ -536,7 +480,7 @@ defmodule YscWeb.AdminBookingsLive do
             <div :if={@booking.inserted_at}>
               <label class="block text-sm font-semibold text-zinc-700 mb-1">Date Booked</label>
               <p class="text-sm text-zinc-900">
-                <%= Calendar.strftime(@booking.inserted_at, "%B %d, %Y at %I:%M %p") %>
+                <%= format_datetime(@booking.inserted_at, @timezone) %>
               </p>
             </div>
 
@@ -583,7 +527,7 @@ defmodule YscWeb.AdminBookingsLive do
                         <%= MoneyHelper.format_money!(payment.amount) %>
                       </p>
                       <p :if={payment.payment_date} class="text-xs text-zinc-500 mt-1">
-                        <%= Calendar.strftime(payment.payment_date, "%B %d, %Y at %I:%M %p") %>
+                        <%= format_datetime(payment.payment_date, @timezone) %>
                       </p>
                       <p :if={payment.external_payment_id} class="text-xs text-zinc-500 mt-1">
                         Stripe: <%= String.slice(payment.external_payment_id, 0, 20) %>...
@@ -630,7 +574,7 @@ defmodule YscWeb.AdminBookingsLive do
                         Reason: <%= refund.reason %>
                       </p>
                       <p :if={refund.inserted_at} class="text-xs text-zinc-500 mt-1">
-                        <%= Calendar.strftime(refund.inserted_at, "%B %d, %Y at %I:%M %p") %>
+                        <%= format_datetime(refund.inserted_at, @timezone) %>
                       </p>
                       <p :if={refund.external_refund_id} class="text-xs text-zinc-500 mt-1">
                         Stripe: <%= String.slice(refund.external_refund_id, 0, 20) %>...
@@ -680,7 +624,14 @@ defmodule YscWeb.AdminBookingsLive do
         </div>
       </.modal>
       <!-- Refund Modal for Booking -->
-      <.modal :if={@show_refund_modal && @primary_payment} id="booking-refund-modal" show>
+      <.modal
+        :if={@show_refund_modal && @primary_payment}
+        id="booking-refund-modal"
+        show
+        on_cancel={JS.push("close-booking-refund-modal")}
+        max_width="max-w-md"
+        z_index="z-[60]"
+      >
         <.header>
           Process Refund
         </.header>
@@ -720,6 +671,12 @@ defmodule YscWeb.AdminBookingsLive do
             label="Reason for Refund"
             placeholder="Enter reason for refund..."
             required
+          />
+
+          <.input
+            field={@refund_form[:release_availability]}
+            type="checkbox"
+            label="Release booking dates for others to book"
           />
 
           <:actions>
@@ -1581,7 +1538,13 @@ defmodule YscWeb.AdminBookingsLive do
                 </:col>
                 <:col :let={{_, booking}} label="Booked" field={:inserted_at}>
                   <span class="text-sm text-zinc-600">
-                    <%= Calendar.strftime(booking.inserted_at, "%b %d, %Y") %>
+                    <%= if booking.inserted_at do
+                      booking.inserted_at
+                      |> DateTime.shift_zone!(@timezone)
+                      |> Calendar.strftime("%b %d, %Y")
+                    else
+                      "—"
+                    end %>
                   </span>
                 </:col>
                 <:action :let={{_, booking}} label="Action">
@@ -1759,7 +1722,7 @@ defmodule YscWeb.AdminBookingsLive do
                   No active code set
                 </p>
                 <p :if={@active_door_code} class="text-xs text-zinc-500 mt-1">
-                  Active since <%= format_datetime(@active_door_code.active_from) %>
+                  Active since <%= format_datetime(@active_door_code.active_from, @timezone) %>
                 </p>
               </div>
             </div>
@@ -1834,11 +1797,11 @@ defmodule YscWeb.AdminBookingsLive do
                       <%= door_code.code %>
                     </td>
                     <td class="py-3 pr-6 text-zinc-600">
-                      <%= format_datetime(door_code.active_from) %>
+                      <%= format_datetime(door_code.active_from, @timezone) %>
                     </td>
                     <td class="py-3 pr-6 text-zinc-600">
                       <%= if door_code.active_to do
-                        format_datetime(door_code.active_to)
+                        format_datetime(door_code.active_to, @timezone)
                       else
                         "—"
                       end %>
@@ -2148,6 +2111,15 @@ defmodule YscWeb.AdminBookingsLive do
     # Parse query parameters (may be malformed if URL is double-encoded)
     parsed_params = parse_mount_params(params)
 
+    # Get timezone from connect params
+    connect_params =
+      case get_connect_params(socket) do
+        nil -> %{}
+        v -> v
+      end
+
+    timezone = Map.get(connect_params, "timezone", "America/Los_Angeles")
+
     # Read property from params if available, otherwise default to :tahoe
     selected_property =
       if parsed_params["property"] do
@@ -2231,6 +2203,7 @@ defmodule YscWeb.AdminBookingsLive do
      socket
      |> assign(:page_title, "Bookings")
      |> assign(:active_page, :bookings)
+     |> assign(:timezone, timezone)
      |> assign(:selected_property, selected_property)
      |> assign(:current_section, current_section)
      |> assign(:seasons, seasons)
@@ -2649,8 +2622,8 @@ defmodule YscWeb.AdminBookingsLive do
     # Initialize refund form if there's a payment
     refund_form =
       if primary_payment do
-        {%{}, %{amount: :string, reason: :string}}
-        |> Ecto.Changeset.cast(%{}, [:amount, :reason])
+        {%{}, %{amount: :string, reason: :string, release_availability: :boolean}}
+        |> Ecto.Changeset.cast(%{}, [:amount, :reason, :release_availability])
         |> to_form(as: "refund")
       else
         nil
@@ -3408,6 +3381,25 @@ defmodule YscWeb.AdminBookingsLive do
     {:noreply, assign(socket, :show_refund_modal, true)}
   end
 
+  def handle_event("close-booking-modal", _params, socket) do
+    # Don't close booking modal if refund modal is open
+    if socket.assigns[:show_refund_modal] do
+      {:noreply, socket}
+    else
+      query_params =
+        build_booking_modal_close_params(
+          socket.assigns.selected_property,
+          socket.assigns.calendar_start_date,
+          socket.assigns.calendar_end_date,
+          socket.assigns.current_section,
+          socket.assigns[:reservation_params]
+        )
+
+      query_string = URI.encode_query(flatten_query_params(query_params))
+      {:noreply, push_navigate(socket, to: ~p"/admin/bookings?#{query_string}")}
+    end
+  end
+
   def handle_event("close-booking-refund-modal", _params, socket) do
     {:noreply, assign(socket, :show_refund_modal, false)}
   end
@@ -3415,14 +3407,18 @@ defmodule YscWeb.AdminBookingsLive do
   def handle_event("validate-booking-refund", %{"refund" => refund_params}, socket) do
     # Simple validation changeset for the form
     changeset =
-      {%{}, %{amount: :string, reason: :string}}
-      |> Ecto.Changeset.cast(refund_params, [:amount, :reason])
+      {%{}, %{amount: :string, reason: :string, release_availability: :boolean}}
+      |> Ecto.Changeset.cast(refund_params, [:amount, :reason, :release_availability])
       |> Ecto.Changeset.validate_required([:amount, :reason])
       |> Ecto.Changeset.validate_length(:reason, min: 1, max: 1000)
       |> validate_amount_format()
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :refund_form, to_form(changeset, as: "refund"))}
+    # Ensure modal stays open during validation
+    {:noreply,
+     socket
+     |> assign(:refund_form, to_form(changeset, as: "refund"))
+     |> assign(:show_refund_modal, true)}
   end
 
   defp validate_amount_format(changeset) do
@@ -3465,8 +3461,55 @@ defmodule YscWeb.AdminBookingsLive do
           external_refund_id: "admin_refund_#{Ecto.ULID.generate()}"
         }
 
+        # Check if we should release availability
+        release_availability = refund_params["release_availability"] == "true"
+
         case Ledgers.process_refund(refund_attrs) do
-          {:ok, _transaction, _entries} ->
+          {:ok, {_refund, _transaction, _entries}} ->
+            # Always mark booking as refunded, and optionally release inventory
+            if booking.status == :complete do
+              case Ysc.Bookings.BookingLocker.refund_complete_booking(
+                     booking.id,
+                     release_availability
+                   ) do
+                {:ok, _refunded_booking} ->
+                  require Logger
+
+                  if release_availability do
+                    Logger.info("Booking refunded and dates released after refund",
+                      booking_id: booking.id,
+                      payment_id: payment.id
+                    )
+                  else
+                    Logger.info("Booking marked as refunded (inventory not released)",
+                      booking_id: booking.id,
+                      payment_id: payment.id
+                    )
+                  end
+
+                {:error, reason} ->
+                  require Logger
+
+                  Logger.warning("Failed to mark booking as refunded",
+                    booking_id: booking.id,
+                    payment_id: payment.id,
+                    reason: reason
+                  )
+
+                  # Try to at least update the status to refunded without releasing inventory
+                  # This is a fallback if the full refund function fails
+                  try do
+                    booking
+                    |> Bookings.Booking.changeset(%{status: :refunded}, skip_validation: true)
+                    |> Ysc.Repo.update()
+                  rescue
+                    _ -> :ok
+                  end
+
+                  # Continue anyway - refund was successful
+              end
+            end
+
             # Reload booking data to show the new refund
             booking = Bookings.get_booking!(booking.id)
             booking = Ysc.Repo.preload(booking, [:user, rooms: :room_category])
@@ -3476,16 +3519,28 @@ defmodule YscWeb.AdminBookingsLive do
 
             refund_form =
               if primary_payment do
-                {%{}, %{amount: :string, reason: :string}}
-                |> Ecto.Changeset.cast(%{}, [:amount, :reason])
+                {%{}, %{amount: :string, reason: :string, release_availability: :boolean}}
+                |> Ecto.Changeset.cast(%{}, [:amount, :reason, :release_availability])
                 |> to_form(as: "refund")
               else
                 nil
               end
 
+            flash_message =
+              cond do
+                release_availability && booking.status == :refunded ->
+                  "Refund processed successfully and booking dates released"
+
+                booking.status == :refunded ->
+                  "Refund processed successfully (booking marked as refunded)"
+
+                true ->
+                  "Refund processed successfully"
+              end
+
             {:noreply,
              socket
-             |> put_flash(:info, "Refund processed successfully")
+             |> put_flash(:info, flash_message)
              |> assign(:show_refund_modal, false)
              |> assign(:booking, booking)
              |> assign(:booking_payments, payments)
@@ -3499,10 +3554,19 @@ defmodule YscWeb.AdminBookingsLive do
              |> put_flash(:error, "Failed to process refund")
              |> assign(:refund_form, to_form(changeset, as: "refund"))}
 
-          {:already_processed, _existing_refund, _existing_transaction} ->
+          {:error, {:already_processed, _existing_refund, _existing_transaction}} ->
             {:noreply,
              socket
              |> put_flash(:error, "This refund has already been processed")
+             |> assign(:show_refund_modal, false)}
+
+          error ->
+            require Logger
+            Logger.error("Unexpected error processing refund", error: inspect(error))
+
+            {:noreply,
+             socket
+             |> put_flash(:error, "Failed to process refund: unexpected error")
              |> assign(:show_refund_modal, false)}
         end
     end
@@ -4322,13 +4386,14 @@ defmodule YscWeb.AdminBookingsLive do
   defp atom_to_readable(nil), do: "—"
   defp atom_to_readable(_), do: "—"
 
-  defp format_datetime(%DateTime{} = datetime) do
+  defp format_datetime(%DateTime{} = datetime, timezone) do
     datetime
-    |> DateTime.shift_zone!("America/Los_Angeles")
+    |> DateTime.shift_zone!(timezone)
     |> Calendar.strftime("%b %d, %Y at %I:%M %p")
   end
 
-  defp format_datetime(nil), do: "—"
+  defp format_datetime(nil, _timezone), do: "—"
+  defp format_datetime(_, _timezone), do: "—"
 
   # Helper to check if today is within a date range (for cells with colspan > 1)
   # Calculate day index in calendar (0-based)

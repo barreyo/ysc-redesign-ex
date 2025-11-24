@@ -20,7 +20,7 @@ defmodule Ysc.Bookings.BookingValidator do
   """
   import Ecto.Query, warn: false
   alias Ysc.Repo
-  alias Ysc.Bookings.{Booking, Season}
+  alias Ysc.Bookings.{Booking, Season, PropertyInventory}
   alias Ysc.Accounts.User
   alias Ysc.Subscriptions
 
@@ -358,18 +358,30 @@ defmodule Ysc.Bookings.BookingValidator do
         )
       else
         # Check daily guest limits across all bookings
-        date_range = Date.range(checkin_date, checkout_date) |> Enum.to_list()
+        # Exclude checkout_date from the range since checkout is at 11:00 AM
+        # and check-in is at 15:00 (3 PM), allowing same-day turnarounds
+        # This matches the logic in get_clear_lake_daily_availability
+        date_range =
+          if Date.compare(checkout_date, checkin_date) == :gt do
+            Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+          else
+            []
+          end
+
         booking_id = Ecto.Changeset.get_field(changeset, :id)
 
         date_range
         |> Enum.reduce(changeset, fn date, acc ->
           # Count existing guests for this date (excluding current booking if updating)
+          # Only count completed bookings - hold bookings are tracked via capacity_held
+          # This matches the calendar logic which only shows completed bookings
           existing_guests_query =
             from b in Booking,
               where: b.property == :clear_lake,
               where: b.checkin_date <= ^date,
-              where: b.checkout_date >= ^date,
+              where: b.checkout_date > ^date,
               where: b.booking_mode != :buyout,
+              where: b.status == :complete,
               select: fragment("COALESCE(SUM(?), 0)", b.guests_count)
 
           existing_guests_query =
@@ -380,13 +392,23 @@ defmodule Ysc.Bookings.BookingValidator do
             end
 
           existing_guests = Repo.one(existing_guests_query) || 0
-          total_guests = existing_guests + guests_count
+
+          # Also get capacity_held from PropertyInventory to account for hold bookings
+          capacity_held =
+            from(pi in PropertyInventory,
+              where: pi.property == :clear_lake,
+              where: pi.day == ^date,
+              select: pi.capacity_held
+            )
+            |> Repo.one() || 0
+
+          total_guests = existing_guests + capacity_held + guests_count
 
           if total_guests > @max_guests_clear_lake do
             Ecto.Changeset.add_error(
               acc,
               :guests_count,
-              "Maximum #{@max_guests_clear_lake} guests per day exceeded. #{existing_guests} guests already booked on #{date}."
+              "Maximum #{@max_guests_clear_lake} guests per day exceeded. #{existing_guests + capacity_held} guests already booked on #{date}."
             )
           else
             acc
