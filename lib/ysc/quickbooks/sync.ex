@@ -1295,7 +1295,7 @@ defmodule Ysc.Quickbooks.Sync do
     end
   end
 
-  defp get_or_create_item_with_fallback(item_name, config_key, income_account_name \\ nil) do
+  defp get_or_create_item_with_fallback(item_name, config_key, income_account_name) do
     # First check if there's a configured override
     case Application.get_env(:ysc, :quickbooks, [])[config_key] do
       nil ->

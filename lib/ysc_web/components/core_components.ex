@@ -46,7 +46,7 @@ defmodule YscWeb.CoreComponents do
   slot :inner_block, required: true
 
   def modal(assigns) do
-    z_index = assigns[:z_index] || "z-50"
+    assigns = assign_new(assigns, :z_index, fn -> "z-50" end)
 
     ~H"""
     <div
@@ -54,7 +54,7 @@ defmodule YscWeb.CoreComponents do
       phx-mounted={@show && show_modal(@id)}
       phx-remove={hide_modal(@id)}
       data-cancel={JS.exec(@on_cancel, "phx-remove")}
-      class={"relative #{z_index} hidden"}
+      class={"relative #{@z_index} hidden"}
     >
       <div id={"#{@id}-bg"} class="fixed inset-0 transition-opacity bg-zinc-50/90" aria-hidden="true" />
       <div

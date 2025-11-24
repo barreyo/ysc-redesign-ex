@@ -4,7 +4,6 @@ defmodule YscWeb.AdminBookingsLive do
   alias Ysc.Bookings
   alias Ysc.MoneyHelper
   alias Ysc.Accounts
-  alias Ysc.Ledgers
   alias Ysc.Ledgers.{Payment, Refund}
   alias Ysc.Repo
   import Ecto.Query
@@ -3421,157 +3420,6 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:show_refund_modal, true)}
   end
 
-  defp validate_amount_format(changeset) do
-    case Ecto.Changeset.get_change(changeset, :amount) do
-      nil ->
-        changeset
-
-      amount_string ->
-        case MoneyHelper.parse_money(amount_string) do
-          nil ->
-            Ecto.Changeset.add_error(changeset, :amount, "Invalid amount format")
-
-          _money ->
-            changeset
-        end
-    end
-  end
-
-  def handle_event("process-booking-refund", %{"refund" => refund_params}, socket) do
-    %{primary_payment: payment, booking: booking} = socket.assigns
-
-    case MoneyHelper.parse_money(refund_params["amount"]) do
-      nil ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Invalid amount format")
-         |> assign(
-           :refund_form,
-           {%{}, %{amount: :string, reason: :string}}
-           |> Ecto.Changeset.cast(refund_params, [:amount, :reason])
-           |> Map.put(:action, :validate)
-           |> to_form(as: "refund")
-         )}
-
-      refund_amount ->
-        refund_attrs = %{
-          payment_id: payment.id,
-          refund_amount: refund_amount,
-          reason: refund_params["reason"],
-          external_refund_id: "admin_refund_#{Ecto.ULID.generate()}"
-        }
-
-        # Check if we should release availability
-        release_availability = refund_params["release_availability"] == "true"
-
-        case Ledgers.process_refund(refund_attrs) do
-          {:ok, {_refund, _transaction, _entries}} ->
-            # Always mark booking as refunded, and optionally release inventory
-            if booking.status == :complete do
-              case Ysc.Bookings.BookingLocker.refund_complete_booking(
-                     booking.id,
-                     release_availability
-                   ) do
-                {:ok, _refunded_booking} ->
-                  require Logger
-
-                  if release_availability do
-                    Logger.info("Booking refunded and dates released after refund",
-                      booking_id: booking.id,
-                      payment_id: payment.id
-                    )
-                  else
-                    Logger.info("Booking marked as refunded (inventory not released)",
-                      booking_id: booking.id,
-                      payment_id: payment.id
-                    )
-                  end
-
-                {:error, reason} ->
-                  require Logger
-
-                  Logger.warning("Failed to mark booking as refunded",
-                    booking_id: booking.id,
-                    payment_id: payment.id,
-                    reason: reason
-                  )
-
-                  # Try to at least update the status to refunded without releasing inventory
-                  # This is a fallback if the full refund function fails
-                  try do
-                    booking
-                    |> Bookings.Booking.changeset(%{status: :refunded}, skip_validation: true)
-                    |> Ysc.Repo.update()
-                  rescue
-                    _ -> :ok
-                  end
-
-                  # Continue anyway - refund was successful
-              end
-            end
-
-            # Reload booking data to show the new refund
-            booking = Bookings.get_booking!(booking.id)
-            booking = Ysc.Repo.preload(booking, [:user, rooms: :room_category])
-            payments = get_booking_payments(booking.id)
-            refunds = get_booking_refunds(booking.id)
-            primary_payment = List.first(payments)
-
-            refund_form =
-              if primary_payment do
-                {%{}, %{amount: :string, reason: :string, release_availability: :boolean}}
-                |> Ecto.Changeset.cast(%{}, [:amount, :reason, :release_availability])
-                |> to_form(as: "refund")
-              else
-                nil
-              end
-
-            flash_message =
-              cond do
-                release_availability && booking.status == :refunded ->
-                  "Refund processed successfully and booking dates released"
-
-                booking.status == :refunded ->
-                  "Refund processed successfully (booking marked as refunded)"
-
-                true ->
-                  "Refund processed successfully"
-              end
-
-            {:noreply,
-             socket
-             |> put_flash(:info, flash_message)
-             |> assign(:show_refund_modal, false)
-             |> assign(:booking, booking)
-             |> assign(:booking_payments, payments)
-             |> assign(:booking_refunds, refunds)
-             |> assign(:primary_payment, primary_payment)
-             |> assign(:refund_form, refund_form)}
-
-          {:error, changeset} ->
-            {:noreply,
-             socket
-             |> put_flash(:error, "Failed to process refund")
-             |> assign(:refund_form, to_form(changeset, as: "refund"))}
-
-          {:error, {:already_processed, _existing_refund, _existing_transaction}} ->
-            {:noreply,
-             socket
-             |> put_flash(:error, "This refund has already been processed")
-             |> assign(:show_refund_modal, false)}
-
-          error ->
-            require Logger
-            Logger.error("Unexpected error processing refund", error: inspect(error))
-
-            {:noreply,
-             socket
-             |> put_flash(:error, "Failed to process refund: unexpected error")
-             |> assign(:show_refund_modal, false)}
-        end
-    end
-  end
-
   def handle_event("prev-month", _, socket) do
     current_date = socket.assigns.calendar_start_date
 
@@ -5058,4 +4906,20 @@ defmodule YscWeb.AdminBookingsLive do
   # Check if there are no results
   defp no_results?([]), do: true
   defp no_results?(_), do: false
+
+  defp validate_amount_format(changeset) do
+    case Ecto.Changeset.get_change(changeset, :amount) do
+      nil ->
+        changeset
+
+      amount_string ->
+        case MoneyHelper.parse_money(amount_string) do
+          nil ->
+            Ecto.Changeset.add_error(changeset, :amount, "Invalid amount format")
+
+          _money ->
+            changeset
+        end
+    end
+  end
 end
