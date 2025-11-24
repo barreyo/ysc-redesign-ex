@@ -799,6 +799,7 @@ defmodule Ysc.Ledgers do
   - `status`: Payout status (optional, defaults to "paid")
   - `arrival_date`: When the payout arrives (optional)
   - `metadata`: Additional metadata (optional)
+  - `fee_total`: Total fees charged by Stripe for this payout (optional)
   """
   def process_stripe_payout(attrs) do
     %{
@@ -811,6 +812,7 @@ defmodule Ysc.Ledgers do
     status = Map.get(attrs, :status, "paid")
     arrival_date = Map.get(attrs, :arrival_date)
     metadata = Map.get(attrs, :metadata, %{})
+    fee_total = Map.get(attrs, :fee_total)
 
     ensure_basic_accounts()
 
@@ -850,6 +852,7 @@ defmodule Ysc.Ledgers do
         create_payout(%{
           stripe_payout_id: stripe_payout_id,
           amount: payout_amount,
+          fee_total: fee_total,
           currency: currency,
           status: status,
           arrival_date: arrival_date,

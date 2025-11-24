@@ -667,6 +667,15 @@ defmodule Ysc.Stripe.WebhookHandler do
     status = payout[:status] || payout["status"]
     metadata = payout[:metadata] || payout["metadata"] || %{}
 
+    # Extract fee information from Stripe payout
+    # Stripe payouts have a 'fees' object with 'amount' field
+    fee_cents =
+      case payout[:fees] || payout["fees"] do
+        nil -> 0
+        fees when is_map(fees) -> fees[:amount] || fees["amount"] || 0
+        _ -> 0
+      end
+
     # Parse arrival_date if present
     arrival_date =
       case payout[:arrival_date] || payout["arrival_date"] do
@@ -682,10 +691,19 @@ defmodule Ysc.Stripe.WebhookHandler do
 
     # Convert amount from cents to Money struct
     payout_amount = Money.new(MoneyHelper.cents_to_dollars(amount_cents), currency)
+    fee_total = Money.new(MoneyHelper.cents_to_dollars(fee_cents), currency)
+
+    Logger.debug("Processing Stripe payout with fees",
+      payout_id: payout_id,
+      amount: Money.to_string!(payout_amount),
+      fee_total: Money.to_string!(fee_total),
+      fee_cents: fee_cents
+    )
 
     # Process the payout in the ledger
     case Ledgers.process_stripe_payout(%{
            payout_amount: payout_amount,
+           fee_total: fee_total,
            stripe_payout_id: payout_id,
            description: description,
            currency: currency_str,
@@ -696,7 +714,8 @@ defmodule Ysc.Stripe.WebhookHandler do
       {:ok, {_payout_payment, _transaction, _entries, payout}} ->
         Logger.info("Stripe payout processed successfully in ledger",
           payout_id: payout_id,
-          amount: Money.to_string!(payout_amount)
+          amount: Money.to_string!(payout_amount),
+          fee_total: if(fee_total, do: Money.to_string!(fee_total), else: "none")
         )
 
         # Fetch and link payments/refunds from Stripe

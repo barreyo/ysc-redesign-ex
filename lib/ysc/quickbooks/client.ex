@@ -484,6 +484,328 @@ defmodule Ysc.Quickbooks.Client do
     end
   end
 
+  @doc """
+  Gets or creates a QuickBooks Item by name.
+
+  First tries to find an existing item by name, and if not found, creates a new one.
+  Returns the item ID.
+
+  ## Parameters
+
+    - `name` - The name of the item to find or create
+    - `opts` - Optional parameters:
+      - `:type` - Item type (default: "Service"). Can be "Service", "Inventory", "NonInventory"
+      - `:income_account_ref` - Income account reference (optional)
+      - `:expense_account_ref` - Expense account reference (optional)
+
+  ## Examples
+
+      Client.get_or_create_item("Event Tickets")
+      Client.get_or_create_item("Donations", type: "Service")
+  """
+  @spec get_or_create_item(String.t(), keyword()) ::
+          {:ok, String.t()} | {:error, atom() | String.t()}
+  def get_or_create_item(name, opts \\ []) do
+    Logger.debug("[QB Client] get_or_create_item: Getting or creating item",
+      name: name,
+      opts: opts
+    )
+
+    # First check cache
+    cache_key = "qb_item_#{name}"
+    cached_id = get_cached_item_id(cache_key)
+
+    if cached_id do
+      Logger.debug("[QB Client] get_or_create_item: Found in cache",
+        name: name,
+        item_id: cached_id
+      )
+
+      {:ok, cached_id}
+    else
+      # Try to find existing item
+      case query_item_by_name(name) do
+        {:ok, item_id} ->
+          cache_item_id(cache_key, item_id)
+          {:ok, item_id}
+
+        {:error, :not_found} ->
+          # Create new item
+          Logger.info("[QB Client] get_or_create_item: Item not found, creating new item",
+            name: name
+          )
+
+          case create_item(name, opts) do
+            {:ok, item_id} ->
+              cache_item_id(cache_key, item_id)
+              {:ok, item_id}
+
+            error ->
+              error
+          end
+
+        error ->
+          error
+      end
+    end
+  end
+
+  defp query_item_by_name(name) do
+    with {:ok, access_token} <- get_access_token(),
+         {:ok, company_id} <- get_company_id() do
+      # Query for item by name
+      query =
+        "SELECT Id, Name FROM Item WHERE Name = '#{escape_query_string(name)}' AND Active = true"
+
+      url = build_query_url(company_id, query)
+      headers = build_headers(access_token)
+
+      Logger.debug("[QB Client] query_item_by_name: Querying for item",
+        name: name,
+        query: query
+      )
+
+      request = Finch.build(:get, url, headers)
+
+      case Finch.request(request, Ysc.Finch) do
+        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+          case Jason.decode(response_body) do
+            {:ok, %{"QueryResponse" => %{"Item" => items}}}
+            when is_list(items) and length(items) > 0 ->
+              item = List.first(items)
+              item_id = Map.get(item, "Id")
+
+              Logger.debug("[QB Client] query_item_by_name: Found item",
+                name: name,
+                item_id: item_id
+              )
+
+              {:ok, item_id}
+
+            {:ok, %{"QueryResponse" => %{"Item" => item}}} when is_map(item) ->
+              item_id = Map.get(item, "Id")
+
+              Logger.debug("[QB Client] query_item_by_name: Found item",
+                name: name,
+                item_id: item_id
+              )
+
+              {:ok, item_id}
+
+            {:ok, %{"QueryResponse" => _}} ->
+              Logger.debug("[QB Client] query_item_by_name: Item not found",
+                name: name
+              )
+
+              {:error, :not_found}
+
+            {:ok, data} ->
+              Logger.error("[QB Client] query_item_by_name: Unexpected response format",
+                name: name,
+                data: inspect(data)
+              )
+
+              {:error, :invalid_response}
+
+            {:error, error} ->
+              Logger.error("[QB Client] query_item_by_name: Failed to parse response",
+                name: name,
+                error: inspect(error)
+              )
+
+              {:error, :invalid_response}
+          end
+
+        {:ok, %Finch.Response{status: 401, body: _response_body}} ->
+          Logger.warning(
+            "[QB Client] query_item_by_name: Authentication failed, attempting token refresh"
+          )
+
+          case refresh_access_token() do
+            {:ok, new_access_token} ->
+              headers = build_headers(new_access_token)
+              request = Finch.build(:get, url, headers)
+
+              case Finch.request(request, Ysc.Finch) do
+                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                when status in 200..299 ->
+                  case Jason.decode(retry_response_body) do
+                    {:ok, %{"QueryResponse" => %{"Item" => items}}}
+                    when is_list(items) and length(items) > 0 ->
+                      item_id = List.first(items) |> Map.get("Id")
+                      {:ok, item_id}
+
+                    {:ok, %{"QueryResponse" => %{"Item" => item}}} when is_map(item) ->
+                      item_id = Map.get(item, "Id")
+                      {:ok, item_id}
+
+                    _ ->
+                      {:error, :not_found}
+                  end
+
+                _ ->
+                  {:error, :query_failed}
+              end
+
+            error ->
+              error
+          end
+
+        {:ok, %Finch.Response{status: status, body: response_body}} ->
+          Logger.error("[QB Client] query_item_by_name: Query failed",
+            name: name,
+            status: status,
+            response: response_body
+          )
+
+          {:error, :query_failed}
+
+        {:error, error} ->
+          Logger.error("[QB Client] query_item_by_name: Request failed",
+            name: name,
+            error: inspect(error)
+          )
+
+          {:error, :request_failed}
+      end
+    end
+  end
+
+  defp create_item(name, opts) do
+    with {:ok, access_token} <- get_access_token(),
+         {:ok, company_id} <- get_company_id() do
+      item_type = Keyword.get(opts, :type, "Service")
+      url = build_url(company_id, "item")
+      headers = build_headers(access_token)
+
+      body = build_item_body(name, item_type, opts)
+
+      Logger.debug("[QB Client] create_item: Creating item",
+        name: name,
+        type: item_type
+      )
+
+      request = Finch.build(:post, url, headers, Jason.encode!(body))
+
+      case Finch.request(request, Ysc.Finch) do
+        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+          case Jason.decode(response_body) do
+            {:ok, data} ->
+              item = get_response_entity(data, "Item")
+              item_id = Map.get(item, "Id")
+
+              Logger.info("[QB Client] create_item: Successfully created item",
+                name: name,
+                item_id: item_id
+              )
+
+              {:ok, item_id}
+
+            {:error, error} ->
+              Logger.error("[QB Client] create_item: Failed to parse response",
+                name: name,
+                error: inspect(error)
+              )
+
+              {:error, :invalid_response}
+          end
+
+        {:ok, %Finch.Response{status: 401, body: _response_body}} ->
+          Logger.warning(
+            "[QB Client] create_item: Authentication failed, attempting token refresh"
+          )
+
+          case refresh_access_token() do
+            {:ok, new_access_token} ->
+              headers = build_headers(new_access_token)
+              request = Finch.build(:post, url, headers, Jason.encode!(body))
+
+              case Finch.request(request, Ysc.Finch) do
+                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                when status in 200..299 ->
+                  case Jason.decode(retry_response_body) do
+                    {:ok, data} ->
+                      item = get_response_entity(data, "Item")
+                      item_id = Map.get(item, "Id")
+                      {:ok, item_id}
+
+                    error ->
+                      {:error, :invalid_response}
+                  end
+
+                _ ->
+                  {:error, :create_failed}
+              end
+
+            error ->
+              error
+          end
+
+        {:ok, %Finch.Response{status: status, body: response_body}} ->
+          error = parse_error_response(response_body)
+
+          Logger.error("[QB Client] create_item: Failed to create item",
+            name: name,
+            status: status,
+            error: error
+          )
+
+          {:error, error}
+
+        {:error, error} ->
+          Logger.error("[QB Client] create_item: Request failed",
+            name: name,
+            error: inspect(error)
+          )
+
+          {:error, :request_failed}
+      end
+    end
+  end
+
+  defp build_item_body(name, type, opts) do
+    base = %{
+      "Name" => name,
+      "Type" => type,
+      "Active" => true
+    }
+
+    base
+    |> maybe_put("IncomeAccountRef", opts[:income_account_ref])
+    |> maybe_put("ExpenseAccountRef", opts[:expense_account_ref])
+  end
+
+  defp build_query_url(company_id, query) do
+    base_url = get_api_base_url()
+    base_url = String.trim_trailing(base_url, "/")
+
+    base_url =
+      if String.ends_with?(base_url, "/company"),
+        do: String.replace_suffix(base_url, "/company", ""),
+        else: base_url
+
+    encoded_query = URI.encode(query)
+
+    "#{base_url}/company/#{company_id}/query?query=#{encoded_query}&minorversion=#{@minor_version}"
+  end
+
+  defp escape_query_string(str) do
+    str
+    |> String.replace("'", "''")
+    |> String.replace("\\", "\\\\")
+  end
+
+  defp get_cached_item_id(cache_key) do
+    # Use application environment as a simple cache
+    Application.get_env(:ysc, :quickbooks_item_cache, %{})[cache_key]
+  end
+
+  defp cache_item_id(cache_key, item_id) do
+    current_cache = Application.get_env(:ysc, :quickbooks_item_cache, %{})
+    updated_cache = Map.put(current_cache, cache_key, item_id)
+    Application.put_env(:ysc, :quickbooks_item_cache, updated_cache)
+  end
+
   # Private functions
 
   defp build_url(company_id, endpoint) do
@@ -706,9 +1028,39 @@ defmodule Ysc.Quickbooks.Client do
   end
 
   defp get_access_token do
-    case Application.get_env(:ysc, :quickbooks)[:access_token] do
-      nil -> {:error, :quickbooks_access_token_not_configured}
-      token -> {:ok, token}
+    qb_config = Application.get_env(:ysc, :quickbooks, [])
+
+    Logger.debug("[QB Client] get_access_token: Checking configuration",
+      has_access_token: !is_nil(qb_config[:access_token]),
+      has_refresh_token: !is_nil(qb_config[:refresh_token]),
+      has_client_id: !is_nil(qb_config[:client_id]),
+      has_client_secret: !is_nil(qb_config[:client_secret]),
+      has_company_id: !is_nil(qb_config[:company_id])
+    )
+
+    case qb_config[:access_token] do
+      nil ->
+        Logger.debug(
+          "[QB Client] get_access_token: Access token not configured, attempting to refresh"
+        )
+
+        # Try to refresh the token if we have a refresh token
+        case refresh_access_token() do
+          {:ok, new_token} ->
+            Logger.debug("[QB Client] get_access_token: Successfully refreshed access token")
+            {:ok, new_token}
+
+          error ->
+            Logger.error("[QB Client] get_access_token: Failed to refresh token",
+              error: inspect(error)
+            )
+
+            {:error, :quickbooks_access_token_not_configured}
+        end
+
+      token ->
+        Logger.debug("[QB Client] get_access_token: Using configured access token")
+        {:ok, token}
     end
   end
 
@@ -720,9 +1072,18 @@ defmodule Ysc.Quickbooks.Client do
   end
 
   defp refresh_access_token do
+    Logger.debug("[QB Client] refresh_access_token: Starting token refresh")
+
     with {:ok, client_id} <- get_client_id(),
          {:ok, client_secret} <- get_client_secret(),
          {:ok, refresh_token} <- get_refresh_token() do
+      Logger.debug("[QB Client] refresh_access_token: Got credentials, making refresh request",
+        url: @token_url,
+        has_client_id: !is_nil(client_id),
+        has_client_secret: !is_nil(client_secret),
+        has_refresh_token: !is_nil(refresh_token)
+      )
+
       url = @token_url
 
       headers = [
@@ -736,31 +1097,70 @@ defmodule Ysc.Quickbooks.Client do
           refresh_token: refresh_token
         })
 
+      # Create Basic Auth header: Base64(ClientID:ClientSecret)
       auth_header = Base.encode64("#{client_id}:#{client_secret}")
       headers = [{"Authorization", "Basic #{auth_header}"} | headers]
+
+      Logger.debug("[QB Client] refresh_access_token: Request details",
+        url: url,
+        grant_type: "refresh_token",
+        has_auth_header: !is_nil(auth_header),
+        body_params: %{grant_type: "refresh_token", refresh_token: "[REDACTED]"}
+      )
 
       request = Finch.build(:post, url, headers, body)
 
       case Finch.request(request, Ysc.Finch) do
         {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+          Logger.debug("[QB Client] refresh_access_token: Got successful response",
+            status: status
+          )
+
           case Jason.decode(response_body) do
-            {:ok, %{"access_token" => access_token, "refresh_token" => new_refresh_token}} ->
+            {:ok,
+             %{"access_token" => access_token, "refresh_token" => new_refresh_token} =
+                 response_data} ->
+              # Extract expiration info if available
+              expires_in = Map.get(response_data, "expires_in")
+              token_type = Map.get(response_data, "token_type", "Bearer")
+
               # Update application config (in production, you'd want to persist this)
               update_token_config(access_token, new_refresh_token)
-              Logger.info("Successfully refreshed QuickBooks access token")
+
+              Logger.warning(
+                "[QB Client] ⚠️  IMPORTANT: New refresh token received. Update your .env file with: QUICKBOOKS_REFRESH_TOKEN=\"#{new_refresh_token}\""
+              )
+
+              Logger.info("[QB Client] Successfully refreshed QuickBooks access token",
+                access_token_length: String.length(access_token),
+                refresh_token_length: String.length(new_refresh_token),
+                access_token_preview: String.slice(access_token, 0, 20) <> "...",
+                refresh_token_preview: String.slice(new_refresh_token, 0, 20) <> "...",
+                expires_in: expires_in,
+                token_type: token_type
+              )
+
               {:ok, access_token}
 
             {:ok, data} ->
-              Logger.error("Unexpected token refresh response", data: inspect(data))
+              Logger.error("[QB Client] refresh_access_token: Unexpected token refresh response",
+                data: inspect(data),
+                response_keys: if(is_map(data), do: Map.keys(data), else: :not_a_map)
+              )
+
               {:error, :invalid_token_response}
 
             {:error, error} ->
-              Logger.error("Failed to parse token refresh response", error: inspect(error))
+              Logger.error(
+                "[QB Client] refresh_access_token: Failed to parse token refresh response",
+                error: inspect(error)
+              )
+
               {:error, :invalid_response}
           end
 
         {:ok, %Finch.Response{status: status, body: response_body}} ->
-          Logger.error("Token refresh failed",
+          Logger.error("[QB Client] refresh_access_token: Token refresh failed",
             status: status,
             response: response_body
           )
@@ -768,41 +1168,90 @@ defmodule Ysc.Quickbooks.Client do
           {:error, :token_refresh_failed}
 
         {:error, error} ->
-          Logger.error("Request failed during token refresh", error: inspect(error))
+          Logger.error("[QB Client] refresh_access_token: Request failed during token refresh",
+            error: inspect(error)
+          )
+
           {:error, :request_failed}
       end
+    else
+      error ->
+        Logger.error("[QB Client] refresh_access_token: Failed to get required credentials",
+          error: inspect(error)
+        )
+
+        error
     end
   end
 
   defp get_client_id do
     case Application.get_env(:ysc, :quickbooks)[:client_id] do
-      nil -> {:error, :quickbooks_client_id_not_configured}
-      client_id -> {:ok, client_id}
+      nil ->
+        Logger.error("[QB Client] get_client_id: QUICKBOOKS_CLIENT_ID not configured")
+        {:error, :quickbooks_client_id_not_configured}
+
+      client_id ->
+        Logger.debug("[QB Client] get_client_id: Client ID found",
+          has_client_id: !is_nil(client_id)
+        )
+
+        {:ok, client_id}
     end
   end
 
   defp get_client_secret do
     case Application.get_env(:ysc, :quickbooks)[:client_secret] do
-      nil -> {:error, :quickbooks_client_secret_not_configured}
-      client_secret -> {:ok, client_secret}
+      nil ->
+        Logger.error("[QB Client] get_client_secret: QUICKBOOKS_CLIENT_SECRET not configured")
+        {:error, :quickbooks_client_secret_not_configured}
+
+      client_secret ->
+        Logger.debug("[QB Client] get_client_secret: Client secret found",
+          has_client_secret: !is_nil(client_secret)
+        )
+
+        {:ok, client_secret}
     end
   end
 
   defp get_refresh_token do
     case Application.get_env(:ysc, :quickbooks)[:refresh_token] do
-      nil -> {:error, :quickbooks_refresh_token_not_configured}
-      token -> {:ok, token}
+      nil ->
+        Logger.error("[QB Client] get_refresh_token: QUICKBOOKS_REFRESH_TOKEN not configured")
+        {:error, :quickbooks_refresh_token_not_configured}
+
+      token ->
+        Logger.debug("[QB Client] get_refresh_token: Refresh token found",
+          has_refresh_token: !is_nil(token)
+        )
+
+        {:ok, token}
     end
   end
 
   defp update_token_config(access_token, refresh_token) do
-    # In production, you should persist these tokens to a database or secure storage
-    # For now, we'll update the application environment
+    # IMPORTANT: When a new refresh token is received, it MUST be saved to persistent storage.
+    # The old refresh token may become invalid. For now, we update the in-memory config,
+    # but you MUST update your .env file or database with the new refresh_token.
+    #
+    # In production, consider:
+    # 1. Storing tokens in a database table
+    # 2. Using a secrets management service (AWS Secrets Manager, etc.)
+    # 3. At minimum, updating the .env file with the new refresh_token
+
     current_config = Application.get_env(:ysc, :quickbooks, [])
 
     updated_config =
-      Keyword.merge(current_config, access_token: access_token, refresh_token: refresh_token)
+      Keyword.merge(current_config,
+        access_token: access_token,
+        refresh_token: refresh_token
+      )
 
     Application.put_env(:ysc, :quickbooks, updated_config)
+
+    Logger.debug("[QB Client] update_token_config: Updated in-memory config",
+      has_access_token: !is_nil(access_token),
+      has_refresh_token: !is_nil(refresh_token)
+    )
   end
 end

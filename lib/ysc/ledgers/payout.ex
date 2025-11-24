@@ -15,6 +15,7 @@ defmodule Ysc.Ledgers.Payout do
   schema "payouts" do
     field :stripe_payout_id, :string
     field :amount, Money.Ecto.Composite.Type, default_currency: :USD
+    field :fee_total, Money.Ecto.Composite.Type, default_currency: :USD
     field :currency, :string
     field :status, :string
     field :arrival_date, :utc_datetime
@@ -49,6 +50,7 @@ defmodule Ysc.Ledgers.Payout do
     |> cast(attrs, [
       :stripe_payout_id,
       :amount,
+      :fee_total,
       :currency,
       :status,
       :arrival_date,

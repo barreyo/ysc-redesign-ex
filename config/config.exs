@@ -205,7 +205,21 @@ config :ysc, :quickbooks,
   client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET"),
   company_id: System.get_env("QUICKBOOKS_COMPANY_ID"),
   url: System.get_env("QUICKBOOKS_BASE_URL", "https://sandbox-quickbooks.api.intuit.com/v3"),
-  app_id: System.get_env("QUICKBOOKS_APP_ID")
+  app_id: System.get_env("QUICKBOOKS_APP_ID"),
+  access_token: System.get_env("QUICKBOOKS_ACCESS_TOKEN"),
+  refresh_token: System.get_env("QUICKBOOKS_REFRESH_TOKEN"),
+  realm_id: System.get_env("QUICKBOOKS_REALM_ID"),
+  # QuickBooks Item IDs for different entity types (optional - will auto-create if not set)
+  event_item_id: System.get_env("QUICKBOOKS_EVENT_ITEM_ID"),
+  donation_item_id: System.get_env("QUICKBOOKS_DONATION_ITEM_ID"),
+  tahoe_booking_item_id: System.get_env("QUICKBOOKS_TAHOE_BOOKING_ITEM_ID"),
+  clear_lake_booking_item_id: System.get_env("QUICKBOOKS_CLEAR_LAKE_BOOKING_ITEM_ID"),
+  membership_item_id: System.get_env("QUICKBOOKS_MEMBERSHIP_ITEM_ID"),
+  default_item_id: System.get_env("QUICKBOOKS_DEFAULT_ITEM_ID"),
+  stripe_fee_item_id: System.get_env("QUICKBOOKS_STRIPE_FEE_ITEM_ID"),
+  # QuickBooks Account IDs (required - cannot be auto-created)
+  bank_account_id: System.get_env("QUICKBOOKS_BANK_ACCOUNT_ID"),
+  stripe_account_id: System.get_env("QUICKBOOKS_STRIPE_ACCOUNT_ID")
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
