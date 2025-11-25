@@ -2275,6 +2275,10 @@ defmodule YscWeb.AdminBookingsLive do
     # Parse query string manually if params are malformed (e.g., double-encoded)
     params = parse_query_params(params, uri)
 
+    # Ensure live_action is explicitly set based on the route
+    # This prevents stale live_action values from blocking modal opens
+    socket = assign(socket, :live_action, socket.assigns.live_action || :index)
+
     # Update calendar date range first if provided in params, to preserve it when updating property
     socket =
       cond do
@@ -2803,12 +2807,18 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:booking_type, nil)
     |> assign(:booking_payments, [])
     |> assign(:booking_refunds, [])
+    |> assign(:primary_payment, nil)
+    |> assign(:show_refund_modal, false)
+    |> assign(:refund_form, nil)
     |> assign(:season, nil)
     |> assign(:season_form, nil)
     |> assign(:refund_policy, nil)
     |> assign(:refund_policy_form, nil)
     |> assign(:refund_policy_rules, [])
     |> assign(:refund_policy_rule_form, nil)
+    |> assign(:selected_pending_refund, nil)
+    |> assign(:approve_refund_form, nil)
+    |> assign(:reject_refund_form, nil)
   end
 
   def handle_event("select-property", %{"property" => property}, socket) do
