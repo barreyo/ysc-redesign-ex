@@ -30,6 +30,11 @@ EMAIL_BOARD = "board+sandbox@ysc.org"
 EMAIL_VOLUNTEER = "volunteer+sandbox@ysc.org"
 EMAIL_TAHOE = "tahoe+sandbox@ysc.org"
 EMAIL_CLEAR_LAKE = "clearlake+sandbox@ysc.org"
+QUICKBOOKS_BASE_URL = "https://sandbox-quickbooks.api.intuit.com/v3"
+QUICKBOOKS_REALM_ID = "9341455772023176"
+QUICKBOOKS_APP_ID = "f746318b-1165-4e61-b808-3134e5c3afcc"
+QUICKBOOKS_BANK_ACCOUNT_ID = "35"
+QUICKBOOKS_STRIPE_ACCOUNT_ID = "1150040000"
 
 [http_service]
 internal_port = 4000

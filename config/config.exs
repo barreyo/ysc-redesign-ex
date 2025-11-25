@@ -200,6 +200,9 @@ config :ysc, :accounting,
   default_currency: :USD,
   quickbooks_classes: ["Administration", "Events", "Clear Lake", "Tahoe"]
 
+# QuickBooks configuration
+# Note: In production, QuickBooks is configured at runtime in config/runtime.exs
+# This config is for dev/test environments only
 config :ysc, :quickbooks,
   client_id: System.get_env("QUICKBOOKS_CLIENT_ID"),
   client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET"),
