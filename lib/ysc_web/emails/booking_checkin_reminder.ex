@@ -103,9 +103,19 @@ defmodule YscWeb.Emails.BookingCheckinReminder do
     # Check if this is a buyout booking
     is_buyout = booking.booking_mode == :buyout
 
+    # Normalize property to string for consistent comparison in templates
+    # Email templates may serialize atoms to strings, so we normalize here
+    property_string =
+      case booking.property do
+        atom when is_atom(atom) -> Atom.to_string(atom)
+        string when is_binary(string) -> string
+        _ -> to_string(booking.property)
+      end
+
     %{
       first_name: booking.user.first_name || "Valued Member",
       door_code: if(door_code, do: door_code.code, else: "Not Available"),
+      property: property_string,
       property_name: property_name,
       property_address: property_address,
       checkin_date: checkin_date,

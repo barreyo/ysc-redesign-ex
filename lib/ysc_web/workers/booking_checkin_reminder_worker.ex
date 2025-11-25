@@ -126,8 +126,11 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
   Schedules a check-in reminder email for a booking.
 
   The email will be sent 3 days before the check-in date.
+  If check-in is less than 3 days away, the email is sent immediately.
   """
   def schedule_reminder(booking_id, checkin_date) do
+    require Logger
+
     # Calculate delay until 3 days before check-in
     now = DateTime.utc_now()
     checkin_datetime = DateTime.new!(checkin_date, ~T[00:00:00], "Etc/UTC")
@@ -137,21 +140,47 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
     delay_seconds = DateTime.diff(reminder_datetime, now, :second)
 
     if delay_seconds > 0 do
+      # Schedule for 3 days before check-in
       %{
         "booking_id" => booking_id
       }
       |> new(schedule_in: delay_seconds)
       |> Oban.insert()
-    else
-      # If check-in is less than 3 days away, don't schedule
-      require Logger
 
-      Logger.warning("Check-in is less than 3 days away, not scheduling reminder",
+      Logger.info("Scheduled check-in reminder email",
+        booking_id: booking_id,
+        checkin_date: checkin_date,
+        delay_days: delay_seconds / (24 * 60 * 60)
+      )
+    else
+      # If check-in is less than 3 days away, send immediately
+      Logger.info("Check-in is less than 3 days away, sending reminder immediately",
         booking_id: booking_id,
         checkin_date: checkin_date
       )
 
-      :ok
+      # Load booking and send email immediately
+      case Repo.get(Booking, booking_id) |> Repo.preload([:user, :rooms]) do
+        nil ->
+          Logger.warning("Booking not found for immediate check-in reminder",
+            booking_id: booking_id
+          )
+
+          :ok
+
+        booking ->
+          # Only send if booking is still active
+          if booking.status == :complete do
+            send_checkin_reminder_email(booking)
+          else
+            Logger.info("Booking is not active, skipping immediate check-in reminder",
+              booking_id: booking_id,
+              status: booking.status
+            )
+
+            :ok
+          end
+      end
     end
   end
 end
