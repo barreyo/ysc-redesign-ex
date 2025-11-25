@@ -1676,17 +1676,12 @@ defmodule Ysc.Bookings do
 
                 # Process refund if amount > 0
                 if actual_refund_amount && Money.positive?(actual_refund_amount) do
-                  # Check if refund is 100% (full refund)
-                  is_full_refund = Money.equal?(actual_refund_amount, payment.amount)
-
-                  if is_full_refund do
-                    # Full refund - create refund in Stripe
+                  # Only process refund immediately if NO policy rule was applied (full refund outside policy)
+                  # If ANY policy rule applies (even if it results in 100% refund), create pending refund for admin review
+                  if is_nil(applied_rule) do
+                    # No policy rule applied - full refund, process immediately
                     refund_reason =
-                      if applied_rule do
-                        "Booking cancellation: #{reason || "No reason provided"}. Applied policy rule: #{applied_rule.days_before_checkin} days before check-in, #{applied_rule.refund_percentage}% refund."
-                      else
-                        "Booking cancellation: #{reason || "No reason provided"}. Full refund (no policy applied)."
-                      end
+                      "Booking cancellation: #{reason || "No reason provided"}. Full refund (no policy applied)."
 
                     # Get the payment intent ID from the payment
                     payment_intent_id = payment.external_payment_id
@@ -1714,7 +1709,7 @@ defmodule Ysc.Bookings do
                        {:refund_failed, "Payment does not have a valid Stripe payment intent ID"}}
                     end
                   else
-                    # Partial refund - create pending refund for admin review
+                    # Policy rule applied (partial refund, full refund via policy, or $0) - create pending refund for admin review
                     applied_rule_days =
                       if applied_rule, do: applied_rule.days_before_checkin, else: nil
 
@@ -1749,8 +1744,39 @@ defmodule Ysc.Bookings do
                     end
                   end
                 else
-                  # No refund (0% or nil)
-                  {:ok, canceled_booking, Money.new(0, :USD), nil}
+                  # No refund (0% or nil) - check if a policy rule was applied
+                  if applied_rule do
+                    # Policy rule applied resulting in $0 refund - create pending refund for admin review
+                    pending_refund_attrs = %{
+                      booking_id: canceled_booking.id,
+                      payment_id: payment.id,
+                      policy_refund_amount: Money.new(0, :USD),
+                      status: :pending,
+                      cancellation_reason: reason,
+                      applied_rule_days_before_checkin: applied_rule.days_before_checkin,
+                      applied_rule_refund_percentage: applied_rule.refund_percentage
+                    }
+
+                    case %PendingRefund{}
+                         |> PendingRefund.changeset(pending_refund_attrs)
+                         |> Repo.insert() do
+                      {:ok, pending_refund} ->
+                        # Send pending refund email
+                        send_booking_refund_pending_email(
+                          pending_refund,
+                          canceled_booking,
+                          payment
+                        )
+
+                        {:ok, canceled_booking, Money.new(0, :USD), pending_refund}
+
+                      {:error, changeset} ->
+                        {:error, {:pending_refund_failed, changeset}}
+                    end
+                  else
+                    # No refund and no policy rule applied
+                    {:ok, canceled_booking, Money.new(0, :USD), nil}
+                  end
                 end
 
               {:error, reason} ->
