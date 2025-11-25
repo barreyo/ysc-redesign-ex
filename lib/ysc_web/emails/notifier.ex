@@ -33,7 +33,12 @@ defmodule YscWeb.Emails.Notifier do
     "booking_refund_pending" => YscWeb.Emails.BookingRefundPending,
     "volunteer_confirmation" => YscWeb.Emails.VolunteerConfirmation,
     "volunteer_board_notification" => YscWeb.Emails.VolunteerBoardNotification,
-    "outage_notification" => YscWeb.Emails.OutageNotification
+    "outage_notification" => YscWeb.Emails.OutageNotification,
+    "membership_payment_failure" => YscWeb.Emails.MembershipPaymentFailure,
+    "membership_renewal_success" => YscWeb.Emails.MembershipRenewalSuccess,
+    "membership_payment_reminder_7day" => YscWeb.Emails.MembershipPaymentReminder7Day,
+    "membership_payment_reminder_30day" => YscWeb.Emails.MembershipPaymentReminder30Day,
+    "booking_checkin_reminder" => YscWeb.Emails.BookingCheckinReminder
   }
 
   def schedule_email(recipient, idempotency_key, subject, template, variables, text_body, user_id) do

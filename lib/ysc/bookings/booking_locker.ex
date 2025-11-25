@@ -915,10 +915,35 @@ defmodule Ysc.Bookings.BookingLocker do
         # Send booking confirmation email
         send_booking_confirmation_email(confirmed_booking)
 
+        # Schedule check-in reminder email (2 days before check-in)
+        schedule_checkin_reminder(confirmed_booking)
+
         {:ok, confirmed_booking}
 
       error ->
         error
+    end
+  end
+
+  defp schedule_checkin_reminder(booking) do
+    require Logger
+
+    try do
+      YscWeb.Workers.BookingCheckinReminderWorker.schedule_reminder(
+        booking.id,
+        booking.checkin_date
+      )
+
+      Logger.info("Scheduled check-in reminder email",
+        booking_id: booking.id,
+        checkin_date: booking.checkin_date
+      )
+    rescue
+      error ->
+        Logger.error("Failed to schedule check-in reminder",
+          booking_id: booking.id,
+          error: Exception.message(error)
+        )
     end
   end
 

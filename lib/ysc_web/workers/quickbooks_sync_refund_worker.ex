@@ -35,6 +35,19 @@ defmodule YscWeb.Workers.QuickbooksSyncRefundWorker do
          end) do
       {:ok, nil} ->
         Logger.error("Refund not found for QuickBooks sync", refund_id: refund_id)
+
+        # Report to Sentry
+        Sentry.capture_message("Refund not found for QuickBooks sync",
+          level: :error,
+          extra: %{
+            refund_id: refund_id
+          },
+          tags: %{
+            quickbooks_worker: "sync_refund",
+            error_type: "refund_not_found"
+          }
+        )
+
         {:error, :refund_not_found}
 
       {:ok, refund} ->
@@ -62,6 +75,19 @@ defmodule YscWeb.Workers.QuickbooksSyncRefundWorker do
                 error: inspect(reason)
               )
 
+              # Report to Sentry
+              Sentry.capture_message("QuickBooks refund sync worker failed",
+                level: :error,
+                extra: %{
+                  refund_id: refund_id,
+                  error: inspect(reason)
+                },
+                tags: %{
+                  quickbooks_worker: "sync_refund",
+                  error_type: "sync_failed"
+                }
+              )
+
               # Oban will retry based on max_attempts
               {:error, reason}
           end
@@ -77,6 +103,21 @@ defmodule YscWeb.Workers.QuickbooksSyncRefundWorker do
           refund_id: refund_id,
           error: inspect(reason)
         )
+
+        # Report to Sentry (only for non-lock errors)
+        unless match?(%Postgrex.Error{postgres: %{code: :lock_not_available}}, reason) do
+          Sentry.capture_message("Failed to lock refund for QuickBooks sync",
+            level: :error,
+            extra: %{
+              refund_id: refund_id,
+              error: inspect(reason)
+            },
+            tags: %{
+              quickbooks_worker: "sync_refund",
+              error_type: "lock_failed"
+            }
+          )
+        end
 
         {:error, reason}
     end

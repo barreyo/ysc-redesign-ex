@@ -35,6 +35,19 @@ defmodule YscWeb.Workers.QuickbooksSyncPayoutWorker do
          end) do
       {:ok, nil} ->
         Logger.error("Payout not found for QuickBooks sync", payout_id: payout_id)
+
+        # Report to Sentry
+        Sentry.capture_message("Payout not found for QuickBooks sync",
+          level: :error,
+          extra: %{
+            payout_id: payout_id
+          },
+          tags: %{
+            quickbooks_worker: "sync_payout",
+            error_type: "payout_not_found"
+          }
+        )
+
         {:error, :payout_not_found}
 
       {:ok, payout} ->
@@ -65,6 +78,19 @@ defmodule YscWeb.Workers.QuickbooksSyncPayoutWorker do
                 error: inspect(reason)
               )
 
+              # Report to Sentry
+              Sentry.capture_message("QuickBooks payout sync worker failed",
+                level: :error,
+                extra: %{
+                  payout_id: payout_id,
+                  error: inspect(reason)
+                },
+                tags: %{
+                  quickbooks_worker: "sync_payout",
+                  error_type: "sync_failed"
+                }
+              )
+
               # Oban will retry based on max_attempts
               {:error, reason}
           end
@@ -80,6 +106,21 @@ defmodule YscWeb.Workers.QuickbooksSyncPayoutWorker do
           payout_id: payout_id,
           error: inspect(reason)
         )
+
+        # Report to Sentry (only for non-lock errors)
+        unless match?(%Postgrex.Error{postgres: %{code: :lock_not_available}}, reason) do
+          Sentry.capture_message("Failed to lock payout for QuickBooks sync",
+            level: :error,
+            extra: %{
+              payout_id: payout_id,
+              error: inspect(reason)
+            },
+            tags: %{
+              quickbooks_worker: "sync_payout",
+              error_type: "lock_failed"
+            }
+          )
+        end
 
         {:error, reason}
     end

@@ -187,6 +187,34 @@ defmodule Ysc.Ledgers do
         {:ok, {payment, transaction, entries}}
 
       error ->
+        # Report to Sentry
+        require Logger
+
+        Logger.error("Failed to process payment in ledger",
+          user_id: user_id,
+          amount: Money.to_string!(amount),
+          entity_type: entity_type,
+          entity_id: entity_id,
+          external_payment_id: external_payment_id,
+          error: inspect(error)
+        )
+
+        Sentry.capture_message("Failed to process payment in ledger",
+          level: :error,
+          extra: %{
+            user_id: user_id,
+            amount: Money.to_string!(amount),
+            entity_type: inspect(entity_type),
+            entity_id: entity_id,
+            external_payment_id: external_payment_id,
+            error: inspect(error)
+          },
+          tags: %{
+            ledger_operation: "process_payment",
+            entity_type: inspect(entity_type)
+          }
+        )
+
         error
     end
   end
@@ -267,6 +295,36 @@ defmodule Ysc.Ledgers do
         {:ok, {payment, transaction, entries}}
 
       error ->
+        # Report to Sentry
+        require Logger
+
+        Logger.error("Failed to process mixed event/donation payment in ledger",
+          user_id: user_id,
+          total_amount: Money.to_string!(total_amount),
+          event_amount: Money.to_string!(event_amount),
+          donation_amount: Money.to_string!(donation_amount),
+          event_id: event_id,
+          external_payment_id: external_payment_id,
+          error: inspect(error)
+        )
+
+        Sentry.capture_message("Failed to process mixed event/donation payment in ledger",
+          level: :error,
+          extra: %{
+            user_id: user_id,
+            total_amount: Money.to_string!(total_amount),
+            event_amount: Money.to_string!(event_amount),
+            donation_amount: Money.to_string!(donation_amount),
+            event_id: event_id,
+            external_payment_id: external_payment_id,
+            error: inspect(error)
+          },
+          tags: %{
+            ledger_operation: "process_mixed_event_donation_payment",
+            entity_type: "event_donation"
+          }
+        )
+
         error
     end
   end
@@ -290,6 +348,18 @@ defmodule Ysc.Ledgers do
       Logger.error("Failed to enqueue QuickBooks sync for payment",
         payment_id: payment.id,
         error: inspect(error)
+      )
+
+      # Report to Sentry
+      Sentry.capture_exception(error,
+        stacktrace: __STACKTRACE__,
+        extra: %{
+          payment_id: payment.id,
+          error_message: Exception.message(error)
+        },
+        tags: %{
+          ledger_operation: "enqueue_quickbooks_sync_payment"
+        }
       )
 
       :ok
@@ -358,13 +428,31 @@ defmodule Ysc.Ledgers do
             _ ->
               require Logger
 
+              error_message =
+                "Booking payment requires property to be specified (tahoe or clear_lake)"
+
               Logger.error(
-                "Booking payment requires property to be specified (tahoe or clear_lake)",
+                error_message,
                 entity_id: entity_id,
                 property: property
               )
 
-              raise "Booking payment requires property to be specified (tahoe or clear_lake)"
+              # Report to Sentry before raising
+              Sentry.capture_message(error_message,
+                level: :error,
+                extra: %{
+                  entity_id: entity_id,
+                  property: inspect(property),
+                  entity_type: "booking"
+                },
+                tags: %{
+                  ledger_operation: "create_payment_entries",
+                  entity_type: "booking",
+                  error_type: "missing_property"
+                }
+              )
+
+              raise error_message
           end
 
         :donation ->
@@ -669,6 +757,29 @@ defmodule Ysc.Ledgers do
         {:ok, {existing_refund, existing_transaction, []}}
 
       error ->
+        # Report to Sentry
+        require Logger
+
+        Logger.error("Failed to process refund in ledger",
+          payment_id: payment_id,
+          refund_amount: Money.to_string!(refund_amount),
+          external_refund_id: external_refund_id,
+          error: inspect(error)
+        )
+
+        Sentry.capture_message("Failed to process refund in ledger",
+          level: :error,
+          extra: %{
+            payment_id: payment_id,
+            refund_amount: Money.to_string!(refund_amount),
+            external_refund_id: external_refund_id,
+            error: inspect(error)
+          },
+          tags: %{
+            ledger_operation: "process_refund"
+          }
+        )
+
         error
     end
   end
@@ -711,6 +822,19 @@ defmodule Ysc.Ledgers do
           payment_id: payment.id,
           error: inspect(error),
           stacktrace: __STACKTRACE__
+        )
+
+        # Report to Sentry
+        Sentry.capture_exception(error,
+          stacktrace: __STACKTRACE__,
+          extra: %{
+            refund_id: refund.id,
+            payment_id: payment.id,
+            error_message: Exception.message(error)
+          },
+          tags: %{
+            ledger_operation: "send_refund_email"
+          }
         )
     end
   end

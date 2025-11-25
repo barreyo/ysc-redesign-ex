@@ -30,11 +30,11 @@
     </mj-text>
     <mj-spacer height="24px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
-      We hope this message finds you well! We wanted to reach out regarding your Young Scandinavians Club membership payment.
+      We hope this message finds you well! We wanted to reach out regarding your Young Scandinavians Club <%= @membership_type %> membership<%= if @is_renewal, do: " renewal", else: " payment" %>.
     </mj-text>
     <mj-spacer height="12px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
-      Unfortunately, we encountered an issue processing your recent membership payment. This could be due to several reasons:
+      Unfortunately, we encountered an issue processing your <%= if @is_renewal, do: "membership renewal payment", else: "recent membership payment" %>. This could be due to several reasons:
     </mj-text>
     <mj-text font-size="18px" align="left" line-height="1.5">
       <ul>
@@ -54,10 +54,18 @@
     </mj-text>
     <mj-spacer height="12px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
-      Don't worry - your membership application remains approved and we're here to help you complete the payment process.
+      <%= if @is_renewal do %>
+        Don't worry - your membership remains active for now, but we need to update your payment method to ensure uninterrupted access to all member benefits.
+      <% else %>
+        Don't worry - your membership application remains approved and we're here to help you complete the payment process.
+      <% end %>
     </mj-text>
     <mj-spacer height="24px"></mj-spacer>
-    <mj-button href="<%= pay_membership_url() %>" css-class="btn_block" inner-padding="15px" width="100%" background-color="#1447e6" color="#ffffff" align="left" font-size="18px" border-radius="4px">Retry Payment → </mj-button>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px" style="background-color: #FEF3C7; padding: 16px; border-radius: 6px; border-left: 4px solid #F59E0B;">
+      <strong>⚠️ Important:</strong> <%= if @is_renewal do %>Please update your payment method as soon as possible to avoid any interruption to your membership benefits.<% else %>Please complete your payment to activate your membership.<% end %>
+    </mj-text>
+    <mj-spacer height="24px"></mj-spacer>
+    <mj-button href="<%= @pay_membership_url %>" css-class="btn_block" inner-padding="15px" width="100%" background-color="#1447e6" color="#ffffff" align="left" font-size="18px" border-radius="4px"><%= if @is_renewal, do: "Update Payment Method →", else: "Retry Payment →" %></mj-button>
     <mj-spacer height="24px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
       If you continue to experience issues, please try:
@@ -80,7 +88,11 @@
     </mj-text>
     <mj-spacer height="12px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
-      Once your payment is successfully processed, you'll immediately gain access to all member benefits, including our events, cabin bookings, and the vibrant Scandinavian community.
+      <%= if @is_renewal do %>
+        Once your payment method is updated and the renewal payment is successfully processed, your <%= @membership_type %> membership will continue uninterrupted with full access to all member benefits, including our events, cabin bookings, and the vibrant Scandinavian community.
+      <% else %>
+        Once your payment is successfully processed, you'll immediately gain access to all member benefits, including our events, cabin bookings, and the vibrant Scandinavian community.
+      <% end %>
     </mj-text>
     <mj-spacer height="24px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">

@@ -162,8 +162,31 @@ defmodule YscWeb.Workers.EmailNotifier do
         if template_module do
           Logger.info("Template module found: #{inspect(template_module)}")
         else
+          error_message = "Template module not found for template: #{template}"
+
           Logger.error("Template module not found for template: #{template}")
-          raise "Template module not found for template: #{template}"
+
+          # Report to Sentry
+          Sentry.capture_message(error_message,
+            level: :error,
+            extra: %{
+              job_id: job.id,
+              recipient: recipient,
+              idempotency_key: idempotency_key,
+              template: template,
+              subject: subject,
+              user_id: user_id,
+              category: category
+            },
+            tags: %{
+              email_template: template,
+              email_category: category,
+              has_user_id: !is_nil(user_id),
+              error_type: "missing_template_module"
+            }
+          )
+
+          raise error_message
         end
 
         atomized_params = atomize_keys(params)
@@ -198,6 +221,26 @@ defmodule YscWeb.Workers.EmailNotifier do
               error: reason
             )
 
+            # Report to Sentry with context
+            Sentry.capture_message("Email sending failed",
+              level: :error,
+              extra: %{
+                job_id: job.id,
+                recipient: recipient,
+                idempotency_key: idempotency_key,
+                template: template,
+                subject: subject,
+                user_id: user_id,
+                category: category,
+                error: inspect(reason)
+              },
+              tags: %{
+                email_template: template,
+                email_category: category,
+                has_user_id: !is_nil(user_id)
+              }
+            )
+
             {:error, reason}
         end
       rescue
@@ -211,6 +254,28 @@ defmodule YscWeb.Workers.EmailNotifier do
             error_type: inspect(error.__struct__),
             error_message: Exception.message(error),
             stacktrace: Exception.format_stacktrace(__STACKTRACE__)
+          )
+
+          # Report exception to Sentry with full context
+          Sentry.capture_exception(error,
+            stacktrace: __STACKTRACE__,
+            extra: %{
+              job_id: job.id,
+              recipient: recipient,
+              idempotency_key: idempotency_key,
+              template: template,
+              subject: subject,
+              user_id: user_id,
+              category: category,
+              error_type: inspect(error.__struct__),
+              error_message: Exception.message(error)
+            },
+            tags: %{
+              email_template: template,
+              email_category: category,
+              has_user_id: !is_nil(user_id),
+              worker: "EmailNotifier"
+            }
           )
 
           {:error, error}

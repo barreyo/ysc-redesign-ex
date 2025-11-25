@@ -226,6 +226,22 @@ defmodule Ysc.Quickbooks.Sync do
           user_id: payment.user_id
         )
 
+        # Report to Sentry
+        Sentry.capture_message("QuickBooks payment sync failed",
+          level: :error,
+          extra: %{
+            payment_id: payment.id,
+            payment_reference_id: payment.reference_id,
+            user_id: payment.user_id,
+            amount: Money.to_string!(payment.amount),
+            error: inspect(reason)
+          },
+          tags: %{
+            quickbooks_operation: "sync_payment",
+            error_type: inspect(reason)
+          }
+        )
+
         # Update payment with sync failure
         update_sync_failure(payment, reason)
         error
@@ -296,6 +312,22 @@ defmodule Ysc.Quickbooks.Sync do
           error_type: inspect(reason),
           full_error: inspect(error),
           payment_id: refund.payment_id
+        )
+
+        # Report to Sentry
+        Sentry.capture_message("QuickBooks refund sync failed",
+          level: :error,
+          extra: %{
+            refund_id: refund.id,
+            refund_reference_id: refund.reference_id,
+            payment_id: refund.payment_id,
+            amount: Money.to_string!(refund.amount),
+            error: inspect(reason)
+          },
+          tags: %{
+            quickbooks_operation: "sync_refund",
+            error_type: inspect(reason)
+          }
         )
 
         # Update refund with sync failure
@@ -373,6 +405,23 @@ defmodule Ysc.Quickbooks.Sync do
           full_error: inspect(error),
           payments_count: length(payout.payments),
           refunds_count: length(payout.refunds)
+        )
+
+        # Report to Sentry
+        Sentry.capture_message("QuickBooks payout sync failed",
+          level: :error,
+          extra: %{
+            payout_id: payout.id,
+            stripe_payout_id: payout.stripe_payout_id,
+            amount: Money.to_string!(payout.amount),
+            payments_count: length(payout.payments),
+            refunds_count: length(payout.refunds),
+            error: inspect(reason)
+          },
+          tags: %{
+            quickbooks_operation: "sync_payout",
+            error_type: inspect(reason)
+          }
         )
 
         # Update payout with sync failure
@@ -460,6 +509,21 @@ defmodule Ysc.Quickbooks.Sync do
           full_error: inspect(error)
         )
 
+        # Report to Sentry
+        Sentry.capture_message("QuickBooks customer creation failed",
+          level: :error,
+          extra: %{
+            user_id: user.id,
+            user_email: user.email,
+            existing_quickbooks_customer_id: user.quickbooks_customer_id,
+            error: inspect(reason)
+          },
+          tags: %{
+            quickbooks_operation: "get_or_create_customer",
+            error_type: inspect(reason)
+          }
+        )
+
         error
 
       error ->
@@ -468,6 +532,20 @@ defmodule Ysc.Quickbooks.Sync do
           user_id: user.id,
           user_email: user.email,
           full_error: inspect(error)
+        )
+
+        # Report to Sentry
+        Sentry.capture_message("QuickBooks customer creation failed (unexpected error)",
+          level: :error,
+          extra: %{
+            user_id: user.id,
+            user_email: user.email,
+            error: inspect(error)
+          },
+          tags: %{
+            quickbooks_operation: "get_or_create_customer",
+            error_type: "unexpected_error_format"
+          }
         )
 
         error
@@ -2293,6 +2371,19 @@ defmodule Ysc.Quickbooks.Sync do
         Logger.error("[QB Sync] Failed to update payment sync failure",
           payment_id: payment.id,
           error: inspect(changeset.errors)
+        )
+
+        # Report to Sentry
+        Sentry.capture_message("Failed to update payment sync failure status",
+          level: :error,
+          extra: %{
+            payment_id: payment.id,
+            changeset_errors: inspect(changeset.errors)
+          },
+          tags: %{
+            quickbooks_operation: "update_sync_failure",
+            error_type: "changeset_validation"
+          }
         )
     end
   end

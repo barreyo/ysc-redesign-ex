@@ -11,6 +11,7 @@ defmodule Ysc.Stripe.WebhookHandler do
   alias Ysc.Ledgers
   alias Ysc.MoneyHelper
   alias Ysc.Repo
+  alias Ysc.Accounts
 
   # Maximum age for webhook events (5 minutes in seconds)
   @webhook_max_age_seconds 300
@@ -87,6 +88,20 @@ defmodule Ysc.Stripe.WebhookHandler do
             event_type: event.type
           )
 
+          # Report to Sentry
+          Sentry.capture_message("Webhook event not found after creation",
+            level: :error,
+            extra: %{
+              event_id: event.id,
+              event_type: event.type
+            },
+            tags: %{
+              webhook_provider: "stripe",
+              event_type: event.type,
+              error_type: "webhook_not_found"
+            }
+          )
+
           :ok
       end
     rescue
@@ -113,6 +128,20 @@ defmodule Ysc.Stripe.WebhookHandler do
             Logger.error("Webhook event not found after duplicate error",
               event_id: event.id,
               event_type: event.type
+            )
+
+            # Report to Sentry
+            Sentry.capture_message("Webhook event not found after duplicate error",
+              level: :error,
+              extra: %{
+                event_id: event.id,
+                event_type: event.type
+              },
+              tags: %{
+                webhook_provider: "stripe",
+                event_type: event.type,
+                error_type: "webhook_not_found_after_duplicate"
+              }
             )
 
             :ok
@@ -145,6 +174,22 @@ defmodule Ysc.Stripe.WebhookHandler do
           event_id: event.id,
           event_type: event.type,
           error: Exception.message(error)
+        )
+
+        # Report to Sentry with full context
+        Sentry.capture_exception(error,
+          stacktrace: __STACKTRACE__,
+          extra: %{
+            event_id: event.id,
+            event_type: event.type,
+            webhook_event_id: webhook_event.id,
+            error_message: Exception.message(error)
+          },
+          tags: %{
+            webhook_provider: "stripe",
+            event_type: event.type,
+            worker: "WebhookHandler"
+          }
         )
 
         :ok
@@ -333,8 +378,73 @@ defmodule Ysc.Stripe.WebhookHandler do
     :ok
   end
 
-  defp handle("invoice.payment.failed", %Stripe.Invoice{} = _invoice) do
-    :ok
+  defp handle("invoice.payment.failed", %Stripe.Invoice{} = invoice) do
+    # Convert Stripe struct to map and call the map handler
+    invoice_map = %{
+      id: invoice.id,
+      customer: invoice.customer,
+      subscription: invoice.subscription,
+      billing_reason: Map.get(invoice, :billing_reason),
+      lines: invoice.lines
+    }
+
+    handle("invoice.payment.failed", invoice_map)
+  end
+
+  defp handle("invoice.payment.failed", invoice) when is_map(invoice) do
+    require Logger
+
+    # Check if this is a subscription invoice (membership)
+    subscription_id = resolve_subscription_id(invoice)
+
+    case subscription_id do
+      nil ->
+        # Not a subscription invoice, skip
+        Logger.debug("Invoice payment failed is not for a subscription, skipping",
+          invoice_id: invoice[:id] || invoice["id"]
+        )
+
+        :ok
+
+      subscription_id ->
+        # Get the user from the customer ID
+        customer_id = invoice[:customer] || invoice["customer"]
+        invoice_id = invoice[:id] || invoice["id"]
+        billing_reason = invoice[:billing_reason] || invoice["billing_reason"]
+
+        user = Accounts.get_user_from_stripe_id(customer_id)
+
+        if user do
+          # Determine if this is a renewal (not the initial subscription creation)
+          # subscription_create = initial payment, subscription_cycle = renewal payment
+          is_renewal =
+            billing_reason == "subscription_cycle" || billing_reason == "subscription_update"
+
+          # Get membership type from subscription
+          membership_type = get_membership_type_from_subscription_id(subscription_id)
+
+          Logger.info("Processing membership payment failure",
+            invoice_id: invoice_id,
+            user_id: user.id,
+            subscription_id: subscription_id,
+            membership_type: membership_type,
+            is_renewal: is_renewal,
+            billing_reason: billing_reason
+          )
+
+          # Send email notification
+          send_membership_payment_failure_email(user, membership_type, is_renewal, invoice_id)
+
+          :ok
+        else
+          Logger.warning("No user found for invoice payment failure",
+            invoice_id: invoice_id,
+            customer_id: customer_id
+          )
+
+          :ok
+        end
+    end
   end
 
   defp handle("invoice.payment_succeeded", %Stripe.Invoice{} = invoice) do
@@ -407,13 +517,41 @@ defmodule Ysc.Stripe.WebhookHandler do
             }
 
             case Ledgers.process_payment(payment_attrs) do
-              {:ok, {_payment, _transaction, _entries}} ->
+              {:ok, {payment, _transaction, _entries}} ->
                 Logger.info("Subscription payment processed successfully in ledger",
                   invoice_id: invoice_id,
                   user_id: user.id,
                   subscription_id: subscription_id,
                   entity_id: entity_id
                 )
+
+                # Check if this is a renewal and send success email
+                billing_reason = invoice[:billing_reason] || invoice["billing_reason"]
+
+                is_renewal =
+                  billing_reason == "subscription_cycle" ||
+                    billing_reason == "subscription_update"
+
+                if is_renewal do
+                  # Get membership type from subscription
+                  membership_type = get_membership_type_from_subscription_id(subscription_id)
+
+                  # Get renewal date (payment date - convert DateTime to Date if needed)
+                  renewal_date =
+                    case payment.payment_date do
+                      %Date{} = date -> date
+                      %DateTime{} = datetime -> DateTime.to_date(datetime)
+                      _ -> Date.utc_today()
+                    end
+
+                  # Send renewal success email
+                  send_membership_renewal_success_email(
+                    user,
+                    membership_type,
+                    payment.amount,
+                    renewal_date
+                  )
+                end
 
                 :ok
 
@@ -733,6 +871,21 @@ defmodule Ysc.Stripe.WebhookHandler do
           payout_id: payout_id,
           amount: Money.to_string!(payout_amount),
           error: reason
+        )
+
+        # Report to Sentry
+        Sentry.capture_message("Failed to process Stripe payout in ledger",
+          level: :error,
+          extra: %{
+            payout_id: payout_id,
+            amount: Money.to_string!(payout_amount),
+            error: inspect(reason)
+          },
+          tags: %{
+            webhook_provider: "stripe",
+            event_type: "payout.paid",
+            error_type: "payout_processing_failed"
+          }
         )
 
         :ok
@@ -1746,6 +1899,161 @@ defmodule Ysc.Stripe.WebhookHandler do
         Logger.error("Exception while linking refund to payout",
           stripe_refund_id: stripe_refund_id,
           error: Exception.message(error)
+        )
+    end
+  end
+
+  # Helper function to get membership type from subscription ID
+  defp get_membership_type_from_subscription_id(subscription_id) do
+    require Logger
+
+    # Try to get subscription from our database first
+    case Subscriptions.get_subscription_by_stripe_id(subscription_id) do
+      nil ->
+        # If not in database, try to get from Stripe API
+        get_membership_type_from_stripe_subscription(subscription_id)
+
+      subscription ->
+        subscription = Repo.preload(subscription, :subscription_items)
+
+        membership_type =
+          case subscription.subscription_items do
+            [item | _] ->
+              membership_plans = Application.get_env(:ysc, :membership_plans, [])
+
+              case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
+                %{id: plan_id} when plan_id in [:family, "family"] -> :family
+                _ -> :single
+              end
+
+            _ ->
+              :single
+          end
+
+        Logger.debug("Membership type determined from database subscription",
+          subscription_id: subscription_id,
+          membership_type: membership_type
+        )
+
+        membership_type
+    end
+  end
+
+  # Helper function to get membership type from Stripe subscription API
+  defp get_membership_type_from_stripe_subscription(subscription_id) do
+    require Logger
+
+    case Stripe.Subscription.retrieve(subscription_id, expand: ["items.data.price"]) do
+      {:ok, stripe_subscription} ->
+        membership_type =
+          case stripe_subscription.items.data do
+            [item | _] ->
+              price_id = item.price.id
+              membership_plans = Application.get_env(:ysc, :membership_plans, [])
+
+              case Enum.find(membership_plans, &(&1.stripe_price_id == price_id)) do
+                %{id: plan_id} when plan_id in [:family, "family"] -> :family
+                _ -> :single
+              end
+
+            _ ->
+              :single
+          end
+
+        Logger.debug("Membership type determined from Stripe subscription",
+          subscription_id: subscription_id,
+          membership_type: membership_type
+        )
+
+        membership_type
+
+      {:error, reason} ->
+        Logger.warning("Failed to retrieve subscription from Stripe, defaulting to single",
+          subscription_id: subscription_id,
+          error: inspect(reason)
+        )
+
+        :single
+    end
+  end
+
+  # Helper function to send membership renewal success email
+  defp send_membership_renewal_success_email(user, membership_type, amount, renewal_date) do
+    require Logger
+
+    try do
+      email_module = YscWeb.Emails.MembershipRenewalSuccess
+      email_data = email_module.prepare_email_data(user, membership_type, amount, renewal_date)
+      subject = email_module.get_subject()
+      template_name = email_module.get_template_name()
+
+      # Generate idempotency key from user ID and renewal date to prevent duplicate emails
+      idempotency_key = "membership_renewal_success_#{user.id}_#{Date.to_iso8601(renewal_date)}"
+
+      Logger.info("Sending membership renewal success email",
+        user_id: user.id,
+        email: user.email,
+        membership_type: membership_type,
+        amount: Money.to_string!(amount),
+        renewal_date: Date.to_iso8601(renewal_date)
+      )
+
+      YscWeb.Emails.Notifier.schedule_email(
+        user.email,
+        idempotency_key,
+        subject,
+        template_name,
+        email_data,
+        "",
+        user.id
+      )
+    rescue
+      error ->
+        Logger.error("Failed to send membership renewal success email",
+          user_id: user.id,
+          error: Exception.message(error),
+          stacktrace: __STACKTRACE__
+        )
+    end
+  end
+
+  # Helper function to send membership payment failure email
+  defp send_membership_payment_failure_email(user, membership_type, is_renewal, invoice_id) do
+    require Logger
+
+    try do
+      email_module = YscWeb.Emails.MembershipPaymentFailure
+      email_data = email_module.prepare_email_data(user, membership_type, is_renewal)
+      subject = email_module.get_subject()
+      template_name = email_module.get_template_name()
+
+      # Generate idempotency key from invoice ID to prevent duplicate emails
+      idempotency_key = "membership_payment_failure_#{invoice_id}"
+
+      Logger.info("Sending membership payment failure email",
+        user_id: user.id,
+        email: user.email,
+        membership_type: membership_type,
+        is_renewal: is_renewal,
+        invoice_id: invoice_id
+      )
+
+      YscWeb.Emails.Notifier.schedule_email(
+        user.email,
+        idempotency_key,
+        subject,
+        template_name,
+        email_data,
+        "",
+        user.id
+      )
+    rescue
+      error ->
+        Logger.error("Failed to send membership payment failure email",
+          user_id: user.id,
+          invoice_id: invoice_id,
+          error: Exception.message(error),
+          stacktrace: __STACKTRACE__
         )
     end
   end

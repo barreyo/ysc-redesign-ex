@@ -654,6 +654,10 @@ defmodule YscWeb.AdminUsersLive do
           user.id
         )
 
+        # Schedule reminder emails if user hasn't paid
+        YscWeb.Workers.MembershipPaymentReminderWorker.schedule_7day_reminder(user.id)
+        YscWeb.Workers.MembershipPaymentReminderWorker.schedule_30day_reminder(user.id)
+
         {:noreply,
          socket
          |> redirect(to: ~p"/admin/users?#{socket.assigns[:params]}")
