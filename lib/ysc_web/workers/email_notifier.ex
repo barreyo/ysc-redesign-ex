@@ -180,7 +180,7 @@ defmodule YscWeb.Workers.EmailNotifier do
             },
             tags: %{
               email_template: template,
-              email_category: category,
+              email_category: to_string(category),
               has_user_id: !is_nil(user_id),
               error_type: "missing_template_module"
             }
@@ -192,9 +192,12 @@ defmodule YscWeb.Workers.EmailNotifier do
         atomized_params = atomize_keys(params)
         Logger.info("Atomized params: #{inspect(atomized_params)}")
 
+        # Normalize recipient to ensure it's a string (Swoosh can handle tuples/lists, but we want consistency)
+        normalized_recipient = normalize_recipient(recipient)
+
         result =
           YscWeb.Emails.Notifier.send_email_idempotent(
-            recipient,
+            normalized_recipient,
             idempotency_key,
             subject,
             template_module,
@@ -236,7 +239,7 @@ defmodule YscWeb.Workers.EmailNotifier do
               },
               tags: %{
                 email_template: template,
-                email_category: category,
+                email_category: to_string(category),
                 has_user_id: !is_nil(user_id)
               }
             )
@@ -272,7 +275,7 @@ defmodule YscWeb.Workers.EmailNotifier do
             },
             tags: %{
               email_template: template,
-              email_category: category,
+              email_category: to_string(category),
               has_user_id: !is_nil(user_id),
               worker: "EmailNotifier"
             }
@@ -295,5 +298,48 @@ defmodule YscWeb.Workers.EmailNotifier do
 
   def atomize_keys(other) do
     other
+  end
+
+  # Normalize recipient to a string format
+  # Handles cases where recipient might be a list, tuple, or other format
+  defp normalize_recipient(recipient) when is_binary(recipient) do
+    recipient
+  end
+
+  defp normalize_recipient({_name, email}) when is_binary(email) do
+    email
+  end
+
+  defp normalize_recipient([{_name, email} | _]) when is_binary(email) do
+    email
+  end
+
+  defp normalize_recipient([email | _]) when is_binary(email) do
+    email
+  end
+
+  defp normalize_recipient(recipient) do
+    # Fallback: use inspect to safely convert any format to string
+    # This handles edge cases where recipient might be in an unexpected format
+    require Logger
+
+    Logger.warning("Unexpected recipient format, normalizing",
+      recipient: inspect(recipient),
+      recipient_type: inspect(recipient.__struct__ || :no_struct)
+    )
+
+    # Try to extract email from various formats
+    case recipient do
+      list when is_list(list) ->
+        # Try to extract email from list
+        case List.first(list) do
+          {_name, email} when is_binary(email) -> email
+          email when is_binary(email) -> email
+          _ -> inspect(recipient)
+        end
+
+      _ ->
+        inspect(recipient)
+    end
   end
 end

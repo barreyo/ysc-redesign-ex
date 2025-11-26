@@ -27,7 +27,17 @@ config :swoosh, local: false
 # Mailer configuration is moved to runtime.exs for runtime evaluation
 
 # Do not print debug messages in production
-config :logger, level: :info
+# Allow override via LOG_LEVEL environment variable (e.g., for sandbox deployments)
+log_level =
+  case System.get_env("LOG_LEVEL") do
+    "debug" -> :debug
+    "info" -> :info
+    "warn" -> :warn
+    "error" -> :error
+    _ -> :info
+  end
+
+config :logger, level: log_level
 
 config :sentry,
   dsn:

@@ -1616,19 +1616,23 @@ defmodule Ysc.Ledgers do
           entry_debit_credit_str = to_string(entry.debit_credit)
           opposite_type = if entry_debit_credit_str == "debit", do: "credit", else: "debit"
 
-          # Extract the decimal amount from the Money struct for comparison
-          entry_amount_decimal = Money.to_decimal(entry.amount)
-
-          corresponding_entry =
+          # Find the corresponding entry by loading matching entries and filtering in Elixir
+          # This avoids PostgreSQL type recognition issues with Money composite types in WHERE clauses
+          # The fragment approach can fail with "wrong_object_type" errors
+          candidate_entries =
             from(e in LedgerEntry,
               where: e.payment_id == ^entry.payment_id,
               where: e.debit_credit == ^opposite_type,
               where: e.id != ^entry.id,
-              where: fragment("(?.amount).amount", e) == ^entry_amount_decimal,
-              preload: [:account],
-              limit: 1
+              preload: [:account]
             )
-            |> Repo.one()
+            |> Repo.all()
+
+          # Find the entry with matching amount by comparing Money values
+          corresponding_entry =
+            Enum.find(candidate_entries, fn candidate ->
+              Money.equal?(candidate.amount, entry.amount)
+            end)
 
           # Update the main entry
           case update_entry(entry, attrs) do

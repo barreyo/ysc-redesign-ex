@@ -19,6 +19,7 @@ PHX_HOST = 'ysc-sandbox.fly.dev'
 PORT = '4000'
 ERL_AFLAGS = '-proto_dist inet6_tcp'
 ECTO_IPV6 = 'true'
+LOG_LEVEL = 'debug'
 STRIPE_SINGLE_PRICE_ID = 'price_1SUZVAREiftrEncLCHpFzbJY'
 STRIPE_FAMILY_PRICE_ID = 'price_1SUZVcREiftrEncLSSYnzi6N'
 EMAIL_FROM = "info+sandbox@ysc.org"

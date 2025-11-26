@@ -177,7 +177,7 @@ defmodule Ysc.Messages do
               %{count: 1},
               %{
                 template: attrs[:message_template] || "unknown",
-                recipient: to_string(email.to),
+                recipient: email_recipient_to_string(email.to),
                 idempotency_key: attrs[:idempotency_key] || nil,
                 duplicate: true
               }
@@ -198,7 +198,7 @@ defmodule Ysc.Messages do
               %{count: 1},
               %{
                 template: attrs[:message_template] || "unknown",
-                recipient: to_string(email.to),
+                recipient: email_recipient_to_string(email.to),
                 idempotency_key: attrs[:idempotency_key] || nil,
                 constraint: constraint_string,
                 error: inspect(error)
@@ -246,7 +246,7 @@ defmodule Ysc.Messages do
           %{count: 1},
           %{
             template: attrs[:message_template] || "unknown",
-            recipient: to_string(email.to),
+            recipient: email_recipient_to_string(email.to),
             idempotency_key: attrs[:idempotency_key] || nil,
             error: inspect(error)
           }

@@ -35,4 +35,53 @@ defmodule YscWeb.EventsLive do
     send_update(YscWeb.EventsListLive, id: "event_list", event: base_event)
     {:noreply, socket}
   end
+
+  # Handle ticket tier events - refresh the associated event in the list
+  def handle_info(
+        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
+        socket
+      ) do
+    # Get the event and send an update to refresh it in the list
+    case Events.get_event(ticket_tier.event_id) do
+      nil ->
+        {:noreply, socket}
+
+      event ->
+        event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
+        send_update(YscWeb.EventsListLive, id: "event_list", event: event_updated)
+        {:noreply, socket}
+    end
+  end
+
+  def handle_info(
+        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierUpdated{ticket_tier: ticket_tier}},
+        socket
+      ) do
+    # Get the event and send an update to refresh it in the list
+    case Events.get_event(ticket_tier.event_id) do
+      nil ->
+        {:noreply, socket}
+
+      event ->
+        event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
+        send_update(YscWeb.EventsListLive, id: "event_list", event: event_updated)
+        {:noreply, socket}
+    end
+  end
+
+  def handle_info(
+        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier}},
+        socket
+      ) do
+    # Get the event and send an update to refresh it in the list
+    case Events.get_event(ticket_tier.event_id) do
+      nil ->
+        {:noreply, socket}
+
+      event ->
+        event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
+        send_update(YscWeb.EventsListLive, id: "event_list", event: event_updated)
+        {:noreply, socket}
+    end
+  end
 end
