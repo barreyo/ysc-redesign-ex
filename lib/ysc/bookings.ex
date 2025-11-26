@@ -21,6 +21,7 @@ defmodule Ysc.Bookings do
 
   alias Ysc.Repo
   alias Stripe
+  alias Ysc.Ledgers
 
   alias Ysc.Bookings.{
     Season,
@@ -2094,7 +2095,17 @@ defmodule Ysc.Bookings do
       # Create refund in Stripe
       case create_stripe_refund(payment.external_payment_id, refund_amount_cents, refund_reason) do
         {:ok, stripe_refund} ->
-          # Update pending refund status - ledger will be updated via webhook
+          # Process refund in ledger immediately (creates refund record, ledger entries, and sends email)
+          # The webhook will handle idempotency if it arrives later
+          ledger_result =
+            Ledgers.process_refund(%{
+              payment_id: payment.id,
+              refund_amount: refund_amount,
+              reason: refund_reason,
+              external_refund_id: stripe_refund.id
+            })
+
+          # Update pending refund status
           updated_pending_refund =
             pending_refund
             |> PendingRefund.changeset(%{
@@ -2105,6 +2116,33 @@ defmodule Ysc.Bookings do
               reviewed_at: DateTime.utc_now()
             })
             |> Repo.update!()
+
+          # Log if ledger processing had issues (but don't fail - refund was created in Stripe)
+          case ledger_result do
+            {:ok, _} ->
+              Logger.info("Refund processed successfully in ledger",
+                pending_refund_id: pending_refund.id,
+                payment_id: payment.id,
+                stripe_refund_id: stripe_refund.id
+              )
+
+            {:error, {:already_processed, _, _}} ->
+              # Refund was already processed (likely by webhook) - this is fine
+              Logger.info("Refund already processed in ledger (idempotency)",
+                pending_refund_id: pending_refund.id,
+                payment_id: payment.id,
+                stripe_refund_id: stripe_refund.id
+              )
+
+            {:error, reason} ->
+              # Log error but don't fail - refund was created in Stripe
+              Logger.error("Failed to process refund in ledger (refund created in Stripe)",
+                pending_refund_id: pending_refund.id,
+                payment_id: payment.id,
+                stripe_refund_id: stripe_refund.id,
+                error: inspect(reason)
+              )
+          end
 
           {:ok, updated_pending_refund, stripe_refund.id}
 
