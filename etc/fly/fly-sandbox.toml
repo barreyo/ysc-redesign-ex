@@ -16,6 +16,7 @@ release_command = "/bin/sh -lc 'DATABASE_URL=${RAW_DATABASE_URL} /app/bin/migrat
 ENVIRONMENT = 'sandbox'
 APP_ENV = 'sandbox'
 PHX_HOST = 'ysc-sandbox.fly.dev'
+PHX_SERVER = 'true'
 PORT = '4000'
 ERL_AFLAGS = '-proto_dist inet6_tcp'
 ECTO_IPV6 = 'true'
