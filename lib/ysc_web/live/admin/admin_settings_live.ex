@@ -32,7 +32,7 @@ defmodule YscWeb.AdminSettingsLive do
                 <ul>
                   <li :for={entry <- Map.get(@grouped_settings, scope)} class="py-2">
                     <label class="leading-6 text-zinc-800 font-semibold" for={entry.id}>
-                      <%= String.capitalize(entry.name) %>:
+                      <%= entry.name |> String.replace("_", " ") |> String.capitalize() %>:
                     </label>
                     <input
                       id={entry.id}
