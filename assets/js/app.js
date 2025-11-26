@@ -131,6 +131,24 @@ window.addEventListener("phx:download-csv", (e) => {
     window.URL.revokeObjectURL(url);
 });
 
+// Handle ticket availability updates animation
+window.addEventListener("phx:animate-availability-update", () => {
+    // Find all tier availability elements and add animation class
+    const availabilityElements = document.querySelectorAll('[id^="tier-availability-"]');
+    availabilityElements.forEach((el) => {
+        // Remove the class first to reset animation
+        el.classList.remove("availability-updated");
+        // Force reflow to ensure the class removal is processed
+        void el.offsetWidth;
+        // Add the class to trigger animation
+        el.classList.add("availability-updated");
+        // Remove the class after animation completes
+        setTimeout(() => {
+            el.classList.remove("availability-updated");
+        }, 600);
+    });
+});
+
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session

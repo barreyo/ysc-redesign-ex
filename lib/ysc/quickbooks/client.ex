@@ -1037,6 +1037,8 @@ defmodule Ysc.Quickbooks.Client do
       }
       |> maybe_put("DocNumber", params[:doc_number])
       |> maybe_put("TxnDate", params[:txn_date])
+      |> maybe_put("RefundFromAccountRef", params[:refund_from_account_ref])
+      |> maybe_put("PaymentMethodRef", params[:payment_method_ref])
       |> maybe_put("CustomerMemo", if(params[:memo], do: %{value: params[:memo]}, else: nil))
       |> maybe_put("PrivateNote", params[:private_note])
 
@@ -1571,39 +1573,48 @@ defmodule Ysc.Quickbooks.Client do
   end
 
   defp get_access_token do
-    qb_config = Application.get_env(:ysc, :quickbooks, [])
+    # Step 1: Check cache for access token first
+    cached_access_token = get_cached_access_token()
 
-    Logger.debug("[QB Client] get_access_token: Checking configuration",
-      has_access_token: !is_nil(qb_config[:access_token]),
-      has_refresh_token: !is_nil(qb_config[:refresh_token]),
-      has_client_id: !is_nil(qb_config[:client_id]),
-      has_client_secret: !is_nil(qb_config[:client_secret]),
-      has_company_id: !is_nil(qb_config[:company_id])
-    )
+    if cached_access_token do
+      Logger.debug("[QB Client] get_access_token: Using cached access token")
+      {:ok, cached_access_token}
+    else
+      # Step 2: Check config for access token
+      qb_config = Application.get_env(:ysc, :quickbooks, [])
 
-    case qb_config[:access_token] do
-      nil ->
-        Logger.debug(
-          "[QB Client] get_access_token: Access token not configured, attempting to refresh"
-        )
+      Logger.debug("[QB Client] get_access_token: Checking configuration",
+        has_access_token: !is_nil(qb_config[:access_token]),
+        has_refresh_token: !is_nil(qb_config[:refresh_token]),
+        has_client_id: !is_nil(qb_config[:client_id]),
+        has_client_secret: !is_nil(qb_config[:client_secret]),
+        has_company_id: !is_nil(qb_config[:company_id])
+      )
 
-        # Try to refresh the token if we have a refresh token
-        case refresh_access_token() do
-          {:ok, new_token} ->
-            Logger.debug("[QB Client] get_access_token: Successfully refreshed access token")
-            {:ok, new_token}
+      case qb_config[:access_token] do
+        nil ->
+          Logger.debug(
+            "[QB Client] get_access_token: Access token not configured, attempting to refresh"
+          )
 
-          error ->
-            Logger.error("[QB Client] get_access_token: Failed to refresh token",
-              error: inspect(error)
-            )
+          # Try to refresh the token if we have a refresh token
+          case refresh_access_token() do
+            {:ok, new_token} ->
+              Logger.debug("[QB Client] get_access_token: Successfully refreshed access token")
+              {:ok, new_token}
 
-            {:error, :quickbooks_access_token_not_configured}
-        end
+            error ->
+              Logger.error("[QB Client] get_access_token: Failed to refresh token",
+                error: inspect(error)
+              )
 
-      token ->
-        Logger.debug("[QB Client] get_access_token: Using configured access token")
-        {:ok, token}
+              {:error, :quickbooks_access_token_not_configured}
+          end
+
+        token ->
+          Logger.debug("[QB Client] get_access_token: Using configured access token")
+          {:ok, token}
+      end
     end
   end
 
@@ -1617,10 +1628,86 @@ defmodule Ysc.Quickbooks.Client do
   defp refresh_access_token do
     Logger.debug("[QB Client] refresh_access_token: Starting token refresh")
 
+    # Step 1: Check cache for refresh token
+    cached_refresh_token = get_cached_refresh_token()
+    # Step 2: Get original refresh token from config (env variable) as fallback
+    original_refresh_token = get_original_refresh_token()
+
+    # Use cached token if available, otherwise use original from config
+    refresh_token_to_use = cached_refresh_token || original_refresh_token
+
+    if is_nil(refresh_token_to_use) do
+      Logger.error(
+        "[QB Client] refresh_access_token: No refresh token available in cache or config"
+      )
+
+      {:error, :quickbooks_refresh_token_not_configured}
+    else
+      Logger.debug("[QB Client] refresh_access_token: Using refresh token",
+        source: if(cached_refresh_token, do: "cache", else: "config")
+      )
+
+      # Attempt refresh with the selected token
+      case attempt_token_refresh(refresh_token_to_use) do
+        {:ok, access_token, new_refresh_token} ->
+          # Step 3: On success, store both new access token and refresh token in cache
+          cache_access_token(access_token)
+          cache_refresh_token(new_refresh_token)
+          update_token_config(access_token, new_refresh_token)
+
+          Logger.warning(
+            "[QB Client] ⚠️  IMPORTANT: New refresh token received. Update your .env file with: QUICKBOOKS_REFRESH_TOKEN=\"#{new_refresh_token}\""
+          )
+
+          Logger.info("[QB Client] Successfully refreshed QuickBooks access token",
+            access_token_length: String.length(access_token),
+            refresh_token_length: String.length(new_refresh_token),
+            access_token_preview: String.slice(access_token, 0, 20) <> "...",
+            refresh_token_preview: String.slice(new_refresh_token, 0, 20) <> "..."
+          )
+
+          {:ok, access_token}
+
+        {:error, _reason} = error
+        when not is_nil(cached_refresh_token) and
+               not is_nil(original_refresh_token) ->
+          # Cached token failed, try with original from config
+          Logger.warning(
+            "[QB Client] refresh_access_token: Cached refresh token failed, attempting with original from config"
+          )
+
+          case attempt_token_refresh(original_refresh_token) do
+            {:ok, access_token, new_refresh_token} ->
+              # Success with original token - cache both new tokens
+              cache_access_token(access_token)
+              cache_refresh_token(new_refresh_token)
+              update_token_config(access_token, new_refresh_token)
+
+              Logger.info(
+                "[QB Client] Successfully refreshed QuickBooks access token using original token from config"
+              )
+
+              {:ok, access_token}
+
+            error ->
+              # Both failed
+              Logger.error(
+                "[QB Client] refresh_access_token: Both cached and original refresh tokens failed"
+              )
+
+              error
+          end
+
+        error ->
+          error
+      end
+    end
+  end
+
+  defp attempt_token_refresh(refresh_token) do
     with {:ok, client_id} <- get_client_id(),
-         {:ok, client_secret} <- get_client_secret(),
-         {:ok, refresh_token} <- get_refresh_token() do
-      Logger.debug("[QB Client] refresh_access_token: Got credentials, making refresh request",
+         {:ok, client_secret} <- get_client_secret() do
+      Logger.debug("[QB Client] attempt_token_refresh: Making refresh request",
         url: @token_url,
         has_client_id: !is_nil(client_id),
         has_client_secret: !is_nil(client_secret),
@@ -1644,18 +1731,11 @@ defmodule Ysc.Quickbooks.Client do
       auth_header = Base.encode64("#{client_id}:#{client_secret}")
       headers = [{"Authorization", "Basic #{auth_header}"} | headers]
 
-      Logger.debug("[QB Client] refresh_access_token: Request details",
-        url: url,
-        grant_type: "refresh_token",
-        has_auth_header: !is_nil(auth_header),
-        body_params: %{grant_type: "refresh_token", refresh_token: "[REDACTED]"}
-      )
-
       request = Finch.build(:post, url, headers, body)
 
       case Finch.request(request, Ysc.Finch) do
         {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
-          Logger.debug("[QB Client] refresh_access_token: Got successful response",
+          Logger.debug("[QB Client] attempt_token_refresh: Got successful response",
             status: status
           )
 
@@ -1667,26 +1747,16 @@ defmodule Ysc.Quickbooks.Client do
               expires_in = Map.get(response_data, "expires_in")
               token_type = Map.get(response_data, "token_type", "Bearer")
 
-              # Update application config (in production, you'd want to persist this)
-              update_token_config(access_token, new_refresh_token)
-
-              Logger.warning(
-                "[QB Client] ⚠️  IMPORTANT: New refresh token received. Update your .env file with: QUICKBOOKS_REFRESH_TOKEN=\"#{new_refresh_token}\""
-              )
-
-              Logger.info("[QB Client] Successfully refreshed QuickBooks access token",
-                access_token_length: String.length(access_token),
-                refresh_token_length: String.length(new_refresh_token),
-                access_token_preview: String.slice(access_token, 0, 20) <> "...",
-                refresh_token_preview: String.slice(new_refresh_token, 0, 20) <> "...",
+              Logger.debug("[QB Client] attempt_token_refresh: Token refresh successful",
                 expires_in: expires_in,
                 token_type: token_type
               )
 
-              {:ok, access_token}
+              {:ok, access_token, new_refresh_token}
 
             {:ok, data} ->
-              Logger.error("[QB Client] refresh_access_token: Unexpected token refresh response",
+              Logger.error(
+                "[QB Client] attempt_token_refresh: Unexpected token refresh response",
                 data: inspect(data),
                 response_keys: if(is_map(data), do: Map.keys(data), else: :not_a_map)
               )
@@ -1695,7 +1765,7 @@ defmodule Ysc.Quickbooks.Client do
 
             {:error, error} ->
               Logger.error(
-                "[QB Client] refresh_access_token: Failed to parse token refresh response",
+                "[QB Client] attempt_token_refresh: Failed to parse token refresh response",
                 error: inspect(error)
               )
 
@@ -1703,7 +1773,7 @@ defmodule Ysc.Quickbooks.Client do
           end
 
         {:ok, %Finch.Response{status: status, body: response_body}} ->
-          Logger.error("[QB Client] refresh_access_token: Token refresh failed",
+          Logger.error("[QB Client] attempt_token_refresh: Token refresh failed",
             status: status,
             response: response_body
           )
@@ -1711,7 +1781,7 @@ defmodule Ysc.Quickbooks.Client do
           {:error, :token_refresh_failed}
 
         {:error, error} ->
-          Logger.error("[QB Client] refresh_access_token: Request failed during token refresh",
+          Logger.error("[QB Client] attempt_token_refresh: Request failed during token refresh",
             error: inspect(error)
           )
 
@@ -1719,7 +1789,7 @@ defmodule Ysc.Quickbooks.Client do
       end
     else
       error ->
-        Logger.error("[QB Client] refresh_access_token: Failed to get required credentials",
+        Logger.error("[QB Client] attempt_token_refresh: Failed to get required credentials",
           error: inspect(error)
         )
 
@@ -1796,5 +1866,64 @@ defmodule Ysc.Quickbooks.Client do
       has_access_token: !is_nil(access_token),
       has_refresh_token: !is_nil(refresh_token)
     )
+  end
+
+  defp get_original_refresh_token do
+    # Get the original refresh token from environment variable (source of truth)
+    System.get_env("QUICKBOOKS_REFRESH_TOKEN")
+  end
+
+  defp get_cached_access_token do
+    case Cachex.get(:ysc_cache, "quickbooks:access_token") do
+      {:ok, nil} ->
+        nil
+
+      {:ok, token} ->
+        token
+
+      {:error, _reason} ->
+        # Cache error - return nil to fall back to config
+        nil
+    end
+  end
+
+  defp get_cached_refresh_token do
+    case Cachex.get(:ysc_cache, "quickbooks:refresh_token") do
+      {:ok, nil} ->
+        nil
+
+      {:ok, token} ->
+        token
+
+      {:error, _reason} ->
+        # Cache error - return nil to fall back to config
+        nil
+    end
+  end
+
+  defp cache_access_token(access_token) do
+    case Cachex.put(:ysc_cache, "quickbooks:access_token", access_token) do
+      {:ok, true} ->
+        Logger.debug("[QB Client] cache_access_token: Successfully cached access token")
+
+      {:error, reason} ->
+        Logger.warning(
+          "[QB Client] cache_access_token: Failed to cache access token",
+          error: inspect(reason)
+        )
+    end
+  end
+
+  defp cache_refresh_token(refresh_token) do
+    case Cachex.put(:ysc_cache, "quickbooks:refresh_token", refresh_token) do
+      {:ok, true} ->
+        Logger.debug("[QB Client] cache_refresh_token: Successfully cached refresh token")
+
+      {:error, reason} ->
+        Logger.warning(
+          "[QB Client] cache_refresh_token: Failed to cache refresh token",
+          error: inspect(reason)
+        )
+    end
   end
 end

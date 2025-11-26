@@ -248,6 +248,114 @@ defmodule Ysc.Quickbooks do
   end
 
   @doc """
+  Creates a refund receipt in QuickBooks.
+
+  RefundReceipt is the proper transaction type for refunds, as it properly
+  reverses revenue and records money going back to the customer.
+
+  ## Parameters
+
+    - `params` - Map containing:
+      - `customer_id` (required) - QuickBooks customer ID
+      - `item_id` (required) - QuickBooks item ID
+      - `quantity` (required) - Quantity refunded
+      - `unit_price` (required) - Unit price (positive value)
+      - `refund_from_account_id` (required) - Account money is leaving from (e.g., "Undeposited Funds")
+      - `payment_method_id` (optional) - Payment method ID
+      - `txn_date` (optional) - Transaction date (Date struct or ISO 8601 string)
+      - `description` (optional) - Line item description
+      - `memo` (optional) - Public memo
+      - `private_note` (optional) - Private note
+      - `class_ref` (optional) - Class reference for categorization
+      - `tax_code_ref` (optional) - Tax code reference
+
+  """
+  @spec create_refund_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+  def create_refund_receipt(params) do
+    # RefundReceipts use positive amounts - the transaction type determines direction
+    unit_price = Decimal.abs(params.unit_price)
+    total_amt = Decimal.mult(Decimal.new(params.quantity), unit_price)
+
+    # Convert quantity to Decimal if it's not already
+    quantity =
+      case params.quantity do
+        %Decimal{} = qty -> qty
+        qty when is_integer(qty) -> Decimal.new(qty)
+        qty when is_float(qty) -> Decimal.from_float(qty)
+        _ -> Decimal.new(1)
+      end
+
+    sales_item_detail = %{
+      item_ref: %{value: params.item_id},
+      quantity: quantity,
+      unit_price: unit_price
+    }
+
+    sales_item_detail =
+      if params[:class_ref] do
+        # class_ref should already be in the format %{value: "id", name: "name"}
+        # Use it directly, don't wrap it in another value
+        Map.put(sales_item_detail, :class_ref, params.class_ref)
+      else
+        sales_item_detail
+      end
+
+    sales_item_detail =
+      if params[:tax_code_ref],
+        do: Map.put(sales_item_detail, :tax_code_ref, %{value: params.tax_code_ref}),
+        else: sales_item_detail
+
+    line_item = %{
+      amount: total_amt,
+      detail_type: "SalesItemLineDetail",
+      sales_item_line_detail: sales_item_detail
+    }
+
+    line_item =
+      if params[:description],
+        do: Map.put(line_item, :description, params.description),
+        else: line_item
+
+    # Build refund_from_account_ref with name if provided
+    refund_from_account_ref =
+      if params[:refund_from_account_name] do
+        %{value: params.refund_from_account_id, name: params.refund_from_account_name}
+      else
+        %{value: params.refund_from_account_id}
+      end
+
+    refund_receipt_params = %{
+      customer_ref: %{value: params.customer_id},
+      line: [line_item],
+      total_amt: total_amt,
+      refund_from_account_ref: refund_from_account_ref
+    }
+
+    refund_receipt_params =
+      if params[:payment_method_id],
+        do:
+          Map.put(refund_receipt_params, :payment_method_ref, %{value: params.payment_method_id}),
+        else: refund_receipt_params
+
+    refund_receipt_params =
+      if params[:txn_date],
+        do: Map.put(refund_receipt_params, :txn_date, format_date(params.txn_date)),
+        else: refund_receipt_params
+
+    refund_receipt_params =
+      if params[:memo],
+        do: Map.put(refund_receipt_params, :memo, params.memo),
+        else: refund_receipt_params
+
+    refund_receipt_params =
+      if params[:private_note],
+        do: Map.put(refund_receipt_params, :private_note, params.private_note),
+        else: refund_receipt_params
+
+    client_module().create_refund_receipt(refund_receipt_params)
+  end
+
+  @doc """
   Creates a deposit for a Stripe payout.
 
   ## Parameters

@@ -398,8 +398,9 @@ defmodule YscWeb.EventDetailsLive do
                     </p>
                     <p
                       :if={ticket_tier.type != "donation" && ticket_tier.type != :donation}
+                      id={"tier-availability-#{ticket_tier.id}"}
                       class={[
-                        "text-base text-sm",
+                        "text-base text-sm transition-colors duration-200",
                         cond do
                           is_sold_out -> "text-red-500 font-semibold"
                           is_sale_ended -> "text-red-500 font-semibold"
@@ -1151,6 +1152,8 @@ defmodule YscWeb.EventDetailsLive do
         if connected?(socket) do
           Events.subscribe()
           Agendas.subscribe(event_id)
+          # Subscribe to event-level ticket updates for real-time availability
+          Ysc.Tickets.subscribe_event(event_id)
           # Subscribe to ticket events for the current user
           if socket.assigns.current_user != nil do
             require Logger
@@ -1411,6 +1414,29 @@ defmodule YscWeb.EventDetailsLive do
        |> assign(:payment_intent, nil)
        |> assign(:ticket_order, nil)
        |> assign(:selected_tickets, %{})}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Tickets, %Ysc.MessagePassingEvents.TicketAvailabilityUpdated{event_id: event_id}},
+        socket
+      ) do
+    # Handle ticket availability updates - refresh the event to get updated availability counts
+    # Only process if this is for the current event
+    if socket.assigns.event.id == event_id do
+      # Reload the event and recalculate pricing info with fresh ticket tier data
+      # This will trigger a re-render with updated availability counts
+      event = Repo.get(Event, event_id)
+      event_with_pricing = add_pricing_info(event)
+
+      # Trigger animation on all tier availability elements
+      {:noreply,
+       socket
+       |> assign(:event, event_with_pricing)
+       |> push_event("animate-availability-update", %{})}
+    else
+      {:noreply, socket}
     end
   end
 

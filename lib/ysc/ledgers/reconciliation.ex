@@ -620,10 +620,60 @@ defmodule Ysc.Ledgers.Reconciliation do
           ledger_balanced: report.checks.ledger_balance.balanced
         )
 
+        # Report to Sentry with comprehensive context
+        Sentry.capture_message("Financial reconciliation found discrepancies",
+          level: :error,
+          extra: %{
+            duration_ms: report.duration_ms,
+            timestamp: report.timestamp,
+            payment_discrepancies_count: report.checks.payments.discrepancies_count,
+            refund_discrepancies_count: report.checks.refunds.discrepancies_count,
+            ledger_balanced: report.checks.ledger_balance.balanced,
+            orphaned_entries_count: report.checks.orphaned_entries.orphaned_entries_count,
+            orphaned_transactions_count:
+              report.checks.orphaned_entries.orphaned_transactions_count,
+            payments_total_match: report.checks.payments.totals.match,
+            refunds_total_match: report.checks.refunds.totals.match,
+            memberships_match: report.checks.entity_totals.memberships.match,
+            bookings_match: report.checks.entity_totals.bookings.match,
+            events_match: report.checks.entity_totals.events.match,
+            payments_table_total: Money.to_string!(report.checks.payments.totals.payments_table),
+            payments_ledger_total: Money.to_string!(report.checks.payments.totals.ledger_entries),
+            refunds_table_total: Money.to_string!(report.checks.refunds.totals.refunds_table),
+            refunds_ledger_total: Money.to_string!(report.checks.refunds.totals.ledger_entries)
+          },
+          tags: %{
+            reconciliation: "full",
+            has_payment_issues: report.checks.payments.discrepancies_count > 0,
+            has_refund_issues: report.checks.refunds.discrepancies_count > 0,
+            ledger_imbalanced: !report.checks.ledger_balance.balanced,
+            has_orphaned_entries: report.checks.orphaned_entries.orphaned_entries_count > 0
+          }
+        )
+
         # Log specific issues
         if report.checks.payments.discrepancies_count > 0 do
           Logger.error("Payment discrepancies found",
             count: report.checks.payments.discrepancies_count
+          )
+
+          # Report payment discrepancies to Sentry with details
+          Sentry.capture_message("Payment reconciliation discrepancies found",
+            level: :error,
+            extra: %{
+              discrepancies_count: report.checks.payments.discrepancies_count,
+              total_payments: report.checks.payments.total_payments,
+              payments_table_total:
+                Money.to_string!(report.checks.payments.totals.payments_table),
+              ledger_entries_total:
+                Money.to_string!(report.checks.payments.totals.ledger_entries),
+              amounts_match: report.checks.payments.totals.match,
+              discrepancies: Enum.take(report.checks.payments.discrepancies, 10)
+            },
+            tags: %{
+              reconciliation: "payments",
+              discrepancy_type: "payment"
+            }
           )
         end
 
@@ -631,11 +681,41 @@ defmodule Ysc.Ledgers.Reconciliation do
           Logger.error("Refund discrepancies found",
             count: report.checks.refunds.discrepancies_count
           )
+
+          # Report refund discrepancies to Sentry with details
+          Sentry.capture_message("Refund reconciliation discrepancies found",
+            level: :error,
+            extra: %{
+              discrepancies_count: report.checks.refunds.discrepancies_count,
+              total_refunds: report.checks.refunds.total_refunds,
+              refunds_table_total: Money.to_string!(report.checks.refunds.totals.refunds_table),
+              ledger_entries_total: Money.to_string!(report.checks.refunds.totals.ledger_entries),
+              amounts_match: report.checks.refunds.totals.match,
+              discrepancies: Enum.take(report.checks.refunds.discrepancies, 10)
+            },
+            tags: %{
+              reconciliation: "refunds",
+              discrepancy_type: "refund"
+            }
+          )
         end
 
         if !report.checks.ledger_balance.balanced do
           Logger.error("Ledger is imbalanced",
             difference: Money.to_string!(report.checks.ledger_balance.difference)
+          )
+
+          # Report ledger imbalance to Sentry
+          Sentry.capture_message("Ledger is imbalanced",
+            level: :error,
+            extra: %{
+              difference: Money.to_string!(report.checks.ledger_balance.difference),
+              details: report.checks.ledger_balance.details
+            },
+            tags: %{
+              reconciliation: "ledger_balance",
+              discrepancy_type: "imbalance"
+            }
           )
         end
 
@@ -643,6 +723,92 @@ defmodule Ysc.Ledgers.Reconciliation do
           Logger.error("Orphaned ledger entries found",
             count: report.checks.orphaned_entries.orphaned_entries_count
           )
+
+          # Report orphaned entries to Sentry
+          Sentry.capture_message("Orphaned ledger entries found",
+            level: :error,
+            extra: %{
+              orphaned_entries_count: report.checks.orphaned_entries.orphaned_entries_count,
+              orphaned_transactions_count:
+                report.checks.orphaned_entries.orphaned_transactions_count,
+              orphaned_entries: Enum.take(report.checks.orphaned_entries.orphaned_entries, 10),
+              orphaned_transactions:
+                Enum.take(report.checks.orphaned_entries.orphaned_transactions, 10)
+            },
+            tags: %{
+              reconciliation: "orphaned_entries",
+              discrepancy_type: "orphaned"
+            }
+          )
+        end
+
+        # Report entity total mismatches
+        if report.checks.entity_totals.status == :error do
+          entity_issues = []
+
+          entity_issues =
+            if !report.checks.entity_totals.memberships.match do
+              [
+                %{
+                  type: "membership",
+                  ledger_revenue:
+                    Money.to_string!(report.checks.entity_totals.memberships.ledger_revenue),
+                  payment_total:
+                    Money.to_string!(report.checks.entity_totals.memberships.payment_total)
+                }
+                | entity_issues
+              ]
+            else
+              entity_issues
+            end
+
+          entity_issues =
+            if !report.checks.entity_totals.bookings.match do
+              [
+                %{
+                  type: "booking",
+                  ledger_revenue:
+                    Money.to_string!(report.checks.entity_totals.bookings.ledger_revenue),
+                  payment_total:
+                    Money.to_string!(report.checks.entity_totals.bookings.payment_total)
+                }
+                | entity_issues
+              ]
+            else
+              entity_issues
+            end
+
+          entity_issues =
+            if !report.checks.entity_totals.events.match do
+              [
+                %{
+                  type: "event",
+                  ledger_revenue:
+                    Money.to_string!(report.checks.entity_totals.events.ledger_revenue),
+                  payment_total:
+                    Money.to_string!(report.checks.entity_totals.events.payment_total)
+                }
+                | entity_issues
+              ]
+            else
+              entity_issues
+            end
+
+          if length(entity_issues) > 0 do
+            Sentry.capture_message("Entity total reconciliation mismatches found",
+              level: :error,
+              extra: %{
+                entity_issues: entity_issues,
+                memberships_match: report.checks.entity_totals.memberships.match,
+                bookings_match: report.checks.entity_totals.bookings.match,
+                events_match: report.checks.entity_totals.events.match
+              },
+              tags: %{
+                reconciliation: "entity_totals",
+                discrepancy_type: "entity_mismatch"
+              }
+            )
+          end
         end
     end
   end

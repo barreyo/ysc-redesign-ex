@@ -1485,15 +1485,18 @@ defmodule Ysc.Quickbooks.Sync do
   defp format_payment_date(nil), do: nil
 
   defp create_refund_sales_receipt(refund, customer_id, item_id, entity_info) do
-    Logger.debug("[QB Sync] create_refund_sales_receipt: Creating refund sales receipt",
+    # Best Practice: Use the same ItemRef as the original sale for correct revenue reversal
+    # We get entity_info from the original payment, ensuring we use the same item
+    Logger.debug("[QB Sync] create_refund_sales_receipt: Creating refund receipt",
       refund_id: refund.id,
       customer_id: customer_id,
       item_id: item_id,
-      entity_type: entity_info.entity_type
+      entity_type: entity_info.entity_type,
+      note: "Using same ItemRef as original sale for correct revenue reversal"
     )
 
     # Money.to_decimal returns dollars (database stores amounts in dollars)
-    # Will be negated later for refund
+    # RefundReceipts use positive amounts - the transaction type determines direction
     amount =
       Money.to_decimal(refund.amount)
       |> Decimal.round(2)
@@ -1506,7 +1509,41 @@ defmodule Ysc.Quickbooks.Sync do
 
     account_class = get_account_and_class(entity_info)
 
-    # Get the original payment's QuickBooks SalesReceipt ID if available
+    # Best Practice: Set RefundFromAccountRef to the correct settlement account
+    # For Stripe, we use "Undeposited Funds" since funds take time to land
+    # This ensures proper accounting for money going back to the customer
+    refund_from_account_ref =
+      case Quickbooks.Client.query_account_by_name("Undeposited Funds") do
+        {:ok, account_id} ->
+          Logger.debug(
+            "[QB Sync] create_refund_sales_receipt: Found Undeposited Funds account",
+            refund_id: refund.id,
+            account_id: account_id
+          )
+
+          %{value: account_id, name: "Undeposited Funds"}
+
+        {:error, :not_found} ->
+          Logger.warning(
+            "[QB Sync] create_refund_sales_receipt: Undeposited Funds account not found, refund receipt may fail",
+            refund_id: refund.id
+          )
+
+          nil
+
+        error ->
+          Logger.warning(
+            "[QB Sync] create_refund_sales_receipt: Failed to query Undeposited Funds account",
+            refund_id: refund.id,
+            error: inspect(error)
+          )
+
+          nil
+      end
+
+    # Best Practice: Add traceability via PrivateNote
+    # QuickBooks doesn't support direct linking of RefundReceipt to SalesReceipt,
+    # so we include the original transaction ID in PrivateNote for audit trail
     Logger.debug("[QB Sync] create_refund_sales_receipt: Getting original payment",
       refund_id: refund.id,
       payment_id: refund.payment_id
@@ -1549,6 +1586,16 @@ defmodule Ysc.Quickbooks.Sync do
       private_note: private_note
     }
 
+    params =
+      if refund_from_account_ref do
+        Map.merge(params, %{
+          refund_from_account_id: refund_from_account_ref.value,
+          refund_from_account_name: refund_from_account_ref.name
+        })
+      else
+        params
+      end
+
     # Always set a class - get_account_and_class now always returns a class (defaults to "Administration")
     # Query QuickBooks to get the class ID (not just the name)
     class_name = account_class.class
@@ -1571,7 +1618,7 @@ defmodule Ysc.Quickbooks.Sync do
 
         {:error, :not_found} ->
           Logger.warning(
-            "[QB Sync] create_refund_sales_receipt: Class not found, sales receipt may fail",
+            "[QB Sync] create_refund_sales_receipt: Class not found, refund receipt may fail",
             refund_id: refund.id,
             class_name: class_name
           )
@@ -1597,15 +1644,15 @@ defmodule Ysc.Quickbooks.Sync do
       end
 
     Logger.debug(
-      "[QB Sync] create_refund_sales_receipt: Calling Quickbooks.create_refund_sales_receipt",
+      "[QB Sync] create_refund_sales_receipt: Calling Quickbooks.create_refund_receipt",
       refund_id: refund.id,
       params: inspect(params, limit: :infinity)
     )
 
-    result = Quickbooks.create_refund_sales_receipt(params)
+    result = Quickbooks.create_refund_receipt(params)
 
     Logger.debug(
-      "[QB Sync] create_refund_sales_receipt: Quickbooks.create_refund_sales_receipt result",
+      "[QB Sync] create_refund_sales_receipt: Quickbooks.create_refund_receipt result",
       refund_id: refund.id,
       result: inspect(result, limit: :infinity)
     )

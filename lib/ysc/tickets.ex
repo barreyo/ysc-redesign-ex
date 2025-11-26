@@ -60,7 +60,15 @@ defmodule Ysc.Tickets do
     with {:ok, _} <- validate_user_membership(user_id) do
       # Note: Ticket bookings don't update tiers/events, so optimistic locking isn't used here
       # Capacity is checked by counting existing tickets within the transaction
-      BookingLocker.atomic_booking(user_id, event_id, ticket_selections)
+      case BookingLocker.atomic_booking(user_id, event_id, ticket_selections) do
+        {:ok, ticket_order} ->
+          # Broadcast ticket availability update to all users viewing this event
+          broadcast_ticket_availability_update(event_id)
+          {:ok, ticket_order}
+
+        error ->
+          error
+      end
     else
       error ->
         require Logger
@@ -225,6 +233,8 @@ defmodule Ysc.Tickets do
         )
 
         broadcast_to_user(updated_order.user_id, event)
+        # Also broadcast to event-level topic for availability updates
+        broadcast_ticket_availability_update(updated_order.event_id)
         result
 
       error ->
@@ -415,6 +425,8 @@ defmodule Ysc.Tickets do
         }
 
         broadcast_to_user(updated_order.user_id, event)
+        # Also broadcast to event-level topic for availability updates
+        broadcast_ticket_availability_update(updated_order.event_id)
         result
 
       error ->
@@ -508,6 +520,8 @@ defmodule Ysc.Tickets do
       reloaded_order = get_ticket_order(completed_order.id)
       # Send confirmation email
       send_ticket_confirmation_email(reloaded_order)
+      # Broadcast ticket availability update
+      broadcast_ticket_availability_update(ticket_order.event_id)
       {:ok, reloaded_order}
     end
   end
@@ -522,6 +536,8 @@ defmodule Ysc.Tickets do
       reloaded_order = get_ticket_order(completed_order.id)
       # Send confirmation email
       send_ticket_confirmation_email(reloaded_order)
+      # Broadcast ticket availability update
+      broadcast_ticket_availability_update(ticket_order.event_id)
       {:ok, reloaded_order}
     end
   end
@@ -1036,12 +1052,23 @@ defmodule Ysc.Tickets do
     Phoenix.PubSub.subscribe(Ysc.PubSub, topic(user_id))
   end
 
+  @doc """
+  Subscribe to ticket events for a specific event.
+  """
+  def subscribe_event(event_id) do
+    Phoenix.PubSub.subscribe(Ysc.PubSub, topic_event(event_id))
+  end
+
   defp topic do
     "tickets"
   end
 
   defp topic(user_id) do
     "tickets:user:#{user_id}"
+  end
+
+  defp topic_event(event_id) do
+    "tickets:event:#{event_id}"
   end
 
   defp broadcast_to_user(user_id, event) do
@@ -1064,6 +1091,25 @@ defmodule Ysc.Tickets do
     )
 
     result
+  end
+
+  defp broadcast_to_event(event_id, event) do
+    topic_name = topic_event(event_id)
+    require Logger
+
+    Logger.info("Broadcasting to event topic",
+      event_id: event_id,
+      topic: topic_name,
+      event_type: event.__struct__
+    )
+
+    Phoenix.PubSub.broadcast(Ysc.PubSub, topic_name, {__MODULE__, event})
+  end
+
+  defp broadcast_ticket_availability_update(event_id) do
+    # Broadcast a simple event to notify all viewers that ticket availability has changed
+    event = %Ysc.MessagePassingEvents.TicketAvailabilityUpdated{event_id: event_id}
+    broadcast_to_event(event_id, event)
   end
 
   @doc """

@@ -89,4 +89,9 @@ defmodule Ysc.MessagePassingEvents do
     @moduledoc false
     defstruct ticket_order: nil, user_id: nil, event_id: nil, reason: nil
   end
+
+  defmodule TicketAvailabilityUpdated do
+    @moduledoc false
+    defstruct event_id: nil
+  end
 end
