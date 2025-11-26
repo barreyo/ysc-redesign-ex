@@ -209,7 +209,7 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       assert Money.equal?(refund_amount, payment.amount)
       assert %PendingRefund{} = pending_refund
       assert pending_refund.status == :pending
-      assert pending_refund.policy_refund_amount == payment.amount
+      assert Money.equal?(pending_refund.policy_refund_amount, payment.amount)
       assert pending_refund.applied_rule_days_before_checkin == 30
 
       assert Decimal.equal?(
@@ -250,7 +250,7 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       assert Money.equal?(refund_amount, Money.new(5_000, :USD))
       assert %PendingRefund{} = pending_refund
       assert pending_refund.status == :pending
-      assert pending_refund.policy_refund_amount == Money.new(5_000, :USD)
+      assert Money.equal?(pending_refund.policy_refund_amount, Money.new(5_000, :USD))
       assert pending_refund.applied_rule_days_before_checkin == 14
 
       assert Decimal.equal?(

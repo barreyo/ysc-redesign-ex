@@ -16,6 +16,11 @@ defmodule Ysc.Quickbooks.Sync do
   alias YscWeb.Workers.QuickbooksSyncPayoutWorker
   import Ecto.Query
 
+  # Helper to get the configured QuickBooks client module (for testing with mocks)
+  defp client_module do
+    Application.get_env(:ysc, :quickbooks_client, Ysc.Quickbooks.Client)
+  end
+
   # QuickBooks Account and Class mappings
   @account_class_mapping %{
     # Event tickets
@@ -969,7 +974,7 @@ defmodule Ysc.Quickbooks.Sync do
         )
 
         income_account_ref =
-          case Quickbooks.Client.query_account_by_name(income_account_name) do
+          case client_module().query_account_by_name(income_account_name) do
             {:ok, account_id} ->
               Logger.debug("[QB Sync] get_quickbooks_item_id: Found income account",
                 account_name: income_account_name,
@@ -1091,7 +1096,7 @@ defmodule Ysc.Quickbooks.Sync do
 
       # Get or create "Undeposited Funds" account for deposit
       deposit_account_ref =
-        case Quickbooks.Client.query_account_by_name("Undeposited Funds") do
+        case client_module().query_account_by_name("Undeposited Funds") do
           {:ok, account_id} ->
             Logger.debug(
               "[QB Sync] create_payment_sales_receipt: Found Undeposited Funds account",
@@ -1142,7 +1147,7 @@ defmodule Ysc.Quickbooks.Sync do
       )
 
       class_ref =
-        case Quickbooks.Client.query_class_by_name(class_name) do
+        case client_module().query_class_by_name(class_name) do
           {:ok, class_id} ->
             Logger.debug("[QB Sync] create_payment_sales_receipt: Found class ID",
               payment_id: payment.id,
@@ -1154,30 +1159,28 @@ defmodule Ysc.Quickbooks.Sync do
 
           {:error, :not_found} ->
             Logger.warning(
-              "[QB Sync] create_payment_sales_receipt: Class not found, sales receipt may fail",
+              "[QB Sync] create_payment_sales_receipt: Class '#{class_name}' not found, falling back to Administration",
               payment_id: payment.id,
               class_name: class_name
             )
 
-            nil
+            # Fallback to Administration - ALL exports must have a class
+            get_administration_class_ref()
 
           error ->
             Logger.warning(
-              "[QB Sync] create_payment_sales_receipt: Failed to query class",
+              "[QB Sync] create_payment_sales_receipt: Failed to query class, falling back to Administration",
               payment_id: payment.id,
               class_name: class_name,
               error: inspect(error)
             )
 
-            nil
+            # Fallback to Administration - ALL exports must have a class
+            get_administration_class_ref()
         end
 
-      params =
-        if class_ref do
-          Map.put(params, :class_ref, class_ref)
-        else
-          params
-        end
+      # ALWAYS include class_ref - it's required for all QuickBooks exports
+      params = Map.put(params, :class_ref, class_ref)
 
       Logger.debug(
         "[QB Sync] create_payment_sales_receipt: Calling Quickbooks.create_purchase_sales_receipt",
@@ -1381,7 +1384,7 @@ defmodule Ysc.Quickbooks.Sync do
         # Get income account if provided
         income_account_ref =
           if income_account_name do
-            case Quickbooks.Client.query_account_by_name(income_account_name) do
+            case client_module().query_account_by_name(income_account_name) do
               {:ok, account_id} ->
                 Logger.debug(
                   "[QB Sync] get_or_create_item_with_fallback: Found income account",
@@ -1406,9 +1409,26 @@ defmodule Ysc.Quickbooks.Sync do
     end
   end
 
+  # Helper function to get the Administration class ID (used as default/fallback)
+  defp get_administration_class_ref do
+    case client_module().query_class_by_name("Administration") do
+      {:ok, class_id} ->
+        %{value: class_id, name: "Administration"}
+
+      _ ->
+        Logger.error(
+          "[QB Sync] get_administration_class_ref: CRITICAL - Administration class not found! Using hardcoded fallback (this may fail)"
+        )
+
+        # Last resort fallback - this may fail, but we must provide a class
+        %{value: "Administration", name: "Administration"}
+    end
+  end
+
   defp build_sales_line_item(item_id, amount, description, class_ref) do
     # class_ref should be a map with {value: class_id, name: class_name} or nil
     # If it's a string (class name), we need to query for the ID
+    # CRITICAL: ALL QuickBooks exports MUST include a class reference
     class_ref_map =
       case class_ref do
         %{value: _} = ref ->
@@ -1417,7 +1437,7 @@ defmodule Ysc.Quickbooks.Sync do
 
         class_name when is_binary(class_name) ->
           # Query for class ID
-          case Quickbooks.Client.query_class_by_name(class_name) do
+          case client_module().query_class_by_name(class_name) do
             {:ok, class_id} ->
               Logger.debug("[QB Sync] build_sales_line_item: Found class ID",
                 class_name: class_name,
@@ -1428,22 +1448,18 @@ defmodule Ysc.Quickbooks.Sync do
 
             _ ->
               Logger.warning(
-                "[QB Sync] build_sales_line_item: Class not found, line item may fail",
+                "[QB Sync] build_sales_line_item: Class '#{class_name}' not found, falling back to Administration",
                 class_name: class_name
               )
 
-              nil
+              # Fallback to Administration if the requested class is not found
+              get_administration_class_ref()
           end
 
         _ ->
           # Default to "Administration" if not provided
-          case Quickbooks.Client.query_class_by_name("Administration") do
-            {:ok, class_id} ->
-              %{value: class_id, name: "Administration"}
-
-            _ ->
-              nil
-          end
+          Logger.debug("[QB Sync] build_sales_line_item: Using default Administration class")
+          get_administration_class_ref()
       end
 
     Logger.debug("[QB Sync] build_sales_line_item: Building line item with class",
@@ -1452,21 +1468,13 @@ defmodule Ysc.Quickbooks.Sync do
       was_provided: not is_nil(class_ref)
     )
 
-    sales_item_detail =
-      if class_ref_map do
-        %{
-          item_ref: %{value: item_id},
-          quantity: Decimal.new(1),
-          unit_price: amount,
-          class_ref: class_ref_map
-        }
-      else
-        %{
-          item_ref: %{value: item_id},
-          quantity: Decimal.new(1),
-          unit_price: amount
-        }
-      end
+    # ALWAYS include class_ref - it's required for all QuickBooks exports
+    sales_item_detail = %{
+      item_ref: %{value: item_id},
+      quantity: Decimal.new(1),
+      unit_price: amount,
+      class_ref: class_ref_map
+    }
 
     %{
       amount: amount,
@@ -1513,7 +1521,7 @@ defmodule Ysc.Quickbooks.Sync do
     # For Stripe, we use "Undeposited Funds" since funds take time to land
     # This ensures proper accounting for money going back to the customer
     refund_from_account_ref =
-      case Quickbooks.Client.query_account_by_name("Undeposited Funds") do
+      case client_module().query_account_by_name("Undeposited Funds") do
         {:ok, account_id} ->
           Logger.debug(
             "[QB Sync] create_refund_sales_receipt: Found Undeposited Funds account",
@@ -1586,6 +1594,8 @@ defmodule Ysc.Quickbooks.Sync do
       private_note: private_note
     }
 
+    # CRITICAL: refund_from_account_id is required for create_refund_receipt
+    # Always set it, even if we have to use a fallback
     params =
       if refund_from_account_ref do
         Map.merge(params, %{
@@ -1593,7 +1603,38 @@ defmodule Ysc.Quickbooks.Sync do
           refund_from_account_name: refund_from_account_ref.name
         })
       else
-        params
+        # Fallback: try to get "Undeposited Funds" account ID directly
+        # If that fails, we'll use a hardcoded value (this should not happen in production)
+        Logger.warning(
+          "[QB Sync] create_refund_sales_receipt: refund_from_account_ref is nil, attempting fallback",
+          refund_id: refund.id
+        )
+
+        case client_module().query_account_by_name("Undeposited Funds") do
+          {:ok, account_id} ->
+            Logger.debug(
+              "[QB Sync] create_refund_sales_receipt: Found Undeposited Funds account via fallback",
+              refund_id: refund.id,
+              account_id: account_id
+            )
+
+            Map.merge(params, %{
+              refund_from_account_id: account_id,
+              refund_from_account_name: "Undeposited Funds"
+            })
+
+          _ ->
+            Logger.error(
+              "[QB Sync] create_refund_sales_receipt: CRITICAL - Cannot find Undeposited Funds account, refund receipt will fail",
+              refund_id: refund.id
+            )
+
+            # This will likely fail, but we must provide something
+            Map.merge(params, %{
+              refund_from_account_id: "undeposited_funds_account_default",
+              refund_from_account_name: "Undeposited Funds"
+            })
+        end
       end
 
     # Always set a class - get_account_and_class now always returns a class (defaults to "Administration")
@@ -1606,7 +1647,7 @@ defmodule Ysc.Quickbooks.Sync do
     )
 
     class_ref =
-      case Quickbooks.Client.query_class_by_name(class_name) do
+      case client_module().query_class_by_name(class_name) do
         {:ok, class_id} ->
           Logger.debug("[QB Sync] create_refund_sales_receipt: Found class ID",
             refund_id: refund.id,
@@ -1618,29 +1659,62 @@ defmodule Ysc.Quickbooks.Sync do
 
         {:error, :not_found} ->
           Logger.warning(
-            "[QB Sync] create_refund_sales_receipt: Class not found, refund receipt may fail",
+            "[QB Sync] create_refund_sales_receipt: Class '#{class_name}' not found, falling back to Administration",
             refund_id: refund.id,
             class_name: class_name
           )
 
-          nil
+          # Fallback to Administration - ALL exports must have a class
+          get_administration_class_ref()
 
         error ->
           Logger.warning(
-            "[QB Sync] create_refund_sales_receipt: Failed to query class",
+            "[QB Sync] create_refund_sales_receipt: Failed to query class, falling back to Administration",
             refund_id: refund.id,
             class_name: class_name,
             error: inspect(error)
           )
 
-          nil
+          # Fallback to Administration - ALL exports must have a class
+          get_administration_class_ref()
       end
 
+    # ALWAYS include class_ref - it's required for all QuickBooks exports
+    params = Map.put(params, :class_ref, class_ref)
+
+    # CRITICAL: Ensure refund_from_account_id is always present (create_refund_receipt requires it)
+    # The code above (lines 1599-1638) should have already set refund_from_account_id,
+    # but we also handle the case where refund_from_account_ref might be in params
+    # (though this shouldn't happen in normal flow)
     params =
-      if class_ref do
-        Map.put(params, :class_ref, class_ref)
-      else
-        params
+      cond do
+        # If refund_from_account_id is already set, we're good
+        Map.has_key?(params, :refund_from_account_id) ->
+          # Remove refund_from_account_ref if it exists (shouldn't be there, but clean up)
+          Map.delete(params, :refund_from_account_ref)
+
+        # If refund_from_account_ref is in params, convert it
+        Map.has_key?(params, :refund_from_account_ref) ->
+          ref = params.refund_from_account_ref
+
+          params
+          |> Map.merge(%{
+            refund_from_account_id: ref.value,
+            refund_from_account_name: ref.name
+          })
+          |> Map.delete(:refund_from_account_ref)
+
+        # Fallback: this shouldn't happen, but provide a default
+        true ->
+          Logger.warning(
+            "[QB Sync] create_refund_sales_receipt: refund_from_account_id not set, using fallback",
+            refund_id: refund.id
+          )
+
+          Map.merge(params, %{
+            refund_from_account_id: "undeposited_funds_account_default",
+            refund_from_account_name: "Undeposited Funds"
+          })
       end
 
     Logger.debug(
@@ -1705,6 +1779,9 @@ defmodule Ysc.Quickbooks.Sync do
           amount: Decimal.to_string(amount)
         )
 
+        # Get Administration class for fallback line item
+        administration_class_ref = get_administration_class_ref()
+
         params = %{
           bank_account_id: bank_account_id,
           stripe_account_id: stripe_account_id,
@@ -1712,7 +1789,7 @@ defmodule Ysc.Quickbooks.Sync do
           txn_date: payout.arrival_date || payout.inserted_at,
           memo: "Stripe Payout: #{payout.stripe_payout_id}",
           description: payout.description || "Stripe payout",
-          class_ref: "Administration"
+          class_ref: administration_class_ref
         }
 
         Logger.debug(
@@ -1757,6 +1834,9 @@ defmodule Ysc.Quickbooks.Sync do
         )
 
         # Add Stripe fees line item if there are fees
+        # Get Administration class for Stripe fees (they're administrative expenses)
+        administration_class_ref = get_administration_class_ref()
+
         line_items =
           if stripe_fees && Money.positive?(stripe_fees) do
             with {:ok, stripe_fee_item_id} <- get_or_create_stripe_fee_item() do
@@ -1774,7 +1854,7 @@ defmodule Ysc.Quickbooks.Sync do
                   item_ref: %{value: stripe_fee_item_id},
                   quantity: Decimal.new(1),
                   unit_price: fee_amount,
-                  class_ref: %{value: "Administration"}
+                  class_ref: administration_class_ref
                 },
                 description: "Stripe processing fees for payout #{payout.stripe_payout_id}"
               }
@@ -1836,6 +1916,9 @@ defmodule Ysc.Quickbooks.Sync do
       refunds_count: length(refunds)
     )
 
+    # Get Administration class for deposit line items (payouts are administrative transactions)
+    administration_class_ref = get_administration_class_ref()
+
     # Build line items for payments (positive amounts)
     Logger.debug("[QB Sync] build_payout_line_items: Processing payments",
       payments_count: length(payments)
@@ -1869,7 +1952,8 @@ defmodule Ysc.Quickbooks.Sync do
               entity_ref: %{
                 value: payment.quickbooks_sales_receipt_id,
                 type: "SalesReceipt"
-              }
+              },
+              class_ref: administration_class_ref
             },
             description: "Payment #{payment.reference_id}"
           }
@@ -1924,7 +2008,8 @@ defmodule Ysc.Quickbooks.Sync do
               entity_ref: %{
                 value: refund.quickbooks_sales_receipt_id,
                 type: "SalesReceipt"
-              }
+              },
+              class_ref: administration_class_ref
             },
             description: "Refund #{refund.reference_id}"
           }
@@ -2013,7 +2098,7 @@ defmodule Ysc.Quickbooks.Sync do
         # Stripe fees use the "Stripe Fees" expense account, but Service items require IncomeAccountRef
         # Query for an income account (we'll use a general revenue account as fallback)
         income_account_ref =
-          case Quickbooks.Client.query_account_by_name("Stripe Fees") do
+          case client_module().query_account_by_name("Stripe Fees") do
             {:ok, account_id} ->
               Logger.debug(
                 "[QB Sync] get_or_create_stripe_fee_item: Found Stripe Fees account",
@@ -2024,7 +2109,7 @@ defmodule Ysc.Quickbooks.Sync do
 
             _ ->
               # Fallback to a general revenue account if Stripe Fees account not found
-              case Quickbooks.Client.query_account_by_name("General Revenue") do
+              case client_module().query_account_by_name("General Revenue") do
                 {:ok, account_id} ->
                   Logger.debug(
                     "[QB Sync] get_or_create_stripe_fee_item: Using General Revenue as fallback",

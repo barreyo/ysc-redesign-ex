@@ -59,7 +59,7 @@ defmodule Ysc.ReferenceGeneratorTest do
       valid_id = ReferenceGenerator.generate_reference_id("PMT")
 
       # Extract the base parts to compute what the checksum should be
-      [_, prefix, date, random_part, correct_checksum] =
+      [_, _prefix, _date, _random_part, correct_checksum] =
         Regex.run(~r/^([A-Z]{3})-(\d{6})-([A-Z0-9]{4})([A-Z0-9])$/, valid_id)
 
       # Find a character that's guaranteed to be different from the correct checksum

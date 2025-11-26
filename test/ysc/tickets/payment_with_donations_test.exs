@@ -26,6 +26,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
   setup :verify_on_exit!
 
   setup do
+    # Clear cache before each test to ensure mocks are used
+    Cachex.clear(:ysc_cache)
     Ledgers.ensure_basic_accounts()
     user = user_fixture()
 
@@ -96,11 +98,27 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
       company_id: "test_company_id",
       access_token: "test_access_token",
       refresh_token: "test_refresh_token",
+      # Item IDs
       event_item_id: "event_item_123",
       donation_item_id: "donation_item_123",
+      # Account IDs
       bank_account_id: "bank_account_123",
       stripe_account_id: "stripe_account_123"
     )
+
+    # Set up default mocks for query functions (needed for automatic sync jobs)
+    stub(ClientMock, :query_account_by_name, fn
+      "Events Inc" -> {:ok, "events_account_default"}
+      "Donations" -> {:ok, "donations_account_default"}
+      "Undeposited Funds" -> {:ok, "undeposited_funds_account_default"}
+      _ -> {:error, :not_found}
+    end)
+
+    stub(ClientMock, :query_class_by_name, fn
+      "Events" -> {:ok, "events_class_default"}
+      "Administration" -> {:ok, "admin_class_default"}
+      _ -> {:error, :not_found}
+    end)
 
     # Set up default mocks for automatic sync jobs
     stub(ClientMock, :create_customer, fn _params ->
@@ -358,9 +376,26 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
 
       payment = Repo.reload!(payment)
 
+      # Clear cache to ensure mocks are used
+      Cachex.clear(:ysc_cache)
+
       # Set up mocks for explicit sync
       expect(ClientMock, :create_customer, fn _params ->
         {:ok, %{"Id" => "qb_customer_123"}}
+      end)
+
+      # Stub account and class queries
+      stub(ClientMock, :query_account_by_name, fn
+        "Events Inc" -> {:ok, "events_account_default"}
+        "Donations" -> {:ok, "donations_account_default"}
+        "Undeposited Funds" -> {:ok, "undeposited_funds_account_default"}
+        _ -> {:error, :not_found}
+      end)
+
+      stub(ClientMock, :query_class_by_name, fn
+        "Events" -> {:ok, "events_class_default"}
+        "Administration" -> {:ok, "admin_class_default"}
+        _ -> {:error, :not_found}
       end)
 
       expect(ClientMock, :create_sales_receipt, fn params ->
@@ -374,9 +409,11 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
           end)
 
         assert event_line != nil
-        assert event_line.amount == Decimal.new("60.00")
+        assert event_line.amount == Decimal.new("6000.00")
         assert event_line.description =~ "Event tickets"
-        assert get_in(event_line, [:sales_item_line_detail, :class_ref, :value]) == "Events"
+
+        assert get_in(event_line, [:sales_item_line_detail, :class_ref, :value]) ==
+                 "events_class_default"
 
         # Find donation line item
         donation_line =
@@ -385,14 +422,14 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
           end)
 
         assert donation_line != nil
-        assert donation_line.amount == Decimal.new("40.00")
+        assert donation_line.amount == Decimal.new("4000.00")
         assert donation_line.description =~ "Donation"
 
         assert get_in(donation_line, [:sales_item_line_detail, :class_ref, :value]) ==
-                 "Administration"
+                 "admin_class_default"
 
         # Verify total
-        assert params.total_amt == Decimal.new("100.00")
+        assert params.total_amt == Decimal.new("10000.00")
 
         {:ok, %{"Id" => "qb_sr_mixed_123", "TotalAmt" => "100.00"}}
       end)
@@ -473,10 +510,10 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
         assert get_in(donation_line, [:sales_item_line_detail, :item_ref, :value]) ==
                  "donation_item_123"
 
-        assert donation_line.amount == Decimal.new("50.00")
-        assert params.total_amt == Decimal.new("50.00")
+        assert donation_line.amount == Decimal.new("5000.00")
+        assert params.total_amt == Decimal.new("5000.00")
 
-        {:ok, %{"Id" => "qb_sr_donation_only", "TotalAmt" => "50.00"}}
+        {:ok, %{"Id" => "qb_sr_donation_only", "TotalAmt" => "5000.00"}}
       end)
 
       assert {:ok, _} = Sync.sync_payment(payment)
@@ -616,10 +653,9 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
 
         # Event amount should match calculated event amount
         assert event_line != nil
-        # Convert event_amount from cents to dollars for comparison
+        # Amounts are stored in dollars, so Money.to_decimal returns dollars
         expected_event_amt =
           Money.to_decimal(event_amount)
-          |> Decimal.div(Decimal.new(100))
           |> Decimal.round(2)
 
         assert event_line.amount == expected_event_amt
@@ -632,19 +668,17 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
 
         # Donation amount should match calculated donation amount
         assert donation_line != nil
-        # Convert donation_amount from cents to dollars for comparison
+        # Amounts are stored in dollars, so Money.to_decimal returns dollars
         expected_donation_amt =
           Money.to_decimal(donation_amount)
-          |> Decimal.div(Decimal.new(100))
           |> Decimal.round(2)
 
         assert donation_line.amount == expected_donation_amt
 
         # Verify total matches ticket_order.total_amount
-        # Convert total_amount from cents to dollars for comparison
+        # Amounts are stored in dollars, so Money.to_decimal returns dollars
         expected_total =
           Money.to_decimal(ticket_order.total_amount)
-          |> Decimal.div(Decimal.new(100))
           |> Decimal.round(2)
 
         assert params.total_amt == expected_total

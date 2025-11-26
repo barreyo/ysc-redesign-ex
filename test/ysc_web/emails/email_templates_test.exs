@@ -215,7 +215,10 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
       assigns = %{
         first_name: user.first_name,
         last_name: user.last_name,
-        email: user.email
+        email: user.email,
+        membership_type: "Single",
+        is_renewal: false,
+        pay_membership_url: YscWeb.Endpoint.url() <> "/users/membership"
       }
 
       html = MembershipPaymentFailure.render(assigns)
@@ -300,7 +303,14 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
            summary: "Test violation summary"
          }},
         {MembershipPaymentFailure,
-         %{first_name: user.first_name, last_name: user.last_name, email: user.email}}
+         %{
+           first_name: user.first_name,
+           last_name: user.last_name,
+           email: user.email,
+           membership_type: "Single",
+           is_renewal: false,
+           pay_membership_url: YscWeb.Endpoint.url() <> "/users/membership"
+         }}
       ]
 
       for {template, assigns} <- templates_with_assigns do

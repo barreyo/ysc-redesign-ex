@@ -39,6 +39,7 @@ defmodule Ysc.Quickbooks do
       })
   """
 
+  require Logger
   alias Ysc.Accounts.User
 
   defp client_module do
@@ -84,13 +85,31 @@ defmodule Ysc.Quickbooks do
       unit_price: params.unit_price
     }
 
+    # CRITICAL: ALL QuickBooks exports MUST include a class reference
+    # If not provided, default to Administration
     sales_item_detail =
       if params[:class_ref] do
         # class_ref should already be in the format %{value: "id", name: "name"}
         # Use it directly, don't wrap it in another value
         Map.put(sales_item_detail, :class_ref, params.class_ref)
       else
-        sales_item_detail
+        # Default to Administration if not provided
+        # Query for Administration class ID
+        default_class_ref =
+          case client_module().query_class_by_name("Administration") do
+            {:ok, class_id} ->
+              %{value: class_id, name: "Administration"}
+
+            _ ->
+              # Last resort fallback - this may fail, but we must provide a class
+              Logger.error(
+                "[QB] create_purchase_sales_receipt: CRITICAL - Administration class not found! Using hardcoded fallback (this may fail)"
+              )
+
+              %{value: "Administration", name: "Administration"}
+          end
+
+        Map.put(sales_item_detail, :class_ref, default_class_ref)
       end
 
     sales_item_detail =

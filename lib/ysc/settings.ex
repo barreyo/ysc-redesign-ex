@@ -4,6 +4,7 @@ defmodule Ysc.Settings do
 
   Provides functions for retrieving and caching application-wide site settings.
   """
+  require Logger
   import Ecto.Query, warn: false
 
   alias Ysc.Repo
@@ -113,6 +114,68 @@ defmodule Ysc.Settings do
 
       error ->
         error
+    end
+  end
+
+  @doc """
+  Gets a setting value, or creates it with a default value if it doesn't exist.
+
+  Returns the setting value (from DB or default).
+  """
+  def get_or_create_setting(name, group, default_value \\ nil) do
+    case Repo.get_by(SiteSetting, name: name) do
+      nil ->
+        # Setting doesn't exist, create it
+        case Repo.insert(%SiteSetting{
+               group: group,
+               name: name,
+               value: default_value
+             }) do
+          {:ok, setting} ->
+            # Cache the new setting
+            Cachex.put(:ysc_cache, setting_cache_key(name), setting.value)
+            setting.value
+
+          {:error, changeset} ->
+            Logger.error("[Settings] Failed to create setting",
+              name: name,
+              errors: inspect(changeset.errors)
+            )
+
+            default_value
+        end
+
+      setting ->
+        # Setting exists, return its value
+        setting.value
+    end
+  end
+
+  @doc """
+  Gets a setting value safely (returns nil if not found instead of raising).
+  """
+  def get_setting_safe(name) do
+    cache_key = setting_cache_key(name)
+
+    case Cachex.get(:ysc_cache, cache_key) do
+      {:ok, nil} ->
+        case Repo.get_by(SiteSetting, name: name) do
+          nil ->
+            nil
+
+          setting ->
+            Cachex.put(:ysc_cache, cache_key, setting.value)
+            setting.value
+        end
+
+      {:ok, value} ->
+        value
+
+      _ ->
+        case Repo.get_by(SiteSetting, name: name) do
+          nil -> nil
+          setting -> setting.value
+        end
     end
   end
 

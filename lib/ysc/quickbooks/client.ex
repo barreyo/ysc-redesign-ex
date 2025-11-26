@@ -1286,9 +1286,30 @@ defmodule Ysc.Quickbooks.Client do
   Queries for a QuickBooks Class by name.
 
   Returns {:ok, class_id} if found, {:error, :not_found} otherwise.
+
+  Results are aggressively cached since class references don't change.
   """
   @spec query_class_by_name(String.t()) :: {:ok, String.t()} | {:error, atom()}
   def query_class_by_name(name) do
+    # Step 1: Check cache first (aggressive caching - these don't change)
+    cache_key = "quickbooks:class:#{name}"
+
+    case get_cached_class_id(cache_key) do
+      {:ok, class_id} when not is_nil(class_id) ->
+        Logger.debug("[QB Client] query_class_by_name: Found in cache",
+          name: name,
+          class_id: class_id
+        )
+
+        {:ok, class_id}
+
+      _ ->
+        # Not in cache, query QuickBooks
+        query_class_by_name_from_api(name, cache_key)
+    end
+  end
+
+  defp query_class_by_name_from_api(name, cache_key) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
       # Query for class by name
@@ -1318,6 +1339,9 @@ defmodule Ysc.Quickbooks.Client do
                 class_id: class_id
               )
 
+              # Cache the result (aggressive caching - these don't change)
+              cache_class_id(cache_key, class_id)
+
               {:ok, class_id}
 
             {:ok, %{"QueryResponse" => %{"Class" => class}}} when is_map(class) ->
@@ -1327,6 +1351,9 @@ defmodule Ysc.Quickbooks.Client do
                 name: name,
                 class_id: class_id
               )
+
+              # Cache the result (aggressive caching - these don't change)
+              cache_class_id(cache_key, class_id)
 
               {:ok, class_id}
 
@@ -1372,10 +1399,14 @@ defmodule Ysc.Quickbooks.Client do
                     when is_list(classes) and length(classes) > 0 ->
                       class = List.first(classes)
                       class_id = Map.get(class, "Id")
+                      # Cache the result (aggressive caching - these don't change)
+                      cache_class_id(cache_key, class_id)
                       {:ok, class_id}
 
                     {:ok, %{"QueryResponse" => %{"Class" => class}}} when is_map(class) ->
                       class_id = Map.get(class, "Id")
+                      # Cache the result (aggressive caching - these don't change)
+                      cache_class_id(cache_key, class_id)
                       {:ok, class_id}
 
                     _ ->
@@ -1416,9 +1447,30 @@ defmodule Ysc.Quickbooks.Client do
   Queries for a QuickBooks Account by name.
 
   Returns {:ok, account_id} if found, {:error, :not_found} otherwise.
+
+  Results are aggressively cached since account references don't change.
   """
   @spec query_account_by_name(String.t()) :: {:ok, String.t()} | {:error, atom()}
   def query_account_by_name(name) do
+    # Step 1: Check cache first (aggressive caching - these don't change)
+    cache_key = "quickbooks:account:#{name}"
+
+    case get_cached_account_id(cache_key) do
+      {:ok, account_id} when not is_nil(account_id) ->
+        Logger.debug("[QB Client] query_account_by_name: Found in cache",
+          name: name,
+          account_id: account_id
+        )
+
+        {:ok, account_id}
+
+      _ ->
+        # Not in cache, query QuickBooks
+        query_account_by_name_from_api(name, cache_key)
+    end
+  end
+
+  defp query_account_by_name_from_api(name, cache_key) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
       # Query for account by name
@@ -1448,6 +1500,9 @@ defmodule Ysc.Quickbooks.Client do
                 account_id: account_id
               )
 
+              # Cache the result (aggressive caching - these don't change)
+              cache_account_id(cache_key, account_id)
+
               {:ok, account_id}
 
             {:ok, %{"QueryResponse" => %{"Account" => account}}} when is_map(account) ->
@@ -1457,6 +1512,9 @@ defmodule Ysc.Quickbooks.Client do
                 name: name,
                 account_id: account_id
               )
+
+              # Cache the result (aggressive caching - these don't change)
+              cache_account_id(cache_key, account_id)
 
               {:ok, account_id}
 
@@ -1502,10 +1560,14 @@ defmodule Ysc.Quickbooks.Client do
                     when is_list(accounts) and length(accounts) > 0 ->
                       account = List.first(accounts)
                       account_id = Map.get(account, "Id")
+                      # Cache the result (aggressive caching - these don't change)
+                      cache_account_id(cache_key, account_id)
                       {:ok, account_id}
 
                     {:ok, %{"QueryResponse" => %{"Account" => account}}} when is_map(account) ->
                       account_id = Map.get(account, "Id")
+                      # Cache the result (aggressive caching - these don't change)
+                      cache_account_id(cache_key, account_id)
                       {:ok, account_id}
 
                     _ ->
@@ -1638,7 +1700,7 @@ defmodule Ysc.Quickbooks.Client do
 
     if is_nil(refresh_token_to_use) do
       Logger.error(
-        "[QB Client] refresh_access_token: No refresh token available in cache or config"
+        "[QB Client] refresh_access_token: No refresh token available in cache, database, or config (env variables)"
       )
 
       {:error, :quickbooks_refresh_token_not_configured}
@@ -1668,7 +1730,7 @@ defmodule Ysc.Quickbooks.Client do
 
           {:ok, access_token}
 
-        {:error, _reason} = error
+        {:error, _reason}
         when not is_nil(cached_refresh_token) and
                not is_nil(original_refresh_token) ->
           # Cached token failed, try with original from config
@@ -1827,30 +1889,10 @@ defmodule Ysc.Quickbooks.Client do
     end
   end
 
-  defp get_refresh_token do
-    case Application.get_env(:ysc, :quickbooks)[:refresh_token] do
-      nil ->
-        Logger.error("[QB Client] get_refresh_token: QUICKBOOKS_REFRESH_TOKEN not configured")
-        {:error, :quickbooks_refresh_token_not_configured}
-
-      token ->
-        Logger.debug("[QB Client] get_refresh_token: Refresh token found",
-          has_refresh_token: !is_nil(token)
-        )
-
-        {:ok, token}
-    end
-  end
-
   defp update_token_config(access_token, refresh_token) do
-    # IMPORTANT: When a new refresh token is received, it MUST be saved to persistent storage.
-    # The old refresh token may become invalid. For now, we update the in-memory config,
-    # but you MUST update your .env file or database with the new refresh_token.
-    #
-    # In production, consider:
-    # 1. Storing tokens in a database table
-    # 2. Using a secrets management service (AWS Secrets Manager, etc.)
-    # 3. At minimum, updating the .env file with the new refresh_token
+    # IMPORTANT: Tokens are now persisted to SiteSettings database automatically
+    # via cache_access_token and cache_refresh_token functions.
+    # The in-memory config is still updated for backward compatibility.
 
     current_config = Application.get_env(:ysc, :quickbooks, [])
 
@@ -1866,6 +1908,9 @@ defmodule Ysc.Quickbooks.Client do
       has_access_token: !is_nil(access_token),
       has_refresh_token: !is_nil(refresh_token)
     )
+
+    # Tokens are persisted to DB via cache_access_token and cache_refresh_token
+    # which are called from refresh_access_token after successful token refresh
   end
 
   defp get_original_refresh_token do
@@ -1876,13 +1921,62 @@ defmodule Ysc.Quickbooks.Client do
   defp get_cached_access_token do
     case Cachex.get(:ysc_cache, "quickbooks:access_token") do
       {:ok, nil} ->
-        nil
+        # Cache is empty, try loading from SiteSettings DB, then fall back to config
+        load_access_token_from_db_or_config()
 
       {:ok, token} ->
         token
 
       {:error, _reason} ->
-        # Cache error - return nil to fall back to config
+        # Cache error - try loading from SiteSettings DB, then fall back to config
+        load_access_token_from_db_or_config()
+    end
+  end
+
+  defp load_access_token_from_db_or_config do
+    # First try loading from DB
+    case Ysc.Settings.get_setting_safe("quickbooks_access_token") do
+      nil ->
+        # Not in DB, fall back to config (env variables)
+        fallback_to_config_access_token()
+
+      token when is_binary(token) ->
+        # Found token in DB, cache it for future use (without persisting back to DB)
+        Logger.debug(
+          "[QB Client] load_access_token_from_db_or_config: Loaded token from DB, caching it"
+        )
+
+        Cachex.put(:ysc_cache, "quickbooks:access_token", token)
+        token
+
+      _ ->
+        # Invalid value in DB, fall back to config
+        fallback_to_config_access_token()
+    end
+  end
+
+  defp fallback_to_config_access_token do
+    # Fall back to environment variables (Application config)
+    qb_config = Application.get_env(:ysc, :quickbooks, [])
+
+    case qb_config[:access_token] do
+      nil ->
+        Logger.debug(
+          "[QB Client] fallback_to_config_access_token: No access token in cache, DB, or config"
+        )
+
+        nil
+
+      token when is_binary(token) ->
+        Logger.debug(
+          "[QB Client] fallback_to_config_access_token: Using access token from config (env variable)"
+        )
+
+        # Cache it for future use
+        Cachex.put(:ysc_cache, "quickbooks:access_token", token)
+        token
+
+      _ ->
         nil
     end
   end
@@ -1890,18 +1984,74 @@ defmodule Ysc.Quickbooks.Client do
   defp get_cached_refresh_token do
     case Cachex.get(:ysc_cache, "quickbooks:refresh_token") do
       {:ok, nil} ->
-        nil
+        # Cache is empty, try loading from SiteSettings DB, then fall back to config
+        load_refresh_token_from_db_or_config()
 
       {:ok, token} ->
         token
 
       {:error, _reason} ->
-        # Cache error - return nil to fall back to config
+        # Cache error - try loading from SiteSettings DB, then fall back to config
+        load_refresh_token_from_db_or_config()
+    end
+  end
+
+  defp load_refresh_token_from_db_or_config do
+    # First try loading from DB
+    case Ysc.Settings.get_setting_safe("quickbooks_refresh_token") do
+      nil ->
+        # Not in DB, fall back to config (env variables)
+        fallback_to_config_refresh_token()
+
+      token when is_binary(token) ->
+        # Found token in DB, cache it for future use (without persisting back to DB)
+        Logger.debug(
+          "[QB Client] load_refresh_token_from_db_or_config: Loaded token from DB, caching it"
+        )
+
+        Cachex.put(:ysc_cache, "quickbooks:refresh_token", token)
+        token
+
+      _ ->
+        # Invalid value in DB, fall back to config
+        fallback_to_config_refresh_token()
+    end
+  end
+
+  defp fallback_to_config_refresh_token do
+    # Fall back to environment variables (Application config or System.get_env)
+    qb_config = Application.get_env(:ysc, :quickbooks, [])
+    env_token = System.get_env("QUICKBOOKS_REFRESH_TOKEN")
+
+    refresh_token = qb_config[:refresh_token] || env_token
+
+    case refresh_token do
+      nil ->
+        Logger.debug(
+          "[QB Client] fallback_to_config_refresh_token: No refresh token in cache, DB, or config"
+        )
+
+        nil
+
+      token when is_binary(token) ->
+        Logger.debug(
+          "[QB Client] fallback_to_config_refresh_token: Using refresh token from config (env variable)"
+        )
+
+        # Cache it for future use
+        Cachex.put(:ysc_cache, "quickbooks:refresh_token", token)
+        token
+
+      _ ->
         nil
     end
   end
 
   defp cache_access_token(access_token) do
+    # Always persist to database when token changes
+    persist_access_token_to_db(access_token)
+
+    # Also cache for performance
     case Cachex.put(:ysc_cache, "quickbooks:access_token", access_token) do
       {:ok, true} ->
         Logger.debug("[QB Client] cache_access_token: Successfully cached access token")
@@ -1914,7 +2064,56 @@ defmodule Ysc.Quickbooks.Client do
     end
   end
 
+  defp persist_access_token_to_db(access_token) do
+    # Get current token from DB (if it exists)
+    current_token = Ysc.Settings.get_setting_safe("quickbooks_access_token")
+
+    cond do
+      is_nil(current_token) ->
+        # Setting doesn't exist, create it
+        case Ysc.Settings.get_or_create_setting(
+               "quickbooks_access_token",
+               "quickbooks",
+               access_token
+             ) do
+          _ ->
+            Logger.debug(
+              "[QB Client] persist_access_token_to_db: Created new access token setting"
+            )
+        end
+
+      current_token != access_token ->
+        # Token changed, update it
+        case Ysc.Settings.update_setting("quickbooks_access_token", access_token) do
+          {:ok, _} ->
+            Logger.debug("[QB Client] persist_access_token_to_db: Updated access token in DB")
+
+          {:error, reason} ->
+            Logger.error(
+              "[QB Client] persist_access_token_to_db: Failed to update access token in DB",
+              error: inspect(reason)
+            )
+        end
+
+      true ->
+        # Token is the same, no update needed
+        Logger.debug(
+          "[QB Client] persist_access_token_to_db: Access token unchanged, skipping DB update"
+        )
+    end
+  rescue
+    error ->
+      Logger.error(
+        "[QB Client] persist_access_token_to_db: Error persisting access token",
+        error: inspect(error)
+      )
+  end
+
   defp cache_refresh_token(refresh_token) do
+    # Always persist to database when token changes
+    persist_refresh_token_to_db(refresh_token)
+
+    # Also cache for performance
     case Cachex.put(:ysc_cache, "quickbooks:refresh_token", refresh_token) do
       {:ok, true} ->
         Logger.debug("[QB Client] cache_refresh_token: Successfully cached refresh token")
@@ -1922,6 +2121,118 @@ defmodule Ysc.Quickbooks.Client do
       {:error, reason} ->
         Logger.warning(
           "[QB Client] cache_refresh_token: Failed to cache refresh token",
+          error: inspect(reason)
+        )
+    end
+  end
+
+  defp persist_refresh_token_to_db(refresh_token) do
+    # Get current token from DB (if it exists)
+    current_token = Ysc.Settings.get_setting_safe("quickbooks_refresh_token")
+
+    cond do
+      is_nil(current_token) ->
+        # Setting doesn't exist, create it
+        case Ysc.Settings.get_or_create_setting(
+               "quickbooks_refresh_token",
+               "quickbooks",
+               refresh_token
+             ) do
+          _ ->
+            Logger.debug(
+              "[QB Client] persist_refresh_token_to_db: Created new refresh token setting"
+            )
+        end
+
+      current_token != refresh_token ->
+        # Token changed, update it
+        case Ysc.Settings.update_setting("quickbooks_refresh_token", refresh_token) do
+          {:ok, _} ->
+            Logger.info("[QB Client] persist_refresh_token_to_db: Updated refresh token in DB")
+
+          {:error, reason} ->
+            Logger.error(
+              "[QB Client] persist_refresh_token_to_db: Failed to update refresh token in DB",
+              error: inspect(reason)
+            )
+        end
+
+      true ->
+        # Token is the same, no update needed
+        Logger.debug(
+          "[QB Client] persist_refresh_token_to_db: Refresh token unchanged, skipping DB update"
+        )
+    end
+  rescue
+    error ->
+      Logger.error(
+        "[QB Client] persist_refresh_token_to_db: Error persisting refresh token",
+        error: inspect(error)
+      )
+  end
+
+  # Cache helper functions for account and class references
+  # These are aggressively cached since they don't change
+
+  defp get_cached_class_id(cache_key) do
+    case Cachex.get(:ysc_cache, cache_key) do
+      {:ok, nil} ->
+        {:ok, nil}
+
+      {:ok, class_id} ->
+        {:ok, class_id}
+
+      {:error, _reason} ->
+        # Cache error - return nil to fall back to API query
+        {:ok, nil}
+    end
+  end
+
+  defp cache_class_id(cache_key, class_id) do
+    # Cache with no expiration (these don't change)
+    case Cachex.put(:ysc_cache, cache_key, class_id, ttl: :infinity) do
+      {:ok, true} ->
+        Logger.debug("[QB Client] cache_class_id: Successfully cached class",
+          cache_key: cache_key,
+          class_id: class_id
+        )
+
+      {:error, reason} ->
+        Logger.warning(
+          "[QB Client] cache_class_id: Failed to cache class",
+          cache_key: cache_key,
+          error: inspect(reason)
+        )
+    end
+  end
+
+  defp get_cached_account_id(cache_key) do
+    case Cachex.get(:ysc_cache, cache_key) do
+      {:ok, nil} ->
+        {:ok, nil}
+
+      {:ok, account_id} ->
+        {:ok, account_id}
+
+      {:error, _reason} ->
+        # Cache error - return nil to fall back to API query
+        {:ok, nil}
+    end
+  end
+
+  defp cache_account_id(cache_key, account_id) do
+    # Cache with no expiration (these don't change)
+    case Cachex.put(:ysc_cache, cache_key, account_id, ttl: :infinity) do
+      {:ok, true} ->
+        Logger.debug("[QB Client] cache_account_id: Successfully cached account",
+          cache_key: cache_key,
+          account_id: account_id
+        )
+
+      {:error, reason} ->
+        Logger.warning(
+          "[QB Client] cache_account_id: Failed to cache account",
+          cache_key: cache_key,
           error: inspect(reason)
         )
     end

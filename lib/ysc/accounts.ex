@@ -156,7 +156,27 @@ defmodule Ysc.Accounts do
          |> User.registration_changeset(attrs)
          |> Repo.insert() do
       {:ok, user} ->
-        Task.start(fn -> Ysc.Customers.create_stripe_customer(user) end)
+        # Spawn task to create Stripe customer asynchronously
+        # In test mode, allow the task to use the database connection
+        Task.start(fn ->
+          # In test mode, allow this task to use the parent's database connection
+          # This prevents DBConnection.OwnershipError in tests
+          if Application.get_env(:ysc, :environment) == "test" do
+            # Try to get the sandbox owner from the repo config or process dictionary
+            owner = Ysc.Repo.config()[:owner] || Process.get({Ecto.Adapters.SQL.Sandbox, :owner})
+
+            if owner do
+              Ecto.Adapters.SQL.Sandbox.allow(Ysc.Repo, self(), owner)
+            else
+              # Fallback: use checkout which finds the owner automatically from parent
+              # This works when the parent process has a checked-out connection
+              Ecto.Adapters.SQL.Sandbox.checkout(Ysc.Repo, sandbox: true)
+            end
+          end
+
+          Ysc.Customers.create_stripe_customer(user)
+        end)
+
         subscribe_user_to_newsletter(user)
         {:ok, user}
 
