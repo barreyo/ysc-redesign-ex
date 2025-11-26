@@ -121,28 +121,105 @@ defmodule Ysc.Settings do
   Gets a setting value, or creates it with a default value if it doesn't exist.
 
   Returns the setting value (from DB or default).
+
+  Handles race conditions where multiple processes try to create the same setting
+  simultaneously by catching unique constraint violations and retrying with a fetch.
   """
   def get_or_create_setting(name, group, default_value \\ nil) do
     case Repo.get_by(SiteSetting, name: name) do
       nil ->
-        # Setting doesn't exist, create it
-        case Repo.insert(%SiteSetting{
-               group: group,
-               name: name,
-               value: default_value
-             }) do
-          {:ok, setting} ->
-            # Cache the new setting
-            Cachex.put(:ysc_cache, setting_cache_key(name), setting.value)
-            setting.value
+        # Setting doesn't exist, try to create it
+        try do
+          case Repo.insert(%SiteSetting{
+                 group: group,
+                 name: name,
+                 value: default_value
+               }) do
+            {:ok, setting} ->
+              # Cache the new setting
+              Cachex.put(:ysc_cache, setting_cache_key(name), setting.value)
+              setting.value
 
-          {:error, changeset} ->
-            Logger.error("[Settings] Failed to create setting",
-              name: name,
-              errors: inspect(changeset.errors)
-            )
+            {:error, changeset} ->
+              # Check if this is a unique constraint violation (race condition)
+              # This can happen when multiple processes try to create the same setting simultaneously
+              has_unique_error? =
+                changeset.errors
+                |> Enum.any?(fn
+                  {:name, {message, _}} when is_binary(message) ->
+                    String.contains?(message, "unique") or
+                      String.contains?(message, "already exists") or
+                      String.contains?(message, "duplicate")
 
-            default_value
+                  _ ->
+                    false
+                end)
+
+              if has_unique_error? do
+                # Race condition: another process created the setting, fetch it
+                Logger.debug("[Settings] Race condition detected, fetching existing setting",
+                  name: name
+                )
+
+                case Repo.get_by(SiteSetting, name: name) do
+                  nil ->
+                    # Still not found (unlikely), return default
+                    default_value
+
+                  setting ->
+                    # Found it, cache and return
+                    Cachex.put(:ysc_cache, setting_cache_key(name), setting.value)
+                    setting.value
+                end
+              else
+                # Some other error occurred
+                Logger.error("[Settings] Failed to create setting",
+                  name: name,
+                  errors: inspect(changeset.errors)
+                )
+
+                default_value
+              end
+          end
+        rescue
+          error ->
+            # Handle database-level constraint violations or other exceptions
+            # This might happen if the unique constraint is enforced at the DB level
+            # and Ecto doesn't wrap it in a changeset error
+            error_message = Exception.message(error)
+
+            if String.contains?(error_message, "unique") or
+                 String.contains?(error_message, "duplicate") do
+              # Likely a race condition, try fetching the existing setting
+              Logger.debug("[Settings] Database constraint violation, fetching existing setting",
+                name: name,
+                error: error_message
+              )
+
+              case Repo.get_by(SiteSetting, name: name) do
+                nil ->
+                  # Still not found, return default
+                  Logger.warning("[Settings] Setting not found after constraint violation",
+                    name: name
+                  )
+
+                  default_value
+
+                setting ->
+                  # Found it, cache and return
+                  Cachex.put(:ysc_cache, setting_cache_key(name), setting.value)
+                  setting.value
+              end
+            else
+              # Some other exception occurred
+              Logger.error("[Settings] Exception while creating setting",
+                name: name,
+                error: error_message,
+                stacktrace: Exception.format_stacktrace(__STACKTRACE__)
+              )
+
+              default_value
+            end
         end
 
       setting ->

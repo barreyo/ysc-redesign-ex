@@ -177,6 +177,9 @@ defmodule YscWeb.Router do
 
       # Money
       live "/money", AdminMoneyLive, :index
+      live "/money/payments/:id", AdminMoneyLive, :view_payment
+      live "/money/payments/:id/refund", AdminMoneyLive, :refund_payment
+      live "/money/payouts/:id", AdminMoneyLive, :view_payout
 
       # Events
       live "/events", AdminEventsLive, :index

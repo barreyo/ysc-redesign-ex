@@ -52,6 +52,10 @@ defmodule YscWeb.AdminMoneyLive do
      |> assign(:credit_form, to_form(%{}, as: :credit))
      |> assign(:entry_form, to_form(%{}, as: :entry))
      |> assign(:show_entry_modal, false)
+     |> assign(:show_payment_modal, false)
+     |> assign(:payment_refunds, [])
+     |> assign(:payment_ledger_entries, [])
+     |> assign(:payment_related_entity, nil)
      |> assign(:ledger_accounts, Ledgers.list_accounts())
      |> assign(:sections_collapsed, %{
        accounts: false,
@@ -63,50 +67,186 @@ defmodule YscWeb.AdminMoneyLive do
   end
 
   @impl true
-  def handle_event("show_refund_modal", %{"payment_id" => payment_id}, socket) do
+  def handle_params(params, _uri, socket) do
+    # Preserve date range from params if provided
+    socket =
+      cond do
+        params["start_date"] && params["end_date"] ->
+          try do
+            start_date = parse_date_to_datetime(params["start_date"], ~T[00:00:00])
+            end_date = parse_date_to_datetime(params["end_date"], ~T[23:59:59])
+
+            socket
+            |> assign(:start_date, start_date)
+            |> assign(:end_date, end_date)
+          rescue
+            _ -> socket
+          end
+
+        true ->
+          socket
+      end
+
+    # Ensure live_action is set
+    socket = assign(socket, :live_action, socket.assigns.live_action || :index)
+
+    {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+  end
+
+  defp apply_action(socket, :index, _params) do
+    socket
+    |> assign(:page_title, "Money")
+    |> assign(:show_refund_modal, false)
+    |> assign(:show_payment_modal, false)
+    |> assign(:show_payout_modal, false)
+    |> assign(:selected_payment, nil)
+    |> assign(:selected_payout, nil)
+    |> assign(:payment_refunds, [])
+    |> assign(:payment_ledger_entries, [])
+    |> assign(:payment_related_entity, nil)
+  end
+
+  defp apply_action(socket, :view_payment, %{"id" => payment_id}) do
     payment = Ledgers.get_payment_with_associations(payment_id)
 
-    # Check if this payment is for a ticket order
-    ticket_order =
-      from(e in Ysc.Ledgers.LedgerEntry,
-        where: e.payment_id == ^payment_id,
-        where: e.related_entity_type == :event,
-        limit: 1
-      )
-      |> Repo.one()
-      |> case do
-        nil ->
-          nil
+    if payment do
+      # Add payment type info
+      payment = Ledgers.add_payment_type_info(payment)
 
-        _entry ->
-          Tickets.get_ticket_order_by_payment_id(payment_id)
+      # Get refunds for this payment
+      refunds =
+        from(r in Ysc.Ledgers.Refund,
+          where: r.payment_id == ^payment_id,
+          preload: [:user],
+          order_by: [desc: r.inserted_at]
+        )
+        |> Repo.all()
+
+      # Get ledger entries for this payment
+      ledger_entries =
+        from(e in Ysc.Ledgers.LedgerEntry,
+          where: e.payment_id == ^payment_id,
+          preload: [:account],
+          order_by: [desc: e.inserted_at]
+        )
+        |> Repo.all()
+
+      # Get related entity (booking or ticket order)
+      related_entity = Ledgers.get_payment_related_entity(payment)
+
+      socket
+      |> assign(:page_title, "Payment Details")
+      |> assign(:show_payment_modal, true)
+      |> assign(:selected_payment, payment)
+      |> assign(:payment_refunds, refunds)
+      |> assign(:payment_ledger_entries, ledger_entries)
+      |> assign(:payment_related_entity, related_entity)
+    else
+      socket
+      |> put_flash(:error, "Payment not found")
+      |> push_navigate(to: build_money_path(socket))
+    end
+  end
+
+  defp apply_action(socket, :refund_payment, %{"id" => payment_id}) do
+    payment = Ledgers.get_payment_with_associations(payment_id)
+
+    if payment do
+      # Check if this payment is for a ticket order
+      ticket_order =
+        from(e in Ysc.Ledgers.LedgerEntry,
+          where: e.payment_id == ^payment_id,
+          where: e.related_entity_type == :event,
+          limit: 1
+        )
+        |> Repo.one()
+        |> case do
+          nil -> nil
+          _entry -> Tickets.get_ticket_order_by_payment_id(payment_id)
+        end
+
+      # Initialize refund form with ticket selection fields
+      refund_form =
+        if ticket_order do
+          {%{},
+           %{
+             amount: :string,
+             reason: :string,
+             release_availability: :boolean,
+             ticket_ids: {:array, :string}
+           }}
+          |> Ecto.Changeset.cast(%{}, [:amount, :reason, :release_availability, :ticket_ids])
+          |> to_form(as: :refund)
+        else
+          {%{}, %{amount: :string, reason: :string, release_availability: :boolean}}
+          |> Ecto.Changeset.cast(%{}, [:amount, :reason, :release_availability])
+          |> to_form(as: :refund)
+        end
+
+      socket
+      |> assign(:page_title, "Refund Payment")
+      |> assign(:show_refund_modal, true)
+      |> assign(:selected_payment, payment)
+      |> assign(:ticket_order, ticket_order)
+      |> assign(:refund_form, refund_form)
+    else
+      socket
+      |> put_flash(:error, "Payment not found")
+      |> push_navigate(to: build_money_path(socket))
+    end
+  end
+
+  defp apply_action(socket, :view_payout, %{"id" => payout_id}) do
+    # Find payout by ID (the ID in the URL is the payout ID, not payment ID)
+    payout =
+      try do
+        Ledgers.get_payout!(payout_id)
+      rescue
+        Ecto.NoResultsError -> nil
       end
 
-    # Initialize refund form with ticket selection fields
-    refund_form =
-      if ticket_order do
-        # For ticket orders, include ticket_ids field
-        {%{},
-         %{
-           amount: :string,
-           reason: :string,
-           release_availability: :boolean,
-           ticket_ids: {:array, :string}
-         }}
-        |> Ecto.Changeset.cast(%{}, [:amount, :reason, :release_availability, :ticket_ids])
-        |> to_form(as: :refund)
+    if payout do
+      socket
+      |> assign(:page_title, "Payout Details")
+      |> assign(:show_payout_modal, true)
+      |> assign(:selected_payout, payout)
+    else
+      socket
+      |> put_flash(:error, "Payout not found")
+      |> push_navigate(to: build_money_path(socket))
+    end
+  end
+
+  defp apply_action(socket, _action, _params) do
+    socket
+  end
+
+  # Helper to build money path with date range preserved
+  defp build_money_path(socket, sub_path \\ "") do
+    base_path = ~p"/admin/money"
+    full_path = if sub_path != "", do: "#{base_path}#{sub_path}", else: base_path
+
+    query_params =
+      if socket.assigns[:start_date] && socket.assigns[:end_date] do
+        %{
+          "start_date" => Calendar.strftime(socket.assigns.start_date, "%Y-%m-%d"),
+          "end_date" => Calendar.strftime(socket.assigns.end_date, "%Y-%m-%d")
+        }
       else
-        {%{}, %{amount: :string, reason: :string, release_availability: :boolean}}
-        |> Ecto.Changeset.cast(%{}, [:amount, :reason, :release_availability])
-        |> to_form(as: :refund)
+        %{}
       end
 
-    {:noreply,
-     socket
-     |> assign(:show_refund_modal, true)
-     |> assign(:selected_payment, payment)
-     |> assign(:ticket_order, ticket_order)
-     |> assign(:refund_form, refund_form)}
+    if map_size(query_params) > 0 do
+      "#{full_path}?#{URI.encode_query(query_params)}"
+    else
+      full_path
+    end
+  end
+
+  @impl true
+  def handle_event("show_refund_modal", %{"payment_id" => payment_id}, socket) do
+    path = build_money_path(socket, "/payments/#{payment_id}/refund")
+    {:noreply, push_navigate(socket, to: path)}
   end
 
   @impl true
@@ -122,11 +262,7 @@ defmodule YscWeb.AdminMoneyLive do
 
   @impl true
   def handle_event("close_refund_modal", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_refund_modal, false)
-     |> assign(:selected_payment, nil)
-     |> assign(:ticket_order, nil)}
+    {:noreply, push_navigate(socket, to: build_money_path(socket))}
   end
 
   @impl true
@@ -165,24 +301,10 @@ defmodule YscWeb.AdminMoneyLive do
         limit: 1
       )
       |> Repo.one()
-      |> case do
-        nil ->
-          nil
-
-        payout ->
-          try do
-            Ledgers.get_payout!(payout.id)
-          rescue
-            Ecto.NoResultsError ->
-              nil
-          end
-      end
 
     if payout do
-      {:noreply,
-       socket
-       |> assign(:show_payout_modal, true)
-       |> assign(:selected_payout, payout)}
+      path = build_money_path(socket, "/payouts/#{payout.id}")
+      {:noreply, push_navigate(socket, to: path)}
     else
       {:noreply,
        socket
@@ -192,10 +314,7 @@ defmodule YscWeb.AdminMoneyLive do
 
   @impl true
   def handle_event("close_payout_modal", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_payout_modal, false)
-     |> assign(:selected_payout, nil)}
+    {:noreply, push_navigate(socket, to: build_money_path(socket))}
   end
 
   @impl true
@@ -225,6 +344,17 @@ defmodule YscWeb.AdminMoneyLive do
      |> assign(:show_entry_modal, false)
      |> assign(:selected_entry, nil)
      |> assign(:entry_form, to_form(%{}, as: :entry))}
+  end
+
+  @impl true
+  def handle_event("show_payment_modal", %{"payment_id" => payment_id}, socket) do
+    path = build_money_path(socket, "/payments/#{payment_id}")
+    {:noreply, push_navigate(socket, to: path)}
+  end
+
+  @impl true
+  def handle_event("close_payment_modal", _params, socket) do
+    {:noreply, push_navigate(socket, to: build_money_path(socket))}
   end
 
   @impl true
@@ -328,19 +458,20 @@ defmodule YscWeb.AdminMoneyLive do
                   limit: 100
                 )
 
+              # Navigate to payment details view to show the refund
+              payment_path = build_money_path(socket, "/payments/#{payment.id}")
+
               {:noreply,
                socket
                |> put_flash(
                  :info,
                  "Refunded #{length(ticket_ids)} ticket(s) successfully. Amount: #{Money.to_string!(calculated_refund_amount)}"
                )
-               |> assign(:show_refund_modal, false)
-               |> assign(:selected_payment, nil)
-               |> assign(:ticket_order, nil)
                |> assign(:accounts_with_balances, accounts_with_balances)
                |> assign(:recent_payments, recent_payments)
                |> assign(:ledger_entries, ledger_entries)
-               |> assign(:webhook_events, webhook_events)}
+               |> assign(:webhook_events, webhook_events)
+               |> push_navigate(to: payment_path)}
 
             {:error, _changeset} ->
               {:noreply,
@@ -416,16 +547,17 @@ defmodule YscWeb.AdminMoneyLive do
                     "Refund processed successfully"
                 end
 
+              # Navigate to payment details view to show the refund
+              payment_path = build_money_path(socket, "/payments/#{payment.id}")
+
               {:noreply,
                socket
                |> put_flash(:info, flash_message)
-               |> assign(:show_refund_modal, false)
-               |> assign(:selected_payment, nil)
-               |> assign(:ticket_order, nil)
                |> assign(:accounts_with_balances, accounts_with_balances)
                |> assign(:recent_payments, recent_payments)
                |> assign(:ledger_entries, ledger_entries)
-               |> assign(:webhook_events, webhook_events)}
+               |> assign(:webhook_events, webhook_events)
+               |> push_navigate(to: payment_path)}
 
             {:error, _changeset} ->
               {:noreply,
@@ -809,23 +941,32 @@ defmodule YscWeb.AdminMoneyLive do
                   <%= Calendar.strftime(payment.payment_date, "%Y-%m-%d %H:%M") %>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <.button
-                    :if={payment.payment_type_info.type != "Payout"}
-                    phx-click="show_refund_modal"
-                    phx-value-payment_id={payment.id}
-                    class="bg-red-600 hover:bg-red-700"
-                    disabled={payment.status == :refunded}
-                  >
-                    Refund
-                  </.button>
-                  <.button
-                    :if={payment.payment_type_info.type == "Payout"}
-                    phx-click="show_payout_modal"
-                    phx-value-payment_id={payment.id}
-                    class="bg-blue-600 hover:bg-blue-700"
-                  >
-                    View Details
-                  </.button>
+                  <div class="flex gap-2">
+                    <.button
+                      phx-click="show_payment_modal"
+                      phx-value-payment_id={payment.id}
+                      class="bg-blue-600 hover:bg-blue-700"
+                    >
+                      View
+                    </.button>
+                    <.button
+                      :if={payment.payment_type_info.type != "Payout"}
+                      phx-click="show_refund_modal"
+                      phx-value-payment_id={payment.id}
+                      class="bg-red-600 hover:bg-red-700"
+                      disabled={payment.status == :refunded}
+                    >
+                      Refund
+                    </.button>
+                    <.button
+                      :if={payment.payment_type_info.type == "Payout"}
+                      phx-click="show_payout_modal"
+                      phx-value-payment_id={payment.id}
+                      class="bg-green-600 hover:bg-green-700"
+                    >
+                      Payout Details
+                    </.button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -1023,7 +1164,7 @@ defmodule YscWeb.AdminMoneyLive do
         </div>
       </div>
       <!-- Refund Modal -->
-      <.modal :if={@show_refund_modal} id="refund-modal" show>
+      <.modal :if={@live_action == :refund_payment} id="refund-modal" show>
         <h3 class="text-lg font-medium text-zinc-900 mb-4">Process Refund</h3>
 
         <div class="mb-4">
@@ -1306,7 +1447,7 @@ defmodule YscWeb.AdminMoneyLive do
         </div>
       </.modal>
       <!-- Payout Details Modal -->
-      <.modal :if={@show_payout_modal && @selected_payout} id="payout-modal" show>
+      <.modal :if={@live_action == :view_payout && @selected_payout} id="payout-modal" show>
         <h3 class="text-lg font-medium text-zinc-900 mb-4">Payout Details</h3>
 
         <div class="mb-6 space-y-3">
@@ -1538,6 +1679,247 @@ defmodule YscWeb.AdminMoneyLive do
 
         <div class="flex justify-end gap-2">
           <.button type="button" phx-click="close_payout_modal" class="bg-zinc-500 hover:bg-zinc-600">
+            Close
+          </.button>
+        </div>
+      </.modal>
+      <!-- Payment Details Modal -->
+      <.modal :if={@live_action == :view_payment && @selected_payment} id="payment-modal" show>
+        <h3 class="text-lg font-medium text-zinc-900 mb-4">Payment Details</h3>
+
+        <div class="mb-6 space-y-4">
+          <!-- Payment Information -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm font-medium text-zinc-700">Reference ID</p>
+              <p class="text-sm text-zinc-900 font-mono">
+                <%= @selected_payment.reference_id %>
+              </p>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-zinc-700">Status</p>
+              <span class={"px-2 inline-flex text-xs leading-5 font-semibold rounded-full #{if @selected_payment.status == :completed, do: "bg-green-100 text-green-800", else: "bg-yellow-100 text-yellow-800"}"}>
+                <%= String.capitalize(to_string(@selected_payment.status || "unknown")) %>
+              </span>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-zinc-700">Amount</p>
+              <p class="text-sm text-zinc-900 font-semibold">
+                <%= Money.to_string!(@selected_payment.amount) %>
+              </p>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-zinc-700">Payment Date</p>
+              <p class="text-sm text-zinc-900">
+                <%= Calendar.strftime(@selected_payment.payment_date, "%Y-%m-%d %H:%M") %>
+              </p>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-zinc-700">User</p>
+              <p class="text-sm text-zinc-900">
+                <%= if @selected_payment.user do %>
+                  <div class="flex flex-col">
+                    <span class="font-medium">
+                      <%= get_user_display_name(@selected_payment.user) %>
+                    </span>
+                    <span class="text-xs text-zinc-500">
+                      <%= @selected_payment.user.email %>
+                    </span>
+                  </div>
+                <% else %>
+                  <span class="text-zinc-400">System</span>
+                <% end %>
+              </p>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-zinc-700">Payment Type</p>
+              <p class="text-sm text-zinc-900">
+                <%= if @selected_payment.payment_type_info do %>
+                  <span class={"font-medium #{get_payment_type_color(@selected_payment.payment_type_info.type)}"}>
+                    <%= @selected_payment.payment_type_info.type %>
+                  </span>
+                  <%= if @selected_payment.payment_type_info.details do %>
+                    <span class="text-xs text-zinc-500 block mt-1">
+                      <%= @selected_payment.payment_type_info.details %>
+                    </span>
+                  <% end %>
+                <% else %>
+                  <span class="text-zinc-400">Unknown</span>
+                <% end %>
+              </p>
+            </div>
+            <div :if={@selected_payment.external_payment_id}>
+              <p class="text-sm font-medium text-zinc-700">Stripe Payment ID</p>
+              <p class="text-sm text-zinc-900 font-mono text-xs">
+                <%= String.slice(@selected_payment.external_payment_id, 0..20) %>...
+              </p>
+            </div>
+            <div :if={@selected_payment.quickbooks_sales_receipt_id}>
+              <p class="text-sm font-medium text-zinc-700">QuickBooks Receipt ID</p>
+              <p class="text-sm text-green-600 font-mono text-xs">
+                <%= @selected_payment.quickbooks_sales_receipt_id %>
+              </p>
+            </div>
+          </div>
+          <!-- Related Entity -->
+          <div
+            :if={@payment_related_entity}
+            class="mt-4 p-4 bg-blue-50 rounded border border-blue-200"
+          >
+            <h4 class="text-sm font-semibold text-zinc-800 mb-2">Related Entity</h4>
+            <%= case @payment_related_entity do %>
+              <% {:booking, booking} -> %>
+                <div class="text-sm text-zinc-700">
+                  <p><strong>Type:</strong> Booking</p>
+                  <p><strong>Reference:</strong> <%= booking.reference_id || booking.id %></p>
+                  <p>
+                    <strong>Check-in:</strong> <%= Calendar.strftime(booking.checkin_date, "%Y-%m-%d") %>
+                  </p>
+                  <p>
+                    <strong>Check-out:</strong> <%= Calendar.strftime(
+                      booking.checkout_date,
+                      "%Y-%m-%d"
+                    ) %>
+                  </p>
+                  <p><strong>Status:</strong> <%= String.capitalize(to_string(booking.status)) %></p>
+                </div>
+              <% {:ticket_order, ticket_order} -> %>
+                <div class="text-sm text-zinc-700">
+                  <p><strong>Type:</strong> Ticket Order</p>
+                  <p>
+                    <strong>Reference:</strong> <%= ticket_order.reference_id || ticket_order.id %>
+                  </p>
+                  <%= if ticket_order.event do %>
+                    <p><strong>Event:</strong> <%= ticket_order.event.name %></p>
+                  <% end %>
+                  <p><strong>Tickets:</strong> <%= length(ticket_order.tickets || []) %></p>
+                  <p>
+                    <strong>Status:</strong> <%= String.capitalize(to_string(ticket_order.status)) %>
+                  </p>
+                </div>
+            <% end %>
+          </div>
+          <!-- Refunds Section -->
+          <div class="mt-4">
+            <h4 class="text-md font-semibold text-zinc-800 mb-3">
+              Refunds (<%= length(@payment_refunds || []) %>)
+            </h4>
+            <div :if={length(@payment_refunds || []) > 0} class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-zinc-200 text-sm">
+                <thead class="bg-zinc-50">
+                  <tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 uppercase">
+                      Reference
+                    </th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 uppercase">
+                      Amount
+                    </th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 uppercase">
+                      Reason
+                    </th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 uppercase">
+                      Status
+                    </th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 uppercase">
+                      Date
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-zinc-200">
+                  <tr :for={refund <- @payment_refunds}>
+                    <td class="px-4 py-2 whitespace-nowrap font-mono text-xs">
+                      <%= refund.reference_id %>
+                    </td>
+                    <td class="px-4 py-2 whitespace-nowrap font-medium text-red-600">
+                      <%= Money.to_string!(refund.amount) %>
+                    </td>
+                    <td class="px-4 py-2 text-xs text-zinc-600 max-w-xs">
+                      <div class="truncate" title={refund.reason}>
+                        <%= refund.reason || "N/A" %>
+                      </div>
+                    </td>
+                    <td class="px-4 py-2 whitespace-nowrap">
+                      <span class={"px-2 inline-flex text-xs leading-5 font-semibold rounded-full #{if refund.status == :completed, do: "bg-green-100 text-green-800", else: "bg-yellow-100 text-yellow-800"}"}>
+                        <%= String.capitalize(to_string(refund.status || "unknown")) %>
+                      </span>
+                    </td>
+                    <td class="px-4 py-2 whitespace-nowrap text-xs">
+                      <%= Calendar.strftime(refund.inserted_at, "%Y-%m-%d %H:%M") %>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p :if={length(@payment_refunds || []) == 0} class="text-sm text-zinc-500 italic">
+              No refunds for this payment.
+            </p>
+          </div>
+          <!-- Ledger Entries Section -->
+          <div class="mt-4">
+            <h4 class="text-md font-semibold text-zinc-800 mb-3">
+              Ledger Entries (<%= length(@payment_ledger_entries || []) %>)
+            </h4>
+            <div :if={length(@payment_ledger_entries || []) > 0} class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-zinc-200 text-sm">
+                <thead class="bg-zinc-50">
+                  <tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 uppercase">
+                      Account
+                    </th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 uppercase">
+                      Description
+                    </th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 uppercase">
+                      Debit/Credit
+                    </th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 uppercase">
+                      Amount
+                    </th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 uppercase">
+                      Date
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-zinc-200">
+                  <tr :for={entry <- @payment_ledger_entries}>
+                    <td class="px-4 py-2 whitespace-nowrap">
+                      <div class="flex flex-col">
+                        <span class="text-xs font-medium text-zinc-900">
+                          <%= entry.account.name %>
+                        </span>
+                        <span class="text-xs text-zinc-500">
+                          <%= String.capitalize(to_string(entry.account.account_type)) %>
+                        </span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-2 text-xs text-zinc-600 max-w-xs">
+                      <div class="truncate" title={entry.description}>
+                        <%= entry.description %>
+                      </div>
+                    </td>
+                    <td class="px-4 py-2 whitespace-nowrap">
+                      <span class={"px-2 inline-flex text-xs leading-5 font-semibold rounded-full #{get_debit_credit_badge_color(entry.debit_credit)}"}>
+                        <%= String.capitalize(to_string(entry.debit_credit)) %>
+                      </span>
+                    </td>
+                    <td class={"px-4 py-2 whitespace-nowrap text-xs font-medium #{get_debit_credit_amount_color(entry.debit_credit)}"}>
+                      <%= Money.to_string!(entry.amount) %>
+                    </td>
+                    <td class="px-4 py-2 whitespace-nowrap text-xs">
+                      <%= Calendar.strftime(entry.inserted_at, "%Y-%m-%d %H:%M") %>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p :if={length(@payment_ledger_entries || []) == 0} class="text-sm text-zinc-500 italic">
+              No ledger entries for this payment.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2">
+          <.button type="button" phx-click="close_payment_modal" class="bg-zinc-500 hover:bg-zinc-600">
             Close
           </.button>
         </div>
