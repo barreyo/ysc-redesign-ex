@@ -114,10 +114,18 @@ defmodule YscWeb.AdminSettingsLive do
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
-                    <%= if job.completed_at do
-                      Calendar.strftime(job.completed_at, "%Y-%m-%d %H:%M:%S")
-                    else
-                      "N/A"
+                    <%= cond do
+                      job.completed_at ->
+                        Calendar.strftime(job.completed_at, "%Y-%m-%d %H:%M:%S")
+
+                      job.scheduled_at ->
+                        "Scheduled: #{Calendar.strftime(job.scheduled_at, "%Y-%m-%d %H:%M:%S")}"
+
+                      job.inserted_at ->
+                        Calendar.strftime(job.inserted_at, "%Y-%m-%d %H:%M:%S")
+
+                      true ->
+                        "N/A"
                     end %>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
@@ -135,7 +143,7 @@ defmodule YscWeb.AdminSettingsLive do
                 </tr>
                 <tr :if={Enum.empty?(@recent_jobs)}>
                   <td colspan="7" class="px-6 py-4 text-center text-sm text-zinc-500">
-                    No completed jobs found.
+                    No jobs found.
                   </td>
                 </tr>
               </tbody>
@@ -194,9 +202,13 @@ defmodule YscWeb.AdminSettingsLive do
   defp list_recent_jobs(opts) do
     limit = Keyword.get(opts, :limit, 50)
 
+    # Show jobs from all states, ordered by most recent first
+    # Use completed_at for completed jobs, scheduled_at for scheduled jobs,
+    # and inserted_at as fallback for other states
     from(j in Job,
-      where: j.state == "completed",
-      order_by: [desc: j.completed_at],
+      order_by: [
+        desc: fragment("COALESCE(?, ?, ?)", j.completed_at, j.scheduled_at, j.inserted_at)
+      ],
       limit: ^limit
     )
     |> Repo.all()
