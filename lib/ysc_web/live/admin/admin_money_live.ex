@@ -1050,14 +1050,22 @@ defmodule YscWeb.AdminMoneyLive do
               <.button
                 phx-click="payments_prev-page"
                 disabled={@payments_page == 1}
-                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                class={
+                  if @payments_page == 1,
+                    do: "bg-zinc-300 text-zinc-500 cursor-not-allowed opacity-50",
+                    else: "bg-blue-600 hover:bg-blue-700"
+                }
               >
                 Previous
               </.button>
               <.button
                 phx-click="payments_next-page"
                 disabled={@payments_end?}
-                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                class={
+                  if @payments_end?,
+                    do: "bg-zinc-300 text-zinc-500 cursor-not-allowed opacity-50",
+                    else: "bg-blue-600 hover:bg-blue-700"
+                }
               >
                 Next
               </.button>
@@ -1191,14 +1199,22 @@ defmodule YscWeb.AdminMoneyLive do
               <.button
                 phx-click="ledger_entries_prev-page"
                 disabled={@ledger_entries_page == 1}
-                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                class={
+                  if @ledger_entries_page == 1,
+                    do: "bg-zinc-300 text-zinc-500 cursor-not-allowed opacity-50",
+                    else: "bg-blue-600 hover:bg-blue-700"
+                }
               >
                 Previous
               </.button>
               <.button
                 phx-click="ledger_entries_next-page"
                 disabled={@ledger_entries_end?}
-                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                class={
+                  if @ledger_entries_end?,
+                    do: "bg-zinc-300 text-zinc-500 cursor-not-allowed opacity-50",
+                    else: "bg-blue-600 hover:bg-blue-700"
+                }
               >
                 Next
               </.button>
@@ -1284,14 +1300,22 @@ defmodule YscWeb.AdminMoneyLive do
               <.button
                 phx-click="webhooks_prev-page"
                 disabled={@webhooks_page == 1}
-                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                class={
+                  if @webhooks_page == 1,
+                    do: "bg-zinc-300 text-zinc-500 cursor-not-allowed opacity-50",
+                    else: "bg-blue-600 hover:bg-blue-700"
+                }
               >
                 Previous
               </.button>
               <.button
                 phx-click="webhooks_next-page"
                 disabled={@webhooks_end?}
-                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                class={
+                  if @webhooks_end?,
+                    do: "bg-zinc-300 text-zinc-500 cursor-not-allowed opacity-50",
+                    else: "bg-blue-600 hover:bg-blue-700"
+                }
               >
                 Next
               </.button>
