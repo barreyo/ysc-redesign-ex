@@ -2,7 +2,7 @@ defmodule YscWeb.TahoeBookingLive do
   use YscWeb, :live_view
 
   alias Ysc.Bookings
-  alias Ysc.Bookings.{Season, Booking, PricingRule, Room, BookingLocker}
+  alias Ysc.Bookings.{Season, Booking, PricingRule, Room, BookingLocker, PropertyInventory}
   alias Ysc.Bookings.SeasonHelpers
   alias Ysc.Bookings.PricingHelpers
   alias Ysc.MoneyHelper
@@ -106,6 +106,10 @@ defmodule YscWeb.TahoeBookingLive do
     buyout_refund_policy = Bookings.get_active_refund_policy(:tahoe, :buyout)
     room_refund_policy = Bookings.get_active_refund_policy(:tahoe, :room)
 
+    # Generate date tooltips for unavailable dates
+    date_tooltips =
+      generate_date_tooltips(restricted_min_date, restricted_max_date, today, :tahoe, seasons)
+
     socket =
       assign(socket,
         page_title: "Tahoe Cabin",
@@ -144,6 +148,7 @@ defmodule YscWeb.TahoeBookingLive do
         active_bookings: active_bookings,
         buyout_refund_policy: buyout_refund_policy,
         room_refund_policy: room_refund_policy,
+        date_tooltips: date_tooltips,
         load_radar: true
       )
 
@@ -236,6 +241,10 @@ defmodule YscWeb.TahoeBookingLive do
       dates_restricted =
         dates_are_restricted?(restricted_min_date, restricted_max_date, today, max_booking_date)
 
+      # Generate date tooltips for unavailable dates
+      date_tooltips =
+        generate_date_tooltips(restricted_min_date, restricted_max_date, today, :tahoe, seasons)
+
       date_form =
         to_form(
           %{
@@ -275,7 +284,8 @@ defmodule YscWeb.TahoeBookingLive do
           can_book: can_book,
           booking_error_title: booking_error_title,
           booking_disabled_reason: booking_disabled_reason,
-          active_bookings: active_bookings
+          active_bookings: active_bookings,
+          date_tooltips: date_tooltips
         )
         |> then(fn s ->
           # Only run validation/room updates if dates changed, not just tab
@@ -341,6 +351,16 @@ defmodule YscWeb.TahoeBookingLive do
         max_booking_date
       )
 
+    # Generate date tooltips for unavailable dates
+    date_tooltips =
+      generate_date_tooltips(
+        restricted_min_date,
+        restricted_max_date,
+        socket.assigns.today,
+        :tahoe,
+        socket.assigns.seasons
+      )
+
     socket =
       socket
       |> assign(
@@ -356,7 +376,8 @@ defmodule YscWeb.TahoeBookingLive do
         price_error: nil,
         form_errors: %{},
         date_form: date_form,
-        date_validation_errors: %{}
+        date_validation_errors: %{},
+        date_tooltips: date_tooltips
       )
       |> enforce_season_booking_mode()
       |> validate_dates()
@@ -533,6 +554,9 @@ defmodule YscWeb.TahoeBookingLive do
                   min={@restricted_min_date}
                   max={@restricted_max_date}
                   disabled={!@can_book}
+                  date_tooltips={@date_tooltips}
+                  property={@property}
+                  today={@today}
                 />
               </div>
               <!-- Guests and Children Selection (Dropdown) -->
@@ -4278,6 +4302,157 @@ defmodule YscWeb.TahoeBookingLive do
       true ->
         # Next start is next year
         Date.new!(reference_date.year + 1, start_month, start_day)
+    end
+  end
+
+  # Generate tooltips for unavailable dates
+  # Returns a map of date strings (ISO format) to tooltip messages
+  defp generate_date_tooltips(min_date, max_date, today, property, _seasons) do
+    # Generate tooltips for a reasonable date range (3 months before min to 3 months after max)
+    start_range = Date.add(min_date, -90)
+    end_range = Date.add(max_date, 90)
+    date_range = Date.range(start_range, end_range) |> Enum.to_list()
+
+    # Get all rooms for the property
+    all_rooms = Bookings.list_rooms(property) |> Enum.filter(& &1.is_active)
+
+    # Get all bookings in the range (preload rooms for availability checking)
+    bookings = Bookings.list_bookings(property, start_range, end_range, preload: [:rooms])
+
+    # Get all blackouts in the range
+    blackouts = Bookings.get_overlapping_blackouts(property, start_range, end_range)
+
+    blackout_dates =
+      blackouts
+      |> Enum.flat_map(fn blackout ->
+        Date.range(blackout.start_date, blackout.end_date) |> Enum.to_list()
+      end)
+      |> MapSet.new()
+
+    # Get buyout dates from property inventory
+    buyout_dates =
+      from(pi in PropertyInventory,
+        where: pi.property == ^property,
+        where: pi.day >= ^start_range and pi.day <= ^end_range,
+        where: pi.buyout_held == true or pi.buyout_booked == true,
+        select: pi.day
+      )
+      |> Repo.all()
+      |> MapSet.new()
+
+    # Build tooltip map
+    date_range
+    |> Enum.reduce(%{}, fn date, acc ->
+      tooltip =
+        get_date_unavailability_reason(
+          date,
+          min_date,
+          max_date,
+          today,
+          property,
+          all_rooms,
+          bookings,
+          blackout_dates,
+          buyout_dates
+        )
+
+      if tooltip do
+        Map.put(acc, Date.to_iso8601(date), tooltip)
+      else
+        acc
+      end
+    end)
+  end
+
+  # Get the reason why a date is unavailable (returns nil if available)
+  defp get_date_unavailability_reason(
+         date,
+         min_date,
+         max_date,
+         today,
+         property,
+         all_rooms,
+         bookings,
+         blackout_dates,
+         buyout_dates
+       ) do
+    cond do
+      # Past dates
+      Date.compare(date, min_date) == :lt ->
+        "Past dates cannot be booked"
+
+      # Too far in future
+      Date.compare(date, max_date) == :gt ->
+        "Reservations are not open for this date yet"
+
+      # Season restrictions (check if date is selectable based on season rules)
+      not SeasonHelpers.is_date_selectable?(property, date, today) ->
+        "Bookings for this season are not yet open"
+
+      # Saturday check-in (Tahoe rule)
+      Date.day_of_week(date) == 6 && property == :tahoe ->
+        "Check-ins are not permitted on Saturdays"
+
+      # Blackout
+      MapSet.member?(blackout_dates, date) ->
+        "This date is unavailable"
+
+      # Buyout
+      MapSet.member?(buyout_dates, date) ->
+        "Full cabin buyout is already reserved on this date"
+
+      # Check if all rooms are booked (for room booking mode)
+      true ->
+        # Check if all active rooms are booked for this date
+        # We need to check if there's at least one room available for a single night stay
+        date_available = check_date_availability_for_rooms(date, all_rooms, bookings)
+
+        if not date_available do
+          "All rooms are booked"
+        else
+          nil
+        end
+    end
+  end
+
+  # Check if at least one room is available for a specific date (as check-in date)
+  defp check_date_availability_for_rooms(checkin_date, all_rooms, bookings) do
+    if Enum.empty?(all_rooms) do
+      false
+    else
+      # For tooltip purposes, we check if a single night stay is possible
+      # (checkin_date to checkin_date + 1 day)
+      checkout_date = Date.add(checkin_date, 1)
+
+      # Filter bookings that overlap with this date range
+      overlapping_bookings =
+        Enum.filter(bookings, fn booking ->
+          booking.status in [:hold, :complete] &&
+            Bookings.bookings_overlap?(
+              checkin_date,
+              checkout_date,
+              booking.checkin_date,
+              booking.checkout_date
+            )
+        end)
+
+      # Get room IDs that are booked
+      booked_room_ids =
+        overlapping_bookings
+        |> Enum.flat_map(fn booking ->
+          if Ecto.assoc_loaded?(booking.rooms) do
+            Enum.map(booking.rooms, & &1.id)
+          else
+            []
+          end
+        end)
+        |> MapSet.new()
+
+      # Check if there's at least one room not booked
+      available_rooms =
+        Enum.filter(all_rooms, fn room -> not MapSet.member?(booked_room_ids, room.id) end)
+
+      length(available_rooms) > 0
     end
   end
 end

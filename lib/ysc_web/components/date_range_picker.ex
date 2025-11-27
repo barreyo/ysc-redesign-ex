@@ -90,38 +90,64 @@ defmodule YscWeb.Components.DateRangePicker do
 
           <div
             id={"calendar_days_#{String.replace(@current.month, " ", "-")}"}
-            class="isolate mt-2 grid grid-cols-7 gap-px text-sm"
+            class="isolate mt-2 grid grid-cols-7 gap-px text-sm overflow-visible relative"
             phx-hook="DaterangeHover"
             phx-target={@myself}
             data-component-id={@id}
           >
-            <button
+            <div
               :for={day <- Enum.flat_map(@current.week_rows, & &1)}
-              type="button"
-              phx-target={@myself}
-              phx-click="pick-date"
-              phx-value-date={Calendar.strftime(day, "%Y-%m-%d") <> "T00:00:00Z"}
-              disabled={date_disabled?(day, @min, @range_start, @state, @max, @property, @today)}
               class={[
-                "calendar-day overflow-hidden py-1.5 h-10 rounded w-auto focus:z-10 w-full transition duration-300",
-                today?(day) && "font-bold border border-zinc-400 rounded",
-                date_disabled?(day, @min, @range_start, @state, @max, @property, @today) &&
-                  "text-zinc-300 cursor-not-allowed opacity-50",
-                !date_disabled?(day, @min, @range_start, @state, @max, @property, @today) &&
-                  !before_min_date?(day, @min) &&
-                  "hover:bg-blue-300 hover:border hover:border-blue-500",
-                other_month?(day, @current.date) && "text-zinc-500",
-                selected_range?(day, @range_start, @hover_range_end || @range_end) &&
-                  "hover:bg-blue-500 bg-blue-500 text-zinc-100"
+                "relative overflow-visible",
+                if(
+                  date_disabled?(day, @min, @range_start, @state, @max, @property, @today) &&
+                    get_date_tooltip(day, @date_tooltips),
+                  do: "group",
+                  else: ""
+                )
               ]}
             >
-              <time
-                class="mx-auto flex h-6 w-6 items-center justify-center rounded-full"
-                datetime={Calendar.strftime(day, "%Y-%m-%d")}
+              <button
+                type="button"
+                phx-target={@myself}
+                phx-click="pick-date"
+                phx-value-date={Calendar.strftime(day, "%Y-%m-%d") <> "T00:00:00Z"}
+                disabled={date_disabled?(day, @min, @range_start, @state, @max, @property, @today)}
+                class={[
+                  "calendar-day overflow-hidden py-1.5 h-10 rounded w-auto focus:z-10 w-full transition duration-300",
+                  today?(day) && "font-bold border border-zinc-400 rounded",
+                  date_disabled?(day, @min, @range_start, @state, @max, @property, @today) &&
+                    "text-zinc-300 cursor-not-allowed opacity-50",
+                  !date_disabled?(day, @min, @range_start, @state, @max, @property, @today) &&
+                    !before_min_date?(day, @min) &&
+                    "hover:bg-blue-300 hover:border hover:border-blue-500",
+                  other_month?(day, @current.date) && "text-zinc-500",
+                  selected_range?(day, @range_start, @hover_range_end || @range_end) &&
+                    "hover:bg-blue-500 bg-blue-500 text-zinc-100"
+                ]}
               >
-                <%= Calendar.strftime(day, "%d") %>
-              </time>
-            </button>
+                <time
+                  class="mx-auto flex h-6 w-6 items-center justify-center rounded-full"
+                  datetime={Calendar.strftime(day, "%Y-%m-%d")}
+                >
+                  <%= Calendar.strftime(day, "%d") %>
+                </time>
+              </button>
+              <span
+                :if={
+                  date_disabled?(day, @min, @range_start, @state, @max, @property, @today) &&
+                    get_date_tooltip(day, @date_tooltips)
+                }
+                role="tooltip"
+                class={[
+                  "absolute transition-opacity mt-2 top-full left-1/2 transform -translate-x-1/2 duration-200 opacity-0 z-[100] text-xs font-medium text-zinc-100 bg-zinc-900 rounded-lg shadow-lg px-4 py-2 block rounded tooltip group-hover:opacity-100 whitespace-normal pointer-events-none",
+                  "max-w-[400px]",
+                  "text-left"
+                ]}
+              >
+                <%= get_date_tooltip(day, @date_tooltips) %>
+              </span>
+            </div>
           </div>
 
           <div class="flex w-full justify-end items-center mt-4 space-x-2">
@@ -188,6 +214,7 @@ defmodule YscWeb.Components.DateRangePicker do
       |> assign(:max, assigns[:max])
       |> assign(:property, assigns[:property])
       |> assign(:today, assigns[:today] || Date.utc_today())
+      |> assign(:date_tooltips, assigns[:date_tooltips] || %{})
       # Only reset state if we don't have a range yet, otherwise preserve it
       |> assign(
         :state,
@@ -738,4 +765,16 @@ defmodule YscWeb.Components.DateRangePicker do
   defp extract_date(%DateTime{} = datetime), do: DateTime.to_date(datetime)
   defp extract_date(%NaiveDateTime{} = datetime), do: NaiveDateTime.to_date(datetime)
   defp extract_date(%{calendar: Calendar.ISO} = datetime), do: datetime
+
+  # Get tooltip text for a date, or nil if no tooltip
+  defp get_date_tooltip(_day, nil), do: nil
+  defp get_date_tooltip(_day, %{} = tooltips) when map_size(tooltips) == 0, do: nil
+
+  defp get_date_tooltip(day, tooltips) when is_map(tooltips) do
+    # Try to find tooltip by date string key (ISO format)
+    date_str = Date.to_iso8601(day)
+    Map.get(tooltips, date_str) || Map.get(tooltips, day)
+  end
+
+  defp get_date_tooltip(_day, _tooltips), do: nil
 end

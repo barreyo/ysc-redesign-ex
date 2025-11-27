@@ -737,6 +737,9 @@ defmodule YscWeb.CoreComponents do
   attr(:max, :any, default: nil, doc: "the latest date that can be set")
   attr(:errors, :list, default: [])
   attr(:form, :any)
+  attr(:date_tooltips, :map, default: %{})
+  attr(:property, :atom, default: nil)
+  attr(:today, :any, default: nil)
 
   def date_range_picker(assigns) do
     ~H"""
@@ -753,6 +756,9 @@ defmodule YscWeb.CoreComponents do
       is_range?
       min={@min}
       max={@max}
+      date_tooltips={@date_tooltips}
+      property={@property}
+      today={@today}
     />
     <div phx-feedback-for={@start_date_field.name}>
       <.error :for={msg <- @start_date_field.errors}><%= format_form_error(msg) %></.error>

@@ -511,6 +511,72 @@ defmodule Ysc.Quickbooks do
               {:error, :invalid_customer_response}
             end
 
+          {:error, error} when is_binary(error) ->
+            # Check if it's a duplicate name error
+            if String.contains?(error, "Duplicate Name Exists Error") or
+                 String.contains?(error, "6240") do
+              # Append a few characters from user.id to make the name unique
+              user_id = to_string(user.id)
+
+              user_id_suffix =
+                if String.length(user_id) >= 6 do
+                  start_pos = max(0, String.length(user_id) - 6)
+                  String.slice(user_id, start_pos, 6)
+                else
+                  user_id
+                end
+
+              modified_display_name = "#{display_name} (#{user_id_suffix})"
+
+              require Logger
+
+              Logger.info(
+                "[QB] Duplicate name detected, retrying with modified display name",
+                user_id: user.id,
+                original_display_name: display_name,
+                modified_display_name: modified_display_name
+              )
+
+              # Retry with modified display name
+              retry_params = %{
+                customer_params
+                | display_name: modified_display_name
+              }
+
+              case client_module().create_customer(retry_params) do
+                {:ok, customer} ->
+                  customer_id = Map.get(customer, "Id")
+
+                  if customer_id do
+                    # Update user with QuickBooks customer ID
+                    changeset =
+                      User.update_user_changeset(user, %{quickbooks_customer_id: customer_id})
+
+                    case Repo.update(changeset) do
+                      {:ok, _updated_user} ->
+                        {:ok, customer_id}
+
+                      {:error, changeset} ->
+                        Logger.error("Failed to update user with quickbooks_customer_id",
+                          user_id: user.id,
+                          quickbooks_customer_id: customer_id,
+                          changeset_errors: inspect(changeset.errors)
+                        )
+
+                        # Still return success for the customer creation
+                        {:ok, customer_id}
+                    end
+                  else
+                    {:error, :invalid_customer_response}
+                  end
+
+                {:error, retry_error} ->
+                  {:error, retry_error}
+              end
+            else
+              {:error, error}
+            end
+
           {:error, error} ->
             {:error, error}
         end
