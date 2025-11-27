@@ -1495,8 +1495,8 @@ defmodule YscWeb.AdminBookingsLive do
                   </span>
                 </:col>
                 <:col :let={{_, booking}} label="Guests" field={:guests_count}>
-                  <% adults_count = booking.guests_count - (booking.children_count || 0)
-                  total_guests = booking.guests_count %>
+                  <% adults_count = booking.guests_count
+                  total_guests = booking.guests_count + (booking.children_count || 0) %>
                   <div class="text-sm text-zinc-600">
                     <%= if adults_count > 0 do %>
                       <%= adults_count %> <%= if adults_count == 1, do: "adult", else: "adults" %>

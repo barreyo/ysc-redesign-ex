@@ -287,8 +287,8 @@ defmodule YscWeb.HomeLive do
                           <%= if booking.booking_mode != :buyout do %>
                             <div class="flex items-center text-sm text-zinc-600">
                               <.icon name="hero-users" class="w-4 h-4 mr-1" />
-                              <% adults_count = booking.guests_count - (booking.children_count || 0)
-                              total_guests = booking.guests_count %>
+                              <% adults_count = booking.guests_count
+                              total_guests = booking.guests_count + (booking.children_count || 0) %>
                               <%= if adults_count > 0 do %>
                                 <%= adults_count %> <%= if adults_count == 1,
                                   do: "adult",

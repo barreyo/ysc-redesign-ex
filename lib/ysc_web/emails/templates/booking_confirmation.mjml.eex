@@ -54,8 +54,8 @@
     <% else %>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
       <%
-        adults_count = @booking.guests_count - (@booking.children_count || 0)
-        total_guests = @booking.guests_count
+        adults_count = @booking.guests_count
+        total_guests = @booking.guests_count + (@booking.children_count || 0)
       %>
       <strong>Guests:</strong>
       <%= if adults_count > 0 do %>
