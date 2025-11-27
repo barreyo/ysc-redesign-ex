@@ -915,7 +915,7 @@ defmodule Ysc.Bookings.BookingLocker do
         # Send booking confirmation email
         send_booking_confirmation_email(confirmed_booking)
 
-        # Schedule check-in reminder email (2 days before check-in)
+        # Schedule check-in reminder email (3 days before check-in at 8:00 AM PST)
         schedule_checkin_reminder(confirmed_booking)
 
         {:ok, confirmed_booking}

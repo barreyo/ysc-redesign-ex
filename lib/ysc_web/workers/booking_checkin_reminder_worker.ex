@@ -2,7 +2,7 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
   @moduledoc """
   Oban worker for sending booking check-in reminder emails.
 
-  Sends an email 2 days before check-in with door code, location, and check-in information.
+  Sends an email 3 days before check-in at 8:00 AM PST with door code, location, and check-in information.
   """
   require Logger
   use Oban.Worker, queue: :mailers, max_attempts: 3
@@ -125,32 +125,40 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
   @doc """
   Schedules a check-in reminder email for a booking.
 
-  The email will be sent 3 days before the check-in date.
+  The email will be sent 3 days before the check-in date at 8:00 AM PST.
   If check-in is less than 3 days away, the email is sent immediately.
   """
   def schedule_reminder(booking_id, checkin_date) do
     require Logger
 
-    # Calculate delay until 3 days before check-in
+    # Calculate 3 days before check-in date
+    reminder_date = Date.add(checkin_date, -3)
+
+    # Create datetime at 8:00 AM PST (America/Los_Angeles)
+    reminder_datetime_pst =
+      reminder_date
+      |> DateTime.new!(~T[08:00:00], "America/Los_Angeles")
+
+    # Convert to UTC for Oban scheduling
+    reminder_datetime_utc = DateTime.shift_zone!(reminder_datetime_pst, "Etc/UTC")
+
     now = DateTime.utc_now()
-    checkin_datetime = DateTime.new!(checkin_date, ~T[00:00:00], "Etc/UTC")
-    reminder_datetime = DateTime.add(checkin_datetime, -3, :day)
 
-    # Calculate seconds until reminder should be sent
-    delay_seconds = DateTime.diff(reminder_datetime, now, :second)
-
-    if delay_seconds > 0 do
-      # Schedule for 3 days before check-in
+    # Check if the scheduled time is in the future
+    if DateTime.compare(reminder_datetime_utc, now) == :gt do
+      # Schedule for 3 days before check-in at 8:00 AM PST
       %{
         "booking_id" => booking_id
       }
-      |> new(schedule_in: delay_seconds)
+      |> new(scheduled_at: reminder_datetime_utc)
       |> Oban.insert()
 
       Logger.info("Scheduled check-in reminder email",
         booking_id: booking_id,
         checkin_date: checkin_date,
-        delay_days: delay_seconds / (24 * 60 * 60)
+        reminder_date: reminder_date,
+        scheduled_at_pst: reminder_datetime_pst,
+        scheduled_at_utc: reminder_datetime_utc
       )
     else
       # If check-in is less than 3 days away, send immediately
