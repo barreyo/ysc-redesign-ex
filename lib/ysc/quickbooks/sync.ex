@@ -1517,9 +1517,10 @@ defmodule Ysc.Quickbooks.Sync do
 
     account_class = get_account_and_class(entity_info)
 
-    # Best Practice: Set RefundFromAccountRef to the correct settlement account
+    # Best Practice: Set DepositToAccountRef (QuickBooks API field name) to the correct settlement account
     # For Stripe, we use "Undeposited Funds" since funds take time to land
     # This ensures proper accounting for money going back to the customer
+    # Note: QuickBooks uses "DepositToAccountRef" for RefundReceipts (same as SalesReceipts)
     refund_from_account_ref =
       case client_module().query_account_by_name("Undeposited Funds") do
         {:ok, account_id} ->

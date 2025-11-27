@@ -1037,7 +1037,7 @@ defmodule Ysc.Quickbooks.Client do
       }
       |> maybe_put("DocNumber", params[:doc_number])
       |> maybe_put("TxnDate", params[:txn_date])
-      |> maybe_put("RefundFromAccountRef", params[:refund_from_account_ref])
+      |> maybe_put("DepositToAccountRef", params[:refund_from_account_ref])
       |> maybe_put("PaymentMethodRef", params[:payment_method_ref])
       |> maybe_put("CustomerMemo", if(params[:memo], do: %{value: params[:memo]}, else: nil))
       |> maybe_put("PrivateNote", params[:private_note])

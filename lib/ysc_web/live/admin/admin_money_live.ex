@@ -17,25 +17,12 @@ defmodule YscWeb.AdminMoneyLive do
     end_date = DateTime.new!(Date.new!(current_year, 12, 31), ~T[23:59:59])
 
     accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
-    recent_payments = Ledgers.get_recent_payments(start_date, end_date)
-    ledger_entries = Ledgers.get_ledger_entries(start_date, end_date)
-
-    webhook_events =
-      Webhooks.list_webhook_events(
-        provider: "stripe",
-        start_date: start_date,
-        end_date: end_date,
-        limit: 100
-      )
 
     {:ok,
      socket
      |> assign(:page_title, "Money")
      |> assign(:active_page, :money)
      |> assign(:accounts_with_balances, accounts_with_balances)
-     |> assign(:recent_payments, recent_payments)
-     |> assign(:ledger_entries, ledger_entries)
-     |> assign(:webhook_events, webhook_events)
      |> assign(:start_date, start_date)
      |> assign(:end_date, end_date)
      |> assign(:show_refund_modal, false)
@@ -63,7 +50,14 @@ defmodule YscWeb.AdminMoneyLive do
        payments: false,
        ledger_entries: true,
        webhooks: true
-     })}
+     })
+     |> assign(:payments_page, 1)
+     |> assign(:ledger_entries_page, 1)
+     |> assign(:webhooks_page, 1)
+     |> assign(:per_page, 20)
+     |> paginate_payments(1)
+     |> paginate_ledger_entries(1)
+     |> paginate_webhooks(1)}
   end
 
   @impl true
@@ -380,10 +374,6 @@ defmodule YscWeb.AdminMoneyLive do
 
         case Ledgers.update_entry_with_balance(entry.id, attrs) do
           {:ok, _updated_entry} ->
-            # Refresh data
-            %{start_date: start_date, end_date: end_date} = socket.assigns
-            ledger_entries = Ledgers.get_ledger_entries(start_date, end_date)
-
             {:noreply,
              socket
              |> put_flash(
@@ -392,7 +382,8 @@ defmodule YscWeb.AdminMoneyLive do
              )
              |> assign(:show_entry_modal, false)
              |> assign(:selected_entry, nil)
-             |> assign(:ledger_entries, ledger_entries)
+             |> assign(:ledger_entries_page, 1)
+             |> paginate_ledger_entries(1)
              |> assign(:entry_form, to_form(%{}, as: :entry))}
 
           {:error, reason} ->
@@ -447,16 +438,6 @@ defmodule YscWeb.AdminMoneyLive do
               # Refresh data
               %{start_date: start_date, end_date: end_date} = socket.assigns
               accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
-              recent_payments = Ledgers.get_recent_payments(start_date, end_date)
-              ledger_entries = Ledgers.get_ledger_entries(start_date, end_date)
-
-              webhook_events =
-                Webhooks.list_webhook_events(
-                  provider: "stripe",
-                  start_date: start_date,
-                  end_date: end_date,
-                  limit: 100
-                )
 
               # Navigate to payment details view to show the refund
               payment_path = build_money_path(socket, "/payments/#{payment.id}")
@@ -468,9 +449,12 @@ defmodule YscWeb.AdminMoneyLive do
                  "Refunded #{length(ticket_ids)} ticket(s) successfully. Amount: #{Money.to_string!(calculated_refund_amount)}"
                )
                |> assign(:accounts_with_balances, accounts_with_balances)
-               |> assign(:recent_payments, recent_payments)
-               |> assign(:ledger_entries, ledger_entries)
-               |> assign(:webhook_events, webhook_events)
+               |> assign(:payments_page, 1)
+               |> assign(:ledger_entries_page, 1)
+               |> assign(:webhooks_page, 1)
+               |> paginate_payments(1)
+               |> paginate_ledger_entries(1)
+               |> paginate_webhooks(1)
                |> push_navigate(to: payment_path)}
 
             {:error, _changeset} ->
@@ -511,16 +495,6 @@ defmodule YscWeb.AdminMoneyLive do
               # Refresh data with current date range
               %{start_date: start_date, end_date: end_date} = socket.assigns
               accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
-              recent_payments = Ledgers.get_recent_payments(start_date, end_date)
-              ledger_entries = Ledgers.get_ledger_entries(start_date, end_date)
-
-              webhook_events =
-                Webhooks.list_webhook_events(
-                  provider: "stripe",
-                  start_date: start_date,
-                  end_date: end_date,
-                  limit: 100
-                )
 
               flash_message =
                 case release_result do
@@ -554,9 +528,12 @@ defmodule YscWeb.AdminMoneyLive do
                socket
                |> put_flash(:info, flash_message)
                |> assign(:accounts_with_balances, accounts_with_balances)
-               |> assign(:recent_payments, recent_payments)
-               |> assign(:ledger_entries, ledger_entries)
-               |> assign(:webhook_events, webhook_events)
+               |> assign(:payments_page, 1)
+               |> assign(:ledger_entries_page, 1)
+               |> assign(:webhooks_page, 1)
+               |> paginate_payments(1)
+               |> paginate_ledger_entries(1)
+               |> paginate_webhooks(1)
                |> push_navigate(to: payment_path)}
 
             {:error, _changeset} ->
@@ -592,16 +569,6 @@ defmodule YscWeb.AdminMoneyLive do
             # Refresh data with current date range
             %{start_date: start_date, end_date: end_date} = socket.assigns
             accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
-            recent_payments = Ledgers.get_recent_payments(start_date, end_date)
-            ledger_entries = Ledgers.get_ledger_entries(start_date, end_date)
-
-            webhook_events =
-              Webhooks.list_webhook_events(
-                provider: "stripe",
-                start_date: start_date,
-                end_date: end_date,
-                limit: 100
-              )
 
             {:noreply,
              socket
@@ -609,9 +576,12 @@ defmodule YscWeb.AdminMoneyLive do
              |> assign(:show_credit_modal, false)
              |> assign(:selected_user, nil)
              |> assign(:accounts_with_balances, accounts_with_balances)
-             |> assign(:recent_payments, recent_payments)
-             |> assign(:ledger_entries, ledger_entries)
-             |> assign(:webhook_events, webhook_events)}
+             |> assign(:payments_page, 1)
+             |> assign(:ledger_entries_page, 1)
+             |> assign(:webhooks_page, 1)
+             |> paginate_payments(1)
+             |> paginate_ledger_entries(1)
+             |> paginate_webhooks(1)}
 
           {:error, _changeset} ->
             {:noreply,
@@ -740,6 +710,48 @@ defmodule YscWeb.AdminMoneyLive do
   end
 
   @impl true
+  def handle_event("payments_next-page", _, socket) do
+    {:noreply, paginate_payments(socket, socket.assigns.payments_page + 1)}
+  end
+
+  @impl true
+  def handle_event("payments_prev-page", _, socket) do
+    if socket.assigns.payments_page > 1 do
+      {:noreply, paginate_payments(socket, socket.assigns.payments_page - 1)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("ledger_entries_next-page", _, socket) do
+    {:noreply, paginate_ledger_entries(socket, socket.assigns.ledger_entries_page + 1)}
+  end
+
+  @impl true
+  def handle_event("ledger_entries_prev-page", _, socket) do
+    if socket.assigns.ledger_entries_page > 1 do
+      {:noreply, paginate_ledger_entries(socket, socket.assigns.ledger_entries_page - 1)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("webhooks_next-page", _, socket) do
+    {:noreply, paginate_webhooks(socket, socket.assigns.webhooks_page + 1)}
+  end
+
+  @impl true
+  def handle_event("webhooks_prev-page", _, socket) do
+    if socket.assigns.webhooks_page > 1 do
+      {:noreply, paginate_webhooks(socket, socket.assigns.webhooks_page - 1)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
   def handle_event(
         "update_date_range",
         %{"start_date" => start_date_str, "end_date" => end_date_str},
@@ -751,25 +763,83 @@ defmodule YscWeb.AdminMoneyLive do
 
     # Get updated data with new date range
     accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
-    recent_payments = Ledgers.get_recent_payments(start_date, end_date)
-    ledger_entries = Ledgers.get_ledger_entries(start_date, end_date)
-
-    webhook_events =
-      Webhooks.list_webhook_events(
-        provider: "stripe",
-        start_date: start_date,
-        end_date: end_date,
-        limit: 100
-      )
 
     {:noreply,
      socket
      |> assign(:accounts_with_balances, accounts_with_balances)
-     |> assign(:recent_payments, recent_payments)
-     |> assign(:ledger_entries, ledger_entries)
-     |> assign(:webhook_events, webhook_events)
      |> assign(:start_date, start_date)
-     |> assign(:end_date, end_date)}
+     |> assign(:end_date, end_date)
+     |> assign(:payments_page, 1)
+     |> assign(:ledger_entries_page, 1)
+     |> assign(:webhooks_page, 1)
+     |> paginate_payments(1)
+     |> paginate_ledger_entries(1)
+     |> paginate_webhooks(1)}
+  end
+
+  # Pagination helpers
+  defp paginate_payments(socket, page) when page >= 1 do
+    %{per_page: per_page, start_date: start_date, end_date: end_date} = socket.assigns
+    offset = (page - 1) * per_page
+
+    recent_payments =
+      from(p in Ysc.Ledgers.Payment,
+        preload: [:user, :payment_method],
+        where: p.payment_date >= ^start_date,
+        where: p.payment_date <= ^end_date,
+        order_by: [desc: p.payment_date],
+        limit: ^per_page,
+        offset: ^offset
+      )
+      |> Repo.all()
+      |> Enum.map(&Ledgers.add_payment_type_info/1)
+
+    socket
+    |> assign(:recent_payments, recent_payments)
+    |> assign(:payments_page, page)
+    |> assign(:payments_end?, length(recent_payments) < per_page)
+  end
+
+  defp paginate_ledger_entries(socket, page) when page >= 1 do
+    %{per_page: per_page, start_date: start_date, end_date: end_date} = socket.assigns
+    offset = (page - 1) * per_page
+
+    ledger_entries =
+      from(e in Ysc.Ledgers.LedgerEntry,
+        preload: [:account, :payment],
+        where: e.inserted_at >= ^start_date,
+        where: e.inserted_at <= ^end_date,
+        order_by: [desc: e.inserted_at],
+        limit: ^per_page,
+        offset: ^offset
+      )
+      |> Repo.all()
+
+    socket
+    |> assign(:ledger_entries, ledger_entries)
+    |> assign(:ledger_entries_page, page)
+    |> assign(:ledger_entries_end?, length(ledger_entries) < per_page)
+  end
+
+  defp paginate_webhooks(socket, page) when page >= 1 do
+    %{per_page: per_page, start_date: start_date, end_date: end_date} = socket.assigns
+    offset = (page - 1) * per_page
+
+    webhook_events =
+      from(w in Ysc.Webhooks.WebhookEvent,
+        where: w.provider == "stripe",
+        where: w.inserted_at >= ^start_date,
+        where: w.inserted_at <= ^end_date,
+        order_by: [desc: w.inserted_at],
+        limit: ^per_page,
+        offset: ^offset
+      )
+      |> Repo.all()
+
+    socket
+    |> assign(:webhook_events, webhook_events)
+    |> assign(:webhooks_page, page)
+    |> assign(:webhooks_end?, length(webhook_events) < per_page)
   end
 
   @impl true
@@ -971,6 +1041,28 @@ defmodule YscWeb.AdminMoneyLive do
               </tr>
             </tbody>
           </table>
+          <!-- Pagination Controls for Payments -->
+          <div class="flex items-center justify-between px-6 py-4 border-t border-zinc-200">
+            <div class="text-sm text-zinc-600">
+              Page <%= @payments_page %> • Showing <%= length(@recent_payments) %> entries
+            </div>
+            <div class="flex gap-2">
+              <.button
+                phx-click="payments_prev-page"
+                disabled={@payments_page == 1}
+                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </.button>
+              <.button
+                phx-click="payments_next-page"
+                disabled={@payments_end?}
+                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </.button>
+            </div>
+          </div>
         </div>
       </div>
       <!-- Ledger Entries -->
@@ -1090,6 +1182,28 @@ defmodule YscWeb.AdminMoneyLive do
               </tr>
             </tbody>
           </table>
+          <!-- Pagination Controls for Ledger Entries -->
+          <div class="flex items-center justify-between px-6 py-4 border-t border-zinc-200">
+            <div class="text-sm text-zinc-600">
+              Page <%= @ledger_entries_page %> • Showing <%= length(@ledger_entries) %> entries
+            </div>
+            <div class="flex gap-2">
+              <.button
+                phx-click="ledger_entries_prev-page"
+                disabled={@ledger_entries_page == 1}
+                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </.button>
+              <.button
+                phx-click="ledger_entries_next-page"
+                disabled={@ledger_entries_end?}
+                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </.button>
+            </div>
+          </div>
         </div>
       </div>
       <!-- Stripe Webhooks -->
@@ -1161,6 +1275,28 @@ defmodule YscWeb.AdminMoneyLive do
               </tr>
             </tbody>
           </table>
+          <!-- Pagination Controls for Webhooks -->
+          <div class="flex items-center justify-between px-6 py-4 border-t border-zinc-200">
+            <div class="text-sm text-zinc-600">
+              Page <%= @webhooks_page %> • Showing <%= length(@webhook_events) %> entries
+            </div>
+            <div class="flex gap-2">
+              <.button
+                phx-click="webhooks_prev-page"
+                disabled={@webhooks_page == 1}
+                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </.button>
+              <.button
+                phx-click="webhooks_next-page"
+                disabled={@webhooks_end?}
+                class="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </.button>
+            </div>
+          </div>
         </div>
       </div>
       <!-- Refund Modal -->
