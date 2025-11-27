@@ -535,6 +535,16 @@ defmodule YscWeb.BookingCheckoutLive do
   defp create_payment_intent(booking, total_amount, user) do
     amount_cents = money_to_cents(total_amount)
 
+    # Set expiration to match booking hold expiration (30 minutes from creation)
+    # Stripe expects expires_at as a Unix timestamp (seconds since epoch)
+    expires_at_unix =
+      if booking.hold_expires_at do
+        DateTime.to_unix(booking.hold_expires_at)
+      else
+        # Fallback: 30 minutes from now if hold_expires_at is not set
+        DateTime.add(DateTime.utc_now(), 30, :minute) |> DateTime.to_unix()
+      end
+
     payment_intent_params = %{
       amount: amount_cents,
       currency: "usd",
@@ -548,7 +558,8 @@ defmodule YscWeb.BookingCheckoutLive do
         "Booking #{booking.reference_id} - #{String.capitalize(Atom.to_string(booking.property))}",
       automatic_payment_methods: %{
         enabled: true
-      }
+      },
+      expires_at: expires_at_unix
     }
 
     # Add customer if user has Stripe ID

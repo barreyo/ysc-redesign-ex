@@ -29,6 +29,16 @@ defmodule Ysc.Tickets.StripeService do
 
     amount_cents = money_to_cents(ticket_order.total_amount)
 
+    # Set expiration to match ticket order expiration (30 minutes from creation)
+    # Stripe expects expires_at as a Unix timestamp (seconds since epoch)
+    expires_at_unix =
+      if ticket_order.expires_at do
+        DateTime.to_unix(ticket_order.expires_at)
+      else
+        # Fallback: 30 minutes from now if expires_at is not set
+        DateTime.add(DateTime.utc_now(), 30, :minute) |> DateTime.to_unix()
+      end
+
     payment_intent_params = %{
       amount: amount_cents,
       currency: "usd",
@@ -41,7 +51,8 @@ defmodule Ysc.Tickets.StripeService do
       description: "Event tickets - Order #{ticket_order.reference_id}",
       automatic_payment_methods: %{
         enabled: true
-      }
+      },
+      expires_at: expires_at_unix
     }
 
     # Add customer if provided
