@@ -57,7 +57,7 @@ summer_end = Date.new!(base_year, 10, 31)
 
 # Tahoe seasons (need to match on both name and property)
 # Note: Seasons automatically recur every year based on month/day pattern
-tahoe_winter =
+_tahoe_winter =
   BookingSeeds.get_or_create(Season, %{
     name: "Winter",
     description: "Winter season for Tahoe cabin (Nov 1 - Apr 30, recurring annually)",
@@ -83,7 +83,7 @@ tahoe_summer =
   }, [:name, :property])
 
 # Clear Lake seasons
-clear_lake_winter =
+_clear_lake_winter =
   BookingSeeds.get_or_create(Season, %{
     name: "Winter",
     description: "Winter season for Clear Lake cabin (Nov 1 - Apr 30, recurring annually)",
@@ -95,7 +95,7 @@ clear_lake_winter =
     max_nights: 30 # Clear Lake allows up to 30 nights
   }, [:name, :property])
 
-clear_lake_summer =
+_clear_lake_summer =
   BookingSeeds.get_or_create(Season, %{
     name: "Summer",
     description: "Summer season for Clear Lake cabin (May 1 - Oct 31, recurring annually)",
@@ -112,7 +112,7 @@ IO.puts("Creating Tahoe rooms...")
 
 room_names = ["Room 1", "Room 2", "Room 3", "Room 4", "Room 5a", "Room 5b", "Room 6", "Room 7"]
 
-tahoe_rooms =
+_tahoe_rooms =
   Enum.map(room_names, fn name ->
     room_attrs =
       cond do

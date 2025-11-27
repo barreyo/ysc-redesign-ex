@@ -462,7 +462,6 @@ alias Ysc.Posts
 alias Ysc.Posts.Post
 alias Ysc.Events
 alias Ysc.Events.Event
-alias Ysc.Events.TicketTier
 alias Ysc.Media
 alias Ysc.Media.Image
 alias Ysc.Agendas

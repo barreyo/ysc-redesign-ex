@@ -391,8 +391,29 @@ defmodule Ysc.Tickets do
   Expires a ticket order that has exceeded the payment timeout.
   """
   def expire_ticket_order(ticket_order) do
+    require Logger
+
     result =
       Repo.transaction(fn ->
+        # Cancel PaymentIntent in Stripe if it exists
+        if ticket_order.payment_intent_id do
+          case Ysc.Tickets.StripeService.cancel_payment_intent(ticket_order.payment_intent_id) do
+            :ok ->
+              Logger.info("Canceled PaymentIntent for expired ticket order",
+                ticket_order_id: ticket_order.id,
+                payment_intent_id: ticket_order.payment_intent_id
+              )
+
+            {:error, reason} ->
+              Logger.warning(
+                "Failed to cancel PaymentIntent for expired ticket order (continuing anyway)",
+                ticket_order_id: ticket_order.id,
+                payment_intent_id: ticket_order.payment_intent_id,
+                error: reason
+              )
+          end
+        end
+
         # Update ticket order status
         {:ok, updated_order} =
           ticket_order

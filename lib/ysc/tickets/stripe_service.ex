@@ -29,16 +29,10 @@ defmodule Ysc.Tickets.StripeService do
 
     amount_cents = money_to_cents(ticket_order.total_amount)
 
-    # Set expiration to match ticket order expiration (30 minutes from creation)
-    # Stripe expects expires_at as a Unix timestamp (seconds since epoch)
-    expires_at_unix =
-      if ticket_order.expires_at do
-        DateTime.to_unix(ticket_order.expires_at)
-      else
-        # Fallback: 30 minutes from now if expires_at is not set
-        DateTime.add(DateTime.utc_now(), 30, :minute) |> DateTime.to_unix()
-      end
-
+    # Note: Stripe PaymentIntents don't support expires_at parameter.
+    # The expires_at parameter is only available for Checkout Sessions, not PaymentIntents.
+    # Since we're using PaymentIntents with Stripe Elements (embedded form), we handle
+    # expiration server-side via TimeoutWorker that cancels expired orders and releases inventory.
     payment_intent_params = %{
       amount: amount_cents,
       currency: "usd",
@@ -51,8 +45,7 @@ defmodule Ysc.Tickets.StripeService do
       description: "Event tickets - Order #{ticket_order.reference_id}",
       automatic_payment_methods: %{
         enabled: true
-      },
-      expires_at: expires_at_unix
+      }
     }
 
     # Add customer if provided
@@ -131,6 +124,59 @@ defmodule Ysc.Tickets.StripeService do
       Tickets.cancel_ticket_order(ticket_order, failure_reason)
     end
   end
+
+  @doc """
+  Cancels a Stripe PaymentIntent.
+
+  ## Parameters:
+  - `payment_intent_id`: The Stripe payment intent ID to cancel
+
+  ## Returns:
+  - `:ok` on success
+  - `{:error, reason}` on failure
+  """
+  def cancel_payment_intent(payment_intent_id) when is_binary(payment_intent_id) do
+    require Logger
+
+    case Stripe.PaymentIntent.cancel(payment_intent_id, %{}) do
+      {:ok, _payment_intent} ->
+        Logger.info("Successfully canceled PaymentIntent",
+          payment_intent_id: payment_intent_id
+        )
+
+        :ok
+
+      {:error, %Stripe.Error{} = error} ->
+        # PaymentIntent might already be canceled or succeeded - that's okay
+        if String.contains?(error.message, "already") or
+             String.contains?(error.message, "succeeded") do
+          Logger.debug("PaymentIntent already canceled or succeeded",
+            payment_intent_id: payment_intent_id,
+            error: error.message
+          )
+
+          :ok
+        else
+          Logger.error("Failed to cancel PaymentIntent",
+            payment_intent_id: payment_intent_id,
+            error: error.message
+          )
+
+          {:error, error.message}
+        end
+
+      {:error, reason} ->
+        Logger.error("Failed to cancel PaymentIntent",
+          payment_intent_id: payment_intent_id,
+          error: reason
+        )
+
+        {:error, reason}
+    end
+  end
+
+  def cancel_payment_intent(nil), do: :ok
+  def cancel_payment_intent(_), do: {:error, :invalid_payment_intent_id}
 
   @doc """
   Creates a customer in Stripe for a user if they don't already have one.
