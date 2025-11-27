@@ -226,7 +226,32 @@ defmodule Ysc.Bookings do
   """
   def get_room!(id) do
     Repo.get!(Room, id)
-    |> Repo.preload(:room_category)
+    |> Repo.preload([:room_category, :image])
+  end
+
+  @doc """
+  Creates a room.
+  """
+  def create_room(attrs \\ %{}) do
+    %Room{}
+    |> Room.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates a room.
+  """
+  def update_room(%Room{} = room, attrs) do
+    room
+    |> Room.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a room.
+  """
+  def delete_room(%Room{} = room) do
+    Repo.delete(room)
   end
 
   ## Room Categories

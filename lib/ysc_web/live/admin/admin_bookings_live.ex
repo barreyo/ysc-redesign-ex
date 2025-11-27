@@ -1023,6 +1023,287 @@ defmodule YscWeb.AdminBookingsLive do
           </:actions>
         </.simple_form>
       </.modal>
+      <!-- New/Edit Room Modal -->
+      <.modal
+        :if={@live_action in [:new_room, :edit_room]}
+        id="room-modal"
+        on_cancel={
+          query_params =
+            build_booking_modal_close_params(
+              @selected_property,
+              @calendar_start_date,
+              @calendar_end_date,
+              @current_section,
+              @reservation_params
+            )
+
+          query_string = URI.encode_query(flatten_query_params(query_params))
+          JS.navigate("/admin/bookings?#{query_string}")
+        }
+        show
+        max_width="max-w-4xl"
+      >
+        <.header>
+          <%= if @live_action == :new_room, do: "New Room", else: "Edit Room" %>
+        </.header>
+
+        <.simple_form
+          for={@room_form}
+          id="room-form"
+          phx-submit="save-room"
+          phx-change="validate-room"
+        >
+          <.input
+            type="hidden"
+            field={@room_form[:property]}
+            value={Atom.to_string(@selected_property)}
+          />
+
+          <.input
+            type="text"
+            field={@room_form[:name]}
+            label="Room Name"
+            placeholder="e.g., Master Bedroom, Guest Room"
+            required
+          />
+
+          <.input
+            type="textarea"
+            field={@room_form[:description]}
+            label="Description"
+            placeholder="Optional description of the room"
+            rows="3"
+          />
+
+          <.input
+            type="select"
+            field={@room_form[:room_category_id]}
+            label="Room Category (optional)"
+            prompt="None"
+            options={room_category_options(@room_categories)}
+          />
+
+          <div class="grid grid-cols-2 gap-4">
+            <.input
+              type="number"
+              field={@room_form[:capacity_max]}
+              label="Maximum Capacity"
+              value={@room_form[:capacity_max].value || 1}
+              min="1"
+              max="12"
+              required
+            />
+
+            <.input
+              type="number"
+              field={@room_form[:min_billable_occupancy]}
+              label="Minimum Billable Occupancy"
+              value={@room_form[:min_billable_occupancy].value || 1}
+              min="1"
+            >
+              <p class="text-xs text-zinc-500 mt-1">
+                Minimum number of guests to bill for this room (e.g., family room = 2)
+              </p>
+            </.input>
+          </div>
+
+          <div class="grid grid-cols-3 gap-4">
+            <.input
+              type="number"
+              field={@room_form[:single_beds]}
+              label="Single Beds"
+              value={@room_form[:single_beds].value || 0}
+              min="0"
+            />
+
+            <.input
+              type="number"
+              field={@room_form[:queen_beds]}
+              label="Queen Beds"
+              value={@room_form[:queen_beds].value || 0}
+              min="0"
+            />
+
+            <.input
+              type="number"
+              field={@room_form[:king_beds]}
+              label="King Beds"
+              value={@room_form[:king_beds].value || 0}
+              min="0"
+            />
+          </div>
+
+          <.input type="checkbox" field={@room_form[:is_single_bed]} label="Single Bed Room">
+            <p class="text-xs text-zinc-500 mt-1">
+              Check if this room has only a single bed (max 1 person)
+            </p>
+          </.input>
+
+          <.input type="checkbox" field={@room_form[:is_active]} label="Active">
+            <p class="text-xs text-zinc-500 mt-1">
+              Inactive rooms won't appear in booking options
+            </p>
+          </.input>
+          <!-- Image Selection -->
+          <div class="space-y-2">
+            <label class="block text-sm font-semibold text-zinc-700">Display Image</label>
+            <div :if={@selected_room_image} class="mb-4">
+              <div class="relative inline-block">
+                <img
+                  src={
+                    @selected_room_image.thumbnail_path || @selected_room_image.optimized_image_path ||
+                      @selected_room_image.raw_image_path
+                  }
+                  alt={@selected_room_image.title || "Selected image"}
+                  class="w-32 h-32 rounded-lg object-cover border border-zinc-200"
+                />
+                <button
+                  type="button"
+                  phx-click="clear-room-image"
+                  class="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-700"
+                  title="Remove image"
+                >
+                  <.icon name="hero-x-mark" class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div :if={!@selected_room_image} class="mb-4">
+              <p class="text-sm text-zinc-500 italic">No image selected</p>
+            </div>
+            <button
+              type="button"
+              phx-click="open-image-gallery"
+              class="rounded bg-zinc-100 hover:bg-zinc-200 py-2 px-4 transition duration-200 text-sm font-semibold text-zinc-800"
+            >
+              <.icon name="hero-photo" class="w-4 h-4 -mt-0.5" />
+              <span class="ms-1">Select from Image Library</span>
+            </button>
+            <input
+              type="hidden"
+              name="room[image_id]"
+              value={if @selected_room_image, do: @selected_room_image.id, else: ""}
+            />
+          </div>
+          <!-- Image Gallery Modal -->
+          <div
+            :if={@show_image_gallery}
+            class="fixed inset-0 z-50 overflow-y-auto bg-black/50"
+            phx-click="close-image-gallery"
+            phx-click-away="close-image-gallery"
+          >
+            <div
+              class="flex min-h-full items-center justify-center p-4"
+              phx-click="close-image-gallery"
+            >
+              <div
+                class="relative bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
+                phx-click-away="close-image-gallery"
+              >
+                <div class="flex items-center justify-between p-6 border-b border-zinc-200">
+                  <h3 class="text-lg font-semibold text-zinc-800">Select Image</h3>
+                  <button
+                    type="button"
+                    phx-click="close-image-gallery"
+                    class="text-zinc-400 hover:text-zinc-600"
+                  >
+                    <.icon name="hero-x-mark" class="w-6 h-6" />
+                  </button>
+                </div>
+                <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                  <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                    <%= for image <- @image_gallery do %>
+                      <button
+                        type="button"
+                        phx-click="select-room-image"
+                        phx-value-image-id={image.id}
+                        class="group relative w-full rounded-lg aspect-square border-2 border-zinc-200 cursor-pointer hover:border-blue-500 transition-all duration-200 overflow-hidden"
+                      >
+                        <img
+                          src={
+                            image.thumbnail_path || image.optimized_image_path || image.raw_image_path
+                          }
+                          alt={image.title || "Image"}
+                          class="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        <div
+                          :if={image.title || image.alt_text}
+                          class="absolute z-[2] hidden group-hover:block inset-x-0 bottom-0 px-2 py-2 bg-gradient-to-t from-zinc-900/90 via-zinc-900/80 to-transparent"
+                        >
+                          <p
+                            :if={image.title}
+                            class="text-xs font-medium text-white truncate"
+                            title={image.title}
+                          >
+                            <%= image.title %>
+                          </p>
+                        </div>
+                      </button>
+                    <% end %>
+                  </div>
+                  <div :if={@image_gallery == []} class="text-center py-12">
+                    <p class="text-zinc-500">No images available</p>
+                  </div>
+                </div>
+                <div class="flex justify-between items-center p-6 border-t border-zinc-200">
+                  <div class="flex gap-2">
+                    <.button
+                      :if={@image_gallery_page > 1}
+                      phx-click="prev-image-gallery-page"
+                      type="button"
+                    >
+                      Previous
+                    </.button>
+                    <.button
+                      :if={!@image_gallery_end?}
+                      phx-click="next-image-gallery-page"
+                      type="button"
+                    >
+                      Next
+                    </.button>
+                  </div>
+                  <button
+                    type="button"
+                    phx-click="close-image-gallery"
+                    class="rounded bg-zinc-100 hover:bg-zinc-200 py-2 px-4 transition duration-200 text-sm font-semibold text-zinc-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <:actions>
+            <div class="flex justify-between w-full">
+              <div>
+                <button
+                  :if={@live_action == :edit_room}
+                  type="button"
+                  phx-click="delete-room"
+                  phx-value-id={@room.id}
+                  data-confirm="Are you sure you want to delete this room?"
+                  class="rounded bg-red-600 hover:bg-red-700 py-2 px-4 transition duration-200 text-sm font-semibold text-white active:text-white/80"
+                >
+                  <.icon name="hero-trash" class="w-4 h-4 -mt-0.5" /> Delete
+                </button>
+              </div>
+              <div class="flex gap-2">
+                <.button phx-click={
+                  JS.navigate(
+                    ~p"/admin/bookings?property=#{@selected_property}&section=#{@current_section}"
+                  )
+                }>
+                  Cancel
+                </.button>
+                <.button type="submit">
+                  <%= if @live_action == :new_room, do: "Create", else: "Update" %>
+                </.button>
+              </div>
+            </div>
+          </:actions>
+        </.simple_form>
+      </.modal>
 
       <div class="flex justify-between py-6">
         <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
@@ -2118,6 +2399,138 @@ defmodule YscWeb.AdminBookingsLive do
             </div>
           </div>
         </div>
+        <!-- Rooms Table -->
+        <div class="bg-white rounded border p-6">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h2 class="text-lg font-semibold text-zinc-800">Rooms</h2>
+              <p class="text-sm text-zinc-500">
+                Configure rooms for <%= atom_to_readable(@selected_property) %>
+              </p>
+            </div>
+            <.button phx-click={
+              JS.navigate(
+                ~p"/admin/bookings/rooms/new?property=#{@selected_property}&section=#{@current_section}"
+              )
+            }>
+              <.icon name="hero-plus" class="w-5 h-5 -mt-1" />
+              <span class="ms-1">
+                New Room
+              </span>
+            </.button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="text-left border-b border-zinc-200">
+                <tr>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Image</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Name</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Category</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Capacity</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Beds</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Status</th>
+                  <th class="pb-3 font-semibold text-zinc-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-100">
+                <tr :for={room <- @filtered_rooms} class="hover:bg-zinc-50">
+                  <td class="py-3 pr-6">
+                    <div
+                      :if={room.image}
+                      class="w-16 h-16 rounded overflow-hidden border border-zinc-200"
+                    >
+                      <img
+                        src={
+                          room.image.thumbnail_path || room.image.optimized_image_path ||
+                            room.image.raw_image_path
+                        }
+                        alt={room.name}
+                        class="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div
+                      :if={!room.image}
+                      class="w-16 h-16 rounded bg-zinc-100 border border-zinc-200 flex items-center justify-center"
+                    >
+                      <span class="text-xs text-zinc-400">No image</span>
+                    </div>
+                  </td>
+                  <td class="py-3 pr-6">
+                    <div class="font-medium text-zinc-800">
+                      <%= room.name %>
+                    </div>
+                    <div :if={room.description} class="text-xs text-zinc-500 mt-0.5 line-clamp-2">
+                      <%= room.description %>
+                    </div>
+                  </td>
+                  <td class="py-3 pr-6">
+                    <span :if={room.room_category} class="text-zinc-600">
+                      <%= atom_to_readable(room.room_category.name) %>
+                    </span>
+                    <span :if={!room.room_category} class="text-zinc-400">—</span>
+                  </td>
+                  <td class="py-3 pr-6 text-zinc-600">
+                    Max: <%= room.capacity_max %>
+                    <span
+                      :if={room.min_billable_occupancy && room.min_billable_occupancy > 1}
+                      class="text-xs text-zinc-500"
+                    >
+                      <br />Min billable: <%= room.min_billable_occupancy %>
+                    </span>
+                  </td>
+                  <td class="py-3 pr-6 text-zinc-600 text-xs">
+                    <%= if room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0 do %>
+                      <%= if room.single_beds > 0,
+                        do: "#{room.single_beds} Single#{if room.single_beds > 1, do: "s", else: ""}" %>
+                      <%= if room.queen_beds > 0 do %>
+                        <%= if room.single_beds > 0, do: ", " %><%= room.queen_beds %> Queen<%= if room.queen_beds >
+                                                                                                     1,
+                                                                                                   do:
+                                                                                                     "s",
+                                                                                                   else:
+                                                                                                     "" %>
+                      <% end %>
+                      <%= if room.king_beds > 0 do %>
+                        <%= if room.single_beds > 0 || room.queen_beds > 0, do: ", " %><%= room.king_beds %> King<%= if room.king_beds >
+                                                                                                                          1,
+                                                                                                                        do:
+                                                                                                                          "s",
+                                                                                                                        else:
+                                                                                                                          "" %>
+                      <% end %>
+                    <% else %>
+                      —
+                    <% end %>
+                  </td>
+                  <td class="py-3 pr-6">
+                    <span :if={room.is_active} class="text-xs font-semibold text-green-600">
+                      Active
+                    </span>
+                    <span :if={!room.is_active} class="text-xs font-semibold text-zinc-400">
+                      Inactive
+                    </span>
+                  </td>
+                  <td class="py-3">
+                    <button
+                      phx-click={
+                        JS.navigate(
+                          ~p"/admin/bookings/rooms/#{room.id}/edit?property=#{@selected_property}&section=#{@current_section}"
+                        )
+                      }
+                      class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div :if={@filtered_rooms == []} class="text-sm text-zinc-500 italic py-4 text-center">
+              No rooms configured
+            </div>
+          </div>
+        </div>
       </div>
     </.side_menu>
     """
@@ -2263,6 +2676,13 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:refund_policy_form, nil)
      |> assign(:refund_policy_rules, [])
      |> assign(:refund_policy_rule_form, nil)
+     |> assign(:room, nil)
+     |> assign(:room_form, nil)
+     |> assign(:selected_room_image, nil)
+     |> assign(:show_image_gallery, false)
+     |> assign(:image_gallery, [])
+     |> assign(:image_gallery_page, 1)
+     |> assign(:image_gallery_end?, false)
      |> assign(
        :reservations_path,
        ~p"/admin/bookings?property=#{selected_property}&section=reservations"
@@ -2795,6 +3215,68 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:season_form, form)
   end
 
+  defp apply_action(socket, :new_room, _params) do
+    alias Ysc.Media
+
+    # Load initial image gallery page
+    images = Media.list_images(0, 20)
+
+    form =
+      %Ysc.Bookings.Room{}
+      |> Ysc.Bookings.Room.changeset(%{
+        property: socket.assigns.selected_property,
+        capacity_max: 2,
+        min_billable_occupancy: 1,
+        is_active: true
+      })
+      |> to_form(as: "room")
+
+    socket
+    |> assign(:page_title, "New Room")
+    |> assign(:room, nil)
+    |> assign(:room_form, form)
+    |> assign(:selected_room_image, nil)
+    |> assign(:show_image_gallery, false)
+    |> assign(:image_gallery, images)
+    |> assign(:image_gallery_page, 1)
+    |> assign(:image_gallery_end?, length(images) < 20)
+  end
+
+  defp apply_action(socket, :edit_room, %{"id" => id}) do
+    alias Ysc.Media
+
+    room = Bookings.get_room!(id)
+
+    # Load initial image gallery page
+    images = Media.list_images(0, 20)
+
+    # Use preloaded image from room (already loaded by get_room!)
+    selected_image = room.image
+
+    form =
+      room
+      |> Ysc.Bookings.Room.changeset(%{})
+      |> to_form(as: "room")
+
+    # Ensure selected_property matches the room's property
+    socket =
+      if socket.assigns.selected_property != room.property do
+        assign(socket, :selected_property, room.property)
+      else
+        socket
+      end
+
+    socket
+    |> assign(:page_title, "Edit Room")
+    |> assign(:room, room)
+    |> assign(:room_form, form)
+    |> assign(:selected_room_image, selected_image)
+    |> assign(:show_image_gallery, false)
+    |> assign(:image_gallery, images)
+    |> assign(:image_gallery_page, 1)
+    |> assign(:image_gallery_end?, length(images) < 20)
+  end
+
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Bookings")
@@ -2819,6 +3301,13 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:selected_pending_refund, nil)
     |> assign(:approve_refund_form, nil)
     |> assign(:reject_refund_form, nil)
+    |> assign(:room, nil)
+    |> assign(:room_form, nil)
+    |> assign(:selected_room_image, nil)
+    |> assign(:show_image_gallery, false)
+    |> assign(:image_gallery, [])
+    |> assign(:image_gallery_page, 1)
+    |> assign(:image_gallery_end?, false)
   end
 
   def handle_event("select-property", %{"property" => property}, socket) do
@@ -4137,6 +4626,196 @@ defmodule YscWeb.AdminBookingsLive do
     end
   end
 
+  def handle_event("validate-room", %{"room" => room_params}, socket) do
+    alias Ysc.Media
+
+    changeset =
+      (socket.assigns.room || %Ysc.Bookings.Room{})
+      |> Ysc.Bookings.Room.changeset(room_params)
+      |> Map.put(:action, :validate)
+
+    # Handle image_id if provided
+    selected_image =
+      if image_id_str = room_params["image_id"] do
+        if image_id_str != "" do
+          case Media.fetch_image(image_id_str) do
+            nil -> socket.assigns[:selected_room_image]
+            image -> image
+          end
+        else
+          socket.assigns[:selected_room_image]
+        end
+      else
+        socket.assigns[:selected_room_image]
+      end
+
+    {:noreply,
+     socket
+     |> assign(:room_form, to_form(changeset, as: "room"))
+     |> assign(:selected_room_image, selected_image)}
+  end
+
+  def handle_event("save-room", %{"room" => room_params}, socket) do
+    alias Ysc.Media
+
+    # Convert property string to atom
+    room_params =
+      if property_str = room_params["property"] do
+        property_atom = String.to_existing_atom(property_str)
+        Map.put(room_params, "property", property_atom)
+      else
+        room_params
+      end
+
+    # Handle image_id - convert empty string to nil
+    room_params =
+      if image_id_str = room_params["image_id"] do
+        if image_id_str == "" do
+          Map.put(room_params, "image_id", nil)
+        else
+          room_params
+        end
+      else
+        room_params
+      end
+
+    result =
+      if socket.assigns.room do
+        Bookings.update_room(socket.assigns.room, room_params)
+      else
+        Bookings.create_room(room_params)
+      end
+
+    case result do
+      {:ok, _room} ->
+        # Reload rooms to reflect changes
+        rooms = Bookings.list_rooms()
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Room saved successfully")
+         |> assign(:rooms, rooms)
+         |> assign_filtered_data(
+           socket.assigns.selected_property,
+           socket.assigns.seasons,
+           socket.assigns.pricing_rules,
+           socket.assigns.refund_policies
+         )
+         |> push_navigate(
+           to:
+             ~p"/admin/bookings?property=#{socket.assigns.selected_property}&section=#{socket.assigns.current_section}"
+         )}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :room_form, to_form(changeset, as: "room"))}
+    end
+  end
+
+  def handle_event("delete-room", %{"id" => id}, socket) do
+    room = Bookings.get_room!(id)
+    Bookings.delete_room(room)
+
+    # Reload rooms to reflect changes
+    rooms = Bookings.list_rooms()
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Room deleted successfully")
+     |> assign(:rooms, rooms)
+     |> assign_filtered_data(
+       socket.assigns.selected_property,
+       socket.assigns.seasons,
+       socket.assigns.pricing_rules,
+       socket.assigns.refund_policies
+     )
+     |> push_navigate(
+       to:
+         ~p"/admin/bookings?property=#{socket.assigns.selected_property}&section=#{socket.assigns.current_section}"
+     )}
+  end
+
+  # Image gallery handlers
+  def handle_event("open-image-gallery", _params, socket) do
+    alias Ysc.Media
+
+    # Load first page of images
+    images = Media.list_images(0, 20)
+
+    {:noreply,
+     socket
+     |> assign(:show_image_gallery, true)
+     |> assign(:image_gallery, images)
+     |> assign(:image_gallery_page, 1)
+     |> assign(:image_gallery_end?, length(images) < 20)}
+  end
+
+  def handle_event("close-image-gallery", _params, socket) do
+    {:noreply, assign(socket, :show_image_gallery, false)}
+  end
+
+  def handle_event("select-room-image", %{"image-id" => image_id}, socket) do
+    alias Ysc.Media
+
+    image = Media.fetch_image(image_id)
+
+    # Update the form changeset with the new image_id
+    current_params = socket.assigns.room_form.source.params || %{}
+    updated_params = Map.put(current_params, "image_id", image_id)
+
+    changeset =
+      (socket.assigns.room || %Ysc.Bookings.Room{})
+      |> Ysc.Bookings.Room.changeset(updated_params)
+
+    {:noreply,
+     socket
+     |> assign(:selected_room_image, image)
+     |> assign(:show_image_gallery, false)
+     |> assign(:room_form, to_form(changeset, as: "room"))}
+  end
+
+  def handle_event("clear-room-image", _params, socket) do
+    # Update the form changeset to clear the image_id
+    current_params = socket.assigns.room_form.source.params || %{}
+    updated_params = Map.put(current_params, "image_id", nil)
+
+    changeset =
+      (socket.assigns.room || %Ysc.Bookings.Room{})
+      |> Ysc.Bookings.Room.changeset(updated_params)
+
+    {:noreply,
+     socket
+     |> assign(:selected_room_image, nil)
+     |> assign(:room_form, to_form(changeset, as: "room"))}
+  end
+
+  def handle_event("next-image-gallery-page", _params, socket) do
+    alias Ysc.Media
+
+    next_page = socket.assigns.image_gallery_page + 1
+    per_page = 20
+    images = Media.list_images((next_page - 1) * per_page, per_page)
+
+    {:noreply,
+     socket
+     |> assign(:image_gallery, images)
+     |> assign(:image_gallery_page, next_page)
+     |> assign(:image_gallery_end?, length(images) < per_page)}
+  end
+
+  def handle_event("prev-image-gallery-page", _params, socket) do
+    alias Ysc.Media
+
+    prev_page = max(1, socket.assigns.image_gallery_page - 1)
+    per_page = 20
+    images = Media.list_images((prev_page - 1) * per_page, per_page)
+
+    {:noreply,
+     socket
+     |> assign(:image_gallery, images)
+     |> assign(:image_gallery_page, prev_page)
+     |> assign(:image_gallery_end?, length(images) < per_page)}
+  end
+
   defp translate_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Enum.reduce(opts, msg, fn {key, value}, acc ->
@@ -4167,10 +4846,19 @@ defmodule YscWeb.AdminBookingsLive do
     filtered_refund_policies =
       Enum.filter(refund_policies, fn policy -> policy.property == property end)
 
+    # Filter rooms by property (rooms are already loaded in socket.assigns.rooms)
+    filtered_rooms =
+      if socket.assigns[:rooms] do
+        Enum.filter(socket.assigns.rooms, fn room -> room.property == property end)
+      else
+        []
+      end
+
     socket
     |> assign(:filtered_seasons, filtered_seasons)
     |> assign(:filtered_pricing_rules, filtered_pricing_rules)
     |> assign(:filtered_refund_policies, filtered_refund_policies)
+    |> assign(:filtered_rooms, filtered_rooms)
   end
 
   defp season_options(seasons) do

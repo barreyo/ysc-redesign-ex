@@ -199,6 +199,8 @@ defmodule YscWeb.Router do
       live "/bookings/refund-policies/new", AdminBookingsLive, :new_refund_policy
       live "/bookings/refund-policies/:id/edit", AdminBookingsLive, :edit_refund_policy
       live "/bookings/refund-policies/:id/rules", AdminBookingsLive, :manage_refund_policy_rules
+      live "/bookings/rooms/new", AdminBookingsLive, :new_room
+      live "/bookings/rooms/:id/edit", AdminBookingsLive, :edit_room
 
       # News and notices
       live "/posts", AdminPostsLive, :index
