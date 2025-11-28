@@ -2155,7 +2155,12 @@ defmodule Ysc.Stripe.WebhookHandler do
   defp extract_source_id(source) when is_binary(source), do: source
 
   defp extract_source_id(source) when is_struct(source) do
-    if function_exported?(source, :id, 0), do: source.id, else: nil
+    # For structs, use Map.get to safely access the id field
+    try do
+      Map.get(source, :id) || Map.get(source, "id")
+    rescue
+      _ -> nil
+    end
   end
 
   defp extract_source_id(source) when is_map(source) do
@@ -2173,9 +2178,13 @@ defmodule Ysc.Stripe.WebhookHandler do
       # If source is already an expanded Charge object, use it directly
       charge =
         cond do
-          is_struct(source) && function_exported?(source, :payment_intent, 0) ->
-            # Source is an expanded Charge object
-            source
+          is_struct(source) ->
+            # Check if it has a payment_intent field (expanded Charge object)
+            if Map.has_key?(source, :payment_intent) || Map.has_key?(source, "payment_intent") do
+              source
+            else
+              nil
+            end
 
           is_map(source) &&
               (Map.has_key?(source, :payment_intent) || Map.has_key?(source, "payment_intent")) ->
@@ -2204,8 +2213,9 @@ defmodule Ysc.Stripe.WebhookHandler do
       if charge do
         payment_intent_id =
           cond do
-            is_struct(charge) && function_exported?(charge, :payment_intent, 0) ->
-              charge.payment_intent
+            is_struct(charge) ->
+              # For structs, use Map.get to safely access fields
+              Map.get(charge, :payment_intent) || Map.get(charge, "payment_intent")
 
             is_map(charge) ->
               charge[:payment_intent] || charge["payment_intent"]
@@ -2257,7 +2267,18 @@ defmodule Ysc.Stripe.WebhookHandler do
       error ->
         Logger.error("Exception while linking charge to payout",
           charge_id: charge_id,
-          error: Exception.message(error)
+          error: Exception.message(error),
+          error_type: error.__struct__,
+          stacktrace: Exception.format_stacktrace(__STACKTRACE__)
+        )
+
+        # Report to Sentry for visibility
+        Sentry.capture_exception(error,
+          stacktrace: __STACKTRACE__,
+          extra: %{
+            charge_id: charge_id,
+            function: "link_charge_to_payout"
+          }
         )
 
         :skipped
@@ -2273,9 +2294,13 @@ defmodule Ysc.Stripe.WebhookHandler do
       # If source is already an expanded Refund object, use it directly
       refund =
         cond do
-          is_struct(source) && function_exported?(source, :charge, 0) ->
-            # Source is an expanded Refund object
-            source
+          is_struct(source) ->
+            # Check if it has a charge field (expanded Refund object)
+            if Map.has_key?(source, :charge) || Map.has_key?(source, "charge") do
+              source
+            else
+              nil
+            end
 
           is_map(source) && (Map.has_key?(source, :charge) || Map.has_key?(source, "charge")) ->
             # Source is an expanded Refund map
@@ -2303,8 +2328,9 @@ defmodule Ysc.Stripe.WebhookHandler do
       if refund do
         charge_id =
           cond do
-            is_struct(refund) && function_exported?(refund, :charge, 0) ->
-              refund.charge
+            is_struct(refund) ->
+              # For structs, use Map.get to safely access fields
+              Map.get(refund, :charge) || Map.get(refund, "charge")
 
             is_map(refund) ->
               refund[:charge] || refund["charge"]
@@ -2395,7 +2421,18 @@ defmodule Ysc.Stripe.WebhookHandler do
       error ->
         Logger.error("Exception while linking refund to payout",
           stripe_refund_id: stripe_refund_id,
-          error: Exception.message(error)
+          error: Exception.message(error),
+          error_type: error.__struct__,
+          stacktrace: Exception.format_stacktrace(__STACKTRACE__)
+        )
+
+        # Report to Sentry for visibility
+        Sentry.capture_exception(error,
+          stacktrace: __STACKTRACE__,
+          extra: %{
+            stripe_refund_id: stripe_refund_id,
+            function: "link_stripe_refund_to_payout"
+          }
         )
 
         :skipped
