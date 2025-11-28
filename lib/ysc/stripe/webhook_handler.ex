@@ -905,12 +905,40 @@ defmodule Ysc.Stripe.WebhookHandler do
   Public function to manually re-link payments and refunds to a payout.
   This can be called from IEx to fix payout linking issues.
 
+  This will:
+  1. Fetch all balance transactions for the payout from Stripe (with pagination)
+  2. Link all payments and refunds to the payout
+  3. Update fee_total from balance transactions
+  4. Check if QuickBooks sync should be triggered (if all conditions are met)
+
   ## Examples
       iex> payout = Ysc.Ledgers.get_payout_by_stripe_id("po_1SYFlzREiftrEncLDHTuRysd")
-      iex> Ysc.Stripe.WebhookHandler.relink_payout_transactions(payout)
+      iex> updated_payout = Ysc.Stripe.WebhookHandler.relink_payout_transactions(payout)
+      iex> # Check the results
+      iex> updated_payout = Ysc.Repo.preload(updated_payout, [:payments, :refunds])
+      iex> IO.inspect(length(updated_payout.payments), label: "Linked payments")
+      iex> IO.inspect(length(updated_payout.refunds), label: "Linked refunds")
+      iex> IO.inspect(updated_payout.fee_total, label: "Fee total")
+
+  ## Returns
+  - `%Ysc.Ledgers.Payout{}` - The updated payout with linked payments/refunds
   """
   def relink_payout_transactions(%Ledgers.Payout{} = payout) do
-    link_payout_transactions(payout, payout.stripe_payout_id)
+    require Logger
+
+    Logger.info("Manually relinking payout transactions",
+      payout_id: payout.id,
+      stripe_payout_id: payout.stripe_payout_id
+    )
+
+    # Relink all transactions
+    updated_payout = link_payout_transactions(payout, payout.stripe_payout_id)
+
+    # Check if QuickBooks sync should be triggered
+    enqueue_quickbooks_sync_payout_if_ready(updated_payout)
+
+    # Return the updated payout
+    updated_payout
   end
 
   # Convert Stripe.Event struct to a plain map for JSON storage
