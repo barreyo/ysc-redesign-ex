@@ -1506,16 +1506,19 @@ defmodule Ysc.Stripe.WebhookHandler do
 
   # Helper function to ensure customer has a default payment method after subscription creation
 
-  # Helper function to extract payment method from Stripe invoice
+  # Helper function to extract and sync payment method from Stripe invoice
+  # Creates the payment method in our database if it doesn't exist
   defp extract_payment_method_from_invoice(invoice) do
     require Logger
 
     # Get the charge ID from the invoice
     charge_id = invoice[:charge] || invoice["charge"]
+    invoice_id = invoice[:id] || invoice["id"]
+    customer_id = invoice[:customer] || invoice["customer"]
 
     case charge_id do
       nil ->
-        Logger.info("No charge found in invoice", invoice_id: invoice[:id] || invoice["id"])
+        Logger.info("No charge found in invoice", invoice_id: invoice_id)
         nil
 
       charge_id when is_binary(charge_id) ->
@@ -1523,44 +1526,111 @@ defmodule Ysc.Stripe.WebhookHandler do
         case Stripe.Charge.retrieve(charge_id) do
           {:ok, charge} ->
             # Get the payment method ID from the charge
-            payment_method_id = charge.payment_method
+            payment_method_id =
+              cond do
+                is_struct(charge) ->
+                  Map.get(charge, :payment_method) || Map.get(charge, "payment_method")
+
+                is_map(charge) ->
+                  charge[:payment_method] || charge["payment_method"]
+
+                true ->
+                  nil
+              end
 
             case payment_method_id do
               nil ->
                 Logger.info("No payment method found in charge",
                   charge_id: charge_id,
-                  invoice_id: invoice[:id] || invoice["id"]
+                  invoice_id: invoice_id
                 )
 
                 nil
 
-              payment_method_id when is_binary(payment_method_id) ->
-                # Find the payment method in our database
-                case Ysc.Payments.get_payment_method_by_provider(:stripe, payment_method_id) do
-                  nil ->
-                    Logger.info("Payment method not found in local database",
-                      stripe_payment_method_id: payment_method_id,
-                      charge_id: charge_id
-                    )
+              stripe_payment_method_id when is_binary(stripe_payment_method_id) ->
+                # Get the user to sync the payment method
+                user = Ysc.Accounts.get_user_from_stripe_id(customer_id)
 
-                    nil
+                if user do
+                  # Check if payment method already exists in our database
+                  case Ysc.Payments.get_payment_method_by_provider(
+                         :stripe,
+                         stripe_payment_method_id
+                       ) do
+                    nil ->
+                      # Payment method doesn't exist, retrieve from Stripe and create it
+                      Logger.info("Payment method not found in local database, creating it",
+                        stripe_payment_method_id: stripe_payment_method_id,
+                        charge_id: charge_id,
+                        invoice_id: invoice_id
+                      )
 
-                  payment_method ->
-                    Logger.info("Found payment method for invoice",
-                      payment_method_id: payment_method.id,
-                      stripe_payment_method_id: payment_method_id,
-                      charge_id: charge_id
-                    )
+                      case Stripe.PaymentMethod.retrieve(stripe_payment_method_id) do
+                        {:ok, stripe_payment_method} ->
+                          # Sync the payment method to our database
+                          case Ysc.Payments.sync_payment_method_from_stripe(
+                                 user,
+                                 stripe_payment_method
+                               ) do
+                            {:ok, payment_method} ->
+                              Logger.info("Created payment method for invoice",
+                                payment_method_id: payment_method.id,
+                                stripe_payment_method_id: stripe_payment_method_id,
+                                charge_id: charge_id,
+                                invoice_id: invoice_id
+                              )
 
-                    payment_method.id
+                              payment_method.id
+
+                            {:error, reason} ->
+                              Logger.error("Failed to create payment method from Stripe",
+                                stripe_payment_method_id: stripe_payment_method_id,
+                                charge_id: charge_id,
+                                invoice_id: invoice_id,
+                                error: inspect(reason)
+                              )
+
+                              nil
+                          end
+
+                        {:error, error} ->
+                          Logger.error("Failed to retrieve payment method from Stripe",
+                            stripe_payment_method_id: stripe_payment_method_id,
+                            charge_id: charge_id,
+                            invoice_id: invoice_id,
+                            error: inspect(error)
+                          )
+
+                          nil
+                      end
+
+                    existing_payment_method ->
+                      # Payment method already exists
+                      Logger.info("Found existing payment method for invoice",
+                        payment_method_id: existing_payment_method.id,
+                        stripe_payment_method_id: stripe_payment_method_id,
+                        charge_id: charge_id,
+                        invoice_id: invoice_id
+                      )
+
+                      existing_payment_method.id
+                  end
+                else
+                  Logger.warning("User not found for customer, cannot create payment method",
+                    customer_id: customer_id,
+                    invoice_id: invoice_id,
+                    stripe_payment_method_id: stripe_payment_method_id
+                  )
+
+                  nil
                 end
             end
 
           {:error, error} ->
             Logger.warning("Failed to retrieve charge from Stripe",
               charge_id: charge_id,
-              error: error.message,
-              invoice_id: invoice[:id] || invoice["id"]
+              error: if(is_struct(error), do: error.message, else: inspect(error)),
+              invoice_id: invoice_id
             )
 
             nil
@@ -2224,38 +2294,57 @@ defmodule Ysc.Stripe.WebhookHandler do
               nil
           end
 
-        if payment_intent_id do
-          # Find payment by external_payment_id (payment intent ID)
-          payment = Ledgers.get_payment_by_external_id(payment_intent_id)
+        invoice_id =
+          cond do
+            is_struct(charge) ->
+              # For structs, use Map.get to safely access fields
+              Map.get(charge, :invoice) || Map.get(charge, "invoice")
 
-          if payment do
-            {:ok, _} = Ledgers.link_payment_to_payout(payout, payment)
+            is_map(charge) ->
+              charge[:invoice] || charge["invoice"]
 
-            Logger.info("[Payout] Successfully linked payment to payout",
-              payout_id: payout.stripe_payout_id,
-              payout_db_id: payout.id,
-              payment_id: payment.id,
-              payment_reference_id: payment.reference_id,
-              payment_amount: Money.to_string!(payment.amount),
-              charge_id: charge_id,
-              payment_intent_id: payment_intent_id
-            )
-
-            :ok
-          else
-            Logger.warning("[Payout] Payment not found for charge - cannot link to payout",
-              payout_id: payout.stripe_payout_id,
-              charge_id: charge_id,
-              payment_intent_id: payment_intent_id,
-              note: "Payment may not exist in database or payment_intent_id mismatch"
-            )
-
-            :skipped
+            true ->
+              nil
           end
-        else
-          Logger.warning("[Payout] Charge has no payment_intent",
+
+        # Try to find payment by payment_intent_id first (for booking payments)
+        # If not found, try invoice_id (for subscription payments)
+        payment =
+          cond do
+            payment_intent_id ->
+              Ledgers.get_payment_by_external_id(payment_intent_id)
+
+            invoice_id ->
+              Ledgers.get_payment_by_external_id(invoice_id)
+
+            true ->
+              nil
+          end
+
+        if payment do
+          {:ok, _} = Ledgers.link_payment_to_payout(payout, payment)
+
+          Logger.info("[Payout] Successfully linked payment to payout",
             payout_id: payout.stripe_payout_id,
-            charge_id: charge_id
+            payout_db_id: payout.id,
+            payment_id: payment.id,
+            payment_reference_id: payment.reference_id,
+            payment_amount: Money.to_string!(payment.amount),
+            charge_id: charge_id,
+            payment_intent_id: payment_intent_id,
+            invoice_id: invoice_id,
+            external_payment_id: payment.external_payment_id
+          )
+
+          :ok
+        else
+          Logger.warning("[Payout] Payment not found for charge - cannot link to payout",
+            payout_id: payout.stripe_payout_id,
+            charge_id: charge_id,
+            payment_intent_id: payment_intent_id,
+            invoice_id: invoice_id,
+            note:
+              "Payment may not exist in database. Tried payment_intent_id and invoice_id as external_payment_id"
           )
 
           :skipped
