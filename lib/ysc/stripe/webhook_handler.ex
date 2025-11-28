@@ -943,8 +943,16 @@ defmodule Ysc.Stripe.WebhookHandler do
 
   defp extract_field(balance_transaction, field) do
     cond do
-      is_struct(balance_transaction) && function_exported?(balance_transaction, field, 0) ->
-        balance_transaction |> apply(field, []) |> inspect()
+      is_struct(balance_transaction) ->
+        # For structs, use Map.get to safely access fields
+        try do
+          value =
+            Map.get(balance_transaction, field) || Map.get(balance_transaction, to_string(field))
+
+          inspect(value)
+        rescue
+          _ -> "unknown"
+        end
 
       is_map(balance_transaction) ->
         (balance_transaction[field] || balance_transaction[to_string(field)] || "nil")
@@ -952,6 +960,26 @@ defmodule Ysc.Stripe.WebhookHandler do
 
       true ->
         "unknown"
+    end
+  end
+
+  # Helper to safely extract a field from a balance transaction (struct or map)
+  defp get_balance_transaction_field(balance_transaction, field, default \\ nil) do
+    cond do
+      is_struct(balance_transaction) ->
+        # For structs, use Map.get to safely access fields
+        try do
+          Map.get(balance_transaction, field) || Map.get(balance_transaction, to_string(field)) ||
+            default
+        rescue
+          _ -> default
+        end
+
+      is_map(balance_transaction) ->
+        balance_transaction[field] || balance_transaction[to_string(field)] || default
+
+      true ->
+        default
     end
   end
 
@@ -1760,8 +1788,13 @@ defmodule Ysc.Stripe.WebhookHandler do
   # Helper to extract ID from balance transaction (handles both struct and map)
   defp extract_balance_transaction_id(balance_transaction) do
     cond do
-      is_struct(balance_transaction) && function_exported?(balance_transaction, :id, 0) ->
-        balance_transaction.id
+      is_struct(balance_transaction) ->
+        # For structs, try to access the id field directly
+        try do
+          Map.get(balance_transaction, :id) || Map.get(balance_transaction, "id")
+        rescue
+          _ -> nil
+        end
 
       is_map(balance_transaction) ->
         balance_transaction[:id] || balance_transaction["id"]
@@ -1871,11 +1904,7 @@ defmodule Ysc.Stripe.WebhookHandler do
             balance_transactions_count: length(balance_transactions),
             balance_transaction_types:
               Enum.map(balance_transactions, fn bt ->
-                cond do
-                  is_struct(bt) && function_exported?(bt, :type, 0) -> bt.type
-                  is_map(bt) -> bt[:type] || bt["type"] || "unknown"
-                  true -> "unknown"
-                end
+                get_balance_transaction_field(bt, :type, "unknown")
               end)
           )
 
@@ -1967,36 +1996,13 @@ defmodule Ysc.Stripe.WebhookHandler do
             Enum.reduce(balance_transactions, 0, fn balance_transaction, acc ->
               try do
                 # Skip payout balance transactions
-                transaction_type =
-                  cond do
-                    is_struct(balance_transaction) &&
-                        function_exported?(balance_transaction, :type, 0) ->
-                      balance_transaction.type
-
-                    is_map(balance_transaction) ->
-                      balance_transaction[:type] || balance_transaction["type"]
-
-                    true ->
-                      nil
-                  end
+                transaction_type = get_balance_transaction_field(balance_transaction, :type)
 
                 if transaction_type == "payout" do
                   # Skip the payout transaction itself
                   acc
                 else
-                  fee_cents =
-                    cond do
-                      is_struct(balance_transaction) &&
-                          function_exported?(balance_transaction, :fee, 0) ->
-                        balance_transaction.fee || 0
-
-                      is_map(balance_transaction) ->
-                        balance_transaction[:fee] || balance_transaction["fee"] || 0
-
-                      true ->
-                        0
-                    end
-
+                  fee_cents = get_balance_transaction_field(balance_transaction, :fee, 0) || 0
                   acc + fee_cents
                 end
               rescue
@@ -2083,17 +2089,7 @@ defmodule Ysc.Stripe.WebhookHandler do
     require Logger
 
     # Get transaction type - skip payout balance transactions (the payout itself)
-    transaction_type =
-      cond do
-        is_struct(balance_transaction) && function_exported?(balance_transaction, :type, 0) ->
-          balance_transaction.type
-
-        is_map(balance_transaction) ->
-          balance_transaction[:type] || balance_transaction["type"] || "unknown"
-
-        true ->
-          "unknown"
-      end
+    transaction_type = get_balance_transaction_field(balance_transaction, :type, "unknown")
 
     # Skip the payout balance transaction itself (type: "payout")
     if transaction_type == "payout" do
@@ -2105,18 +2101,7 @@ defmodule Ysc.Stripe.WebhookHandler do
       :skipped
     else
       # Use reporting_category to identify charges/refunds (more reliable than type)
-      reporting_category =
-        cond do
-          is_struct(balance_transaction) &&
-              function_exported?(balance_transaction, :reporting_category, 0) ->
-            balance_transaction.reporting_category
-
-          is_map(balance_transaction) ->
-            balance_transaction[:reporting_category] || balance_transaction["reporting_category"]
-
-          true ->
-            nil
-        end
+      reporting_category = get_balance_transaction_field(balance_transaction, :reporting_category)
 
       # Get source - may be an ID string or an expanded object (Charge/Refund/Payout)
       source = extract_source(balance_transaction)
@@ -2161,16 +2146,7 @@ defmodule Ysc.Stripe.WebhookHandler do
 
   # Helper to extract source from balance transaction (may be ID string or expanded object)
   defp extract_source(balance_transaction) do
-    cond do
-      is_struct(balance_transaction) && function_exported?(balance_transaction, :source, 0) ->
-        balance_transaction.source
-
-      is_map(balance_transaction) ->
-        balance_transaction[:source] || balance_transaction["source"]
-
-      true ->
-        nil
-    end
+    get_balance_transaction_field(balance_transaction, :source)
   end
 
   # Helper to extract ID from source (handles both ID strings and expanded objects)
