@@ -902,6 +902,60 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   @doc """
+  Debug function to inspect balance transactions for a payout without processing them.
+  Useful for troubleshooting issues with payout linking.
+
+  ## Examples
+      iex> Ysc.Stripe.WebhookHandler.debug_payout_transactions("po_1SYFlzREiftrEncLDHTuRysd")
+  """
+  def debug_payout_transactions(stripe_payout_id) when is_binary(stripe_payout_id) do
+    require Logger
+
+    Logger.info("Debugging payout transactions", stripe_payout_id: stripe_payout_id)
+
+    case list_payout_transactions(stripe_payout_id) do
+      {:ok, balance_transactions} when is_list(balance_transactions) ->
+        IO.puts("\n=== Balance Transactions Debug ===")
+        IO.puts("Total transactions: #{length(balance_transactions)}\n")
+
+        Enum.each(balance_transactions, fn bt ->
+          IO.puts("Transaction:")
+          IO.puts("  ID: #{extract_balance_transaction_id(bt)}")
+          IO.puts("  Type: #{extract_field(bt, :type)}")
+          IO.puts("  Reporting Category: #{extract_field(bt, :reporting_category)}")
+          IO.puts("  Fee: #{extract_field(bt, :fee)}")
+          IO.puts("  Amount: #{extract_field(bt, :amount)}")
+
+          IO.puts(
+            "  Source Type: #{if is_map(extract_source(bt)), do: extract_source(bt).__struct__ || "map", else: "ID: #{extract_source_id(extract_source(bt))}"}"
+          )
+
+          IO.puts("")
+        end)
+
+        {:ok, balance_transactions}
+
+      {:error, reason} ->
+        IO.puts("Error fetching balance transactions: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp extract_field(balance_transaction, field) do
+    cond do
+      is_struct(balance_transaction) && function_exported?(balance_transaction, field, 0) ->
+        balance_transaction |> apply(field, []) |> inspect()
+
+      is_map(balance_transaction) ->
+        (balance_transaction[field] || balance_transaction[to_string(field)] || "nil")
+        |> inspect()
+
+      true ->
+        "unknown"
+    end
+  end
+
+  @doc """
   Public function to manually re-link payments and refunds to a payout.
   This can be called from IEx to fix payout linking issues.
 
@@ -1629,7 +1683,17 @@ defmodule Ysc.Stripe.WebhookHandler do
           last_id: last_id
         )
 
-        do_fetch_transactions(payout_id, acc ++ data, last_id)
+        if last_id do
+          do_fetch_transactions(payout_id, acc ++ data, last_id)
+        else
+          Logger.warning(
+            "Could not extract last_id from balance transactions, stopping pagination",
+            payout_id: payout_id,
+            page_size: length(data)
+          )
+
+          {:ok, acc ++ data}
+        end
 
       {:ok, %{data: data, has_more: false}} when is_list(data) ->
         Logger.debug("Fetched final balance transactions page",
@@ -1651,7 +1715,17 @@ defmodule Ysc.Stripe.WebhookHandler do
           last_id: last_id
         )
 
-        do_fetch_transactions(payout_id, acc ++ data, last_id)
+        if last_id do
+          do_fetch_transactions(payout_id, acc ++ data, last_id)
+        else
+          Logger.warning(
+            "Could not extract last_id from balance transactions, stopping pagination",
+            payout_id: payout_id,
+            page_size: length(data)
+          )
+
+          {:ok, acc ++ data}
+        end
 
       {:ok, %Stripe.List{data: data, has_more: false}} when is_list(data) ->
         # Handle Stripe.List struct format (backwards compatibility)
@@ -1666,10 +1740,20 @@ defmodule Ysc.Stripe.WebhookHandler do
       {:error, reason} ->
         Logger.error("Failed to fetch balance transactions",
           payout_id: payout_id,
-          error: inspect(reason)
+          error: inspect(reason),
+          error_type: if(is_struct(reason), do: reason.__struct__, else: :unknown)
         )
 
         {:error, reason}
+
+      unexpected ->
+        Logger.error("Unexpected response format from BalanceTransaction.all",
+          payout_id: payout_id,
+          response_type: inspect(unexpected.__struct__ || :map),
+          response_keys: if(is_map(unexpected), do: Map.keys(unexpected), else: [])
+        )
+
+        {:error, {:unexpected_format, unexpected}}
     end
   end
 
@@ -1847,7 +1931,17 @@ defmodule Ysc.Stripe.WebhookHandler do
         Logger.error("Exception while linking balance transactions",
           payout_id: stripe_payout_id,
           error: Exception.message(error),
+          error_type: error.__struct__,
           stacktrace: Exception.format_stacktrace(__STACKTRACE__)
+        )
+
+        # Report to Sentry for visibility
+        Sentry.capture_exception(error,
+          stacktrace: __STACKTRACE__,
+          extra: %{
+            payout_id: stripe_payout_id,
+            function: "link_payout_transactions"
+          }
         )
 
         # Return the payout even if linking failed (caller can check status)
@@ -1868,22 +1962,52 @@ defmodule Ysc.Stripe.WebhookHandler do
           )
 
           # Calculate total fees from balance transactions
+          # Skip the payout balance transaction itself (type: "payout")
           total_fee_cents =
             Enum.reduce(balance_transactions, 0, fn balance_transaction, acc ->
-              fee_cents =
-                cond do
-                  is_struct(balance_transaction) &&
-                      function_exported?(balance_transaction, :fee, 0) ->
-                    balance_transaction.fee || 0
+              try do
+                # Skip payout balance transactions
+                transaction_type =
+                  cond do
+                    is_struct(balance_transaction) &&
+                        function_exported?(balance_transaction, :type, 0) ->
+                      balance_transaction.type
 
-                  is_map(balance_transaction) ->
-                    balance_transaction[:fee] || balance_transaction["fee"] || 0
+                    is_map(balance_transaction) ->
+                      balance_transaction[:type] || balance_transaction["type"]
 
-                  true ->
-                    0
+                    true ->
+                      nil
+                  end
+
+                if transaction_type == "payout" do
+                  # Skip the payout transaction itself
+                  acc
+                else
+                  fee_cents =
+                    cond do
+                      is_struct(balance_transaction) &&
+                          function_exported?(balance_transaction, :fee, 0) ->
+                        balance_transaction.fee || 0
+
+                      is_map(balance_transaction) ->
+                        balance_transaction[:fee] || balance_transaction["fee"] || 0
+
+                      true ->
+                        0
+                    end
+
+                  acc + fee_cents
                 end
+              rescue
+                error ->
+                  Logger.warning("Error processing balance transaction for fee calculation",
+                    error: Exception.message(error),
+                    balance_transaction_id: extract_balance_transaction_id(balance_transaction)
+                  )
 
-              acc + fee_cents
+                  acc
+              end
             end)
 
           if total_fee_cents > 0 do
@@ -1936,7 +2060,18 @@ defmodule Ysc.Stripe.WebhookHandler do
       error ->
         Logger.error("Exception while calculating fees from balance transactions",
           payout_id: stripe_payout_id,
-          error: Exception.message(error)
+          error: Exception.message(error),
+          error_type: error.__struct__,
+          stacktrace: Exception.format_stacktrace(__STACKTRACE__)
+        )
+
+        # Report to Sentry for visibility
+        Sentry.capture_exception(error,
+          stacktrace: __STACKTRACE__,
+          extra: %{
+            payout_id: stripe_payout_id,
+            function: "try_calculate_fees_from_balance_transactions"
+          }
         )
 
         payout
