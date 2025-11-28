@@ -900,6 +900,18 @@ defmodule Ysc.Stripe.WebhookHandler do
     handle(event_type, event_object)
   end
 
+  @doc """
+  Public function to manually re-link payments and refunds to a payout.
+  This can be called from IEx to fix payout linking issues.
+
+  ## Examples
+      iex> payout = Ysc.Ledgers.get_payout_by_stripe_id("po_1SYFlzREiftrEncLDHTuRysd")
+      iex> Ysc.Stripe.WebhookHandler.relink_payout_transactions(payout)
+  """
+  def relink_payout_transactions(%Ledgers.Payout{} = payout) do
+    link_payout_transactions(payout, payout.stripe_payout_id)
+  end
+
   # Convert Stripe.Event struct to a plain map for JSON storage
   defp stripe_event_to_map(%Stripe.Event{} = event) do
     %{
