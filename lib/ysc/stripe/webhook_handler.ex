@@ -858,11 +858,12 @@ defmodule Ysc.Stripe.WebhookHandler do
         )
 
         # Fetch and link payments/refunds from Stripe
-        link_payout_transactions(payout, payout_id)
+        # This must complete before QuickBooks sync
+        updated_payout = link_payout_transactions(payout, payout_id)
 
         # After linking is complete, check if we should enqueue QuickBooks sync
-        # Only sync if all linked payments/refunds are already synced
-        enqueue_quickbooks_sync_payout_if_ready(payout)
+        # Only sync if all linked payments/refunds are already synced AND fee_total is populated
+        enqueue_quickbooks_sync_payout_if_ready(updated_payout)
 
         :ok
 
@@ -1559,6 +1560,105 @@ defmodule Ysc.Stripe.WebhookHandler do
     end
   end
 
+  # Fetches ALL balance transactions for a given payout ID, handling pagination.
+  # Uses Stripe.BalanceTransaction.all with expand to get source objects (charges/refunds).
+  defp list_payout_transactions(payout_id) do
+    do_fetch_transactions(payout_id, [], nil)
+  end
+
+  defp do_fetch_transactions(payout_id, acc, starting_after) do
+    require Logger
+
+    params = %{
+      payout: payout_id,
+      limit: 100,
+      expand: ["data.source"]
+    }
+
+    # Add the cursor if we have one
+    params =
+      if starting_after,
+        do: Map.put(params, :starting_after, starting_after),
+        else: params
+
+    # Check if BalanceTransaction.all is available
+    result =
+      if Code.ensure_loaded(Stripe.BalanceTransaction) &&
+           function_exported?(Stripe.BalanceTransaction, :all, 1) do
+        Stripe.BalanceTransaction.all(params)
+      else
+        {:error, :not_available}
+      end
+
+    case result do
+      {:ok, %{data: data, has_more: true}} when is_list(data) ->
+        last_id = List.last(data) |> extract_balance_transaction_id()
+
+        Logger.debug("Fetched balance transactions page",
+          payout_id: payout_id,
+          page_size: length(data),
+          has_more: true,
+          last_id: last_id
+        )
+
+        do_fetch_transactions(payout_id, acc ++ data, last_id)
+
+      {:ok, %{data: data, has_more: false}} when is_list(data) ->
+        Logger.debug("Fetched final balance transactions page",
+          payout_id: payout_id,
+          page_size: length(data),
+          has_more: false
+        )
+
+        {:ok, acc ++ data}
+
+      {:ok, %Stripe.List{data: data, has_more: true}} when is_list(data) ->
+        # Handle Stripe.List struct format (backwards compatibility)
+        last_id = List.last(data) |> extract_balance_transaction_id()
+
+        Logger.debug("Fetched balance transactions page (List format)",
+          payout_id: payout_id,
+          page_size: length(data),
+          has_more: true,
+          last_id: last_id
+        )
+
+        do_fetch_transactions(payout_id, acc ++ data, last_id)
+
+      {:ok, %Stripe.List{data: data, has_more: false}} when is_list(data) ->
+        # Handle Stripe.List struct format (backwards compatibility)
+        Logger.debug("Fetched final balance transactions page (List format)",
+          payout_id: payout_id,
+          page_size: length(data),
+          has_more: false
+        )
+
+        {:ok, acc ++ data}
+
+      {:error, reason} ->
+        Logger.error("Failed to fetch balance transactions",
+          payout_id: payout_id,
+          error: inspect(reason)
+        )
+
+        {:error, reason}
+    end
+  end
+
+  # Helper to extract ID from balance transaction (handles both struct and map)
+  defp extract_balance_transaction_id(balance_transaction) do
+    cond do
+      is_struct(balance_transaction) && function_exported?(balance_transaction, :id, 0) ->
+        balance_transaction.id
+
+      is_map(balance_transaction) ->
+        balance_transaction[:id] || balance_transaction["id"]
+
+      true ->
+        nil
+    end
+  end
+
   # Helper function to link payments and refunds to a payout
   defp link_payout_transactions(payout, stripe_payout_id) do
     require Logger
@@ -1648,20 +1748,12 @@ defmodule Ysc.Stripe.WebhookHandler do
           try_calculate_fees_from_balance_transactions(payout, stripe_payout_id)
       end
 
-    # Now link all balance transactions to the payout
+    # Now link all balance transactions to the payout using BalanceTransaction API with pagination
     try do
-      # Fetch balance transactions for this payout from Stripe
-      # Balance transactions show all charges, refunds included in the payout
-      result =
-        if Code.ensure_loaded(Stripe.BalanceTransaction) &&
-             function_exported?(Stripe.BalanceTransaction, :list, 1) do
-          apply(Stripe.BalanceTransaction, :list, [%{payout: stripe_payout_id, limit: 100}])
-        else
-          {:error, :not_available}
-        end
-
-      case result do
-        {:ok, %Stripe.List{data: balance_transactions}} when is_list(balance_transactions) ->
+      # Fetch ALL balance transactions for this payout from Stripe with pagination
+      # Balance transactions show all charges, refunds, and fees included in the payout
+      case list_payout_transactions(stripe_payout_id) do
+        {:ok, balance_transactions} when is_list(balance_transactions) ->
           Logger.info("[Payout] Found balance transactions for payout",
             payout_id: stripe_payout_id,
             balance_transactions_count: length(balance_transactions),
@@ -1701,21 +1793,26 @@ defmodule Ysc.Stripe.WebhookHandler do
             payout_id: stripe_payout_id,
             payments_count: length(updated_payout.payments),
             refunds_count: length(updated_payout.refunds),
+            fee_total:
+              if(updated_payout.fee_total,
+                do: Money.to_string!(updated_payout.fee_total),
+                else: "not set"
+              ),
             payment_ids: Enum.map(updated_payout.payments, & &1.id),
             refund_ids: Enum.map(updated_payout.refunds, & &1.id)
           )
 
-        {:ok, %Stripe.List{data: balance_transactions}} ->
-          Logger.warning("Balance transactions data is not a list",
-            payout_id: stripe_payout_id,
-            data_type: inspect(balance_transactions)
-          )
+          # Return the updated payout so caller can check if linking is complete
+          updated_payout
 
         {:error, reason} ->
           Logger.warning("Failed to fetch balance transactions for payout",
             payout_id: stripe_payout_id,
             error: inspect(reason)
           )
+
+          # Return the payout even if linking failed (caller can check status)
+          updated_payout
       end
     rescue
       error ->
@@ -1724,6 +1821,9 @@ defmodule Ysc.Stripe.WebhookHandler do
           error: Exception.message(error),
           stacktrace: Exception.format_stacktrace(__STACKTRACE__)
         )
+
+        # Return the payout even if linking failed (caller can check status)
+        updated_payout
     end
   end
 
@@ -1732,16 +1832,8 @@ defmodule Ysc.Stripe.WebhookHandler do
     require Logger
 
     try do
-      result =
-        if Code.ensure_loaded(Stripe.BalanceTransaction) &&
-             function_exported?(Stripe.BalanceTransaction, :list, 1) do
-          apply(Stripe.BalanceTransaction, :list, [%{payout: stripe_payout_id, limit: 100}])
-        else
-          {:error, :not_available}
-        end
-
-      case result do
-        {:ok, %Stripe.List{data: balance_transactions}} when is_list(balance_transactions) ->
+      case list_payout_transactions(stripe_payout_id) do
+        {:ok, balance_transactions} when is_list(balance_transactions) ->
           Logger.info(
             "Found #{length(balance_transactions)} balance transactions for fee calculation",
             payout_id: stripe_payout_id
@@ -1827,6 +1919,7 @@ defmodule Ysc.Stripe.WebhookHandler do
   defp link_balance_transaction_to_payout(payout, balance_transaction) do
     require Logger
 
+    # Get transaction type - skip payout balance transactions (the payout itself)
     transaction_type =
       cond do
         is_struct(balance_transaction) && function_exported?(balance_transaction, :type, 0) ->
@@ -1839,95 +1932,187 @@ defmodule Ysc.Stripe.WebhookHandler do
           "unknown"
       end
 
-    source_id =
-      cond do
-        is_struct(balance_transaction) && function_exported?(balance_transaction, :source, 0) ->
-          balance_transaction.source
+    # Skip the payout balance transaction itself (type: "payout")
+    if transaction_type == "payout" do
+      Logger.debug("[Payout] Skipping payout balance transaction (the payout itself)",
+        payout_id: payout.stripe_payout_id,
+        transaction_type: transaction_type
+      )
 
-        is_map(balance_transaction) ->
-          balance_transaction[:source] || balance_transaction["source"]
+      :skipped
+    else
+      # Use reporting_category to identify charges/refunds (more reliable than type)
+      reporting_category =
+        cond do
+          is_struct(balance_transaction) &&
+              function_exported?(balance_transaction, :reporting_category, 0) ->
+            balance_transaction.reporting_category
 
-        true ->
-          nil
-      end
+          is_map(balance_transaction) ->
+            balance_transaction[:reporting_category] || balance_transaction["reporting_category"]
 
-    Logger.debug("[Payout] link_balance_transaction_to_payout: Processing balance transaction",
-      payout_id: payout.stripe_payout_id,
-      transaction_type: transaction_type,
-      source_id: source_id
-    )
+          true ->
+            nil
+        end
 
-    # Balance transactions can be charges, refunds, or other types
-    # We need to find the corresponding payment or refund in our system
-    result =
-      case transaction_type do
-        "charge" ->
-          # Find payment by charge ID (which is the payment_intent ID)
-          link_charge_to_payout(payout, source_id)
+      # Get source - may be an ID string or an expanded object (Charge/Refund/Payout)
+      source = extract_source(balance_transaction)
+      source_id = extract_source_id(source)
 
-        "refund" ->
-          # Find refund transaction by refund ID
-          link_stripe_refund_to_payout(payout, source_id)
+      Logger.debug("[Payout] link_balance_transaction_to_payout: Processing balance transaction",
+        payout_id: payout.stripe_payout_id,
+        transaction_type: transaction_type,
+        reporting_category: reporting_category,
+        source_id: source_id,
+        source_expanded: is_struct(source) || (is_map(source) && Map.has_key?(source, :id))
+      )
 
-        _ ->
-          # Other types (fees, adjustments, etc.) - skip for now
-          Logger.debug("[Payout] Skipping balance transaction type",
-            payout_id: payout.stripe_payout_id,
-            transaction_type: transaction_type,
-            source_id: source_id
-          )
+      # Balance transactions can be charges, refunds, or other types
+      # We need to find the corresponding payment or refund in our system
+      # Use reporting_category if available, otherwise fall back to type
+      result =
+        case reporting_category || transaction_type do
+          "charge" ->
+            # If source is expanded (Charge object), use it directly; otherwise fetch by ID
+            link_charge_to_payout(payout, source, source_id)
 
-          :skipped
-      end
+          "refund" ->
+            # If source is expanded (Refund object), use it directly; otherwise fetch by ID
+            link_stripe_refund_to_payout(payout, source, source_id)
 
-    result
+          _ ->
+            # Other types (fees, adjustments, payout, etc.) - skip for now
+            Logger.debug("[Payout] Skipping balance transaction type",
+              payout_id: payout.stripe_payout_id,
+              transaction_type: transaction_type,
+              reporting_category: reporting_category,
+              source_id: source_id
+            )
+
+            :skipped
+        end
+
+      result
+    end
   end
 
+  # Helper to extract source from balance transaction (may be ID string or expanded object)
+  defp extract_source(balance_transaction) do
+    cond do
+      is_struct(balance_transaction) && function_exported?(balance_transaction, :source, 0) ->
+        balance_transaction.source
+
+      is_map(balance_transaction) ->
+        balance_transaction[:source] || balance_transaction["source"]
+
+      true ->
+        nil
+    end
+  end
+
+  # Helper to extract ID from source (handles both ID strings and expanded objects)
+  defp extract_source_id(nil), do: nil
+
+  defp extract_source_id(source) when is_binary(source), do: source
+
+  defp extract_source_id(source) when is_struct(source) do
+    if function_exported?(source, :id, 0), do: source.id, else: nil
+  end
+
+  defp extract_source_id(source) when is_map(source) do
+    source[:id] || source["id"]
+  end
+
+  defp extract_source_id(_), do: nil
+
   # Helper function to link a charge to a payout
-  defp link_charge_to_payout(payout, charge_id) do
+  # source may be an expanded Charge object or nil (if we need to fetch by ID)
+  defp link_charge_to_payout(payout, source, charge_id) do
     require Logger
 
     try do
-      # Get the charge to find the payment intent
-      case Stripe.Charge.retrieve(charge_id) do
-        {:ok, charge} ->
-          payment_intent_id = charge.payment_intent
+      # If source is already an expanded Charge object, use it directly
+      charge =
+        cond do
+          is_struct(source) && function_exported?(source, :payment_intent, 0) ->
+            # Source is an expanded Charge object
+            source
 
-          if payment_intent_id do
-            # Find payment by external_payment_id (payment intent ID)
-            payment = Ledgers.get_payment_by_external_id(payment_intent_id)
+          is_map(source) &&
+              (Map.has_key?(source, :payment_intent) || Map.has_key?(source, "payment_intent")) ->
+            # Source is an expanded Charge map
+            source
 
-            if payment do
-              {:ok, _} = Ledgers.link_payment_to_payout(payout, payment)
+          is_binary(charge_id) ->
+            # Source is just an ID, fetch the charge
+            case Stripe.Charge.retrieve(charge_id) do
+              {:ok, charge} ->
+                charge
 
-              Logger.info("[Payout] Successfully linked payment to payout",
-                payout_id: payout.stripe_payout_id,
-                payout_db_id: payout.id,
-                payment_id: payment.id,
-                payment_reference_id: payment.reference_id,
-                payment_amount: Money.to_string!(payment.amount),
-                charge_id: charge_id,
-                payment_intent_id: payment_intent_id
-              )
+              {:error, reason} ->
+                Logger.warning("Failed to retrieve charge",
+                  charge_id: charge_id,
+                  error: inspect(reason)
+                )
 
-              :ok
-            else
-              Logger.warning("[Payout] Payment not found for charge - cannot link to payout",
-                payout_id: payout.stripe_payout_id,
-                charge_id: charge_id,
-                payment_intent_id: payment_intent_id,
-                note: "Payment may not exist in database or payment_intent_id mismatch"
-              )
-
-              :skipped
+                nil
             end
+
+          true ->
+            nil
+        end
+
+      if charge do
+        payment_intent_id =
+          cond do
+            is_struct(charge) && function_exported?(charge, :payment_intent, 0) ->
+              charge.payment_intent
+
+            is_map(charge) ->
+              charge[:payment_intent] || charge["payment_intent"]
+
+            true ->
+              nil
           end
 
-        {:error, reason} ->
-          Logger.warning("Failed to retrieve charge",
-            charge_id: charge_id,
-            error: inspect(reason)
+        if payment_intent_id do
+          # Find payment by external_payment_id (payment intent ID)
+          payment = Ledgers.get_payment_by_external_id(payment_intent_id)
+
+          if payment do
+            {:ok, _} = Ledgers.link_payment_to_payout(payout, payment)
+
+            Logger.info("[Payout] Successfully linked payment to payout",
+              payout_id: payout.stripe_payout_id,
+              payout_db_id: payout.id,
+              payment_id: payment.id,
+              payment_reference_id: payment.reference_id,
+              payment_amount: Money.to_string!(payment.amount),
+              charge_id: charge_id,
+              payment_intent_id: payment_intent_id
+            )
+
+            :ok
+          else
+            Logger.warning("[Payout] Payment not found for charge - cannot link to payout",
+              payout_id: payout.stripe_payout_id,
+              charge_id: charge_id,
+              payment_intent_id: payment_intent_id,
+              note: "Payment may not exist in database or payment_intent_id mismatch"
+            )
+
+            :skipped
+          end
+        else
+          Logger.warning("[Payout] Charge has no payment_intent",
+            payout_id: payout.stripe_payout_id,
+            charge_id: charge_id
           )
+
+          :skipped
+        end
+      else
+        :skipped
       end
     rescue
       error ->
@@ -1935,75 +2120,137 @@ defmodule Ysc.Stripe.WebhookHandler do
           charge_id: charge_id,
           error: Exception.message(error)
         )
+
+        :skipped
     end
   end
 
   # Helper function to link a Stripe refund to a payout
-  defp link_stripe_refund_to_payout(payout, stripe_refund_id) do
+  # source may be an expanded Refund object or nil (if we need to fetch by ID)
+  defp link_stripe_refund_to_payout(payout, source, stripe_refund_id) do
     require Logger
 
     try do
-      # Get the refund to find the charge/payment intent
-      case Stripe.Refund.retrieve(stripe_refund_id) do
-        {:ok, refund} ->
-          charge_id = refund.charge
+      # If source is already an expanded Refund object, use it directly
+      refund =
+        cond do
+          is_struct(source) && function_exported?(source, :charge, 0) ->
+            # Source is an expanded Refund object
+            source
 
-          if charge_id do
-            # Get the charge to find the payment intent
-            case Stripe.Charge.retrieve(charge_id) do
-              {:ok, charge} ->
-                payment_intent_id = charge.payment_intent
+          is_map(source) && (Map.has_key?(source, :charge) || Map.has_key?(source, "charge")) ->
+            # Source is an expanded Refund map
+            source
 
-                if payment_intent_id do
-                  # Find the payment
-                  payment = Ledgers.get_payment_by_external_id(payment_intent_id)
-
-                  if payment do
-                    # Find the Refund by external_refund_id
-                    refund = Ledgers.get_refund_by_external_id(stripe_refund_id)
-
-                    if refund do
-                      {:ok, _} = Ledgers.link_refund_to_payout(payout, refund)
-
-                      Logger.info("[Payout] Successfully linked refund to payout",
-                        payout_id: payout.stripe_payout_id,
-                        payout_db_id: payout.id,
-                        refund_id: refund.id,
-                        refund_reference_id: refund.reference_id,
-                        refund_amount: Money.to_string!(refund.amount),
-                        stripe_refund_id: stripe_refund_id,
-                        payment_id: payment.id
-                      )
-
-                      :ok
-                    else
-                      Logger.warning(
-                        "[Payout] Refund not found for Stripe refund ID - cannot link to payout",
-                        payout_id: payout.stripe_payout_id,
-                        payment_id: payment.id,
-                        payment_reference_id: payment.reference_id,
-                        stripe_refund_id: stripe_refund_id,
-                        note: "Refund may not exist in database"
-                      )
-
-                      :skipped
-                    end
-                  end
-                end
+          is_binary(stripe_refund_id) ->
+            # Source is just an ID, fetch the refund
+            case Stripe.Refund.retrieve(stripe_refund_id) do
+              {:ok, refund} ->
+                refund
 
               {:error, reason} ->
-                Logger.warning("Failed to retrieve charge for refund",
-                  charge_id: charge_id,
+                Logger.warning("Failed to retrieve refund",
+                  stripe_refund_id: stripe_refund_id,
                   error: inspect(reason)
                 )
+
+                nil
             end
+
+          true ->
+            nil
+        end
+
+      if refund do
+        charge_id =
+          cond do
+            is_struct(refund) && function_exported?(refund, :charge, 0) ->
+              refund.charge
+
+            is_map(refund) ->
+              refund[:charge] || refund["charge"]
+
+            true ->
+              nil
           end
 
-        {:error, reason} ->
-          Logger.warning("Failed to retrieve refund",
-            stripe_refund_id: stripe_refund_id,
-            error: inspect(reason)
+        if charge_id do
+          # Get the charge to find the payment intent
+          case Stripe.Charge.retrieve(charge_id) do
+            {:ok, charge} ->
+              payment_intent_id = charge.payment_intent
+
+              if payment_intent_id do
+                # Find the payment
+                payment = Ledgers.get_payment_by_external_id(payment_intent_id)
+
+                if payment do
+                  # Find the Refund by external_refund_id
+                  db_refund = Ledgers.get_refund_by_external_id(stripe_refund_id)
+
+                  if db_refund do
+                    {:ok, _} = Ledgers.link_refund_to_payout(payout, db_refund)
+
+                    Logger.info("[Payout] Successfully linked refund to payout",
+                      payout_id: payout.stripe_payout_id,
+                      payout_db_id: payout.id,
+                      refund_id: db_refund.id,
+                      refund_reference_id: db_refund.reference_id,
+                      refund_amount: Money.to_string!(db_refund.amount),
+                      stripe_refund_id: stripe_refund_id,
+                      payment_id: payment.id
+                    )
+
+                    :ok
+                  else
+                    Logger.warning(
+                      "[Payout] Refund not found for Stripe refund ID - cannot link to payout",
+                      payout_id: payout.stripe_payout_id,
+                      payment_id: payment.id,
+                      payment_reference_id: payment.reference_id,
+                      stripe_refund_id: stripe_refund_id,
+                      note: "Refund may not exist in database"
+                    )
+
+                    :skipped
+                  end
+                else
+                  Logger.warning("[Payout] Payment not found for refund",
+                    payout_id: payout.stripe_payout_id,
+                    payment_intent_id: payment_intent_id,
+                    stripe_refund_id: stripe_refund_id
+                  )
+
+                  :skipped
+                end
+              else
+                Logger.warning("[Payout] Charge has no payment_intent for refund",
+                  payout_id: payout.stripe_payout_id,
+                  charge_id: charge_id,
+                  stripe_refund_id: stripe_refund_id
+                )
+
+                :skipped
+              end
+
+            {:error, reason} ->
+              Logger.warning("Failed to retrieve charge for refund",
+                charge_id: charge_id,
+                error: inspect(reason)
+              )
+
+              :skipped
+          end
+        else
+          Logger.warning("[Payout] Refund has no charge",
+            payout_id: payout.stripe_payout_id,
+            stripe_refund_id: stripe_refund_id
           )
+
+          :skipped
+        end
+      else
+        :skipped
       end
     rescue
       error ->
@@ -2011,6 +2258,8 @@ defmodule Ysc.Stripe.WebhookHandler do
           stripe_refund_id: stripe_refund_id,
           error: Exception.message(error)
         )
+
+        :skipped
     end
   end
 
@@ -2169,12 +2418,18 @@ defmodule Ysc.Stripe.WebhookHandler do
     end
   end
 
-  # Helper function to enqueue QuickBooks sync for payout only if all linked payments/refunds are synced
+  # Helper function to enqueue QuickBooks sync for payout only if:
+  # 1. All linked payments/refunds are synced
+  # 2. Fee_total is populated
+  # 3. Linking is complete (at least one payment or refund linked, or none expected)
   defp enqueue_quickbooks_sync_payout_if_ready(%Ledgers.Payout{} = payout) do
     require Logger
 
     # Reload payout with payments and refunds
     payout = Ledgers.get_payout!(payout.id)
+
+    # Check if fee_total is populated (required for QuickBooks sync)
+    fee_total_populated = payout.fee_total != nil
 
     # Check if all linked payments are synced
     all_payments_synced =
@@ -2188,12 +2443,21 @@ defmodule Ysc.Stripe.WebhookHandler do
         refund.quickbooks_sync_status == "synced" && refund.quickbooks_sales_receipt_id != nil
       end)
 
-    if all_payments_synced && all_refunds_synced &&
-         (length(payout.payments) > 0 || length(payout.refunds) > 0) do
-      Logger.info("All payments and refunds synced, enqueueing QuickBooks sync for payout",
+    # Check if we have at least one payment or refund linked (or none expected)
+    # If we have payments/refunds, they must all be synced
+    has_transactions = length(payout.payments) > 0 || length(payout.refunds) > 0
+
+    linking_complete =
+      if has_transactions, do: all_payments_synced && all_refunds_synced, else: true
+
+    if fee_total_populated && linking_complete do
+      Logger.info("Payout ready for QuickBooks sync - all conditions met",
         payout_id: payout.id,
         payments_count: length(payout.payments),
-        refunds_count: length(payout.refunds)
+        refunds_count: length(payout.refunds),
+        fee_total: if(payout.fee_total, do: Money.to_string!(payout.fee_total), else: "not set"),
+        all_payments_synced: all_payments_synced,
+        all_refunds_synced: all_refunds_synced
       )
 
       # Mark payout as pending sync
@@ -2211,12 +2475,15 @@ defmodule Ysc.Stripe.WebhookHandler do
       unsynced_payments = Enum.count(payout.payments, &(&1.quickbooks_sync_status != "synced"))
       unsynced_refunds = Enum.count(payout.refunds, &(&1.quickbooks_sync_status != "synced"))
 
-      Logger.info("Payout not ready for QuickBooks sync - waiting for payments/refunds to sync",
+      Logger.info("Payout not ready for QuickBooks sync - waiting for conditions to be met",
         payout_id: payout.id,
+        fee_total_populated: fee_total_populated,
         unsynced_payments: unsynced_payments,
         unsynced_refunds: unsynced_refunds,
         total_payments: length(payout.payments),
-        total_refunds: length(payout.refunds)
+        total_refunds: length(payout.refunds),
+        all_payments_synced: all_payments_synced,
+        all_refunds_synced: all_refunds_synced
       )
 
       :ok
