@@ -1551,6 +1551,12 @@ defmodule Ysc.Stripe.WebhookHandler do
   defp link_payout_transactions(payout, stripe_payout_id) do
     require Logger
 
+    Logger.info("[Payout] link_payout_transactions: Starting to link transactions to payout",
+      payout_id: payout.id,
+      stripe_payout_id: stripe_payout_id,
+      payout_amount: Money.to_string!(payout.amount)
+    )
+
     # First, try to get fees from the payout's balance transaction (most reliable)
     # The payout's balance transaction contains the total fees for all charges/refunds in the payout
     updated_payout =
@@ -1644,14 +1650,48 @@ defmodule Ysc.Stripe.WebhookHandler do
 
       case result do
         {:ok, %Stripe.List{data: balance_transactions}} when is_list(balance_transactions) ->
-          Logger.info("Found #{length(balance_transactions)} balance transactions for payout",
-            payout_id: stripe_payout_id
+          Logger.info("[Payout] Found balance transactions for payout",
+            payout_id: stripe_payout_id,
+            balance_transactions_count: length(balance_transactions),
+            balance_transaction_types:
+              Enum.map(balance_transactions, fn bt ->
+                cond do
+                  is_struct(bt) && function_exported?(bt, :type, 0) -> bt.type
+                  is_map(bt) -> bt[:type] || bt["type"] || "unknown"
+                  true -> "unknown"
+                end
+              end)
           )
 
           # Link transactions to payout
-          Enum.each(balance_transactions, fn balance_transaction ->
-            link_balance_transaction_to_payout(updated_payout, balance_transaction)
-          end)
+          {linked_count, skipped_count} =
+            Enum.reduce(balance_transactions, {0, 0}, fn balance_transaction, {linked, skipped} ->
+              result = link_balance_transaction_to_payout(updated_payout, balance_transaction)
+
+              case result do
+                :ok -> {linked + 1, skipped}
+                :skipped -> {linked, skipped + 1}
+                _ -> {linked, skipped + 1}
+              end
+            end)
+
+          Logger.info("[Payout] Finished linking balance transactions to payout",
+            payout_id: stripe_payout_id,
+            total_balance_transactions: length(balance_transactions),
+            linked_count: linked_count,
+            skipped_count: skipped_count
+          )
+
+          # Reload payout to get updated payment/refund counts
+          updated_payout = Repo.reload!(updated_payout) |> Repo.preload([:payments, :refunds])
+
+          Logger.info("[Payout] Final payout transaction counts after linking",
+            payout_id: stripe_payout_id,
+            payments_count: length(updated_payout.payments),
+            refunds_count: length(updated_payout.refunds),
+            payment_ids: Enum.map(updated_payout.payments, & &1.id),
+            refund_ids: Enum.map(updated_payout.refunds, & &1.id)
+          )
 
         {:ok, %Stripe.List{data: balance_transactions}} ->
           Logger.warning("Balance transactions data is not a list",
@@ -1775,23 +1815,60 @@ defmodule Ysc.Stripe.WebhookHandler do
   defp link_balance_transaction_to_payout(payout, balance_transaction) do
     require Logger
 
+    transaction_type =
+      cond do
+        is_struct(balance_transaction) && function_exported?(balance_transaction, :type, 0) ->
+          balance_transaction.type
+
+        is_map(balance_transaction) ->
+          balance_transaction[:type] || balance_transaction["type"] || "unknown"
+
+        true ->
+          "unknown"
+      end
+
+    source_id =
+      cond do
+        is_struct(balance_transaction) && function_exported?(balance_transaction, :source, 0) ->
+          balance_transaction.source
+
+        is_map(balance_transaction) ->
+          balance_transaction[:source] || balance_transaction["source"]
+
+        true ->
+          nil
+      end
+
+    Logger.debug("[Payout] link_balance_transaction_to_payout: Processing balance transaction",
+      payout_id: payout.stripe_payout_id,
+      transaction_type: transaction_type,
+      source_id: source_id
+    )
+
     # Balance transactions can be charges, refunds, or other types
     # We need to find the corresponding payment or refund in our system
-    case balance_transaction.type do
-      "charge" ->
-        # Find payment by charge ID (which is the payment_intent ID)
-        charge_id = balance_transaction.source
-        link_charge_to_payout(payout, charge_id)
+    result =
+      case transaction_type do
+        "charge" ->
+          # Find payment by charge ID (which is the payment_intent ID)
+          link_charge_to_payout(payout, source_id)
 
-      "refund" ->
-        # Find refund transaction by refund ID
-        refund_id = balance_transaction.source
-        link_stripe_refund_to_payout(payout, refund_id)
+        "refund" ->
+          # Find refund transaction by refund ID
+          link_stripe_refund_to_payout(payout, source_id)
 
-      _ ->
-        # Other types (fees, adjustments, etc.) - skip for now
-        :ok
-    end
+        _ ->
+          # Other types (fees, adjustments, etc.) - skip for now
+          Logger.debug("[Payout] Skipping balance transaction type",
+            payout_id: payout.stripe_payout_id,
+            transaction_type: transaction_type,
+            source_id: source_id
+          )
+
+          :skipped
+      end
+
+    result
   end
 
   # Helper function to link a charge to a payout
@@ -1811,16 +1888,26 @@ defmodule Ysc.Stripe.WebhookHandler do
             if payment do
               {:ok, _} = Ledgers.link_payment_to_payout(payout, payment)
 
-              Logger.info("Linked payment to payout",
+              Logger.info("[Payout] Successfully linked payment to payout",
                 payout_id: payout.stripe_payout_id,
+                payout_db_id: payout.id,
                 payment_id: payment.id,
-                charge_id: charge_id
-              )
-            else
-              Logger.debug("Payment not found for charge",
+                payment_reference_id: payment.reference_id,
+                payment_amount: Money.to_string!(payment.amount),
                 charge_id: charge_id,
                 payment_intent_id: payment_intent_id
               )
+
+              :ok
+            else
+              Logger.warning("[Payout] Payment not found for charge - cannot link to payout",
+                payout_id: payout.stripe_payout_id,
+                charge_id: charge_id,
+                payment_intent_id: payment_intent_id,
+                note: "Payment may not exist in database or payment_intent_id mismatch"
+              )
+
+              :skipped
             end
           end
 
@@ -1866,16 +1953,28 @@ defmodule Ysc.Stripe.WebhookHandler do
                     if refund do
                       {:ok, _} = Ledgers.link_refund_to_payout(payout, refund)
 
-                      Logger.info("Linked refund to payout",
+                      Logger.info("[Payout] Successfully linked refund to payout",
                         payout_id: payout.stripe_payout_id,
+                        payout_db_id: payout.id,
                         refund_id: refund.id,
-                        stripe_refund_id: stripe_refund_id
+                        refund_reference_id: refund.reference_id,
+                        refund_amount: Money.to_string!(refund.amount),
+                        stripe_refund_id: stripe_refund_id,
+                        payment_id: payment.id
                       )
+
+                      :ok
                     else
-                      Logger.debug("Refund not found for Stripe refund ID",
+                      Logger.warning(
+                        "[Payout] Refund not found for Stripe refund ID - cannot link to payout",
+                        payout_id: payout.stripe_payout_id,
                         payment_id: payment.id,
-                        stripe_refund_id: stripe_refund_id
+                        payment_reference_id: payment.reference_id,
+                        stripe_refund_id: stripe_refund_id,
+                        note: "Refund may not exist in database"
                       )
+
+                      :skipped
                     end
                   end
                 end

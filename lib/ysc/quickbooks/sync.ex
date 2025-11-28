@@ -358,14 +358,21 @@ defmodule Ysc.Quickbooks.Sync do
       payout_id: payout.id
     )
 
+    # Reload payout with payments and refunds to ensure we have the latest data
     payout = Repo.preload(payout, [:payments, :refunds])
 
-    Logger.debug("[QB Sync] do_sync_payout: Loaded payout data",
+    Logger.info("[QB Sync] do_sync_payout: Loaded payout data",
       payout_id: payout.id,
+      stripe_payout_id: payout.stripe_payout_id,
+      payout_amount: Money.to_string!(payout.amount),
+      fee_total: if(payout.fee_total, do: Money.to_string!(payout.fee_total), else: nil),
       payments_count: length(payout.payments),
       refunds_count: length(payout.refunds),
       payment_ids: Enum.map(payout.payments, & &1.id),
-      refund_ids: Enum.map(payout.refunds, & &1.id)
+      payment_reference_ids: Enum.map(payout.payments, & &1.reference_id),
+      refund_ids: Enum.map(payout.refunds, & &1.id),
+      refund_reference_ids: Enum.map(payout.refunds, & &1.reference_id),
+      quickbooks_sync_status: payout.quickbooks_sync_status
     )
 
     # Verify all linked payments and refunds are synced before proceeding
@@ -1750,155 +1757,181 @@ defmodule Ysc.Quickbooks.Sync do
     )
 
     if bank_account_id && stripe_account_id do
-      # Build line items for each payment and refund
-      Logger.debug("[QB Sync] create_payout_deposit: Building line items",
-        payout_id: payout.id
-      )
+      # Check if payout has any linked payments or refunds
+      payments_count = length(payout.payments || [])
+      refunds_count = length(payout.refunds || [])
 
-      line_items = build_payout_line_items(payout)
-
-      Logger.debug("[QB Sync] create_payout_deposit: Line items built",
+      Logger.info("[QB Sync] create_payout_deposit: Payout transaction counts",
         payout_id: payout.id,
-        line_items_count: length(line_items),
-        line_items: inspect(line_items, limit: :infinity)
+        stripe_payout_id: payout.stripe_payout_id,
+        payments_count: payments_count,
+        refunds_count: refunds_count,
+        total_transactions: payments_count + refunds_count,
+        payout_amount: Money.to_string!(payout.amount),
+        fee_total: if(payout.fee_total, do: Money.to_string!(payout.fee_total), else: nil)
       )
 
-      if Enum.empty?(line_items) do
-        Logger.warning(
-          "[QB Sync] No synced payments or refunds found for payout, creating single line item",
+      if payments_count == 0 && refunds_count == 0 do
+        Logger.error(
+          "[QB Sync] create_payout_deposit: Payout has no linked payments or refunds - cannot create deposit",
+          payout_id: payout.id,
+          stripe_payout_id: payout.stripe_payout_id,
+          payout_amount: Money.to_string!(payout.amount)
+        )
+
+        {:error,
+         "Payout has no linked payments or refunds. Please ensure payments are linked to the payout before syncing."}
+      else
+        # Build line items for each payment and refund
+        Logger.debug("[QB Sync] create_payout_deposit: Building line items",
           payout_id: payout.id
         )
 
-        # Fallback: create single line item with total amount
-        # Money.to_decimal returns dollars (database stores amounts in dollars)
-        amount =
-          Money.to_decimal(payout.amount)
-          |> Decimal.round(2)
+        line_items = build_payout_line_items(payout)
 
-        Logger.debug("[QB Sync] create_payout_deposit: Using fallback single line item",
+        Logger.debug("[QB Sync] create_payout_deposit: Line items built",
           payout_id: payout.id,
-          amount: Decimal.to_string(amount)
+          line_items_count: length(line_items),
+          line_items: inspect(line_items, limit: :infinity)
         )
 
-        # Get Administration class for fallback line item
-        administration_class_ref = get_administration_class_ref()
+        if Enum.empty?(line_items) do
+          Logger.warning(
+            "[QB Sync] No synced payments or refunds found for payout, creating single line item",
+            payout_id: payout.id
+          )
 
-        params = %{
-          bank_account_id: bank_account_id,
-          stripe_account_id: stripe_account_id,
-          amount: amount,
-          txn_date: payout.arrival_date || payout.inserted_at,
-          memo: "Stripe Payout: #{payout.stripe_payout_id}",
-          description: payout.description || "Stripe payout",
-          class_ref: administration_class_ref
-        }
+          # Fallback: create single line item with total amount
+          # Money.to_decimal returns dollars (database stores amounts in dollars)
+          amount =
+            Money.to_decimal(payout.amount)
+            |> Decimal.round(2)
 
-        Logger.debug(
-          "[QB Sync] create_payout_deposit: Calling Quickbooks.create_stripe_payout_deposit",
-          payout_id: payout.id,
-          params: inspect(params, limit: :infinity)
-        )
+          Logger.debug("[QB Sync] create_payout_deposit: Using fallback single line item",
+            payout_id: payout.id,
+            amount: Decimal.to_string(amount)
+          )
 
-        result = Quickbooks.create_stripe_payout_deposit(params)
+          # Get Administration class for fallback line item
+          administration_class_ref = get_administration_class_ref()
 
-        Logger.debug(
-          "[QB Sync] create_payout_deposit: Quickbooks.create_stripe_payout_deposit result",
-          payout_id: payout.id,
-          result: inspect(result, limit: :infinity)
-        )
+          params = %{
+            bank_account_id: bank_account_id,
+            stripe_account_id: stripe_account_id,
+            amount: amount,
+            txn_date: payout.arrival_date || payout.inserted_at,
+            memo: "Stripe Payout: #{payout.stripe_payout_id}",
+            description: payout.description || "Stripe payout",
+            class_ref: administration_class_ref
+          }
 
-        result
-      else
-        # Use cached fee_total from payout (set by webhook handler)
-        # Fall back to calculating from ledger entries if fee_total is not available (for old payouts)
-        stripe_fees =
-          if payout.fee_total do
-            Logger.debug("[QB Sync] create_payout_deposit: Using cached fee_total from payout",
-              payout_id: payout.id,
-              fee_total: Money.to_string!(payout.fee_total)
-            )
+          Logger.debug(
+            "[QB Sync] create_payout_deposit: Calling Quickbooks.create_stripe_payout_deposit",
+            payout_id: payout.id,
+            params: inspect(params, limit: :infinity)
+          )
 
-            payout.fee_total
-          else
-            Logger.debug(
-              "[QB Sync] create_payout_deposit: fee_total not available, calculating from ledger entries",
-              payout_id: payout.id
-            )
+          result = Quickbooks.create_stripe_payout_deposit(params)
 
-            calculate_payout_stripe_fees(payout, payout.payments)
-          end
+          Logger.debug(
+            "[QB Sync] create_payout_deposit: Quickbooks.create_stripe_payout_deposit result",
+            payout_id: payout.id,
+            result: inspect(result, limit: :infinity)
+          )
 
-        Logger.debug("[QB Sync] create_payout_deposit: Stripe fees determined",
-          payout_id: payout.id,
-          stripe_fees: inspect(stripe_fees),
-          using_cached: not is_nil(payout.fee_total)
-        )
-
-        # Add Stripe fees line item if there are fees
-        # Get Administration class for Stripe fees (they're administrative expenses)
-        administration_class_ref = get_administration_class_ref()
-
-        line_items =
-          if stripe_fees && Money.positive?(stripe_fees) do
-            with {:ok, stripe_fee_item_id} <- get_or_create_stripe_fee_item() do
-              # Fees are expenses, so they should be negative in the deposit
-              # Money.to_decimal returns dollars (database stores amounts in dollars)
-              fee_amount =
-                Money.to_decimal(stripe_fees)
-                |> Decimal.round(2)
-                |> Decimal.negate()
-
-              fee_line_item = %{
-                amount: fee_amount,
-                detail_type: "SalesItemLineDetail",
-                sales_item_line_detail: %{
-                  item_ref: %{value: stripe_fee_item_id},
-                  quantity: Decimal.new(1),
-                  unit_price: fee_amount,
-                  class_ref: administration_class_ref
-                },
-                description: "Stripe processing fees for payout #{payout.stripe_payout_id}"
-              }
-
-              Logger.debug("[QB Sync] create_payout_deposit: Added Stripe fees line item",
+          result
+        else
+          # Use cached fee_total from payout (set by webhook handler)
+          # Fall back to calculating from ledger entries if fee_total is not available (for old payouts)
+          stripe_fees =
+            if payout.fee_total do
+              Logger.debug("[QB Sync] create_payout_deposit: Using cached fee_total from payout",
                 payout_id: payout.id,
-                fee_amount: Decimal.to_string(fee_amount),
-                item_id: stripe_fee_item_id
+                fee_total: Money.to_string!(payout.fee_total)
               )
 
-              [fee_line_item | line_items]
+              payout.fee_total
             else
-              error ->
-                Logger.warning(
-                  "[QB Sync] create_payout_deposit: Failed to get/create Stripe fee item, continuing without fee line item",
+              Logger.debug(
+                "[QB Sync] create_payout_deposit: fee_total not available, calculating from ledger entries",
+                payout_id: payout.id
+              )
+
+              calculate_payout_stripe_fees(payout, payout.payments)
+            end
+
+          Logger.debug("[QB Sync] create_payout_deposit: Stripe fees determined",
+            payout_id: payout.id,
+            stripe_fees: inspect(stripe_fees),
+            using_cached: not is_nil(payout.fee_total)
+          )
+
+          # Add Stripe fees line item if there are fees
+          # Get Administration class for Stripe fees (they're administrative expenses)
+          administration_class_ref = get_administration_class_ref()
+
+          line_items =
+            if stripe_fees && Money.positive?(stripe_fees) do
+              with {:ok, stripe_fee_item_id} <- get_or_create_stripe_fee_item() do
+                # Fees are expenses, so they should be negative in the deposit
+                # Money.to_decimal returns dollars (database stores amounts in dollars)
+                fee_amount =
+                  Money.to_decimal(stripe_fees)
+                  |> Decimal.round(2)
+                  |> Decimal.negate()
+
+                fee_line_item = %{
+                  amount: fee_amount,
+                  detail_type: "SalesItemLineDetail",
+                  sales_item_line_detail: %{
+                    item_ref: %{value: stripe_fee_item_id},
+                    quantity: Decimal.new(1),
+                    unit_price: fee_amount,
+                    class_ref: administration_class_ref
+                  },
+                  description: "Stripe processing fees for payout #{payout.stripe_payout_id}"
+                }
+
+                Logger.debug("[QB Sync] create_payout_deposit: Added Stripe fees line item",
                   payout_id: payout.id,
-                  error: inspect(error)
+                  fee_amount: Decimal.to_string(fee_amount),
+                  item_id: stripe_fee_item_id
                 )
 
-                line_items
+                [fee_line_item | line_items]
+              else
+                error ->
+                  Logger.warning(
+                    "[QB Sync] create_payout_deposit: Failed to get/create Stripe fee item, continuing without fee line item",
+                    payout_id: payout.id,
+                    error: inspect(error)
+                  )
+
+                  line_items
+              end
+            else
+              Logger.debug("[QB Sync] create_payout_deposit: No Stripe fees to include",
+                payout_id: payout.id
+              )
+
+              line_items
             end
-          else
-            Logger.debug("[QB Sync] create_payout_deposit: No Stripe fees to include",
-              payout_id: payout.id
-            )
 
-            line_items
-          end
+          # Calculate total from line items (including fees)
+          total_amount =
+            Enum.reduce(line_items, Decimal.new(0), fn item, acc ->
+              Decimal.add(acc, item.amount)
+            end)
 
-        # Calculate total from line items (including fees)
-        total_amount =
-          Enum.reduce(line_items, Decimal.new(0), fn item, acc ->
-            Decimal.add(acc, item.amount)
-          end)
+          Logger.debug("[QB Sync] create_payout_deposit: Total calculated",
+            payout_id: payout.id,
+            total_amount: Decimal.to_string(total_amount),
+            line_items_count: length(line_items)
+          )
 
-        Logger.debug("[QB Sync] create_payout_deposit: Total calculated",
-          payout_id: payout.id,
-          total_amount: Decimal.to_string(total_amount),
-          line_items_count: length(line_items)
-        )
-
-        # Create deposit with multiple line items
-        create_payout_deposit_with_lines(payout, bank_account_id, line_items, total_amount)
+          # Create deposit with multiple line items
+          create_payout_deposit_with_lines(payout, bank_account_id, line_items, total_amount)
+        end
       end
     else
       Logger.error("[QB Sync] create_payout_deposit: QuickBooks accounts not configured",
@@ -1951,8 +1984,7 @@ defmodule Ysc.Quickbooks.Sync do
             detail_type: "DepositLineDetail",
             deposit_line_detail: %{
               entity_ref: %{
-                value: payment.quickbooks_sales_receipt_id,
-                type: "SalesReceipt"
+                value: payment.quickbooks_sales_receipt_id
               },
               class_ref: administration_class_ref
             },
@@ -1970,8 +2002,16 @@ defmodule Ysc.Quickbooks.Sync do
       end)
       |> Enum.filter(&(&1 != nil))
 
-    Logger.debug("[QB Sync] build_payout_line_items: Payment line items built",
-      payment_lines_count: length(payment_lines)
+    Logger.info("[QB Sync] build_payout_line_items: Payment line items built",
+      payment_lines_count: length(payment_lines),
+      payment_line_details:
+        Enum.map(payment_lines, fn line ->
+          %{
+            amount: Decimal.to_string(line.amount),
+            description: line.description,
+            entity_ref: line.deposit_line_detail.entity_ref.value
+          }
+        end)
     )
 
     # Build line items for refunds (negative amounts)
@@ -2007,8 +2047,7 @@ defmodule Ysc.Quickbooks.Sync do
             detail_type: "DepositLineDetail",
             deposit_line_detail: %{
               entity_ref: %{
-                value: refund.quickbooks_sales_receipt_id,
-                type: "SalesReceipt"
+                value: refund.quickbooks_sales_receipt_id
               },
               class_ref: administration_class_ref
             },
@@ -2026,14 +2065,27 @@ defmodule Ysc.Quickbooks.Sync do
       end)
       |> Enum.filter(&(&1 != nil))
 
-    Logger.debug("[QB Sync] build_payout_line_items: Refund line items built",
-      refund_lines_count: length(refund_lines)
+    Logger.info("[QB Sync] build_payout_line_items: Refund line items built",
+      refund_lines_count: length(refund_lines),
+      refund_line_details:
+        Enum.map(refund_lines, fn line ->
+          %{
+            amount: Decimal.to_string(line.amount),
+            description: line.description,
+            entity_ref: line.deposit_line_detail.entity_ref.value
+          }
+        end)
     )
 
     all_lines = payment_lines ++ refund_lines
 
-    Logger.debug("[QB Sync] build_payout_line_items: All line items built",
-      total_lines_count: length(all_lines)
+    Logger.info("[QB Sync] build_payout_line_items: All line items built",
+      total_lines_count: length(all_lines),
+      total_amount:
+        Enum.reduce(all_lines, Decimal.new(0), fn line, acc ->
+          Decimal.add(acc, line.amount)
+        end)
+        |> Decimal.to_string()
     )
 
     all_lines
@@ -2383,10 +2435,19 @@ defmodule Ysc.Quickbooks.Sync do
         payment.quickbooks_sync_status != "synced" || payment.quickbooks_sales_receipt_id == nil
       end)
 
-    Logger.debug("[QB Sync] verify_all_transactions_synced: Payment sync check",
+    Logger.info("[QB Sync] verify_all_transactions_synced: Payment sync check",
       total_payments: length(payments),
       unsynced_payments_count: length(unsynced_payments),
-      unsynced_payment_ids: Enum.map(unsynced_payments, & &1.id)
+      unsynced_payment_ids: Enum.map(unsynced_payments, & &1.id),
+      unsynced_payment_details:
+        Enum.map(unsynced_payments, fn p ->
+          %{
+            id: p.id,
+            reference_id: p.reference_id,
+            sync_status: p.quickbooks_sync_status,
+            sales_receipt_id: p.quickbooks_sales_receipt_id
+          }
+        end)
     )
 
     # Check all refunds are synced
@@ -2395,10 +2456,19 @@ defmodule Ysc.Quickbooks.Sync do
         refund.quickbooks_sync_status != "synced" || refund.quickbooks_sales_receipt_id == nil
       end)
 
-    Logger.debug("[QB Sync] verify_all_transactions_synced: Refund sync check",
+    Logger.info("[QB Sync] verify_all_transactions_synced: Refund sync check",
       total_refunds: length(refunds),
       unsynced_refunds_count: length(unsynced_refunds),
-      unsynced_refund_ids: Enum.map(unsynced_refunds, & &1.id)
+      unsynced_refund_ids: Enum.map(unsynced_refunds, & &1.id),
+      unsynced_refund_details:
+        Enum.map(unsynced_refunds, fn r ->
+          %{
+            id: r.id,
+            reference_id: r.reference_id,
+            sync_status: r.quickbooks_sync_status,
+            sales_receipt_id: r.quickbooks_sales_receipt_id
+          }
+        end)
     )
 
     if Enum.empty?(unsynced_payments) && Enum.empty?(unsynced_refunds) do
