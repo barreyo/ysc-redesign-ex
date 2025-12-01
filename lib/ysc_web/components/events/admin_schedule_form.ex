@@ -70,9 +70,6 @@ defmodule YscWeb.AdminEventsLive.ScheduleEventForm do
     |> Calendar.strftime("%Y-%m-%dT%H:%M")
   end
 
-  defp format_datetime_local(nil), do: nil
-  defp format_datetime_local(value), do: value
-
   @impl true
   def handle_event("validate", %{"event" => event_params}, socket) do
     changeset =
