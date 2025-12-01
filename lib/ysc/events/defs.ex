@@ -23,5 +23,5 @@ defmodule Ysc.Events.EventState do
   @moduledoc """
   Event state enum.
   """
-  use EctoEnum, type: :event_state, enums: [:draft, :published, :cancelled, :deleted]
+  use EctoEnum, type: :event_state, enums: [:draft, :scheduled, :published, :cancelled, :deleted]
 end

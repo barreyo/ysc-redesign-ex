@@ -715,7 +715,17 @@ defmodule YscWeb.AdminEventsNewLive do
   def handle_info({Ysc.Events, %Ysc.MessagePassingEvents.EventUpdated{event: event}}, socket) do
     if event.id == socket.assigns[:event].id do
       changeset = Event.changeset(event, %{})
-      {:noreply, socket |> assign(event: event) |> assign_form(changeset)}
+
+      {:noreply,
+       socket
+       |> assign(:event, event)
+       |> assign(:event_title, event.title)
+       |> assign(:state, event.state)
+       |> assign(:start_date, event.start_date)
+       |> assign(:end_date, event.end_date)
+       |> assign(:start_time, event.start_time)
+       |> assign(:end_time, event.end_time)
+       |> assign_form(changeset)}
     else
       {:noreply, socket}
     end

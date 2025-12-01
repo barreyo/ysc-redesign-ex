@@ -354,10 +354,37 @@ defmodule Ysc.Events do
     |> case do
       {:ok, event} ->
         broadcast(%Ysc.MessagePassingEvents.EventUpdated{event: event})
+
+        # Schedule event notification emails (1 hour after publish)
+        # Use 'now' directly to ensure we have the correct published_at timestamp
+        schedule_event_notifications(event, now)
+
         {:ok, event}
 
       {:error, changeset} ->
         {:error, changeset}
+    end
+  end
+
+  defp schedule_event_notifications(event, published_at) do
+    require Logger
+
+    try do
+      YscWeb.Workers.EventNotificationWorker.schedule_notifications(
+        event.id,
+        published_at
+      )
+
+      Logger.info("Scheduled event notification emails",
+        event_id: event.id,
+        published_at: published_at
+      )
+    rescue
+      error ->
+        Logger.error("Failed to schedule event notification emails",
+          event_id: event.id,
+          error: Exception.message(error)
+        )
     end
   end
 
@@ -389,11 +416,27 @@ defmodule Ysc.Events do
     end
   end
 
-  def schedule_event(%Event{} = event, publish_at) do
-    event
-    |> Event.changeset(%{state: "scheduled", publish_at: publish_at})
-    |> Repo.update()
-    |> case do
+  def schedule_event(%Event{} = event, publish_at) when is_binary(publish_at) do
+    # Parse datetime-local string (format: "YYYY-MM-DDTHH:MM") as PST and convert to UTC
+    parsed_datetime =
+      case NaiveDateTime.from_iso8601("#{publish_at}:00") do
+        {:ok, naive_dt} ->
+          # Create DateTime in America/Los_Angeles timezone (PST)
+          local_dt = DateTime.from_naive!(naive_dt, "America/Los_Angeles")
+          # Convert to UTC for storage
+          DateTime.shift_zone!(local_dt, "Etc/UTC")
+
+        {:error, _} ->
+          raise ArgumentError, "Invalid datetime format: #{publish_at}"
+      end
+
+    schedule_event(event, parsed_datetime)
+  end
+
+  def schedule_event(%Event{} = event, publish_at) when is_struct(publish_at, DateTime) do
+    changeset = Event.changeset(event, %{state: "scheduled", publish_at: publish_at})
+
+    case Repo.update(changeset) do
       {:ok, event} ->
         broadcast(%Ysc.MessagePassingEvents.EventUpdated{event: event})
         {:ok, event}

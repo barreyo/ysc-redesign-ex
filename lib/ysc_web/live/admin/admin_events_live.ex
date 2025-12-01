@@ -103,9 +103,17 @@ defmodule YscWeb.AdminEventsLive do
 
               <div class="flex items-center justify-between pt-3 border-t border-zinc-200">
                 <div>
-                  <.badge type={event_state_to_badge_style(event.state)}>
-                    <%= String.capitalize("#{event.state}") %>
-                  </.badge>
+                  <%= if event.state == :scheduled && event.publish_at do %>
+                    <.tooltip tooltip_text={"Publishes on #{format_publish_at(event.publish_at)}"}>
+                      <.badge type={event_state_to_badge_style(event.state)}>
+                        <%= String.capitalize("#{event.state}") %>
+                      </.badge>
+                    </.tooltip>
+                  <% else %>
+                    <.badge type={event_state_to_badge_style(event.state)}>
+                      <%= String.capitalize("#{event.state}") %>
+                    </.badge>
+                  <% end %>
                 </div>
 
                 <button
@@ -163,9 +171,17 @@ defmodule YscWeb.AdminEventsLive do
             </:col>
 
             <:col :let={{_, event}} label="State" field={:state}>
-              <.badge type={event_state_to_badge_style(event.state)}>
-                <%= String.capitalize("#{event.state}") %>
-              </.badge>
+              <%= if event.state == :scheduled && event.publish_at do %>
+                <.tooltip tooltip_text={"Publishes on #{format_publish_at(event.publish_at)}"}>
+                  <.badge type={event_state_to_badge_style(event.state)}>
+                    <%= String.capitalize("#{event.state}") %>
+                  </.badge>
+                </.tooltip>
+              <% else %>
+                <.badge type={event_state_to_badge_style(event.state)}>
+                  <%= String.capitalize("#{event.state}") %>
+                </.badge>
+              <% end %>
             </:col>
 
             <:col :let={{_, event}} label="Created" field={:inserted_at}>
@@ -231,6 +247,15 @@ defmodule YscWeb.AdminEventsLive do
 
   defp format_date(nil), do: "n/a"
   defp format_date(date), do: Timex.format!(date, "{Mshort} {D}, {YYYY}")
+
+  defp format_publish_at(%DateTime{} = publish_at) do
+    # Convert UTC datetime to PST for display
+    publish_at
+    |> DateTime.shift_zone!("America/Los_Angeles")
+    |> Calendar.strftime("%B %d, %Y at %I:%M %p %Z")
+  end
+
+  defp format_publish_at(_), do: nil
 
   defp maybe_update_filter(%{"value" => [""]} = filter), do: Map.replace(filter, "value", "")
   defp maybe_update_filter(filter), do: filter

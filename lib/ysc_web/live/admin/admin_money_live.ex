@@ -1958,7 +1958,7 @@ defmodule YscWeb.AdminMoneyLive do
                     <strong>Reference:</strong> <%= ticket_order.reference_id || ticket_order.id %>
                   </p>
                   <%= if ticket_order.event do %>
-                    <p><strong>Event:</strong> <%= ticket_order.event.name %></p>
+                    <p><strong>Event:</strong> <%= ticket_order.event.title %></p>
                   <% end %>
                   <p><strong>Tickets:</strong> <%= length(ticket_order.tickets || []) %></p>
                   <p>

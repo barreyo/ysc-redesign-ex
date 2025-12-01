@@ -39,7 +39,8 @@ defmodule YscWeb.Emails.Notifier do
     "membership_payment_reminder_7day" => YscWeb.Emails.MembershipPaymentReminder7Day,
     "membership_payment_reminder_30day" => YscWeb.Emails.MembershipPaymentReminder30Day,
     "booking_checkin_reminder" => YscWeb.Emails.BookingCheckinReminder,
-    "booking_checkout_reminder" => YscWeb.Emails.BookingCheckoutReminder
+    "booking_checkout_reminder" => YscWeb.Emails.BookingCheckoutReminder,
+    "event_notification" => YscWeb.Emails.EventNotification
   }
 
   def schedule_email(recipient, idempotency_key, subject, template, variables, text_body, user_id) do

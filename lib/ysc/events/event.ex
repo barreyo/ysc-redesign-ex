@@ -161,11 +161,16 @@ defmodule Ysc.Events.Event do
   end
 
   defp validate_start_end(changeset) do
-    start_date = get_field(changeset, :start)
-    end_date = get_field(changeset, :end)
+    start_date = get_field(changeset, :start_date)
+    start_time = get_field(changeset, :start_time)
+    end_date = get_field(changeset, :end_date)
+    end_time = get_field(changeset, :end_time)
 
-    if start_date && end_date && start_date > end_date do
-      add_error(changeset, :start, "must be before the end date and time")
+    start_datetime = combine_date_time(start_date, start_time)
+    end_datetime = combine_date_time(end_date, end_time)
+
+    if start_datetime && end_datetime && DateTime.compare(start_datetime, end_datetime) == :gt do
+      add_error(changeset, :start_date, "must be before the end date and time")
     else
       changeset
     end
@@ -173,14 +178,34 @@ defmodule Ysc.Events.Event do
 
   defp validate_publish_dates(changeset) do
     publish_at = get_field(changeset, :publish_at)
-    start = get_field(changeset, :start)
+    start_date = get_field(changeset, :start_date)
+    start_time = get_field(changeset, :start_time)
 
-    if publish_at && start && publish_at > start do
+    start_datetime = combine_date_time(start_date, start_time)
+
+    if publish_at && start_datetime && DateTime.compare(publish_at, start_datetime) == :gt do
       add_error(changeset, :publish_at, "must be before the event start date and time")
     else
       changeset
     end
   end
+
+  defp combine_date_time(nil, _), do: nil
+  defp combine_date_time(_, nil), do: nil
+
+  defp combine_date_time(%DateTime{} = date, %Time{} = time) do
+    naive_date = DateTime.to_naive(date)
+    date_part = NaiveDateTime.to_date(naive_date)
+    naive_datetime = NaiveDateTime.new!(date_part, time)
+    DateTime.from_naive!(naive_datetime, "Etc/UTC")
+  end
+
+  defp combine_date_time(date, time) when not is_nil(date) and not is_nil(time) do
+    NaiveDateTime.new!(date, time)
+    |> DateTime.from_naive!("Etc/UTC")
+  end
+
+  defp combine_date_time(_, _), do: nil
 
   defp put_reference_id(changeset) do
     case get_field(changeset, :reference_id) do

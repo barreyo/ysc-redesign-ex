@@ -3071,8 +3071,9 @@ trix-editor .attachment__metadata .attachment__size {
 
 
 /* Dropdown chevron animation */
-
-.dropdown-open span {
+/* Only rotate chevron icons, not all spans */
+.dropdown-open .hero-chevron-down,
+.dropdown-open .hero-chevron-up {
     transform: rotate(180deg);
 }
 
