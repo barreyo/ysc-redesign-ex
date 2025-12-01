@@ -186,7 +186,7 @@ defmodule YscWeb.HomeLive do
             <div class="space-y-10 md:space-y-16 not-prose">
               <!-- Membership Status Section -->
               <div class="flex flex-col space-y-4">
-                <div class="flex flex-row justify-between space-x-4">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
                   <div class="flex-shrink-0">
                     <h2 class="text-xl md:text-2xl font-semibold text-zinc-900">Membership Status</h2>
                   </div>
@@ -203,13 +203,13 @@ defmodule YscWeb.HomeLive do
               </div>
               <!-- Upcoming Bookings Section -->
               <div class="space-y-4 flex flex-col">
-                <div class="flex flex-row justify-between items-center space-x-4">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
                   <div class="flex-shrink-0">
                     <h2 class="text-xl md:text-2xl font-semibold text-zinc-900">
                       Your Upcoming Bookings
                     </h2>
                   </div>
-                  <div class="flex-shrink-0 flex gap-2">
+                  <div class="flex flex-row gap-2 flex-shrink-0">
                     <.button phx-click={JS.navigate(~p"/bookings/tahoe")}>
                       Book Tahoe
                     </.button>
@@ -232,9 +232,9 @@ defmodule YscWeb.HomeLive do
                 <div :if={!Enum.empty?(@future_bookings)} class="space-y-4">
                   <%= for booking <- @future_bookings do %>
                     <div class="border border-zinc-200 rounded-lg p-4 hover:bg-zinc-50 transition-colors">
-                      <div class="flex items-start justify-between">
-                        <div class="flex-1">
-                          <div class="flex items-center gap-2 mb-2">
+                      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                          <div class="flex flex-wrap items-center gap-2 mb-2">
                             <.link
                               navigate={~p"/bookings/#{booking.id}"}
                               class="hover:text-blue-600 transition-colors"
@@ -262,13 +262,13 @@ defmodule YscWeb.HomeLive do
                               <% end %>
                             <% end %>
                           </div>
-                          <div class="flex items-center text-sm text-zinc-600 mb-1">
-                            <.icon name="hero-calendar-days" class="w-4 h-4 mr-1" />
+                          <div class="flex flex-wrap items-center text-sm text-zinc-600 mb-1 gap-1">
+                            <.icon name="hero-calendar-days" class="w-4 h-4 mr-1 flex-shrink-0" />
                             <span class="font-semibold">Check-in:</span>
-                            <span class="ml-1">
+                            <span>
                               <%= Calendar.strftime(booking.checkin_date, "%B %d, %Y") %>
                             </span>
-                            <span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded inline-block">
+                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded inline-block">
                               <%= case days_until_booking(booking) do
                                 :started -> "In progress"
                                 0 -> "Today"
@@ -285,24 +285,28 @@ defmodule YscWeb.HomeLive do
                             </span>
                           </div>
                           <%= if booking.booking_mode != :buyout do %>
-                            <div class="flex items-center text-sm text-zinc-600">
-                              <.icon name="hero-users" class="w-4 h-4 mr-1" />
+                            <div class="flex flex-wrap items-center text-sm text-zinc-600 gap-1">
+                              <.icon name="hero-users" class="w-4 h-4 mr-1 flex-shrink-0" />
                               <% adults_count = booking.guests_count
                               total_guests = booking.guests_count + (booking.children_count || 0) %>
                               <%= if adults_count > 0 do %>
-                                <%= adults_count %> <%= if adults_count == 1,
-                                  do: "adult",
-                                  else: "adults" %>
+                                <span>
+                                  <%= adults_count %> <%= if adults_count == 1,
+                                    do: "adult",
+                                    else: "adults" %>
+                                </span>
                               <% end %>
                               <%= if (booking.children_count || 0) > 0 do %>
-                                <%= if adults_count > 0, do: ", ", else: "" %><%= booking.children_count %> <%= if booking.children_count ==
-                                                                                                                     1,
-                                                                                                                   do:
-                                                                                                                     "child",
-                                                                                                                   else:
-                                                                                                                     "children" %>
+                                <span>
+                                  <%= if adults_count > 0, do: ", ", else: "" %><%= booking.children_count %> <%= if booking.children_count ==
+                                                                                                                       1,
+                                                                                                                     do:
+                                                                                                                       "child",
+                                                                                                                     else:
+                                                                                                                       "children" %>
+                                </span>
                               <% end %>
-                              <span class="ml-1 text-zinc-500">
+                              <span class="text-zinc-500">
                                 (Total: <%= total_guests %> <%= if total_guests == 1,
                                   do: "guest",
                                   else: "guests" %>)
@@ -310,10 +314,10 @@ defmodule YscWeb.HomeLive do
                             </div>
                           <% end %>
                         </div>
-                        <div class="ml-4 flex-shrink-0">
+                        <div class="sm:ml-4 flex-shrink-0 sm:self-start">
                           <.link
                             navigate={~p"/bookings/#{booking.id}"}
-                            class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            class="text-blue-600 hover:text-blue-800 text-sm font-medium whitespace-nowrap"
                           >
                             View Details →
                           </.link>
@@ -325,7 +329,7 @@ defmodule YscWeb.HomeLive do
               </div>
               <!-- Upcoming Tickets Section -->
               <div class="space-y-4 flex flex-col">
-                <div class="flex flex-row justify-between items-center space-x-4">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
                   <div class="flex-shrink-0">
                     <h2 class="text-xl md:text-2xl font-semibold text-zinc-900">
                       Your Upcoming Events
@@ -351,27 +355,29 @@ defmodule YscWeb.HomeLive do
                 <div :if={!Enum.empty?(@upcoming_tickets)} class="space-y-4">
                   <%= for {event, grouped_tiers} <- group_tickets_by_event_and_tier(@upcoming_tickets) do %>
                     <div class="border border-zinc-200 rounded-lg p-4">
-                      <div class="flex items-start justify-between mb-4">
-                        <div class="flex-1">
-                          <div class="flex items-center w-full justify-between">
-                            <h3 class="text-lg font-medium text-zinc-900 mb-1 flex-shrink-0">
+                      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                        <div class="flex-1 min-w-0">
+                          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-2">
+                            <h3 class="text-lg font-medium text-zinc-900 flex-shrink-0 break-words">
                               <%= event.title %>
                             </h3>
 
-                            <div class="ml-4 flex-shrink-0">
+                            <div class="flex-shrink-0">
                               <.link
                                 navigate={~p"/events/#{event.id}"}
-                                class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                class="text-blue-600 hover:text-blue-800 text-sm font-medium whitespace-nowrap"
                               >
                                 View Event →
                               </.link>
                             </div>
                           </div>
 
-                          <div class="flex items-center text-sm text-zinc-600 mb-2">
-                            <.icon name="hero-calendar-days" class="w-4 h-4 mr-1" />
-                            <%= Calendar.strftime(event.start_date, "%B %d, %Y at %I:%M %p") %>
-                            <span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded inline-block">
+                          <div class="flex flex-wrap items-center text-sm text-zinc-600 mb-2 gap-1">
+                            <.icon name="hero-calendar-days" class="w-4 h-4 mr-1 flex-shrink-0" />
+                            <span class="break-words">
+                              <%= Calendar.strftime(event.start_date, "%B %d, %Y at %I:%M %p") %>
+                            </span>
+                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded inline-block">
                               <%= case days_until_event(event) do
                                 0 -> "Today"
                                 1 -> "1 day left"
@@ -391,9 +397,9 @@ defmodule YscWeb.HomeLive do
                       <!-- Grouped Tickets by Tier -->
                       <div class="space-y-2">
                         <%= for {tier_name, tickets} <- grouped_tiers do %>
-                          <div class="flex justify-between items-center bg-zinc-50 rounded p-3 border border-zinc-200">
-                            <div>
-                              <p class="font-medium text-zinc-900">
+                          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 bg-zinc-50 rounded p-3 border border-zinc-200">
+                            <div class="min-w-0">
+                              <p class="font-medium text-zinc-900 break-words">
                                 <%= length(tickets) %>x <%= tier_name %>
                               </p>
                               <p class="text-sm text-zinc-500">
@@ -404,7 +410,7 @@ defmodule YscWeb.HomeLive do
                                 <% end %>
                               </p>
                             </div>
-                            <div class="text-right">
+                            <div class="text-left sm:text-right flex-shrink-0">
                               <p class="font-semibold text-zinc-900">
                                 <%= cond do %>
                                   <% List.first(tickets).ticket_tier.type == "donation" || List.first(tickets).ticket_tier.type == :donation -> %>
