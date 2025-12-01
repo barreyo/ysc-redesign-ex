@@ -114,19 +114,40 @@ defmodule YscWeb.AdminSettingsLive do
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
-                    <%= cond do
-                      job.completed_at ->
-                        Calendar.strftime(job.completed_at, "%Y-%m-%d %H:%M:%S")
-
-                      job.scheduled_at ->
-                        "Scheduled: #{Calendar.strftime(job.scheduled_at, "%Y-%m-%d %H:%M:%S")}"
-
-                      job.inserted_at ->
-                        Calendar.strftime(job.inserted_at, "%Y-%m-%d %H:%M:%S")
-
-                      true ->
-                        "N/A"
-                    end %>
+                    <%= if job.completed_at do %>
+                      <span
+                        id={"job-time-#{job.id}-completed"}
+                        phx-hook="LocalTime"
+                        data-utc-time={DateTime.to_iso8601(job.completed_at)}
+                        data-prefix=""
+                      >
+                        <%= Calendar.strftime(job.completed_at, "%Y-%m-%d %H:%M:%S UTC") %>
+                      </span>
+                    <% else %>
+                      <%= if job.scheduled_at do %>
+                        <span
+                          id={"job-time-#{job.id}-scheduled"}
+                          phx-hook="LocalTime"
+                          data-utc-time={DateTime.to_iso8601(job.scheduled_at)}
+                          data-prefix="Scheduled: "
+                        >
+                          Scheduled: <%= Calendar.strftime(job.scheduled_at, "%Y-%m-%d %H:%M:%S UTC") %>
+                        </span>
+                      <% else %>
+                        <%= if job.inserted_at do %>
+                          <span
+                            id={"job-time-#{job.id}-inserted"}
+                            phx-hook="LocalTime"
+                            data-utc-time={DateTime.to_iso8601(job.inserted_at)}
+                            data-prefix=""
+                          >
+                            <%= Calendar.strftime(job.inserted_at, "%Y-%m-%d %H:%M:%S UTC") %>
+                          </span>
+                        <% else %>
+                          N/A
+                        <% end %>
+                      <% end %>
+                    <% end %>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
                     <%= job.attempt %>/<%= job.max_attempts %>

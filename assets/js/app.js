@@ -41,6 +41,7 @@ import PanelResizer from "./panel_resizer";
 import EmailPreview from "./email_preview";
 import AdminSearch from "./admin_search";
 import GLightboxHook from "./glightbox_hook";
+import LocalTime from "./local_time";
 
 let Hooks = {
     StickyNavbar,
@@ -61,6 +62,7 @@ let Hooks = {
     EmailPreview,
     AdminSearch,
     GLightboxHook,
+    LocalTime,
 };
 Hooks.LivePhone = LivePhone;
 
