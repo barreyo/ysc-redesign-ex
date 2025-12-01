@@ -1472,6 +1472,15 @@ defmodule YscWeb.AdminBookingsLive do
               <div class="border-b border-zinc-200 px-2 sm:px-3 py-2.5 text-left font-semibold text-zinc-700 bg-white text-sm">
                 Room
               </div>
+              <!-- Available Slots Row Title (only for Clear Lake) -->
+              <%= if @selected_property == :clear_lake do %>
+                <div class="border-b border-zinc-200 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 h-12 bg-white">
+                  <div class="h-2 w-2 rounded-full bg-purple-500 flex-shrink-0"></div>
+                  <div class="text-xs sm:text-sm font-medium text-zinc-800 truncate">
+                    Available Slots
+                  </div>
+                </div>
+              <% end %>
               <!-- Blackouts Row Title -->
               <div class="border-b border-zinc-200 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 h-12 bg-white">
                 <div class="h-2 w-2 rounded-full bg-red-500 flex-shrink-0"></div>
@@ -1517,6 +1526,46 @@ defmodule YscWeb.AdminBookingsLive do
                   <% end %>
                 </div>
               </div>
+              <!-- Available Slots Row (only for Clear Lake) -->
+              <%= if @selected_property == :clear_lake do %>
+                <div
+                  class="relative grid"
+                  style={"grid-template-columns: repeat(#{total_cols}, minmax(56px, 1fr));"}
+                >
+                  <%= for i <- 0..(total_cols - 1) do %>
+                    <% date = get_date_from_col(i, @calendar_dates) %>
+                    <% base_bg =
+                      cond do
+                        today_col?(i, @calendar_dates, @today) -> "bg-blue-100/20"
+                        true -> "bg-white"
+                      end %>
+                    <div
+                      class={"h-12 border-b #{if today_col?(i, @calendar_dates, @today), do: "border-blue-100", else: "border-zinc-100"} #{base_bg} #{if rem(i + 1, 2) == 0, do: "relative", else: ""}"}
+                      style={"grid-column: #{i + 1}; grid-row: 1;"}
+                    >
+                      <%= if rem(i + 1, 2) == 0 do %>
+                        <div class={"absolute right-0 top-0 bottom-0 w-px bg-zinc-200 #{if today_col?(i, @calendar_dates, @today), do: "bg-blue-200", else: ""}"}>
+                        </div>
+                      <% end %>
+                    </div>
+                  <% end %>
+                  <%= for {date, day_idx} <- Enum.with_index(@calendar_dates) do %>
+                    <% availability_info = Map.get(@daily_availability, date) %>
+                    <% col_start = day_idx * 2 + 1 %>
+                    <% col_end = col_start + 2 %>
+                    <%= if availability_info do %>
+                      <div
+                        class="flex items-center justify-center h-12"
+                        style={"grid-column: #{col_start} / #{col_end}; grid-row: 1; position: relative; z-index: 1;"}
+                      >
+                        <span class={"text-sm font-semibold #{if availability_info.spots_available > 0, do: "text-green-600", else: "text-red-600"}"}>
+                          <%= availability_info.spots_available %>/<%= 12 %> slots
+                        </span>
+                      </div>
+                    <% end %>
+                  <% end %>
+                </div>
+              <% end %>
               <!-- Blackouts Row -->
               <div
                 class="relative grid"
@@ -2683,6 +2732,7 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:image_gallery, [])
      |> assign(:image_gallery_page, 1)
      |> assign(:image_gallery_end?, false)
+     |> assign(:daily_availability, %{})
      |> assign(
        :reservations_path,
        ~p"/admin/bookings?property=#{selected_property}&section=reservations"
@@ -5240,6 +5290,14 @@ defmodule YscWeb.AdminBookingsLive do
         !Ecto.assoc_loaded?(booking.rooms) || booking.rooms == []
       end)
 
+    # Calculate daily availability for Clear Lake (per guest/day mode)
+    daily_availability =
+      if property == :clear_lake do
+        Bookings.get_clear_lake_daily_availability(start_date, end_date)
+      else
+        %{}
+      end
+
     socket
     |> assign(:filtered_rooms, filtered_rooms)
     |> assign(:calendar_dates, calendar_dates)
@@ -5247,6 +5305,7 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:buyout_bookings, buyout_bookings)
     |> assign(:filtered_blackouts, filtered_blackouts)
     |> assign(:calendar_start_date, start_date)
+    |> assign(:daily_availability, daily_availability)
   end
 
   defp generate_calendar_dates(start_date, end_date) do

@@ -2768,7 +2768,7 @@ defmodule YscWeb.TahoeBookingLive do
 
               only_one_person && trying_to_add_second_room ->
                 {:unavailable,
-                 "Cannot book multiple rooms with only 1 person. Please select more people or book a single room."}
+                 "Cannot book multiple rooms with only 1 person. Please select more guests to book additional rooms."}
 
               not capacity_ok ->
                 if can_select_multiple do

@@ -295,7 +295,9 @@ defmodule Ysc.Accounts do
     # Check if sorting by membership_type
     {membership_sort, other_params} = extract_membership_sort(other_params)
 
-    case Flop.validate_and_run(User, other_params, for: User) do
+    base_query = from(u in User, where: u.state != :deleted)
+
+    case Flop.validate_and_run(base_query, other_params, for: User) do
       {:ok, {users, meta}} ->
         # Apply membership filters if any
         filtered_users = apply_membership_filters(users, membership_filters)
@@ -314,10 +316,12 @@ defmodule Ysc.Accounts do
     phone_like = "%#{search_term}%"
 
     from(u in User,
-      where: fragment("SIMILARITY(?, ?) > 0.2", u.email, ^search_term),
-      or_where: fragment("SIMILARITY(?, ?) > 0.2", u.first_name, ^search_term),
-      or_where: fragment("SIMILARITY(?, ?) > 0.2", u.last_name, ^search_term),
-      or_where: ilike(u.phone_number, ^phone_like)
+      where:
+        u.state != :deleted and
+          (fragment("SIMILARITY(?, ?) > 0.2", u.email, ^search_term) or
+             fragment("SIMILARITY(?, ?) > 0.2", u.first_name, ^search_term) or
+             fragment("SIMILARITY(?, ?) > 0.2", u.last_name, ^search_term) or
+             ilike(u.phone_number, ^phone_like))
     )
   end
 

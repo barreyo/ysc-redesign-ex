@@ -1375,7 +1375,7 @@ defmodule YscWeb.CoreComponents do
       </div>
     </aside>
 
-    <main class="px-6 md:px-10 lg:ml-72">
+    <main class="px-6 lg:px-10 lg:ml-72 mt-0 lg:-mt-14">
       <%= render_slot(@inner_block) %>
     </main>
 

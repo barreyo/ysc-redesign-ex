@@ -141,12 +141,12 @@ defmodule YscWeb.Components.AvailabilityCalendar do
           <div class="flex items-center gap-2">
             <div class="w-4 h-4 bg-gradient-to-r from-red-200 to-green-50 border border-zinc-300 rounded">
             </div>
-            <span>Check-out allowed</span>
+            <span>Check-in allowed</span>
           </div>
           <div class="flex items-center gap-2">
             <div class="w-4 h-4 bg-gradient-to-r from-green-50 to-red-200 border border-zinc-300 rounded">
             </div>
-            <span>Check-in allowed</span>
+            <span>Check-out allowed</span>
           </div>
         </div>
       </div>

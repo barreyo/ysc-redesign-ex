@@ -24,7 +24,11 @@ defmodule Ysc.Accounts.User do
     ],
     sortable: [:email, :first_name, :last_name, :state, :role],
     default_limit: 50,
-    max_limit: 200
+    max_limit: 200,
+    default_order: %{
+      order_by: [:first_name, :last_name],
+      order_directions: [:asc, :asc]
+    }
   }
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}
