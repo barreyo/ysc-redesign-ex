@@ -531,7 +531,7 @@ defmodule YscWeb.TahoeBookingLive do
         <div
           :if={@active_tab == :booking}
           class={[
-            "bg-white rounded-lg border border-zinc-200 p-6 space-y-6",
+            "bg-white rounded-lg border border-zinc-200 p-6 space-y-6 min-h-[600px]",
             if(!@can_book, do: "relative opacity-60", else: "")
           ]}
         >

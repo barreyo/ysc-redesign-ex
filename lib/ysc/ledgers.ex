@@ -1393,14 +1393,14 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
-  Gets all payments linked to a payout.
+  Gets all payments linked to a payout with preloaded associations.
   """
   def get_payout_payments(payout_id) do
     from(p in Payment,
       join: pp in "payout_payments",
       on: pp.payment_id == p.id,
       where: pp.payout_id == ^payout_id,
-      preload: [:payment_method]
+      preload: [:user, :payment_method]
     )
     |> Repo.all()
   end
@@ -1683,6 +1683,7 @@ defmodule Ysc.Ledgers do
   def get_payments_by_user(user_id) do
     from(p in Payment,
       where: p.user_id == ^user_id,
+      preload: [:user, :payment_method],
       order_by: [desc: p.inserted_at]
     )
     |> Repo.all()
@@ -1698,7 +1699,7 @@ defmodule Ysc.Ledgers do
       on: e.payment_id == p.id,
       where: e.related_entity_type == "membership",
       where: e.related_entity_id == ^subscription_id,
-      preload: [:payment_method],
+      preload: [:user, :payment_method],
       order_by: [desc: p.payment_date],
       distinct: true
     )
@@ -1715,7 +1716,7 @@ defmodule Ysc.Ledgers do
     payments =
       from(p in Payment,
         where: p.user_id == ^user_id,
-        preload: [:payment_method],
+        preload: [:user, :payment_method],
         order_by: [desc: p.payment_date],
         limit: ^per_page,
         offset: ^offset
@@ -1995,9 +1996,14 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
-  Gets a payment by ID.
+  Gets a payment by ID with preloaded associations.
   """
-  def get_payment(id), do: Repo.get(Payment, id)
+  def get_payment(id) do
+    case Repo.get(Payment, id) do
+      nil -> nil
+      payment -> Repo.preload(payment, [:user, :payment_method])
+    end
+  end
 
   @doc """
   Gets a payment by ID with preloaded associations.
@@ -2011,24 +2017,33 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
-  Gets a payment by external payment ID.
+  Gets a payment by external payment ID with preloaded associations.
   """
   def get_payment_by_external_id(external_payment_id) do
-    Repo.get_by(Payment, external_payment_id: external_payment_id)
+    case Repo.get_by(Payment, external_payment_id: external_payment_id) do
+      nil -> nil
+      payment -> Repo.preload(payment, [:user, :payment_method])
+    end
   end
 
   @doc """
-  Gets a refund by external refund ID.
+  Gets a refund by external refund ID with preloaded associations.
   """
   def get_refund_by_external_id(external_refund_id) do
-    Repo.get_by(Refund, external_refund_id: external_refund_id)
+    case Repo.get_by(Refund, external_refund_id: external_refund_id) do
+      nil -> nil
+      refund -> Repo.preload(refund, [:user])
+    end
   end
 
   @doc """
-  Gets a refund by ID.
+  Gets a refund by ID with preloaded associations.
   """
   def get_refund(id) do
-    Repo.get(Refund, id)
+    case Repo.get(Refund, id) do
+      nil -> nil
+      refund -> Repo.preload(refund, [:user])
+    end
   end
 
   @doc """
