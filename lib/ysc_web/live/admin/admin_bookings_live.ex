@@ -1533,7 +1533,6 @@ defmodule YscWeb.AdminBookingsLive do
                   style={"grid-template-columns: repeat(#{total_cols}, minmax(56px, 1fr));"}
                 >
                   <%= for i <- 0..(total_cols - 1) do %>
-                    <% date = get_date_from_col(i, @calendar_dates) %>
                     <% base_bg =
                       cond do
                         today_col?(i, @calendar_dates, @today) -> "bg-blue-100/20"
