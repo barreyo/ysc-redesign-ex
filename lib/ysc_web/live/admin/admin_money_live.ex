@@ -982,10 +982,18 @@ defmodule YscWeb.AdminMoneyLive do
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
                   <div class="flex flex-col">
                     <span class="font-medium text-zinc-900">
-                      <%= get_user_display_name(payment.user) %>
+                      <%= if Ecto.assoc_loaded?(payment.user) && payment.user do
+                        get_user_display_name(payment.user)
+                      else
+                        "System Transaction"
+                      end %>
                     </span>
                     <span class="text-xs text-zinc-500">
-                      <%= if payment.user, do: payment.user.email, else: "System Transaction" %>
+                      <%= if Ecto.assoc_loaded?(payment.user) && payment.user do
+                        payment.user.email
+                      else
+                        "System Transaction"
+                      end %>
                     </span>
                   </div>
                 </td>
@@ -1686,7 +1694,7 @@ defmodule YscWeb.AdminMoneyLive do
                     <%= payment.reference_id %>
                   </td>
                   <td class="px-4 py-2 whitespace-nowrap">
-                    <%= if payment.user do %>
+                    <%= if Ecto.assoc_loaded?(payment.user) && payment.user do %>
                       <div class="flex flex-col">
                         <span class="text-xs font-medium">
                           <%= get_user_display_name(payment.user) %>
@@ -1753,7 +1761,7 @@ defmodule YscWeb.AdminMoneyLive do
                     <%= refund.reference_id %>
                   </td>
                   <td class="px-4 py-2 whitespace-nowrap">
-                    <%= if refund.user do %>
+                    <%= if Ecto.assoc_loaded?(refund.user) && refund.user do %>
                       <div class="flex flex-col">
                         <span class="text-xs font-medium">
                           <%= get_user_display_name(refund.user) %>
@@ -1877,7 +1885,7 @@ defmodule YscWeb.AdminMoneyLive do
             <div>
               <p class="text-sm font-medium text-zinc-700">User</p>
               <p class="text-sm text-zinc-900">
-                <%= if @selected_payment.user do %>
+                <%= if Ecto.assoc_loaded?(@selected_payment.user) && @selected_payment.user do %>
                   <div class="flex flex-col">
                     <span class="font-medium">
                       <%= get_user_display_name(@selected_payment.user) %>
@@ -2196,21 +2204,29 @@ defmodule YscWeb.AdminMoneyLive do
 
   defp get_user_display_name(nil), do: "System"
 
+  defp get_user_display_name(%Ecto.Association.NotLoaded{}), do: "Unknown User"
+
   defp get_user_display_name(user) do
-    case {user.first_name, user.last_name} do
-      {nil, nil} ->
-        "Unknown User"
+    try do
+      case {user.first_name, user.last_name} do
+        {nil, nil} ->
+          "Unknown User"
 
-      {first_name, nil} when is_binary(first_name) ->
-        first_name
+        {first_name, nil} when is_binary(first_name) ->
+          first_name
 
-      {nil, last_name} when is_binary(last_name) ->
-        last_name
+        {nil, last_name} when is_binary(last_name) ->
+          last_name
 
-      {first_name, last_name} when is_binary(first_name) and is_binary(last_name) ->
-        "#{first_name} #{last_name}"
+        {first_name, last_name} when is_binary(first_name) and is_binary(last_name) ->
+          "#{first_name} #{last_name}"
 
-      _ ->
+        _ ->
+          "Unknown User"
+      end
+    rescue
+      KeyError ->
+        # User association not loaded
         "Unknown User"
     end
   end

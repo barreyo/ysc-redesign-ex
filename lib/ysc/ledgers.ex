@@ -1267,11 +1267,11 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
-  Gets a payout by ID with preloaded payments and refunds.
+  Gets a payout by ID with preloaded payments and refunds (including their users).
   """
   def get_payout!(id) do
     Repo.get!(Payout, id)
-    |> Repo.preload([:payments, :refunds, :payment])
+    |> Repo.preload([:payment, payments: :user, refunds: :user])
   end
 
   @doc """
