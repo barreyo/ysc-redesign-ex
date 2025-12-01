@@ -86,6 +86,10 @@ defmodule YscWeb.Emails.BookingCheckinReminder do
     checkin_date = format_date(booking.checkin_date)
     checkout_date = format_date(booking.checkout_date)
 
+    # Calculate days until check-in (using PST timezone)
+    today_pst = DateTime.now!("America/Los_Angeles") |> DateTime.to_date()
+    days_until_checkin = Date.diff(booking.checkin_date, today_pst)
+
     # Get booking mode description
     booking_mode_description = get_booking_mode_description(booking.booking_mode)
 
@@ -122,6 +126,7 @@ defmodule YscWeb.Emails.BookingCheckinReminder do
       checkout_date: checkout_date,
       checkin_time: "3:00 PM",
       checkout_time: "11:00 AM",
+      days_until_checkin: days_until_checkin,
       booking_reference_id: booking.reference_id,
       booking_mode: booking_mode_description,
       room_names: room_names,

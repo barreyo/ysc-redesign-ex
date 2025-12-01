@@ -11,7 +11,7 @@
     <mj-spacer height="12px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">Hej <%= @first_name %>,</mj-text>
     <mj-spacer height="24px"></mj-spacer>
-    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">Your stay at our <%= @property_name %> property is just 2 days away! We're excited to host you.</mj-text>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">Your stay at our <%= @property_name %> property is <%= if @days_until_checkin == 0 do %>today<% else %><%= if @days_until_checkin == 1 do %>tomorrow<% else %><%= @days_until_checkin %> days away<% end %><% end %>! We're excited to host you.</mj-text>
     <mj-spacer height="24px"></mj-spacer>
     <!-- Door Code Notice - Very Prominent -->
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
