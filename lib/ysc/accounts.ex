@@ -11,7 +11,7 @@ defmodule Ysc.Accounts do
   alias Ysc.Accounts.SignupApplication
   alias Ysc.Repo
 
-  alias Ysc.Accounts.{User, UserToken, UserNotifier, AuthService}
+  alias Ysc.Accounts.{Address, User, UserToken, UserNotifier, AuthService}
 
   ## Database getters
 
@@ -156,6 +156,25 @@ defmodule Ysc.Accounts do
          |> User.registration_changeset(attrs)
          |> Repo.insert() do
       {:ok, user} ->
+        # Reload user with registration_form to get address data
+        # We need to reload because associations aren't automatically loaded after insert
+        user = Repo.get!(User, user.id) |> Repo.preload(:registration_form)
+
+        # Create billing address from signup application
+        case create_billing_address_from_signup(user) do
+          {:ok, _address} ->
+            :ok
+
+          {:error, changeset} ->
+            # Log the error but don't fail registration
+            require Logger
+
+            Logger.warning("Failed to create billing address during registration",
+              user_id: user.id,
+              errors: inspect(changeset.errors)
+            )
+        end
+
         # Spawn task to create Stripe customer asynchronously
         # In test mode, allow the task to use the database connection
         Task.start(fn ->
@@ -182,6 +201,27 @@ defmodule Ysc.Accounts do
 
       {:error, changeset} ->
         {:error, changeset}
+    end
+  end
+
+  defp create_billing_address_from_signup(user) do
+    case user.registration_form do
+      %SignupApplication{} = signup_application ->
+        # Check if address already exists
+        existing_address = Repo.get_by(Address, user_id: user.id)
+
+        if existing_address do
+          {:ok, existing_address}
+        else
+          %Address{}
+          |> Address.from_signup_application_changeset(signup_application)
+          |> Ecto.Changeset.put_change(:user_id, user.id)
+          |> Repo.insert()
+        end
+
+      _ ->
+        # No registration form loaded or available
+        {:ok, nil}
     end
   end
 
@@ -391,6 +431,36 @@ defmodule Ysc.Accounts do
     user
     |> User.notification_preferences_changeset(attrs)
     |> Repo.update()
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for changing the user's billing address.
+  """
+  def change_billing_address(user, attrs \\ %{}) do
+    address = get_or_build_billing_address(user)
+    # Ensure all keys are strings to match form params
+    attrs_with_user_id = Map.merge(attrs, %{"user_id" => user.id})
+    Address.changeset(address, attrs_with_user_id)
+  end
+
+  @doc """
+  Updates the user's billing address.
+  """
+  def update_billing_address(user, attrs) do
+    address = get_or_build_billing_address(user)
+    # Ensure all keys are strings to match form params
+    attrs_with_user_id = Map.merge(attrs, %{"user_id" => user.id})
+
+    address
+    |> Address.changeset(attrs_with_user_id)
+    |> Repo.insert_or_update()
+  end
+
+  defp get_or_build_billing_address(user) do
+    case Repo.preload(user, :billing_address) do
+      %{billing_address: %Address{} = address} -> address
+      _ -> %Address{}
+    end
   end
 
   @doc """

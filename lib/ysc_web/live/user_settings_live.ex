@@ -307,6 +307,38 @@ defmodule YscWeb.UserSettingsLive do
                 </:actions>
               </.simple_form>
             </div>
+            <!-- Billing Address Section -->
+            <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
+              <h2 class="text-zinc-900 font-bold text-xl">Billing Address</h2>
+
+              <.simple_form
+                for={@address_form}
+                id="address_form"
+                phx-submit="update_address"
+                phx-change="validate_address"
+              >
+                <.input field={@address_form[:address]} type="text" label="Street Address" required />
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <.input field={@address_form[:city]} type="text" label="City" required />
+                  <.input
+                    field={@address_form[:postal_code]}
+                    type="text"
+                    label="Postal Code"
+                    required
+                  />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <.input field={@address_form[:region]} type="text" label="State/Province/Region" />
+                  <.input field={@address_form[:country]} type="text" label="Country" required />
+                </div>
+
+                <:actions>
+                  <.button phx-disable-with="Updating...">Update Address</.button>
+                </:actions>
+              </.simple_form>
+            </div>
             <!-- Account Security Section -->
             <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
               <h2 class="text-zinc-900 font-bold text-xl">Account Security</h2>
@@ -1182,14 +1214,18 @@ defmodule YscWeb.UserSettingsLive do
 
   def mount(_params, _session, socket) do
     user = socket.assigns.current_user
-    email_changeset = Accounts.change_user_email(user)
-    password_changeset = Accounts.change_user_password(user)
-    profile_changeset = Accounts.change_user_profile(user)
-    notification_changeset = Accounts.change_notification_preferences(user)
     live_action = socket.assigns[:live_action] || :edit
 
     # Ensure Stripe customer exists - create if missing or invalid
     user = ensure_stripe_customer_exists(user)
+    # Reload user with billing_address after ensure_stripe_customer_exists
+    user = Repo.preload(user, :billing_address)
+
+    email_changeset = Accounts.change_user_email(user)
+    password_changeset = Accounts.change_user_password(user)
+    profile_changeset = Accounts.change_user_profile(user)
+    notification_changeset = Accounts.change_notification_preferences(user)
+    address_changeset = Accounts.change_billing_address(user)
 
     public_key = Application.get_env(:stripity_stripe, :public_key)
     default_payment_method = Ysc.Payments.get_default_payment_method(user)
@@ -1235,6 +1271,7 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:profile_form, to_form(profile_changeset))
       |> assign(:notification_form, to_form(notification_changeset))
+      |> assign(:address_form, to_form(address_changeset))
       |> assign(
         :membership_form,
         to_form(%{"membership_type" => default_select(family_plan_active?)})
@@ -1404,6 +1441,40 @@ defmodule YscWeb.UserSettingsLive do
 
       {:error, changeset} ->
         {:noreply, assign(socket, notification_form: to_form(changeset))}
+    end
+  end
+
+  def handle_event("validate_address", params, socket) do
+    %{"address" => address_params} = params
+    user = socket.assigns.current_user
+
+    address_form =
+      user
+      |> Accounts.change_billing_address(address_params)
+      |> Map.put(:action, :validate)
+      |> to_form()
+
+    {:noreply, assign(socket, address_form: address_form)}
+  end
+
+  def handle_event("update_address", params, socket) do
+    %{"address" => address_params} = params
+    user = socket.assigns.current_user
+
+    case Accounts.update_billing_address(user, address_params) do
+      {:ok, _address} ->
+        # Reload user with updated address
+        updated_user = Accounts.get_user!(user.id, [:billing_address])
+        address_form = Accounts.change_billing_address(updated_user) |> to_form()
+
+        {:noreply,
+         socket
+         |> assign(:user, updated_user)
+         |> assign(:address_form, address_form)
+         |> put_flash(:info, "Billing address updated successfully.")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, address_form: to_form(changeset))}
     end
   end
 

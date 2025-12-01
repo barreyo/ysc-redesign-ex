@@ -9,7 +9,7 @@ defmodule Ysc.Accounts.User do
   import Ecto.Changeset
 
   alias Ysc.Extensions.PhoneNumber
-  alias Ysc.Accounts.{FamilyMember, SignupApplication}
+  alias Ysc.Accounts.{Address, FamilyMember, SignupApplication}
 
   @derive {
     Flop.Schema,
@@ -50,6 +50,7 @@ defmodule Ysc.Accounts.User do
     field :phone_number, :string, redact: true
 
     has_one :registration_form, SignupApplication
+    has_one :billing_address, Address, foreign_key: :user_id
     has_many :family_members, FamilyMember, on_replace: :delete
 
     field :most_connected_country, :string

@@ -918,6 +918,9 @@ defmodule Ysc.Bookings.BookingLocker do
         # Schedule check-in reminder email (3 days before check-in at 8:00 AM PST)
         schedule_checkin_reminder(confirmed_booking)
 
+        # Schedule checkout reminder email (evening before checkout at 6:00 PM PST)
+        schedule_checkout_reminder(confirmed_booking)
+
         {:ok, confirmed_booking}
 
       error ->
@@ -941,6 +944,28 @@ defmodule Ysc.Bookings.BookingLocker do
     rescue
       error ->
         Logger.error("Failed to schedule check-in reminder",
+          booking_id: booking.id,
+          error: Exception.message(error)
+        )
+    end
+  end
+
+  defp schedule_checkout_reminder(booking) do
+    require Logger
+
+    try do
+      YscWeb.Workers.BookingCheckoutReminderWorker.schedule_reminder(
+        booking.id,
+        booking.checkout_date
+      )
+
+      Logger.info("Scheduled checkout reminder email",
+        booking_id: booking.id,
+        checkout_date: booking.checkout_date
+      )
+    rescue
+      error ->
+        Logger.error("Failed to schedule checkout reminder",
           booking_id: booking.id,
           error: Exception.message(error)
         )

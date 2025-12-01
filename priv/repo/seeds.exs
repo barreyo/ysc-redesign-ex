@@ -11,7 +11,7 @@
 # and so on) as they will fail if something goes wrong.
 
 alias Ysc.Repo
-alias Ysc.Accounts.User
+alias Ysc.Accounts.{Address, User}
 alias Ysc.SiteSettings.SiteSetting
 alias Ysc.Bookings
 
@@ -147,21 +147,70 @@ admin_user =
 
       case Repo.insert(admin_changeset, on_conflict: :nothing) do
         {:ok, user} when not is_nil(user) ->
+          # Create billing address from registration form
+          create_address_for_user.(user)
           user
 
         {:ok, nil} ->
           # Conflict occurred, fetch the existing user
-          Repo.get_by!(User, email: "admin@ysc.org")
+          user = Repo.get_by!(User, email: "admin@ysc.org")
+          # Ensure address exists for existing admin user
+          create_address_for_user.(user)
+          user
 
         {:error, _changeset} ->
           # If insert fails, try to fetch again (might have been created by another process)
-          Repo.get_by!(User, email: "admin@ysc.org") ||
-            raise("Failed to create or find admin user")
+          user =
+            Repo.get_by!(User, email: "admin@ysc.org") ||
+              raise("Failed to create or find admin user")
+
+          # Ensure address exists for existing admin user
+          create_address_for_user.(user)
+          user
       end
 
     existing_user ->
+      # Ensure address exists for existing admin user
+      create_address_for_user(existing_user)
       existing_user
   end
+
+# Helper function to create address from registration form
+create_address_for_user = fn user ->
+  # Preload registration_form to get address data
+  user = Repo.preload(user, :registration_form)
+
+  case user.registration_form do
+    %{address: address, city: city, country: country, postal_code: postal_code, region: region}
+    when not is_nil(address) and not is_nil(city) and not is_nil(country) and
+           not is_nil(postal_code) ->
+      # Check if address already exists
+      existing_address = Repo.get_by(Address, user_id: user.id)
+
+      if existing_address do
+        :ok
+      else
+        case %Address{}
+             |> Address.from_signup_application_changeset(user.registration_form)
+             |> Ecto.Changeset.put_change(:user_id, user.id)
+             |> Repo.insert() do
+          {:ok, _address} ->
+            :ok
+
+          {:error, changeset} ->
+            IO.puts(
+              "Failed to create address for user #{user.email}: #{inspect(changeset.errors)}"
+            )
+
+            :ok
+        end
+      end
+
+    _ ->
+      # No registration form or missing address fields
+      :ok
+  end
+end
 
 Enum.each(0..n_approved_users, fn n ->
   membership_type =
@@ -243,7 +292,9 @@ Enum.each(0..n_approved_users, fn n ->
       })
 
     case Repo.insert(regular_user, on_conflict: :nothing) do
-      {:ok, _user} ->
+      {:ok, user} ->
+        # Create billing address from registration form
+        create_address_for_user.(user)
         :ok
 
       {:error, changeset} ->
@@ -329,7 +380,9 @@ Enum.each(0..n_pending_users, fn n ->
       })
 
     case Repo.insert(pending_user, on_conflict: :nothing) do
-      {:ok, _user} ->
+      {:ok, user} ->
+        # Create billing address from registration form
+        create_address_for_user.(user)
         :ok
 
       {:error, changeset} ->
@@ -388,7 +441,9 @@ Enum.each(0..n_rejected_users, fn n ->
       })
 
     case Repo.insert(rejected_user, on_conflict: :nothing) do
-      {:ok, _user} ->
+      {:ok, user} ->
+        # Create billing address from registration form
+        create_address_for_user.(user)
         :ok
 
       {:error, changeset} ->
@@ -447,7 +502,9 @@ Enum.each(0..n_deleted_users, fn n ->
       })
 
     case Repo.insert(deleted_user, on_conflict: :nothing) do
-      {:ok, _user} ->
+      {:ok, user} ->
+        # Create billing address from registration form
+        create_address_for_user.(user)
         :ok
 
       {:error, changeset} ->
