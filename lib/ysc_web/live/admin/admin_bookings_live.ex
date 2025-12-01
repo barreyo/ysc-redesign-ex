@@ -1467,28 +1467,28 @@ defmodule YscWeb.AdminBookingsLive do
             <% total_days = length(@calendar_dates)
             total_cols = total_days * 2 %>
             <!-- Fixed Left Column: Row Titles -->
-            <div class="flex-shrink-0 w-[220px] border-r border-zinc-200 bg-white">
+            <div class="flex-shrink-0 w-[120px] sm:w-[180px] lg:w-[220px] border-r border-zinc-200 bg-white">
               <!-- Header: Room label -->
-              <div class="border-b border-zinc-200 px-3 py-2 text-left font-semibold text-zinc-700 bg-white">
+              <div class="border-b border-zinc-200 px-2 sm:px-3 py-2.5 text-left font-semibold text-zinc-700 bg-white text-sm">
                 Room
               </div>
               <!-- Blackouts Row Title -->
-              <div class="border-b border-zinc-200 flex items-center gap-2 px-3 h-12 bg-white">
-                <div class="h-2 w-2 rounded-full bg-red-500"></div>
-                <div class="text-sm font-medium text-zinc-800">Blackouts</div>
+              <div class="border-b border-zinc-200 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 h-12 bg-white">
+                <div class="h-2 w-2 rounded-full bg-red-500 flex-shrink-0"></div>
+                <div class="text-xs sm:text-sm font-medium text-zinc-800 truncate">Blackouts</div>
               </div>
               <!-- Full Buyout Row Title -->
-              <div class="border-b border-zinc-200 flex items-center gap-2 px-3 h-12 bg-white">
-                <div class="h-2 w-2 rounded-full bg-green-500"></div>
-                <div class="text-sm font-medium text-zinc-800">Full Buyout</div>
+              <div class="border-b border-zinc-200 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 h-12 bg-white">
+                <div class="h-2 w-2 rounded-full bg-green-500 flex-shrink-0"></div>
+                <div class="text-xs sm:text-sm font-medium text-zinc-800 truncate">Full Buyout</div>
               </div>
               <!-- Room Row Titles -->
               <%= for room <- @filtered_rooms do %>
-                <div class="border-b border-zinc-200 flex items-center gap-2 px-3 h-12 bg-white">
-                  <div class="h-2 w-2 rounded-full bg-blue-500"></div>
-                  <div class="text-sm font-medium text-zinc-800">
+                <div class="border-b border-zinc-200 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 h-12 bg-white">
+                  <div class="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0"></div>
+                  <div class="text-xs sm:text-sm font-medium text-zinc-800 truncate">
                     <%= room.name %>
-                    <span :if={room.room_category} class="text-xs text-zinc-500">
+                    <span :if={room.room_category} class="text-xs text-zinc-500 hidden sm:inline">
                       (<%= atom_to_readable(room.room_category.name) %>)
                     </span>
                   </div>
@@ -1726,7 +1726,7 @@ defmodule YscWeb.AdminBookingsLive do
                 />
               </form>
             </div>
-            <div class="py-6 w-full">
+            <div class="py-6 w-full overflow-x-auto">
               <Flop.Phoenix.table
                 id="admin_reservations_list"
                 items={@streams.reservations}

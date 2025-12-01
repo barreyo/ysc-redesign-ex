@@ -94,73 +94,164 @@ defmodule YscWeb.AdminPostsLive do
             </div>
           </.dropdown>
         </div>
+        <!-- Mobile Card View -->
+        <div class="block md:hidden space-y-4">
+          <%= for {_, post} <- @streams.posts do %>
+            <div class="bg-white rounded-lg border border-zinc-200 p-4 hover:shadow-md transition-shadow">
+              <div class="flex items-start justify-between mb-3">
+                <div class="flex-1 min-w-0">
+                  <h3 class="text-base font-semibold text-zinc-900 mb-1 truncate">
+                    <%= post.title %>
+                  </h3>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-sm text-zinc-600">
+                      <%= "#{String.capitalize(post.author.first_name)} #{String.capitalize(post.author.last_name)}" %>
+                    </span>
+                    <span class="text-zinc-400">•</span>
+                    <span class="text-sm text-zinc-600">
+                      <%= Timex.format!(post.inserted_at, "{Mshort} {D}, {YYYY}") %>
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="ml-2 flex-shrink-0 rounded p-1.5 hover:bg-zinc-100"
+                  phx-click="toggle-featured"
+                  phx-value-id={post.id}
+                >
+                  <.icon
+                    name={if post.featured_post, do: "hero-star-solid", else: "hero-star"}
+                    class={"w-5 h-5 #{if post.featured_post, do: "text-yellow-500", else: "text-zinc-600"}"}
+                  />
+                  <span class="sr-only">Toggle featured</span>
+                </button>
+              </div>
 
-        <Flop.Phoenix.table
-          id="admin_posts_list"
-          items={@streams.posts}
-          meta={@meta}
-          path={~p"/admin/posts"}
-        >
-          <:col :let={{_, post}} label="Title" field={:title}>
-            <p class="text-sm font-semibold">
-              <%= post.title %>
-              <span
-                :if={post.comment_count > 0}
-                class="relative text-zinc-600 ml-2 rounded px-2 py-1 text-sm"
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <.tooltip
+                    :if={post.published_on != nil}
+                    tooltip_text={Timex.format!(post.published_on, "%b %e, %Y", :strftime)}
+                  >
+                    <.badge type={post_state_to_badge_style(post.state)}>
+                      <%= String.capitalize("#{post.state}") %>
+                    </.badge>
+                  </.tooltip>
+
+                  <.badge :if={post.published_on == nil} type={post_state_to_badge_style(post.state)}>
+                    <%= String.capitalize("#{post.state}") %>
+                  </.badge>
+
+                  <span
+                    :if={post.comment_count > 0}
+                    class="flex items-center gap-1 text-zinc-600 text-sm"
+                  >
+                    <.icon name="hero-chat-bubble-oval-left" class="w-4 h-4" />
+                    <%= post.comment_count %>
+                  </span>
+                </div>
+
+                <button
+                  phx-click={JS.navigate(~p"/admin/posts/#{post.id}")}
+                  class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          <% end %>
+          <!-- Mobile Pagination -->
+          <div :if={@meta} class="pt-4">
+            <Flop.Phoenix.pagination
+              meta={@meta}
+              path={~p"/admin/posts"}
+              opts={[
+                wrapper_attrs: [class: "flex items-center justify-center py-4"],
+                pagination_list_attrs: [
+                  class: ["flex gap-0 order-2 justify-center items-center"]
+                ],
+                previous_link_attrs: [
+                  class:
+                    "order-1 flex justify-center items-center px-3 py-2 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                ],
+                next_link_attrs: [
+                  class:
+                    "order-3 flex justify-center items-center px-3 py-2 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                ],
+                page_links: {:ellipsis, 3}
+              ]}
+            />
+          </div>
+        </div>
+        <!-- Desktop Table View -->
+        <div class="hidden md:block">
+          <Flop.Phoenix.table
+            id="admin_posts_list"
+            items={@streams.posts}
+            meta={@meta}
+            path={~p"/admin/posts"}
+          >
+            <:col :let={{_, post}} label="Title" field={:title}>
+              <p class="text-sm font-semibold">
+                <%= post.title %>
+                <span
+                  :if={post.comment_count > 0}
+                  class="relative text-zinc-600 ml-2 rounded px-2 py-1 text-sm"
+                >
+                  <.icon name="hero-chat-bubble-oval-left" class="w-4 h-4 -mt-0.5" />
+                  <%= post.comment_count %>
+                </span>
+              </p>
+            </:col>
+
+            <:col :let={{_, post}} label="Author" field={:author_name}>
+              <%= "#{String.capitalize(post.author.first_name)} #{String.capitalize(post.author.last_name)}" %>
+            </:col>
+
+            <:col :let={{_, post}} label="State" field={:state}>
+              <.tooltip
+                :if={post.published_on != nil}
+                tooltip_text={Timex.format!(post.published_on, "%b %e, %Y", :strftime)}
               >
-                <.icon name="hero-chat-bubble-oval-left" class="w-4 h-4 -mt-0.5" />
-                <%= post.comment_count %>
-              </span>
-            </p>
-          </:col>
+                <.badge type={post_state_to_badge_style(post.state)}>
+                  <%= String.capitalize("#{post.state}") %>
+                </.badge>
+              </.tooltip>
 
-          <:col :let={{_, post}} label="Author" field={:author_name}>
-            <%= "#{String.capitalize(post.author.first_name)} #{String.capitalize(post.author.last_name)}" %>
-          </:col>
-
-          <:col :let={{_, post}} label="State" field={:state}>
-            <.tooltip
-              :if={post.published_on != nil}
-              tooltip_text={Timex.format!(post.published_on, "%b %e, %Y", :strftime)}
-            >
-              <.badge type={post_state_to_badge_style(post.state)}>
+              <.badge :if={post.published_on == nil} type={post_state_to_badge_style(post.state)}>
                 <%= String.capitalize("#{post.state}") %>
               </.badge>
-            </.tooltip>
+            </:col>
 
-            <.badge :if={post.published_on == nil} type={post_state_to_badge_style(post.state)}>
-              <%= String.capitalize("#{post.state}") %>
-            </.badge>
-          </:col>
+            <:col :let={{_, post}} label="Created" field={:inserted_at}>
+              <%= Timex.format!(post.inserted_at, "{Mshort} {D}, {YYYY}") %>
+            </:col>
 
-          <:col :let={{_, post}} label="Created" field={:inserted_at}>
-            <%= Timex.format!(post.inserted_at, "{Mshort} {D}, {YYYY}") %>
-          </:col>
+            <:action :let={{_, post}} label="Pinned">
+              <button
+                type="button"
+                class="rounded px-2 py-1 text-sm flex items-center gap-1 hover:bg-zinc-100"
+                phx-click="toggle-featured"
+                phx-value-id={post.id}
+              >
+                <.icon
+                  name={if post.featured_post, do: "hero-star-solid", else: "hero-star"}
+                  class={"w-4 h-4 #{if post.featured_post, do: "text-yellow-500", else: "text-zinc-600"}"}
+                />
+                <span class="sr-only">Toggle featured</span>
+              </button>
+            </:action>
 
-          <:action :let={{_, post}} label="Pinned">
-            <button
-              type="button"
-              class="rounded px-2 py-1 text-sm flex items-center gap-1 hover:bg-zinc-100"
-              phx-click="toggle-featured"
-              phx-value-id={post.id}
-            >
-              <.icon
-                name={if post.featured_post, do: "hero-star-solid", else: "hero-star"}
-                class={"w-4 h-4 #{if post.featured_post, do: "text-yellow-500", else: "text-zinc-600"}"}
-              />
-              <span class="sr-only">Toggle featured</span>
-            </button>
-          </:action>
-
-          <:action :let={{_, post}} label="Action">
-            <button
-              phx-click={JS.navigate(~p"/admin/posts/#{post.id}")}
-              class="text-blue-600 font-semibold hover:underline cursor-pointer"
-            >
-              Edit
-            </button>
-          </:action>
-        </Flop.Phoenix.table>
+            <:action :let={{_, post}} label="Action">
+              <button
+                phx-click={JS.navigate(~p"/admin/posts/#{post.id}")}
+                class="text-blue-600 font-semibold hover:underline cursor-pointer"
+              >
+                Edit
+              </button>
+            </:action>
+          </Flop.Phoenix.table>
+        </div>
       </div>
     </.side_menu>
     """

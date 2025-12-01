@@ -1178,7 +1178,7 @@ defmodule YscWeb.CoreComponents do
   def side_menu(assigns) do
     ~H"""
     <button
-      class="inline-flex items-center mb-2 p-2 mt-2 ms-3 text-sm text-zinc-500 rounded sm:hidden hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+      class="inline-flex items-center mb-2 p-2 mt-2 ms-3 text-sm text-zinc-500 rounded :hidden hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-200"
       aria-controls="sidebar navigation"
       type="button"
       phx-click={show_sidebar("#admin-navigation")}
@@ -1189,13 +1189,13 @@ defmodule YscWeb.CoreComponents do
 
     <aside
       id="admin-navigation"
-      class="fixed top-0 left-0 z-40 w-72 h-screen transition-transform -translate-x-full sm:translate-x-0"
+      class="fixed top-0 left-0 z-40 w-72 h-screen transition-transform -translate-x-full lg:translate-x-0"
       aria-label="Sidebar"
       phx-click-away={hide_sidebar("#admin-navigation")}
     >
       <div class="h-full px-5 py-8 overflow-y-auto bg-zinc-100 relative">
         <.link navigate="/" class="items-center group ps-2.5 mb-5 inline-block">
-          <.ysc_logo class="h-12 sm:h-16 me-3" />
+          <.ysc_logo class="h-20 me-3" />
           <span class="block group-hover:underline text-sm font-bold text-zinc-600 py-4">
             Go to site <.icon name="hero-arrow-right" class="h-4 w-4" />
           </span>
@@ -1375,7 +1375,7 @@ defmodule YscWeb.CoreComponents do
       </div>
     </aside>
 
-    <main class="px-6 md:px-10 sm:ml-72">
+    <main class="px-6 md:px-10 lg:ml-72">
       <%= render_slot(@inner_block) %>
     </main>
 

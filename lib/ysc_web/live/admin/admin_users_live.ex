@@ -389,104 +389,212 @@ defmodule YscWeb.AdminUsersLive do
               </div>
             </.dropdown>
           </div>
+          <!-- Mobile Card View -->
+          <div class="block md:hidden space-y-4">
+            <%= for {_, user} <- @streams.users do %>
+              <div class="bg-white rounded-lg border border-zinc-200 p-4 hover:shadow-md transition-shadow">
+                <.link
+                  navigate={
+                    if user.state == :pending_approval,
+                      do: ~p"/admin/users/#{user.id}/review?#{@params}",
+                      else: ~p"/admin/users/#{user.id}/details"
+                  }
+                  class="block"
+                >
+                  <div class="flex items-start gap-3 mb-3">
+                    <.user_card
+                      email={user.email}
+                      user_id={user.id}
+                      most_connected_country={user.most_connected_country}
+                      first_name={user.first_name}
+                      last_name={user.last_name}
+                    />
+                  </div>
+                </.link>
 
-          <Flop.Phoenix.table
-            id="admin_users_list"
-            items={@streams.users}
-            meta={@meta}
-            path={~p"/admin/users"}
-          >
-            <:col :let={{_, user}} label="Name" field={:first_name}>
-              <.link
-                navigate={
-                  if user.state == :pending_approval,
-                    do: ~p"/admin/users/#{user.id}/review?#{@params}",
-                    else: ~p"/admin/users/#{user.id}/details"
-                }
-                class="cursor-pointer hover:opacity-80 transition-opacity"
-              >
-                <.user_card
-                  email={user.email}
-                  user_id={user.id}
-                  most_connected_country={user.most_connected_country}
-                  first_name={user.first_name}
-                  last_name={user.last_name}
-                />
-              </.link>
-            </:col>
-            <:col :let={{_, user}} label="Phone" field={:phone_number}>
-              <%= format_phone_number(user.phone_number) %>
-            </:col>
-            <:col :let={{_, user}} label="State" field={:state} thead_th_attrs={[class: "dance"]}>
-              <.badge type={user_state_to_badge_type(user.state)}>
-                <%= user_state_to_readable(user.state) %>
-              </.badge>
-            </:col>
-            <:col :let={{_, user}} label="Membership" field={:membership_type}>
-              <%= case get_active_membership_type(user) do %>
-                <% nil -> %>
-                  <span class="text-zinc-400">—</span>
-                <% membership_type -> %>
-                  <.badge type="sky">
-                    <%= String.capitalize("#{membership_type}") %>
-                  </.badge>
-              <% end %>
-            </:col>
-            <:action :let={{_, user}} label="Action">
-              <button
-                :if={user.state == :pending_approval}
-                phx-click={JS.navigate(~p"/admin/users/#{user.id}/review?#{@params}")}
-                class="text-blue-600 font-semibold hover:underline cursor-pointer"
-              >
-                Review
-              </button>
-              <button
-                :if={user.state != :pending_approval}
-                phx-click={JS.navigate(~p"/admin/users/#{user.id}/details")}
-                class="text-blue-600 font-semibold hover:underline cursor-pointer"
-              >
-                Edit
-              </button>
-            </:action>
-          </Flop.Phoenix.table>
+                <div class="space-y-2 mb-3">
+                  <div :if={user.phone_number} class="flex items-center gap-2">
+                    <span class="text-sm text-zinc-600">Phone:</span>
+                    <span class="text-sm text-zinc-900">
+                      <%= format_phone_number(user.phone_number) %>
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-zinc-600">State:</span>
+                    <.badge type={user_state_to_badge_type(user.state)}>
+                      <%= user_state_to_readable(user.state) %>
+                    </.badge>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-zinc-600">Membership:</span>
+                    <%= case get_active_membership_type(user) do %>
+                      <% nil -> %>
+                        <span class="text-sm text-zinc-400">—</span>
+                      <% membership_type -> %>
+                        <.badge type="sky">
+                          <%= String.capitalize("#{membership_type}") %>
+                        </.badge>
+                    <% end %>
+                  </div>
+                </div>
 
-          <div :if={@empty} class="py-16">
-            <.empty_viking_state
-              title="No results found"
-              suggestion="Try adjusting your search term and filters."
-            />
+                <div class="flex justify-end pt-3 border-t border-zinc-200">
+                  <button
+                    :if={user.state == :pending_approval}
+                    phx-click={JS.navigate(~p"/admin/users/#{user.id}/review?#{@params}")}
+                    class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
+                  >
+                    Review
+                  </button>
+                  <button
+                    :if={user.state != :pending_approval}
+                    phx-click={JS.navigate(~p"/admin/users/#{user.id}/details")}
+                    class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
+            <% end %>
+            <!-- Mobile Empty State -->
+            <div :if={@empty} class="py-16">
+              <.empty_viking_state
+                title="No results found"
+                suggestion="Try adjusting your search term and filters."
+              />
 
-            <div class="px-4 py-4 flex items-center align-center justify-center">
-              <button
-                class="rounded mx-auto hover:bg-zinc-100 w-36 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-100/80"
-                phx-click={JS.navigate(~p"/admin/users")}
-              >
-                <.icon name="hero-x-circle" class="w-5 h-5 -mt-1" /> Clear filters
-              </button>
+              <div class="px-4 py-4 flex items-center align-center justify-center">
+                <button
+                  class="rounded mx-auto hover:bg-zinc-100 w-36 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-100/80"
+                  phx-click={JS.navigate(~p"/admin/users")}
+                >
+                  <.icon name="hero-x-circle" class="w-5 h-5 -mt-1" /> Clear filters
+                </button>
+              </div>
+            </div>
+            <!-- Mobile Pagination -->
+            <div :if={@meta && !@empty} class="pt-4">
+              <Flop.Phoenix.pagination
+                meta={@meta}
+                path={~p"/admin/users"}
+                opts={[
+                  wrapper_attrs: [class: "flex items-center justify-center py-4"],
+                  pagination_list_attrs: [
+                    class: ["flex gap-0 order-2 justify-center items-center"]
+                  ],
+                  previous_link_attrs: [
+                    class:
+                      "order-1 flex justify-center items-center px-3 py-2 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                  ],
+                  next_link_attrs: [
+                    class:
+                      "order-3 flex justify-center items-center px-3 py-2 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                  ],
+                  page_links: {:ellipsis, 3}
+                ]}
+              />
             </div>
           </div>
+          <!-- Desktop Table View -->
+          <div class="hidden md:block">
+            <Flop.Phoenix.table
+              id="admin_users_list"
+              items={@streams.users}
+              meta={@meta}
+              path={~p"/admin/users"}
+            >
+              <:col :let={{_, user}} label="Name" field={:first_name}>
+                <.link
+                  navigate={
+                    if user.state == :pending_approval,
+                      do: ~p"/admin/users/#{user.id}/review?#{@params}",
+                      else: ~p"/admin/users/#{user.id}/details"
+                  }
+                  class="cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  <.user_card
+                    email={user.email}
+                    user_id={user.id}
+                    most_connected_country={user.most_connected_country}
+                    first_name={user.first_name}
+                    last_name={user.last_name}
+                  />
+                </.link>
+              </:col>
+              <:col :let={{_, user}} label="Phone" field={:phone_number}>
+                <%= format_phone_number(user.phone_number) %>
+              </:col>
+              <:col :let={{_, user}} label="State" field={:state} thead_th_attrs={[class: "dance"]}>
+                <.badge type={user_state_to_badge_type(user.state)}>
+                  <%= user_state_to_readable(user.state) %>
+                </.badge>
+              </:col>
+              <:col :let={{_, user}} label="Membership" field={:membership_type}>
+                <%= case get_active_membership_type(user) do %>
+                  <% nil -> %>
+                    <span class="text-zinc-400">—</span>
+                  <% membership_type -> %>
+                    <.badge type="sky">
+                      <%= String.capitalize("#{membership_type}") %>
+                    </.badge>
+                <% end %>
+              </:col>
+              <:action :let={{_, user}} label="Action">
+                <button
+                  :if={user.state == :pending_approval}
+                  phx-click={JS.navigate(~p"/admin/users/#{user.id}/review?#{@params}")}
+                  class="text-blue-600 font-semibold hover:underline cursor-pointer"
+                >
+                  Review
+                </button>
+                <button
+                  :if={user.state != :pending_approval}
+                  phx-click={JS.navigate(~p"/admin/users/#{user.id}/details")}
+                  class="text-blue-600 font-semibold hover:underline cursor-pointer"
+                >
+                  Edit
+                </button>
+              </:action>
+            </Flop.Phoenix.table>
 
-          <Flop.Phoenix.pagination
-            meta={@meta}
-            path={~p"/admin/users"}
-            opts={[
-              wrapper_attrs: [class: "flex items-center justify-center py-10 h-10 text-base"],
-              pagination_list_attrs: [
-                class: [
-                  "flex gap-0 order-2 justify-center items-center"
-                ]
-              ],
-              previous_link_attrs: [
-                class:
-                  "order-1 flex justify-center items-center px-3 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
-              ],
-              next_link_attrs: [
-                class:
-                  "order-3 flex justify-center items-center px-3 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
-              ],
-              page_links: {:ellipsis, 5}
-            ]}
-          />
+            <div :if={@empty} class="py-16">
+              <.empty_viking_state
+                title="No results found"
+                suggestion="Try adjusting your search term and filters."
+              />
+
+              <div class="px-4 py-4 flex items-center align-center justify-center">
+                <button
+                  class="rounded mx-auto hover:bg-zinc-100 w-36 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-100/80"
+                  phx-click={JS.navigate(~p"/admin/users")}
+                >
+                  <.icon name="hero-x-circle" class="w-5 h-5 -mt-1" /> Clear filters
+                </button>
+              </div>
+            </div>
+
+            <Flop.Phoenix.pagination
+              meta={@meta}
+              path={~p"/admin/users"}
+              opts={[
+                wrapper_attrs: [class: "flex items-center justify-center py-10 h-10 text-base"],
+                pagination_list_attrs: [
+                  class: [
+                    "flex gap-0 order-2 justify-center items-center"
+                  ]
+                ],
+                previous_link_attrs: [
+                  class:
+                    "order-1 flex justify-center items-center px-3 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                ],
+                next_link_attrs: [
+                  class:
+                    "order-3 flex justify-center items-center px-3 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                ],
+                page_links: {:ellipsis, 5}
+              ]}
+            />
+          </div>
         </div>
       </div>
     </.side_menu>

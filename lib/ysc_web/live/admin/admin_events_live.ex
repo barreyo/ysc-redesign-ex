@@ -71,46 +71,117 @@ defmodule YscWeb.AdminEventsLive do
             </div>
           </.dropdown>
         </div>
+        <!-- Mobile Card View -->
+        <div class="block md:hidden space-y-4">
+          <%= for {_, event} <- @streams.events do %>
+            <div class="bg-white rounded-lg border border-zinc-200 p-4 hover:shadow-md transition-shadow">
+              <div class="mb-3">
+                <h3 class="text-base font-semibold text-zinc-900 mb-2">
+                  <%= event.title %>
+                </h3>
+                <div class="space-y-1.5">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-zinc-600">Event Date:</span>
+                    <span class="text-sm font-medium text-zinc-900">
+                      <%= format_date(event.start_date) %>
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-zinc-600">Organizer:</span>
+                    <span class="text-sm text-zinc-900">
+                      <%= "#{String.capitalize(event.organizer.first_name)} #{String.capitalize(event.organizer.last_name)}" %>
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-zinc-600">Created:</span>
+                    <span class="text-sm text-zinc-900">
+                      <%= format_date(event.inserted_at) %>
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-        <Flop.Phoenix.table
-          id="admin_events_list"
-          items={@streams.events}
-          meta={@meta}
-          path={~p"/admin/events"}
-        >
-          <:col :let={{_, event}} label="Title" field={:title}>
-            <p class="text-sm font-semibold">
-              <%= event.title %>
-            </p>
-          </:col>
+              <div class="flex items-center justify-between pt-3 border-t border-zinc-200">
+                <div>
+                  <.badge type={event_state_to_badge_style(event.state)}>
+                    <%= String.capitalize("#{event.state}") %>
+                  </.badge>
+                </div>
 
-          <:col :let={{_, event}} label="Event Date" field={:start_date}>
-            <%= format_date(event.start_date) %>
-          </:col>
+                <button
+                  phx-click={JS.navigate(~p"/admin/events/#{event.id}/edit")}
+                  class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          <% end %>
+          <!-- Mobile Pagination -->
+          <div :if={@meta} class="pt-4">
+            <Flop.Phoenix.pagination
+              meta={@meta}
+              path={~p"/admin/events"}
+              opts={[
+                wrapper_attrs: [class: "flex items-center justify-center py-4"],
+                pagination_list_attrs: [
+                  class: ["flex gap-0 order-2 justify-center items-center"]
+                ],
+                previous_link_attrs: [
+                  class:
+                    "order-1 flex justify-center items-center px-3 py-2 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                ],
+                next_link_attrs: [
+                  class:
+                    "order-3 flex justify-center items-center px-3 py-2 text-sm font-semibold text-zinc-500 hover:text-zinc-800 rounded hover:bg-zinc-100"
+                ],
+                page_links: {:ellipsis, 3}
+              ]}
+            />
+          </div>
+        </div>
+        <!-- Desktop Table View -->
+        <div class="hidden md:block">
+          <Flop.Phoenix.table
+            id="admin_events_list"
+            items={@streams.events}
+            meta={@meta}
+            path={~p"/admin/events"}
+          >
+            <:col :let={{_, event}} label="Title" field={:title}>
+              <p class="text-sm font-semibold">
+                <%= event.title %>
+              </p>
+            </:col>
 
-          <:col :let={{_, event}} label="Author" field={:author_name}>
-            <%= "#{String.capitalize(event.organizer.first_name)} #{String.capitalize(event.organizer.last_name)}" %>
-          </:col>
+            <:col :let={{_, event}} label="Event Date" field={:start_date}>
+              <%= format_date(event.start_date) %>
+            </:col>
 
-          <:col :let={{_, event}} label="State" field={:state}>
-            <.badge type={event_state_to_badge_style(event.state)}>
-              <%= String.capitalize("#{event.state}") %>
-            </.badge>
-          </:col>
+            <:col :let={{_, event}} label="Author" field={:author_name}>
+              <%= "#{String.capitalize(event.organizer.first_name)} #{String.capitalize(event.organizer.last_name)}" %>
+            </:col>
 
-          <:col :let={{_, event}} label="Created" field={:inserted_at}>
-            <%= format_date(event.inserted_at) %>
-          </:col>
+            <:col :let={{_, event}} label="State" field={:state}>
+              <.badge type={event_state_to_badge_style(event.state)}>
+                <%= String.capitalize("#{event.state}") %>
+              </.badge>
+            </:col>
 
-          <:action :let={{_, event}} label="Action">
-            <button
-              phx-click={JS.navigate(~p"/admin/events/#{event.id}/edit")}
-              class="text-blue-600 font-semibold hover:underline cursor-pointer"
-            >
-              Edit
-            </button>
-          </:action>
-        </Flop.Phoenix.table>
+            <:col :let={{_, event}} label="Created" field={:inserted_at}>
+              <%= format_date(event.inserted_at) %>
+            </:col>
+
+            <:action :let={{_, event}} label="Action">
+              <button
+                phx-click={JS.navigate(~p"/admin/events/#{event.id}/edit")}
+                class="text-blue-600 font-semibold hover:underline cursor-pointer"
+              >
+                Edit
+              </button>
+            </:action>
+          </Flop.Phoenix.table>
+        </div>
       </div>
     </.side_menu>
     """
