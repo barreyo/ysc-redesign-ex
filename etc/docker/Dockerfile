@@ -16,45 +16,43 @@ RUN apk add --no-cache \
 ENV MIX_ENV=prod \
     NODE_ENV=production
 
-# Prepare build directory
-RUN mkdir -p /app
+# Prepare build directory and install hex + rebar
 WORKDIR /app
-
-# Install hex + rebar
 RUN mix local.hex --force && \
     mix local.rebar --force
 
-# Install mix dependencies
+# Install mix dependencies (with BuildKit cache mount for better caching)
 COPY mix.exs mix.lock ./
-RUN mix deps.get --only prod
 RUN mkdir -p config
-
-# Copy config files
 COPY config/config.exs config/prod.exs config/runtime.exs config/
-RUN mix deps.compile
+RUN --mount=type=cache,target=/root/.mix \
+    mix deps.get --only prod && \
+    mix deps.compile
 
-# Ensure priv/static directory exists (phx.digest creates it, but let's be safe)
+# Ensure priv/static directory exists
 RUN mkdir -p priv/static
 
+# Copy application files needed for asset compilation
 COPY rel rel
 COPY priv priv
 COPY assets assets
 
-# Copy all application files
-COPY lib lib
+# Compile assets (with BuildKit cache mount for npm packages)
+RUN --mount=type=cache,target=/root/.npm \
+    mix sentry.package_source_code && \
+    if [ -f priv/static/site.webmanifest ]; then \
+    cp priv/static/site.webmanifest priv/static/site.webmanifest.orig; \
+    fi && \
+    mix assets.deploy && \
+    if [ -f priv/static/site.webmanifest.orig ]; then \
+    cp priv/static/site.webmanifest.orig priv/static/site.webmanifest && \
+    rm priv/static/site.webmanifest.orig; \
+    fi && \
+    # Clean up npm/node artifacts to reduce image size
+    rm -rf assets/node_modules /tmp/* /var/tmp/*
 
-# Compile assets
-RUN mix sentry.package_source_code
-# Preserve original webmanifest before digesting (browsers need exact filename)
-RUN if [ -f priv/static/site.webmanifest ]; then \
-      cp priv/static/site.webmanifest priv/static/site.webmanifest.orig; \
-    fi || true
-RUN mix assets.deploy
-# Restore original webmanifest file after digesting
-RUN if [ -f priv/static/site.webmanifest.orig ]; then \
-      cp priv/static/site.webmanifest.orig priv/static/site.webmanifest; \
-      rm priv/static/site.webmanifest.orig; \
-    fi || true
+# Copy application source code
+COPY lib lib
 
 # Compile the application
 RUN mix do compile --warnings-as-errors + release
@@ -64,21 +62,17 @@ RUN mix do compile --warnings-as-errors + release
 # ===============================================
 FROM alpine:3.22 AS app
 
-# Install runtime dependencies
+# Install runtime dependencies and create user in one layer
 RUN apk add --no-cache \
     libstdc++ \
     openssl \
     ncurses-libs \
     ca-certificates \
     tini \
-    imagemagick
-
-# Create non-root user
-RUN adduser -D app
-
-# Set working directory
-RUN mkdir -p /app
-RUN chown app /app
+    imagemagick && \
+    adduser -D app && \
+    mkdir -p /app && \
+    chown app:app /app
 
 WORKDIR /app
 
@@ -90,18 +84,18 @@ COPY --from=builder --chown=app:app /app/priv/static ./priv/static
 # Ensure bin scripts have execute permissions
 RUN chmod +x bin/* 2>/dev/null || true
 
-ENTRYPOINT ["/sbin/tini", "-s", "--"]
-
-# Use the non-root user
-USER app
-
-# Set environment variables
+# Set environment variables before switching user
 ENV PORT=4000 \
     LANG=C.UTF-8 \
     LANGUAGE=en_US:en \
     LC_ALL=en_US.UTF-8 \
     MIX_ENV=prod \
     PHX_SERVER=true
+
+# Use the non-root user
+USER app
+
+ENTRYPOINT ["/sbin/tini", "-s", "--"]
 
 # Set the default command
 CMD ["/app/bin/server", "start"]

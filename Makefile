@@ -141,7 +141,7 @@ version:  ## Print the current version
 
 .PHONY: release
 release:  ## Build and tag a docker image for release
-	@docker build -f $(RELEASE_DOCKERFILE) -t $(PROJECT_NAME):$(VERSION_LONG) .
+	@DOCKER_BUILDKIT=1 docker build -f $(RELEASE_DOCKERFILE) -t $(PROJECT_NAME):$(VERSION_LONG) .
 	@docker tag $(PROJECT_NAME):$(VERSION_LONG) $(PROJECT_NAME):$(VERSION_SHORT)
 	@docker tag $(PROJECT_NAME):$(VERSION_LONG) $(PROJECT_NAME):latest
 

@@ -1211,6 +1211,8 @@ defmodule YscWeb.EventDetailsLive do
   @impl true
   def handle_info({Ysc.Events, %Ysc.MessagePassingEvents.EventUpdated{event: event}}, socket) do
     # Add pricing info to the updated event
+    # Ensure ticket_tiers is preloaded in case it wasn't included in the event update
+    event = Repo.preload(event, :ticket_tiers)
     event_with_pricing = add_pricing_info(event)
     {:noreply, assign(socket, :event, event_with_pricing)}
   end
@@ -1427,7 +1429,7 @@ defmodule YscWeb.EventDetailsLive do
     if socket.assigns.event.id == event_id do
       # Reload the event and recalculate pricing info with fresh ticket tier data
       # This will trigger a re-render with updated availability counts
-      event = Repo.get(Event, event_id)
+      event = Repo.get(Event, event_id) |> Repo.preload(:ticket_tiers)
       event_with_pricing = add_pricing_info(event)
 
       # Trigger animation on all tier availability elements
