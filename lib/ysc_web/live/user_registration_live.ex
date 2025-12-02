@@ -461,10 +461,26 @@ defmodule YscWeb.UserRegistrationLive do
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    # Check if family_members association is loaded or if it's in changeset changes
     patched_changset =
-      case Changeset.get_field(changeset, :family_members) do
-        [] -> Ecto.Changeset.put_assoc(changeset, :family_members, [%FamilyMember{}])
-        _ -> changeset
+      cond do
+        # If association is in changeset changes, use that
+        Map.has_key?(changeset.changes, :family_members) ->
+          case Map.get(changeset.changes, :family_members) do
+            [] -> Ecto.Changeset.put_assoc(changeset, :family_members, [%FamilyMember{}])
+            _ -> changeset
+          end
+
+        # If association is loaded, check its value
+        Ecto.assoc_loaded?(changeset.data.family_members) ->
+          case Changeset.get_field(changeset, :family_members) do
+            [] -> Ecto.Changeset.put_assoc(changeset, :family_members, [%FamilyMember{}])
+            _ -> changeset
+          end
+
+        # Association not loaded and not in changes, ensure we have at least one empty family member for the form
+        true ->
+          Ecto.Changeset.put_assoc(changeset, :family_members, [%FamilyMember{}])
       end
 
     form = to_form(patched_changset, as: "user")
