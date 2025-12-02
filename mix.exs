@@ -38,7 +38,7 @@ defmodule Ysc.MixProject do
       {:cachex, "~> 3.6"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:csv, "~> 3.2"},
-      {:cloak_ecto, "~> 1.2.0"},
+      {:cloak_ecto, "~> 1.2"},
       {:debouncer, "~> 0.1"},
       {:dns_cluster, "~> 0.2"},
       {:ecto_enum, "~> 1.4"},

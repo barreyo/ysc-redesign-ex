@@ -93,7 +93,8 @@ config :ysc, Oban,
        {"0 2 * * *", YscWeb.Workers.ImageReprocessor},
        {"0 0 * * *", Ysc.Ledgers.BalanceCheckWorker},
        {"0 1 * * *", Ysc.Ledgers.ReconciliationWorker},
-       {"0 3 * * *", YscWeb.Workers.QuickbooksSyncRetryWorker}
+       {"0 3 * * *", YscWeb.Workers.QuickbooksSyncRetryWorker},
+       {"0 */6 * * *", YscWeb.Workers.QuickbooksSyncExpenseReportBackupWorker}
      ]}
   ]
 
@@ -105,6 +106,11 @@ config :ex_aws,
   secret_access_key: [{:system, "AWS_SECRET_ACCESS_KEY"}, :instance_role]
 
 config :flop, repo: Ysc.Repo
+
+# Cloak encryption configuration
+# The vault is configured in lib/ysc/vault.ex using the init/1 callback
+# to read from environment variables. This config is kept for backwards compatibility
+# but the actual configuration happens in the Vault module.
 
 # Stripe configuration
 # Note: In production, Stripe is configured at runtime in config/runtime.exs

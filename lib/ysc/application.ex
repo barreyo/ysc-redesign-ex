@@ -14,6 +14,8 @@ defmodule Ysc.Application do
     # Add shutdown task for sandbox environment only
     children =
       [
+        # Start the Vault for encryption
+        Ysc.Vault,
         # Start the Telemetry supervisor
         YscWeb.Telemetry,
         # Start the Ecto repository
@@ -45,6 +47,9 @@ defmodule Ysc.Application do
 
     # Start the outage scraper scheduler
     Ysc.PropertyOutages.Scheduler.start_scheduler()
+
+    # Start the expense report QuickBooks sync scheduler
+    Ysc.ExpenseReports.Scheduler.start_scheduler()
 
     {:ok, supervisor}
   end

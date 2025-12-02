@@ -1444,172 +1444,6 @@ defmodule Ysc.Quickbooks.Client do
   end
 
   @doc """
-  Queries for all QuickBooks Classes and caches them.
-  Returns a map of class name -> class ID.
-  Useful for populating dropdowns and mapping user selections to Class IDs.
-  """
-  @spec query_all_classes() :: {:ok, %{String.t() => String.t()}} | {:error, atom()}
-  def query_all_classes do
-    # Check cache first
-    cache_key = "quickbooks:classes:all"
-
-    case Cachex.get(:ysc_cache, cache_key) do
-      {:ok, classes_map} when is_map(classes_map) ->
-        Logger.debug("[QB Client] query_all_classes: Found in cache",
-          class_count: map_size(classes_map)
-        )
-
-        {:ok, classes_map}
-
-      _ ->
-        # Not in cache, query QuickBooks
-        query_all_classes_from_api(cache_key)
-    end
-  end
-
-  defp query_all_classes_from_api(cache_key) do
-    with {:ok, access_token} <- get_access_token(),
-         {:ok, company_id} <- get_company_id() do
-      # Query for all active classes
-      query = "SELECT Id, Name FROM Class WHERE Active = true"
-
-      url = build_query_url(company_id, query)
-      headers = build_headers(access_token)
-
-      Logger.debug("[QB Client] query_all_classes: Querying for all classes")
-
-      request = Finch.build(:get, url, headers)
-
-      case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
-          case Jason.decode(response_body) do
-            {:ok, %{"QueryResponse" => %{"Class" => classes}}} when is_list(classes) ->
-              # Build map of name -> id
-              classes_map =
-                classes
-                |> Enum.reduce(%{}, fn class, acc ->
-                  name = Map.get(class, "Name")
-                  id = Map.get(class, "Id")
-                  Map.put(acc, name, id)
-                end)
-
-              # Cache individual classes
-              Enum.each(classes_map, fn {name, id} ->
-                individual_cache_key = "quickbooks:class:#{name}"
-                cache_class_id(individual_cache_key, id)
-              end)
-
-              # Cache the full map
-              Cachex.put(:ysc_cache, cache_key, classes_map, ttl: :infinity)
-
-              Logger.info("[QB Client] query_all_classes: Found and cached classes",
-                class_count: map_size(classes_map)
-              )
-
-              {:ok, classes_map}
-
-            {:ok, %{"QueryResponse" => %{"Class" => class}}} when is_map(class) ->
-              # Single class returned
-              name = Map.get(class, "Name")
-              id = Map.get(class, "Id")
-              classes_map = %{name => id}
-
-              # Cache individual class
-              individual_cache_key = "quickbooks:class:#{name}"
-              cache_class_id(individual_cache_key, id)
-
-              # Cache the full map
-              Cachex.put(:ysc_cache, cache_key, classes_map, ttl: :infinity)
-
-              Logger.info("[QB Client] query_all_classes: Found and cached single class",
-                class_name: name
-              )
-
-              {:ok, classes_map}
-
-            {:ok, %{"QueryResponse" => _}} ->
-              # No classes found
-              Logger.debug("[QB Client] query_all_classes: No classes found")
-              {:ok, %{}}
-
-            {:error, error} ->
-              Logger.error("[QB Client] query_all_classes: Failed to parse response",
-                error: inspect(error)
-              )
-
-              {:error, :invalid_response}
-          end
-
-        {:ok, %Finch.Response{status: 401, body: _response_body}} ->
-          case refresh_access_token() do
-            {:ok, new_access_token} ->
-              headers = build_headers(new_access_token)
-              request = Finch.build(:get, url, headers)
-
-              case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
-                when status in 200..299 ->
-                  case Jason.decode(retry_response_body) do
-                    {:ok, %{"QueryResponse" => %{"Class" => classes}}} when is_list(classes) ->
-                      classes_map =
-                        classes
-                        |> Enum.reduce(%{}, fn class, acc ->
-                          name = Map.get(class, "Name")
-                          id = Map.get(class, "Id")
-                          Map.put(acc, name, id)
-                        end)
-
-                      Enum.each(classes_map, fn {name, id} ->
-                        individual_cache_key = "quickbooks:class:#{name}"
-                        cache_class_id(individual_cache_key, id)
-                      end)
-
-                      Cachex.put(:ysc_cache, cache_key, classes_map, ttl: :infinity)
-                      {:ok, classes_map}
-
-                    {:ok, %{"QueryResponse" => %{"Class" => class}}} when is_map(class) ->
-                      name = Map.get(class, "Name")
-                      id = Map.get(class, "Id")
-                      classes_map = %{name => id}
-
-                      individual_cache_key = "quickbooks:class:#{name}"
-                      cache_class_id(individual_cache_key, id)
-                      Cachex.put(:ysc_cache, cache_key, classes_map, ttl: :infinity)
-                      {:ok, classes_map}
-
-                    _ ->
-                      {:ok, %{}}
-                  end
-
-                _ ->
-                  {:error, :query_failed}
-              end
-
-            error ->
-              error
-          end
-
-        {:ok, %Finch.Response{status: status, body: response_body}} ->
-          error = parse_error_response(response_body)
-
-          Logger.error("[QB Client] query_all_classes: Query failed",
-            status: status,
-            error: error
-          )
-
-          {:error, error}
-
-        {:error, error} ->
-          Logger.error("[QB Client] query_all_classes: Request failed",
-            error: inspect(error)
-          )
-
-          {:error, :request_failed}
-      end
-    end
-  end
-
-  @doc """
   Queries for a QuickBooks Account by name.
 
   Returns {:ok, account_id} if found, {:error, :not_found} otherwise.
@@ -2424,24 +2258,19 @@ defmodule Ysc.Quickbooks.Client do
 
   @doc """
   Queries for a QuickBooks Vendor by email address.
-  Note: QuickBooks API doesn't support querying nested fields like PrimaryEmailAddr.Address
-  in WHERE clauses. This function queries all vendors and filters by email in memory.
   Returns {:ok, vendor_id} if found, {:error, :not_found} otherwise.
   """
   @spec query_vendor_by_email(String.t(), keyword()) ::
           {:ok, String.t()} | {:error, atom()}
-  def query_vendor_by_email(email, opts \\ [])
-
-  def query_vendor_by_email(email, opts) when is_binary(email) and email != "" do
+  def query_vendor_by_email(email, opts \\ []) when is_binary(email) and email != "" do
     include_inactive = Keyword.get(opts, :include_inactive, false)
 
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
       active_filter = if include_inactive, do: "", else: " AND Active = true"
 
-      # Query all vendors (QuickBooks doesn't support nested field queries)
-      # We'll filter by email in memory
-      query = "SELECT Id, DisplayName, PrimaryEmailAddr FROM Vendor#{active_filter}"
+      query =
+        "SELECT Id, DisplayName, PrimaryEmailAddr FROM Vendor WHERE PrimaryEmailAddr.Address = '#{escape_query_string(email)}'#{active_filter}"
 
       url = build_query_url(company_id, query)
       headers = build_headers(access_token)
@@ -2504,35 +2333,14 @@ defmodule Ysc.Quickbooks.Client do
                 {:ok, %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
-                    {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}} when is_list(vendors) ->
-                      # Filter vendors by email in memory
-                      matching_vendor =
-                        Enum.find(vendors, fn vendor ->
-                          primary_email = Map.get(vendor, "PrimaryEmailAddr", %{})
-                          vendor_email = Map.get(primary_email, "Address", "")
-                          String.downcase(vendor_email) == String.downcase(email)
-                        end)
-
-                      case matching_vendor do
-                        nil ->
-                          {:error, :not_found}
-
-                        vendor ->
-                          vendor_id = Map.get(vendor, "Id")
-                          {:ok, vendor_id}
-                      end
+                    {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}}
+                    when is_list(vendors) and length(vendors) > 0 ->
+                      vendor_id = List.first(vendors) |> Map.get("Id")
+                      {:ok, vendor_id}
 
                     {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}} when is_map(vendor) ->
-                      # Single vendor returned, check if email matches
-                      primary_email = Map.get(vendor, "PrimaryEmailAddr", %{})
-                      vendor_email = Map.get(primary_email, "Address", "")
-
-                      if String.downcase(vendor_email) == String.downcase(email) do
-                        vendor_id = Map.get(vendor, "Id")
-                        {:ok, vendor_id}
-                      else
-                        {:error, :not_found}
-                      end
+                      vendor_id = Map.get(vendor, "Id")
+                      {:ok, vendor_id}
 
                     _ ->
                       {:error, :not_found}
@@ -2775,10 +2583,10 @@ defmodule Ysc.Quickbooks.Client do
 
         {:ok, %Finch.Response{status: status, body: response_body}} ->
           error = parse_error_response(response_body)
-
+          
           # Try to extract vendor ID from duplicate error response
           vendor_id_from_error = extract_vendor_id_from_error(response_body)
-
+          
           Logger.error(
             "[QB Client] create_vendor: QuickBooks API error - Full response body:\n#{response_body}",
             status: status,
@@ -2786,7 +2594,7 @@ defmodule Ysc.Quickbooks.Client do
             endpoint: "vendor",
             extracted_vendor_id: vendor_id_from_error
           )
-
+          
           # If we found a vendor ID in the error, return it in a special format
           if vendor_id_from_error do
             {:error, "DUPLICATE_VENDOR_ID:#{vendor_id_from_error}"}
@@ -2811,54 +2619,19 @@ defmodule Ysc.Quickbooks.Client do
       {:error, error_message} when is_binary(error_message) ->
         # Check if this is a duplicate name error
         if String.starts_with?(error_message, "DUPLICATE_VENDOR_ID:") do
-          # Extract vendor ID from error and verify it's actually a Vendor
-          extracted_id = String.replace_prefix(error_message, "DUPLICATE_VENDOR_ID:", "")
-
-          case verify_vendor_id(extracted_id) do
-            {:ok, vendor_id} ->
-              Logger.info(
-                "[QB Client] create_vendor_with_retry: Duplicate name error, extracted and verified vendor ID",
-                vendor_id: vendor_id,
-                display_name: params.display_name
-              )
-
-              {:ok, vendor_id}
-
-            {:error, :not_a_vendor} ->
-              # The ID is not a Vendor (might be a Customer), so create a new Vendor with modified name
-              Logger.warning(
-                "[QB Client] create_vendor_with_retry: Extracted ID is not a Vendor, creating new Vendor with modified name",
-                extracted_id: extracted_id,
-                display_name: params.display_name
-              )
-
-              suffix =
-                if attempt == 0,
-                  do: " (#{System.system_time(:second)})",
-                  else: " (#{System.system_time(:second)}-#{attempt})"
-
-              new_display_name = original_display_name <> suffix
-              new_params = Map.put(params, :display_name, new_display_name)
-              create_vendor_with_retry(new_params, original_display_name, attempt + 1)
-
-            error ->
-              Logger.error(
-                "[QB Client] create_vendor_with_retry: Failed to verify extracted vendor ID",
-                extracted_id: extracted_id,
-                error: inspect(error)
-              )
-
-              {:error, error_message}
-          end
+          # Extract vendor ID from error and return it
+          vendor_id = String.replace_prefix(error_message, "DUPLICATE_VENDOR_ID:", "")
+          Logger.info(
+            "[QB Client] create_vendor_with_retry: Duplicate name error, extracted vendor ID",
+            vendor_id: vendor_id,
+            display_name: params.display_name
+          )
+          {:ok, vendor_id}
         else
           if String.contains?(error_message, "Duplicate Name") or
                String.contains?(error_message, "6240") do
             # Duplicate name error - append characters to make it unique
-            suffix =
-              if attempt == 0,
-                do: " (#{System.system_time(:second)})",
-                else: " (#{System.system_time(:second)}-#{attempt})"
-
+            suffix = if attempt == 0, do: " (#{System.system_time(:second)})", else: " (#{System.system_time(:second)}-#{attempt})"
             new_display_name = original_display_name <> suffix
 
             Logger.info(
@@ -2889,58 +2662,6 @@ defmodule Ysc.Quickbooks.Client do
     )
 
     {:error, "Failed to create vendor after #{attempt} attempts due to duplicate name conflicts"}
-  end
-
-  # Verify that an ID is actually a Vendor (not a Customer or other entity type)
-  defp verify_vendor_id(vendor_id) do
-    with {:ok, access_token} <- get_access_token(),
-         {:ok, company_id} <- get_company_id() do
-      query = "SELECT Id FROM Vendor WHERE Id = '#{escape_query_string(vendor_id)}'"
-      url = build_query_url(company_id, query)
-      headers = build_headers(access_token)
-
-      request = Finch.build(:get, url, headers)
-
-      case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
-          case Jason.decode(response_body) do
-            {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}}
-            when is_list(vendors) and length(vendors) > 0 ->
-              {:ok, vendor_id}
-
-            {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}} when is_map(vendor) ->
-              {:ok, vendor_id}
-
-            {:ok, %{"QueryResponse" => _}} ->
-              # ID exists but is not a Vendor (likely a Customer)
-              {:error, :not_a_vendor}
-
-            {:error, error} ->
-              Logger.error("[QB Client] verify_vendor_id: Failed to parse response",
-                error: inspect(error)
-              )
-
-              {:error, :invalid_response}
-          end
-
-        {:ok, %Finch.Response{status: status, body: response_body}} ->
-          error = parse_error_response(response_body)
-
-          Logger.error("[QB Client] verify_vendor_id: Query failed",
-            status: status,
-            error: error
-          )
-
-          {:error, error}
-
-        {:error, error} ->
-          Logger.error("[QB Client] verify_vendor_id: Request failed",
-            error: inspect(error)
-          )
-
-          {:error, :request_failed}
-      end
-    end
   end
 
   defp build_vendor_body(params) do
@@ -2987,25 +2708,141 @@ defmodule Ysc.Quickbooks.Client do
     else
       # Otherwise, search by display name
       case query_vendor_by_display_name(display_name) do
-        {:ok, vendor_id} ->
-          Logger.debug("[QB Client] get_or_create_vendor: Found existing vendor",
-            display_name: display_name,
-            vendor_id: vendor_id
-          )
+      {:ok, vendor_id} ->
+        Logger.debug("[QB Client] get_or_create_vendor: Found existing vendor",
+          display_name: display_name,
+          vendor_id: vendor_id
+        )
 
-          {:ok, vendor_id}
+        {:ok, vendor_id}
 
-        {:error, :not_found} ->
-          Logger.info("[QB Client] get_or_create_vendor: Vendor not found, creating",
-            display_name: display_name,
-            email: vendor_params[:email]
-          )
+      {:error, :not_found} ->
+        Logger.info("[QB Client] get_or_create_vendor: Vendor not found, creating",
+          display_name: display_name,
+          email: vendor_params[:email]
+        )
 
-          params = Map.merge(%{display_name: display_name}, vendor_params)
+        params = Map.merge(%{display_name: display_name}, vendor_params)
 
-          # Try to create vendor, and if we get a duplicate name error, append characters to make it unique
-          create_vendor_with_retry(params, display_name, 0)
-      end
+        # Try to create vendor, and if we get a duplicate name error, append characters to make it unique
+        create_vendor_with_retry(params, display_name, 0)
+            vendor_id = Map.get(vendor, "Id")
+            {:ok, vendor_id}
+
+          {:error, error_message} when is_binary(error_message) ->
+            # Check if this is a duplicate name error (race condition)
+            # Also check if we extracted the vendor ID from the error
+            if String.starts_with?(error_message, "DUPLICATE_VENDOR_ID:") do
+              vendor_id = String.replace_prefix(error_message, "DUPLICATE_VENDOR_ID:", "")
+              Logger.info(
+                "[QB Client] get_or_create_vendor: Duplicate name error detected, extracted vendor ID from error",
+                display_name: display_name,
+                vendor_id: vendor_id
+              )
+              {:ok, vendor_id}
+            else
+              if String.contains?(error_message, "Duplicate Name") or
+                   String.contains?(error_message, "6240") do
+                Logger.info(
+                  "[QB Client] get_or_create_vendor: Duplicate name error detected, waiting and retrying query",
+                  display_name: display_name,
+                  error_message: error_message
+                )
+
+              # Wait a moment for QuickBooks to index the newly created vendor
+              # QuickBooks can take a few seconds to index new entities
+              Process.sleep(2000)
+
+              # Retry the query - vendor was likely created by another process
+              # Try with Active filter first
+              case query_vendor_by_display_name(display_name) do
+                {:ok, vendor_id} ->
+                  Logger.info(
+                    "[QB Client] get_or_create_vendor: Found vendor after duplicate error",
+                    display_name: display_name,
+                    vendor_id: vendor_id
+                  )
+
+                  {:ok, vendor_id}
+
+                {:error, :not_found} ->
+                  # Try querying without Active filter as fallback
+                  Logger.debug(
+                    "[QB Client] get_or_create_vendor: Not found with Active filter, trying without filter",
+                    display_name: display_name
+                  )
+
+                  # Wait a bit more before trying inactive query
+                  Process.sleep(1000)
+
+                  case query_vendor_by_display_name(display_name, include_inactive: true) do
+                    {:ok, vendor_id} ->
+                      Logger.info(
+                        "[QB Client] get_or_create_vendor: Found vendor (including inactive) after duplicate error",
+                        display_name: display_name,
+                        vendor_id: vendor_id
+                      )
+
+                      {:ok, vendor_id}
+
+                    {:error, :not_found} ->
+                      # Try one more time with a longer delay - QuickBooks indexing can be slow
+                      Logger.debug(
+                        "[QB Client] get_or_create_vendor: Still not found, waiting longer and retrying",
+                        display_name: display_name
+                      )
+
+                      Process.sleep(2000)
+
+                      case query_vendor_by_display_name(display_name, include_inactive: true) do
+                        {:ok, vendor_id} ->
+                          Logger.info(
+                            "[QB Client] get_or_create_vendor: Found vendor after extended wait",
+                            display_name: display_name,
+                            vendor_id: vendor_id
+                          )
+
+                          {:ok, vendor_id}
+
+                        retry_error ->
+                          Logger.error(
+                            "[QB Client] get_or_create_vendor: Failed to find vendor after duplicate error (tried multiple times with delays)",
+                            display_name: display_name,
+                            error: inspect(retry_error)
+                          )
+
+                          {:error, error_message}
+                      end
+
+                    retry_error ->
+                      Logger.error(
+                        "[QB Client] get_or_create_vendor: Failed to find vendor after duplicate error (query error)",
+                        display_name: display_name,
+                        error: inspect(retry_error)
+                      )
+
+                      {:error, error_message}
+                  end
+
+                retry_error ->
+                  Logger.error(
+                    "[QB Client] get_or_create_vendor: Failed to find vendor after duplicate error",
+                    display_name: display_name,
+                    error: inspect(retry_error)
+                  )
+
+                  {:error, error_message}
+              end
+            else
+              {:error, error_message}
+            end
+
+          error ->
+            error
+        end
+
+      error ->
+        error
     end
   end
 

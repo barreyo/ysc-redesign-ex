@@ -248,10 +248,13 @@ if config_env() == :prod do
   s3_base_url = System.get_env("AWS_ENDPOINT_URL_S3") || "https://fly.storage.tigris.dev"
 
   # Store S3 config for application use
+  expense_reports_bucket = System.get_env("EXPENSE_REPORTS_BUCKET_NAME") || "expense-reports"
+
   config :ysc,
     s3_bucket: s3_bucket,
     s3_region: s3_region,
     s3_base_url: s3_base_url,
+    expense_reports_s3_bucket: expense_reports_bucket,
     aws_access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
     aws_secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY")
 
@@ -297,6 +300,19 @@ if config_env() == :prod do
   config :ysc, Ysc.Alerts.Discord,
     webhook_url: System.fetch_env!("DISCORD_WEBHOOK_URL"),
     enabled: true
+
+  # ## Cloak Encryption Configuration
+  #
+  # Configure Cloak encryption key for production.
+  # Generate a key with: :crypto.strong_rand_bytes(32) |> Base.encode64()
+  # The vault is configured in lib/ysc/vault.ex using the init/1 callback
+  # to read from the CLOAK_ENCRYPTION_KEY environment variable.
+  _cloak_key =
+    System.get_env("CLOAK_ENCRYPTION_KEY") ||
+      raise """
+      Missing CLOAK_ENCRYPTION_KEY environment variable.
+      Generate one with: :crypto.strong_rand_bytes(32) |> Base.encode64()
+      """
 
   # ## QuickBooks Configuration
   #

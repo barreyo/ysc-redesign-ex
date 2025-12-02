@@ -13,6 +13,19 @@ defmodule Ysc.S3Config do
   end
 
   @doc """
+  Returns the S3 bucket name for expense reports.
+  Uses a separate bucket from regular media uploads.
+
+  SECURITY NOTE: This bucket is BACKEND-ONLY.
+  - No CORS is configured, preventing direct frontend access
+  - All uploads go through the backend (LiveView -> Backend -> S3)
+  - Uses backend credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+  """
+  def expense_reports_bucket_name do
+    Application.get_env(:ysc, :expense_reports_s3_bucket, "expense-reports")
+  end
+
+  @doc """
   Returns the S3 base URL for the current environment.
   For localstack: http://media.s3.localhost.localstack.cloud:4566
   For production: Uses Tigris endpoint (https://fly.storage.tigris.dev)
@@ -88,8 +101,14 @@ defmodule Ysc.S3Config do
   For Tigris (virtual-hosted style): https://<bucket-name>.fly.storage.tigris.dev/key
   """
   def object_url(key) do
+    object_url(key, bucket_name())
+  end
+
+  @doc """
+  Constructs the full URL for an S3 object given a key and bucket name.
+  """
+  def object_url(key, bucket) do
     base = base_url()
-    bucket = bucket_name()
     key = String.trim_leading(key, "/")
 
     case base do

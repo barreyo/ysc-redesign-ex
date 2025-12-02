@@ -535,6 +535,13 @@ defmodule Ysc.Accounts do
     |> Repo.insert_or_update()
   end
 
+  def get_billing_address(user) do
+    case Repo.preload(user, :billing_address) do
+      %{billing_address: %Address{} = address} -> address
+      _ -> nil
+    end
+  end
+
   defp get_or_build_billing_address(user) do
     case Repo.preload(user, :billing_address) do
       %{billing_address: %Address{} = address} -> address

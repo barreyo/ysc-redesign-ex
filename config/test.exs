@@ -52,4 +52,6 @@ config :ysc, Ysc.Alerts.Discord,
   webhook_url: "https://discord.com/api/webhooks/test/token",
   enabled: true
 
-config :ysc, :environment, "test"
+config :ysc,
+  expense_reports_s3_bucket: "expense-reports",
+  environment: "test"

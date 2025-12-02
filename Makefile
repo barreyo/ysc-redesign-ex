@@ -70,9 +70,11 @@ dev-setup:  ## Set up local dev environment
 setup: dev-setup
 
 .PHONY: setup-s3
-setup-s3:  ## Set up local S3 bucket
+setup-s3:  ## Set up local S3 buckets
 	@awslocal s3api create-bucket --bucket media || true
 	@awslocal s3api put-bucket-cors --bucket media --cors-configuration file://etc/config/s3_bucket_cors_rules.json || true
+	@awslocal s3api create-bucket --bucket expense-reports || true
+	@echo "$(GREEN)Note: expense-reports bucket is backend-only (no CORS configured)$(RESET)"
 
 .PHONY: shell
 shell:  ## Open a shell in the dev container

@@ -14,6 +14,7 @@ defmodule YscWeb.Telemetry do
       {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
       # Add reporters as children of your supervision tree.
       # {Telemetry.Metrics.ConsoleReporter, metrics: metrics()}
+      # Note: Ysc.Vault is started in Ysc.Application, not here
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

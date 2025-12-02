@@ -120,11 +120,14 @@ defmodule YscWeb.Router do
       live "/users/membership", UserSettingsLive, :membership
       live "/users/membership/payment-method", UserSettingsLive, :payment_method
       live "/users/notifications", UserSettingsLive, :notifications
+      live "/users/bank-accounts", UserSettingsLive, :bank_accounts
       live "/users/settings/confirm-email/:token", UserSettingsLive, :confirm_email
       live "/users/tickets", UserTicketsLive, :index
       live "/tickets/:order_id", UserTicketsLive, :show
       live "/orders/:order_id/confirmation", OrderConfirmationLive, :index
       live "/bookings/:id", UserBookingDetailLive, :index
+      live "/expensereport", ExpenseReportLive, :index
+      live "/expensereport/:id/success", ExpenseReportLive, :success
     end
   end
 

@@ -32,4 +32,37 @@ defmodule Ysc.Quickbooks.ClientBehaviour do
   Queries for a class by name in QuickBooks.
   """
   @callback query_class_by_name(String.t()) :: {:ok, String.t()} | {:error, atom() | String.t()}
+
+  @doc """
+  Queries for a vendor by display name in QuickBooks.
+  """
+  @callback query_vendor_by_display_name(String.t()) :: {:ok, String.t()} | {:error, atom()}
+
+  @doc """
+  Creates a vendor in QuickBooks.
+  """
+  @callback create_vendor(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+
+  @doc """
+  Gets or creates a vendor in QuickBooks.
+  """
+  @callback get_or_create_vendor(String.t(), map()) ::
+              {:ok, String.t()} | {:error, atom() | String.t()}
+
+  @doc """
+  Creates a bill in QuickBooks.
+  """
+  @callback create_bill(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+
+  @doc """
+  Uploads an attachment to QuickBooks.
+  """
+  @callback upload_attachment(String.t(), String.t(), String.t()) ::
+              {:ok, String.t()} | {:error, atom() | String.t()}
+
+  @doc """
+  Links an attachment to a bill in QuickBooks.
+  """
+  @callback link_attachment_to_bill(String.t(), String.t()) ::
+              {:ok, map()} | {:error, atom() | String.t()}
 end

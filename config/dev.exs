@@ -92,6 +92,7 @@ config :ex_aws,
   ]
 
 config :ysc,
+  expense_reports_s3_bucket: "expense-reports",
   membership_plans: [
     %{
       id: :single,
