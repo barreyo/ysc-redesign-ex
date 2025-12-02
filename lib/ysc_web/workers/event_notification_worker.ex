@@ -2,7 +2,8 @@ defmodule YscWeb.Workers.EventNotificationWorker do
   @moduledoc """
   Oban worker for sending event notification emails.
 
-  Sends emails to all users with event notifications enabled when an event is published.
+  Sends emails to all users with event notifications enabled 1 hour after an event is published.
+  Only sends if the event is still published at that time.
   """
   require Logger
   use Oban.Worker, queue: :mailers, max_attempts: 3
@@ -43,7 +44,7 @@ defmodule YscWeb.Workers.EventNotificationWorker do
   end
 
   @doc """
-  Send event notification emails immediately to all users with event notifications enabled.
+  Send event notification emails to all users with event notifications enabled.
   """
   def send_event_notifications(event) do
     require Logger
@@ -53,7 +54,6 @@ defmodule YscWeb.Workers.EventNotificationWorker do
       users =
         from(u in User,
           where: u.event_notifications == true,
-          where: not is_nil(u.confirmed_at),
           where: u.state == :active
         )
         |> Repo.all()
@@ -128,11 +128,6 @@ defmodule YscWeb.Workers.EventNotificationWorker do
              user.id
            ) do
         %Oban.Job{} ->
-          Logger.debug("Event notification scheduled successfully",
-            event_id: event.id,
-            user_id: user.id
-          )
-
           {:ok, :scheduled}
 
         {:error, reason} ->

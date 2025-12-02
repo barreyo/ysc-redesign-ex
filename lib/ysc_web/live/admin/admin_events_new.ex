@@ -498,9 +498,29 @@ defmodule YscWeb.AdminEventsNewLive do
 
   @impl true
   def handle_event("clear-cover-image", _, socket) do
-    {:ok, event} = Events.update_event(socket.assigns.event, %{image_id: nil})
-    event_changeset = Event.changeset(event, %{"image_id" => nil})
-    {:noreply, assign_form(socket, event_changeset)}
+    # Reload event to ensure we have the latest lock_version
+    current_event = Events.get_event!(socket.assigns[:event].id)
+
+    case Events.update_event(current_event, %{image_id: nil}) do
+      {:ok, event} ->
+        event_changeset = Event.changeset(event, %{"image_id" => nil})
+        {:noreply, assign_form(socket, event_changeset) |> assign(:event, event)}
+
+      {:error, _} ->
+        # If update fails, reload and try again
+        reloaded_event = Events.get_event!(socket.assigns[:event].id)
+
+        case Events.update_event(reloaded_event, %{image_id: nil}) do
+          {:ok, event} ->
+            event_changeset = Event.changeset(event, %{"image_id" => nil})
+            {:noreply, assign_form(socket, event_changeset) |> assign(:event, event)}
+
+          {:error, _} ->
+            # If it still fails, just reload the event
+            event_changeset = Event.changeset(reloaded_event, %{"image_id" => nil})
+            {:noreply, assign_form(socket, event_changeset) |> assign(:event, reloaded_event)}
+        end
+    end
   end
 
   @impl true
@@ -561,15 +581,33 @@ defmodule YscWeb.AdminEventsNewLive do
   end
 
   def handle_event("validate", %{"event" => event_params}, socket) do
-    event_changeset =
-      Event.changeset(socket.assigns[:event], event_params) |> Map.put(:action, :validate)
+    # Reload event to ensure we have the latest lock_version
+    current_event = Events.get_event!(socket.assigns[:event].id)
 
-    if event_changeset.valid? do
-      Events.update_event(socket.assigns[:event], event_params)
-    end
+    event_changeset =
+      Event.changeset(current_event, event_params) |> Map.put(:action, :validate)
+
+    {updated_event, updated_changeset} =
+      if event_changeset.valid? do
+        case Events.update_event(current_event, event_params) do
+          {:ok, updated_event} ->
+            # Update succeeded, rebuild changeset with updated event
+            updated_changeset =
+              Event.changeset(updated_event, event_params) |> Map.put(:action, :validate)
+
+            {updated_event, updated_changeset}
+
+          {:error, _changeset} ->
+            # If update fails, keep using current_event
+            {current_event, event_changeset}
+        end
+      else
+        {current_event, event_changeset}
+      end
 
     {:noreply,
-     assign_form(socket, event_changeset)
+     assign_form(socket, updated_changeset)
+     |> assign(:event, updated_event)
      |> assign(description_length: String.length(event_params["description"] || ""))
      |> assign(:event_title, event_params["title"])
      |> assign(:page_title, event_params["title"])
@@ -580,24 +618,46 @@ defmodule YscWeb.AdminEventsNewLive do
   end
 
   def handle_event("editor-update", %{"raw_body" => raw_body}, socket) do
-    changeset = Event.changeset(socket.assigns[:event], %{"raw_details" => raw_body})
+    # Reload event to get latest lock_version
+    current_event = Events.get_event!(socket.assigns[:event].id)
+    changeset = Event.changeset(current_event, %{"raw_details" => raw_body})
 
-    if changeset.valid? do
-      Events.update_event(socket.assigns[:event], %{"raw_details" => raw_body})
-    end
+    {updated_event, updated_changeset} =
+      if changeset.valid? do
+        case Events.update_event(current_event, %{"raw_details" => raw_body}) do
+          {:ok, updated_event} ->
+            updated_changeset = Event.changeset(updated_event, %{"raw_details" => raw_body})
+            {updated_event, updated_changeset}
 
-    {:noreply, assign_form(socket, changeset)}
+          {:error, _} ->
+            # If update fails, keep using current_event
+            {current_event, changeset}
+        end
+      else
+        {current_event, changeset}
+      end
+
+    {:noreply, assign_form(socket, updated_changeset) |> assign(:event, updated_event)}
   end
 
   def handle_event("map-new-marker", %{"lat" => latitude, "long" => longitude}, socket) do
+    # Reload event to ensure we have the latest lock_version
+    current_event = Events.get_event!(socket.assigns[:event].id)
+
     changeset =
-      Event.changeset(socket.assigns[:event], %{latitude: latitude, longitude: longitude})
+      Event.changeset(current_event, %{latitude: latitude, longitude: longitude})
 
-    if changeset.valid? do
-      Events.update_event(socket.assigns[:event], %{latitude: latitude, longitude: longitude})
-    end
+    updated_event =
+      if changeset.valid? do
+        case Events.update_event(current_event, %{latitude: latitude, longitude: longitude}) do
+          {:ok, event} -> event
+          {:error, _} -> current_event
+        end
+      else
+        current_event
+      end
 
-    {:noreply, assign_form(socket, changeset)}
+    {:noreply, assign_form(socket, changeset) |> assign(:event, updated_event)}
   end
 
   @impl true
@@ -784,13 +844,21 @@ defmodule YscWeb.AdminEventsNewLive do
 
   @impl true
   def handle_info({YscWeb.UploadComponent, :file, file_id}, socket) do
-    changeset = Event.changeset(socket.assigns[:event], %{image_id: file_id})
+    # Reload event to ensure we have the latest lock_version
+    current_event = Events.get_event!(socket.assigns[:event].id)
+    changeset = Event.changeset(current_event, %{image_id: file_id})
 
-    if changeset.valid? do
-      Events.update_event(socket.assigns[:event], %{image_id: file_id})
-    end
+    updated_event =
+      if changeset.valid? do
+        case Events.update_event(current_event, %{image_id: file_id}) do
+          {:ok, event} -> event
+          {:error, _} -> current_event
+        end
+      else
+        current_event
+      end
 
-    {:noreply, socket |> assign_form(changeset)}
+    {:noreply, socket |> assign_form(changeset) |> assign(:event, updated_event)}
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do

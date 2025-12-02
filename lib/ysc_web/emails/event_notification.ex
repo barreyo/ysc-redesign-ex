@@ -64,9 +64,32 @@ defmodule YscWeb.Emails.EventNotification do
     # Format event date and time
     event_date_time = format_event_datetime(event)
 
+    # Convert event struct to plain map for JSON serialization
+    # Only include fields needed by the email template
+    event_map = %{
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      start_date: event.start_date,
+      start_time: event.start_time,
+      end_date: event.end_date,
+      end_time: event.end_time,
+      location_name: event.location_name,
+      address: event.address,
+      age_restriction: event.age_restriction,
+      organizer:
+        if(Ecto.assoc_loaded?(event.organizer) && event.organizer,
+          do: %{
+            first_name: event.organizer.first_name,
+            last_name: event.organizer.last_name
+          },
+          else: nil
+        )
+    }
+
     %{
       first_name: user.first_name || "Valued Member",
-      event: event,
+      event: event_map,
       event_date_time: event_date_time,
       event_url: event_url(event.id)
     }
