@@ -42,6 +42,7 @@ defmodule YscWeb.UserRegistrationLive do
           id="registration_form"
           phx-submit="save"
           phx-change="validate"
+          phx-auto-recover="recover_wizard"
           phx-trigger-action={@trigger_submit}
           action={~p"/users/log-in?_action=registered"}
           method="post"
@@ -123,7 +124,7 @@ defmodule YscWeb.UserRegistrationLive do
                   </p>
                 </div>
 
-                <div>
+                <div :if={!@trigger_submit}>
                   <.inputs_for :let={nested_f} field={@form[:family_members]}>
                     <div class="flex space-x-2">
                       <input type="hidden" name="user[family_members_order][]" value={nested_f.index} />
@@ -228,7 +229,7 @@ defmodule YscWeb.UserRegistrationLive do
                     field={rf[:agreed_to_bylaws]}
                     label="I have read and agreed to the"
                   />
-                  <.link navigate={~p"/bylaws"} class="text-blue-600 hover:underline">
+                  <.link navigate={~p"/bylaws"} class="text-sm text-blue-600 ms-2 hover:underline">
                     Young Scandinavians Club Bylaws
                   </.link>
                 </div>
@@ -330,21 +331,6 @@ defmodule YscWeb.UserRegistrationLive do
     {:ok, socket, temporary_assigns: [form: nil]}
   end
 
-  def handle_event("set-step", %{"step" => step}, socket) do
-    assigns = socket.assigns
-    int_step = String.to_integer(step)
-    current_step = assigns.current_step
-
-    new_step =
-      case int_step do
-        1 -> if assigns.step_0_invalid, do: current_step, else: int_step
-        2 -> if assigns.step_0_invalid || assigns.step_1_invalid, do: current_step, else: int_step
-        _ -> int_step
-      end
-
-    {:noreply, socket |> assign(:current_step, new_step)}
-  end
-
   @spec handle_event(<<_::32, _::_*32>>, map(), any()) :: {:noreply, any()}
   def handle_event("save", %{"user" => user_params}, socket) do
     reg_form_updated =
@@ -384,8 +370,12 @@ defmodule YscWeb.UserRegistrationLive do
             &url(~p"/users/confirm/#{&1}")
           )
 
+        # After successful registration, we're about to redirect via form submission
+        # Create a minimal changeset for the redirect, but don't try to render the form
+        # We'll use a simple changeset that won't cause issues with unloaded associations
         changeset = Accounts.change_user_registration(user)
-        {:noreply, socket |> assign(trigger_submit: true) |> assign_form(changeset)}
+        form = to_form(changeset, as: "user")
+        {:noreply, socket |> assign(trigger_submit: true, form: form)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, socket |> assign(check_errors: true) |> assign_form(changeset)}
@@ -396,13 +386,54 @@ defmodule YscWeb.UserRegistrationLive do
     form_data =
       User.registration_changeset(
         %User{},
-        user_params
+        user_params,
+        hash_password: false,
+        validate_email: false
       )
 
     re_val =
       assign_form(socket, Map.put(form_data, :action, :validate))
 
     {:noreply, re_val |> evaluate_steps() |> show_family_input?(user_params)}
+  end
+
+  def handle_event("recover_wizard", %{"user" => user_params}, socket) do
+    # Custom recovery handler for multi-step wizard form
+    # Restores both form data and determines the appropriate step based on filled fields
+    form_data =
+      User.registration_changeset(
+        %User{},
+        user_params,
+        hash_password: false,
+        validate_email: false
+      )
+
+    # Determine which step the user should be on based on filled fields
+    current_step = determine_step_from_params(user_params)
+
+    re_val =
+      socket
+      |> assign_form(Map.put(form_data, :action, :validate))
+      |> assign(:current_step, current_step)
+      |> evaluate_steps()
+      |> show_family_input?(user_params)
+
+    {:noreply, re_val}
+  end
+
+  def handle_event("set-step", %{"step" => step}, socket) do
+    assigns = socket.assigns
+    int_step = String.to_integer(step)
+    current_step = assigns.current_step
+
+    new_step =
+      case int_step do
+        1 -> if assigns.step_0_invalid, do: current_step, else: int_step
+        2 -> if assigns.step_0_invalid || assigns.step_1_invalid, do: current_step, else: int_step
+        _ -> int_step
+      end
+
+    {:noreply, socket |> assign(:current_step, new_step)}
   end
 
   def handle_event("prev-step", _value, socket) do
@@ -417,6 +448,37 @@ defmodule YscWeb.UserRegistrationLive do
 
     new_step = if step_invalid, do: current_step, else: current_step + 1
     {:noreply, assign(socket, :current_step, new_step)}
+  end
+
+  # Determine the appropriate step based on which fields are filled
+  defp determine_step_from_params(user_params) do
+    reg_form = user_params["registration_form"] || %{}
+
+    # Step 0: membership_type and membership_eligibility
+    has_step_0 =
+      (reg_form["membership_type"] && reg_form["membership_type"] != "") ||
+        (reg_form["membership_eligibility"] && reg_form["membership_eligibility"] != [])
+
+    # Step 1: user fields and address fields
+    has_step_1 =
+      (user_params["email"] && user_params["email"] != "") ||
+        (user_params["first_name"] && user_params["first_name"] != "") ||
+        (reg_form["birth_date"] && reg_form["birth_date"] != "") ||
+        (reg_form["address"] && reg_form["address"] != "")
+
+    # Step 2: place_of_birth, citizenship, etc.
+    has_step_2 =
+      (reg_form["place_of_birth"] && reg_form["place_of_birth"] != "") ||
+        (reg_form["citizenship"] && reg_form["citizenship"] != "") ||
+        (reg_form["most_connected_nordic_country"] &&
+           reg_form["most_connected_nordic_country"] != "")
+
+    cond do
+      has_step_2 -> 2
+      has_step_1 -> 1
+      has_step_0 -> 0
+      true -> 0
+    end
   end
 
   defp evaluate_steps(socket) do
@@ -462,25 +524,56 @@ defmodule YscWeb.UserRegistrationLive do
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     # Check if family_members association is loaded or if it's in changeset changes
+    # Only add empty family member during form editing/validation, not after successful save
     patched_changset =
       cond do
-        # If association is in changeset changes, use that
+        # If association is in changeset changes, use that (preserve validation state)
         Map.has_key?(changeset.changes, :family_members) ->
           case Map.get(changeset.changes, :family_members) do
-            [] -> Ecto.Changeset.put_assoc(changeset, :family_members, [%FamilyMember{}])
-            _ -> changeset
+            [] ->
+              # Add empty family member to existing changes using put_assoc
+              # This preserves the validation state and errors
+              Ecto.Changeset.put_assoc(changeset, :family_members, [%FamilyMember{}])
+
+            _ ->
+              changeset
           end
 
         # If association is loaded, check its value
         Ecto.assoc_loaded?(changeset.data.family_members) ->
           case Changeset.get_field(changeset, :family_members) do
-            [] -> Ecto.Changeset.put_assoc(changeset, :family_members, [%FamilyMember{}])
-            _ -> changeset
+            [] ->
+              Ecto.Changeset.put_assoc(changeset, :family_members, [%FamilyMember{}])
+
+            _ ->
+              changeset
           end
 
-        # Association not loaded and not in changes, ensure we have at least one empty family member for the form
+        # Association not loaded and not in changes
+        # Only add empty family member if this is a new changeset (not a persisted user)
+        # After successful registration, the user is persisted and we don't need to add empty family member
         true ->
-          Ecto.Changeset.put_assoc(changeset, :family_members, [%FamilyMember{}])
+          # If the user is persisted (has an ID), don't try to add empty family member
+          # This happens after successful registration when we're about to redirect
+          if changeset.data.id do
+            # Persisted user - just return changeset as-is
+            changeset
+          else
+            # New changeset during form editing - add empty family member using cast_assoc
+            # We need to preserve all existing changes from the changeset
+            # Extract all changes and merge with family_members
+            existing_attrs = changeset_to_attrs(changeset)
+            attrs = Map.put(existing_attrs, "family_members", [%{}])
+
+            User.registration_changeset(
+              changeset.data,
+              attrs,
+              hash_password: false,
+              validate_email: false
+            )
+            # Preserve the action from the original changeset
+            |> Map.put(:action, changeset.action)
+          end
       end
 
     form = to_form(patched_changset, as: "user")
@@ -499,4 +592,49 @@ defmodule YscWeb.UserRegistrationLive do
       reg_form["membership_type"] === "family"
     )
   end
+
+  # Convert changeset changes to attrs format (string keys) for use in cast_assoc
+  defp changeset_to_attrs(changeset) do
+    changeset.changes
+    |> Enum.map(fn
+      {key, value} when is_atom(key) ->
+        {Atom.to_string(key), convert_value_to_attrs(value)}
+
+      {key, value} ->
+        {key, convert_value_to_attrs(value)}
+    end)
+    |> Enum.into(%{})
+  end
+
+  # Recursively convert changeset values to attrs format
+  defp convert_value_to_attrs(%Ecto.Changeset{} = nested_changeset) do
+    # For nested changesets (like registration_form), extract their changes
+    changeset_to_attrs(nested_changeset)
+  end
+
+  defp convert_value_to_attrs(list) when is_list(list) do
+    # For lists, convert each item
+    Enum.map(list, fn
+      %Ecto.Changeset{} = cs -> changeset_to_attrs(cs)
+      %{} = map -> map_to_string_keys(map)
+      value -> value
+    end)
+  end
+
+  defp convert_value_to_attrs(value), do: value
+
+  # Convert a map with atom keys to string keys
+  defp map_to_string_keys(map) when is_map(map) do
+    map
+    |> Enum.map(fn
+      {key, value} when is_atom(key) ->
+        {Atom.to_string(key), convert_value_to_attrs(value)}
+
+      {key, value} ->
+        {key, convert_value_to_attrs(value)}
+    end)
+    |> Enum.into(%{})
+  end
+
+  defp map_to_string_keys(value), do: value
 end

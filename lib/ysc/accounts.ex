@@ -152,29 +152,40 @@ defmodule Ysc.Accounts do
 
   """
   def register_user(attrs) do
-    case %User{}
-         |> User.registration_changeset(attrs)
-         |> Repo.insert() do
+    Repo.transaction(fn ->
+      case %User{}
+           |> User.registration_changeset(attrs)
+           |> Repo.insert() do
+        {:ok, user} ->
+          # Preload registration_form within the same transaction
+          # This ensures the association is available immediately after insert
+          user = Repo.preload(user, :registration_form)
+
+          # Create billing address from signup application
+          # This happens within the same transaction, so registration_form is guaranteed to be available
+          case create_billing_address_from_signup(user) do
+            {:ok, _address} ->
+              :ok
+
+            {:error, changeset} ->
+              # Log the error but don't fail registration
+              require Logger
+
+              Logger.warning("Failed to create billing address during registration",
+                user_id: user.id,
+                errors: inspect(changeset.errors)
+              )
+          end
+
+          # Return user for use after transaction
+          user
+
+        {:error, changeset} ->
+          Repo.rollback(changeset)
+      end
+    end)
+    |> case do
       {:ok, user} ->
-        # Reload user with registration_form to get address data
-        # We need to reload because associations aren't automatically loaded after insert
-        user = Repo.get!(User, user.id) |> Repo.preload(:registration_form)
-
-        # Create billing address from signup application
-        case create_billing_address_from_signup(user) do
-          {:ok, _address} ->
-            :ok
-
-          {:error, changeset} ->
-            # Log the error but don't fail registration
-            require Logger
-
-            Logger.warning("Failed to create billing address during registration",
-              user_id: user.id,
-              errors: inspect(changeset.errors)
-            )
-        end
-
         # Spawn task to create Stripe customer asynchronously
         # In test mode, allow the task to use the database connection
         Task.start(fn ->
@@ -199,30 +210,98 @@ defmodule Ysc.Accounts do
         subscribe_user_to_newsletter(user)
         {:ok, user}
 
-      {:error, changeset} ->
+      {:error, %Ecto.Changeset{} = changeset} ->
         {:error, changeset}
+
+      {:error, reason} ->
+        # If reason is not a changeset (shouldn't happen, but handle it)
+        {:error, reason}
     end
   end
 
   defp create_billing_address_from_signup(user) do
-    case user.registration_form do
-      %SignupApplication{} = signup_application ->
+    # Check if registration_form is loaded and available
+    cond do
+      # Association is loaded and has data
+      Ecto.assoc_loaded?(user.registration_form) && user.registration_form != nil ->
+        signup_application = user.registration_form
+
         # Check if address already exists
         existing_address = Repo.get_by(Address, user_id: user.id)
 
         if existing_address do
           {:ok, existing_address}
         else
-          %Address{}
-          |> Address.from_signup_application_changeset(signup_application)
-          |> Ecto.Changeset.put_change(:user_id, user.id)
-          |> Repo.insert()
+          # Only create address if we have the required fields
+          if has_required_address_fields?(signup_application) do
+            # Include user_id in the attrs so it's validated properly
+            address_attrs = %{
+              address: signup_application.address,
+              city: signup_application.city,
+              region: signup_application.region,
+              postal_code: signup_application.postal_code,
+              country: signup_application.country,
+              user_id: user.id
+            }
+
+            changeset = Address.changeset(%Address{}, address_attrs)
+
+            case Repo.insert(changeset) do
+              {:ok, address} ->
+                {:ok, address}
+
+              {:error, changeset} ->
+                {:error, changeset}
+            end
+          else
+            require Logger
+
+            Logger.warning("Skipping billing address creation - missing required fields",
+              user_id: user.id,
+              has_address: !is_nil(signup_application.address),
+              has_city: !is_nil(signup_application.city),
+              has_postal_code: !is_nil(signup_application.postal_code),
+              has_country: !is_nil(signup_application.country)
+            )
+
+            {:ok, nil}
+          end
         end
 
-      _ ->
-        # No registration form loaded or available
+      # Association not loaded - try to load it
+      not Ecto.assoc_loaded?(user.registration_form) ->
+        # Try to load the registration form
+        user_with_form = Repo.preload(user, :registration_form)
+
+        if user_with_form.registration_form do
+          create_billing_address_from_signup(user_with_form)
+        else
+          require Logger
+
+          Logger.warning("Skipping billing address creation - registration_form not found",
+            user_id: user.id
+          )
+
+          {:ok, nil}
+        end
+
+      # Association loaded but nil
+      true ->
+        require Logger
+
+        Logger.warning("Skipping billing address creation - registration_form is nil",
+          user_id: user.id
+        )
+
         {:ok, nil}
     end
+  end
+
+  defp has_required_address_fields?(signup_application) do
+    signup_application.address &&
+      signup_application.city &&
+      signup_application.postal_code &&
+      signup_application.country
   end
 
   defp subscribe_user_to_newsletter(user) do

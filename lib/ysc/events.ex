@@ -355,9 +355,8 @@ defmodule Ysc.Events do
       {:ok, event} ->
         broadcast(%Ysc.MessagePassingEvents.EventUpdated{event: event})
 
-        # Schedule event notification emails (1 hour after publish)
-        # Use 'now' directly to ensure we have the correct published_at timestamp
-        schedule_event_notifications(event, now)
+        # Send event notification emails immediately
+        send_event_notifications(event)
 
         {:ok, event}
 
@@ -366,22 +365,26 @@ defmodule Ysc.Events do
     end
   end
 
-  defp schedule_event_notifications(event, published_at) do
+  defp send_event_notifications(event) do
     require Logger
 
     try do
-      YscWeb.Workers.EventNotificationWorker.schedule_notifications(
-        event.id,
-        published_at
-      )
+      # Preload organizer association if not already loaded
+      event_with_organizer =
+        if Ecto.assoc_loaded?(event.organizer) do
+          event
+        else
+          Repo.preload(event, :organizer)
+        end
 
-      Logger.info("Scheduled event notification emails",
-        event_id: event.id,
-        published_at: published_at
+      YscWeb.Workers.EventNotificationWorker.send_event_notifications(event_with_organizer)
+
+      Logger.info("Sent event notification emails",
+        event_id: event.id
       )
     rescue
       error ->
-        Logger.error("Failed to schedule event notification emails",
+        Logger.error("Failed to send event notification emails",
           event_id: event.id,
           error: Exception.message(error)
         )
