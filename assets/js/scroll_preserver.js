@@ -10,7 +10,7 @@ let ScrollPreserver = {
             const yearParam = urlParams.get('year');
 
             // Get the target URL from the event
-            const targetUrl = event.detail ? .to;
+            const targetUrl = event.detail?.to;
             if (!targetUrl) return;
 
             try {
@@ -50,7 +50,7 @@ let ScrollPreserver = {
 
     saveScrollPosition(payload) {
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
-        const selectedYear = payload ? .year !== null && payload ? .year !== undefined ? payload ? .year : null;
+        const selectedYear = payload?.year !== null && payload?.year !== undefined ? payload?.year : null;
 
         // Build URL with state parameters
         const url = new URL(window.location.href);
