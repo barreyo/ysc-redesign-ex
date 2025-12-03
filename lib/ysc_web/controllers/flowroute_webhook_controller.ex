@@ -425,7 +425,7 @@ defmodule YscWeb.FlowrouteWebhookController do
            message_template: template,
            from: from
          ) do
-      {:ok, %{phone_number: _phone, message_id: _message_id}} ->
+      {:ok, %{id: _message_id}} ->
         Logger.info("Sent SMS response",
           template: template,
           to: to,

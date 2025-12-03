@@ -7,6 +7,7 @@ defmodule YscWeb.AdminMediaLive do
   alias Ysc.S3Config
   alias YscWeb.S3.SimpleS3Upload
 
+  @impl true
   def render(assigns) do
     ~H"""
     <.side_menu
@@ -322,6 +323,7 @@ defmodule YscWeb.AdminMediaLive do
     """
   end
 
+  @impl true
   def mount(%{"id" => id}, _session, socket) do
     image = Media.fetch_image(id)
     image_uploader = Ysc.Accounts.get_user!(image.user_id)
@@ -351,7 +353,8 @@ defmodule YscWeb.AdminMediaLive do
      |> stream(:images, [], dom_id: &get_dom_id/1), temporary_assigns: [form: nil]}
   end
 
-  def mount(params, _session, socket) do
+  @impl true
+  def mount(_params, _session, socket) do
     media_count = Media.count_images()
     timeline = Media.get_timeline_indices()
     available_years = Enum.map(timeline, & &1.year)
@@ -526,19 +529,7 @@ defmodule YscWeb.AdminMediaLive do
     end
   end
 
-  defp parse_year_from_query(query_string) when is_binary(query_string) do
-    query_string
-    |> String.split("&")
-    |> Enum.find_value(fn pair ->
-      case String.split(pair, "=", parts: 2) do
-        ["year", value] -> URI.decode(value)
-        _ -> nil
-      end
-    end)
-  end
-
-  defp parse_year_from_query(_), do: nil
-
+  @impl true
   def handle_event("validate", _params, socket) do
     {:noreply, socket}
   end
@@ -678,9 +669,10 @@ defmodule YscWeb.AdminMediaLive do
      |> stream(:images, stream_items, reset: true, dom_id: &get_dom_id/1)}
   end
 
+  @impl true
   def handle_event(
         "save-scroll-position",
-        %{"value" => %{"year" => year, "scroll" => _scroll}},
+        %{"value" => %{"year" => _year, "scroll" => _scroll}},
         socket
       ) do
     # JavaScript hook updates the URL with scroll position before navigation
@@ -688,7 +680,8 @@ defmodule YscWeb.AdminMediaLive do
     {:noreply, socket}
   end
 
-  def handle_event("save-scroll-position", %{"value" => %{"year" => year}}, socket) do
+  @impl true
+  def handle_event("save-scroll-position", %{"value" => %{"year" => _year}}, socket) do
     # Fallback for older format
     {:noreply, socket}
   end

@@ -212,7 +212,7 @@ defmodule Ysc.Flowroute.Client do
     ]
   end
 
-  defp build_request_body(to, from, body, is_mms \\ false, media_urls \\ []) do
+  defp build_request_body(to, from, body, is_mms, media_urls) do
     attributes = %{
       "to" => to,
       "from" => from,

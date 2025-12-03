@@ -3,8 +3,6 @@ defmodule Ysc.Media.Timeline do
   Timeline utilities for injecting date headers into image streams.
   """
 
-  alias Ysc.Media.Image
-
   # A simple struct for our headers
   defmodule Header do
     @moduledoc """

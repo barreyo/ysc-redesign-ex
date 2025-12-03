@@ -1588,6 +1588,9 @@ defmodule YscWeb.AdminUserDetailsLive do
     |> Calendar.strftime("%Y-%m-%dT%H:%M")
   end
 
+  defp format_datetime_local(nil), do: ""
+  defp format_datetime_local(datetime) when is_binary(datetime), do: datetime
+
   defp load_bank_accounts(socket, user_id) do
     if socket.assigns.is_treasurer do
       selected_user = Accounts.get_user!(user_id)
@@ -1614,9 +1617,6 @@ defmodule YscWeb.AdminUserDetailsLive do
   end
 
   defp parse_datetime(_), do: {:error, :invalid_format}
-
-  defp format_datetime_local(nil), do: ""
-  defp format_datetime_local(datetime) when is_binary(datetime), do: datetime
 
   defp lifetime_membership_changeset(params) do
     types = %{has_lifetime: :boolean, awarded_at: :utc_datetime}
