@@ -240,18 +240,6 @@ defmodule YscWeb.UserSettingsLive do
               <.icon name="hero-bell-alert" class="w-5 h-5 me-2" /> Notifications
             </.link>
           </li>
-          <li>
-            <.link
-              navigate={~p"/users/bank-accounts"}
-              class={[
-                "inline-flex items-center px-4 py-3 rounded w-full",
-                @live_action == :bank_accounts && "bg-blue-600 active text-zinc-100",
-                @live_action != :bank_accounts && "hover:bg-zinc-100 hover:text-zinc-900"
-              ]}
-            >
-              <.icon name="hero-building-library" class="w-5 h-5 me-2" /> Bank Accounts
-            </.link>
-          </li>
         </ul>
 
         <div class="text-medium px-2 text-zinc-500 rounded w-full md:border-l md:border-1 md:border-zinc-100 md:pl-16">
@@ -300,6 +288,13 @@ defmodule YscWeb.UserSettingsLive do
                   id="phone_number"
                   field={@profile_form[:phone_number]}
                 />
+                <p class="text-xs text-zinc-600 mt-1">
+                  By providing your phone number, you consent to receive SMS notifications from YSC, including account updates, event reminders, and other important communications. Message and data rates may apply. You can opt out at any time in your notification settings. See our
+                  <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
+                    Privacy Policy
+                  </.link>
+                  for more information.
+                </p>
 
                 <.input
                   field={@profile_form[:most_connected_country]}
@@ -802,16 +797,25 @@ defmodule YscWeb.UserSettingsLive do
             </div> --%>
           </div>
 
-          <div :if={@live_action == :bank_accounts} class="space-y-6">
-            <%= render_bank_accounts(assigns) %>
-          </div>
-
           <div :if={@live_action == :notifications} class="space-y-6">
             <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
               <h2 class="text-zinc-900 font-bold text-xl">Notification Preferences</h2>
               <p class="text-sm text-zinc-600">
                 Manage how you receive notifications from the YSC. You can control which types of notifications you receive via email or SMS.
               </p>
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                <p class="text-sm text-blue-900">
+                  <strong>SMS Consent:</strong>
+                  By enabling SMS notifications, you consent to receive text messages from YSC. Message and data rates may apply. You can opt out at any time by unchecking the SMS options below. See our
+                  <.link
+                    navigate={~p"/privacy-policy"}
+                    class="text-blue-700 hover:underline font-semibold"
+                  >
+                    Privacy Policy
+                  </.link>
+                  for more information about how we use your phone number.
+                </p>
+              </div>
 
               <.simple_form
                 for={@notification_form}
@@ -1306,20 +1310,6 @@ defmodule YscWeb.UserSettingsLive do
         |> assign(:payments_total, total_count)
         |> assign(:payments_total_pages, total_pages)
         |> assign(:payments, payments)
-      else
-        socket
-      end
-
-    socket =
-      if live_action == :bank_accounts do
-        bank_accounts = Ysc.ExpenseReports.list_bank_accounts(user)
-
-        bank_account_changeset =
-          Ysc.ExpenseReports.BankAccount.changeset(%Ysc.ExpenseReports.BankAccount{}, %{})
-
-        socket
-        |> assign(:bank_accounts, bank_accounts)
-        |> assign(:bank_account_form, to_form(bank_account_changeset))
       else
         socket
       end
@@ -2361,69 +2351,4 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   # Helper function to safely fetch user invoices
-
-  defp render_bank_accounts(assigns) do
-    ~H"""
-    <div class="space-y-6">
-      <.header>
-        Bank Accounts
-        <:subtitle>Manage bank accounts for expense report reimbursements</:subtitle>
-      </.header>
-
-      <div class="space-y-4">
-        <div :if={length(@bank_accounts) > 0} class="space-y-3">
-          <h3 class="text-lg font-medium text-zinc-900">Your Bank Accounts</h3>
-          <%= for bank_account <- @bank_accounts do %>
-            <div class="border border-zinc-200 rounded-lg p-4 flex justify-between items-center">
-              <div>
-                <p class="font-semibold text-zinc-900">
-                  Account ending in ••••<%= bank_account.account_number_last_4 %>
-                </p>
-                <p class="text-sm text-zinc-600">
-                  Added <%= Calendar.strftime(bank_account.inserted_at, "%B %d, %Y") %>
-                </p>
-              </div>
-              <button
-                type="button"
-                phx-click="delete_bank_account"
-                phx-value-id={bank_account.id}
-                class="px-4 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50"
-              >
-                Delete
-              </button>
-            </div>
-          <% end %>
-        </div>
-
-        <div class="border-t border-zinc-200 pt-6">
-          <h3 class="text-lg font-medium text-zinc-900 mb-4">Add New Bank Account</h3>
-          <.simple_form
-            for={@bank_account_form}
-            phx-submit="save_bank_account"
-            phx-change="validate_bank_account"
-          >
-            <.input
-              field={@bank_account_form[:routing_number]}
-              type="text"
-              label="Routing Number"
-              placeholder="123456789"
-              maxlength="9"
-              required
-            />
-            <.input
-              field={@bank_account_form[:account_number]}
-              type="text"
-              label="Account Number"
-              placeholder="Account number"
-              required
-            />
-            <:actions>
-              <.button>Add Bank Account</.button>
-            </:actions>
-          </.simple_form>
-        </div>
-      </div>
-    </div>
-    """
-  end
 end

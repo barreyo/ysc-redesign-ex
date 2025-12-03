@@ -105,6 +105,13 @@ defmodule YscWeb.UserRegistrationLive do
                 id="phone_number"
                 field={@form[:phone_number]}
               />
+              <p class="text-xs text-zinc-600 mt-1">
+                By providing your phone number, you consent to receive SMS notifications from YSC, including account updates, event reminders, and other important communications. Message and data rates may apply. You can opt out at any time in your notification settings. See our
+                <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
+                  Privacy Policy
+                </.link>
+                for more information.
+              </p>
               <.input field={@form[:password]} type="password" label="Password*" required />
 
               <.header class="text-left pt-6">Personal Information</.header>

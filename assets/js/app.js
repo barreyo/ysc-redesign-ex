@@ -42,6 +42,8 @@ import EmailPreview from "./email_preview";
 import AdminSearch from "./admin_search";
 import GLightboxHook from "./glightbox_hook";
 import LocalTime from "./local_time";
+import YearScrubber from "./year_scrubber";
+import ScrollPreserver from "./scroll_preserver";
 
 let Hooks = {
     StickyNavbar,
@@ -63,6 +65,8 @@ let Hooks = {
     AdminSearch,
     GLightboxHook,
     LocalTime,
+    YearScrubber,
+    ScrollPreserver,
 };
 Hooks.LivePhone = LivePhone;
 
@@ -87,6 +91,11 @@ window.addEventListener("phx:live_reload:attached", ({ detail: reloader }) => {
     reloader.enableServerLogs();
     window.liveReloader = reloader;
 });
+
+// Disable browser's automatic scroll restoration for better control
+if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+}
 
 // Show progress bar on live navigation and form submits
 topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });

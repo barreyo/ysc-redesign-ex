@@ -1,7 +1,9 @@
 defmodule YscWeb.AdminMediaLive do
   use YscWeb, :live_view
-  alias YscWeb.Components.GalleryComponent
+  import Ecto.Query, only: [from: 2]
+  alias Ysc.Repo
   alias Ysc.Media
+  alias Ysc.Media.Timeline
   alias Ysc.S3Config
   alias YscWeb.S3.SimpleS3Upload
 
@@ -18,7 +20,7 @@ defmodule YscWeb.AdminMediaLive do
       <.modal
         :if={@live_action == :edit}
         id="update-image-modal"
-        on_cancel={JS.navigate(~p"/admin/media")}
+        on_cancel={JS.navigate(build_media_url_with_state(assigns))}
         show
       >
         <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-4">
@@ -144,7 +146,7 @@ defmodule YscWeb.AdminMediaLive do
           <div class="flex justify-end">
             <button
               class="rounded hover:bg-zinc-100 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-800/80 mr-2"
-              phx-click={JS.navigate(~p"/admin/media")}
+              phx-click={JS.navigate(build_media_url_with_state(assigns))}
             >
               Cancel
             </button>
@@ -158,7 +160,7 @@ defmodule YscWeb.AdminMediaLive do
       <.modal
         :if={@live_action == :upload}
         id="add-images-modal"
-        on_cancel={JS.navigate(~p"/admin/media")}
+        on_cancel={JS.navigate(build_media_url_with_state(assigns))}
         show
       >
         <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-4">
@@ -245,7 +247,7 @@ defmodule YscWeb.AdminMediaLive do
         </div>
       </.modal>
 
-      <div class="flex justify-between items-center py-6 border-b border-zinc-200">
+      <div class="flex justify-between items-center py-6">
         <div>
           <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
             Media Library
@@ -255,19 +257,52 @@ defmodule YscWeb.AdminMediaLive do
           </p>
         </div>
 
-        <.button phx-click={JS.navigate(~p"/admin/media/upload")}>
-          <.icon name="hero-photo" class="w-5 h-5 -mt-1" /><span class="ms-1">New Image</span>
-        </.button>
+        <div class="flex items-center gap-4">
+          <.button phx-click={JS.navigate(~p"/admin/media/upload")}>
+            <.icon name="hero-photo" class="w-5 h-5 -mt-1" /><span class="ms-1">New Image</span>
+          </.button>
+        </div>
       </div>
 
-      <section class="py-6">
-        <.live_component
+      <section class="py-6 relative">
+        <div
           :if={@media_count > 0}
-          module={GalleryComponent}
-          id="admin-media-gallery"
-          images={@streams.images}
-          page={@page}
-        />
+          id="media-gallery"
+          phx-update="stream"
+          phx-viewport-bottom={!@end_of_timeline? && "load-more"}
+          phx-page-loading
+          phx-hook="ScrollPreserver"
+          class="space-y-8 pr-12"
+        >
+          <%= render_images_by_year(assigns) %>
+        </div>
+        <!-- Year Scrubber -->
+        <div
+          :if={@media_count > 0 and length(@timeline) > 1}
+          id="year-scrubber"
+          phx-hook="YearScrubber"
+          class="fixed right-4 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-1 py-2 px-1.5 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-zinc-200 transition-all duration-200 hover:shadow-xl"
+        >
+          <%= for item <- @timeline do %>
+            <button
+              data-year-item={item.year}
+              phx-click="jump-to-year"
+              phx-value-year={item.year}
+              class="w-9 h-9 flex items-center justify-center text-xs font-semibold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded transition-all duration-150 opacity-60 hover:opacity-100 relative group"
+              title={"#{item.year} (#{item.count} images)"}
+            >
+              <span class="group-hover:hidden flex items-center justify-center w-full h-full">
+                <%= String.slice(to_string(item.year), -2, 2) %>
+              </span>
+              <span class="hidden group-hover:flex absolute inset-0 items-center justify-center text-[10px] font-bold whitespace-nowrap px-1">
+                <%= item.year %>
+              </span>
+              <span class="absolute right-full top-1/2 -translate-y-1/2 mr-2 hidden group-hover:block bg-black text-white text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none">
+                <%= item.count %> photos
+              </span>
+            </button>
+          <% end %>
+        </div>
 
         <div :if={@media_count == 0} class="mx-auto py-20 text-center">
           <div class="flex flex-col items-center">
@@ -292,31 +327,51 @@ defmodule YscWeb.AdminMediaLive do
     image_uploader = Ysc.Accounts.get_user!(image.user_id)
     form = to_form(Media.Image.edit_image_changeset(image, %{}), as: "image")
     media_count = Media.count_images()
+    timeline = Media.get_timeline_indices()
+    available_years = Enum.map(timeline, & &1.year)
 
+    # Don't load images in mount for edit route - handle_params will load them with correct year
+    # This prevents the page from scrolling to top when opening the modal
     {:ok,
      socket
      |> assign(:media_count, media_count)
      |> assign(:page_title, "Media")
+     |> assign(:timeline, timeline)
+     |> assign(:available_years, available_years)
+     |> assign(:selected_year, nil)
+     |> assign(:per_page, 30)
+     |> assign(:end_of_timeline?, false)
+     |> assign(:years_set, MapSet.new())
+     |> assign(:years_list, [])
      |> assign(form: form)
      |> assign(:active_image, image)
      |> assign(:image_uploader, image_uploader)
      |> assign(:selected_image_version, :optimized)
-     |> assign(page: 1, per_page: 20)
-     |> paginate_images(1)
-     |> assign(:active_page, :media), temporary_assigns: [form: nil]}
+     |> assign(:active_page, :media)
+     |> stream(:images, [], dom_id: &get_dom_id/1), temporary_assigns: [form: nil]}
   end
 
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     media_count = Media.count_images()
+    timeline = Media.get_timeline_indices()
+    available_years = Enum.map(timeline, & &1.year)
 
+    # Load default images initially - handle_params will update if year param is present
+    # We use an empty stream initially to avoid showing wrong images before handle_params runs
     {:ok,
      socket
      |> assign(:media_count, media_count)
      |> assign(:page_title, "Media")
      |> assign(:active_page, :media)
-     |> assign(page: 1, per_page: 20)
+     |> assign(:timeline, timeline)
+     |> assign(:available_years, available_years)
+     |> assign(:selected_year, nil)
+     |> assign(:per_page, 30)
+     |> assign(:end_of_timeline?, false)
+     |> assign(:years_set, MapSet.new())
+     |> assign(:years_list, [])
      |> assign(:uploaded_files, [])
-     |> paginate_images(1)
+     |> stream(:images, [], dom_id: &get_dom_id/1)
      |> allow_upload(:media_uploads,
        accept: ~w(.jpg .jpeg .png .gif .webp),
        max_entries: 10,
@@ -324,33 +379,165 @@ defmodule YscWeb.AdminMediaLive do
      )}
   end
 
-  defp paginate_images(socket, new_page) when new_page >= 1 do
-    %{per_page: per_page} = socket.assigns
-    images = Media.list_images((new_page - 1) * per_page, per_page)
+  @impl true
+  def handle_params(params, uri, socket) do
+    require Logger
+    Logger.debug("handle_params called with params: #{inspect(params)}, uri: #{inspect(uri)}")
 
-    # Replace the entire stream with new page's images to prevent shifting
-    # Use reset: true to ensure the stream is properly reset and items don't shift
-    socket
-    |> assign(end_of_timeline?: length(images) < per_page)
-    |> assign(:page, new_page)
-    |> stream(:images, images, reset: true)
+    # Parse query parameters from URI to get all params (year, scroll, etc.)
+    query_params = parse_query_params_from_uri(params, uri)
+    year_param = query_params["year"] || query_params[:year]
+    scroll_param = query_params["scroll"] || query_params[:scroll]
+
+    # Store current URL parameters in assigns for use when building return URLs
+    socket = assign(socket, :url_year_param, year_param)
+    socket = assign(socket, :url_scroll_param, scroll_param)
+
+    Logger.debug("Year param: #{inspect(year_param)}, scroll param: #{inspect(scroll_param)}")
+
+    # Load images based on year param, even when on edit route
+    # But only load if stream is empty or year has changed
+    socket =
+      if year_param do
+        year = if is_binary(year_param), do: String.to_integer(year_param), else: year_param
+
+        Logger.debug("Processing year: #{year}, current: #{socket.assigns.selected_year}")
+
+        # Only reload if year changed OR if stream is empty (e.g., on edit route mount)
+        stream_empty = Enum.empty?(socket.assigns.streams.images.inserts)
+        year_changed = year != socket.assigns.selected_year
+
+        if year_changed || stream_empty do
+          start_date = DateTime.new!(Date.new!(year, 1, 1), ~T[00:00:00], "Etc/UTC")
+          end_date = DateTime.new!(Date.new!(year, 12, 31), ~T[23:59:59], "Etc/UTC")
+
+          images =
+            Repo.all(
+              from i in Media.Image,
+                where: i.inserted_at >= ^start_date and i.inserted_at <= ^end_date,
+                order_by: [desc: i.inserted_at, desc: i.id],
+                limit: ^socket.assigns.per_page
+            )
+
+          Logger.debug("Loaded #{length(images)} images for year #{year}")
+
+          stream_items = Timeline.inject_date_headers(images)
+          new_years = Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+          years_list = new_years |> MapSet.to_list() |> Enum.sort(:desc)
+
+          socket
+          |> assign(:selected_year, year)
+          |> assign(:end_of_timeline?, length(images) < socket.assigns.per_page)
+          |> assign(:years_set, new_years)
+          |> assign(:years_list, years_list)
+          |> stream(:images, stream_items, reset: true, dom_id: &get_dom_id/1)
+          |> update_years_from_stream()
+        else
+          socket
+        end
+      else
+        # If no year param, load default images (all images, most recent first)
+        # Check if we already have images loaded (to avoid reloading unnecessarily)
+        stream_empty = Enum.empty?(socket.assigns.streams.images.inserts)
+        has_year_filter = not is_nil(socket.assigns.selected_year)
+
+        if has_year_filter || stream_empty do
+          images = Media.list_images_cursor(limit: socket.assigns.per_page)
+          stream_items = Timeline.inject_date_headers(images)
+          new_years = Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+          years_list = new_years |> MapSet.to_list() |> Enum.sort(:desc)
+
+          socket
+          |> assign(:selected_year, nil)
+          |> assign(:end_of_timeline?, length(images) < socket.assigns.per_page)
+          |> assign(:years_set, new_years)
+          |> assign(:years_list, years_list)
+          |> stream(:images, stream_items, reset: true, dom_id: &get_dom_id/1)
+          |> update_years_from_stream()
+        else
+          socket
+        end
+      end
+
+    # Scroll restoration is handled by JavaScript hook from URL param
+    {:noreply, socket}
   end
 
-  def handle_event("next-page", _, socket) do
-    {:noreply, paginate_images(socket, socket.assigns.page + 1)}
-  end
+  defp parse_query_params_from_uri(params, uri) do
+    cond do
+      is_binary(uri) ->
+        # URI is a string, parse it first
+        case URI.parse(uri) do
+          %URI{query: query} when is_binary(query) and query != "" ->
+            # Use URI.decode_query which handles encoding properly
+            try do
+              decoded_params = URI.decode_query(query)
+              Map.merge(params, decoded_params)
+            rescue
+              _ ->
+                # Fallback to manual parsing
+                query
+                |> String.split("&")
+                |> Enum.reduce(params, fn pair, acc ->
+                  case String.split(pair, "=", parts: 2) do
+                    [key, value] ->
+                      decoded_key = URI.decode(key)
+                      decoded_value = URI.decode(value)
+                      Map.put(acc, decoded_key, decoded_value)
 
-  def handle_event("prev-page", %{"_overran" => true}, socket) do
-    {:noreply, paginate_images(socket, 1)}
-  end
+                    [key] ->
+                      decoded_key = URI.decode(key)
+                      Map.put(acc, decoded_key, "")
+                  end
+                end)
+            end
 
-  def handle_event("prev-page", _, socket) do
-    if socket.assigns.page > 1 do
-      {:noreply, paginate_images(socket, socket.assigns.page - 1)}
-    else
-      {:noreply, socket}
+          _ ->
+            params
+        end
+
+      is_struct(uri, URI) && uri.query && uri.query != "" ->
+        # Parse query string from URI struct
+        try do
+          decoded_params = URI.decode_query(uri.query)
+          Map.merge(params, decoded_params)
+        rescue
+          _ ->
+            # Fallback to manual parsing
+            uri.query
+            |> String.split("&")
+            |> Enum.reduce(params, fn pair, acc ->
+              case String.split(pair, "=", parts: 2) do
+                [key, value] ->
+                  decoded_key = URI.decode(key)
+                  decoded_value = URI.decode(value)
+                  Map.put(acc, decoded_key, decoded_value)
+
+                [key] ->
+                  decoded_key = URI.decode(key)
+                  Map.put(acc, decoded_key, "")
+              end
+            end)
+        end
+
+      true ->
+        # Use params as-is if no query string
+        params
     end
   end
+
+  defp parse_year_from_query(query_string) when is_binary(query_string) do
+    query_string
+    |> String.split("&")
+    |> Enum.find_value(fn pair ->
+      case String.split(pair, "=", parts: 2) do
+        ["year", value] -> URI.decode(value)
+        _ -> nil
+      end
+    end)
+  end
+
+  defp parse_year_from_query(_), do: nil
 
   def handle_event("validate", _params, socket) do
     {:noreply, socket}
@@ -381,13 +568,24 @@ defmodule YscWeb.AdminMediaLive do
         {:ok, new_image}
       end)
 
-    updated_socket =
-      Enum.reduce(uploaded_files, socket, fn x, acc ->
-        acc |> stream_insert(:images, x, at: 0)
-      end)
+    # Reload images after upload
+    media_count = Media.count_images()
+    timeline = Media.get_timeline_indices()
+    available_years = Enum.map(timeline, & &1.year)
+    images = Media.list_images_cursor(limit: socket.assigns.per_page)
+    stream_items = Timeline.inject_date_headers(images)
 
     {:noreply,
-     update(updated_socket, :uploaded_files, &(&1 ++ uploaded_files))
+     socket
+     |> update(:uploaded_files, &(&1 ++ uploaded_files))
+     |> assign(:media_count, media_count)
+     |> assign(:timeline, timeline)
+     |> assign(:available_years, available_years)
+     |> assign(:end_of_timeline?, length(images) < socket.assigns.per_page)
+     |> assign(:years_set, MapSet.new())
+     |> assign(:years_list, [])
+     |> stream(:images, stream_items, reset: true, dom_id: &get_dom_id/1)
+     |> update_years_from_stream()
      |> push_navigate(to: ~p"/admin/media")}
   end
 
@@ -409,7 +607,22 @@ defmodule YscWeb.AdminMediaLive do
 
     Media.update_image(active_image, image_params, current_user)
 
-    {:noreply, socket |> push_navigate(to: ~p"/admin/media")}
+    # Reload images after update
+    timeline = Media.get_timeline_indices()
+    available_years = Enum.map(timeline, & &1.year)
+    images = Media.list_images_cursor(limit: socket.assigns.per_page)
+    stream_items = Timeline.inject_date_headers(images)
+
+    {:noreply,
+     socket
+     |> assign(:timeline, timeline)
+     |> assign(:available_years, available_years)
+     |> assign(:end_of_timeline?, length(images) < socket.assigns.per_page)
+     |> assign(:years_set, MapSet.new())
+     |> assign(:years_list, [])
+     |> stream(:images, stream_items, reset: true, dom_id: &get_dom_id/1)
+     |> update_years_from_stream()
+     |> push_navigate(to: build_media_url_with_state(socket))}
   end
 
   def handle_event("select-image-version", %{"version" => version}, socket) do
@@ -422,6 +635,144 @@ defmodule YscWeb.AdminMediaLive do
       end
 
     {:noreply, assign(socket, :selected_image_version, version_atom)}
+  end
+
+  def handle_event("filter_by_year", %{"year" => ""}, socket) do
+    images = Media.list_images_cursor(limit: socket.assigns.per_page)
+    stream_items = Timeline.inject_date_headers(images)
+    new_years = Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+    years_list = new_years |> MapSet.to_list() |> Enum.sort(:desc)
+
+    {:noreply,
+     socket
+     |> assign(:selected_year, nil)
+     |> assign(:end_of_timeline?, length(images) < socket.assigns.per_page)
+     |> assign(:years_set, new_years)
+     |> assign(:years_list, years_list)
+     |> stream(:images, stream_items, reset: true, dom_id: &get_dom_id/1)}
+  end
+
+  def handle_event("filter_by_year", %{"year" => year_str}, socket) do
+    year = String.to_integer(year_str)
+    start_date = DateTime.new!(Date.new!(year, 1, 1), ~T[00:00:00], "Etc/UTC")
+    end_date = DateTime.new!(Date.new!(year, 12, 31), ~T[23:59:59], "Etc/UTC")
+
+    images =
+      Repo.all(
+        from i in Media.Image,
+          where: i.inserted_at >= ^start_date and i.inserted_at <= ^end_date,
+          order_by: [desc: i.inserted_at, desc: i.id],
+          limit: ^socket.assigns.per_page
+      )
+
+    stream_items = Timeline.inject_date_headers(images)
+    new_years = Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+    years_list = new_years |> MapSet.to_list() |> Enum.sort(:desc)
+
+    {:noreply,
+     socket
+     |> assign(:selected_year, year)
+     |> assign(:end_of_timeline?, length(images) < socket.assigns.per_page)
+     |> assign(:years_set, new_years)
+     |> assign(:years_list, years_list)
+     |> stream(:images, stream_items, reset: true, dom_id: &get_dom_id/1)}
+  end
+
+  def handle_event(
+        "save-scroll-position",
+        %{"value" => %{"year" => year, "scroll" => _scroll}},
+        socket
+      ) do
+    # JavaScript hook updates the URL with scroll position before navigation
+    # We can also update assigns here if needed
+    {:noreply, socket}
+  end
+
+  def handle_event("save-scroll-position", %{"value" => %{"year" => year}}, socket) do
+    # Fallback for older format
+    {:noreply, socket}
+  end
+
+  def handle_event("save-scroll-position", _params, socket) do
+    # Fallback if no value provided
+    {:noreply, socket}
+  end
+
+  def handle_event("load-more", _params, socket) do
+    if not socket.assigns.end_of_timeline? do
+      # Get the last image's inserted_at as cursor (skip headers)
+      last_image_date =
+        socket.assigns.streams.images.inserts
+        |> Enum.filter(fn {_id, _at, item, _meta} -> match?(%Media.Image{}, item) end)
+        |> List.last()
+        |> case do
+          nil -> nil
+          {_id, _at, image, _meta} -> image.inserted_at
+        end
+
+      new_images =
+        if last_image_date do
+          Media.list_images_cursor(before_date: last_image_date, limit: socket.assigns.per_page)
+        else
+          []
+        end
+
+      case new_images do
+        [] ->
+          {:noreply, assign(socket, :end_of_timeline?, true)}
+
+        [_ | _] = new_images ->
+          # Inject date headers
+          stream_items = Timeline.inject_date_headers(new_images)
+          # Extract years from new images and update
+          new_years = Enum.map(new_images, fn image -> image.inserted_at.year end) |> MapSet.new()
+          existing_years = Map.get(socket.assigns, :years_set, MapSet.new())
+          updated_years = MapSet.union(existing_years, new_years)
+
+          {:noreply,
+           socket
+           |> assign(:end_of_timeline?, length(new_images) < socket.assigns.per_page)
+           |> assign(:years_set, updated_years)
+           |> update_years_from_stream()
+           |> stream(:images, stream_items, at: -1)}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("jump-to-year", %{"year" => year}, socket) do
+    year_int = if is_binary(year), do: String.to_integer(year), else: year
+
+    # Load images starting from this year using cursor-based pagination
+    images = Media.list_images_cursor(start_at_year: year_int, limit: socket.assigns.per_page)
+    stream_items = Timeline.inject_date_headers(images)
+
+    # Extract years from loaded images
+    new_years = Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+    years_list = new_years |> MapSet.to_list() |> Enum.sort(:desc)
+
+    # Update URL with year parameter (preserve scroll if it exists)
+    socket =
+      socket
+      # Set the selected year to maintain filter state
+      |> assign(:selected_year, year_int)
+      |> assign(:url_year_param, to_string(year_int))
+      |> assign(:years_set, new_years)
+      |> assign(:years_list, years_list)
+      |> assign(:end_of_timeline?, length(images) < socket.assigns.per_page)
+      |> stream(:images, stream_items, reset: true, dom_id: &get_dom_id/1)
+      |> update_years_from_stream()
+
+    # Build URL with year parameter (preserve scroll if it exists)
+    url = build_media_url_with_state(socket)
+
+    socket =
+      socket
+      |> push_patch(to: url)
+      |> push_event("scroll-to-year", %{year: year_int})
+
+    {:noreply, socket}
   end
 
   defp presign_upload(entry, socket) do
@@ -478,4 +829,231 @@ defmodule YscWeb.AdminMediaLive do
   end
 
   defp get_image_version_path(_, _), do: nil
+
+  # Helper functions for image display (similar to GalleryComponent)
+  defp get_blur_hash(%Media.Image{blur_hash: nil}), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+  defp get_blur_hash(%Media.Image{blur_hash: blur_hash}), do: blur_hash
+
+  defp get_image_path(%Media.Image{thumbnail_path: nil} = image),
+    do: image.raw_image_path
+
+  defp get_image_path(%Media.Image{optimized_image_path: nil} = image),
+    do: image.raw_image_path
+
+  defp get_image_path(%Media.Image{thumbnail_path: thumbnail_path}), do: thumbnail_path
+  defp get_image_path(%Media.Image{optimized_image_path: optimized_path}), do: optimized_path
+
+  # Get DOM ID for stream items (headers or images)
+  defp get_dom_id(%Timeline.Header{} = header), do: header.id
+  defp get_dom_id(%Media.Image{} = image), do: "image-#{image.id}"
+
+  defp build_media_url_with_state(assigns_or_socket) do
+    # Handle both socket and assigns map
+    assigns =
+      if is_map(assigns_or_socket) && Map.has_key?(assigns_or_socket, :assigns),
+        do: assigns_or_socket.assigns,
+        else: assigns_or_socket
+
+    # Prefer url_year_param (from URL) over selected_year (from state)
+    # url_year_param is already a string, selected_year is an integer
+    # Decode if already encoded to avoid double encoding
+    year =
+      case assigns[:url_year_param] do
+        nil ->
+          if assigns[:selected_year], do: to_string(assigns[:selected_year]), else: nil
+
+        year_str when is_binary(year_str) ->
+          # Decode if encoded, then we'll encode it properly
+          try do
+            URI.decode(year_str)
+          rescue
+            _ -> year_str
+          end
+
+        _ ->
+          nil
+      end
+
+    scroll =
+      case assigns[:url_scroll_param] do
+        nil ->
+          nil
+
+        scroll_val when is_binary(scroll_val) ->
+          # Decode if encoded
+          try do
+            URI.decode(scroll_val)
+          rescue
+            _ -> scroll_val
+          end
+
+        scroll_val ->
+          to_string(scroll_val)
+      end
+
+    query_params = []
+    query_params = if year, do: [{"year", year} | query_params], else: query_params
+    query_params = if scroll, do: [{"scroll", scroll} | query_params], else: query_params
+
+    base_path = ~p"/admin/media"
+
+    if Enum.any?(query_params) do
+      query_string = URI.encode_query(query_params)
+      "#{base_path}?#{query_string}"
+    else
+      base_path
+    end
+  end
+
+  defp build_image_edit_url_with_state(assigns, image_id) do
+    # Build URL for image edit modal with state parameters preserved
+    # Always use selected_year if available (it's the current filter state)
+    # url_year_param might not be set if handle_params hasn't run yet
+    # Decode if already encoded to avoid double encoding
+    year =
+      case {assigns[:url_year_param], assigns[:selected_year]} do
+        {year_str, _} when is_binary(year_str) and year_str != "" ->
+          # Decode if encoded, then we'll encode it properly
+          try do
+            URI.decode(year_str)
+          rescue
+            _ -> year_str
+          end
+
+        {_, selected_year} when not is_nil(selected_year) ->
+          to_string(selected_year)
+
+        _ ->
+          nil
+      end
+
+    # Include scroll if available (from URL or will be set by JavaScript)
+    # Try to read from current URL if not in assigns (JavaScript may have updated it)
+    scroll =
+      case assigns[:url_scroll_param] do
+        nil ->
+          # Try to read from current browser URL via JavaScript
+          # For now, we'll rely on JavaScript to update the URL before navigation
+          # But we can also try to get it from the socket's current URI if available
+          nil
+
+        scroll_val when is_binary(scroll_val) ->
+          # Decode if encoded
+          try do
+            URI.decode(scroll_val)
+          rescue
+            _ -> scroll_val
+          end
+
+        scroll_val ->
+          to_string(scroll_val)
+      end
+
+    query_params = []
+    query_params = if year, do: [{"year", year} | query_params], else: query_params
+    query_params = if scroll, do: [{"scroll", scroll} | query_params], else: query_params
+
+    base_path = ~p"/admin/media/upload/#{image_id}"
+
+    if Enum.any?(query_params) do
+      query_string = URI.encode_query(query_params)
+      "#{base_path}?#{query_string}"
+    else
+      base_path
+    end
+  end
+
+  # Update years from stream
+  defp update_years_from_stream(socket) do
+    years =
+      socket.assigns.streams.images.inserts
+      |> Enum.filter(fn {_id, _at, item, _meta} -> match?(%Media.Image{}, item) end)
+      |> Enum.map(fn {_id, _at, image, _meta} -> image.inserted_at.year end)
+      |> MapSet.new()
+      |> MapSet.to_list()
+      |> Enum.sort(:desc)
+
+    socket
+    |> assign(:years_set, MapSet.new(years))
+    |> assign(:years_list, years)
+  end
+
+  # Render images with date headers from stream
+  defp render_images_by_year(assigns) do
+    # Extract unique years from streamed images (excluding headers)
+    years =
+      assigns.streams.images.inserts
+      |> Enum.filter(fn {_id, _at, item, _meta} -> match?(%Media.Image{}, item) end)
+      |> Enum.map(fn {_id, _at, image, _meta} -> image.inserted_at.year end)
+      |> Enum.uniq()
+      |> Enum.sort(:desc)
+
+    assigns = assign(assigns, :years, years)
+
+    ~H"""
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-7 4xl:grid-cols-9 gap-3 md:gap-4">
+      <%= for {id, item} <- @streams.images do %>
+        <%!-- RENDER HEADER --%>
+        <%= if match?(%Timeline.Header{}, item) do %>
+          <div
+            id={id}
+            data-year-section={item.date.year}
+            class="col-span-full sticky top-0 z-10 bg-white/95 backdrop-blur py-4 px-4 mt-4 font-bold text-xl border-b border-zinc-200"
+          >
+            <%= item.formatted_date %>
+          </div>
+        <% end %>
+
+        <%!-- RENDER IMAGE --%>
+        <%= if match?(%Media.Image{}, item) do %>
+          <button
+            phx-click={
+              JS.push("save-scroll-position", value: %{year: @selected_year, scroll: true})
+              |> JS.navigate(build_image_edit_url_with_state(assigns, item.id))
+            }
+            id={id}
+            class="mb-4 group relative w-full rounded-lg aspect-square border border-zinc-200 cursor-pointer hover:border-zinc-400 hover:shadow-md transition-all duration-200 overflow-hidden"
+          >
+            <canvas
+              id={"blur-hash-image-#{item.id}"}
+              src={get_blur_hash(item)}
+              class="absolute inset-0 z-0 rounded-lg w-full h-full object-cover"
+              phx-hook="BlurHashCanvas"
+            >
+            </canvas>
+
+            <img
+              class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover group-hover:opacity-100"
+              id={"img-#{item.id}"}
+              src={get_image_path(item)}
+              loading="lazy"
+              phx-hook="BlurHashImage"
+              alt={item.alt_text || item.title || "Image"}
+            />
+
+            <div
+              :if={item.title != nil or item.alt_text != nil}
+              class="absolute z-[2] hidden group-hover:block inset-x-0 bottom-0 px-2 py-2 bg-gradient-to-t from-zinc-900/90 via-zinc-900/80 to-transparent"
+            >
+              <p
+                :if={item.title != nil}
+                class="text-xs font-medium text-white truncate"
+                title={item.title}
+              >
+                <%= item.title %>
+              </p>
+              <p
+                :if={item.title == nil and item.alt_text != nil}
+                class="text-xs font-medium text-white/90 truncate"
+                title={item.alt_text}
+              >
+                <%= item.alt_text %>
+              </p>
+            </div>
+          </button>
+        <% end %>
+      <% end %>
+    </div>
+    """
+  end
 end

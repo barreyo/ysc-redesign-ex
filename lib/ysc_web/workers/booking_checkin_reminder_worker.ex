@@ -1,8 +1,9 @@
 defmodule YscWeb.Workers.BookingCheckinReminderWorker do
   @moduledoc """
-  Oban worker for sending booking check-in reminder emails.
+  Oban worker for sending booking check-in reminder emails and SMS.
 
-  Sends an email 3 days before check-in at 8:00 AM PST with door code, location, and check-in information.
+  Sends an email and SMS (if user is opted in) 3 days before check-in at 8:00 AM PST
+  with door code, location, and check-in information.
   """
   require Logger
   use Oban.Worker, queue: :mailers, max_attempts: 3
@@ -10,6 +11,8 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
   alias Ysc.Repo
   alias Ysc.Bookings.Booking
   alias YscWeb.Emails.{Notifier, BookingCheckinReminder}
+  alias YscWeb.Sms.Notifier, as: SmsNotifier
+  alias YscWeb.Sms.BookingCheckinReminder, as: SmsBookingCheckinReminder
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"booking_id" => booking_id}}) do
@@ -29,6 +32,7 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
         # Only send if booking is still active (not cancelled or refunded)
         if booking.status in [:complete] do
           send_checkin_reminder_email(booking)
+          send_checkin_reminder_sms(booking)
         else
           Logger.info("Booking is not active, skipping check-in reminder",
             booking_id: booking_id,
@@ -122,6 +126,118 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
     end
   end
 
+  defp send_checkin_reminder_sms(booking) do
+    require Logger
+
+    try do
+      # Check if user has SMS notifications enabled and has a phone number
+      if Ysc.Accounts.SmsCategories.should_send_sms?(booking.user, "booking_checkin_reminder") &&
+           Ysc.Accounts.SmsCategories.has_phone_number?(booking.user) do
+        sms_module = SmsBookingCheckinReminder
+        sms_data = sms_module.prepare_sms_data(booking)
+        template_name = sms_module.get_template_name()
+
+        # Generate idempotency key to prevent duplicate SMS
+        idempotency_key = "booking_checkin_reminder_sms_#{booking.id}"
+
+        Logger.info("Sending booking check-in reminder SMS",
+          booking_id: booking.id,
+          user_id: booking.user_id,
+          checkin_date: booking.checkin_date,
+          property: booking.property
+        )
+
+        case SmsNotifier.schedule_sms(
+               booking.user.phone_number,
+               idempotency_key,
+               template_name,
+               sms_data,
+               booking.user_id
+             ) do
+          {:ok, %Oban.Job{}} ->
+            Logger.info("Booking check-in reminder SMS scheduled successfully",
+              booking_id: booking.id
+            )
+
+            :ok
+
+          {:error, :notifications_disabled} ->
+            Logger.info("SMS not sent - user has disabled SMS notifications",
+              booking_id: booking.id,
+              user_id: booking.user_id
+            )
+
+            :ok
+
+          {:error, :no_phone_number} ->
+            Logger.info("SMS not sent - user has no phone number",
+              booking_id: booking.id,
+              user_id: booking.user_id
+            )
+
+            :ok
+
+          {:error, reason} ->
+            Logger.error("Failed to schedule booking check-in reminder SMS",
+              booking_id: booking.id,
+              error: inspect(reason)
+            )
+
+            # Report to Sentry
+            Sentry.capture_message("Failed to schedule booking check-in reminder SMS",
+              level: :error,
+              extra: %{
+                booking_id: booking.id,
+                user_id: booking.user_id,
+                error: inspect(reason)
+              },
+              tags: %{
+                sms_template: template_name,
+                reminder_type: "checkin_reminder"
+              }
+            )
+
+            :ok
+        end
+      else
+        Logger.info("Skipping SMS check-in reminder - user not opted in or no phone number",
+          booking_id: booking.id,
+          user_id: booking.user_id,
+          has_phone: Ysc.Accounts.SmsCategories.has_phone_number?(booking.user),
+          sms_enabled:
+            Ysc.Accounts.SmsCategories.should_send_sms?(
+              booking.user,
+              "booking_checkin_reminder"
+            )
+        )
+
+        :ok
+      end
+    rescue
+      error ->
+        Logger.error("Failed to send booking check-in reminder SMS",
+          booking_id: booking.id,
+          error: Exception.message(error),
+          stacktrace: __STACKTRACE__
+        )
+
+        # Report to Sentry
+        Sentry.capture_exception(error,
+          stacktrace: __STACKTRACE__,
+          extra: %{
+            booking_id: booking.id,
+            user_id: booking.user_id
+          },
+          tags: %{
+            sms_template: "booking_checkin_reminder",
+            reminder_type: "checkin_reminder"
+          }
+        )
+
+        :ok
+    end
+  end
+
   @doc """
   Schedules a check-in reminder email for a booking.
 
@@ -180,6 +296,7 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
           # Only send if booking is still active
           if booking.status == :complete do
             send_checkin_reminder_email(booking)
+            send_checkin_reminder_sms(booking)
           else
             Logger.info("Booking is not active, skipping immediate check-in reminder",
               booking_id: booking_id,

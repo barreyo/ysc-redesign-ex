@@ -3,6 +3,7 @@ defmodule YscWeb.AdminUserDetailsLive do
 
   alias Ysc.Accounts
   alias Ysc.Bookings
+  alias Ysc.ExpenseReports
   alias Ysc.Ledgers
   alias Ysc.Messages
   alias Ysc.Repo
@@ -118,6 +119,19 @@ defmodule YscWeb.AdminUserDetailsLive do
                   Notifications
                 </.link>
               </li>
+              <li :if={@is_treasurer} class="me-2">
+                <.link
+                  navigate={~p"/admin/users/#{@user_id}/details/bank-accounts"}
+                  class={[
+                    "inline-block p-4 border-b-2 rounded-t-lg",
+                    @live_action == :bank_accounts && "text-blue-600 border-blue-600 active",
+                    @live_action != :bank_accounts &&
+                      "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
+                  ]}
+                >
+                  Bank Accounts
+                </.link>
+              </li>
             </ul>
           </div>
         </div>
@@ -134,6 +148,13 @@ defmodule YscWeb.AdminUserDetailsLive do
               value={@form[:phone_number].value}
               field={@form[:phone_number]}
             />
+            <p class="text-xs text-zinc-600 mt-1">
+              By providing a phone number, users consent to receive SMS notifications from YSC. Message and data rates may apply. Users can opt out in their notification settings. See our
+              <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
+                Privacy Policy
+              </.link>
+              for more information.
+            </p>
             <.input
               field={@form[:most_connected_country]}
               label="Most connected Nordic country:"
@@ -792,6 +813,83 @@ defmodule YscWeb.AdminUserDetailsLive do
           </div>
         </div>
 
+        <div :if={@live_action == :bank_accounts && @is_treasurer} class="max-w-full py-8 px-2">
+          <div class="space-y-6">
+            <h2 class="text-2xl font-semibold leading-8 text-zinc-800">Bank Accounts</h2>
+            <p class="text-sm text-zinc-600">
+              View bank accounts for expense report reimbursements. Click "Unseal" to view encrypted account and routing numbers.
+            </p>
+
+            <div :if={length(@bank_accounts) > 0} class="space-y-4">
+              <%= for bank_account <- @bank_accounts do %>
+                <div class="border border-zinc-200 rounded-lg p-6">
+                  <div class="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 class="text-lg font-semibold text-zinc-900">
+                        Account ending in ••••<%= bank_account.account_number_last_4 %>
+                      </h3>
+                      <p class="text-sm text-zinc-600 mt-1">
+                        Added <%= Calendar.strftime(bank_account.inserted_at, "%B %d, %Y") %>
+                      </p>
+                    </div>
+                    <button
+                      :if={@unsealed_account_id != bank_account.id}
+                      type="button"
+                      phx-click="unseal_bank_account"
+                      phx-value-id={bank_account.id}
+                      class="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100"
+                    >
+                      Unseal Details
+                    </button>
+                    <button
+                      :if={@unsealed_account_id == bank_account.id}
+                      type="button"
+                      phx-click="seal_bank_account"
+                      class="px-4 py-2 text-sm font-medium text-zinc-600 bg-zinc-50 rounded-md hover:bg-zinc-100"
+                    >
+                      Seal Details
+                    </button>
+                  </div>
+
+                  <div
+                    :if={@unsealed_account_id == bank_account.id}
+                    class="mt-4 pt-4 border-t border-zinc-200"
+                  >
+                    <div class="grid grid-cols-2 gap-4">
+                      <div>
+                        <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">
+                          Routing Number
+                        </p>
+                        <p class="text-sm font-mono text-zinc-900 bg-zinc-50 p-2 rounded">
+                          <%= @unsealed_account.routing_number %>
+                        </p>
+                      </div>
+                      <div>
+                        <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">
+                          Account Number
+                        </p>
+                        <p class="text-sm font-mono text-zinc-900 bg-zinc-50 p-2 rounded">
+                          <%= @unsealed_account.account_number %>
+                        </p>
+                      </div>
+                    </div>
+                    <p class="text-xs text-zinc-500 mt-4 italic">
+                      ⚠️ Sensitive information - keep secure
+                    </p>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+
+            <div
+              :if={length(@bank_accounts) == 0}
+              class="text-center py-12 border border-zinc-200 rounded-lg"
+            >
+              <p class="text-zinc-500">No bank accounts found for this user.</p>
+            </div>
+          </div>
+        </div>
+
         <div :if={@live_action == :notifications} class="max-w-full py-8 px-2">
           <div class="flex flex-row flex-nowrap items-stretch gap-0">
             <div
@@ -1034,6 +1132,13 @@ defmodule YscWeb.AdminUserDetailsLive do
     # Check for lifetime membership
     has_lifetime = Accounts.has_lifetime_membership?(selected_user)
 
+    # Check if current user is treasurer
+    is_treasurer = current_user.board_position == :treasurer && current_user.state == :active
+
+    # Load bank accounts if treasurer
+    bank_accounts =
+      if is_treasurer, do: ExpenseReports.list_bank_accounts(selected_user), else: []
+
     # Create membership form changeset
     membership_changeset =
       %{
@@ -1079,6 +1184,10 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:notifications, [])
      |> assign(:selected_notification, nil)
      |> assign(:panel_width, nil)
+     |> assign(:is_treasurer, is_treasurer)
+     |> assign(:bank_accounts, bank_accounts)
+     |> assign(:unsealed_account_id, nil)
+     |> assign(:unsealed_account, nil)
      |> assign(form: to_form(user_changeset, as: "user"))}
   end
 
@@ -1095,6 +1204,9 @@ defmodule YscWeb.AdminUserDetailsLive do
 
         :notifications ->
           load_notifications(socket, user_id)
+
+        :bank_accounts ->
+          load_bank_accounts(socket, user_id)
 
         _ ->
           socket
@@ -1354,6 +1466,36 @@ defmodule YscWeb.AdminUserDetailsLive do
     end
   end
 
+  def handle_event("unseal_bank_account", %{"id" => bank_account_id}, socket) do
+    if socket.assigns.is_treasurer do
+      selected_user = Accounts.get_user!(socket.assigns.user_id)
+
+      case ExpenseReports.get_decrypted_bank_account(bank_account_id, selected_user) do
+        nil ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Bank account not found")
+           |> assign(:unsealed_account_id, nil)
+           |> assign(:unsealed_account, nil)}
+
+        decrypted_account ->
+          {:noreply,
+           socket
+           |> assign(:unsealed_account_id, bank_account_id)
+           |> assign(:unsealed_account, decrypted_account)}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Unauthorized")}
+    end
+  end
+
+  def handle_event("seal_bank_account", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:unsealed_account_id, nil)
+     |> assign(:unsealed_account, nil)}
+  end
+
   def handle_event("update_membership_period", %{"membership" => membership_params}, socket) do
     active_subscription = socket.assigns[:active_subscription]
 
@@ -1446,8 +1588,15 @@ defmodule YscWeb.AdminUserDetailsLive do
     |> Calendar.strftime("%Y-%m-%dT%H:%M")
   end
 
-  defp format_datetime_local(nil), do: ""
-  defp format_datetime_local(datetime) when is_binary(datetime), do: datetime
+  defp load_bank_accounts(socket, user_id) do
+    if socket.assigns.is_treasurer do
+      selected_user = Accounts.get_user!(user_id)
+      bank_accounts = ExpenseReports.list_bank_accounts(selected_user)
+      assign(socket, :bank_accounts, bank_accounts)
+    else
+      socket
+    end
+  end
 
   defp parse_datetime(datetime_string) when is_binary(datetime_string) do
     # Parse datetime-local string (assumed to be in America/Los_Angeles timezone)
@@ -1465,6 +1614,9 @@ defmodule YscWeb.AdminUserDetailsLive do
   end
 
   defp parse_datetime(_), do: {:error, :invalid_format}
+
+  defp format_datetime_local(nil), do: ""
+  defp format_datetime_local(datetime) when is_binary(datetime), do: datetime
 
   defp lifetime_membership_changeset(params) do
     types = %{has_lifetime: :boolean, awarded_at: :utc_datetime}

@@ -11,6 +11,16 @@ import Config
 config :ysc,
   environment: System.get_env("APP_ENV") || to_string(config_env())
 
+# ## FlowRoute SMS Configuration
+#
+# Configure FlowRoute API settings for all environments at runtime.
+# These must be set at runtime for releases to work properly.
+# In lower environments (dev, test, sandbox), the client will operate as a no-op.
+config :ysc, :flowroute,
+  access_key: System.get_env("FLOWROUTE_ACCESS_KEY"),
+  secret_key: System.get_env("FLOWROUTE_SECRET_KEY"),
+  from_number: System.get_env("FLOWROUTE_FROM_NUMBER")
+
 # ## Using releases
 #
 # If you use `mix release`, you need to explicitly enable the server

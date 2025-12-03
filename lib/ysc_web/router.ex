@@ -120,7 +120,6 @@ defmodule YscWeb.Router do
       live "/users/membership", UserSettingsLive, :membership
       live "/users/membership/payment-method", UserSettingsLive, :payment_method
       live "/users/notifications", UserSettingsLive, :notifications
-      live "/users/bank-accounts", UserSettingsLive, :bank_accounts
       live "/users/settings/confirm-email/:token", UserSettingsLive, :confirm_email
       live "/users/tickets", UserTicketsLive, :index
       live "/tickets/:order_id", UserTicketsLive, :show
@@ -177,6 +176,7 @@ defmodule YscWeb.Router do
       live "/users/:id/details/application", AdminUserDetailsLive, :application
       live "/users/:id/details/membership", AdminUserDetailsLive, :membership
       live "/users/:id/details/notifications", AdminUserDetailsLive, :notifications
+      live "/users/:id/details/bank-accounts", AdminUserDetailsLive, :bank_accounts
 
       # Money
       live "/money", AdminMoneyLive, :index

@@ -31,6 +31,94 @@ defmodule Ysc.Accounts do
     Repo.get_by(User, email: email)
   end
 
+  @doc """
+  Gets a user by phone number.
+
+  Handles various phone number formats by normalizing to E.164 format
+  before searching. Tries multiple normalization strategies to match
+  phone numbers with or without country codes, with various formatting.
+
+  ## Examples
+
+      iex> get_user_by_phone_number("+12065551234")
+      %User{}
+
+      iex> get_user_by_phone_number("206-555-1234")
+      %User{}
+
+      iex> get_user_by_phone_number("unknown")
+      nil
+
+  """
+  def get_user_by_phone_number(phone_number) when is_binary(phone_number) do
+    # Try exact match first (fastest)
+    case Repo.get_by(User, phone_number: phone_number) do
+      nil -> find_user_by_normalized_phone(phone_number)
+      user -> user
+    end
+  end
+
+  # Try to find user by normalizing the phone number to various formats
+  defp find_user_by_normalized_phone(phone_number) do
+    # Try to normalize to E.164 format
+    normalized_numbers = normalize_phone_number_variants(phone_number)
+
+    # Try each normalized variant
+    Enum.reduce_while(normalized_numbers, nil, fn normalized, _acc ->
+      case Repo.get_by(User, phone_number: normalized) do
+        nil -> {:cont, nil}
+        user -> {:halt, user}
+      end
+    end)
+  end
+
+  # Normalize phone number to multiple possible E.164 formats
+  defp normalize_phone_number_variants(phone_number) do
+    # Common Nordic countries and US (based on YSC's focus)
+    default_countries = ["US", "SE", "NO", "DK", "FI", "IS"]
+
+    # Try parsing with no country code first (uses number as-is)
+    variants =
+      case normalize_to_e164(phone_number, nil) do
+        {:ok, normalized} -> [normalized]
+        {:error, _} -> []
+      end
+
+    # Try with each default country
+    variants =
+      Enum.reduce(default_countries, variants, fn country, acc ->
+        case normalize_to_e164(phone_number, country) do
+          {:ok, normalized} -> [normalized | acc]
+          {:error, _} -> acc
+        end
+      end)
+
+    # Remove duplicates and return
+    Enum.uniq(variants)
+  end
+
+  # Normalize phone number to E.164 format
+  defp normalize_to_e164(phone_number, country_code) do
+    try do
+      # Remove common formatting characters but keep + and digits
+      cleaned = String.replace(phone_number, ~r/[^\d+]/, "")
+
+      case ExPhoneNumber.parse(cleaned, country_code) do
+        {:ok, parsed} ->
+          if ExPhoneNumber.is_valid_number?(parsed) do
+            {:ok, ExPhoneNumber.format(parsed, :e164)}
+          else
+            {:error, :invalid_number}
+          end
+
+        {:error, _} ->
+          {:error, :parse_failed}
+      end
+    rescue
+      _ -> {:error, :normalization_failed}
+    end
+  end
+
   @spec get_user_by_email_and_password(binary(), binary()) :: any()
   @doc """
   Gets a user by email and password.

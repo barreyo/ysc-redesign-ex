@@ -1865,9 +1865,6 @@ defmodule Ysc.Quickbooks.Client do
       %{"AttachableResponse" => [%{"Fault" => fault} | _]} ->
         fault
 
-      %{"AttachableResponse" => [%{"Fault" => fault}]} ->
-        fault
-
       %{"Fault" => fault} ->
         fault
 

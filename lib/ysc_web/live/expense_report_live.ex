@@ -271,29 +271,6 @@ defmodule YscWeb.ExpenseReportLive do
      |> assign(:totals, totals)}
   end
 
-  def handle_event("remove_expense_item", %{"index" => index}, socket) do
-    changeset = socket.assigns.form.source
-    index = String.to_integer(index)
-
-    expense_items =
-      Ecto.Changeset.get_field(changeset, :expense_items, [])
-      |> List.delete_at(index)
-
-    # Ensure we always have at least one expense item to avoid Ecto association errors
-    expense_items = if Enum.empty?(expense_items), do: [%ExpenseReportItem{}], else: expense_items
-
-    new_changeset =
-      changeset
-      |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
-
-    totals = calculate_totals_from_changeset(new_changeset)
-
-    {:noreply,
-     socket
-     |> assign(:form, to_form(new_changeset))
-     |> assign(:totals, totals)}
-  end
-
   def handle_event("add_income_item", _params, socket) do
     changeset = socket.assigns.form.source
 

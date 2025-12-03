@@ -96,12 +96,11 @@ defmodule YscWeb.NewsLive do
           :if={@post_count > 0}
           id="news-grid"
           class="grid grid-cols-1 md:grid-cols-2 py-4 gap-8"
-          phx-update="stream"
           phx-viewport-top={@page > 1 && "prev-page"}
           phx-viewport-bottom={!@end_of_timeline? && "next-page"}
           phx-page-loading
         >
-          <div :for={{id, post} <- @streams.posts} id={id} class="article-preview">
+          <div :for={post <- @posts} id={"post-#{post.id}"} class="article-preview">
             <.link
               navigate={~p"/posts/#{post.url_name}"}
               class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
@@ -180,6 +179,7 @@ defmodule YscWeb.NewsLive do
      |> assign(:post_count, post_count)
      |> assign(:page_title, "News")
      |> assign(:featured, featured_post)
+     |> assign(:posts, [])
      |> assign(page: 1, per_page: 10)
      |> paginate_posts(1)}
   end
@@ -205,24 +205,29 @@ defmodule YscWeb.NewsLive do
 
     # Posts.list_posts already preloads :author and :featured_image
     # Ecto will batch load these associations automatically
-    posts = Posts.list_posts((new_page - 1) * per_page, per_page)
+    new_posts = Posts.list_posts((new_page - 1) * per_page, per_page)
 
-    {posts, at, limit} =
-      if new_page >= cur_page do
-        {posts, -1, per_page * 3 * -1}
-      else
-        {Enum.reverse(posts), 0, per_page * 3}
-      end
-
-    case posts do
+    case new_posts do
       [] ->
-        assign(socket, end_of_timeline?: at == -1)
-
-      [_ | _] = posts ->
         socket
-        |> assign(end_of_timeline?: false)
+        |> assign(:end_of_timeline?, new_page >= cur_page)
         |> assign(:page, new_page)
-        |> stream(:posts, posts, at: at, limit: limit)
+
+      [_ | _] = new_posts ->
+        # Get existing posts
+        existing_posts = Map.get(socket.assigns, :posts, [])
+
+        # Combine posts, avoiding duplicates by ID
+        all_posts = existing_posts ++ new_posts
+        unique_posts = Enum.uniq_by(all_posts, & &1.id)
+
+        # Sort by published_on descending to maintain chronological order
+        sorted_posts = Enum.sort_by(unique_posts, & &1.published_on, {:desc, DateTime})
+
+        socket
+        |> assign(:end_of_timeline?, length(new_posts) < per_page)
+        |> assign(:page, new_page)
+        |> assign(:posts, sorted_posts)
     end
   end
 

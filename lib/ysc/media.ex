@@ -32,6 +32,124 @@ defmodule Ysc.Media do
     )
   end
 
+  def list_images(offset, limit, year) when is_integer(year) do
+    start_date = DateTime.new!(Date.new!(year, 1, 1), ~T[00:00:00], "Etc/UTC")
+    end_date = DateTime.new!(Date.new!(year, 12, 31), ~T[23:59:59], "Etc/UTC")
+
+    Repo.all(
+      from i in Media.Image,
+        where: i.inserted_at >= ^start_date and i.inserted_at <= ^end_date,
+        order_by: [{:desc, :inserted_at}],
+        limit: ^limit,
+        offset: ^offset
+    )
+  end
+
+  def list_images(offset, limit, nil), do: list_images(offset, limit)
+
+  @doc """
+  Gets all distinct years from images, ordered descending.
+  """
+  def get_available_years do
+    # Use raw SQL to get distinct years efficiently
+    # This avoids loading all timestamps and works around Ecto subquery limitations
+    query = """
+    SELECT DISTINCT EXTRACT(YEAR FROM inserted_at)::integer AS year
+    FROM images
+    ORDER BY year DESC
+    """
+
+    Repo.query!(query, [])
+    |> Map.get(:rows)
+    |> List.flatten()
+  end
+
+  @doc """
+  Gets timeline indices (years with counts) for the scrubber.
+  Returns a list of maps with :year and :count keys.
+  """
+  def get_timeline_indices do
+    query = """
+    SELECT
+      EXTRACT(YEAR FROM inserted_at)::integer AS year,
+      COUNT(id)::integer AS count
+    FROM images
+    GROUP BY EXTRACT(YEAR FROM inserted_at)
+    ORDER BY year DESC
+    """
+
+    Repo.query!(query, [])
+    |> Map.get(:rows)
+    |> Enum.map(fn [year, count] -> %{year: year, count: count} end)
+  end
+
+  @doc """
+  Lists images with cursor-based pagination.
+  Uses inserted_at and id as cursor for efficient pagination.
+
+  Options:
+  - :before_date - Only return images before this date
+  - :start_at_year - Start from the beginning of this year
+  - :limit - Number of images to return (default: 30)
+  """
+  def list_images_cursor(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 30)
+    before_date = Keyword.get(opts, :before_date)
+    start_at_year = Keyword.get(opts, :start_at_year)
+
+    query =
+      from i in Media.Image,
+        order_by: [desc: i.inserted_at, desc: i.id],
+        limit: ^limit
+
+    query =
+      cond do
+        before_date ->
+          from i in query,
+            where: i.inserted_at < ^before_date
+
+        start_at_year ->
+          end_date = DateTime.new!(Date.new!(start_at_year, 12, 31), ~T[23:59:59], "Etc/UTC")
+
+          from i in query,
+            where: i.inserted_at <= ^end_date
+
+        true ->
+          query
+      end
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Lists all images, optionally filtered by year, grouped by year.
+  Returns a map with years as keys and lists of images as values.
+  """
+  def list_images_grouped_by_year(year \\ nil) do
+    query =
+      from i in Media.Image,
+        order_by: [{:desc, :inserted_at}]
+
+    query =
+      if year do
+        start_date = DateTime.new!(Date.new!(year, 1, 1), ~T[00:00:00], "Etc/UTC")
+        end_date = DateTime.new!(Date.new!(year, 12, 31), ~T[23:59:59], "Etc/UTC")
+
+        from i in query,
+          where: i.inserted_at >= ^start_date and i.inserted_at <= ^end_date
+      else
+        query
+      end
+
+    images = Repo.all(query)
+
+    Enum.group_by(images, fn image ->
+      image.inserted_at.year
+    end)
+    |> Enum.sort_by(fn {year, _images} -> year end, :desc)
+    |> Enum.into(%{})
+  end
+
   @doc """
   Count the number of published events.
   """

@@ -207,6 +207,14 @@ config :ysc, :accounting,
   default_currency: :USD,
   quickbooks_classes: ["Administration", "Events", "Clear Lake", "Tahoe"]
 
+# FlowRoute SMS configuration
+# Note: In production, FlowRoute is configured at runtime in config/runtime.exs
+# This config is for dev/test environments only
+config :ysc, :flowroute,
+  access_key: System.get_env("FLOWROUTE_ACCESS_KEY"),
+  secret_key: System.get_env("FLOWROUTE_SECRET_KEY"),
+  from_number: System.get_env("FLOWROUTE_FROM_NUMBER")
+
 # QuickBooks configuration
 # Note: In production, QuickBooks is configured at runtime in config/runtime.exs
 # This config is for dev/test environments only
