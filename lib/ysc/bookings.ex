@@ -1724,6 +1724,23 @@ defmodule Ysc.Bookings do
                            ) do
                         {:ok, stripe_refund} ->
                           # Refund created in Stripe - ledger will be updated via webhook
+                          # Send cancellation confirmation to user
+                          send_booking_cancellation_confirmation_email(
+                            canceled_booking,
+                            payment,
+                            actual_refund_amount,
+                            false,
+                            reason
+                          )
+
+                          # Send cancellation notifications to cabin master and treasurer
+                          send_booking_cancellation_notifications(
+                            canceled_booking,
+                            payment,
+                            nil,
+                            reason
+                          )
+
                           # Return the refund ID so we can track it
                           {:ok, canceled_booking, actual_refund_amount, stripe_refund.id}
 
@@ -1756,11 +1773,19 @@ defmodule Ysc.Bookings do
                          |> PendingRefund.changeset(pending_refund_attrs)
                          |> Repo.insert() do
                       {:ok, pending_refund} ->
-                        # Send pending refund email
+                        # Send pending refund email (this also serves as cancellation confirmation)
                         send_booking_refund_pending_email(
                           pending_refund,
                           canceled_booking,
                           payment
+                        )
+
+                        # Send cancellation notifications to cabin master and treasurer
+                        send_booking_cancellation_notifications(
+                          canceled_booking,
+                          payment,
+                          pending_refund,
+                          reason
                         )
 
                         {:ok, canceled_booking, actual_refund_amount, pending_refund}
@@ -1787,11 +1812,19 @@ defmodule Ysc.Bookings do
                          |> PendingRefund.changeset(pending_refund_attrs)
                          |> Repo.insert() do
                       {:ok, pending_refund} ->
-                        # Send pending refund email
+                        # Send pending refund email (this also serves as cancellation confirmation)
                         send_booking_refund_pending_email(
                           pending_refund,
                           canceled_booking,
                           payment
+                        )
+
+                        # Send cancellation notifications to cabin master and treasurer
+                        send_booking_cancellation_notifications(
+                          canceled_booking,
+                          payment,
+                          pending_refund,
+                          reason
                         )
 
                         {:ok, canceled_booking, Money.new(0, :USD), pending_refund}
@@ -1801,6 +1834,23 @@ defmodule Ysc.Bookings do
                     end
                   else
                     # No refund and no policy rule applied
+                    # Send cancellation confirmation to user
+                    send_booking_cancellation_confirmation_email(
+                      canceled_booking,
+                      payment,
+                      Money.new(0, :USD),
+                      false,
+                      reason
+                    )
+
+                    # Send cancellation notifications to cabin master and treasurer
+                    send_booking_cancellation_notifications(
+                      canceled_booking,
+                      payment,
+                      nil,
+                      reason
+                    )
+
                     {:ok, canceled_booking, Money.new(0, :USD), nil}
                   end
                 end
@@ -2263,6 +2313,286 @@ defmodule Ysc.Bookings do
       error ->
         Logger.error("Failed to send booking refund pending email",
           pending_refund_id: pending_refund.id,
+          booking_id: booking && booking.id,
+          error: inspect(error),
+          stacktrace: __STACKTRACE__
+        )
+    end
+  end
+
+  defp send_booking_cancellation_notifications(
+         booking,
+         payment,
+         pending_refund,
+         reason
+       ) do
+    require Logger
+    import Ecto.Query
+
+    try do
+      # Reload booking with user association
+      booking = Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
+
+      if booking && booking.user do
+        # Get cabin master for the property
+        cabin_master_position =
+          case booking.property do
+            :tahoe -> "tahoe_cabin_master"
+            :clear_lake -> "clear_lake_cabin_master"
+            _ -> nil
+          end
+
+        cabin_master =
+          if cabin_master_position do
+            from(u in Ysc.Accounts.User,
+              where: u.board_position == ^cabin_master_position and u.state == :active
+            )
+            |> Repo.one()
+          else
+            nil
+          end
+
+        # Get treasurer
+        treasurer =
+          from(u in Ysc.Accounts.User,
+            where: u.board_position == "treasurer" and u.state == :active
+          )
+          |> Repo.one()
+
+        # Send email to cabin master if found
+        if cabin_master && cabin_master.email do
+          send_cabin_master_cancellation_email(
+            cabin_master,
+            booking,
+            payment,
+            pending_refund,
+            reason
+          )
+        else
+          Logger.warning("No cabin master found for property",
+            property: booking.property,
+            booking_id: booking.id
+          )
+        end
+
+        # Send email to treasurer if found
+        if treasurer && treasurer.email do
+          send_treasurer_cancellation_email(treasurer, booking, payment, pending_refund, reason)
+        else
+          Logger.warning("No treasurer found",
+            booking_id: booking.id
+          )
+        end
+      else
+        Logger.warning("Skipping cancellation notification emails - missing booking or user",
+          booking_id: booking && booking.id
+        )
+      end
+    rescue
+      error ->
+        Logger.error("Failed to send cancellation notification emails",
+          booking_id: booking && booking.id,
+          error: inspect(error),
+          stacktrace: __STACKTRACE__
+        )
+    end
+  end
+
+  defp send_cabin_master_cancellation_email(
+         cabin_master,
+         booking,
+         payment,
+         pending_refund,
+         reason
+       ) do
+    require Logger
+
+    try do
+      # Prepare email data
+      email_data =
+        YscWeb.Emails.BookingCancellationCabinMasterNotification.prepare_email_data(
+          booking,
+          payment,
+          pending_refund,
+          reason
+        )
+
+      # Determine if review is required
+      requires_review = not is_nil(pending_refund)
+
+      # Generate idempotency key
+      idempotency_key =
+        "booking_cancellation_cabin_master_#{booking.id}_#{DateTime.utc_now() |> DateTime.to_unix()}"
+
+      # Schedule email
+      result =
+        YscWeb.Emails.Notifier.schedule_email(
+          cabin_master.email,
+          idempotency_key,
+          YscWeb.Emails.BookingCancellationCabinMasterNotification.get_subject(requires_review),
+          "booking_cancellation_cabin_master_notification",
+          email_data,
+          "",
+          cabin_master.id
+        )
+
+      case result do
+        %Oban.Job{} = job ->
+          Logger.info("Cabin master cancellation email scheduled successfully",
+            booking_id: booking.id,
+            cabin_master_id: cabin_master.id,
+            cabin_master_email: cabin_master.email,
+            job_id: job.id
+          )
+
+        {:error, reason} ->
+          Logger.error("Failed to schedule cabin master cancellation email",
+            booking_id: booking.id,
+            cabin_master_id: cabin_master.id,
+            error: reason
+          )
+      end
+    rescue
+      error ->
+        Logger.error("Failed to send cabin master cancellation email",
+          booking_id: booking.id,
+          cabin_master_id: cabin_master.id,
+          error: inspect(error),
+          stacktrace: __STACKTRACE__
+        )
+    end
+  end
+
+  defp send_treasurer_cancellation_email(
+         treasurer,
+         booking,
+         payment,
+         pending_refund,
+         reason
+       ) do
+    require Logger
+
+    try do
+      # Prepare email data
+      email_data =
+        YscWeb.Emails.BookingCancellationTreasurerNotification.prepare_email_data(
+          booking,
+          payment,
+          pending_refund,
+          reason
+        )
+
+      # Determine if review is required
+      requires_review = not is_nil(pending_refund)
+
+      # Generate idempotency key
+      idempotency_key =
+        "booking_cancellation_treasurer_#{booking.id}_#{DateTime.utc_now() |> DateTime.to_unix()}"
+
+      # Schedule email
+      result =
+        YscWeb.Emails.Notifier.schedule_email(
+          treasurer.email,
+          idempotency_key,
+          YscWeb.Emails.BookingCancellationTreasurerNotification.get_subject(requires_review),
+          "booking_cancellation_treasurer_notification",
+          email_data,
+          "",
+          treasurer.id
+        )
+
+      case result do
+        %Oban.Job{} = job ->
+          Logger.info("Treasurer cancellation email scheduled successfully",
+            booking_id: booking.id,
+            treasurer_id: treasurer.id,
+            treasurer_email: treasurer.email,
+            job_id: job.id
+          )
+
+        {:error, reason} ->
+          Logger.error("Failed to schedule treasurer cancellation email",
+            booking_id: booking.id,
+            treasurer_id: treasurer.id,
+            error: reason
+          )
+      end
+    rescue
+      error ->
+        Logger.error("Failed to send treasurer cancellation email",
+          booking_id: booking.id,
+          treasurer_id: treasurer.id,
+          error: inspect(error),
+          stacktrace: __STACKTRACE__
+        )
+    end
+  end
+
+  defp send_booking_cancellation_confirmation_email(
+         booking,
+         payment,
+         refund_amount,
+         is_pending_refund,
+         reason
+       ) do
+    require Logger
+
+    try do
+      # Reload booking with user association
+      booking = Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
+
+      if booking && booking.user && booking.user.email do
+        # Prepare email data
+        email_data =
+          YscWeb.Emails.BookingCancellationConfirmation.prepare_email_data(
+            booking,
+            payment,
+            refund_amount,
+            is_pending_refund,
+            reason
+          )
+
+        # Generate idempotency key
+        idempotency_key =
+          "booking_cancellation_confirmation_#{booking.id}_#{DateTime.utc_now() |> DateTime.to_unix()}"
+
+        # Schedule email
+        result =
+          YscWeb.Emails.Notifier.schedule_email(
+            booking.user.email,
+            idempotency_key,
+            YscWeb.Emails.BookingCancellationConfirmation.get_subject(),
+            "booking_cancellation_confirmation",
+            email_data,
+            "",
+            booking.user_id
+          )
+
+        case result do
+          %Oban.Job{} = job ->
+            Logger.info("Booking cancellation confirmation email scheduled successfully",
+              booking_id: booking.id,
+              user_id: booking.user_id,
+              user_email: booking.user.email,
+              job_id: job.id
+            )
+
+          {:error, reason} ->
+            Logger.error("Failed to schedule booking cancellation confirmation email",
+              booking_id: booking.id,
+              user_id: booking.user_id,
+              error: reason
+            )
+        end
+      else
+        Logger.warning(
+          "Skipping booking cancellation confirmation email - missing booking or user",
+          booking_id: booking && booking.id
+        )
+      end
+    rescue
+      error ->
+        Logger.error("Failed to send booking cancellation confirmation email",
           booking_id: booking && booking.id,
           error: inspect(error),
           stacktrace: __STACKTRACE__

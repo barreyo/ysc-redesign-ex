@@ -42,7 +42,12 @@ defmodule YscWeb.Emails.Notifier do
     "booking_checkout_reminder" => YscWeb.Emails.BookingCheckoutReminder,
     "event_notification" => YscWeb.Emails.EventNotification,
     "expense_report_confirmation" => YscWeb.Emails.ExpenseReportConfirmation,
-    "expense_report_treasurer_notification" => YscWeb.Emails.ExpenseReportTreasurerNotification
+    "expense_report_treasurer_notification" => YscWeb.Emails.ExpenseReportTreasurerNotification,
+    "booking_cancellation_cabin_master_notification" =>
+      YscWeb.Emails.BookingCancellationCabinMasterNotification,
+    "booking_cancellation_treasurer_notification" =>
+      YscWeb.Emails.BookingCancellationTreasurerNotification,
+    "booking_cancellation_confirmation" => YscWeb.Emails.BookingCancellationConfirmation
   }
 
   def schedule_email(recipient, idempotency_key, subject, template, variables, text_body, user_id) do
