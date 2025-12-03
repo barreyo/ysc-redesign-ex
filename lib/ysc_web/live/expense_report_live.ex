@@ -12,6 +12,7 @@ defmodule YscWeb.ExpenseReportLive do
 
   alias Ysc.Accounts
   alias Ysc.Accounts.User
+  alias Ysc.Events
   alias Ysc.Repo
 
   import Ecto.Query
@@ -47,6 +48,7 @@ defmodule YscWeb.ExpenseReportLive do
         |> assign(:receipt_uploads, %{})
         |> assign(:proof_uploads, %{})
         |> assign(:bank_account_form, nil)
+        |> assign(:events, Events.list_recent_and_upcoming_events())
         |> allow_upload(:receipt,
           accept: ~w(.pdf .jpg .jpeg .png .webp),
           max_entries: 10,
@@ -144,6 +146,513 @@ defmodule YscWeb.ExpenseReportLive do
      socket
      |> assign(:form, to_form(changeset))
      |> assign(:totals, totals)}
+  end
+
+  def handle_event("recover", %{"expense_report" => expense_report_params}, socket) do
+    # Custom recovery handler for form recovery after crash/disconnection
+    # This ensures nested items and form state are properly restored
+    user = socket.assigns.current_user
+
+    # Rebuild the expense report from params, ensuring we have at least one expense item
+    expense_items = build_expense_items_from_params(expense_report_params["expense_items"] || %{})
+    income_items = build_income_items_from_params(expense_report_params["income_items"] || %{})
+
+    # Ensure at least one expense item exists
+    expense_items = if Enum.empty?(expense_items), do: [%ExpenseReportItem{}], else: expense_items
+
+    expense_report = %ExpenseReport{
+      user_id: user.id,
+      reimbursement_method: expense_report_params["reimbursement_method"] || "bank_transfer",
+      expense_items: expense_items,
+      income_items: income_items
+    }
+
+    changeset =
+      expense_report
+      |> ExpenseReport.changeset(expense_report_params)
+      |> validate_reimbursement_setup_in_liveview(user)
+      |> Map.put(:action, :validate)
+
+    totals = calculate_totals_from_changeset(changeset)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(changeset))
+     |> assign(:expense_report, expense_report)
+     |> assign(:totals, totals)
+     |> assign(:bank_accounts, ExpenseReports.list_bank_accounts(user))
+     |> assign(:billing_address, Accounts.get_billing_address(user))}
+  end
+
+  def handle_event("add_expense_item", _params, socket) do
+    changeset = socket.assigns.form.source
+
+    expense_items =
+      Ecto.Changeset.get_field(changeset, :expense_items, []) ++ [%ExpenseReportItem{}]
+
+    new_changeset =
+      changeset
+      |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
+
+    totals = calculate_totals_from_changeset(new_changeset)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(new_changeset))
+     |> assign(:totals, totals)}
+  end
+
+  def handle_event("remove_expense_item", %{"index" => index}, socket) do
+    changeset = socket.assigns.form.source
+    index = String.to_integer(index)
+
+    expense_items =
+      Ecto.Changeset.get_field(changeset, :expense_items, [])
+      |> List.delete_at(index)
+
+    # Ensure we always have at least one expense item to avoid Ecto association errors
+    expense_items = if Enum.empty?(expense_items), do: [%ExpenseReportItem{}], else: expense_items
+
+    new_changeset =
+      changeset
+      |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
+
+    totals = calculate_totals_from_changeset(new_changeset)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(new_changeset))
+     |> assign(:totals, totals)}
+  end
+
+  def handle_event("remove_expense_item", %{"index" => index}, socket) do
+    changeset = socket.assigns.form.source
+    index = String.to_integer(index)
+
+    expense_items =
+      Ecto.Changeset.get_field(changeset, :expense_items, [])
+      |> List.delete_at(index)
+
+    # Ensure we always have at least one expense item to avoid Ecto association errors
+    expense_items = if Enum.empty?(expense_items), do: [%ExpenseReportItem{}], else: expense_items
+
+    new_changeset =
+      changeset
+      |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
+
+    totals = calculate_totals_from_changeset(new_changeset)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(new_changeset))
+     |> assign(:totals, totals)}
+  end
+
+  def handle_event("add_income_item", _params, socket) do
+    changeset = socket.assigns.form.source
+
+    income_items =
+      Ecto.Changeset.get_field(changeset, :income_items, []) ++ [%ExpenseReportIncomeItem{}]
+
+    new_changeset =
+      changeset
+      |> Ecto.Changeset.put_assoc(:income_items, income_items)
+
+    totals = calculate_totals_from_changeset(new_changeset)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(new_changeset))
+     |> assign(:totals, totals)}
+  end
+
+  def handle_event("remove_income_item", %{"index" => index}, socket) do
+    changeset = socket.assigns.form.source
+    index = String.to_integer(index)
+
+    income_items =
+      Ecto.Changeset.get_field(changeset, :income_items, [])
+      |> List.delete_at(index)
+
+    new_changeset =
+      changeset
+      |> Ecto.Changeset.put_assoc(:income_items, income_items)
+
+    totals = calculate_totals_from_changeset(new_changeset)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(new_changeset))
+     |> assign(:totals, totals)}
+  end
+
+  def handle_event("validate-upload", _params, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel-upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :receipt, ref)}
+  end
+
+  def handle_event("cancel-proof-upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :proof, ref)}
+  end
+
+  def handle_event("consume-receipt", %{"ref" => ref, "index" => index}, socket) do
+    index = String.to_integer(index)
+
+    # Find the specific entry by ref
+    entry =
+      socket.assigns.uploads.receipt.entries
+      |> Enum.find(fn entry -> to_string(entry.ref) == ref end)
+
+    if entry do
+      # Consume only this specific entry
+      # The callback must return {:ok, value} or {:postpone, value}
+      result =
+        consume_uploaded_entry(socket, entry, fn %{path: path} ->
+          try do
+            s3_path = ExpenseReports.upload_receipt_to_s3(path)
+            # upload_receipt_to_s3 returns a string directly, not a tuple
+            {:ok, s3_path}
+          rescue
+            e ->
+              Logger.error("Error uploading receipt to S3", error: inspect(e))
+              {:error, Exception.message(e)}
+          catch
+            :exit, reason ->
+              Logger.error("Exit while uploading receipt to S3", reason: inspect(reason))
+              {:error, "Upload failed: #{inspect(reason)}"}
+          end
+        end)
+
+      case result do
+        {:ok, s3_path} when is_binary(s3_path) ->
+          changeset = socket.assigns.form.source
+
+          expense_items =
+            Ecto.Changeset.get_field(changeset, :expense_items, [])
+            |> List.update_at(index, fn item ->
+              Ecto.Changeset.change(item, receipt_s3_path: s3_path)
+            end)
+
+          new_changeset =
+            changeset
+            |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
+
+          {:noreply,
+           socket
+           |> assign(:form, to_form(new_changeset))
+           |> put_flash(:info, "Receipt uploaded successfully")}
+
+        {:postpone, _} ->
+          {:noreply, socket |> put_flash(:error, "Upload is still in progress")}
+
+        {:error, reason} ->
+          Logger.error("Failed to upload receipt", reason: inspect(reason))
+          {:noreply, socket |> put_flash(:error, "Failed to upload receipt: #{reason}")}
+
+        # consume_uploaded_entry can return the value directly if callback returns {:ok, value}
+        s3_path when is_binary(s3_path) ->
+          Logger.debug("consume_uploaded_entry returned string directly", path: s3_path)
+          changeset = socket.assigns.form.source
+
+          expense_items =
+            Ecto.Changeset.get_field(changeset, :expense_items, [])
+            |> List.update_at(index, fn item ->
+              Ecto.Changeset.change(item, receipt_s3_path: s3_path)
+            end)
+
+          new_changeset =
+            changeset
+            |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
+
+          {:noreply,
+           socket
+           |> assign(:form, to_form(new_changeset))
+           |> put_flash(:info, "Receipt uploaded successfully")}
+
+        other ->
+          Logger.error("Unexpected result from consume_uploaded_entry",
+            result: inspect(other, limit: 100)
+          )
+
+          {:noreply, socket |> put_flash(:error, "Failed to upload receipt: Unexpected result")}
+      end
+    else
+      {:noreply, socket |> put_flash(:error, "Upload entry not found")}
+    end
+  end
+
+  def handle_event("consume-proof", %{"ref" => ref, "index" => index}, socket) do
+    index = String.to_integer(index)
+
+    # Find the specific entry by ref
+    entry =
+      socket.assigns.uploads.proof.entries
+      |> Enum.find(fn entry -> to_string(entry.ref) == ref end)
+
+    if entry do
+      # Consume only this specific entry
+      # The callback must return {:ok, value} or {:postpone, value}
+      result =
+        consume_uploaded_entry(socket, entry, fn %{path: path} ->
+          try do
+            s3_path = ExpenseReports.upload_receipt_to_s3(path)
+            # upload_receipt_to_s3 returns a string directly, not a tuple
+            {:ok, s3_path}
+          rescue
+            e ->
+              Logger.error("Error uploading proof to S3", error: inspect(e))
+              {:error, Exception.message(e)}
+          catch
+            :exit, reason ->
+              Logger.error("Exit while uploading proof to S3", reason: inspect(reason))
+              {:error, "Upload failed: #{inspect(reason)}"}
+          end
+        end)
+
+      case result do
+        {:ok, s3_path} when is_binary(s3_path) ->
+          changeset = socket.assigns.form.source
+
+          income_items =
+            Ecto.Changeset.get_field(changeset, :income_items, [])
+            |> List.update_at(index, fn item ->
+              Ecto.Changeset.change(item, proof_s3_path: s3_path)
+            end)
+
+          new_changeset =
+            changeset
+            |> Ecto.Changeset.put_assoc(:income_items, income_items)
+
+          {:noreply,
+           socket
+           |> assign(:form, to_form(new_changeset))
+           |> put_flash(:info, "Proof document uploaded successfully")}
+
+        {:postpone, _} ->
+          {:noreply, socket |> put_flash(:error, "Upload is still in progress")}
+
+        {:error, reason} ->
+          Logger.error("Failed to upload proof", reason: inspect(reason))
+          {:noreply, socket |> put_flash(:error, "Failed to upload proof: #{reason}")}
+
+        # consume_uploaded_entry can return the value directly if callback returns {:ok, value}
+        s3_path when is_binary(s3_path) ->
+          Logger.debug("consume_uploaded_entry returned string directly", path: s3_path)
+          changeset = socket.assigns.form.source
+
+          income_items =
+            Ecto.Changeset.get_field(changeset, :income_items, [])
+            |> List.update_at(index, fn item ->
+              Ecto.Changeset.change(item, proof_s3_path: s3_path)
+            end)
+
+          new_changeset =
+            changeset
+            |> Ecto.Changeset.put_assoc(:income_items, income_items)
+
+          {:noreply,
+           socket
+           |> assign(:form, to_form(new_changeset))
+           |> put_flash(:info, "Proof document uploaded successfully")}
+
+        other ->
+          Logger.error("Unexpected result from consume_uploaded_entry",
+            result: inspect(other, limit: 100)
+          )
+
+          {:noreply, socket |> put_flash(:error, "Failed to upload proof: Unexpected result")}
+      end
+    else
+      {:noreply, socket |> put_flash(:error, "Upload entry not found")}
+    end
+  end
+
+  def handle_event("remove-receipt", %{"index" => index}, socket) do
+    index = String.to_integer(index)
+    changeset = socket.assigns.form.source
+
+    expense_items =
+      Ecto.Changeset.get_field(changeset, :expense_items, [])
+      |> List.update_at(index, fn item ->
+        Ecto.Changeset.change(item, receipt_s3_path: nil)
+      end)
+
+    new_changeset =
+      changeset
+      |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
+
+    totals = calculate_totals_from_changeset(new_changeset)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(new_changeset))
+     |> assign(:totals, totals)}
+  end
+
+  def handle_event("remove-proof", %{"index" => index}, socket) do
+    index = String.to_integer(index)
+    changeset = socket.assigns.form.source
+
+    income_items =
+      Ecto.Changeset.get_field(changeset, :income_items, [])
+      |> List.update_at(index, fn item ->
+        Ecto.Changeset.change(item, proof_s3_path: nil)
+      end)
+
+    new_changeset =
+      changeset
+      |> Ecto.Changeset.put_assoc(:income_items, income_items)
+
+    totals = calculate_totals_from_changeset(new_changeset)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(new_changeset))
+     |> assign(:totals, totals)}
+  end
+
+  def handle_event("save", params, socket) do
+    require Logger
+    Logger.debug("HANDLE EVENT save", params: inspect(params, limit: :infinity))
+
+    # Check if this is a submit action
+    action =
+      params["_action"] || (params["expense_report"] && params["expense_report"]["_action"])
+
+    Logger.debug("Submit action check",
+      action: action,
+      has_action: Map.has_key?(params, "_action")
+    )
+
+    # Also check the form source for validation errors
+    changeset = socket.assigns.form.source
+
+    Logger.debug("Form validation",
+      valid?: changeset.valid?,
+      errors: inspect(changeset.errors, limit: 10)
+    )
+
+    if action == "submit" do
+      Logger.debug("Processing submit action")
+      expense_report_params = params["expense_report"] || %{}
+      user = socket.assigns.current_user
+
+      Logger.debug(
+        "Before merge - expense_items count: #{map_size(expense_report_params["expense_items"] || %{})}"
+      )
+
+      # Preserve receipt/proof paths from current changeset before creating
+      current_changeset = socket.assigns.form.source
+
+      expense_report_params =
+        merge_existing_items_into_params(expense_report_params, current_changeset)
+        |> Map.put("status", "submitted")
+
+      Logger.debug(
+        "After merge - expense_items count: #{map_size(expense_report_params["expense_items"] || %{})}, status: #{expense_report_params["status"]}"
+      )
+
+      Logger.debug(
+        "Calling create_expense_report with purpose: #{inspect(expense_report_params["purpose"])}"
+      )
+
+      result = ExpenseReports.create_expense_report(expense_report_params, user)
+
+      case result do
+        {:ok, expense_report} ->
+          Logger.debug(
+            "create_expense_report SUCCESS - id: #{expense_report.id}, status: #{expense_report.status}"
+          )
+
+          # Expense report is already created with "submitted" status, no need to call submit_expense_report
+          {:noreply,
+           socket
+           |> redirect(to: ~p"/expensereport/#{expense_report.id}/success")}
+
+        {:error, changeset} ->
+          Logger.error(
+            "create_expense_report FAILED - errors: #{inspect(changeset.errors, limit: 20)}"
+          )
+
+          totals = calculate_totals_from_changeset(changeset)
+
+          {:noreply,
+           socket
+           |> assign(:form, to_form(changeset))
+           |> assign(:totals, totals)
+           |> put_flash(:error, "Please fix the errors below before submitting")}
+      end
+    else
+      # Not a submit action, just validate
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("open-bank-account-modal", _params, socket) do
+    {:noreply, push_patch(socket, to: ~p"/expensereport?modal=bank-account")}
+  end
+
+  def handle_event("close-bank-account-modal", _params, socket) do
+    {:noreply, push_patch(socket, to: ~p"/expensereport")}
+  end
+
+  def handle_event("noop", _params, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("validate-bank-account", %{"bank_account" => bank_account_params}, socket) do
+    user = socket.assigns.current_user
+    bank_account = %BankAccount{user_id: user.id}
+
+    changeset =
+      bank_account
+      |> BankAccount.changeset(bank_account_params)
+      |> Map.put(:action, :validate)
+
+    {:noreply,
+     socket
+     |> assign(:bank_account_form, to_form(changeset))}
+  end
+
+  def handle_event("save-bank-account", %{"bank_account" => bank_account_params}, socket) do
+    user = socket.assigns.current_user
+
+    case ExpenseReports.create_bank_account(bank_account_params, user) do
+      {:ok, bank_account} ->
+        # Refresh bank accounts list
+        bank_accounts = ExpenseReports.list_bank_accounts(user)
+
+        # Get current form and update bank_account_id if this is the first account
+        changeset = socket.assigns.form.source
+
+        new_bank_account_id =
+          if length(bank_accounts) == 1,
+            do: bank_account.id,
+            else: Ecto.Changeset.get_field(changeset, :bank_account_id)
+
+        updated_changeset =
+          if new_bank_account_id do
+            Ecto.Changeset.put_change(changeset, :bank_account_id, new_bank_account_id)
+          else
+            changeset
+          end
+
+        {:noreply,
+         socket
+         |> assign(:bank_accounts, bank_accounts)
+         |> assign(:bank_account_form, nil)
+         |> assign(:form, to_form(updated_changeset))
+         |> push_patch(to: ~p"/expensereport")
+         |> put_flash(:info, "Bank account added successfully")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply,
+         socket
+         |> assign(:bank_account_form, to_form(changeset))}
+    end
   end
 
   # Merges existing items from current changeset into params if they're missing
@@ -290,43 +799,6 @@ defmodule YscWeb.ExpenseReportLive do
 
   defp get_proof_path_from_item(_), do: nil
 
-  @impl true
-  def handle_event("recover", %{"expense_report" => expense_report_params}, socket) do
-    # Custom recovery handler for form recovery after crash/disconnection
-    # This ensures nested items and form state are properly restored
-    user = socket.assigns.current_user
-
-    # Rebuild the expense report from params, ensuring we have at least one expense item
-    expense_items = build_expense_items_from_params(expense_report_params["expense_items"] || %{})
-    income_items = build_income_items_from_params(expense_report_params["income_items"] || %{})
-
-    # Ensure at least one expense item exists
-    expense_items = if Enum.empty?(expense_items), do: [%ExpenseReportItem{}], else: expense_items
-
-    expense_report = %ExpenseReport{
-      user_id: user.id,
-      reimbursement_method: expense_report_params["reimbursement_method"] || "bank_transfer",
-      expense_items: expense_items,
-      income_items: income_items
-    }
-
-    changeset =
-      expense_report
-      |> ExpenseReport.changeset(expense_report_params)
-      |> validate_reimbursement_setup_in_liveview(user)
-      |> Map.put(:action, :validate)
-
-    totals = calculate_totals_from_changeset(changeset)
-
-    {:noreply,
-     socket
-     |> assign(:form, to_form(changeset))
-     |> assign(:expense_report, expense_report)
-     |> assign(:totals, totals)
-     |> assign(:bank_accounts, ExpenseReports.list_bank_accounts(user))
-     |> assign(:billing_address, Accounts.get_billing_address(user))}
-  end
-
   defp build_expense_items_from_params(items_params) when is_map(items_params) do
     items_params
     |> Enum.map(fn {_index, item_params} ->
@@ -443,402 +915,6 @@ defmodule YscWeb.ExpenseReportLive do
     end
   end
 
-  @impl true
-  def handle_event("add_expense_item", _params, socket) do
-    changeset = socket.assigns.form.source
-
-    expense_items =
-      Ecto.Changeset.get_field(changeset, :expense_items, []) ++ [%ExpenseReportItem{}]
-
-    new_changeset =
-      changeset
-      |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
-
-    totals = calculate_totals_from_changeset(new_changeset)
-
-    {:noreply,
-     socket
-     |> assign(:form, to_form(new_changeset))
-     |> assign(:totals, totals)}
-  end
-
-  @impl true
-  def handle_event("remove_expense_item", %{"index" => index}, socket) do
-    changeset = socket.assigns.form.source
-    index = String.to_integer(index)
-
-    expense_items =
-      Ecto.Changeset.get_field(changeset, :expense_items, [])
-      |> List.delete_at(index)
-
-    # Ensure we always have at least one expense item to avoid Ecto association errors
-    expense_items = if Enum.empty?(expense_items), do: [%ExpenseReportItem{}], else: expense_items
-
-    new_changeset =
-      changeset
-      |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
-
-    totals = calculate_totals_from_changeset(new_changeset)
-
-    {:noreply,
-     socket
-     |> assign(:form, to_form(new_changeset))
-     |> assign(:totals, totals)}
-  end
-
-  @impl true
-  def handle_event("add_income_item", _params, socket) do
-    changeset = socket.assigns.form.source
-
-    income_items =
-      Ecto.Changeset.get_field(changeset, :income_items, []) ++ [%ExpenseReportIncomeItem{}]
-
-    new_changeset =
-      changeset
-      |> Ecto.Changeset.put_assoc(:income_items, income_items)
-
-    totals = calculate_totals_from_changeset(new_changeset)
-
-    {:noreply,
-     socket
-     |> assign(:form, to_form(new_changeset))
-     |> assign(:totals, totals)}
-  end
-
-  @impl true
-  def handle_event("remove_income_item", %{"index" => index}, socket) do
-    changeset = socket.assigns.form.source
-    index = String.to_integer(index)
-
-    income_items =
-      Ecto.Changeset.get_field(changeset, :income_items, [])
-      |> List.delete_at(index)
-
-    new_changeset =
-      changeset
-      |> Ecto.Changeset.put_assoc(:income_items, income_items)
-
-    totals = calculate_totals_from_changeset(new_changeset)
-
-    {:noreply,
-     socket
-     |> assign(:form, to_form(new_changeset))
-     |> assign(:totals, totals)}
-  end
-
-  @impl true
-  def handle_event("validate-upload", _params, socket) do
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("cancel-upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :receipt, ref)}
-  end
-
-  @impl true
-  def handle_event("cancel-proof-upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :proof, ref)}
-  end
-
-  @impl true
-  def handle_event("consume-receipt", %{"ref" => ref, "index" => index}, socket) do
-    index = String.to_integer(index)
-
-    # Find the specific entry by ref
-    entry =
-      socket.assigns.uploads.receipt.entries
-      |> Enum.find(fn entry -> to_string(entry.ref) == ref end)
-
-    if entry do
-      # Consume only this specific entry
-      # The callback must return {:ok, value} or {:postpone, value}
-      result =
-        consume_uploaded_entry(socket, entry, fn %{path: path} ->
-          try do
-            s3_path = ExpenseReports.upload_receipt_to_s3(path)
-            # upload_receipt_to_s3 returns a string directly, not a tuple
-            {:ok, s3_path}
-          rescue
-            e ->
-              Logger.error("Error uploading receipt to S3", error: inspect(e))
-              {:error, Exception.message(e)}
-          catch
-            :exit, reason ->
-              Logger.error("Exit while uploading receipt to S3", reason: inspect(reason))
-              {:error, "Upload failed: #{inspect(reason)}"}
-          end
-        end)
-
-      case result do
-        {:ok, s3_path} when is_binary(s3_path) ->
-          changeset = socket.assigns.form.source
-
-          expense_items =
-            Ecto.Changeset.get_field(changeset, :expense_items, [])
-            |> List.update_at(index, fn item ->
-              Ecto.Changeset.change(item, receipt_s3_path: s3_path)
-            end)
-
-          new_changeset =
-            changeset
-            |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
-
-          {:noreply,
-           socket
-           |> assign(:form, to_form(new_changeset))
-           |> put_flash(:info, "Receipt uploaded successfully")}
-
-        {:postpone, _} ->
-          {:noreply, socket |> put_flash(:error, "Upload is still in progress")}
-
-        {:error, reason} ->
-          Logger.error("Failed to upload receipt", reason: inspect(reason))
-          {:noreply, socket |> put_flash(:error, "Failed to upload receipt: #{reason}")}
-
-        # consume_uploaded_entry can return the value directly if callback returns {:ok, value}
-        s3_path when is_binary(s3_path) ->
-          Logger.debug("consume_uploaded_entry returned string directly", path: s3_path)
-          changeset = socket.assigns.form.source
-
-          expense_items =
-            Ecto.Changeset.get_field(changeset, :expense_items, [])
-            |> List.update_at(index, fn item ->
-              Ecto.Changeset.change(item, receipt_s3_path: s3_path)
-            end)
-
-          new_changeset =
-            changeset
-            |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
-
-          {:noreply,
-           socket
-           |> assign(:form, to_form(new_changeset))
-           |> put_flash(:info, "Receipt uploaded successfully")}
-
-        other ->
-          Logger.error("Unexpected result from consume_uploaded_entry",
-            result: inspect(other, limit: 100)
-          )
-
-          {:noreply, socket |> put_flash(:error, "Failed to upload receipt: Unexpected result")}
-      end
-    else
-      {:noreply, socket |> put_flash(:error, "Upload entry not found")}
-    end
-  end
-
-  @impl true
-  def handle_event("consume-proof", %{"ref" => ref, "index" => index}, socket) do
-    index = String.to_integer(index)
-
-    # Find the specific entry by ref
-    entry =
-      socket.assigns.uploads.proof.entries
-      |> Enum.find(fn entry -> to_string(entry.ref) == ref end)
-
-    if entry do
-      # Consume only this specific entry
-      # The callback must return {:ok, value} or {:postpone, value}
-      result =
-        consume_uploaded_entry(socket, entry, fn %{path: path} ->
-          try do
-            s3_path = ExpenseReports.upload_receipt_to_s3(path)
-            # upload_receipt_to_s3 returns a string directly, not a tuple
-            {:ok, s3_path}
-          rescue
-            e ->
-              Logger.error("Error uploading proof to S3", error: inspect(e))
-              {:error, Exception.message(e)}
-          catch
-            :exit, reason ->
-              Logger.error("Exit while uploading proof to S3", reason: inspect(reason))
-              {:error, "Upload failed: #{inspect(reason)}"}
-          end
-        end)
-
-      case result do
-        {:ok, s3_path} when is_binary(s3_path) ->
-          changeset = socket.assigns.form.source
-
-          income_items =
-            Ecto.Changeset.get_field(changeset, :income_items, [])
-            |> List.update_at(index, fn item ->
-              Ecto.Changeset.change(item, proof_s3_path: s3_path)
-            end)
-
-          new_changeset =
-            changeset
-            |> Ecto.Changeset.put_assoc(:income_items, income_items)
-
-          {:noreply,
-           socket
-           |> assign(:form, to_form(new_changeset))
-           |> put_flash(:info, "Proof document uploaded successfully")}
-
-        {:postpone, _} ->
-          {:noreply, socket |> put_flash(:error, "Upload is still in progress")}
-
-        {:error, reason} ->
-          Logger.error("Failed to upload proof", reason: inspect(reason))
-          {:noreply, socket |> put_flash(:error, "Failed to upload proof: #{reason}")}
-
-        # consume_uploaded_entry can return the value directly if callback returns {:ok, value}
-        s3_path when is_binary(s3_path) ->
-          Logger.debug("consume_uploaded_entry returned string directly", path: s3_path)
-          changeset = socket.assigns.form.source
-
-          income_items =
-            Ecto.Changeset.get_field(changeset, :income_items, [])
-            |> List.update_at(index, fn item ->
-              Ecto.Changeset.change(item, proof_s3_path: s3_path)
-            end)
-
-          new_changeset =
-            changeset
-            |> Ecto.Changeset.put_assoc(:income_items, income_items)
-
-          {:noreply,
-           socket
-           |> assign(:form, to_form(new_changeset))
-           |> put_flash(:info, "Proof document uploaded successfully")}
-
-        other ->
-          Logger.error("Unexpected result from consume_uploaded_entry",
-            result: inspect(other, limit: 100)
-          )
-
-          {:noreply, socket |> put_flash(:error, "Failed to upload proof: Unexpected result")}
-      end
-    else
-      {:noreply, socket |> put_flash(:error, "Upload entry not found")}
-    end
-  end
-
-  @impl true
-  def handle_event("remove-receipt", %{"index" => index}, socket) do
-    index = String.to_integer(index)
-    changeset = socket.assigns.form.source
-
-    expense_items =
-      Ecto.Changeset.get_field(changeset, :expense_items, [])
-      |> List.update_at(index, fn item ->
-        Ecto.Changeset.change(item, receipt_s3_path: nil)
-      end)
-
-    new_changeset =
-      changeset
-      |> Ecto.Changeset.put_assoc(:expense_items, expense_items)
-
-    totals = calculate_totals_from_changeset(new_changeset)
-
-    {:noreply,
-     socket
-     |> assign(:form, to_form(new_changeset))
-     |> assign(:totals, totals)}
-  end
-
-  @impl true
-  def handle_event("remove-proof", %{"index" => index}, socket) do
-    index = String.to_integer(index)
-    changeset = socket.assigns.form.source
-
-    income_items =
-      Ecto.Changeset.get_field(changeset, :income_items, [])
-      |> List.update_at(index, fn item ->
-        Ecto.Changeset.change(item, proof_s3_path: nil)
-      end)
-
-    new_changeset =
-      changeset
-      |> Ecto.Changeset.put_assoc(:income_items, income_items)
-
-    totals = calculate_totals_from_changeset(new_changeset)
-
-    {:noreply,
-     socket
-     |> assign(:form, to_form(new_changeset))
-     |> assign(:totals, totals)}
-  end
-
-  @impl true
-  def handle_event("save", params, socket) do
-    require Logger
-    Logger.debug("HANDLE EVENT save", params: inspect(params, limit: :infinity))
-
-    # Check if this is a submit action
-    action =
-      params["_action"] || (params["expense_report"] && params["expense_report"]["_action"])
-
-    Logger.debug("Submit action check",
-      action: action,
-      has_action: Map.has_key?(params, "_action")
-    )
-
-    # Also check the form source for validation errors
-    changeset = socket.assigns.form.source
-
-    Logger.debug("Form validation",
-      valid?: changeset.valid?,
-      errors: inspect(changeset.errors, limit: 10)
-    )
-
-    if action == "submit" do
-      Logger.debug("Processing submit action")
-      expense_report_params = params["expense_report"] || %{}
-      user = socket.assigns.current_user
-
-      Logger.debug(
-        "Before merge - expense_items count: #{map_size(expense_report_params["expense_items"] || %{})}"
-      )
-
-      # Preserve receipt/proof paths from current changeset before creating
-      current_changeset = socket.assigns.form.source
-
-      expense_report_params =
-        merge_existing_items_into_params(expense_report_params, current_changeset)
-        |> Map.put("status", "submitted")
-
-      Logger.debug(
-        "After merge - expense_items count: #{map_size(expense_report_params["expense_items"] || %{})}, status: #{expense_report_params["status"]}"
-      )
-
-      Logger.debug(
-        "Calling create_expense_report with purpose: #{inspect(expense_report_params["purpose"])}"
-      )
-
-      result = ExpenseReports.create_expense_report(expense_report_params, user)
-
-      case result do
-        {:ok, expense_report} ->
-          Logger.debug(
-            "create_expense_report SUCCESS - id: #{expense_report.id}, status: #{expense_report.status}"
-          )
-
-          # Expense report is already created with "submitted" status, no need to call submit_expense_report
-          {:noreply,
-           socket
-           |> redirect(to: ~p"/expensereport/#{expense_report.id}/success")}
-
-        {:error, changeset} ->
-          Logger.error(
-            "create_expense_report FAILED - errors: #{inspect(changeset.errors, limit: 20)}"
-          )
-
-          totals = calculate_totals_from_changeset(changeset)
-
-          {:noreply,
-           socket
-           |> assign(:form, to_form(changeset))
-           |> assign(:totals, totals)
-           |> put_flash(:error, "Please fix the errors below before submitting")}
-      end
-    else
-      # Not a submit action, just validate
-      {:noreply, socket}
-    end
-  end
-
   defp calculate_totals_from_changeset(changeset) do
     expense_items = Ecto.Changeset.get_field(changeset, :expense_items, [])
     income_items = Ecto.Changeset.get_field(changeset, :income_items, [])
@@ -941,6 +1017,17 @@ defmodule YscWeb.ExpenseReportLive do
               <dt class="text-sm font-medium text-zinc-500">Purpose/Event</dt>
               <dd class="mt-1 text-sm text-zinc-900"><%= @expense_report.purpose %></dd>
             </div>
+            <%= if @expense_report.event do %>
+              <div>
+                <dt class="text-sm font-medium text-zinc-500">Related Event</dt>
+                <dd class="mt-1 text-sm text-zinc-900">
+                  <%= @expense_report.event.title %> - <%= Calendar.strftime(
+                    @expense_report.event.start_date,
+                    "%B %d, %Y"
+                  ) %>
+                </dd>
+              </div>
+            <% end %>
             <div>
               <dt class="text-sm font-medium text-zinc-500">Report ID</dt>
               <dd class="mt-1 text-sm text-zinc-900 font-mono"><%= @expense_report.id %></dd>
@@ -1152,17 +1239,31 @@ defmodule YscWeb.ExpenseReportLive do
               required
             />
 
+            <div class="mt-4">
+              <.input
+                field={@form[:event_id]}
+                type="select"
+                label="Related Event (Optional)"
+                options={[
+                  {"", "None - Not related to an event"}
+                  | Enum.map(@events, fn event ->
+                      label =
+                        "#{event.title} - #{Calendar.strftime(event.start_date, "%B %d, %Y")}"
+
+                      {label, event.id}
+                    end)
+                ]}
+              />
+              <p class="mt-1 text-sm text-zinc-500">
+                If this expense report relates to an event, please select it to help with reporting.
+                You can select events from the last 3 months or upcoming events.
+              </p>
+            </div>
+
             <div class="space-y-6 mt-6">
               <div>
-                <div class="flex justify-between items-center mb-4">
+                <div class="mb-4">
                   <h3 class="text-lg font-semibold text-zinc-900">Expense Items</h3>
-                  <button
-                    type="button"
-                    phx-click="add_expense_item"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                  >
-                    <.icon name="hero-plus" class="w-5 h-5 -mt-0.5 me-1" />Add Expense Item
-                  </button>
                 </div>
 
                 <.inputs_for :let={expense_f} field={@form[:expense_items]}>
@@ -1296,18 +1397,21 @@ defmodule YscWeb.ExpenseReportLive do
                     </div>
                   </div>
                 </.inputs_for>
+
+                <div class="mt-4">
+                  <button
+                    type="button"
+                    phx-click="add_expense_item"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  >
+                    <.icon name="hero-plus" class="w-5 h-5 -mt-0.5 me-1" />Add Expense Item
+                  </button>
+                </div>
               </div>
 
               <div>
-                <div class="flex justify-between items-center mb-4">
+                <div class="mb-4">
                   <h3 class="text-lg font-semibold text-zinc-900">Income Items (Optional)</h3>
-                  <button
-                    type="button"
-                    phx-click="add_income_item"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                  >
-                    <.icon name="hero-plus" class="w-5 h-5 -mt-0.5 me-1" />Add Income Item
-                  </button>
                 </div>
 
                 <.inputs_for :let={income_f} field={@form[:income_items]}>
@@ -1430,6 +1534,16 @@ defmodule YscWeb.ExpenseReportLive do
                     </div>
                   </div>
                 </.inputs_for>
+
+                <div class="mt-4">
+                  <button
+                    type="button"
+                    phx-click="add_income_item"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  >
+                    <.icon name="hero-plus" class="w-5 h-5 -mt-0.5 me-1" />Add Income Item
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1862,7 +1976,7 @@ defmodule YscWeb.ExpenseReportLive do
 
   defp is_pdf?(_), do: false
 
-  defp can_submit?(form, bank_accounts, billing_address, user) do
+  defp can_submit?(form, bank_accounts, billing_address, _user) do
     # Check certification
     certification_accepted =
       form[:certification_accepted].value == true ||
@@ -1977,77 +2091,6 @@ defmodule YscWeb.ExpenseReportLive do
   end
 
   defp error_to_string({msg, _opts}), do: msg
-
-  # Bank Account Management
-
-  @impl true
-  def handle_event("open-bank-account-modal", _params, socket) do
-    {:noreply, push_patch(socket, to: ~p"/expensereport?modal=bank-account")}
-  end
-
-  @impl true
-  def handle_event("close-bank-account-modal", _params, socket) do
-    {:noreply, push_patch(socket, to: ~p"/expensereport")}
-  end
-
-  @impl true
-  def handle_event("noop", _params, socket) do
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("validate-bank-account", %{"bank_account" => bank_account_params}, socket) do
-    user = socket.assigns.current_user
-    bank_account = %BankAccount{user_id: user.id}
-
-    changeset =
-      bank_account
-      |> BankAccount.changeset(bank_account_params)
-      |> Map.put(:action, :validate)
-
-    {:noreply,
-     socket
-     |> assign(:bank_account_form, to_form(changeset))}
-  end
-
-  @impl true
-  def handle_event("save-bank-account", %{"bank_account" => bank_account_params}, socket) do
-    user = socket.assigns.current_user
-
-    case ExpenseReports.create_bank_account(bank_account_params, user) do
-      {:ok, bank_account} ->
-        # Refresh bank accounts list
-        bank_accounts = ExpenseReports.list_bank_accounts(user)
-
-        # Get current form and update bank_account_id if this is the first account
-        changeset = socket.assigns.form.source
-
-        new_bank_account_id =
-          if length(bank_accounts) == 1,
-            do: bank_account.id,
-            else: Ecto.Changeset.get_field(changeset, :bank_account_id)
-
-        updated_changeset =
-          if new_bank_account_id do
-            Ecto.Changeset.put_change(changeset, :bank_account_id, new_bank_account_id)
-          else
-            changeset
-          end
-
-        {:noreply,
-         socket
-         |> assign(:bank_accounts, bank_accounts)
-         |> assign(:bank_account_form, nil)
-         |> assign(:form, to_form(updated_changeset))
-         |> push_patch(to: ~p"/expensereport")
-         |> put_flash(:info, "Bank account added successfully")}
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply,
-         socket
-         |> assign(:bank_account_form, to_form(changeset))}
-    end
-  end
 
   defp get_treasurer do
     from(u in User, where: u.board_position == "treasurer" and u.state == :active)

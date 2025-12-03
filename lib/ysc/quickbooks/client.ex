@@ -2437,7 +2437,7 @@ defmodule Ysc.Quickbooks.Client do
 
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
-      active_filter = if include_inactive, do: "", else: " AND Active = true"
+      active_filter = if include_inactive, do: "", else: " WHERE Active = true"
 
       # Query all vendors (QuickBooks doesn't support nested field queries)
       # We'll filter by email in memory
@@ -3176,14 +3176,38 @@ defmodule Ysc.Quickbooks.Client do
         {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, data} ->
+              Logger.debug(
+                "[QB Client] upload_attachment: Raw response data",
+                data_keys: Map.keys(data),
+                data_structure: inspect(data, limit: 200)
+              )
+
               attachable = get_response_entity(data, "Attachable")
               attachable_id = Map.get(attachable, "Id")
 
-              Logger.info("Successfully uploaded attachment to QuickBooks",
-                attachable_id: attachable_id
+              Logger.debug(
+                "[QB Client] upload_attachment: Extracted attachable",
+                attachable_keys:
+                  if(is_map(attachable), do: Map.keys(attachable), else: :not_a_map),
+                attachable_id: attachable_id,
+                attachable_structure: inspect(attachable, limit: 200)
               )
 
-              {:ok, attachable_id}
+              if is_nil(attachable_id) do
+                Logger.error(
+                  "[QB Client] upload_attachment: Attachable ID is nil in response",
+                  response_data: inspect(data, limit: 200),
+                  extracted_attachable: inspect(attachable, limit: 200)
+                )
+
+                {:error, "Attachable ID not found in upload response"}
+              else
+                Logger.info("Successfully uploaded attachment to QuickBooks",
+                  attachable_id: attachable_id
+                )
+
+                {:ok, attachable_id}
+              end
 
             {:error, error} ->
               Logger.error("Failed to parse QuickBooks response", error: inspect(error))
@@ -3210,7 +3234,17 @@ defmodule Ysc.Quickbooks.Client do
                     {:ok, data} ->
                       attachable = get_response_entity(data, "Attachable")
                       attachable_id = Map.get(attachable, "Id")
-                      {:ok, attachable_id}
+
+                      if is_nil(attachable_id) do
+                        Logger.error(
+                          "[QB Client] upload_attachment: Attachable ID is nil in retry response",
+                          response_data: inspect(data, limit: 100)
+                        )
+
+                        {:error, "Attachable ID not found in upload response"}
+                      else
+                        {:ok, attachable_id}
+                      end
 
                     _error ->
                       {:error, :invalid_response}
@@ -3262,100 +3296,110 @@ defmodule Ysc.Quickbooks.Client do
   @spec link_attachment_to_bill(String.t(), String.t()) ::
           {:ok, map()} | {:error, atom() | String.t()}
   def link_attachment_to_bill(attachable_id, bill_id) do
-    with {:ok, access_token} <- get_access_token(),
-         {:ok, company_id} <- get_company_id() do
-      url = "#{build_url(company_id, "attachable")}&operation=update"
-      headers = build_headers(access_token)
+    if is_nil(attachable_id) || attachable_id == "" do
+      Logger.error(
+        "[QB Client] link_attachment_to_bill: Attachable ID is nil or empty",
+        attachable_id: attachable_id,
+        bill_id: bill_id
+      )
 
-      body = %{
-        "Id" => attachable_id,
-        "SyncToken" => "0",
-        "AttachableRef" => [
-          %{
-            "EntityRef" => %{
-              "type" => "Bill",
-              "value" => bill_id
+      {:error, "Attachable ID is required"}
+    else
+      with {:ok, access_token} <- get_access_token(),
+           {:ok, company_id} <- get_company_id() do
+        url = "#{build_url(company_id, "attachable")}&operation=update"
+        headers = build_headers(access_token)
+
+        body = %{
+          "Id" => attachable_id,
+          "SyncToken" => "0",
+          "AttachableRef" => [
+            %{
+              "EntityRef" => %{
+                "type" => "Bill",
+                "value" => bill_id
+              }
             }
-          }
-        ]
-      }
+          ]
+        }
 
-      Logger.info("Linking attachment to Bill", attachable_id: attachable_id, bill_id: bill_id)
+        Logger.info("Linking attachment to Bill", attachable_id: attachable_id, bill_id: bill_id)
 
-      body_json = Jason.encode!(body, pretty: true)
-      Logger.info("[QB Client] link_attachment_to_bill: Full request body:\n#{body_json}")
+        body_json = Jason.encode!(body, pretty: true)
+        Logger.info("[QB Client] link_attachment_to_bill: Full request body:\n#{body_json}")
 
-      request = Finch.build(:post, url, headers, Jason.encode!(body))
+        request = Finch.build(:post, url, headers, Jason.encode!(body))
 
-      case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
-          case Jason.decode(response_body) do
-            {:ok, data} ->
-              attachable = get_response_entity(data, "Attachable")
-              Logger.info("Successfully linked attachment to Bill")
-              {:ok, attachable}
+        case Finch.request(request, Ysc.Finch) do
+          {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+            case Jason.decode(response_body) do
+              {:ok, data} ->
+                attachable = get_response_entity(data, "Attachable")
+                Logger.info("Successfully linked attachment to Bill")
+                {:ok, attachable}
 
-            {:error, error} ->
-              Logger.error("Failed to parse QuickBooks response", error: inspect(error))
-              {:error, :invalid_response}
-          end
+              {:error, error} ->
+                Logger.error("Failed to parse QuickBooks response", error: inspect(error))
+                {:error, :invalid_response}
+            end
 
-        {:ok, %Finch.Response{status: 401, body: _response_body}} ->
-          Logger.warning("QuickBooks authentication failed, attempting token refresh")
+          {:ok, %Finch.Response{status: 401, body: _response_body}} ->
+            Logger.warning("QuickBooks authentication failed, attempting token refresh")
 
-          case refresh_access_token() do
-            {:ok, new_access_token} ->
-              headers = build_headers(new_access_token)
-              request = Finch.build(:post, url, headers, Jason.encode!(body))
+            case refresh_access_token() do
+              {:ok, new_access_token} ->
+                headers = build_headers(new_access_token)
+                request = Finch.build(:post, url, headers, Jason.encode!(body))
 
-              case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
-                when status in 200..299 ->
-                  case Jason.decode(retry_response_body) do
-                    {:ok, data} ->
-                      attachable = get_response_entity(data, "Attachable")
-                      {:ok, attachable}
+                case Finch.request(request, Ysc.Finch) do
+                  {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                  when status in 200..299 ->
+                    case Jason.decode(retry_response_body) do
+                      {:ok, data} ->
+                        attachable = get_response_entity(data, "Attachable")
+                        {:ok, attachable}
 
-                    _error ->
-                      {:error, :invalid_response}
-                  end
+                      _error ->
+                        {:error, :invalid_response}
+                    end
 
-                {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
-                  error = parse_error_response(retry_response_body)
+                  {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+                    error = parse_error_response(retry_response_body)
 
-                  Logger.error(
-                    "[QB Client] link_attachment_to_bill: QuickBooks API error after token refresh - Full response body:\n#{retry_response_body}",
-                    status: status,
-                    parsed_error: error
-                  )
+                    Logger.error(
+                      "[QB Client] link_attachment_to_bill: QuickBooks API error after token refresh - Full response body:\n#{retry_response_body}",
+                      status: status,
+                      parsed_error: error
+                    )
 
-                  {:error, error}
+                    {:error, error}
 
-                {:error, error} ->
-                  Logger.error("Request failed after token refresh", error: inspect(error))
-                  {:error, :request_failed}
-              end
+                  {:error, error} ->
+                    Logger.error("Request failed after token refresh", error: inspect(error))
+                    {:error, :request_failed}
+                end
 
-            error ->
-              Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
-              {:error, :authentication_failed}
-          end
+              error ->
+                Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+                {:error, :authentication_failed}
+            end
 
-        {:ok, %Finch.Response{status: status, body: response_body}} ->
-          error = parse_error_response(response_body)
+          {:ok, %Finch.Response{status: status, body: response_body}} ->
+            error = parse_error_response(response_body)
 
-          Logger.error(
-            "[QB Client] link_attachment_to_bill: QuickBooks API error - Full response body:\n#{response_body}",
-            status: status,
-            parsed_error: error,
-            endpoint: "attachable"
-          )
+            Logger.error(
+              "[QB Client] link_attachment_to_bill: QuickBooks API error - Full response body:\n#{response_body}",
+              status: status,
+              parsed_error: error,
+              endpoint: "attachable"
+            )
 
-          {:error, error}
+            {:error, error}
 
-        {:error, error} ->
-          Logger.error("Failed to link attachment to Bill", error: inspect(error))
-          {:error, :request_failed}
+          {:error, error} ->
+            Logger.error("Failed to link attachment to Bill", error: inspect(error))
+            {:error, :request_failed}
+        end
       end
     end
   end

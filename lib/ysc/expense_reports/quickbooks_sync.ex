@@ -59,7 +59,7 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
           )
 
           expense_report
-          |> Repo.preload([:expense_items, :income_items, :address, :bank_account])
+          |> Repo.preload([:expense_items, :income_items, :address, :bank_account, :event])
           |> Repo.preload(user: :billing_address)
         end
 
@@ -309,6 +309,16 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
   defp build_private_note(%ExpenseReport{} = expense_report) do
     note_parts = ["Expense Report: #{expense_report.purpose}"]
 
+    # Add event information if present
+    note_parts =
+      if expense_report.event_id && expense_report.event do
+        event = expense_report.event
+        event_info = "Related Event: #{event.title} (Event ID: #{event.id})"
+        [event_info | note_parts]
+      else
+        note_parts
+      end
+
     note_parts =
       case expense_report.reimbursement_method do
         "bank_transfer" ->
@@ -321,13 +331,18 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
           end
 
         "check" ->
-          if expense_report.address do
-            addr = expense_report.address
-            address_str = "#{addr.address}, #{addr.city}, #{addr.region} #{addr.postal_code}"
-            ["Check - Ship to: #{address_str}" | note_parts]
-          else
-            ["Check (address not specified)" | note_parts]
-          end
+          check_note = "⚠️ CHECK REQUESTED - Please issue a physical check for this reimbursement"
+
+          note_parts =
+            if expense_report.address do
+              addr = expense_report.address
+              address_str = "#{addr.address}, #{addr.city}, #{addr.region} #{addr.postal_code}"
+              ["Ship check to: #{address_str}" | note_parts]
+            else
+              ["⚠️ WARNING: Check requested but no shipping address on file" | note_parts]
+            end
+
+          [check_note | note_parts]
 
         _ ->
           note_parts

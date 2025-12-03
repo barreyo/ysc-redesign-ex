@@ -176,6 +176,35 @@ defmodule Ysc.Events do
     add_pricing_info_batch(events)
   end
 
+  @doc """
+  List events that are upcoming or occurred in the last 3 months.
+  This is useful for expense reports to help users associate expenses with events.
+  Events are ordered with upcoming events first (ascending by start_date),
+  followed by past events (descending by start_date, most recent first).
+  """
+  def list_recent_and_upcoming_events do
+    now = DateTime.utc_now()
+    three_months_ago = DateTime.add(now, -90, :day)
+
+    events =
+      from(e in Event,
+        where: e.state in [:published, :cancelled],
+        where:
+          (e.start_date >= ^three_months_ago and e.start_date <= ^now) or
+            e.start_date > ^now,
+        limit: 100
+      )
+      |> Repo.all()
+
+    # Sort: upcoming events first (ascending), then past events (descending)
+    {upcoming, past} = Enum.split_with(events, &(DateTime.compare(&1.start_date, now) == :gt))
+
+    upcoming_sorted = Enum.sort_by(upcoming, & &1.start_date, {:asc, DateTime})
+    past_sorted = Enum.sort_by(past, & &1.start_date, {:desc, DateTime})
+
+    upcoming_sorted ++ past_sorted
+  end
+
   # Batch load pricing info for all events to avoid N+1 queries
   defp add_pricing_info_batch(events) when is_list(events) do
     if events == [] do

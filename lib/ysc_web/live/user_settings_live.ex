@@ -2362,53 +2362,6 @@ defmodule YscWeb.UserSettingsLive do
 
   # Helper function to safely fetch user invoices
 
-  # Bank Account Management
-
-  def handle_event("validate_bank_account", %{"bank_account" => params}, socket) do
-    changeset =
-      %Ysc.ExpenseReports.BankAccount{}
-      |> Ysc.ExpenseReports.BankAccount.changeset(params)
-      |> Map.put(:action, :validate)
-
-    {:noreply, assign(socket, bank_account_form: to_form(changeset))}
-  end
-
-  def handle_event("save_bank_account", %{"bank_account" => params}, socket) do
-    user = socket.assigns.current_user
-
-    case Ysc.ExpenseReports.create_bank_account(params, user) do
-      {:ok, _bank_account} ->
-        bank_accounts = Ysc.ExpenseReports.list_bank_accounts(user)
-
-        changeset =
-          Ysc.ExpenseReports.BankAccount.changeset(%Ysc.ExpenseReports.BankAccount{}, %{})
-
-        {:noreply,
-         socket
-         |> assign(:bank_accounts, bank_accounts)
-         |> assign(:bank_account_form, to_form(changeset))
-         |> put_flash(:info, "Bank account added successfully")}
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, bank_account_form: to_form(changeset))}
-    end
-  end
-
-  def handle_event("delete_bank_account", %{"id" => id}, socket) do
-    user = socket.assigns.current_user
-
-    case Ysc.ExpenseReports.get_bank_account!(id, user) do
-      bank_account ->
-        Ysc.ExpenseReports.delete_bank_account(bank_account)
-        bank_accounts = Ysc.ExpenseReports.list_bank_accounts(user)
-
-        {:noreply,
-         socket
-         |> assign(:bank_accounts, bank_accounts)
-         |> put_flash(:info, "Bank account deleted successfully")}
-    end
-  end
-
   defp render_bank_accounts(assigns) do
     ~H"""
     <div class="space-y-6">

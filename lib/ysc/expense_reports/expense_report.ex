@@ -7,6 +7,7 @@ defmodule Ysc.ExpenseReports.ExpenseReport do
 
   alias Ysc.Accounts.{User, Address}
   alias Ysc.ExpenseReports.{BankAccount, ExpenseReportItem, ExpenseReportIncomeItem}
+  alias Ysc.Events.Event
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
@@ -29,6 +30,7 @@ defmodule Ysc.ExpenseReports.ExpenseReport do
 
     belongs_to :address, Address, foreign_key: :address_id, references: :id
     belongs_to :bank_account, BankAccount, foreign_key: :bank_account_id, references: :id
+    belongs_to :event, Event, foreign_key: :event_id, references: :id
 
     has_many :expense_items, ExpenseReportItem, foreign_key: :expense_report_id
     has_many :income_items, ExpenseReportIncomeItem, foreign_key: :expense_report_id
@@ -48,6 +50,7 @@ defmodule Ysc.ExpenseReports.ExpenseReport do
       :status,
       :address_id,
       :bank_account_id,
+      :event_id,
       :certification_accepted,
       :quickbooks_bill_id,
       :quickbooks_vendor_id,
@@ -64,6 +67,18 @@ defmodule Ysc.ExpenseReports.ExpenseReport do
     |> cast_assoc(:income_items, with: &ExpenseReportIncomeItem.changeset/2)
     |> validate_all_expense_items_have_receipts()
     |> validate_certification_accepted()
+    |> normalize_event_id()
+  end
+
+  # Convert empty string to nil for event_id (common in form submissions)
+  defp normalize_event_id(changeset) do
+    event_id = Ecto.Changeset.get_field(changeset, :event_id)
+
+    if event_id == "" do
+      Ecto.Changeset.put_change(changeset, :event_id, nil)
+    else
+      changeset
+    end
   end
 
   defp validate_all_expense_items_have_receipts(changeset) do

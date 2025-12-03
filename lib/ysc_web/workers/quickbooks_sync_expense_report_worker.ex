@@ -41,7 +41,7 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
              expense_report ->
                preloaded =
                  expense_report
-                 |> Repo.preload([:expense_items, :income_items, :address, :bank_account])
+                 |> Repo.preload([:expense_items, :income_items, :address, :bank_account, :event])
                  |> Repo.preload(user: :billing_address)
 
                Logger.debug("Preloaded expense report associations",

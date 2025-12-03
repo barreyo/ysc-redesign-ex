@@ -44,7 +44,7 @@ defmodule Ysc.ExpenseReports do
       Repo.one!(
         from er in ExpenseReport,
           where: er.id == ^id and er.user_id == ^user.id,
-          preload: [:expense_items, :income_items, :address]
+          preload: [:expense_items, :income_items, :address, :event]
       )
 
     # Load bank_account separately without accessing encrypted fields
