@@ -97,33 +97,42 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
         case update_expense_report_with_bill_id(expense_report, vendor_id, bill_id) do
           {:ok, _} ->
             # Now try to upload receipts (non-blocking - bill is already created)
-            case upload_and_link_receipts(expense_report, bill_id) do
-              {:ok, _} ->
-                # Mark as fully synced
-                update_expense_report_success(expense_report, vendor_id, bill_id)
+            # upload_and_link_receipts always returns {:ok, status} where status is
+            # :no_files, :partial_success, or :success
+            {:ok, receipt_status} = upload_and_link_receipts(expense_report, bill_id)
 
-                Logger.info("[QB Expense Sync] Successfully synced expense report to QuickBooks",
+            # Log receipt upload status
+            case receipt_status do
+              :no_files ->
+                Logger.info("[QB Expense Sync] No receipts to upload",
                   expense_report_id: expense_report.id,
                   bill_id: bill_id
                 )
 
-                {:ok, bill}
-
-              {:error, receipt_error} ->
-                # Bill is created but receipt upload failed
-                # Don't fail the entire sync - bill is the important part
+              :partial_success ->
                 Logger.warning(
-                  "[QB Expense Sync] Bill created but receipt upload failed (non-critical)",
+                  "[QB Expense Sync] Bill created but some receipt uploads failed (non-critical)",
                   expense_report_id: expense_report.id,
-                  bill_id: bill_id,
-                  receipt_error: inspect(receipt_error)
+                  bill_id: bill_id
                 )
 
-                # Still mark as synced since the bill was created successfully
-                update_expense_report_success(expense_report, vendor_id, bill_id)
-
-                {:ok, bill}
+              :success ->
+                Logger.info("[QB Expense Sync] All receipts uploaded successfully",
+                  expense_report_id: expense_report.id,
+                  bill_id: bill_id
+                )
             end
+
+            # Mark as fully synced (bill is created, which is the important part)
+            update_expense_report_success(expense_report, vendor_id, bill_id)
+
+            Logger.info("[QB Expense Sync] Successfully synced expense report to QuickBooks",
+              expense_report_id: expense_report.id,
+              bill_id: bill_id,
+              receipt_status: receipt_status
+            )
+
+            {:ok, bill}
 
           {:error, update_error} ->
             Logger.error(
