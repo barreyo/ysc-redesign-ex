@@ -122,6 +122,52 @@
       color: #1447e6;
       text-decoration: underline;
       }
+      .expense-report-id-badge {
+      background-color: #DBEAFE;
+      color: #1E40AF;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-left: 8px;
+      }
+      .expense-item-box {
+      background-color: #F9FAFB;
+      padding: 12px !important;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      }
+      .expense-item-box td {
+      padding: 12px !important;
+      }
+      .expense-item-box div {
+      padding: 0;
+      }
+      .gray-text-inline {
+      color: #6B7280;
+      }
+      .green-text-bold {
+      color: #059669;
+      font-weight: bold;
+      }
+      .green-text {
+      color: #059669;
+      }
+      .red-text-bold {
+      color: #DC2626;
+      font-weight: bold;
+      }
+      .red-text-inline {
+      color: #DC2626;
+      }
+      .net-total-green {
+      color: #059669;
+      font-weight: bold;
+      }
+      .net-total-red {
+      color: #DC2626;
+      font-weight: bold;
+      }
     </mj-style>
   </mj-head>
   <mj-body background-color="#eee">

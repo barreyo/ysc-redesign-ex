@@ -408,11 +408,14 @@ defmodule YscWeb.CoreComponents do
   def input(%{type: "select"} = assigns) do
     ~H"""
     <div phx-feedback-for={@name}>
-      <.label for={@id}><%= @label %></.label>
+      <.label :if={@label != ""} for={@id}><%= @label %></.label>
       <select
         id={@id}
         name={@name}
-        class="block h-10 min-w-30 mt-2 bg-white border rounded-md shadow-sm border-zinc-300 focus:border-zinc-400 focus:ring-0 sm:text-sm"
+        class={[
+          "block h-10 min-w-30 bg-white border rounded-md shadow-sm border-zinc-300 focus:border-zinc-400 focus:ring-0 sm:text-sm",
+          if(@label != "", do: "mt-2", else: "")
+        ]}
         multiple={@multiple}
         {@rest}
       >

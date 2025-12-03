@@ -121,17 +121,26 @@ defmodule Ysc.Quickbooks.Client do
       })
 
   """
-  @spec create_sales_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
-  def create_sales_receipt(params) do
+  @spec create_sales_receipt(map(), keyword()) :: {:ok, map()} | {:error, atom() | String.t()}
+  def create_sales_receipt(params, opts \\ []) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
-      url = build_url(company_id, "salesreceipt")
+      # Support idempotency via requestid parameter
+      idempotency_key =
+        case Keyword.get(opts, :idempotency_key) do
+          nil -> Keyword.get(opts, :requestid)
+          key -> key
+        end
+
+      url_opts = if idempotency_key, do: [requestid: idempotency_key], else: []
+      url = build_url(company_id, "salesreceipt", url_opts)
       headers = build_headers(access_token)
       body = build_sales_receipt_body(params)
 
       Logger.info("Creating QuickBooks SalesReceipt",
         company_id: company_id,
-        total_amt: Map.get(params, :total_amt)
+        total_amt: Map.get(params, :total_amt),
+        idempotency_key: idempotency_key
       )
 
       # Print the full request body in a readable JSON format for debugging
@@ -174,7 +183,7 @@ defmodule Ysc.Quickbooks.Client do
           # Try to refresh token and retry once
           case refresh_access_token() do
             {:ok, new_access_token} ->
-              # Retry with new token
+              # Retry with new token (URL already includes idempotency key)
               headers = build_headers(new_access_token)
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
@@ -238,17 +247,26 @@ defmodule Ysc.Quickbooks.Client do
   Refund Receipts are used to record refunds. Unlike SalesReceipts,
   Refund Receipts use positive amounts - the transaction type determines the direction.
   """
-  @spec create_refund_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
-  def create_refund_receipt(params) do
+  @spec create_refund_receipt(map(), keyword()) :: {:ok, map()} | {:error, atom() | String.t()}
+  def create_refund_receipt(params, opts \\ []) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
-      url = build_url(company_id, "refundreceipt")
+      # Support idempotency via requestid parameter
+      idempotency_key =
+        case Keyword.get(opts, :idempotency_key) do
+          nil -> Keyword.get(opts, :requestid)
+          key -> key
+        end
+
+      url_opts = if idempotency_key, do: [requestid: idempotency_key], else: []
+      url = build_url(company_id, "refundreceipt", url_opts)
       headers = build_headers(access_token)
       body = build_refund_receipt_body(params)
 
       Logger.info("Creating QuickBooks Refund Receipt",
         company_id: company_id,
-        customer_id: params.customer_ref[:value]
+        customer_id: params.customer_ref[:value],
+        idempotency_key: idempotency_key
       )
 
       request = Finch.build(:post, url, headers, Jason.encode!(body))
@@ -279,7 +297,7 @@ defmodule Ysc.Quickbooks.Client do
           # Try to refresh token and retry once
           case refresh_access_token() do
             {:ok, new_access_token} ->
-              # Retry with new token
+              # Retry with new token (URL already includes idempotency key)
               headers = build_headers(new_access_token)
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
@@ -374,16 +392,25 @@ defmodule Ysc.Quickbooks.Client do
 
   """
   @spec create_deposit(map()) :: {:ok, map()} | {:error, atom() | String.t()}
-  def create_deposit(params) do
+  def create_deposit(params, opts \\ []) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
-      url = build_url(company_id, "deposit")
+      # Support idempotency via requestid parameter
+      idempotency_key =
+        case Keyword.get(opts, :idempotency_key) do
+          nil -> Keyword.get(opts, :requestid)
+          key -> key
+        end
+
+      url_opts = if idempotency_key, do: [requestid: idempotency_key], else: []
+      url = build_url(company_id, "deposit", url_opts)
       headers = build_headers(access_token)
       body = build_deposit_body(params)
 
       Logger.info("Creating QuickBooks Deposit",
         company_id: company_id,
-        total_amt: Map.get(params, :total_amt)
+        total_amt: Map.get(params, :total_amt),
+        idempotency_key: idempotency_key
       )
 
       request = Finch.build(:post, url, headers, Jason.encode!(body))
@@ -415,7 +442,7 @@ defmodule Ysc.Quickbooks.Client do
           # Try to refresh token and retry once
           case refresh_access_token() do
             {:ok, new_access_token} ->
-              # Retry with new token
+              # Retry with new token (URL already includes idempotency key)
               headers = build_headers(new_access_token)
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
@@ -500,16 +527,25 @@ defmodule Ysc.Quickbooks.Client do
 
   """
   @spec create_customer(map()) :: {:ok, map()} | {:error, atom() | String.t()}
-  def create_customer(params) do
+  def create_customer(params, opts \\ []) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
-      url = build_url(company_id, "customer")
+      # Support idempotency via requestid parameter
+      idempotency_key =
+        case Keyword.get(opts, :idempotency_key) do
+          nil -> Keyword.get(opts, :requestid)
+          key -> key
+        end
+
+      url_opts = if idempotency_key, do: [requestid: idempotency_key], else: []
+      url = build_url(company_id, "customer", url_opts)
       headers = build_headers(access_token)
       body = build_customer_body(params)
 
       Logger.info("Creating QuickBooks Customer",
         company_id: company_id,
-        display_name: params.display_name
+        display_name: params.display_name,
+        idempotency_key: idempotency_key
       )
 
       request = Finch.build(:post, url, headers, Jason.encode!(body))
@@ -541,7 +577,7 @@ defmodule Ysc.Quickbooks.Client do
           # Try to refresh token and retry once
           case refresh_access_token() do
             {:ok, new_access_token} ->
-              # Retry with new token
+              # Retry with new token (URL already includes idempotency key)
               headers = build_headers(new_access_token)
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
@@ -790,14 +826,24 @@ defmodule Ysc.Quickbooks.Client do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
       item_type = Keyword.get(opts, :type, "Service")
-      url = build_url(company_id, "item")
+
+      # Support idempotency via requestid parameter
+      idempotency_key =
+        case Keyword.get(opts, :idempotency_key) do
+          nil -> Keyword.get(opts, :requestid)
+          key -> key
+        end
+
+      url_opts = if idempotency_key, do: [requestid: idempotency_key], else: []
+      url = build_url(company_id, "item", url_opts)
       headers = build_headers(access_token)
 
       body = build_item_body(name, item_type, opts)
 
       Logger.debug("[QB Client] create_item: Creating item",
         name: name,
-        type: item_type
+        type: item_type,
+        idempotency_key: idempotency_key
       )
 
       request = Finch.build(:post, url, headers, Jason.encode!(body))
@@ -832,6 +878,7 @@ defmodule Ysc.Quickbooks.Client do
 
           case refresh_access_token() do
             {:ok, new_access_token} ->
+              # URL already includes idempotency key for retry
               headers = build_headers(new_access_token)
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
@@ -923,7 +970,7 @@ defmodule Ysc.Quickbooks.Client do
 
   # Private functions
 
-  defp build_url(company_id, endpoint) do
+  defp build_url(company_id, endpoint, opts \\ []) do
     base_url = get_api_base_url()
     # Ensure base_url doesn't have trailing slash and doesn't already include /company
     base_url = String.trim_trailing(base_url, "/")
@@ -933,7 +980,19 @@ defmodule Ysc.Quickbooks.Client do
         do: String.replace_suffix(base_url, "/company", ""),
         else: base_url
 
-    "#{base_url}/company/#{company_id}/#{endpoint}?minorversion=#{@minor_version}"
+    # Build query parameters
+    query_params = ["minorversion=#{@minor_version}"]
+
+    # Add requestid for idempotency if provided
+    query_params =
+      if idempotency_key = Keyword.get(opts, :requestid) do
+        ["requestid=#{URI.encode(idempotency_key)}" | query_params]
+      else
+        query_params
+      end
+
+    query_string = Enum.join(query_params, "&")
+    "#{base_url}/company/#{company_id}/#{endpoint}?#{query_string}"
   end
 
   defp get_api_base_url do
@@ -1798,6 +1857,32 @@ defmodule Ysc.Quickbooks.Client do
       {:error, _} ->
         response_body
     end
+  end
+
+  # Extract fault from upload response (different structure than regular API responses)
+  defp extract_fault_from_response(data) do
+    case data do
+      %{"AttachableResponse" => [%{"Fault" => fault} | _]} ->
+        fault
+
+      %{"AttachableResponse" => [%{"Fault" => fault}]} ->
+        fault
+
+      %{"Fault" => fault} ->
+        fault
+
+      _ ->
+        nil
+    end
+  end
+
+  # Format fault error message
+  defp format_fault_error(fault) do
+    error = fault["Error"] || []
+    first_error = List.first(error) || %{}
+    message = first_error["Message"] || first_error["Detail"] || "Unknown error"
+    code = first_error["code"] || "UNKNOWN"
+    "#{code}: #{message}"
   end
 
   defp extract_vendor_id_from_error(response_body) do
@@ -2697,14 +2782,25 @@ defmodule Ysc.Quickbooks.Client do
   Creates a Vendor in QuickBooks.
   """
   @spec create_vendor(map()) :: {:ok, map()} | {:error, atom() | String.t()}
-  def create_vendor(params) do
+  def create_vendor(params, opts \\ []) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
-      url = build_url(company_id, "vendor")
+      # Support idempotency via requestid parameter
+      idempotency_key =
+        case Keyword.get(opts, :idempotency_key) do
+          nil -> Keyword.get(opts, :requestid)
+          key -> key
+        end
+
+      url_opts = if idempotency_key, do: [requestid: idempotency_key], else: []
+      url = build_url(company_id, "vendor", url_opts)
       headers = build_headers(access_token)
       body = build_vendor_body(params)
 
-      Logger.info("Creating QuickBooks Vendor", display_name: params.display_name)
+      Logger.info("Creating QuickBooks Vendor",
+        display_name: params.display_name,
+        idempotency_key: idempotency_key
+      )
 
       body_json = Jason.encode!(body, pretty: true)
       Logger.info("[QB Client] create_vendor: Full request body:\n#{body_json}")
@@ -2737,6 +2833,7 @@ defmodule Ysc.Quickbooks.Client do
 
           case refresh_access_token() do
             {:ok, new_access_token} ->
+              # URL already includes idempotency key for retry
               headers = build_headers(new_access_token)
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
@@ -3013,14 +3110,26 @@ defmodule Ysc.Quickbooks.Client do
   Creates a Bill in QuickBooks.
   """
   @spec create_bill(map()) :: {:ok, map()} | {:error, atom() | String.t()}
-  def create_bill(params) do
+  def create_bill(params, opts \\ []) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
-      url = build_url(company_id, "bill")
+      # Generate idempotency key from expense report ID if provided
+      # This ensures retries don't create duplicate bills
+      idempotency_key =
+        case Keyword.get(opts, :idempotency_key) do
+          nil -> Keyword.get(opts, :requestid)
+          key -> key
+        end
+
+      url_opts = if idempotency_key, do: [requestid: idempotency_key], else: []
+      url = build_url(company_id, "bill", url_opts)
       headers = build_headers(access_token)
       body = build_bill_body(params)
 
-      Logger.info("Creating QuickBooks Bill", vendor_id: params.vendor_ref[:value])
+      Logger.info("Creating QuickBooks Bill",
+        vendor_id: params.vendor_ref[:value],
+        idempotency_key: idempotency_key
+      )
 
       body_json = Jason.encode!(body, pretty: true)
       Logger.info("[QB Client] create_bill: Full request body:\n#{body_json}")
@@ -3045,6 +3154,7 @@ defmodule Ysc.Quickbooks.Client do
 
           case refresh_access_token() do
             {:ok, new_access_token} ->
+              # URL already includes idempotency key for retry
               headers = build_headers(new_access_token)
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
@@ -3133,10 +3243,18 @@ defmodule Ysc.Quickbooks.Client do
   """
   @spec upload_attachment(String.t(), String.t(), String.t()) ::
           {:ok, String.t()} | {:error, atom() | String.t()}
-  def upload_attachment(file_path, file_name, content_type) do
+  def upload_attachment(file_path, file_name, content_type, opts \\ []) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
-      url = build_url(company_id, "upload")
+      # Support idempotency via requestid parameter
+      idempotency_key =
+        case Keyword.get(opts, :idempotency_key) do
+          nil -> Keyword.get(opts, :requestid)
+          key -> key
+        end
+
+      url_opts = if idempotency_key, do: [requestid: idempotency_key], else: []
+      url = build_url(company_id, "upload", url_opts)
 
       headers = [
         {"Authorization", "Bearer #{access_token}"},
@@ -3176,37 +3294,217 @@ defmodule Ysc.Quickbooks.Client do
         {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, data} ->
-              Logger.debug(
-                "[QB Client] upload_attachment: Raw response data",
-                data_keys: Map.keys(data),
-                data_structure: inspect(data, limit: 200)
+              # Log response data directly in message for visibility
+              Logger.info(
+                "[QB Client] upload_attachment: Response data - Keys: #{inspect(Map.keys(data))}, Structure: #{inspect(data, limit: 1000)}"
               )
 
-              attachable = get_response_entity(data, "Attachable")
-              attachable_id = Map.get(attachable, "Id")
-
-              Logger.debug(
-                "[QB Client] upload_attachment: Extracted attachable",
-                attachable_keys:
-                  if(is_map(attachable), do: Map.keys(attachable), else: :not_a_map),
-                attachable_id: attachable_id,
-                attachable_structure: inspect(attachable, limit: 200)
+              Logger.info(
+                "[QB Client] upload_attachment: Full response body: #{inspect(response_body, limit: 1000)}"
               )
 
-              if is_nil(attachable_id) do
+              # Check for Fault errors first
+              fault = extract_fault_from_response(data)
+
+              if fault do
+                error_message = format_fault_error(fault)
+
                 Logger.error(
-                  "[QB Client] upload_attachment: Attachable ID is nil in response",
-                  response_data: inspect(data, limit: 200),
-                  extracted_attachable: inspect(attachable, limit: 200)
+                  "[QB Client] upload_attachment: QuickBooks returned a fault error: #{error_message}"
                 )
 
-                {:error, "Attachable ID not found in upload response"}
+                {:error, error_message}
               else
-                Logger.info("Successfully uploaded attachment to QuickBooks",
-                  attachable_id: attachable_id
+                # Try multiple ways to extract the attachable ID
+                # The upload endpoint may return the attachable in different structures
+                attachable_id =
+                  cond do
+                    # Try direct Id field first
+                    Map.has_key?(data, "Id") ->
+                      Map.get(data, "Id")
+
+                    Map.has_key?(data, :Id) ->
+                      Map.get(data, :Id)
+
+                    # Check for AttachableResponse structure FIRST (before get_response_entity)
+                    # This is the most common structure for upload responses:
+                    # %{"AttachableResponse" => [%{"Attachable" => %{"Id" => "..."}}]}
+                    Map.has_key?(data, "AttachableResponse") ->
+                      attachable_response = data["AttachableResponse"]
+
+                      Logger.debug(
+                        "[QB Client] upload_attachment: Checking AttachableResponse structure",
+                        is_list: is_list(attachable_response),
+                        length:
+                          if(is_list(attachable_response),
+                            do: length(attachable_response),
+                            else: :not_list
+                          ),
+                        first_element:
+                          if(is_list(attachable_response) and length(attachable_response) > 0,
+                            do: inspect(List.first(attachable_response), limit: 200),
+                            else: :empty
+                          )
+                      )
+
+                      case attachable_response do
+                        # Pattern: [%{"Attachable" => %{"Id" => id}} | _]
+                        [%{"Attachable" => %{"Id" => id}} | _] ->
+                          Logger.debug(
+                            "[QB Client] upload_attachment: Matched pattern with direct Id extraction",
+                            id: id
+                          )
+
+                          id
+
+                        # Pattern: [%{"Attachable" => attachable_map} | _] where attachable_map is a map
+                        [%{"Attachable" => attachable_map} | _] when is_map(attachable_map) ->
+                          id = Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
+
+                          Logger.debug(
+                            "[QB Client] upload_attachment: Matched pattern with map extraction",
+                            id: id,
+                            attachable_map_keys: Map.keys(attachable_map)
+                          )
+
+                          id
+
+                        # Fallback: try to extract from first element directly
+                        [first_element | _] when is_map(first_element) ->
+                          Logger.debug(
+                            "[QB Client] upload_attachment: Trying to extract from first element",
+                            first_element_keys: Map.keys(first_element)
+                          )
+
+                          # Try nested Attachable key
+                          case Map.get(first_element, "Attachable") do
+                            %{"Id" => id} when is_binary(id) ->
+                              Logger.debug(
+                                "[QB Client] upload_attachment: Found Id in nested Attachable",
+                                id: id
+                              )
+
+                              id
+
+                            attachable_map when is_map(attachable_map) ->
+                              id = Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
+
+                              Logger.debug(
+                                "[QB Client] upload_attachment: Extracted Id from attachable_map",
+                                id: id
+                              )
+
+                              id
+
+                            _ ->
+                              nil
+                          end
+
+                        _ ->
+                          Logger.warning(
+                            "[QB Client] upload_attachment: AttachableResponse structure not recognized",
+                            attachable_response_type: inspect(attachable_response, limit: 200)
+                          )
+
+                          nil
+                      end
+
+                    # Try get_response_entity (standard structure)
+                    true ->
+                      attachable = get_response_entity(data, "Attachable")
+
+                      cond do
+                        # Check if attachable is a map with Id
+                        is_map(attachable) ->
+                          Map.get(attachable, "Id") || Map.get(attachable, :Id)
+
+                        # Check if attachable is a list
+                        is_list(attachable) ->
+                          case attachable do
+                            [%{"Id" => id} | _] -> id
+                            [%{Id: id} | _] -> id
+                            _ -> nil
+                          end
+
+                        # Try other nested structures
+                        true ->
+                          case data do
+                            # AttachableResponse is a map (not a list)
+                            %{"AttachableResponse" => %{"Attachable" => %{"Id" => id}}} ->
+                              id
+
+                            %{"AttachableResponse" => %{"Attachable" => [%{"Id" => id} | _]}} ->
+                              id
+
+                            %{"AttachableResponse" => %{"Attachable" => attachable_map}}
+                            when is_map(attachable_map) ->
+                              Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
+
+                            # AttachableResponse is a map (not a list)
+                            %{"AttachableResponse" => %{"Attachable" => %{"Id" => id}}} ->
+                              id
+
+                            %{"AttachableResponse" => %{"Attachable" => [%{"Id" => id} | _]}} ->
+                              id
+
+                            %{"AttachableResponse" => %{"Attachable" => attachable_map}}
+                            when is_map(attachable_map) ->
+                              Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
+
+                            # Direct Attachable (no AttachableResponse wrapper)
+                            %{"Attachable" => %{"Id" => id}} ->
+                              id
+
+                            %{"Attachable" => [%{"Id" => id} | _]} ->
+                              id
+
+                            %{"Attachable" => attachable_map} when is_map(attachable_map) ->
+                              Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
+
+                            # Check for case-insensitive keys
+                            _ ->
+                              # Try to find any key that contains "id" (case-insensitive)
+                              data
+                              |> Map.to_list()
+                              |> Enum.find_value(fn
+                                {key, value} when is_binary(key) ->
+                                  if String.downcase(key) == "id" do
+                                    value
+                                  else
+                                    nil
+                                  end
+
+                                {key, value} when is_atom(key) ->
+                                  if Atom.to_string(key) |> String.downcase() == "id" do
+                                    value
+                                  else
+                                    nil
+                                  end
+
+                                _ ->
+                                  nil
+                              end)
+                          end
+                      end
+                  end
+
+                Logger.info(
+                  "[QB Client] upload_attachment: Extracted attachable ID: #{inspect(attachable_id)}, Response keys: #{inspect(Map.keys(data))}"
                 )
 
-                {:ok, attachable_id}
+                if is_nil(attachable_id) do
+                  Logger.error(
+                    "[QB Client] upload_attachment: Attachable ID is nil. Response data: #{inspect(data, limit: 2000)}, Response body: #{inspect(response_body, limit: 2000)}, Keys: #{inspect(Map.keys(data))}"
+                  )
+
+                  {:error, "Attachable ID not found in upload response"}
+                else
+                  Logger.info("Successfully uploaded attachment to QuickBooks",
+                    attachable_id: attachable_id
+                  )
+
+                  {:ok, attachable_id}
+                end
               end
 
             {:error, error} ->
@@ -3332,9 +3630,73 @@ defmodule Ysc.Quickbooks.Client do
 
         case Finch.request(request, Ysc.Finch) do
           {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+            Logger.info(
+              "[QB Client] link_attachment_to_bill: Success response received",
+              status: status,
+              response_length: byte_size(response_body)
+            )
+
             case Jason.decode(response_body) do
               {:ok, data} ->
+                Logger.info(
+                  "[QB Client] link_attachment_to_bill: Response data structure",
+                  keys: Map.keys(data),
+                  full_response: inspect(data, limit: 1000)
+                )
+
                 attachable = get_response_entity(data, "Attachable")
+
+                Logger.info(
+                  "[QB Client] link_attachment_to_bill: Extracted attachable",
+                  attachable_keys:
+                    if(is_map(attachable), do: Map.keys(attachable), else: :not_map),
+                  attachable_id:
+                    if(is_map(attachable), do: Map.get(attachable, "Id"), else: :not_map),
+                  attachable_ref:
+                    if(is_map(attachable),
+                      do: Map.get(attachable, "AttachableRef"),
+                      else: :not_map
+                    )
+                )
+
+                # Verify the attachment was linked correctly by checking AttachableRef
+                if is_map(attachable) do
+                  attachable_refs = Map.get(attachable, "AttachableRef", [])
+
+                  Logger.info(
+                    "[QB Client] link_attachment_to_bill: Verifying attachment link",
+                    attachable_refs: inspect(attachable_refs, limit: 500),
+                    expected_bill_id: bill_id
+                  )
+
+                  # Check if the bill is in the AttachableRef list
+                  linked_to_bill =
+                    Enum.any?(attachable_refs, fn ref ->
+                      case ref do
+                        %{"EntityRef" => %{"type" => "Bill", "value" => ref_bill_id}} ->
+                          ref_bill_id == bill_id
+
+                        _ ->
+                          false
+                      end
+                    end)
+
+                  if linked_to_bill do
+                    Logger.info(
+                      "[QB Client] link_attachment_to_bill: ✅ Verified - Attachment is linked to bill",
+                      attachable_id: Map.get(attachable, "Id"),
+                      bill_id: bill_id
+                    )
+                  else
+                    Logger.warning(
+                      "[QB Client] link_attachment_to_bill: ⚠️ Warning - Attachment may not be linked to bill",
+                      attachable_id: Map.get(attachable, "Id"),
+                      expected_bill_id: bill_id,
+                      actual_refs: inspect(attachable_refs, limit: 500)
+                    )
+                  end
+                end
+
                 Logger.info("Successfully linked attachment to Bill")
                 {:ok, attachable}
 

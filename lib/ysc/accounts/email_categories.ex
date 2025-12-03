@@ -23,10 +23,12 @@ defmodule Ysc.Accounts.EmailCategories do
     "membership_payment_reminder_7day" => :account,
     "membership_payment_reminder_30day" => :account,
     "booking_checkin_reminder" => :account,
+    "expense_report_confirmation" => :account,
     # Board/admin notifications (always sent, no user preference check)
     "admin_application_submitted" => :account,
     "conduct_violation_board_notification" => :account,
     "volunteer_board_notification" => :account,
+    "expense_report_treasurer_notification" => :account,
     # Event notifications (can be disabled)
     "ticket_purchase_confirmation" => :account,
     "ticket_order_refund" => :account,

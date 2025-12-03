@@ -16,6 +16,7 @@ defmodule Ysc.ExpenseReports do
   }
 
   alias Ysc.S3Config
+  alias YscWeb.Emails.{Notifier, ExpenseReportConfirmation, ExpenseReportTreasurerNotification}
 
   # Expense Reports
 
@@ -124,7 +125,7 @@ defmodule Ysc.ExpenseReports do
 
     result = Repo.insert(changeset)
 
-    # Enqueue QuickBooks sync job if expense report was created with "submitted" status
+    # Enqueue QuickBooks sync job and send emails if expense report was created with "submitted" status
     case result do
       {:ok, expense_report} ->
         if expense_report.status == "submitted" do
@@ -133,9 +134,10 @@ defmodule Ysc.ExpenseReports do
           )
 
           enqueue_quickbooks_sync(expense_report)
+          send_expense_report_emails(expense_report)
         else
           Logger.debug(
-            "Expense report created with status: #{expense_report.status}, skipping QuickBooks sync",
+            "Expense report created with status: #{expense_report.status}, skipping QuickBooks sync and emails",
             expense_report_id: expense_report.id
           )
         end
@@ -315,6 +317,258 @@ defmodule Ysc.ExpenseReports do
         Logger.error("Failed to mark expense report as pending sync",
           expense_report_id: expense_report.id,
           errors: inspect(changeset.errors)
+        )
+    end
+  end
+
+  defp send_expense_report_emails(%ExpenseReport{} = expense_report) do
+    require Logger
+
+    # Ensure expense report has an ID (must be saved to database)
+    if is_nil(expense_report.id) do
+      Logger.warning("Cannot send emails for expense report without ID",
+        expense_report: inspect(expense_report, limit: 100)
+      )
+
+      :ok
+    else
+      # Reload expense report with all necessary associations for email
+      # This ensures we have fresh data from the database
+      case Repo.get(ExpenseReport, expense_report.id)
+           |> Repo.preload([
+             :user,
+             :expense_items,
+             :income_items,
+             :event,
+             :bank_account,
+             :address
+           ]) do
+        nil ->
+          Logger.error("Expense report not found in database when sending emails",
+            expense_report_id: expense_report.id
+          )
+
+          :ok
+
+        loaded_report ->
+          # Validate that we have required associations
+          if is_nil(loaded_report.user) do
+            Logger.error("Cannot send emails: expense report missing user association",
+              expense_report_id: loaded_report.id
+            )
+
+            :ok
+          else
+            send_expense_report_emails_impl(loaded_report)
+          end
+      end
+    end
+  end
+
+  defp send_expense_report_emails_impl(%ExpenseReport{} = expense_report) do
+    require Logger
+
+    Logger.info("send_expense_report_emails_impl: Starting email sending",
+      expense_report_id: expense_report.id,
+      user_id: expense_report.user_id,
+      user_loaded: Ecto.assoc_loaded?(expense_report.user),
+      expense_items_count:
+        if(Ecto.assoc_loaded?(expense_report.expense_items),
+          do: length(expense_report.expense_items),
+          else: :not_loaded
+        ),
+      income_items_count:
+        if(Ecto.assoc_loaded?(expense_report.income_items),
+          do: length(expense_report.income_items),
+          else: :not_loaded
+        )
+    )
+
+    # Send confirmation email to user
+    try do
+      Logger.info("send_expense_report_emails_impl: Preparing confirmation email data",
+        expense_report_id: expense_report.id,
+        user_email: if(expense_report.user, do: expense_report.user.email, else: nil)
+      )
+
+      email_data = ExpenseReportConfirmation.prepare_email_data(expense_report)
+
+      Logger.info("send_expense_report_emails_impl: Email data prepared",
+        expense_report_id: expense_report.id,
+        email_data_keys: Map.keys(email_data),
+        email_data_expense_report_keys:
+          if(Map.has_key?(email_data, :expense_report),
+            do: Map.keys(email_data.expense_report),
+            else: :not_present
+          ),
+        email_data_first_name: Map.get(email_data, :first_name),
+        expense_items_count:
+          if(
+            Map.has_key?(email_data, :expense_report) &&
+              Map.has_key?(email_data.expense_report, :expense_items),
+            do: length(email_data.expense_report.expense_items),
+            else: :not_present
+          )
+      )
+
+      subject = ExpenseReportConfirmation.get_subject()
+      idempotency_key = "expense_report_confirmation_#{expense_report.id}"
+
+      template_name = ExpenseReportConfirmation.get_template_name()
+
+      Logger.info("send_expense_report_emails_impl: Calling Notifier.schedule_email",
+        expense_report_id: expense_report.id,
+        recipient: expense_report.user.email,
+        subject: subject,
+        idempotency_key: idempotency_key,
+        template_name: template_name,
+        template_module: inspect(ExpenseReportConfirmation),
+        user_id: expense_report.user.id,
+        email_data_type: inspect(email_data, limit: 200),
+        email_data_keys: Map.keys(email_data)
+      )
+
+      result =
+        Notifier.schedule_email(
+          expense_report.user.email,
+          idempotency_key,
+          subject,
+          template_name,
+          email_data,
+          "",
+          expense_report.user.id
+        )
+
+      case result do
+        {:error, _reason} ->
+          Logger.warning("Failed to schedule expense report confirmation email",
+            expense_report_id: expense_report.id,
+            recipient: expense_report.user.email,
+            result: inspect(result, limit: 100)
+          )
+
+        _ ->
+          Logger.debug("Scheduled expense report confirmation email",
+            expense_report_id: expense_report.id,
+            recipient: expense_report.user.email
+          )
+      end
+    rescue
+      e ->
+        exception_type = e.__struct__
+        exception_message = Exception.message(e)
+        stacktrace = Exception.format_stacktrace(__STACKTRACE__)
+
+        Logger.error(
+          "send_expense_report_emails_impl: Failed to schedule expense report confirmation email - #{exception_type}: #{exception_message}\n\nStacktrace:\n#{stacktrace}",
+          expense_report_id: expense_report.id,
+          exception_type: inspect(exception_type),
+          exception_message: exception_message,
+          exception: inspect(e, limit: :infinity),
+          stacktrace: stacktrace,
+          user_email: if(expense_report.user, do: expense_report.user.email, else: nil),
+          user_id: if(expense_report.user, do: expense_report.user.id, else: nil)
+        )
+    end
+
+    # Send notification email to Treasurer
+    try do
+      Logger.info("send_expense_report_emails_impl: Querying for treasurer",
+        expense_report_id: expense_report.id
+      )
+
+      treasurer =
+        from(u in User, where: u.board_position == "treasurer" and u.state == :active)
+        |> Repo.one()
+
+      Logger.info("send_expense_report_emails_impl: Treasurer query result",
+        expense_report_id: expense_report.id,
+        treasurer_found: !is_nil(treasurer),
+        treasurer_email: if(treasurer, do: treasurer.email, else: nil),
+        treasurer_id: if(treasurer, do: treasurer.id, else: nil)
+      )
+
+      if treasurer do
+        Logger.info(
+          "send_expense_report_emails_impl: Preparing treasurer notification email data",
+          expense_report_id: expense_report.id,
+          treasurer_email: treasurer.email
+        )
+
+        email_data = ExpenseReportTreasurerNotification.prepare_email_data(expense_report)
+
+        Logger.info("send_expense_report_emails_impl: Treasurer email data prepared",
+          expense_report_id: expense_report.id,
+          email_data_keys: Map.keys(email_data),
+          email_data_expense_report_keys:
+            if(Map.has_key?(email_data, :expense_report),
+              do: Map.keys(email_data.expense_report),
+              else: :not_present
+            ),
+          email_data_user_keys:
+            if(Map.has_key?(email_data, :user), do: Map.keys(email_data.user), else: :not_present)
+        )
+
+        subject = ExpenseReportTreasurerNotification.get_subject()
+        idempotency_key = "expense_report_treasurer_notification_#{expense_report.id}"
+        template_name = ExpenseReportTreasurerNotification.get_template_name()
+
+        Logger.info(
+          "send_expense_report_emails_impl: Calling Notifier.schedule_email for treasurer",
+          expense_report_id: expense_report.id,
+          recipient: treasurer.email,
+          subject: subject,
+          idempotency_key: idempotency_key,
+          template_name: template_name,
+          template_module: inspect(ExpenseReportTreasurerNotification),
+          user_id: nil,
+          email_data_type: inspect(email_data, limit: 200),
+          email_data_keys: Map.keys(email_data)
+        )
+
+        result =
+          Notifier.schedule_email(
+            treasurer.email,
+            idempotency_key,
+            subject,
+            template_name,
+            email_data,
+            "",
+            nil
+          )
+
+        case result do
+          {:error, _reason} ->
+            Logger.warning("Failed to schedule expense report treasurer notification email",
+              expense_report_id: expense_report.id,
+              recipient: treasurer.email,
+              result: inspect(result, limit: 100)
+            )
+
+          _ ->
+            Logger.debug("Scheduled expense report treasurer notification email",
+              expense_report_id: expense_report.id,
+              recipient: treasurer.email
+            )
+        end
+      else
+        Logger.warning("No active treasurer found, skipping treasurer notification email",
+          expense_report_id: expense_report.id
+        )
+      end
+    rescue
+      e ->
+        exception_type = e.__struct__
+        exception_message = Exception.message(e)
+        stacktrace = Exception.format_stacktrace(__STACKTRACE__)
+
+        Logger.error(
+          "send_expense_report_emails_impl: Failed to schedule expense report treasurer notification email - #{exception_type}: #{exception_message}\n\nStacktrace:\n#{stacktrace}",
+          expense_report_id: expense_report.id,
+          exception_type: inspect(exception_type),
+          exception_message: exception_message,
+          exception: inspect(e, limit: :infinity),
+          stacktrace: stacktrace
         )
     end
   end

@@ -60,6 +60,24 @@ defmodule Ysc.Messages do
                 error: inspect(error)
               )
 
+              # Report to Sentry with detailed context
+              Sentry.capture_message("Mailer.deliver failed",
+                level: :error,
+                extra: %{
+                  recipient: email_recipient_to_string(email.to),
+                  idempotency_key: attrs[:idempotency_key],
+                  message_template: attrs[:message_template],
+                  user_id: attrs[:user_id],
+                  email_subject: email.subject,
+                  error: inspect(error, limit: :infinity)
+                },
+                tags: %{
+                  email_template: attrs[:message_template] || "unknown",
+                  error_type: "mailer_deliver_failed",
+                  has_user_id: !is_nil(attrs[:user_id])
+                }
+              )
+
               repo.rollback({:error, "failed to send email"})
               {:error, "failed to send email"}
           end
@@ -115,6 +133,26 @@ defmodule Ysc.Messages do
             reason: inspect(reason)
           )
 
+          # Report to Sentry with detailed context
+          Sentry.capture_message("Email transaction failed",
+            level: :error,
+            extra: %{
+              recipient: email_recipient_to_string(email.to),
+              idempotency_key: attrs[:idempotency_key],
+              message_template: attrs[:message_template],
+              user_id: attrs[:user_id],
+              email_subject: email.subject,
+              operation: to_string(operation),
+              reason: inspect(reason, limit: :infinity)
+            },
+            tags: %{
+              email_template: attrs[:message_template] || "unknown",
+              error_type: "email_transaction_failed",
+              operation: to_string(operation),
+              has_user_id: !is_nil(attrs[:user_id])
+            }
+          )
+
           # Emit telemetry event for email send failure
           :telemetry.execute(
             [:ysc, :email, :send_failed],
@@ -135,6 +173,24 @@ defmodule Ysc.Messages do
             recipient: email.to,
             idempotency_key: attrs[:idempotency_key],
             error: inspect(error)
+          )
+
+          # Report to Sentry with detailed context
+          Sentry.capture_message("Email transaction failed with unexpected error",
+            level: :error,
+            extra: %{
+              recipient: email_recipient_to_string(email.to),
+              idempotency_key: attrs[:idempotency_key],
+              message_template: attrs[:message_template],
+              user_id: attrs[:user_id],
+              email_subject: email.subject,
+              error: inspect(error, limit: :infinity)
+            },
+            tags: %{
+              email_template: attrs[:message_template] || "unknown",
+              error_type: "email_transaction_unexpected_error",
+              has_user_id: !is_nil(attrs[:user_id])
+            }
           )
 
           # Emit telemetry event for email send failure
@@ -192,6 +248,25 @@ defmodule Ysc.Messages do
               error: inspect(error)
             )
 
+            # Report to Sentry with detailed context
+            Sentry.capture_exception(error,
+              extra: %{
+                recipient: email_recipient_to_string(email.to),
+                idempotency_key: attrs[:idempotency_key],
+                message_template: attrs[:message_template],
+                user_id: attrs[:user_id],
+                email_subject: email.subject,
+                constraint: constraint_string,
+                constraint_type: error.type
+              },
+              tags: %{
+                email_template: attrs[:message_template] || "unknown",
+                error_type: "unique_constraint_error",
+                constraint: constraint_string,
+                has_user_id: !is_nil(attrs[:user_id])
+              }
+            )
+
             # Emit telemetry event for email send failure
             :telemetry.execute(
               [:ysc, :email, :send_failed],
@@ -216,6 +291,25 @@ defmodule Ysc.Messages do
             error: inspect(error)
           )
 
+          # Report to Sentry with detailed context
+          Sentry.capture_exception(error,
+            extra: %{
+              recipient: email_recipient_to_string(email.to),
+              idempotency_key: attrs[:idempotency_key],
+              message_template: attrs[:message_template],
+              user_id: attrs[:user_id],
+              email_subject: email.subject,
+              constraint: to_string(error.constraint),
+              constraint_type: error.type
+            },
+            tags: %{
+              email_template: attrs[:message_template] || "unknown",
+              error_type: "constraint_error",
+              constraint: to_string(error.constraint),
+              has_user_id: !is_nil(attrs[:user_id])
+            }
+          )
+
           # Emit telemetry event for email send failure
           :telemetry.execute(
             [:ysc, :email, :send_failed],
@@ -238,6 +332,25 @@ defmodule Ysc.Messages do
           idempotency_key: attrs[:idempotency_key],
           error: inspect(error),
           stacktrace: Exception.format_stacktrace(__STACKTRACE__)
+        )
+
+        # Report exception to Sentry with full context
+        Sentry.capture_exception(error,
+          stacktrace: __STACKTRACE__,
+          extra: %{
+            recipient: email_recipient_to_string(email.to),
+            idempotency_key: attrs[:idempotency_key],
+            message_template: attrs[:message_template],
+            user_id: attrs[:user_id],
+            email_subject: email.subject,
+            error_type: inspect(error.__struct__),
+            error_message: Exception.message(error)
+          },
+          tags: %{
+            email_template: attrs[:message_template] || "unknown",
+            error_type: "email_transaction_exception",
+            has_user_id: !is_nil(attrs[:user_id])
+          }
         )
 
         # Emit telemetry event for email send failure

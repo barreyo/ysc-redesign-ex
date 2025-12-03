@@ -81,68 +81,80 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
         {:error, :expense_report_not_found}
 
       {:ok, expense_report} ->
-        # Check if already synced (double-check after acquiring lock)
-        # This prevents duplicate exports if the report was synced between job creation and execution
-        cond do
-          expense_report.quickbooks_sync_status == "synced" &&
-              expense_report.quickbooks_bill_id ->
-            Logger.info("Expense report already synced to QuickBooks (checked after lock)",
-              expense_report_id: expense_report_id,
-              bill_id: expense_report.quickbooks_bill_id
-            )
+        # Idempotency check: If bill_id exists, don't sync again (prevents duplicate bills)
+        # This check happens after acquiring the lock to ensure we have the latest data
+        if expense_report.quickbooks_bill_id do
+          Logger.info(
+            "Expense report already has QuickBooks bill ID, skipping sync (idempotency)",
+            expense_report_id: expense_report_id,
+            bill_id: expense_report.quickbooks_bill_id,
+            sync_status: expense_report.quickbooks_sync_status
+          )
 
-            :ok
-
-          # Allow retry for "failed" status, but skip other unexpected statuses
-          expense_report.quickbooks_sync_status != "pending" &&
-            expense_report.quickbooks_sync_status != "failed" &&
-              expense_report.quickbooks_sync_status != nil ->
-            Logger.warning("Expense report has unexpected sync status, skipping",
-              expense_report_id: expense_report_id,
-              sync_status: expense_report.quickbooks_sync_status
-            )
-
-            :ok
-
-          true ->
-            # If status is "failed", log that we're retrying
-            if expense_report.quickbooks_sync_status == "failed" do
-              Logger.info("Retrying QuickBooks sync for previously failed expense report",
+          :ok
+        else
+          # Check if already synced (double-check after acquiring lock)
+          # This prevents duplicate exports if the report was synced between job creation and execution
+          cond do
+            expense_report.quickbooks_sync_status == "synced" ->
+              Logger.info("Expense report already synced to QuickBooks (checked after lock)",
                 expense_report_id: expense_report_id,
-                previous_error: expense_report.quickbooks_sync_error
+                sync_status: expense_report.quickbooks_sync_status
               )
-            end
 
-            case QuickbooksSync.sync_expense_report(expense_report) do
-              {:ok, bill} ->
-                Logger.info("Successfully synced expense report to QuickBooks",
+              :ok
+
+            # Allow retry for "failed" status, but skip other unexpected statuses
+            expense_report.quickbooks_sync_status != "pending" &&
+              expense_report.quickbooks_sync_status != "failed" &&
+                expense_report.quickbooks_sync_status != nil ->
+              Logger.warning("Expense report has unexpected sync status, skipping",
+                expense_report_id: expense_report_id,
+                sync_status: expense_report.quickbooks_sync_status
+              )
+
+              :ok
+
+            true ->
+              # If status is "failed", log that we're retrying
+              if expense_report.quickbooks_sync_status == "failed" do
+                Logger.info("Retrying QuickBooks sync for previously failed expense report",
                   expense_report_id: expense_report_id,
-                  bill_id: Map.get(bill, "Id")
+                  previous_error: expense_report.quickbooks_sync_error
                 )
+              end
 
-                :ok
+              case QuickbooksSync.sync_expense_report(expense_report) do
+                {:ok, bill} ->
+                  Logger.info("Successfully synced expense report to QuickBooks",
+                    expense_report_id: expense_report_id,
+                    bill_id: Map.get(bill, "Id")
+                  )
 
-              {:error, reason} ->
-                Logger.error("Failed to sync expense report to QuickBooks",
-                  expense_report_id: expense_report_id,
-                  error: inspect(reason)
-                )
+                  :ok
 
-                Sentry.capture_message("QuickBooks expense report sync worker failed",
-                  level: :error,
-                  extra: %{
+                {:error, reason} ->
+                  Logger.error("Failed to sync expense report to QuickBooks",
                     expense_report_id: expense_report_id,
                     error: inspect(reason)
-                  },
-                  tags: %{
-                    quickbooks_worker: "sync_expense_report",
-                    error_type: "sync_failed"
-                  }
-                )
+                  )
 
-                # Oban will retry based on max_attempts
-                {:error, reason}
-            end
+                  Sentry.capture_message("QuickBooks expense report sync worker failed",
+                    level: :error,
+                    extra: %{
+                      expense_report_id: expense_report_id,
+                      error: inspect(reason)
+                    },
+                    tags: %{
+                      quickbooks_worker: "sync_expense_report",
+                      error_type: "sync_failed"
+                    }
+                  )
+
+                  # Oban will retry based on max_attempts
+                  {:error, reason}
+              end
+          end
         end
 
       {:error, %Postgrex.Error{postgres: %{code: :lock_not_available}}} ->

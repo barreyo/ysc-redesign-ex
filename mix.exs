@@ -58,6 +58,7 @@ defmodule Ysc.MixProject do
       {:ex_cldr, "~> 2.44"},
       {:ex_money_sql, "~> 1.0"},
       {:ex_phone_number, "~> 0.4"},
+      {:file_type, "~> 0.1.0"},
       {:finch, "~> 0.17"},
       {:floki, ">= 0.30.0"},
       {:flop_phoenix, "~> 0.22.7"},

@@ -42,6 +42,9 @@ defmodule Ysc.ExpenseReports.ExpenseReport do
   Creates a changeset for an expense report.
   """
   def changeset(expense_report, attrs, opts \\ []) do
+    # Normalize empty string to nil for event_id before casting
+    attrs = normalize_event_id_in_attrs(attrs)
+
     expense_report
     |> cast(attrs, [
       :user_id,
@@ -67,19 +70,34 @@ defmodule Ysc.ExpenseReports.ExpenseReport do
     |> cast_assoc(:income_items, with: &ExpenseReportIncomeItem.changeset/2)
     |> validate_all_expense_items_have_receipts()
     |> validate_certification_accepted()
-    |> normalize_event_id()
   end
 
-  # Convert empty string to nil for event_id (common in form submissions)
-  defp normalize_event_id(changeset) do
-    event_id = Ecto.Changeset.get_field(changeset, :event_id)
+  # Normalize empty string to nil for event_id in attrs before casting
+  # This prevents validation errors when the select dropdown sends "" instead of nil
+  defp normalize_event_id_in_attrs(attrs) when is_map(attrs) do
+    # Check both string and atom keys, but only normalize the key type that exists
+    event_id_string = Map.get(attrs, "event_id")
+    event_id_atom = Map.get(attrs, :event_id)
+    event_id_value = event_id_string || event_id_atom
 
-    if event_id == "" do
-      Ecto.Changeset.put_change(changeset, :event_id, nil)
+    if event_id_value == "" do
+      # Only set the key type that already exists, or default to string if neither exists
+      cond do
+        Map.has_key?(attrs, "event_id") ->
+          Map.put(attrs, "event_id", nil)
+
+        Map.has_key?(attrs, :event_id) ->
+          Map.put(attrs, :event_id, nil)
+
+        true ->
+          Map.put(attrs, "event_id", nil)
+      end
     else
-      changeset
+      attrs
     end
   end
+
+  defp normalize_event_id_in_attrs(attrs), do: attrs
 
   defp validate_all_expense_items_have_receipts(changeset) do
     expense_items = Ecto.Changeset.get_field(changeset, :expense_items, [])

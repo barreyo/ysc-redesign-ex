@@ -260,6 +260,12 @@ if config_env() == :prod do
 
   # Configure ExAws for S3 access to Tigris
   # Following Tigris documentation format
+  # IMPORTANT: These credentials are used for ALL S3 operations including:
+  # - Media bucket uploads/downloads
+  # - Expense reports bucket uploads/downloads
+  # Ensure AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY have appropriate permissions:
+  # - Read/Write access to the media bucket
+  # - Read/Write access to the expense-reports bucket
   config :ex_aws,
     debug_requests: false,
     json_codec: Jason,

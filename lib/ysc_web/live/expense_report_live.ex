@@ -130,6 +130,7 @@ defmodule YscWeb.ExpenseReportLive do
 
     expense_report_params =
       merge_existing_items_into_params(expense_report_params, current_changeset)
+      |> normalize_params_keys()
 
     # Build changeset from params
     changeset =
@@ -152,6 +153,9 @@ defmodule YscWeb.ExpenseReportLive do
     # Custom recovery handler for form recovery after crash/disconnection
     # This ensures nested items and form state are properly restored
     user = socket.assigns.current_user
+
+    # Normalize params to ensure all keys are strings (not mixed atoms/strings)
+    expense_report_params = normalize_params_keys(expense_report_params)
 
     # Rebuild the expense report from params, ensuring we have at least one expense item
     expense_items = build_expense_items_from_params(expense_report_params["expense_items"] || %{})
@@ -200,6 +204,48 @@ defmodule YscWeb.ExpenseReportLive do
      socket
      |> assign(:form, to_form(new_changeset))
      |> assign(:totals, totals)}
+  end
+
+  def handle_event("clear_event", _params, socket) do
+    changeset = socket.assigns.form.source
+    expense_report = socket.assigns.expense_report
+
+    # Update the expense_report struct first
+    updated_expense_report = %{expense_report | event_id: nil}
+
+    # Extract only simple field changes (not associations) and convert to string keys
+    # Associations (expense_items, income_items) are handled by the data struct, not changes
+    # Build a clean map with only string keys to avoid mixed key errors
+    simple_field_changes =
+      changeset.changes
+      |> Enum.filter(fn
+        {:expense_items, _} -> false
+        {"expense_items", _} -> false
+        {:income_items, _} -> false
+        {"income_items", _} -> false
+        # We'll set this explicitly below
+        {:event_id, _} -> false
+        # We'll set this explicitly below
+        {"event_id", _} -> false
+        _ -> true
+      end)
+      |> Enum.map(fn
+        {key, value} when is_atom(key) -> {Atom.to_string(key), normalize_params_keys(value)}
+        {key, value} -> {key, normalize_params_keys(value)}
+      end)
+      |> Enum.into(%{})
+      |> Map.put("event_id", "")
+
+    # Rebuild changeset from updated expense_report with string-key params
+    new_changeset =
+      updated_expense_report
+      |> ExpenseReport.changeset(simple_field_changes)
+      |> Map.put(:action, :validate)
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(new_changeset))
+     |> assign(:expense_report, updated_expense_report)}
   end
 
   def handle_event("remove_expense_item", %{"index" => index}, socket) do
@@ -549,6 +595,7 @@ defmodule YscWeb.ExpenseReportLive do
 
       expense_report_params =
         merge_existing_items_into_params(expense_report_params, current_changeset)
+        |> normalize_params_keys()
         |> Map.put("status", "submitted")
 
       Logger.debug(
@@ -785,6 +832,31 @@ defmodule YscWeb.ExpenseReportLive do
 
   defp get_field_from_item(_, _), do: nil
 
+  # Normalize all keys in params to strings to avoid mixed key errors
+  # This recursively converts all atom keys to string keys
+  defp normalize_params_keys(params) when is_map(params) do
+    # First, separate atom keys and string keys
+    {atom_keys, string_keys} =
+      Enum.split_with(params, fn {key, _value} -> is_atom(key) end)
+
+    # Convert atom keys to strings and merge with string keys
+    converted_atom_keys =
+      atom_keys
+      |> Enum.map(fn {key, value} -> {Atom.to_string(key), normalize_params_keys(value)} end)
+      |> Enum.into(%{})
+
+    # Convert string keys (recursively normalize nested values)
+    converted_string_keys =
+      string_keys
+      |> Enum.map(fn {key, value} -> {key, normalize_params_keys(value)} end)
+      |> Enum.into(%{})
+
+    # Merge, with string keys taking precedence (in case of duplicates)
+    Map.merge(converted_atom_keys, converted_string_keys)
+  end
+
+  defp normalize_params_keys(value), do: value
+
   defp format_date_for_input(nil), do: ""
   defp format_date_for_input(%Date{} = date), do: Date.to_string(date)
   defp format_date_for_input(_), do: ""
@@ -1014,7 +1086,7 @@ defmodule YscWeb.ExpenseReportLive do
           </div>
           <div class="px-6 py-4 space-y-4">
             <div>
-              <dt class="text-sm font-medium text-zinc-500">Purpose/Event</dt>
+              <dt class="text-sm font-medium text-zinc-500">Purpose</dt>
               <dd class="mt-1 text-sm text-zinc-900"><%= @expense_report.purpose %></dd>
             </div>
             <%= if @expense_report.event do %>
@@ -1234,29 +1306,49 @@ defmodule YscWeb.ExpenseReportLive do
             <.input
               field={@form[:purpose]}
               type="textarea"
-              label="Purpose/Event"
+              label="Purpose"
               placeholder="What is the purpose of this expense report?"
               required
             />
 
             <div class="mt-4">
-              <.input
-                field={@form[:event_id]}
-                type="select"
-                label="Related Event (Optional)"
-                options={[
-                  {"", "None - Not related to an event"}
-                  | Enum.map(@events, fn event ->
-                      label =
-                        "#{event.title} - #{Calendar.strftime(event.start_date, "%B %d, %Y")}"
+              <label
+                for="expense_report_event_id"
+                class="block text-sm font-semibold leading-6 text-zinc-800"
+              >
+                Related Event (Optional)
+              </label>
+              <div class="flex items-center gap-2 mt-2">
+                <div>
+                  <.input
+                    field={@form[:event_id]}
+                    type="select"
+                    label=""
+                    options={[
+                      {"None - Not related to an event", ""}
+                      | Enum.map(@events, fn event ->
+                          label =
+                            "#{event.title} - #{Calendar.strftime(event.start_date, "%B %d, %Y")}"
 
-                      {label, event.id}
-                    end)
-                ]}
-              />
+                          {label, event.id}
+                        end)
+                    ]}
+                  />
+                </div>
+                <%= if Ecto.Changeset.get_field(@form.source, :event_id) do %>
+                  <button
+                    type="button"
+                    phx-click="clear_event"
+                    class="px-2 py-2 text-sm font-medium text-red-600 hover:text-red-800 border border-red-300 rounded-md hover:bg-red-50 h-10 flex items-center justify-center shrink-0"
+                    title="Clear event selection"
+                  >
+                    <.icon name="hero-x-mark" class="w-4 h-4" />
+                  </button>
+                <% end %>
+              </div>
               <p class="mt-1 text-sm text-zinc-500">
                 If this expense report relates to an event, please select it to help with reporting.
-                You can select events from the last 3 months or upcoming events.
+                You can select from recent or upcoming events.
               </p>
             </div>
 
