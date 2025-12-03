@@ -387,16 +387,14 @@ defmodule YscWeb.AdminMediaLive do
     require Logger
     Logger.debug("handle_params called with params: #{inspect(params)}, uri: #{inspect(uri)}")
 
-    # Parse query parameters from URI to get all params (year, scroll, etc.)
+    # Parse query parameters from URI to get year param
     query_params = parse_query_params_from_uri(params, uri)
     year_param = query_params["year"] || query_params[:year]
-    scroll_param = query_params["scroll"] || query_params[:scroll]
 
     # Store current URL parameters in assigns for use when building return URLs
     socket = assign(socket, :url_year_param, year_param)
-    socket = assign(socket, :url_scroll_param, scroll_param)
 
-    Logger.debug("Year param: #{inspect(year_param)}, scroll param: #{inspect(scroll_param)}")
+    Logger.debug("Year param: #{inspect(year_param)}")
 
     # Load images based on year param, even when on edit route
     # But only load if stream is empty or year has changed
@@ -462,7 +460,6 @@ defmodule YscWeb.AdminMediaLive do
         end
       end
 
-    # Scroll restoration is handled by JavaScript hook from URL param
     {:noreply, socket}
   end
 
@@ -670,29 +667,17 @@ defmodule YscWeb.AdminMediaLive do
   end
 
   @impl true
-  def handle_event(
-        "save-scroll-position",
-        %{"value" => %{"year" => _year, "scroll" => _scroll}},
-        socket
-      ) do
-    # JavaScript hook updates the URL with scroll position before navigation
-    # We can also update assigns here if needed
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("save-scroll-position", %{"value" => %{"year" => _year}}, socket) do
-    # Fallback for older format
-    {:noreply, socket}
-  end
-
-  def handle_event("save-scroll-position", _params, socket) do
-    # Fallback if no value provided
-    {:noreply, socket}
-  end
-
   def handle_event("load-more", _params, socket) do
-    if not socket.assigns.end_of_timeline? do
+    require Logger
+
+    # Safety check: ensure we have images in the stream before trying to load more
+    current_count = Enum.count(socket.assigns.streams.images.inserts)
+
+    Logger.debug(
+      "Load-more: current stream count: #{current_count}, end_of_timeline: #{socket.assigns.end_of_timeline?}"
+    )
+
+    if not socket.assigns.end_of_timeline? and current_count > 0 do
       # Get the last image's inserted_at as cursor (skip headers)
       last_image_date =
         socket.assigns.streams.images.inserts
@@ -703,33 +688,112 @@ defmodule YscWeb.AdminMediaLive do
           {_id, _at, image, _meta} -> image.inserted_at
         end
 
+      Logger.debug(
+        "Load-more: last_image_date=#{inspect(last_image_date)}, selected_year=#{inspect(socket.assigns.selected_year)}"
+      )
+
       new_images =
         if last_image_date do
-          Media.list_images_cursor(before_date: last_image_date, limit: socket.assigns.per_page)
+          # If a year filter is active, load images from that year only
+          if socket.assigns.selected_year do
+            year = socket.assigns.selected_year
+            start_date = DateTime.new!(Date.new!(year, 1, 1), ~T[00:00:00], "Etc/UTC")
+            end_date = DateTime.new!(Date.new!(year, 12, 31), ~T[23:59:59], "Etc/UTC")
+
+            images =
+              Repo.all(
+                from i in Media.Image,
+                  where:
+                    i.inserted_at >= ^start_date and i.inserted_at <= ^end_date and
+                      i.inserted_at < ^last_image_date,
+                  order_by: [desc: i.inserted_at, desc: i.id],
+                  limit: ^socket.assigns.per_page
+              )
+
+            Logger.debug("Load-more: loaded #{length(images)} images for year #{year}")
+            images
+          else
+            images =
+              Media.list_images_cursor(
+                before_date: last_image_date,
+                limit: socket.assigns.per_page
+              )
+
+            Logger.debug("Load-more: loaded #{length(images)} images (no year filter)")
+            images
+          end
         else
+          Logger.warning("Load-more: no last_image_date found, cannot load more")
           []
         end
 
       case new_images do
         [] ->
+          Logger.debug("Load-more: no new images, marking end_of_timeline")
           {:noreply, assign(socket, :end_of_timeline?, true)}
 
         [_ | _] = new_images ->
-          # Inject date headers
-          stream_items = Timeline.inject_date_headers(new_images)
-          # Extract years from new images and update
-          new_years = Enum.map(new_images, fn image -> image.inserted_at.year end) |> MapSet.new()
-          existing_years = Map.get(socket.assigns, :years_set, MapSet.new())
-          updated_years = MapSet.union(existing_years, new_years)
+          # Get the last image (not header) to determine if we need a new header
+          last_existing_image_date =
+            socket.assigns.streams.images.inserts
+            |> Enum.filter(fn {_id, _at, item, _meta} -> match?(%Media.Image{}, item) end)
+            |> List.last()
+            |> case do
+              nil -> nil
+              {_id, _at, image, _meta} -> image.inserted_at
+            end
 
-          {:noreply,
-           socket
-           |> assign(:end_of_timeline?, length(new_images) < socket.assigns.per_page)
-           |> assign(:years_set, updated_years)
-           |> update_years_from_stream()
-           |> stream(:images, stream_items, at: -1)}
+          # Only inject headers if we're starting a new month
+          # Check if the first new image is in a different month than the last image
+          first_new_image_date = List.first(new_images).inserted_at
+
+          needs_header =
+            case last_existing_image_date do
+              nil ->
+                true
+
+              last_date ->
+                last_date.year != first_new_image_date.year ||
+                  last_date.month != first_new_image_date.month
+            end
+
+          # Only proceed if we have items to add
+          if Enum.any?(new_images) do
+            stream_items =
+              if needs_header do
+                Timeline.inject_date_headers(new_images)
+              else
+                # No header needed, just add the images
+                new_images
+              end
+
+            Logger.debug(
+              "Load-more: adding #{length(stream_items)} items to stream (needs_header: #{needs_header})"
+            )
+
+            # Extract years from new images and update
+            new_years =
+              Enum.map(new_images, fn image -> image.inserted_at.year end) |> MapSet.new()
+
+            existing_years = Map.get(socket.assigns, :years_set, MapSet.new())
+            updated_years = MapSet.union(existing_years, new_years)
+
+            # Make sure we're appending, not resetting
+            # Use dom_id to ensure proper stream tracking
+            # Only stream if we have items
+            {:noreply,
+             socket
+             |> assign(:end_of_timeline?, length(new_images) < socket.assigns.per_page)
+             |> assign(:years_set, updated_years)
+             |> update_years_from_stream()
+             |> stream(:images, stream_items, at: -1, dom_id: &get_dom_id/1)}
+          else
+            Logger.warning("Load-more: new_images list is empty, marking end_of_timeline")
+            {:noreply, assign(socket, :end_of_timeline?, true)}
+          end
       end
     else
+      Logger.debug("Load-more: end_of_timeline is true, ignoring")
       {:noreply, socket}
     end
   end
@@ -745,7 +809,7 @@ defmodule YscWeb.AdminMediaLive do
     new_years = Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
     years_list = new_years |> MapSet.to_list() |> Enum.sort(:desc)
 
-    # Update URL with year parameter (preserve scroll if it exists)
+    # Update URL with year parameter
     socket =
       socket
       # Set the selected year to maintain filter state
@@ -757,7 +821,7 @@ defmodule YscWeb.AdminMediaLive do
       |> stream(:images, stream_items, reset: true, dom_id: &get_dom_id/1)
       |> update_years_from_stream()
 
-    # Build URL with year parameter (preserve scroll if it exists)
+    # Build URL with year parameter
     url = build_media_url_with_state(socket)
 
     socket =
@@ -867,26 +931,8 @@ defmodule YscWeb.AdminMediaLive do
           nil
       end
 
-    scroll =
-      case assigns[:url_scroll_param] do
-        nil ->
-          nil
-
-        scroll_val when is_binary(scroll_val) ->
-          # Decode if encoded
-          try do
-            URI.decode(scroll_val)
-          rescue
-            _ -> scroll_val
-          end
-
-        scroll_val ->
-          to_string(scroll_val)
-      end
-
     query_params = []
     query_params = if year, do: [{"year", year} | query_params], else: query_params
-    query_params = if scroll, do: [{"scroll", scroll} | query_params], else: query_params
 
     base_path = ~p"/admin/media"
 
@@ -920,31 +966,8 @@ defmodule YscWeb.AdminMediaLive do
           nil
       end
 
-    # Include scroll if available (from URL or will be set by JavaScript)
-    # Try to read from current URL if not in assigns (JavaScript may have updated it)
-    scroll =
-      case assigns[:url_scroll_param] do
-        nil ->
-          # Try to read from current browser URL via JavaScript
-          # For now, we'll rely on JavaScript to update the URL before navigation
-          # But we can also try to get it from the socket's current URI if available
-          nil
-
-        scroll_val when is_binary(scroll_val) ->
-          # Decode if encoded
-          try do
-            URI.decode(scroll_val)
-          rescue
-            _ -> scroll_val
-          end
-
-        scroll_val ->
-          to_string(scroll_val)
-      end
-
     query_params = []
     query_params = if year, do: [{"year", year} | query_params], else: query_params
-    query_params = if scroll, do: [{"scroll", scroll} | query_params], else: query_params
 
     base_path = ~p"/admin/media/upload/#{image_id}"
 
@@ -1000,10 +1023,7 @@ defmodule YscWeb.AdminMediaLive do
         <%!-- RENDER IMAGE --%>
         <%= if match?(%Media.Image{}, item) do %>
           <button
-            phx-click={
-              JS.push("save-scroll-position", value: %{year: @selected_year, scroll: true})
-              |> JS.navigate(build_image_edit_url_with_state(assigns, item.id))
-            }
+            phx-click={JS.navigate(build_image_edit_url_with_state(assigns, item.id))}
             id={id}
             class="mb-4 group relative w-full rounded-lg aspect-square border border-zinc-200 cursor-pointer hover:border-zinc-400 hover:shadow-md transition-all duration-200 overflow-hidden"
           >
