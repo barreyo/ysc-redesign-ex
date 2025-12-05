@@ -1724,6 +1724,49 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
+  Gets all payments and free ticket orders for a user with enriched details (tickets, bookings, donations, membership).
+  Returns items ordered by inserted_at (created date) descending.
+  """
+  def list_all_user_payments(user_id) do
+    # Get all payments
+    payments =
+      from(p in Payment,
+        where: p.user_id == ^user_id,
+        preload: [:user, :payment_method],
+        order_by: [desc: p.inserted_at]
+      )
+      |> Repo.all()
+      |> Enum.map(&enrich_payment_with_details/1)
+
+    # Get all free ticket orders (completed orders without payment_id)
+    alias Ysc.Tickets.TicketOrder
+
+    free_ticket_orders =
+      from(to in TicketOrder,
+        where: to.user_id == ^user_id,
+        where: to.status == :completed,
+        where: is_nil(to.payment_id),
+        preload: [:event, tickets: :ticket_tier],
+        order_by: [desc: to.inserted_at]
+      )
+      |> Repo.all()
+      |> Enum.map(&enrich_free_ticket_order/1)
+
+    # Combine and sort by inserted_at
+    (payments ++ free_ticket_orders)
+    |> Enum.sort_by(
+      fn item ->
+        case item do
+          %{payment: payment} when not is_nil(payment) -> payment.inserted_at
+          %{ticket_order: ticket_order} when not is_nil(ticket_order) -> ticket_order.inserted_at
+          _ -> DateTime.utc_now()
+        end
+      end,
+      {:desc, DateTime}
+    )
+  end
+
+  @doc """
   Gets all payments for a specific subscription.
   Returns payments ordered by payment_date descending.
   """
@@ -1741,31 +1784,61 @@ defmodule Ysc.Ledgers do
   end
 
   @doc """
-  Gets paginated payments for a user with ticket order and membership information.
-  Returns payments ordered by payment_date descending.
+  Gets paginated payments and free ticket orders for a user with ticket order and membership information.
+  Returns items ordered by inserted_at (created date) descending.
   """
   def list_user_payments_paginated(user_id, page \\ 1, per_page \\ 20) do
-    offset = (page - 1) * per_page
-
-    payments =
+    # Get all payments
+    all_payments =
       from(p in Payment,
         where: p.user_id == ^user_id,
         preload: [:user, :payment_method],
-        order_by: [desc: p.payment_date],
-        limit: ^per_page,
-        offset: ^offset
+        order_by: [desc: p.inserted_at]
       )
       |> Repo.all()
       |> Enum.map(&enrich_payment_with_details/1)
 
-    total_count =
-      from(p in Payment,
-        where: p.user_id == ^user_id,
-        select: count()
-      )
-      |> Repo.one()
+    # Get all free ticket orders (completed orders without payment_id)
+    alias Ysc.Tickets.TicketOrder
 
-    {payments, total_count}
+    all_free_ticket_orders =
+      from(to in TicketOrder,
+        where: to.user_id == ^user_id,
+        where: to.status == :completed,
+        where: is_nil(to.payment_id),
+        preload: [:event, tickets: :ticket_tier],
+        order_by: [desc: to.inserted_at]
+      )
+      |> Repo.all()
+      |> Enum.map(&enrich_free_ticket_order/1)
+
+    # Combine and sort by inserted_at
+    all_items =
+      (all_payments ++ all_free_ticket_orders)
+      |> Enum.sort_by(
+        fn item ->
+          case item do
+            %{payment: payment} when not is_nil(payment) ->
+              payment.inserted_at
+
+            %{ticket_order: ticket_order} when not is_nil(ticket_order) ->
+              ticket_order.inserted_at
+
+            _ ->
+              DateTime.utc_now()
+          end
+        end,
+        {:desc, DateTime}
+      )
+
+    # Calculate total count
+    total_count = length(all_items)
+
+    # Apply pagination
+    offset = (page - 1) * per_page
+    paginated_items = Enum.slice(all_items, offset, per_page)
+
+    {paginated_items, total_count}
   end
 
   defp enrich_payment_with_details(payment) do
@@ -1793,7 +1866,8 @@ defmodule Ysc.Ledgers do
     booking =
       if entity_type == :booking && entity_id do
         try do
-          Repo.get!(Ysc.Bookings.Booking, entity_id)
+          booking = Repo.get!(Ysc.Bookings.Booking, entity_id)
+          Repo.preload(booking, rooms: :room_category)
         rescue
           Ecto.NoResultsError -> nil
         end
@@ -1833,6 +1907,45 @@ defmodule Ysc.Ledgers do
   defp determine_payment_type(:booking), do: :booking
   defp determine_payment_type(:donation), do: :donation
   defp determine_payment_type(_), do: :unknown
+
+  defp enrich_free_ticket_order(ticket_order) do
+    # Preload event if not already loaded
+    ticket_order = Repo.preload(ticket_order, [:event, tickets: :ticket_tier])
+
+    description = build_ticket_order_description(ticket_order)
+
+    %{
+      payment: nil,
+      type: :ticket,
+      ticket_order: ticket_order,
+      event: ticket_order.event,
+      booking: nil,
+      subscription: nil,
+      description: description
+    }
+  end
+
+  defp build_ticket_order_description(ticket_order) do
+    event_title = if ticket_order.event, do: ticket_order.event.title, else: "Event"
+
+    if ticket_order.tickets && length(ticket_order.tickets) > 0 do
+      tickets = ticket_order.tickets
+
+      ticket_summary =
+        tickets
+        |> Enum.group_by(fn t -> t.ticket_tier && t.ticket_tier.name end)
+        |> Enum.map(fn {tier_name, tier_tickets} ->
+          count = length(tier_tickets)
+          tier_display = tier_name || "General Admission"
+          "#{count}x #{tier_display}"
+        end)
+        |> Enum.join(", ")
+
+      "Free Tickets: #{event_title} (#{ticket_summary})"
+    else
+      "Free Tickets: #{event_title}"
+    end
+  end
 
   defp build_payment_description(%{entity_type: :membership, subscription: subscription}) do
     if subscription do

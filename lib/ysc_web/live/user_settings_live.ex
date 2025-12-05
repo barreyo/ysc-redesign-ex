@@ -1001,6 +1001,25 @@ defmodule YscWeb.UserSettingsLive do
                             <%= payment_info.description %>
                           </h3>
                         </div>
+                        <!-- Action Links -->
+                        <div class="flex-shrink-0">
+                          <%= if payment_info.type == :booking && payment_info.booking do %>
+                            <.link
+                              navigate={~p"/bookings/#{payment_info.booking.id}"}
+                              class="text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline"
+                            >
+                              View Details
+                            </.link>
+                          <% end %>
+                          <%= if payment_info.type == :ticket && payment_info.ticket_order do %>
+                            <.link
+                              navigate={~p"/orders/#{payment_info.ticket_order.id}/confirmation"}
+                              class="text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline"
+                            >
+                              View Tickets
+                            </.link>
+                          <% end %>
+                        </div>
                       </div>
                       <!-- Payment Details -->
                       <div class="space-y-2 text-sm text-zinc-600">
@@ -1129,14 +1148,21 @@ defmodule YscWeb.UserSettingsLive do
                           <div>
                             <span class="font-medium text-zinc-700">Date:</span>
                             <span class="text-zinc-900 ml-1">
-                              <%= if payment_info.payment.payment_date do
-                                Timex.format!(
-                                  payment_info.payment.payment_date,
-                                  "{Mshort} {D}, {YYYY}"
-                                )
+                              <%= if payment_info.payment do
+                                if payment_info.payment.payment_date do
+                                  Timex.format!(
+                                    payment_info.payment.payment_date,
+                                    "{Mshort} {D}, {YYYY}"
+                                  )
+                                else
+                                  Timex.format!(
+                                    payment_info.payment.inserted_at,
+                                    "{Mshort} {D}, {YYYY}"
+                                  )
+                                end
                               else
                                 Timex.format!(
-                                  payment_info.payment.inserted_at,
+                                  payment_info.ticket_order.inserted_at,
                                   "{Mshort} {D}, {YYYY}"
                                 )
                               end %>
@@ -1146,40 +1172,59 @@ defmodule YscWeb.UserSettingsLive do
                           <div>
                             <span class="font-medium text-zinc-700">Amount:</span>
                             <span class="text-zinc-900 font-semibold ml-1">
-                              <%= Ysc.MoneyHelper.format_money!(payment_info.payment.amount) %>
+                              <%= if payment_info.payment do
+                                Ysc.MoneyHelper.format_money!(payment_info.payment.amount)
+                              else
+                                "Free"
+                              end %>
                             </span>
                           </div>
 
                           <div>
-                            <.badge :if={payment_info.payment.status == :completed} type="green">
-                              Completed
-                            </.badge>
-                            <.badge :if={payment_info.payment.status == :pending} type="yellow">
-                              Pending
-                            </.badge>
-                            <.badge :if={payment_info.payment.status == :refunded} type="red">
-                              Refunded
-                            </.badge>
+                            <%= if payment_info.payment do %>
+                              <.badge :if={payment_info.payment.status == :completed} type="green">
+                                Completed
+                              </.badge>
+                              <.badge :if={payment_info.payment.status == :pending} type="yellow">
+                                Pending
+                              </.badge>
+                              <.badge :if={payment_info.payment.status == :refunded} type="red">
+                                Refunded
+                              </.badge>
+                            <% else %>
+                              <.badge type="green">Completed</.badge>
+                            <% end %>
                           </div>
                         </div>
                         <!-- Payment Method and Reference -->
-                        <div class="flex items-center space-x-4 text-xs text-zinc-500 pt-1">
-                          <div :if={payment_info.payment.reference_id}>
-                            <span>Reference:</span>
-                            <code class="ml-1 font-mono">
-                              <%= payment_info.payment.reference_id %>
-                            </code>
+                        <%= if payment_info.payment do %>
+                          <div class="flex items-center space-x-4 text-xs text-zinc-500 pt-1">
+                            <div :if={payment_info.payment.reference_id}>
+                              <span>Reference:</span>
+                              <code class="ml-1 font-mono">
+                                <%= payment_info.payment.reference_id %>
+                              </code>
+                            </div>
+                            <div :if={
+                              Ecto.assoc_loaded?(payment_info.payment.payment_method) &&
+                                payment_info.payment.payment_method
+                            }>
+                              <span>Payment Method:</span>
+                              <span class="ml-1">
+                                <%= payment_method_display_text(payment_info.payment.payment_method) %>
+                              </span>
+                            </div>
                           </div>
-                          <div :if={
-                            Ecto.assoc_loaded?(payment_info.payment.payment_method) &&
-                              payment_info.payment.payment_method
-                          }>
-                            <span>Payment Method:</span>
-                            <span class="ml-1">
-                              <%= payment_method_display_text(payment_info.payment.payment_method) %>
-                            </span>
+                        <% else %>
+                          <div class="flex items-center space-x-4 text-xs text-zinc-500 pt-1">
+                            <div>
+                              <span>Order ID:</span>
+                              <code class="ml-1 font-mono">
+                                <%= payment_info.ticket_order.reference_id %>
+                              </code>
+                            </div>
                           </div>
-                        </div>
+                        <% end %>
                       </div>
                     </div>
                   </div>

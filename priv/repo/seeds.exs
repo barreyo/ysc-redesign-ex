@@ -105,6 +105,43 @@ n_pending_users = 5
 n_rejected_users = 3
 n_deleted_users = 2
 
+# Helper function to create address from registration form
+create_address_for_user = fn user ->
+  # Preload registration_form to get address data
+  user = Repo.preload(user, :registration_form)
+
+  case user.registration_form do
+    %{address: address, city: city, country: country, postal_code: postal_code, region: region}
+    when not is_nil(address) and not is_nil(city) and not is_nil(country) and
+           not is_nil(postal_code) ->
+      # Check if address already exists
+      existing_address = Repo.get_by(Address, user_id: user.id)
+
+      if existing_address do
+        :ok
+      else
+        case %Address{}
+             |> Address.from_signup_application_changeset(user.registration_form)
+             |> Ecto.Changeset.put_change(:user_id, user.id)
+             |> Repo.insert() do
+          {:ok, _address} ->
+            :ok
+
+          {:error, changeset} ->
+            IO.puts(
+              "Failed to create address for user #{user.email}: #{inspect(changeset.errors)}"
+            )
+
+            :ok
+        end
+      end
+
+    _ ->
+      # No registration form or missing address fields
+      :ok
+  end
+end
+
 # Get or create admin user
 admin_user =
   case Repo.get_by(User, email: "admin@ysc.org") do
@@ -174,43 +211,6 @@ admin_user =
       create_address_for_user(existing_user)
       existing_user
   end
-
-# Helper function to create address from registration form
-create_address_for_user = fn user ->
-  # Preload registration_form to get address data
-  user = Repo.preload(user, :registration_form)
-
-  case user.registration_form do
-    %{address: address, city: city, country: country, postal_code: postal_code, region: region}
-    when not is_nil(address) and not is_nil(city) and not is_nil(country) and
-           not is_nil(postal_code) ->
-      # Check if address already exists
-      existing_address = Repo.get_by(Address, user_id: user.id)
-
-      if existing_address do
-        :ok
-      else
-        case %Address{}
-             |> Address.from_signup_application_changeset(user.registration_form)
-             |> Ecto.Changeset.put_change(:user_id, user.id)
-             |> Repo.insert() do
-          {:ok, _address} ->
-            :ok
-
-          {:error, changeset} ->
-            IO.puts(
-              "Failed to create address for user #{user.email}: #{inspect(changeset.errors)}"
-            )
-
-            :ok
-        end
-      end
-
-    _ ->
-      # No registration form or missing address fields
-      :ok
-  end
-end
 
 Enum.each(0..n_approved_users, fn n ->
   membership_type =
