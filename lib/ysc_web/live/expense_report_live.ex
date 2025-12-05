@@ -925,7 +925,7 @@ defmodule YscWeb.ExpenseReportLive do
             Ecto.Changeset.add_error(
               changeset,
               :reimbursement_method,
-              "requires a bank account. Please add a bank account in your user settings."
+              "requires a bank account. Please add a bank account before submitting."
             )
 
           is_nil(bank_account_id) && length(bank_accounts) > 0 ->
