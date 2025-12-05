@@ -37,6 +37,8 @@ defmodule YscWeb.Plugs.SecurityHeaders do
       "camera=(), microphone=(), geolocation=(), payment=(self \"https://js.stripe.com\"), usb=(), magnetometer=(), gyroscope=()"
     )
     |> put_resp_header("referrer-policy", "strict-origin-when-cross-origin")
+    |> put_resp_header("cross-origin-opener-policy", "same-origin")
+    |> put_resp_header("cross-origin-resource-policy", "same-origin")
     |> put_resp_header("x-content-type-options", "nosniff")
     |> put_resp_header("x-frame-options", "DENY")
     |> put_resp_header("x-xss-protection", "1; mode=block")
