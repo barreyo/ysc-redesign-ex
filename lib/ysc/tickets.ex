@@ -567,12 +567,15 @@ defmodule Ysc.Tickets do
 
   @doc """
   Finds and expires ticket orders that have exceeded the payment timeout.
+
+  Note: expires_at is already set to (now + timeout) when the order is created,
+  so we just need to check if expires_at < now (not now - timeout).
   """
   def expire_timed_out_orders do
-    timeout_threshold = DateTime.add(DateTime.utc_now(), -@payment_timeout_minutes, :minute)
+    now = DateTime.utc_now()
 
     TicketOrder
-    |> where([to], to.status == :pending and to.expires_at < ^timeout_threshold)
+    |> where([to], to.status == :pending and to.expires_at < ^now)
     |> preload(:tickets)
     |> Repo.all()
     |> Enum.each(&expire_ticket_order/1)

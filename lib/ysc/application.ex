@@ -51,6 +51,9 @@ defmodule Ysc.Application do
     # Start the expense report QuickBooks sync scheduler
     Ysc.ExpenseReports.Scheduler.start_scheduler()
 
+    # Start the ticket timeout scheduler
+    Ysc.Tickets.Scheduler.start_scheduler()
+
     {:ok, supervisor}
   end
 

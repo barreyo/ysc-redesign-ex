@@ -74,12 +74,15 @@ defmodule Ysc.Tickets.TimeoutWorker do
   @doc """
   Manually trigger expiration of timed out orders.
   This can be called from a cron job or scheduled task.
+
+  Note: expires_at is already set to (now + timeout) when the order is created,
+  so we just need to check if expires_at < now (not now - timeout).
   """
   def expire_timed_out_orders do
-    timeout_threshold = DateTime.add(DateTime.utc_now(), -30, :minute)
+    now = DateTime.utc_now()
 
     Ysc.Tickets.TicketOrder
-    |> where([t], t.status == :pending and t.expires_at < ^timeout_threshold)
+    |> where([t], t.status == :pending and t.expires_at < ^now)
     |> preload(:tickets)
     |> Ysc.Repo.all()
     |> Enum.each(fn ticket_order ->

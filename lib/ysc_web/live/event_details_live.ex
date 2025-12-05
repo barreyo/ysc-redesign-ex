@@ -1209,6 +1209,233 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   @impl true
+  def handle_params(_params, uri, socket) do
+    # Parse query parameters from URI
+    query_params = parse_query_params(uri)
+
+    # Check for resume_order query parameter
+    resume_order_id = query_params["resume_order"] || query_params[:resume_order]
+
+    socket =
+      if resume_order_id && socket.assigns.current_user do
+        restore_checkout_state(socket, resume_order_id, socket.assigns.event.id)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  # Helper to parse query parameters from URI
+  defp parse_query_params(uri) when is_binary(uri) do
+    case URI.parse(uri) do
+      %URI{query: nil} -> %{}
+      %URI{query: query} -> URI.decode_query(query)
+      _ -> %{}
+    end
+  end
+
+  defp parse_query_params(_), do: %{}
+
+  # Restore checkout state from a pending order
+  defp restore_checkout_state(socket, order_id, event_id) do
+    case Ysc.Tickets.get_ticket_order(order_id) do
+      nil ->
+        socket
+        |> put_flash(:error, "Order not found")
+
+      ticket_order ->
+        # Verify the order belongs to the current user and event
+        if ticket_order.user_id == socket.assigns.current_user.id &&
+             ticket_order.event_id == event_id &&
+             ticket_order.status == :pending do
+          # Check if order has expired
+          if DateTime.compare(DateTime.utc_now(), ticket_order.expires_at) == :gt do
+            socket
+            |> put_flash(:error, "This order has expired. Please create a new order.")
+          else
+            # Restore the ticket order and payment intent
+            restore_payment_state(socket, ticket_order)
+          end
+        else
+          socket
+          |> put_flash(:error, "Cannot resume this order")
+        end
+    end
+  end
+
+  # Restore payment state (payment intent or free ticket confirmation)
+  defp restore_payment_state(socket, ticket_order) do
+    # Reload ticket order with tickets and tiers
+    ticket_order = Ysc.Tickets.get_ticket_order(ticket_order.id)
+
+    # Reconstruct selected_tickets map from the ticket order
+    selected_tickets = build_selected_tickets_from_order(ticket_order)
+
+    # Check if any tickets require registration
+    tickets_requiring_registration =
+      get_tickets_requiring_registration(ticket_order.tickets)
+
+    socket = socket |> assign(:selected_tickets, selected_tickets)
+
+    if Enum.any?(tickets_requiring_registration) do
+      # Show registration modal first
+      socket
+      |> assign(:show_ticket_modal, false)
+      |> assign(:show_registration_modal, true)
+      |> assign(:ticket_order, ticket_order)
+      |> assign(:tickets_requiring_registration, tickets_requiring_registration)
+      |> assign(
+        :ticket_details_form,
+        initialize_ticket_details_form(tickets_requiring_registration)
+      )
+    else
+      # No registration required, proceed directly to payment/free confirmation
+      if Money.zero?(ticket_order.total_amount) do
+        # For free tickets, show confirmation modal
+        socket
+        |> assign(:show_ticket_modal, false)
+        |> assign(:show_free_ticket_confirmation, true)
+        |> assign(:ticket_order, ticket_order)
+      else
+        # For paid tickets, retrieve or create payment intent
+        case retrieve_or_create_payment_intent(ticket_order, socket.assigns.current_user) do
+          {:ok, payment_intent} ->
+            socket
+            |> assign(:show_ticket_modal, false)
+            |> assign(:show_payment_modal, true)
+            |> assign(:checkout_expired, false)
+            |> assign(:payment_intent, payment_intent)
+            |> assign(:ticket_order, ticket_order)
+
+          {:error, reason} ->
+            socket
+            |> put_flash(:error, "Failed to restore payment: #{reason}")
+        end
+      end
+    end
+  end
+
+  # Convert Money struct to cents (integer)
+  defp money_to_cents(%Money{amount: amount, currency: :USD}) do
+    # Use Decimal for precise conversion to avoid floating-point errors
+    amount
+    |> Decimal.mult(100)
+    |> Decimal.to_integer()
+  end
+
+  defp money_to_cents(%Money{amount: amount, currency: _currency}) do
+    # For other currencies, use same conversion
+    amount
+    |> Decimal.mult(100)
+    |> Decimal.to_integer()
+  end
+
+  defp money_to_cents(_) do
+    # Fallback for invalid money values
+    0
+  end
+
+  # Build selected_tickets map from a ticket order
+  # For regular tickets: tier_id => quantity
+  # For donation tickets: tier_id => amount_cents (total donation amount in cents)
+  defp build_selected_tickets_from_order(ticket_order) do
+    if ticket_order.tickets && length(ticket_order.tickets) > 0 do
+      # Group tickets by tier_id
+      tickets_by_tier =
+        ticket_order.tickets
+        |> Enum.group_by(& &1.ticket_tier_id)
+
+      # Build selected_tickets map
+      tickets_by_tier
+      |> Enum.reduce(%{}, fn {tier_id, tickets}, acc ->
+        first_ticket = List.first(tickets)
+        tier = first_ticket.ticket_tier
+        quantity = length(tickets)
+
+        # Check if this is a donation tier
+        is_donation = tier.type == "donation" || tier.type == :donation
+
+        if is_donation do
+          # For donations, calculate the total donation amount for this tier
+          # The donation amount is stored in the ticket_order.total_amount
+          # We need to calculate how much of the total is for this specific donation tier
+          {_event_amount, donation_amount} =
+            Ysc.Tickets.calculate_event_and_donation_amounts(ticket_order)
+
+          # Count all donation tickets in the order
+          donation_tickets_count =
+            ticket_order.tickets
+            |> Enum.count(fn t ->
+              t.ticket_tier.type == "donation" || t.ticket_tier.type == :donation
+            end)
+
+          # Calculate donation amount per ticket, then multiply by quantity for this tier
+          if donation_tickets_count > 0 do
+            case Money.div(donation_amount, donation_tickets_count) do
+              {:ok, amount_per_ticket} ->
+                # Multiply by quantity for this tier and convert to cents
+                case Money.mult(amount_per_ticket, quantity) do
+                  {:ok, tier_donation_total} ->
+                    # Convert Money to cents
+                    amount_cents = money_to_cents(tier_donation_total)
+                    Map.put(acc, tier_id, amount_cents)
+
+                  _ ->
+                    acc
+                end
+
+              _ ->
+                acc
+            end
+          else
+            acc
+          end
+        else
+          # For regular tickets, just store the quantity
+          Map.put(acc, tier_id, quantity)
+        end
+      end)
+    else
+      %{}
+    end
+  end
+
+  # Retrieve existing payment intent or create a new one
+  defp retrieve_or_create_payment_intent(ticket_order, user) do
+    if ticket_order.payment_intent_id do
+      # Try to retrieve existing payment intent
+      case Stripe.PaymentIntent.retrieve(ticket_order.payment_intent_id, %{}) do
+        {:ok, payment_intent} ->
+          # Check if payment intent is still valid (not succeeded or canceled)
+          if payment_intent.status in [
+               "requires_payment_method",
+               "requires_confirmation",
+               "requires_action"
+             ] do
+            {:ok, payment_intent}
+          else
+            # Payment intent is in a final state, create a new one
+            Ysc.Tickets.StripeService.create_payment_intent(ticket_order,
+              customer_id: user.stripe_id
+            )
+          end
+
+        {:error, _} ->
+          # Payment intent not found, create a new one
+          Ysc.Tickets.StripeService.create_payment_intent(ticket_order,
+            customer_id: user.stripe_id
+          )
+      end
+    else
+      # No payment intent exists, create a new one
+      Ysc.Tickets.StripeService.create_payment_intent(ticket_order,
+        customer_id: user.stripe_id
+      )
+    end
+  end
+
+  @impl true
   def handle_info({Ysc.Events, %Ysc.MessagePassingEvents.EventUpdated{event: event}}, socket) do
     # Add pricing info to the updated event
     # Ensure ticket_tiers is preloaded in case it wasn't included in the event update

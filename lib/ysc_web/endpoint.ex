@@ -5,12 +5,22 @@ defmodule YscWeb.Endpoint do
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
   # Set :encryption_salt if you would also like to encrypt it.
-  @session_options [
+  # Base session options - secure flag is conditionally added based on environment
+  @base_session_options [
     store: :cookie,
     key: "_ysc_key",
     signing_salt: "54CY4e5T",
     same_site: "Lax"
   ]
+
+  # Session options - in production, secure flag is needed
+  # In development, we omit it to allow HTTP connections
+  # Uses code_reloading? macro which is available at compile time
+  @session_options (if code_reloading? do
+                      @base_session_options
+                    else
+                      Keyword.put(@base_session_options, :secure, true)
+                    end)
 
   socket "/live", Phoenix.LiveView.Socket,
     websocket: [connect_info: [:peer_data, session: @session_options]]

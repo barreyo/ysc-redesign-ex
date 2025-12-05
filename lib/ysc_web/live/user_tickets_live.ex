@@ -69,9 +69,18 @@ defmodule YscWeb.UserTicketsLive do
                       <.icon name="hero-clock" class="w-4 h-4 inline me-1" />
                       Expires <%= format_time_remaining(ticket_order.expires_at) %>
                     </div>
-                    <.button color="red" phx-click="cancel-order" phx-value-order-id={ticket_order.id}>
-                      Cancel Order
-                    </.button>
+                    <div class="flex gap-2">
+                      <.button phx-click="resume-order" phx-value-order-id={ticket_order.id}>
+                        Resume Order
+                      </.button>
+                      <.button
+                        color="red"
+                        phx-click="cancel-order"
+                        phx-value-order-id={ticket_order.id}
+                      >
+                        Cancel Order
+                      </.button>
+                    </div>
                   <% end %>
 
                   <%= if ticket_order.status == :completed do %>
@@ -161,9 +170,30 @@ defmodule YscWeb.UserTicketsLive do
   end
 
   @impl true
+  def handle_event("resume-order", %{"order-id" => order_id}, socket) do
+    case Tickets.get_ticket_order(order_id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Order not found")}
+
+      ticket_order ->
+        # Verify the order belongs to the current user
+        if ticket_order.user_id == socket.assigns.current_user.id and
+             ticket_order.status == :pending do
+          # Redirect to event page with resume_order query parameter
+          {:noreply,
+           redirect(socket,
+             to: ~p"/events/#{ticket_order.event_id}?resume_order=#{order_id}"
+           )}
+        else
+          {:noreply, put_flash(socket, :error, "Cannot resume this order")}
+        end
+    end
+  end
+
+  @impl true
   def handle_event("view-tickets", %{"order-id" => order_id}, socket) do
-    # Redirect to a detailed ticket view page
-    {:noreply, redirect(socket, to: ~p"/tickets/#{order_id}")}
+    # Redirect to the order confirmation page
+    {:noreply, redirect(socket, to: ~p"/orders/#{order_id}/confirmation")}
   end
 
   ## Helper Functions
