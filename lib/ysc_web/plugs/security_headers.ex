@@ -40,6 +40,7 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     |> put_resp_header("x-content-type-options", "nosniff")
     |> put_resp_header("x-frame-options", "DENY")
     |> put_resp_header("x-xss-protection", "1; mode=block")
+    |> put_hsts_header(is_dev)
   end
 
   defp build_csp_policy(nonce, is_dev, s3_image_sources) do
@@ -76,12 +77,12 @@ defmodule YscWeb.Plugs.SecurityHeaders do
 
     # Connect sources - allow WebSockets for LiveView
     # In dev, allow both ws: and wss:, in prod only wss:
-    # Also allow jsdelivr for source maps
+    # Also allow jsdelivr for source maps and Radar API
     connect_src =
       if is_dev do
-        "'self' ws: wss: https://js.stripe.com https://challenges.cloudflare.com https://cdn.jsdelivr.net"
+        "'self' ws: wss: https://js.stripe.com https://challenges.cloudflare.com https://cdn.jsdelivr.net https://api.radar.io"
       else
-        "'self' wss: https://js.stripe.com https://challenges.cloudflare.com https://cdn.jsdelivr.net"
+        "'self' wss: https://js.stripe.com https://challenges.cloudflare.com https://cdn.jsdelivr.net https://api.radar.io"
       end
 
     # Image sources - include S3 storage domains
@@ -113,6 +114,9 @@ defmodule YscWeb.Plugs.SecurityHeaders do
         "https://js.stripe.com https://challenges.cloudflare.com"
       end
 
+    # Worker sources - allow blob: workers (Radar library creates workers from blob URLs)
+    worker_src = "'self' blob:"
+
     # Object sources - deny by default
     object_src = "'none'"
 
@@ -136,6 +140,7 @@ defmodule YscWeb.Plugs.SecurityHeaders do
       "img-src #{img_src}",
       "font-src #{font_src}",
       "frame-src #{frame_src}",
+      "worker-src #{worker_src}",
       "object-src #{object_src}",
       "base-uri #{base_uri}",
       "form-action #{form_action}",
@@ -208,5 +213,35 @@ defmodule YscWeb.Plugs.SecurityHeaders do
       end
 
     Enum.uniq(sources)
+  end
+
+  # Set HSTS header only on HTTPS connections and only in production
+  defp put_hsts_header(conn, is_dev) do
+    # Only set HSTS in production (not in development)
+    # HSTS should only be set on HTTPS connections
+    if not is_dev do
+      # Check if the connection is HTTPS (either directly or via proxy)
+      is_https =
+        case get_req_header(conn, "x-forwarded-proto") do
+          ["https"] -> true
+          _ -> conn.scheme == :https
+        end
+
+      if is_https do
+        # Set HSTS with 1 year max-age and includeSubDomains
+        # max-age: 31,536,000 seconds = 1 year
+        # includeSubDomains: Apply to all subdomains
+        put_resp_header(
+          conn,
+          "strict-transport-security",
+          "max-age=31536000; includeSubDomains"
+        )
+      else
+        conn
+      end
+    else
+      # Don't set HSTS in development to avoid browser caching issues
+      conn
+    end
   end
 end

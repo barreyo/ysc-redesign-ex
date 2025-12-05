@@ -13,10 +13,14 @@ defmodule YscWeb.Router do
     plug :put_root_layout, html: {YscWeb.Layouts, :root}
     plug :protect_from_forgery
 
-    # Enforce SSL/HSTS (Strict-Transport-Security)
-    # This tells browsers to ONLY connect via HTTPS for the next year (max_age).
-    # 'rewrite_on' handles load balancers (AWS/Heroku) correctly.
-    plug Plug.SSL, rewrite_on: [:x_forwarded_proto], max_age: 31_536_000
+    # Enforce SSL/HSTS (Strict-Transport-Security) - only in production
+    # In production, this redirects HTTP to HTTPS and sets HSTS header
+    # In development, we skip this to avoid redirect loops and HSTS caching issues
+    # HSTS header is set explicitly in SecurityHeaders plug (production only)
+    # Check if we're in production by checking if code_reloader is disabled
+    if not Application.get_env(:ysc, YscWeb.Endpoint)[:code_reloader] do
+      plug Plug.SSL, rewrite_on: [:x_forwarded_proto], max_age: 31_536_000
+    end
 
     # Generate a Nonce for CSP (must come before security headers)
     plug YscWeb.Plugs.CSPNonce
@@ -38,8 +42,10 @@ defmodule YscWeb.Router do
     plug :put_root_layout, html: {YscWeb.Layouts, :admin_root}
     plug :protect_from_forgery
 
-    # Enforce SSL/HSTS
-    plug Plug.SSL, rewrite_on: [:x_forwarded_proto], max_age: 31_536_000
+    # Enforce SSL/HSTS - only in production
+    if not Application.get_env(:ysc, YscWeb.Endpoint)[:code_reloader] do
+      plug Plug.SSL, rewrite_on: [:x_forwarded_proto], max_age: 31_536_000
+    end
 
     # Generate a Nonce for CSP (must come before security headers)
     plug YscWeb.Plugs.CSPNonce
