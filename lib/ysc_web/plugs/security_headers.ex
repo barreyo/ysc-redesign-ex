@@ -26,8 +26,11 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     # Get S3 storage URLs for image sources
     s3_image_sources = get_s3_image_sources()
 
+    # Get S3 storage URLs for connect sources (for uploads)
+    s3_connect_sources = get_s3_connect_sources()
+
     # Build CSP policy with nonce
-    csp_policy = build_csp_policy(nonce, is_dev, s3_image_sources)
+    csp_policy = build_csp_policy(nonce, is_dev, s3_image_sources, s3_connect_sources)
 
     conn
     |> put_resp_header("content-security-policy", csp_policy)
@@ -46,7 +49,7 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     |> put_hsts_header(is_dev)
   end
 
-  defp build_csp_policy(nonce, is_dev, s3_image_sources) do
+  defp build_csp_policy(nonce, is_dev, s3_image_sources, s3_connect_sources) do
     # Base sources
     default_src = "'self'"
 
@@ -80,13 +83,30 @@ defmodule YscWeb.Plugs.SecurityHeaders do
 
     # Connect sources - allow WebSockets for LiveView
     # In dev, allow both ws: and wss:, in prod only wss:
-    # Also allow jsdelivr for source maps and Radar API
-    connect_src =
+    # Also allow jsdelivr for source maps, Radar API, and S3 storage for uploads
+    base_connect_sources =
       if is_dev do
-        "'self' ws: wss: https://js.stripe.com https://challenges.cloudflare.com https://cdn.jsdelivr.net https://api.radar.io"
+        [
+          "'self'",
+          "ws:",
+          "wss:",
+          "https://js.stripe.com",
+          "https://challenges.cloudflare.com",
+          "https://cdn.jsdelivr.net",
+          "https://api.radar.io"
+        ]
       else
-        "'self' wss: https://js.stripe.com https://challenges.cloudflare.com https://cdn.jsdelivr.net https://api.radar.io"
+        [
+          "'self'",
+          "wss:",
+          "https://js.stripe.com",
+          "https://challenges.cloudflare.com",
+          "https://cdn.jsdelivr.net",
+          "https://api.radar.io"
+        ]
       end
+
+    connect_src = (base_connect_sources ++ s3_connect_sources) |> Enum.join(" ")
 
     # Image sources - include S3 storage domains
     # Allow all HTTPS images (covers production S3)
@@ -151,6 +171,69 @@ defmodule YscWeb.Plugs.SecurityHeaders do
       upgrade_insecure_requests
     ]
     |> Enum.join("; ")
+  end
+
+  # Get S3 storage URLs that should be allowed for connect operations (uploads)
+  defp get_s3_connect_sources do
+    base_url = S3Config.base_url()
+    sources = []
+
+    # Add the base URL if it's set
+    sources =
+      if base_url && base_url != "" do
+        # Extract the hostname from the URL
+        case URI.parse(base_url) do
+          %URI{scheme: scheme, host: host, port: port} when not is_nil(host) ->
+            # Build the source string
+            source =
+              case {scheme, port} do
+                {"http", 4566} ->
+                  # Localstack dev: http://media.s3.localhost.localstack.cloud:4566
+                  "#{scheme}://#{host}:#{port}"
+
+                {"https", nil} ->
+                  # Production Tigris: https://*.fly.storage.tigris.dev
+                  if String.contains?(host, "tigris.dev") do
+                    # Allow all Tigris subdomains for different buckets
+                    "https://*.fly.storage.tigris.dev"
+                  else
+                    "#{scheme}://#{host}"
+                  end
+
+                {scheme, nil} when scheme in ["http", "https"] ->
+                  "#{scheme}://#{host}"
+
+                {scheme, port} when scheme in ["http", "https"] and not is_nil(port) ->
+                  "#{scheme}://#{host}:#{port}"
+
+                _ ->
+                  nil
+              end
+
+            if source, do: [source | sources], else: sources
+
+          _ ->
+            sources
+        end
+      else
+        sources
+      end
+
+    # Always allow Tigris production domains (wildcard for all buckets)
+    # This covers all bucket subdomains like ysc-sandbox-media.fly.storage.tigris.dev
+    sources =
+      ["https://*.fly.storage.tigris.dev" | sources]
+      |> Enum.uniq()
+
+    # Also allow HTTP for local development (localstack with specific port)
+    sources =
+      if Application.get_env(:ysc, YscWeb.Endpoint)[:code_reloader] == true do
+        ["http://*.localhost.localstack.cloud:4566" | sources]
+      else
+        sources
+      end
+
+    Enum.uniq(sources)
   end
 
   # Get S3 storage URLs that should be allowed for images
