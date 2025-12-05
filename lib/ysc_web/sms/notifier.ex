@@ -87,6 +87,19 @@ defmodule YscWeb.Sms.Notifier do
   end
 
   defp validate_and_get_phone_number(phone_number, template, user_id, category) do
+    Logger.debug("validate_and_get_phone_number called",
+      phone_number: phone_number,
+      phone_number_type:
+        if(is_binary(phone_number),
+          do: "binary",
+          else: if(is_struct(phone_number), do: inspect(phone_number.__struct__), else: "unknown")
+        ),
+      phone_number_inspect: inspect(phone_number),
+      template: template,
+      user_id: user_id,
+      category: category
+    )
+
     # Check user preferences if user_id is provided
     if user_id do
       case Ysc.Accounts.get_user(user_id) do
@@ -97,11 +110,21 @@ defmodule YscWeb.Sms.Notifier do
           )
 
           # Validate phone number format even if user not found
-          if valid_phone_number?(phone_number) do
-            {:ok, phone_number}
+          normalized = normalize_phone_number(phone_number)
+          is_valid = valid_phone_number?(phone_number)
+
+          Logger.debug("Phone number validation (user not found)",
+            phone_number: phone_number,
+            normalized: normalized,
+            is_valid: is_valid
+          )
+
+          if is_valid do
+            {:ok, normalized}
           else
             Logger.error("SMS not scheduled - invalid phone number format",
               phone_number: phone_number,
+              normalized: normalized,
               template: template
             )
 
@@ -128,12 +151,23 @@ defmodule YscWeb.Sms.Notifier do
             else
               # Use user's phone number if not provided
               validated_phone = phone_number || user.phone_number
+              normalized = normalize_phone_number(validated_phone)
+              is_valid = valid_phone_number?(validated_phone)
 
-              if valid_phone_number?(validated_phone) do
-                {:ok, validated_phone}
+              Logger.debug("Phone number validation (with user)",
+                provided_phone_number: phone_number,
+                user_phone_number: user.phone_number,
+                validated_phone: validated_phone,
+                normalized: normalized,
+                is_valid: is_valid
+              )
+
+              if is_valid do
+                {:ok, normalized}
               else
                 Logger.error("SMS not scheduled - invalid phone number format",
                   phone_number: validated_phone,
+                  normalized: normalized,
                   template: template
                 )
 
@@ -144,11 +178,21 @@ defmodule YscWeb.Sms.Notifier do
       end
     else
       # Validate phone number format when no user_id
-      if valid_phone_number?(phone_number) do
-        {:ok, phone_number}
+      normalized = normalize_phone_number(phone_number)
+      is_valid = valid_phone_number?(phone_number)
+
+      Logger.debug("Phone number validation (no user_id)",
+        phone_number: phone_number,
+        normalized: normalized,
+        is_valid: is_valid
+      )
+
+      if is_valid do
+        {:ok, normalized}
       else
         Logger.error("SMS not scheduled - invalid phone number format",
           phone_number: phone_number,
+          normalized: normalized,
           template: template
         )
 
@@ -227,9 +271,44 @@ defmodule YscWeb.Sms.Notifier do
   # Private functions
 
   defp valid_phone_number?(phone_number) when is_binary(phone_number) do
+    # Normalize phone number (remove + prefix if present) and validate
+    normalized = normalize_phone_number(phone_number)
     # Validate 11-digit North American format (e.g., 12065551234)
-    Regex.match?(~r/^1\d{10}$/, phone_number)
+    # Also ensure normalized string is not empty
+    is_valid = normalized != "" && Regex.match?(~r/^1\d{10}$/, normalized)
+
+    Logger.debug("valid_phone_number? check",
+      original: phone_number,
+      normalized: normalized,
+      is_valid: is_valid,
+      normalized_length: String.length(normalized)
+    )
+
+    is_valid
   end
 
   defp valid_phone_number?(_), do: false
+
+  # Normalizes phone number to format expected by SMS provider (1XXXXXXXXXX)
+  # Removes + prefix and any non-digit characters
+  defp normalize_phone_number(phone_number) when is_binary(phone_number) do
+    normalized =
+      phone_number
+      # Remove leading +
+      |> String.replace(~r/^\+/, "")
+      # Remove all non-digit characters
+      |> String.replace(~r/[^\d]/, "")
+
+    Logger.debug("normalize_phone_number",
+      original: phone_number,
+      normalized: normalized,
+      original_length: String.length(phone_number),
+      normalized_length: String.length(normalized)
+    )
+
+    normalized
+  end
+
+  defp normalize_phone_number(nil), do: ""
+  defp normalize_phone_number(_), do: ""
 end

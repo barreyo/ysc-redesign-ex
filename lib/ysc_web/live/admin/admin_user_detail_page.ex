@@ -946,8 +946,10 @@ defmodule YscWeb.AdminUserDetailsLive do
                           <%= format_datetime_for_display(notification.inserted_at) %>
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap">
-                          <.badge>
-                            <%= notification.message_type |> to_string() |> String.capitalize() %>
+                          <.badge type={
+                            if notification.message_type == :email, do: "default", else: "green"
+                          }>
+                            <%= notification.message_type |> to_string() |> String.upcase() %>
                           </.badge>
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-600">

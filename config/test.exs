@@ -55,3 +55,7 @@ config :ysc, Ysc.Alerts.Discord,
 config :ysc,
   expense_reports_s3_bucket: "expense-reports",
   environment: "test"
+
+# FlowRoute SMS configuration for tests
+# Use a fake number since we're in noop mode anyway
+config :ysc, :flowroute, from_number: "12061231234"

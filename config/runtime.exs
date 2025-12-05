@@ -8,8 +8,12 @@ import Config
 # The block below contains prod specific runtime configuration.
 
 # Set environment name for alerting and logging
-config :ysc,
-  environment: System.get_env("APP_ENV") || to_string(config_env())
+# Priority: APP_ENV env var > default from config.exs > config_env() fallback
+# Only override if APP_ENV is explicitly set, otherwise use default from config.exs
+if System.get_env("ENVIRONMENT") do
+  config :ysc,
+    environment: System.get_env("ENVIRONMENT")
+end
 
 # ## FlowRoute SMS Configuration
 #

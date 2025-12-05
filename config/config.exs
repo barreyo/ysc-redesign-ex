@@ -7,8 +7,10 @@
 # General application configuration
 import Config
 
+# Default environment - can be overridden by APP_ENV env var in runtime.exs
 config :ysc,
-  ecto_repos: [Ysc.Repo]
+  ecto_repos: [Ysc.Repo],
+  environment: "dev"
 
 config :ysc, Ysc.Repo,
   migration_timestamps: [type: :utc_datetime],

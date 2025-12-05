@@ -79,26 +79,54 @@ defmodule Ysc.Flowroute.Client do
   """
   @spec send_sms(keyword()) :: {:ok, map()} | {:error, atom() | String.t()}
   def send_sms(opts) do
-    with {:ok, to} <- Keyword.fetch(opts, :to),
-         {:ok, body} <- Keyword.fetch(opts, :body),
-         {:ok, from} <- get_from_number(opts),
-         :ok <- validate_phone_number(to),
-         :ok <- validate_phone_number(from),
-         :ok <- validate_body(body) do
-      is_mms = Keyword.get(opts, :is_mms, false)
-      media_urls = Keyword.get(opts, :media_urls, [])
+    # In noop environments (dev, test, sandbox), skip from_number config requirement
+    # but still validate phone format and body to catch bugs early
+    if noop_environment?() do
+      with {:ok, to} <- Keyword.fetch(opts, :to),
+           {:ok, body} <- Keyword.fetch(opts, :body),
+           :ok <- validate_phone_number(to),
+           :ok <- validate_body(body) do
+        # Use provided from number, configured from number, or a default fake number for noop mode
+        from =
+          Keyword.get(opts, :from) ||
+            case get_from_number(opts) do
+              {:ok, number} -> number
+              _ -> "12061231234"
+            end
 
-      if noop_environment?() do
-        handle_noop_response(to, from, body, opts)
+        # Validate from number format but don't require it to be configured
+        case validate_phone_number(from) do
+          :ok ->
+            handle_noop_response(to, from, body, opts)
+
+          {:error, reason} ->
+            {:error, reason}
+        end
       else
-        send_sms_request(to, from, body, is_mms, media_urls, opts)
+        :error ->
+          {:error, :missing_required_parameter}
+
+        {:error, reason} ->
+          {:error, reason}
       end
     else
-      :error ->
-        {:error, :missing_required_parameter}
+      # In production, validate everything including from_number configuration
+      with {:ok, to} <- Keyword.fetch(opts, :to),
+           {:ok, body} <- Keyword.fetch(opts, :body),
+           {:ok, from} <- get_from_number(opts),
+           :ok <- validate_phone_number(to),
+           :ok <- validate_phone_number(from),
+           :ok <- validate_body(body) do
+        is_mms = Keyword.get(opts, :is_mms, false)
+        media_urls = Keyword.get(opts, :media_urls, [])
+        send_sms_request(to, from, body, is_mms, media_urls, opts)
+      else
+        :error ->
+          {:error, :missing_required_parameter}
 
-      {:error, reason} ->
-        {:error, reason}
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 
