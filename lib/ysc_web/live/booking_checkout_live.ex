@@ -567,7 +567,9 @@ defmodule YscWeb.BookingCheckoutLive do
     # If the same reference is used again, Stripe will return the existing payment intent
     idempotency_key = "booking_#{booking.reference_id}"
 
-    case Stripe.PaymentIntent.create(payment_intent_params,
+    stripe_client = Application.get_env(:ysc, :stripe_client, Ysc.StripeClient)
+
+    case stripe_client.create_payment_intent(payment_intent_params,
            headers: %{"Idempotency-Key" => idempotency_key}
          ) do
       {:ok, payment_intent} ->
@@ -595,7 +597,9 @@ defmodule YscWeb.BookingCheckoutLive do
       end
 
     # Retrieve payment intent to verify (expand payment_method and charges)
-    case Stripe.PaymentIntent.retrieve(payment_intent_id, %{
+    stripe_client = Application.get_env(:ysc, :stripe_client, Ysc.StripeClient)
+
+    case stripe_client.retrieve_payment_intent(payment_intent_id, %{
            expand: ["payment_method", "charges"]
          }) do
       {:ok, payment_intent} ->
@@ -810,7 +814,9 @@ defmodule YscWeb.BookingCheckoutLive do
 
       pm_id when is_binary(pm_id) ->
         # Retrieve the full payment method from Stripe
-        case Stripe.PaymentMethod.retrieve(pm_id) do
+        stripe_client = Application.get_env(:ysc, :stripe_client, Ysc.StripeClient)
+
+        case stripe_client.retrieve_payment_method(pm_id) do
           {:ok, stripe_payment_method} ->
             # Get the user to sync the payment method
             user = Ysc.Accounts.get_user!(user_id)

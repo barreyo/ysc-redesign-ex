@@ -10,15 +10,28 @@ defmodule Ysc.AccountsFixtures do
   def valid_user_last_name, do: "Doe"
 
   def valid_user_attributes(attrs \\ %{}) do
-    Enum.into(attrs, %{
+    attrs
+    |> normalize_enum_attrs()
+    |> Enum.into(%{
       email: unique_user_email(),
       password: valid_user_password(),
       first_name: valid_user_first_name(),
       last_name: valid_user_last_name(),
       phone_number: "+14159098268",
-      state: :active,
-      role: :member
+      state: "active",
+      role: "member"
     })
+  end
+
+  # Convert atom enum values to strings for EctoEnum compatibility
+  defp normalize_enum_attrs(attrs) do
+    attrs
+    |> Enum.map(fn
+      {:state, state} when is_atom(state) -> {:state, Atom.to_string(state)}
+      {:role, role} when is_atom(role) -> {:role, Atom.to_string(role)}
+      other -> other
+    end)
+    |> Enum.into(%{})
   end
 
   def user_fixture(attrs \\ %{}) do

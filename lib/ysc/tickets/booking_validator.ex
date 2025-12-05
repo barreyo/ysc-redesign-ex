@@ -51,7 +51,7 @@ defmodule Ysc.Tickets.BookingValidator do
     ticket_tiers = Events.list_ticket_tiers_for_event(event_id)
 
     event_capacity = get_event_capacity_info(event)
-    tier_availability = Enum.map(ticket_tiers, &get_tier_availability/1)
+    tier_availability = Enum.map(ticket_tiers, &get_tier_availability_from_map/1)
 
     %{
       event_capacity: event_capacity,
@@ -255,19 +255,42 @@ defmodule Ysc.Tickets.BookingValidator do
     }
   end
 
-  defp get_tier_availability(%TicketTier{} = tier) do
-    available = get_available_tier_quantity(tier)
+  defp get_tier_availability_from_map(tier_map) when is_map(tier_map) do
+    # Convert map to struct-like access for compatibility
+    tier_id = Map.get(tier_map, :id) || Map.get(tier_map, "id")
+    quantity = Map.get(tier_map, :quantity) || Map.get(tier_map, "quantity")
+
+    sold_count =
+      Map.get(tier_map, :sold_tickets_count, 0) || Map.get(tier_map, "sold_tickets_count", 0)
+
+    available =
+      case quantity do
+        nil -> :unlimited
+        0 -> :unlimited
+        qty -> max(0, qty - sold_count)
+      end
 
     %{
-      tier_id: tier.id,
-      name: tier.name,
-      total_quantity: tier.quantity,
+      tier_id: tier_id,
+      name: Map.get(tier_map, :name) || Map.get(tier_map, "name"),
+      total_quantity: quantity,
       available: available,
-      sold: get_sold_tier_quantity(tier),
-      on_sale: tier_on_sale?(tier),
-      start_date: tier.start_date,
-      end_date: tier.end_date
+      sold: sold_count,
+      on_sale: tier_on_sale_from_map?(tier_map),
+      start_date: Map.get(tier_map, :start_date) || Map.get(tier_map, "start_date"),
+      end_date: Map.get(tier_map, :end_date) || Map.get(tier_map, "end_date")
     }
+  end
+
+  defp tier_on_sale_from_map?(tier_map) do
+    start_date = Map.get(tier_map, :start_date) || Map.get(tier_map, "start_date")
+
+    if is_nil(start_date) do
+      true
+    else
+      now = DateTime.utc_now()
+      DateTime.compare(now, start_date) != :lt
+    end
   end
 
   defp get_available_tier_quantity(%TicketTier{quantity: nil}), do: :unlimited
@@ -276,10 +299,6 @@ defmodule Ysc.Tickets.BookingValidator do
   defp get_available_tier_quantity(%TicketTier{id: tier_id, quantity: total_quantity}) do
     sold_count = count_sold_tickets_for_tier(tier_id)
     max(0, total_quantity - sold_count)
-  end
-
-  defp get_sold_tier_quantity(%TicketTier{id: tier_id}) do
-    count_sold_tickets_for_tier(tier_id)
   end
 
   defp count_confirmed_tickets_for_event(event_id) do
@@ -296,8 +315,8 @@ defmodule Ysc.Tickets.BookingValidator do
 
   defp within_event_capacity?(%Event{max_attendees: nil}, _), do: true
 
-  defp within_event_capacity?(%Event{max_attendees: max_attendees}, requested_quantity) do
-    current_attendees = count_confirmed_tickets_for_event(max_attendees)
+  defp within_event_capacity?(%Event{max_attendees: max_attendees} = event, requested_quantity) do
+    current_attendees = count_confirmed_tickets_for_event(event.id)
     current_attendees + requested_quantity <= max_attendees
   end
 

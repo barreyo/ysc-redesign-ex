@@ -116,7 +116,7 @@ defmodule YscWeb.Workers.EmailNotifier do
     )
 
     # Check user notification preferences if user_id is provided
-    should_send =
+    {should_send, final_user_id} =
       if user_id do
         case Ysc.Repo.get(Ysc.Accounts.User, user_id) do
           nil ->
@@ -125,7 +125,7 @@ defmodule YscWeb.Workers.EmailNotifier do
               template: template
             )
 
-            true
+            {true, nil}
 
           user ->
             should_send = Ysc.Accounts.EmailCategories.should_send_email?(user, template)
@@ -139,11 +139,11 @@ defmodule YscWeb.Workers.EmailNotifier do
               )
             end
 
-            should_send
+            {should_send, user_id}
         end
       else
         # No user_id - send email (e.g., board notifications)
-        true
+        {true, nil}
       end
 
     if not should_send do
@@ -203,7 +203,7 @@ defmodule YscWeb.Workers.EmailNotifier do
             template_module,
             atomized_params,
             text_body,
-            user_id
+            final_user_id
           )
 
         case result do

@@ -310,8 +310,8 @@
         <%= @inner_content %>
       </main>
 
-      <footer :if={!fullscreen?(@conn)} class="bg-white border-t border-zinc-100 w-full">
-        <div class="mx-auto max-w-screen-lg px-4 py-6">
+      <footer :if={!fullscreen?(@conn)} class="bg-white border-t border-zinc-100 w-full mt-8">
+        <div class="mx-auto max-w-screen-lg px-4 py-8">
           <div class="space-y-8 lg:flex lg:justify-between lg:space-y-4">
             <div class="lg:flex-shrink-0">
               <.link navigate={~p"/"} class="flex items-center font-semibold whitespace-nowrap">
@@ -435,7 +435,7 @@
                     x="0px"
                     y="0px"
                     viewBox="0 0 64 64"
-                    class="w-10 h-10 transition duration-300 fill-current text-zinc-800 hover:text-blue-700"
+                    class="w-10 h-10 transition duration-300 fill-current text-zinc-600 hover:text-blue-700"
                   >
                     <path d="M48,7H16c-4.418,0-8,3.582-8,8v32c0,4.418,3.582,8,8,8h17V38h-6v-7h6v-5c0-7,4-11,10-11c3.133,0,5,1,5,1v6h-4 c-2.86,0-4,2.093-4,4v5h7l-1,7h-6v17h8c4.418,0,8-3.582,8-8V15C56,10.582,52.418,7,48,7z">
                     </path>
@@ -470,7 +470,7 @@
                       x="0px"
                       y="0px"
                       viewBox="0 0 64 64"
-                      class="absolute z-10 w-10 h-10 transition duration-300 fill-current text-zinc-800 hover:opacity-0"
+                      class="absolute z-10 w-10 h-10 transition duration-300 fill-current text-zinc-600 hover:opacity-0"
                     >
                       <path d="M 21.580078 7 C 13.541078 7 7 13.544938 7 21.585938 L 7 42.417969 C 7 50.457969 13.544938 57 21.585938 57 L 42.417969 57 C 50.457969 57 57 50.455062 57 42.414062 L 57 21.580078 C 57 13.541078 50.455062 7 42.414062 7 L 21.580078 7 z M 47 15 C 48.104 15 49 15.896 49 17 C 49 18.104 48.104 19 47 19 C 45.896 19 45 18.104 45 17 C 45 15.896 45.896 15 47 15 z M 32 19 C 39.17 19 45 24.83 45 32 C 45 39.17 39.169 45 32 45 C 24.83 45 19 39.169 19 32 C 19 24.831 24.83 19 32 19 z M 32 23 C 27.029 23 23 27.029 23 32 C 23 36.971 27.029 41 32 41 C 36.971 41 41 36.971 41 32 C 41 27.029 36.971 23 32 23 z">
                       </path>
@@ -496,7 +496,7 @@
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 512 512"
-                    class="w-8 h-8 transition text-center duration-300 fill-current text-zinc-800 hover:text-[#5865F2] items-center justify-center"
+                    class="w-8 h-8 transition text-center duration-300 fill-current text-zinc-600 hover:text-[#5865F2] items-center justify-center"
                   >
                     <path d="M105 0h302c57.928.155 104.845 47.072 105 104.996V407c-.155 57.926-47.072 104.844-104.996 104.998L105 512C47.074 511.844.156 464.926.002 407.003L0 105C.156 47.072 47.074.155 104.997 0H105zm263.896 153.382a269.459 269.459 0 00-67.117-20.638 186.784 186.784 0 00-8.571 17.476 250.18 250.18 0 00-37.246-2.8c-12.447 0-24.956.945-37.25 2.776-2.512-5.927-5.428-11.804-8.592-17.455a271.746 271.746 0 00-67.133 20.681c-42.48 62.842-53.992 124.112-48.236 184.513a270.634 270.634 0 0082.308 41.312c6.637-8.959 12.583-18.497 17.63-28.422a174.021 174.021 0 01-27.772-13.253c2.329-1.689 4.606-3.428 6.805-5.118 25.727 12.083 53.837 18.385 82.277 18.385 28.442 0 56.552-6.302 82.279-18.386 2.226 1.816 4.503 3.556 6.805 5.117a175.079 175.079 0 01-27.822 13.289 197.895 197.895 0 0017.63 28.4 269.527 269.527 0 0082.363-41.306l-.007.007c6.754-70.044-11.537-130.753-48.351-184.578zM201.969 300.789c-16.04 0-29.293-14.556-29.293-32.464s12.791-32.593 29.241-32.593 29.599 14.685 29.318 32.593c-.282 17.908-12.919 32.464-29.266 32.464zm108.061 0c-16.066 0-29.266-14.556-29.266-32.464s12.791-32.593 29.266-32.593c16.475 0 29.523 14.685 29.241 32.593-.281 17.908-12.893 32.464-29.241 32.464z" />
                   </svg>

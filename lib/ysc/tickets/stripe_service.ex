@@ -11,6 +11,10 @@ defmodule Ysc.Tickets.StripeService do
 
   alias Ysc.Tickets
 
+  defp stripe_client do
+    Application.get_env(:ysc, :stripe_client, Ysc.StripeClient)
+  end
+
   @doc """
   Creates a Stripe payment intent for a ticket order.
 
@@ -68,7 +72,7 @@ defmodule Ysc.Tickets.StripeService do
     # If the same reference is used again, Stripe will return the existing payment intent
     idempotency_key = "ticket_order_#{ticket_order.reference_id}"
 
-    case Stripe.PaymentIntent.create(payment_intent_params,
+    case stripe_client().create_payment_intent(payment_intent_params,
            headers: %{"Idempotency-Key" => idempotency_key}
          ) do
       {:ok, payment_intent} ->
@@ -100,7 +104,7 @@ defmodule Ysc.Tickets.StripeService do
   - `{:error, reason}` on failure
   """
   def process_successful_payment(payment_intent_id) do
-    with {:ok, payment_intent} <- Stripe.PaymentIntent.retrieve(payment_intent_id, %{}),
+    with {:ok, payment_intent} <- stripe_client().retrieve_payment_intent(payment_intent_id, %{}),
          {:ok, ticket_order} <- get_ticket_order_from_payment_intent(payment_intent),
          :ok <- validate_payment_intent(payment_intent, ticket_order) do
       Tickets.process_ticket_order_payment(ticket_order, payment_intent_id)
@@ -119,7 +123,7 @@ defmodule Ysc.Tickets.StripeService do
   - `{:error, reason}` on failure
   """
   def handle_failed_payment(payment_intent_id, failure_reason \\ "Payment failed") do
-    with {:ok, payment_intent} <- Stripe.PaymentIntent.retrieve(payment_intent_id, %{}),
+    with {:ok, payment_intent} <- stripe_client().retrieve_payment_intent(payment_intent_id, %{}),
          {:ok, ticket_order} <- get_ticket_order_from_payment_intent(payment_intent) do
       Tickets.cancel_ticket_order(ticket_order, failure_reason)
     end
@@ -138,7 +142,7 @@ defmodule Ysc.Tickets.StripeService do
   def cancel_payment_intent(payment_intent_id) when is_binary(payment_intent_id) do
     require Logger
 
-    case Stripe.PaymentIntent.cancel(payment_intent_id, %{}) do
+    case stripe_client().cancel_payment_intent(payment_intent_id, %{}) do
       {:ok, _payment_intent} ->
         Logger.info("Successfully canceled PaymentIntent",
           payment_intent_id: payment_intent_id
@@ -246,7 +250,7 @@ defmodule Ysc.Tickets.StripeService do
       }
     }
 
-    case Stripe.Customer.create(customer_params) do
+    case stripe_client().create_customer(customer_params) do
       {:ok, customer} ->
         # In a real implementation, you'd store the customer ID in the user record
         # For now, we'll just return it

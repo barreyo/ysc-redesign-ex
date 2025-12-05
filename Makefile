@@ -97,7 +97,7 @@ tests:  ## Run the test suite (starts postgres if needed)
 	@docker-compose -f $(DOCKER_COMPOSE_FILE) up -d postgres || true
 	@DBNAME=postgres ./etc/scripts/_wait_db_connection.sh true
 	@echo "$(BOLD)Running test suite...$(RESET)"
-	@MIX_ENV=test mix test --trace
+	@MIX_ENV=test mix test --cover
 
 .PHONY: test
 test: tests
