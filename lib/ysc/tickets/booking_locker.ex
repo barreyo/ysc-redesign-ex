@@ -266,8 +266,9 @@ defmodule Ysc.Tickets.BookingLocker do
 
           :donation ->
             # For donations, amount_or_quantity is already in cents
-            # Create Money directly from cents (Money stores internally in cents)
-            donation_amount = Money.new(amount_or_quantity, :USD)
+            # Convert cents to dollars Decimal, then create Money
+            dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
+            donation_amount = Money.new(dollars_decimal, :USD)
 
             case Money.add(acc, donation_amount) do
               {:ok, new_total} -> new_total
@@ -276,8 +277,9 @@ defmodule Ysc.Tickets.BookingLocker do
 
           "donation" ->
             # For donations, amount_or_quantity is already in cents
-            # Create Money directly from cents (Money stores internally in cents)
-            donation_amount = Money.new(amount_or_quantity, :USD)
+            # Convert cents to dollars Decimal, then create Money
+            dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
+            donation_amount = Money.new(dollars_decimal, :USD)
 
             case Money.add(acc, donation_amount) do
               {:ok, new_total} -> new_total
