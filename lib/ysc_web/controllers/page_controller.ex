@@ -72,6 +72,12 @@ defmodule YscWeb.PageController do
     |> render(:privacy_policy)
   end
 
+  def terms_of_service(conn, _params) do
+    conn
+    |> assign(:page_title, "Terms of Service")
+    |> render(:terms_of_service)
+  end
+
   def board(conn, _params) do
     bod_members = Ysc.Accounts.list_bod_members()
 

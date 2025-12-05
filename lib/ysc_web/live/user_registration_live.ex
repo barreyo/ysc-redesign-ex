@@ -105,7 +105,7 @@ defmodule YscWeb.UserRegistrationLive do
                 field={@form[:phone_number]}
               />
               <p class="text-xs text-zinc-600 mt-1">
-                By providing your phone number, you consent to receive SMS notifications from YSC, including account updates, event reminders, and other important communications. Message and data rates may apply. You can opt out at any time in your notification settings. See our
+                <strong>Young Scandinavians Club (YSC)</strong>: By entering your number, you agree to receive account security codes and booking reminders from Young Scandinavians Club. Message frequency may vary. Message & data rates may apply. Reply HELP for support or STOP to unsubscribe. Your phone number will not be shared with third parties for marketing or promotional purposes. You can also opt out at any time in your notification settings. See our
                 <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
                   Privacy Policy
                 </.link>

@@ -25,7 +25,8 @@ defmodule YscWeb.Sms.TwoFactorVerification do
     code = Map.get(variables, :code, "")
     first_name = Map.get(variables, :first_name)
 
-    base_message = "Your verification code is: #{code}"
+    base_message =
+      "Your secure login code is: #{code}. Do not share this code. If you did not request this, please contact support."
 
     message =
       if first_name do
