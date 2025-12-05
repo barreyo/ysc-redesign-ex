@@ -12,7 +12,21 @@ defmodule YscWeb.Router do
     plug :fetch_live_flash
     plug :put_root_layout, html: {YscWeb.Layouts, :root}
     plug :protect_from_forgery
+
+    # Enforce SSL/HSTS (Strict-Transport-Security)
+    # This tells browsers to ONLY connect via HTTPS for the next year (max_age).
+    # 'rewrite_on' handles load balancers (AWS/Heroku) correctly.
+    plug Plug.SSL, rewrite_on: [:x_forwarded_proto], max_age: 31_536_000
+
+    # Generate a Nonce for CSP (must come before security headers)
+    plug YscWeb.Plugs.CSPNonce
+
+    # Set security headers including CSP with nonce
+    plug YscWeb.Plugs.SecurityHeaders
+
+    # Standard Phoenix security headers (complements our custom headers)
     plug :put_secure_browser_headers
+
     plug :fetch_current_user
     plug :mount_site_settings
   end
@@ -23,7 +37,19 @@ defmodule YscWeb.Router do
     plug :fetch_live_flash
     plug :put_root_layout, html: {YscWeb.Layouts, :admin_root}
     plug :protect_from_forgery
+
+    # Enforce SSL/HSTS
+    plug Plug.SSL, rewrite_on: [:x_forwarded_proto], max_age: 31_536_000
+
+    # Generate a Nonce for CSP (must come before security headers)
+    plug YscWeb.Plugs.CSPNonce
+
+    # Set security headers including CSP with nonce
+    plug YscWeb.Plugs.SecurityHeaders
+
+    # Standard Phoenix security headers (complements our custom headers)
     plug :put_secure_browser_headers
+
     plug :fetch_current_user
     plug :mount_site_settings
   end

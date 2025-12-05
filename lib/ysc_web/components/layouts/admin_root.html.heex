@@ -8,13 +8,19 @@
       <%= assigns[:page_title] || "YSC Admin" %>
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
+    <script
+      defer
+      phx-track-static
+      type="text/javascript"
+      src={~p"/assets/app.js"}
+      nonce={@csp_nonce}
+    >
     </script>
 
     <link href="https://js.radar.com/v4.4.8/radar.css" rel="stylesheet" />
-    <script src="https://js.radar.com/v4.4.8/radar.min.js">
+    <script src="https://js.radar.com/v4.4.8/radar.min.js" nonce={@csp_nonce}>
     </script>
-    <script>
+    <script nonce={@csp_nonce}>
       window.radarPublicKey = "<%= Application.get_env(:ysc, :radar)[:public_key] %>";
     </script>
   </head>

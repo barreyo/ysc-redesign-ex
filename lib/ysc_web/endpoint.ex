@@ -23,6 +23,12 @@ defmodule YscWeb.Endpoint do
     gzip: false,
     only: ~w(site.webmanifest)
 
+  # Serve .well-known directory (for security.txt and other standards)
+  plug Plug.Static,
+    at: "/.well-known",
+    from: {:ysc, "priv/static/.well-known"},
+    gzip: false
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # You should set gzip to true if you are running phx.digest

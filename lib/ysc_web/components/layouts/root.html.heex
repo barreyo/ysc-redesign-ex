@@ -11,23 +11,24 @@
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <link href="https://js.radar.com/v4.4.8/radar.css" rel="stylesheet" />
-    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2" async defer>
-    </script>
-    <script src="https://js.radar.com/v4.4.8/radar.min.js" defer>
-    </script>
-    <script src="https://js.stripe.com/v3/" defer>
-    </script>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/glightbox/dist/css/glightbox.min.css"
+    <script
       defer
-      async
-    />
-    <script src="https://unpkg.com/glightbox/dist/js/glightbox.min.js" defer async>
+      phx-track-static
+      type="text/javascript"
+      src={~p"/assets/app.js"}
+      nonce={@csp_nonce}
+    >
     </script>
-    <script>
+    <script src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2" defer nonce={@csp_nonce}>
+    </script>
+    <script src="https://js.radar.com/v4.4.8/radar.min.js" defer nonce={@csp_nonce}>
+    </script>
+    <script src="https://js.stripe.com/v3/" defer nonce={@csp_nonce}>
+    </script>
+    <link rel="stylesheet" href="https://unpkg.com/glightbox/dist/css/glightbox.min.css" defer />
+    <script src="https://unpkg.com/glightbox/dist/js/glightbox.min.js" defer nonce={@csp_nonce}>
+    </script>
+    <script nonce={@csp_nonce}>
       window.stripePublishableKey = "<%= Application.get_env(:stripity_stripe, :public_key) %>";
       window.radarPublicKey = "<%= Application.get_env(:ysc, :radar)[:public_key] %>";
     </script>

@@ -54,7 +54,6 @@ defmodule YscWeb.UserRegistrationLive do
 
             <div class={if @current_step !== 0, do: "hidden"}>
               <div class="py-4 space">
-                <!-- TODO: Label instead of <p> -->
                 <p class="mb-4 text-sm font-semibold leading-6 text-zinc-800">
                   What type of membership are you applying for?*
                 </p>
