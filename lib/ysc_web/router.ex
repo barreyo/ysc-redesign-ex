@@ -18,7 +18,7 @@ defmodule YscWeb.Router do
     # In development, we skip this to avoid redirect loops and HSTS caching issues
     # HSTS header is set explicitly in SecurityHeaders plug (production only)
     # Check if we're in production by checking if code_reloader is disabled
-    if not Application.get_env(:ysc, YscWeb.Endpoint)[:code_reloader] do
+    if not (Application.compile_env(:ysc, YscWeb.Endpoint, []) |> Keyword.get(:code_reloader, false)) do
       plug Plug.SSL, rewrite_on: [:x_forwarded_proto], max_age: 31_536_000
     end
 
@@ -43,7 +43,7 @@ defmodule YscWeb.Router do
     plug :protect_from_forgery
 
     # Enforce SSL/HSTS - only in production
-    if not Application.get_env(:ysc, YscWeb.Endpoint)[:code_reloader] do
+    if not (Application.compile_env(:ysc, YscWeb.Endpoint, []) |> Keyword.get(:code_reloader, false)) do
       plug Plug.SSL, rewrite_on: [:x_forwarded_proto], max_age: 31_536_000
     end
 
