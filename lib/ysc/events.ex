@@ -129,6 +129,8 @@ defmodule Ysc.Events do
         where: e.state in [:published, :cancelled],
         left_join: t in Ticket,
         on: t.event_id == e.id and t.status == :confirmed and t.inserted_at >= ^three_days_ago,
+        left_join: tt in TicketTier,
+        on: t.ticket_tier_id == tt.id and tt.type != :donation,
         group_by: e.id,
         select: %{
           id: e.id,
@@ -157,8 +159,8 @@ defmodule Ysc.Events do
           lock_version: e.lock_version,
           inserted_at: e.inserted_at,
           updated_at: e.updated_at,
-          recent_tickets_count: count(t.id),
-          selling_fast: fragment("count(?) >= 5", t.id)
+          recent_tickets_count: count(tt.id),
+          selling_fast: fragment("count(?) >= 5", tt.id)
         },
         order_by: [
           # First sort by state: non-cancelled events first, cancelled events last
@@ -680,8 +682,10 @@ defmodule Ysc.Events do
 
     recent_ticket_count =
       Ticket
-      |> where([t], t.event_id == ^event_id and t.status == :confirmed)
-      |> where([t], t.inserted_at >= ^three_days_ago)
+      |> join(:inner, [t], tt in TicketTier, on: t.ticket_tier_id == tt.id)
+      |> where([t, tt], t.event_id == ^event_id and t.status == :confirmed)
+      |> where([t, tt], t.inserted_at >= ^three_days_ago)
+      |> where([t, tt], tt.type != :donation)
       |> Repo.aggregate(:count, :id)
 
     recent_ticket_count >= 10
