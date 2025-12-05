@@ -6,6 +6,14 @@ defmodule YscWeb.Router do
   import YscWeb.UserAuth
   import YscWeb.Plugs.SiteSettingsPlugs
 
+  # Check if we're in production by checking Mix.env() at compile time
+  # In releases, Mix is not available, so we default to production behavior
+  @is_prod (if Code.ensure_loaded?(Mix) do
+              Mix.env() == :prod
+            else
+              true
+            end)
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -17,8 +25,7 @@ defmodule YscWeb.Router do
     # In production, this redirects HTTP to HTTPS and sets HSTS header
     # In development, we skip this to avoid redirect loops and HSTS caching issues
     # HSTS header is set explicitly in SecurityHeaders plug (production only)
-    # Check if we're in production by checking if code_reloader is disabled
-    if not (Application.compile_env(:ysc, YscWeb.Endpoint, []) |> Keyword.get(:code_reloader, false)) do
+    if @is_prod do
       plug Plug.SSL, rewrite_on: [:x_forwarded_proto], max_age: 31_536_000
     end
 
@@ -43,7 +50,7 @@ defmodule YscWeb.Router do
     plug :protect_from_forgery
 
     # Enforce SSL/HSTS - only in production
-    if not (Application.compile_env(:ysc, YscWeb.Endpoint, []) |> Keyword.get(:code_reloader, false)) do
+    if @is_prod do
       plug Plug.SSL, rewrite_on: [:x_forwarded_proto], max_age: 31_536_000
     end
 
