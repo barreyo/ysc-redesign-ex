@@ -21,17 +21,28 @@ defmodule Ysc.EventsTest do
           published_at: DateTime.utc_now()
         })
 
+      # Create a ticket tier for the tickets
+      {:ok, ticket_tier} =
+        Events.create_ticket_tier(%{
+          name: "General Admission",
+          type: :paid,
+          price: Money.new(50, :USD),
+          quantity: 100,
+          event_id: event.id
+        })
+
       # Create 10 tickets with recent timestamps (within last 3 days)
       now = DateTime.utc_now() |> DateTime.truncate(:second)
       # 1 day ago
       recent_time = DateTime.add(now, -1, :day)
 
-      # Insert 10 confirmed tickets
+      # Insert 10 confirmed tickets with ticket_tier_id
       for _i <- 1..10 do
         %Ticket{
           id: Ecto.ULID.generate(),
           event_id: event.id,
           user_id: user.id,
+          ticket_tier_id: ticket_tier.id,
           status: :confirmed,
           inserted_at: recent_time,
           expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)

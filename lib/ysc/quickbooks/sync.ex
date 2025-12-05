@@ -1772,15 +1772,48 @@ defmodule Ysc.Quickbooks.Sync do
       )
 
       if payments_count == 0 && refunds_count == 0 do
-        Logger.error(
-          "[QB Sync] create_payout_deposit: Payout has no linked payments or refunds - cannot create deposit",
+        Logger.warning(
+          "[QB Sync] create_payout_deposit: Payout has no linked payments or refunds - creating simple deposit",
           payout_id: payout.id,
           stripe_payout_id: payout.stripe_payout_id,
           payout_amount: Money.to_string!(payout.amount)
         )
 
-        {:error,
-         "Payout has no linked payments or refunds. Please ensure payments are linked to the payout before syncing."}
+        # Create a simple deposit without line items for payouts with no linked transactions
+        # Money.to_decimal returns dollars (database stores amounts in dollars)
+        amount =
+          Money.to_decimal(payout.amount)
+          |> Decimal.round(2)
+
+        # Get Administration class for simple deposit
+        administration_class_ref = get_administration_class_ref()
+
+        params = %{
+          bank_account_id: bank_account_id,
+          deposit_to_account_ref: %{value: bank_account_id},
+          line: [
+            %{
+              amount: amount,
+              detail_type: "DepositLineDetail",
+              deposit_line_detail: %{
+                entity_ref: %{value: stripe_account_id, type: "Account"},
+                class_ref: administration_class_ref
+              },
+              description: "Stripe Payout: #{payout.stripe_payout_id}"
+            }
+          ],
+          total_amt: amount,
+          txn_date: format_payout_date(payout.arrival_date || payout.inserted_at),
+          memo: "Stripe Payout: #{payout.stripe_payout_id}",
+          private_note: "Payout with no linked transactions"
+        }
+
+        Logger.debug("[QB Sync] create_payout_deposit: Simple deposit params",
+          payout_id: payout.id,
+          params: inspect(params, limit: :infinity)
+        )
+
+        client_module().create_deposit(params)
       else
         # Build line items for each payment and refund
         Logger.debug("[QB Sync] create_payout_deposit: Building line items",
@@ -1984,7 +2017,8 @@ defmodule Ysc.Quickbooks.Sync do
             detail_type: "DepositLineDetail",
             deposit_line_detail: %{
               entity_ref: %{
-                value: payment.quickbooks_sales_receipt_id
+                value: payment.quickbooks_sales_receipt_id,
+                type: "SalesReceipt"
               },
               class_ref: administration_class_ref
             },
@@ -2047,7 +2081,8 @@ defmodule Ysc.Quickbooks.Sync do
             detail_type: "DepositLineDetail",
             deposit_line_detail: %{
               entity_ref: %{
-                value: refund.quickbooks_sales_receipt_id
+                value: refund.quickbooks_sales_receipt_id,
+                type: "SalesReceipt"
               },
               class_ref: administration_class_ref
             },

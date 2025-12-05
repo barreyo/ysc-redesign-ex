@@ -15,6 +15,9 @@ defmodule YscWeb.Sms.SmsNotifierTest do
     # Configure FlowRoute for tests
     Application.put_env(:ysc, :flowroute, from_number: "12061231234")
 
+    # Clear SMS rate limit cache to ensure tests don't hit rate limits
+    Cachex.clear(:ysc_cache)
+
     :ok
   end
 

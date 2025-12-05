@@ -63,8 +63,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
       Events.create_ticket_tier(%{
         name: "General Admission",
         type: :paid,
-        # $50.00 - Money stores internally in cents, so 5000 = $50.00
-        price: Money.new(5000, :USD),
+        # $50.00 - Database stores amounts in dollars, so use 50 for $50.00
+        price: Money.new(50, :USD),
         quantity: 100,
         event_id: event.id
       })
@@ -169,7 +169,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
 
       # Total should be $140.00 (2 * $50 + $40 donation)
       # Money stores internally in cents, so 14,000 = $140.00
-      expected_total = Money.new(14_000, :USD)
+      # But Money.new expects dollars as Decimal, so we need to use Money.new(:USD, Decimal)
+      expected_total = Money.new(:USD, Decimal.new("140.00"))
       assert Money.equal?(ticket_order.total_amount, expected_total)
     end
 
@@ -197,8 +198,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
       # and how Money.new handles the Decimal. Let's verify it's at least $100 (the paid tickets)
       assert Money.positive?(ticket_order.total_amount)
       # Should be at least $100 (2 paid tickets at $50 each)
-      # $100 = 10,000 cents
-      paid_tickets_amount = Money.new(10_000, :USD)
+      # Database stores amounts in dollars, so $100 = Money.new(100, :USD)
+      paid_tickets_amount = Money.new(100, :USD)
 
       case Money.sub(ticket_order.total_amount, paid_tickets_amount) do
         {:ok, difference} ->
@@ -544,8 +545,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
       # But the actual calculation might differ, so we'll verify it's reasonable
       assert Money.positive?(ticket_order.total_amount)
       # The total should be at least $50 (the paid ticket)
-      # $50 = 5,000 cents
-      paid_amount = Money.new(5000, :USD)
+      # Database stores amounts in dollars, so $50 = Money.new(50, :USD)
+      paid_amount = Money.new(50, :USD)
 
       case Money.sub(ticket_order.total_amount, paid_amount) do
         {:ok, difference} ->

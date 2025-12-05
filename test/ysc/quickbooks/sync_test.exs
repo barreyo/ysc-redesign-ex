@@ -456,10 +456,12 @@ defmodule Ysc.Quickbooks.SyncTest do
         # unit_price is positive (abs value), but total_amt should match
         assert params.total_amt == Decimal.abs(unit_price)
 
-        # CRITICAL: Verify class_ref is present (ALL QuickBooks exports must have a class)
-        assert Map.has_key?(params, :class_ref)
-        assert Map.has_key?(params.class_ref, :value)
-        assert Map.has_key?(params.class_ref, :name)
+        # CRITICAL: Verify class_ref is present in sales_item_line_detail (ALL QuickBooks exports must have a class)
+        # class_ref is in the line item's sales_item_line_detail, not at the top level
+        class_ref = get_in(line_item, [:sales_item_line_detail, :class_ref])
+        assert class_ref != nil
+        assert Map.has_key?(class_ref, :value)
+        assert Map.has_key?(class_ref, :name)
 
         {:ok,
          %{
@@ -2260,15 +2262,16 @@ defmodule Ysc.Quickbooks.SyncTest do
       end
 
       # Create multiple payments and refunds
+      # Money.new expects dollars, not cents, so $100.00 = Money.new(100, :USD)
       payments_data = [
-        {Money.new(10_000, :USD), "qb_sr_1"},
-        {Money.new(5_000, :USD), "qb_sr_2"},
-        {Money.new(15_000, :USD), "qb_sr_3"}
+        {Money.new(100, :USD), "qb_sr_1"},
+        {Money.new(50, :USD), "qb_sr_2"},
+        {Money.new(150, :USD), "qb_sr_3"}
       ]
 
       refunds_data = [
-        {Money.new(2_000, :USD), "qb_sr_refund_1"},
-        {Money.new(1_000, :USD), "qb_sr_refund_2"}
+        {Money.new(20, :USD), "qb_sr_refund_1"},
+        {Money.new(10, :USD), "qb_sr_refund_2"}
       ]
 
       # Create and sync payments
@@ -2403,7 +2406,7 @@ defmodule Ysc.Quickbooks.SyncTest do
           # Set up expect for this specific refund sync
           # Refunds should have negative amounts
           # Amounts are stored in dollars, so Money.to_decimal returns dollars
-          expected_total =
+          _expected_total =
             Money.to_decimal(amount)
             |> Decimal.mult(Decimal.new(-1))
             |> Decimal.round(2)

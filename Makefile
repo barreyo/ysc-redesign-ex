@@ -102,6 +102,9 @@ tests:  ## Run the test suite (starts postgres if needed)
 .PHONY: test
 test: tests
 
+.PHONY: tests-failed
+tests-failed: test-failed
+
 .PHONY: test-failed
 test-failed:  ## Run the test suite for failed tests from previous run
 	@MIX_ENV=test mix test --trace --failed
