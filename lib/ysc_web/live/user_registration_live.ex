@@ -12,7 +12,7 @@ defmodule YscWeb.UserRegistrationLive do
     <div id="registration-wrapper" class="max-w-xl mx-auto py-10">
       <div class="flex w-full mx-auto items-center text-center justify-center">
         <.link navigate={~p"/"} class="p-10 hover:opacity-80 transition duration-200 ease-in-out">
-          <.ysc_logo class="h-24" />
+          <.ysc_logo class="h-28" />
         </.link>
       </div>
       <div class="w-full px-2">

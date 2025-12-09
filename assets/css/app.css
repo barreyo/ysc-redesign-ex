@@ -157,6 +157,155 @@ body {
     left: 50%;
 }
 
+
+/* HERO MODE - Transparent navigation with white text */
+
+#site-header.hero-mode {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+}
+
+#site-header.hero-mode #rootNavbar {
+    background-color: transparent;
+    border-color: transparent;
+}
+
+#site-header.hero-mode .nav-link {
+    color: white;
+}
+
+#site-header.hero-mode .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+#site-header.hero-mode .nav-icon span {
+    background: white;
+}
+
+#site-header.hero-mode button.nav-link {
+    color: white;
+}
+
+#site-header.hero-mode button.nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+#site-header.hero-mode .menu-label {
+    color: white;
+}
+
+#site-header.hero-mode .hamburger-btn {
+    color: white;
+}
+
+#site-header.hero-mode .hamburger-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+
+/* MOBILE SLIDE-IN MENU */
+
+.mobile-menu-panel {
+    box-shadow: 4px 0 25px rgba(0, 0, 0, 0.15);
+}
+
+
+/* Mobile menu content styling */
+
+.mobile-menu-content ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.mobile-menu-content .nav-link {
+    display: block;
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    color: #18181b;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s ease;
+}
+
+.mobile-menu-content .nav-link:hover {
+    background-color: #f4f4f5;
+}
+
+
+/* Mobile menu dropdown styling */
+
+.mobile-menu-content>ul>li>.relative>button {
+    justify-content: flex-start !important;
+    text-align: left;
+    width: 100%;
+    padding: 0.75rem 1rem;
+}
+
+.mobile-menu-content .dropdown-content {
+    position: static !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding-left: 1rem;
+    margin-top: 0.25rem;
+}
+
+.mobile-menu-content .dropdown-content ul {
+    background: #f9fafb;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+}
+
+.mobile-menu-content .dropdown-content a {
+    display: block;
+    padding: 0.625rem 0.75rem;
+    color: #3f3f46;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.mobile-menu-content .dropdown-content a:hover {
+    background-color: #e4e4e7;
+    color: #18181b;
+}
+
+
+/* Prevent body scroll when menu is open */
+
+body.overflow-hidden {
+    overflow: hidden;
+}
+
+
+/* Override hero-mode white text for mobile slide-in menu (it has white background) */
+
+.mobile-menu-panel .nav-link,
+#site-header.hero-mode .mobile-menu-panel .nav-link {
+    color: #18181b !important;
+}
+
+.mobile-menu-panel .nav-link:hover,
+#site-header.hero-mode .mobile-menu-panel .nav-link:hover {
+    background-color: #f4f4f5 !important;
+    color: #18181b !important;
+}
+
+.mobile-menu-panel .dropdown-content a,
+#site-header.hero-mode .mobile-menu-panel .dropdown-content a {
+    color: #3f3f46 !important;
+}
+
+.mobile-menu-panel .dropdown-content a:hover,
+#site-header.hero-mode .mobile-menu-panel .dropdown-content a:hover {
+    background-color: #e4e4e7 !important;
+    color: #18181b !important;
+}
+
 .pagination-link,
 .pagination-ellipsis {
     display: flex;
@@ -3071,7 +3220,10 @@ trix-editor .attachment__metadata .attachment__size {
 
 
 /* Dropdown chevron animation */
+
+
 /* Only rotate chevron icons, not all spans */
+
 .dropdown-open .hero-chevron-down,
 .dropdown-open .hero-chevron-up {
     transform: rotate(180deg);

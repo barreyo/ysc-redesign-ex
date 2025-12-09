@@ -179,6 +179,66 @@ defmodule Ysc.Events do
   end
 
   @doc """
+  Fetch past events (events that have already occurred), optionally limited.
+  Optimized to batch load ticket tiers and ticket counts to avoid N+1 queries.
+  """
+  def list_past_events(limit \\ 20) do
+    three_days_ago = DateTime.add(DateTime.utc_now(), -3, :day)
+
+    events =
+      from(e in Event,
+        where: e.start_date <= ^DateTime.utc_now(),
+        where: e.state in [:published, :cancelled],
+        left_join: t in Ticket,
+        on: t.event_id == e.id and t.status == :confirmed and t.inserted_at >= ^three_days_ago,
+        left_join: tt in TicketTier,
+        on: t.ticket_tier_id == tt.id and tt.type != :donation,
+        group_by: e.id,
+        select: %{
+          id: e.id,
+          reference_id: e.reference_id,
+          state: e.state,
+          published_at: e.published_at,
+          publish_at: e.publish_at,
+          organizer_id: e.organizer_id,
+          title: e.title,
+          description: e.description,
+          max_attendees: e.max_attendees,
+          age_restriction: e.age_restriction,
+          show_participants: e.show_participants,
+          raw_details: e.raw_details,
+          rendered_details: e.rendered_details,
+          image_id: e.image_id,
+          start_date: e.start_date,
+          start_time: e.start_time,
+          end_date: e.end_date,
+          end_time: e.end_time,
+          location_name: e.location_name,
+          address: e.address,
+          latitude: e.latitude,
+          longitude: e.longitude,
+          place_id: e.place_id,
+          lock_version: e.lock_version,
+          inserted_at: e.inserted_at,
+          updated_at: e.updated_at,
+          recent_tickets_count: count(tt.id),
+          selling_fast: fragment("count(?) >= 5", tt.id)
+        },
+        order_by: [
+          # Sort by start_date descending (most recent past events first)
+          desc: e.start_date,
+          # Then sort by start_time for events on the same date
+          desc: e.start_time
+        ],
+        limit: ^limit
+      )
+      |> Repo.all()
+
+    # Batch load all ticket tiers, ticket counts, and images for all events at once
+    add_pricing_info_batch(events)
+  end
+
+  @doc """
   List events that are upcoming or occurred in the last 3 months.
   This is useful for expense reports to help users associate expenses with events.
   Events are ordered with upcoming events first (ascending by start_date),

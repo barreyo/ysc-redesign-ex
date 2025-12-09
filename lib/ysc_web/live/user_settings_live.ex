@@ -12,7 +12,7 @@ defmodule YscWeb.UserSettingsLive do
 
   def render(assigns) do
     ~H"""
-    <div class="max-w-screen-lg px-4 mx-auto py-8 lg:py-10">
+    <div class="max-w-screen-xl px-4 mx-auto py-8 lg:py-10 lg:px-10">
       <div class="md:flex md:flex-row md:flex-auto md:grow container mx-auto">
         <.modal
           :if={@live_action == :payment_method}
@@ -647,7 +647,7 @@ defmodule YscWeb.UserSettingsLive do
                                   "#{@membership_change_info.new_plan.id}"
                                 ) %> at your next renewal date.
                               </p>
-                              <p class="text-xs mt-2 opacity-90">
+                              <p class="text-sm mt-2 opacity-90">
                                 You will continue to have <%= String.capitalize(
                                   "#{@membership_change_info.current_plan.id}"
                                 ) %> benefits until then. No immediate charges or credits will be applied.

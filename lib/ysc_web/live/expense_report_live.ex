@@ -1044,7 +1044,7 @@ defmodule YscWeb.ExpenseReportLive do
 
   defp render_success(assigns) do
     ~H"""
-    <div class="py-8 lg:py-10 max-w-screen-lg mx-auto px-4">
+    <div class="py-8 lg:py-10 max-w-screen-xl mx-auto px-4 lg:px-10">
       <div class="max-w-xl mx-auto">
         <!-- Success Header -->
         <div class="text-center mb-8">

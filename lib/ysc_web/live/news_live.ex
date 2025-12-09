@@ -10,13 +10,13 @@ defmodule YscWeb.NewsLive do
   def render(assigns) do
     ~H"""
     <div class="py-6 md:py-10">
-      <div class="max-w-screen-lg mx-auto px-4">
+      <div class="max-w-screen-xl mx-auto px-4 lg:px-10">
         <div class="prose prose-zinc pb-8">
           <h1>Club News</h1>
         </div>
       </div>
 
-      <div :if={@featured != nil} class="max-w-screen-lg mx-auto px-4">
+      <div :if={@featured != nil} class="max-w-screen-xl mx-auto px-4 lg:px-10">
         <div id="featured" class="w-full flex flex-col pb-2">
           <.link
             navigate={~p"/posts/#{@featured.url_name}"}
@@ -50,7 +50,7 @@ defmodule YscWeb.NewsLive do
           <%!-- <div class="w-full bg-gradient-to-t opacity-50 from-white to-zinc-900 h-80 absolute bottom-0">
           </div> --%>
 
-          <div class="py-4 md:py-6 px-2 lg:px-4 max-w-screen-lg mx-auto flex flex-col justify-between w-full">
+          <div class="py-4 md:py-6 px-2 lg:px-4 max-w-screen-xl mx-auto flex flex-col justify-between w-full">
             <div>
               <div class="flex items-center gap-1 mb-2">
                 <.badge type="yellow">
@@ -91,7 +91,7 @@ defmodule YscWeb.NewsLive do
         </div>
       </div>
 
-      <div class="max-w-screen-lg mx-auto px-4">
+      <div class="max-w-screen-xl mx-auto px-4 lg:px-10">
         <div
           :if={@post_count > 0}
           id="news-grid"

@@ -36,176 +36,268 @@
   </head>
   <body class="antialiased bg-white">
     <div id="content-wrapper" class="flex flex-col min-h-screen">
-      <header :if={!fullscreen?(@conn)}>
-        <div id="hero-branding" class="relative overflow-hidden h-44">
-          <div
-            :if={@current_user && @current_user.role == :admin}
-            class="z-50 absolute left-0 top-0 bg-zinc-800 rounded-b px-2 items-center flex py-2"
-          >
-            <.link
-              navigate={~p"/admin"}
-              class="text-sm bg-green-700 rounded px-3 py-1.5 transition hover:bg-green-500 items-center font-semibold text-zinc-100"
-            >
-              <.icon name="hero-cog" class="me-1 -mt-0.5" />Go to admin dashboard
+      <div
+        :if={@current_user && @current_user.role == :admin}
+        class="z-50 fixed left-0 bottom-0 bg-zinc-800 rounded-b px-2 items-center flex py-2"
+      >
+        <.link
+          navigate={~p"/admin"}
+          class="text-sm bg-green-700 rounded px-3 py-1.5 transition hover:bg-green-500 items-center font-semibold text-zinc-100"
+        >
+          <.icon name="hero-cog" class="me-1 -mt-0.5" />Go to admin dashboard
+        </.link>
+      </div>
+      <header
+        :if={!fullscreen?(@conn)}
+        id="site-header"
+        class="relative transition-all duration-300"
+      >
+        <nav
+          id="rootNavbar"
+          class="top-0 z-50 w-full start-0 transition-colors duration-300 bg-white border-b border-zinc-100"
+        >
+          <div class="flex flex-row items-center justify-between max-w-screen-xl mx-auto py-4 lg:py-0 px-4">
+            <!-- Logo - hidden on mobile -->
+            <.link navigate={~p"/"} class="hidden lg:flex items-center flex-shrink-0">
+              <.ysc_logo no_circle={true} class="h-12" />
             </.link>
-          </div>
 
-          <div class="w-full h-full">
-            <div class="w-full h-full overlay">
-              <canvas
-                id="blur-hash-image-tahoe-feature"
-                src="|TD,WZ%MacofWCX9t7oHadNGRijEofRjkEofacWB.At8MwkCaeWYbHjDj=IARPozt7jrWYa#axoeWZt7jrogoej]a$ofjsWBWAt8RjadV@WBofj@t8ofWBkDWAofofkCofoet7RjV@kCWBj@j[f6WCRPj[kCj[j]jsayfR"
-                class="absolute inset-0 z-0 object-cover w-full h-full will-change-opacity"
-                phx-hook="BlurHashCanvas"
-              >
-              </canvas>
-              <img
-                class="absolute inset-0 z-[1] object-cover w-full h-full opacity-0 transition-opacity duration-300 ease-out will-change-opacity"
-                id="image-tahoe-feature"
-                loading="eager"
-                src={~p"/images/tahoe-cabin-feature.jpg"}
-                phx-hook="BlurHashImage"
-                alt="Tahoe cabin exterior hero image"
-              />
-            </div>
-
-            <div class="z-10 absolute max-w-screen-lg w-full transform top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 items-center flex">
-              <.link
-                navigate={~p"/"}
-                class="transition-opacity ease-in-out duration-400 hover:opacity-80 w-full text-2xl font-extrabold tracking-wide text-white uppercase sm:text-3xl md:text-5xl lg:whitespace-nowrap"
-                aria-label="Home"
-              >
-                <div class="flex items-center text-left px-4 justify-between">
-                  <.ysc_logo class="h-20 md:h-24 me-5" /> The Young Scandinavians Club
-                </div>
-              </.link>
-            </div>
-          </div>
-        </div>
-
-        <nav id="rootNavbar" class="top-0 z-50 w-full bg-white border-b border-zinc-100 start-0">
-          <div class="flex flex-row items-start lg:items-center space-x-10 justify-between max-w-screen-lg p-4 mx-auto">
-            <div class="flex w-full items-center">
+            <div class="flex flex-1 items-center justify-end lg:justify-between py-0 lg:py-6">
               <.hamburger_menu toggle_id="navbar-dropdown" current_user={@current_user}>
-                <ul class="flex flex-col py-4 mt-2 font-medium lg:p-0 lg:space-x-8 lg:flex-row lg:mt-0 lg:border-0">
-                  <li>
-                    <.link
-                      navigate={~p"/news"}
-                      class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
-                      phx-click={
-                        JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
-                        |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
-                      }
-                    >
-                      News
-                    </.link>
-                  </li>
-                  <li>
-                    <.link
-                      navigate={~p"/events"}
-                      class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
-                      phx-click={
-                        JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
-                        |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
-                      }
-                    >
-                      Events
-                    </.link>
-                  </li>
-                  <li>
-                    <.link
-                      navigate={~p"/bookings/tahoe"}
-                      class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
-                      phx-click={
-                        JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
-                        |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
-                      }
-                    >
-                      Tahoe Cabin
-                    </.link>
-                  </li>
-                  <li>
-                    <.link
-                      navigate={~p"/bookings/clear-lake"}
-                      class="block px-3 py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
-                      phx-click={
-                        JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
-                        |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
-                      }
-                    >
-                      Clear Lake Cabin
-                    </.link>
-                  </li>
-                  <li>
-                    <.dropdown
-                      id="about"
-                      class="text-zinc-900 hover:bg-zinc-100 hover:text-black"
-                      mobile={true}
-                    >
-                      <:button_block>
-                        Club Info
-                        <.icon
-                          name="hero-chevron-down"
-                          class="w-5 h-5 ms-2 text-color-zinc-800 transition-transform duration-200 ease-in-out"
-                        />
-                      </:button_block>
-                      <ul
-                        class="py-2 text-sm font-medium text-zinc-800"
-                        aria-labelledby="dropdownLargeButton"
+                <:desktop_content>
+                  <ul class="flex flex-row lg:border-0 ms-6 items-center gap-2">
+                    <li>
+                      <.link
+                        navigate={~p"/news"}
+                        class="nav-link px-4 py-3 font-bold transition ease-in-out rounded duration-400 text-zinc-900 hover:bg-zinc-100 hover:text-black"
                       >
-                        <li>
-                          <.link
-                            navigate={~p"/history"}
-                            class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
-                            phx-click={
-                              JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
-                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
-                            }
-                          >
-                            Our History
-                          </.link>
-                        </li>
-                        <li>
-                          <.link
-                            navigate={~p"/board"}
-                            class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
-                            phx-click={
-                              JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
-                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
-                            }
-                          >
-                            Board of Directors
-                          </.link>
-                        </li>
-                        <li>
-                          <.link
-                            navigate={~p"/volunteer"}
-                            class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
-                            phx-click={
-                              JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
-                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
-                            }
-                          >
-                            Volunteer
-                          </.link>
-                        </li>
-                        <li>
-                          <.link
-                            navigate={~p"/contact"}
-                            class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
-                            phx-click={
-                              JS.remove_class("expanded", to: "#navbar-dropdown.expanded")
-                              |> JS.remove_class("open", to: "#navbar-dropdown-hamburger")
-                            }
-                          >
-                            Contact Us
-                          </.link>
-                        </li>
-                        <%!-- Moved Governance/Financials/Code of Conduct to Footer to clean up navigation --%>
-                      </ul>
-                    </.dropdown>
-                  </li>
-                </ul>
+                        News
+                      </.link>
+                    </li>
+                    <li>
+                      <.link
+                        navigate={~p"/events"}
+                        class="nav-link px-4 py-3 font-bold transition ease-in-out rounded duration-400 text-zinc-900 hover:bg-zinc-100 hover:text-black"
+                      >
+                        Events
+                      </.link>
+                    </li>
+                    <li>
+                      <.link
+                        navigate={~p"/bookings/tahoe"}
+                        class="nav-link px-4 py-3 font-bold transition ease-in-out rounded duration-400 text-zinc-900 hover:bg-zinc-100 hover:text-black"
+                      >
+                        Tahoe Cabin
+                      </.link>
+                    </li>
+                    <li>
+                      <.link
+                        navigate={~p"/bookings/clear-lake"}
+                        class="nav-link px-4 py-3 font-bold transition ease-in-out rounded duration-400 text-zinc-900 hover:bg-zinc-100 hover:text-black"
+                      >
+                        Clear Lake Cabin
+                      </.link>
+                    </li>
+                    <li>
+                      <.dropdown
+                        id="navbar-about-desktop"
+                        class="nav-link text-zinc-900 hover:bg-zinc-100 hover:text-black py-[0.595rem]"
+                      >
+                        <:button_block>
+                          Club Info
+                          <.icon
+                            name="hero-chevron-down"
+                            class="w-5 h-5 ms-2 transition-transform duration-200 ease-in-out"
+                          />
+                        </:button_block>
+                        <ul
+                          class="py-2 text-sm font-medium text-zinc-800"
+                          aria-labelledby="dropdownLargeButton"
+                        >
+                          <li>
+                            <.link
+                              navigate={~p"/history"}
+                              class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            >
+                              Our History
+                            </.link>
+                          </li>
+                          <li>
+                            <.link
+                              navigate={~p"/board"}
+                              class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            >
+                              Board of Directors
+                            </.link>
+                          </li>
+                          <li>
+                            <.link
+                              navigate={~p"/volunteer"}
+                              class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
+                            >
+                              Volunteer
+                            </.link>
+                          </li>
+                          <li>
+                            <.link
+                              navigate={~p"/contact"}
+                              class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
+                            >
+                              Contact Us
+                            </.link>
+                          </li>
+                          <%!-- Moved Governance/Financials/Code of Conduct to Footer to clean up navigation --%>
+                        </ul>
+                      </.dropdown>
+                    </li>
+                  </ul>
+                </:desktop_content>
+
+                <:mobile_content>
+                  <ul class="flex flex-col font-medium">
+                    <li>
+                      <.link
+                        navigate={~p"/news"}
+                        phx-click={
+                          JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                          |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                          |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                          |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                          |> JS.remove_class("overflow-hidden", to: "body")
+                        }
+                        class="nav-link block px-3 py-2 font-bold transition ease-in-out rounded duration-400 text-zinc-900 hover:bg-zinc-100 hover:text-black"
+                      >
+                        News
+                      </.link>
+                    </li>
+                    <li>
+                      <.link
+                        navigate={~p"/events"}
+                        phx-click={
+                          JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                          |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                          |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                          |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                          |> JS.remove_class("overflow-hidden", to: "body")
+                        }
+                        class="nav-link block px-3 py-2 font-bold transition ease-in-out rounded duration-400 text-zinc-900 hover:bg-zinc-100 hover:text-black"
+                      >
+                        Events
+                      </.link>
+                    </li>
+                    <li>
+                      <.link
+                        navigate={~p"/bookings/tahoe"}
+                        phx-click={
+                          JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                          |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                          |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                          |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                          |> JS.remove_class("overflow-hidden", to: "body")
+                        }
+                        class="nav-link block px-3 py-2 font-bold transition ease-in-out rounded duration-400 text-zinc-900 hover:bg-zinc-100 hover:text-black"
+                      >
+                        Tahoe Cabin
+                      </.link>
+                    </li>
+                    <li>
+                      <.link
+                        navigate={~p"/bookings/clear-lake"}
+                        phx-click={
+                          JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                          |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                          |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                          |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                          |> JS.remove_class("overflow-hidden", to: "body")
+                        }
+                        class="nav-link block px-3 py-2 font-bold transition ease-in-out rounded duration-400 text-zinc-900 hover:bg-zinc-100 hover:text-black"
+                      >
+                        Clear Lake Cabin
+                      </.link>
+                    </li>
+                    <li>
+                      <.dropdown
+                        id="navbar-about-mobile"
+                        class="nav-link text-zinc-900 hover:bg-zinc-100 hover:text-black"
+                        mobile={true}
+                      >
+                        <:button_block>
+                          Club Info
+                          <.icon
+                            name="hero-chevron-down"
+                            class="w-5 h-5 ms-2 transition-transform duration-200 ease-in-out"
+                          />
+                        </:button_block>
+                        <ul
+                          class="py-2 text-sm font-medium text-zinc-800"
+                          aria-labelledby="dropdownLargeButton"
+                        >
+                          <li>
+                            <.link
+                              navigate={~p"/history"}
+                              phx-click={
+                                JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                                |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                                |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                                |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                                |> JS.remove_class("overflow-hidden", to: "body")
+                              }
+                              class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            >
+                              Our History
+                            </.link>
+                          </li>
+                          <li>
+                            <.link
+                              navigate={~p"/board"}
+                              phx-click={
+                                JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                                |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                                |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                                |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                                |> JS.remove_class("overflow-hidden", to: "body")
+                              }
+                              class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
+                            >
+                              Board of Directors
+                            </.link>
+                          </li>
+                          <li>
+                            <.link
+                              navigate={~p"/volunteer"}
+                              phx-click={
+                                JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                                |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                                |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                                |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                                |> JS.remove_class("overflow-hidden", to: "body")
+                              }
+                              class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
+                            >
+                              Volunteer
+                            </.link>
+                          </li>
+                          <li>
+                            <.link
+                              navigate={~p"/contact"}
+                              phx-click={
+                                JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                                |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                                |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                                |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                                |> JS.remove_class("overflow-hidden", to: "body")
+                              }
+                              class="block px-4 py-2 transition ease-in-out duration-400 hover:bg-zinc-100"
+                            >
+                              Contact Us
+                            </.link>
+                          </li>
+                          <%!-- Moved Governance/Financials/Code of Conduct to Footer to clean up navigation --%>
+                        </ul>
+                      </.dropdown>
+                    </li>
+                  </ul>
+                </:mobile_content>
 
                 <:cta_section>
                   <%= if @current_user do %>
@@ -228,6 +320,13 @@
                           <li>
                             <.link
                               navigate={~p"/users/membership"}
+                              phx-click={
+                                JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                                |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                                |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                                |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                                |> JS.remove_class("overflow-hidden", to: "body")
+                              }
                               class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                             >
                               Membership
@@ -236,6 +335,13 @@
                           <li>
                             <.link
                               navigate={~p"/users/payments"}
+                              phx-click={
+                                JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                                |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                                |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                                |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                                |> JS.remove_class("overflow-hidden", to: "body")
+                              }
                               class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                             >
                               My Bookings & Tickets
@@ -244,6 +350,13 @@
                           <li>
                             <.link
                               navigate={~p"/users/settings"}
+                              phx-click={
+                                JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                                |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                                |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                                |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                                |> JS.remove_class("overflow-hidden", to: "body")
+                              }
                               class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                             >
                               Account Settings
@@ -254,6 +367,13 @@
                           <.link
                             href={~p"/users/log-out"}
                             method="delete"
+                            phx-click={
+                              JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                              |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                              |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                              |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                              |> JS.remove_class("overflow-hidden", to: "body")
+                            }
                             class="block px-4 py-2 text-sm text-zinc-800 transition ease-in-out hover:bg-zinc-100 duration-400"
                           >
                             Sign out
@@ -265,12 +385,26 @@
                     <div class="flex items-center space-x-2">
                       <.link
                         href={~p"/users/log-in"}
-                        class="px-2 py-2 lg:px-3 lg:py-2 font-bold transition ease-in-out rounded text-zinc-900 hover:bg-zinc-100 duration-400 hover:text-black"
+                        phx-click={
+                          JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                          |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                          |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                          |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                          |> JS.remove_class("overflow-hidden", to: "body")
+                        }
+                        class="nav-link px-2 py-2 lg:px-3 lg:py-2 font-bold transition ease-in-out rounded duration-400 text-zinc-900 hover:bg-zinc-100 hover:text-black"
                       >
                         Sign In
                       </.link>
                       <.link
                         navigate={~p"/users/register"}
+                        phx-click={
+                          JS.remove_class("open", to: "#navbar-dropdown-hamburger")
+                          |> JS.add_class("hidden", to: "#navbar-dropdown-overlay")
+                          |> JS.add_class("-translate-x-full", to: "#navbar-dropdown")
+                          |> JS.remove_class("translate-x-0", to: "#navbar-dropdown")
+                          |> JS.remove_class("overflow-hidden", to: "body")
+                        }
                         class="px-3 py-2 lg:px-4 lg:py-2.5 text-sm font-bold text-center text-zinc-100 transition ease-in-out bg-blue-700 rounded duration-400 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300"
                       >
                         Become a Member
@@ -311,7 +445,7 @@
       </main>
 
       <footer :if={!fullscreen?(@conn)} class="bg-white border-t border-zinc-100 w-full mt-8">
-        <div class="mx-auto max-w-screen-lg px-4 py-8">
+        <div class="mx-auto max-w-screen-xl px-4 py-8">
           <div class="space-y-8 lg:flex lg:justify-between lg:space-y-4">
             <div class="lg:flex-shrink-0">
               <.link navigate={~p"/"} class="flex items-center font-semibold whitespace-nowrap">

@@ -44,6 +44,7 @@ import GLightboxHook from "./glightbox_hook";
 import LocalTime from "./local_time";
 import YearScrubber from "./year_scrubber";
 import ScrollPreserver from "./scroll_preserver";
+import HeroMode from "./hero_mode";
 
 let Hooks = {
     StickyNavbar,
@@ -67,6 +68,7 @@ let Hooks = {
     LocalTime,
     YearScrubber,
     ScrollPreserver,
+    HeroMode,
 };
 Hooks.LivePhone = LivePhone;
 

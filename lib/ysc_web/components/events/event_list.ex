@@ -11,7 +11,11 @@ defmodule YscWeb.EventsListLive do
       <div :if={@event_count > 0} class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 py-4">
         <div
           :for={{id, event} <- @streams.events}
-          class={["flex flex-col rounded", event.state == :cancelled && "opacity-70"]}
+          class={[
+            "flex flex-col rounded",
+            event.state == :cancelled && "opacity-70",
+            @upcoming == false && "opacity-60"
+          ]}
           id={id}
         >
           <.link
@@ -82,7 +86,7 @@ defmodule YscWeb.EventsListLive do
         <div class="text-center justify-center items-center w-full">
           <img
             class="w-60 mx-auto rounded-full"
-            src="/images/vikings/viking_beer.png"
+            src={~p"/images/vikings/viking_beer.png"}
             alt="No upcoming events at the moment"
           />
           <.header class="pt-8">
@@ -110,11 +114,31 @@ defmodule YscWeb.EventsListLive do
   end
 
   @impl true
-  def update(_assigns, socket) do
-    event_count = Events.count_published_events()
-    events = Events.list_upcoming_events()
+  def update(assigns, socket) do
+    upcoming = Map.get(assigns, :upcoming, true)
+    limit = Map.get(assigns, :limit)
 
-    {:ok, socket |> stream(:events, events) |> assign(:event_count, event_count)}
+    event_count =
+      if upcoming do
+        Events.count_published_events()
+      else
+        # For past events, we'll just count what's returned since we don't have a separate count function
+        :unlimited
+      end
+
+    events =
+      if upcoming do
+        if limit, do: Events.list_upcoming_events(limit), else: Events.list_upcoming_events()
+      else
+        if limit, do: Events.list_past_events(limit), else: Events.list_past_events()
+      end
+
+    {:ok,
+     socket
+     |> stream(:events, events, reset: true)
+     |> assign(:event_count, event_count)
+     |> assign(:upcoming, upcoming)
+     |> assign(:limit, limit)}
   end
 
   defp format_start_time(time) when is_binary(time) do

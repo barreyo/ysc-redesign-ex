@@ -208,7 +208,7 @@ admin_user =
 
     existing_user ->
       # Ensure address exists for existing admin user
-      create_address_for_user(existing_user)
+      create_address_for_user.(existing_user)
       existing_user
   end
 
@@ -1051,6 +1051,88 @@ if length(active_users) > 0 do
     # Create example events
     # Mix of free events and events with paid tickets
     event_data = [
+      # PAST EVENTS (for testing past events feature)
+      %{
+        title: "Past Midsummer Celebration 2023",
+        description: "Our annual midsummer celebration with traditional food and music",
+        start_date:
+          DateTime.new!(Date.new!(2023, 6, 21), Time.new!(18, 0, 0), "America/Los_Angeles"),
+        start_time: ~T[18:00:00],
+        end_date:
+          DateTime.new!(Date.new!(2023, 6, 21), Time.new!(22, 0, 0), "America/Los_Angeles"),
+        end_time: ~T[22:00:00],
+        location_name: "Scandinavian Heritage Park",
+        address: "456 Heritage St, San Francisco, CA 94103",
+        latitude: 37.7849,
+        longitude: -122.4094,
+        max_attendees: 150,
+        ticket_tiers: [
+          %{name: "General Admission", type: :free, quantity: 150}
+        ]
+      },
+      %{
+        title: "Past Nordic Christmas Dinner",
+        description: "A festive Christmas dinner featuring traditional Scandinavian cuisine",
+        start_date:
+          DateTime.new!(Date.new!(2023, 12, 15), Time.new!(19, 0, 0), "America/Los_Angeles"),
+        start_time: ~T[19:00:00],
+        end_date:
+          DateTime.new!(Date.new!(2023, 12, 15), Time.new!(23, 0, 0), "America/Los_Angeles"),
+        end_time: ~T[23:00:00],
+        location_name: "Grand Scandinavian Hall",
+        address: "789 Nordic Blvd, San Francisco, CA 94104",
+        latitude: 37.7949,
+        longitude: -122.3994,
+        max_attendees: 120,
+        ticket_tiers: [
+          %{
+            name: "Member Price",
+            type: :paid,
+            price: Money.new(65, :USD),
+            quantity: 80,
+            description: "Discounted for club members"
+          },
+          %{name: "Regular Price", type: :paid, price: Money.new(85, :USD), quantity: 40}
+        ]
+      },
+      %{
+        title: "Past Fika Social Hour",
+        description: "Monthly casual meetup with coffee and pastries",
+        start_date:
+          DateTime.new!(Date.new!(2023, 11, 10), Time.new!(14, 0, 0), "America/Los_Angeles"),
+        start_time: ~T[14:00:00],
+        end_date:
+          DateTime.new!(Date.new!(2023, 11, 10), Time.new!(16, 0, 0), "America/Los_Angeles"),
+        end_time: ~T[16:00:00],
+        location_name: "Scandinavian Bakery",
+        address: "321 Bakery St, Berkeley, CA 94704",
+        latitude: 37.8715,
+        longitude: -122.2730,
+        max_attendees: 30,
+        ticket_tiers: [
+          %{name: "Free Coffee & Pastries", type: :free, quantity: 30}
+        ]
+      },
+      %{
+        title: "Past Viking History Lecture",
+        description: "Educational talk on Viking history and culture",
+        start_date:
+          DateTime.new!(Date.new!(2023, 10, 5), Time.new!(18, 30, 0), "America/Los_Angeles"),
+        start_time: ~T[18:30:00],
+        end_date:
+          DateTime.new!(Date.new!(2023, 10, 5), Time.new!(20, 30, 0), "America/Los_Angeles"),
+        end_time: ~T[20:30:00],
+        location_name: "Community Library",
+        address: "555 Library Ave, San Francisco, CA 94105",
+        latitude: 37.7649,
+        longitude: -122.4294,
+        max_attendees: 40,
+        ticket_tiers: [
+          %{name: "Free Admission", type: :free, quantity: 40}
+        ]
+      },
+
+      # UPCOMING EVENTS (existing ones)
       # Free events
       %{
         title: "Scandinavian Cultural Evening",

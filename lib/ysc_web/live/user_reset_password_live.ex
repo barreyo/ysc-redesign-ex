@@ -12,7 +12,7 @@ defmodule YscWeb.UserResetPasswordLive do
         navigate={~p"/"}
         class="flex items-center text-center justify-center py-10 hover:opacity-80 transition duration-200 ease-in-out"
       >
-        <.ysc_logo class="h-24" />
+        <.ysc_logo class="h-28" />
       </.link>
       <.header class="text-center">
         Reset Your Password

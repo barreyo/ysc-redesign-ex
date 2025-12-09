@@ -1198,7 +1198,7 @@ defmodule YscWeb.CoreComponents do
     >
       <div class="h-full px-5 py-8 overflow-y-auto bg-zinc-100 relative">
         <.link navigate="/" class="items-center group ps-2.5 mb-5 inline-block">
-          <.ysc_logo class="h-20 me-3" />
+          <.ysc_logo class="h-28 me-3" />
           <span class="block group-hover:underline text-sm font-bold text-zinc-600 py-4">
             Go to site <.icon name="hero-arrow-right" class="h-4 w-4" />
           </span>
@@ -1476,50 +1476,94 @@ defmodule YscWeb.CoreComponents do
 
   attr :toggle_id, :string, required: true
   attr :current_user, :any, required: true
-  slot :inner_block, required: true
+  slot :desktop_content, required: true
+  slot :mobile_content, required: true
   slot :cta_section
 
   def hamburger_menu(assigns) do
     ~H"""
-    <div
-      class="relative block w-full justify-between lg:flex-row lg:flex"
-      phx-click-away={hide_expanded(@toggle_id)}
-    >
-      <div class="flex flex-row justify-between order-2">
-        <button
-          data-collapse-toggle="navbar-sticky"
-          type="button"
-          class="inline-flex items-center justify-center h-10 p-2 transition ease-in-out rounded text-zinc-900 lg:hidden hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-300 duration-400"
-          aria-controls="navbar-sticky"
-          aria-expanded="false"
-          phx-click={toggle_expanded(@toggle_id)}
-        >
-          <div id={"#{@toggle_id}-hamburger"} class="nav-icon">
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-          <span class="ml-2 font-bold text-zinc-900 hover:text-black">
-            Menu
-          </span>
-        </button>
-
-        <div id="cta-section" class="relative flex-row flex flex-none items-center">
-          <%= render_slot(@cta_section) %>
+    <div class="flex w-full items-center justify-between lg:justify-between">
+      <%!-- Mobile: Hamburger button --%>
+      <button
+        type="button"
+        class="hamburger-btn nav-link inline-flex items-center justify-center h-10 p-2 transition ease-in-out rounded lg:hidden focus:outline-none duration-400 text-zinc-900 hover:bg-zinc-200"
+        aria-controls={@toggle_id}
+        aria-expanded="false"
+        phx-click={show_mobile_menu(@toggle_id)}
+      >
+        <div id={"#{@toggle_id}-hamburger"} class="nav-icon">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
+        <span class="menu-label ms-4 font-semibold">
+          Menu
+        </span>
+      </button>
+
+      <%!-- Desktop: Navigation links inline --%>
+      <div class="hidden lg:flex lg:items-center lg:space-x-8">
+        <%= render_slot(@desktop_content) %>
       </div>
 
-      <div
-        id={@toggle_id}
-        class={[
-          "hidden w-full lg:block lg:w-auto order-1"
-        ]}
-      >
-        <%= render_slot(@inner_block) %>
+      <%!-- CTA section (visible on both mobile and desktop) --%>
+      <div id="cta-section" class="flex items-center">
+        <%= render_slot(@cta_section) %>
+      </div>
+    </div>
+
+    <%!-- Mobile: Slide-in menu overlay --%>
+    <div
+      id={"#{@toggle_id}-overlay"}
+      class="mobile-menu-overlay fixed inset-0 bg-black/50 z-[100] hidden lg:hidden"
+      phx-click={hide_mobile_menu(@toggle_id)}
+      aria-hidden="true"
+    />
+
+    <%!-- Mobile: Slide-in menu panel --%>
+    <div
+      id={@toggle_id}
+      class="mobile-menu-panel fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-white z-[101] transform -translate-x-full transition-transform duration-300 ease-in-out lg:hidden overflow-y-auto shadow-2xl"
+    >
+      <%!-- Menu header with logo and close button --%>
+      <div class="flex items-center justify-between p-4 border-b border-zinc-200">
+        <.link navigate="/" class="flex items-center gap-3" phx-click={hide_mobile_menu(@toggle_id)}>
+          <.ysc_logo no_circle={true} class="h-20" />
+          <span class="text-lg font-bold text-zinc-900">YSC.org</span>
+        </.link>
+        <button
+          type="button"
+          class="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+          phx-click={hide_mobile_menu(@toggle_id)}
+          aria-label="Close menu"
+        >
+          <.icon name="hero-x-mark" class="w-6 h-6" />
+        </button>
+      </div>
+
+      <%!-- Menu content --%>
+      <div class="mobile-menu-content p-4">
+        <%= render_slot(@mobile_content) %>
       </div>
     </div>
     """
+  end
+
+  defp show_mobile_menu(id) do
+    JS.add_class("open", to: "##{id}-hamburger")
+    |> JS.remove_class("hidden", to: "##{id}-overlay")
+    |> JS.remove_class("-translate-x-full", to: "##{id}")
+    |> JS.add_class("translate-x-0", to: "##{id}")
+    |> JS.add_class("overflow-hidden", to: "body")
+  end
+
+  defp hide_mobile_menu(id) do
+    JS.remove_class("open", to: "##{id}-hamburger")
+    |> JS.add_class("hidden", to: "##{id}-overlay")
+    |> JS.add_class("-translate-x-full", to: "##{id}")
+    |> JS.remove_class("translate-x-0", to: "##{id}")
+    |> JS.remove_class("overflow-hidden", to: "body")
   end
 
   attr :type, :string, default: "default"
@@ -1881,10 +1925,22 @@ defmodule YscWeb.CoreComponents do
   end
 
   attr :class, :string, default: nil
+  attr :no_circle, :boolean, default: false
 
   def ysc_logo(assigns) do
     ~H"""
-    <img class={@class} src="/images/ysc_logo.png" alt="The Young Scandinavian Club Logo" />
+    <img
+      :if={!@no_circle}
+      class={@class}
+      src="/images/ysc_logo.png"
+      alt="The Young Scandinavian Club Logo"
+    />
+    <img
+      :if={@no_circle}
+      class={@class}
+      src="/images/ysc_logo_no_circle.svg"
+      alt="The Young Scandinavian Club Logo"
+    />
     """
   end
 
@@ -2543,4 +2599,105 @@ defmodule YscWeb.CoreComponents do
   end
 
   defp get_membership_renewal_date(_), do: nil
+
+  @doc """
+  Renders a hero section with a background image or video and optional overlay content.
+
+  The hero is designed to work with a transparent navigation bar. When using this
+  component, set `hero_mode: true` in your LiveView assigns to enable transparent
+  navigation with white text.
+
+  ## Examples
+
+      <.hero image={~p"/images/hero-bg.jpg"} height="70vh">
+        <:title>Welcome to YSC</:title>
+        <:subtitle>Your Scandinavian community in the Bay Area</:subtitle>
+        <:cta>
+          <.link navigate={~p"/events"} class="btn-primary">View Events</.link>
+        </:cta>
+      </.hero>
+
+      <.hero video={~p"/video/hero.mp4"} height="100vh">
+        <:title>Welcome</:title>
+      </.hero>
+
+  """
+  attr :image, :string, default: nil, doc: "Path to the background image"
+
+  attr :video, :string,
+    default: nil,
+    doc: "Path to the background video (takes precedence over image)"
+
+  attr :height, :string,
+    default: "70vh",
+    doc: "Height of the hero section (e.g., '100vh', '500px')"
+
+  attr :overlay, :boolean,
+    default: true,
+    doc: "Whether to show a dark overlay for text readability"
+
+  attr :overlay_opacity, :string,
+    default: "bg-black/40",
+    doc: "Tailwind class for overlay opacity"
+
+  attr :class, :string, default: nil, doc: "Additional classes for the hero container"
+
+  slot :title, doc: "The main hero title"
+  slot :subtitle, doc: "Secondary text below the title"
+  slot :cta, doc: "Call-to-action buttons or links"
+  slot :inner_block, doc: "Additional custom content"
+
+  def hero(assigns) do
+    ~H"""
+    <section
+      id="hero-section"
+      phx-hook="HeroMode"
+      class={[
+        "relative w-full flex items-center justify-center overflow-hidden -mt-[88px] pt-[88px]",
+        !@video && "bg-cover bg-center bg-no-repeat",
+        @class
+      ]}
+      style={
+        if @video,
+          do: "min-height: #{@height};",
+          else: "background-image: url('#{@image}'); min-height: #{@height};"
+      }
+    >
+      <video
+        :if={@video}
+        autoplay
+        muted
+        loop
+        playsinline
+        class="absolute inset-0 w-full h-full object-cover"
+      >
+        <source src={@video} type="video/mp4" />
+      </video>
+
+      <div :if={@overlay} class={["absolute inset-0 z-[1]", @overlay_opacity]} aria-hidden="true" />
+
+      <div class="relative z-10 max-w-screen-lg mx-auto px-4 py-16 text-center text-white">
+        <h1
+          :if={@title != []}
+          class="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight drop-shadow-lg"
+        >
+          <%= render_slot(@title) %>
+        </h1>
+
+        <p
+          :if={@subtitle != []}
+          class="mt-6 text-lg md:text-xl lg:text-2xl max-w-2xl mx-auto drop-shadow-md"
+        >
+          <%= render_slot(@subtitle) %>
+        </p>
+
+        <div :if={@cta != []} class="mt-8 flex flex-wrap gap-4 justify-center">
+          <%= render_slot(@cta) %>
+        </div>
+
+        <%= render_slot(@inner_block) %>
+      </div>
+    </section>
+    """
+  end
 end
