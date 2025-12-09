@@ -79,6 +79,7 @@ defmodule Ysc.Accounts.User do
 
     field :display_name, :string, virtual: true
     field :payment_id, :string, virtual: true
+    field :sms_opt_in, :boolean, virtual: true
 
     timestamps()
   end
@@ -125,14 +126,16 @@ defmodule Ysc.Accounts.User do
       :last_name,
       :phone_number,
       :most_connected_country,
-      :board_position
+      :board_position,
+      :sms_opt_in
     ])
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)
     |> validate_required([:first_name, :last_name])
     |> validate_email(opts)
     |> validate_password(opts)
-    |> validate_phone(opts)
+    |> validate_phone_optional(opts)
+    |> set_sms_notifications_from_opt_in(attrs)
     |> cast_assoc(:registration_form,
       with: &SignupApplication.application_changeset/2,
       opts: opts
@@ -220,6 +223,12 @@ defmodule Ysc.Accounts.User do
     |> validate_maybe_accept_phone()
   end
 
+  defp validate_phone_optional(changeset, _opts) do
+    changeset
+    |> validate_length(:phone_number, max: 25)
+    |> validate_maybe_accept_phone_optional()
+  end
+
   defp validate_maybe_accept_phone(changeset) do
     phone_number = get_change(changeset, :phone_number)
 
@@ -242,6 +251,45 @@ defmodule Ysc.Accounts.User do
             "Sorry, that does not look like a valid phone number"
           )
       end
+    end
+  end
+
+  defp validate_maybe_accept_phone_optional(changeset) do
+    phone_number = get_change(changeset, :phone_number)
+
+    if is_nil(phone_number) || phone_number == "" do
+      changeset
+    else
+      with {:ok, phone_number} <- PhoneNumber.parse_phone_number(phone_number),
+           true <- PhoneNumber.possible_phone_number?(phone_number),
+           true <- PhoneNumber.valid_phone_number?(phone_number) do
+        phone_number = PhoneNumber.format_phone_number(phone_number, :e164)
+        put_change(changeset, :phone_number, phone_number)
+      else
+        {:error, message} ->
+          add_error(changeset, :phone_number, message)
+
+        _ ->
+          add_error(
+            changeset,
+            :phone_number,
+            "Sorry, that does not look like a valid phone number"
+          )
+      end
+    end
+  end
+
+  defp set_sms_notifications_from_opt_in(changeset, attrs) do
+    sms_opt_in = attrs["sms_opt_in"] == "true" || attrs[:sms_opt_in] == true
+
+    if sms_opt_in do
+      changeset
+      |> put_change(:account_notifications_sms, true)
+      |> put_change(:event_notifications_sms, true)
+    else
+      changeset
+      |> put_change(:account_notifications_sms, false)
+      |> put_change(:event_notifications_sms, false)
     end
   end
 

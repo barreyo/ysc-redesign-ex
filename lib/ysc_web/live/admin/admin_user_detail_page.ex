@@ -149,7 +149,7 @@ defmodule YscWeb.AdminUserDetailsLive do
               field={@form[:phone_number]}
             />
             <p class="text-xs text-zinc-600 mt-1">
-              By providing a phone number, users consent to receive SMS notifications from YSC. Message and data rates may apply. Users can opt out in their notification settings. See our
+              By voluntarily providing your phone number and explicitly opting in to text messaging, you consent to receive SMS notifications from Young Scandinavians Club (YSC). Message and data rates may apply. Users can opt out in their notification settings. See our
               <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
                 Privacy Policy
               </.link>

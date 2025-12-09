@@ -100,12 +100,18 @@ defmodule YscWeb.UserRegistrationLive do
               />
               <.input
                 type="phone-input"
-                label="Phone Number*"
+                label="Phone Number"
                 id="phone_number"
                 field={@form[:phone_number]}
               />
+              <.input
+                type="checkbox"
+                label="I would like to receive SMS notifications for account security, event reminders, and booking updates"
+                field={@form[:sms_opt_in]}
+                id="sms_opt_in"
+              />
               <p class="text-xs text-zinc-600 mt-1">
-                <strong>Young Scandinavians Club (YSC)</strong>: By entering your number, you agree to receive account security codes and booking reminders from Young Scandinavians Club. Message frequency may vary. Message & data rates may apply. Reply HELP for support or STOP to unsubscribe. Your phone number will not be shared with third parties for marketing or promotional purposes. You can also opt out at any time in your notification settings. See our
+                <strong>Young Scandinavians Club (YSC)</strong>: By voluntarily providing your phone number and explicitly opting in to text messaging, you agree to receive account security codes and booking reminders from Young Scandinavians Club(YSC). Message frequency may vary. Message & data rates may apply. Reply HELP for support or STOP to unsubscribe. Your phone number will not be shared with third parties for marketing or promotional purposes. You can also opt out at any time in your notification settings. See our
                 <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
                   Privacy Policy
                 </.link>

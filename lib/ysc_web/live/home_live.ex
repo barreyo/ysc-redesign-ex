@@ -244,7 +244,7 @@ defmodule YscWeb.HomeLive do
             </div>
             <h3 class="text-2xl lg:text-3xl font-bold text-zinc-900">Tahoe Cabin</h3>
             <p class="mt-4 text-lg text-zinc-600 leading-relaxed">
-              Ski in winter, hike in summer, and relax year-round at our beautiful Lake Tahoe retreat. The cabin offers stunning mountain views and is perfectly positioned for all your alpine adventures.
+              Ski in winter, hike in summer, and relax year-round at our beautiful Lake Tahoe retreat. The cabin offers stunning mountain views and is perfectly positioned for all your alpine adventures. Adult rates only <strong>$45.00 / night per person</strong>.
             </p>
             <ul class="mt-6 space-y-3">
               <li class="flex items-center text-zinc-700">
@@ -291,7 +291,7 @@ defmodule YscWeb.HomeLive do
             </div>
             <h3 class="text-2xl lg:text-3xl font-bold text-zinc-900">Clear Lake Cabin</h3>
             <p class="mt-4 text-lg text-zinc-600 leading-relaxed">
-              Swim, boat, and unwind at our peaceful lakeside cabin. Clear Lake offers the perfect escape for water lovers and those seeking tranquility away from the city.
+              Swim, boat, and unwind at our peaceful lakeside cabin. Clear Lake offers the perfect escape for water lovers and those seeking tranquility away from the city. Rates start at <strong>$50.00 / night</strong>.
             </p>
             <ul class="mt-6 space-y-3">
               <li class="flex items-center text-zinc-700">
