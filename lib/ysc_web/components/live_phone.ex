@@ -276,7 +276,9 @@ defmodule LivePhone do
       role="combobox"
     >
       <span class={"live_phone-country-flag rounded w-7 h-6 fi fi-" <> String.downcase(@country)} />
-      <span class="live_phone-country-code text-sm text-zinc-600 px-3"><%= @region_code %></span>
+      <span class="live_phone-country-code text-sm text-zinc-600 px-3 mt-0.5">
+        <%= @region_code %>
+      </span>
       <span class={"w-4 text-zinc-600 mt-1 #{if @opened?, do: "hero-chevron-up", else: "hero-chevron-down"}"} />
     </div>
     """

@@ -136,87 +136,134 @@ defmodule YscWeb.AdminUserDetailsLive do
           </div>
         </div>
 
-        <div :if={@live_action == :profile} class="max-w-lg px-2">
+        <div :if={@live_action == :profile} class="max-w-lg px-2 space-y-8">
           <.simple_form for={@form} phx-change="validate" phx-submit="save">
-            <div class="relative">
-              <.input field={@form[:email]} label="Email" />
-              <%= if @selected_user.email_verified_at != nil do %>
-                <.icon
-                  name="hero-check-circle"
-                  class="absolute right-3 mt-[15px] top-1/2 -translate-y-1/2 h-5 w-5 text-green-500 pointer-events-none"
-                />
-              <% end %>
-            </div>
-            <.input field={@form[:first_name]} label="First Name" />
-            <.input field={@form[:last_name]} label="Last Name" />
-            <div class="relative">
+            <!-- Personal Information -->
+            <div class="space-y-4">
+              <h3 class="text-lg font-semibold text-zinc-800 border-b border-zinc-200 pb-2">
+                Personal Information
+              </h3>
+              <div class="relative">
+                <.input field={@form[:email]} label="Email" />
+                <%= if @selected_user.email_verified_at != nil do %>
+                  <.icon
+                    name="hero-check-circle"
+                    class="absolute right-3 mt-[16px] top-1/2 -translate-y-1/2 h-5 w-5 text-green-500 pointer-events-none"
+                  />
+                <% end %>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <.input field={@form[:first_name]} label="First Name" />
+                <.input field={@form[:last_name]} label="Last Name" />
+              </div>
               <.input
-                type="phone-input"
-                label="Phone Number"
-                id="phone_number"
-                value={@form[:phone_number].value}
-                field={@form[:phone_number]}
+                field={@form[:most_connected_country]}
+                label="Most connected Nordic country:"
+                type="select"
+                options={[Sweden: "SE", Norway: "NO", Finland: "FI", Denmark: "DK", Iceland: "IS"]}
               />
-              <%= if @selected_user.phone_verified_at != nil do %>
-                <.icon
-                  name="hero-check-circle"
-                  class="absolute right-3 mt-[15px] top-1/2 -translate-y-1/2 h-5 w-5 text-green-500 pointer-events-none"
-                />
-              <% end %>
             </div>
-            <p class="text-xs text-zinc-600 mt-1">
-              By voluntarily providing your phone number and explicitly opting in to text messaging, you consent to receive SMS notifications from Young Scandinavians Club (YSC). Message and data rates may apply. Users can opt out in their notification settings. See our
-              <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
-                Privacy Policy
-              </.link>
-              for more information.
-            </p>
-            <.input
-              field={@form[:most_connected_country]}
-              label="Most connected Nordic country:"
-              type="select"
-              options={[Sweden: "SE", Norway: "NO", Finland: "FI", Denmark: "DK", Iceland: "IS"]}
-            />
-            <.input
-              type="select"
-              field={@form[:state]}
-              options={[
-                Active: "active",
-                "Pending Approval": "pending_approval",
-                Rejected: "rejected",
-                Suspended: "suspended",
-                Deleted: "deleted"
-              ]}
-              label="State"
-            />
-            <.input
-              type="select"
-              field={@form[:role]}
-              options={[Member: "member", Admin: "admin"]}
-              label="Role"
-            />
+            <!-- Contact Information -->
+            <div class="space-y-4">
+              <h3 class="text-lg font-semibold text-zinc-800 border-b border-zinc-200 pb-2">
+                Contact Information
+              </h3>
+              <div class="relative">
+                <.input
+                  type="phone-input"
+                  label="Phone Number"
+                  id="phone_number"
+                  value={@form[:phone_number].value}
+                  field={@form[:phone_number]}
+                />
+                <%= if @selected_user.phone_verified_at != nil do %>
+                  <.icon
+                    name="hero-check-circle"
+                    class="absolute right-3 mt-[16px] top-1/2 -translate-y-1/2 h-5 w-5 text-green-500 pointer-events-none"
+                  />
+                <% end %>
+              </div>
+              <p class="text-xs text-zinc-600 mt-1">
+                By voluntarily providing your phone number and explicitly opting in to text messaging, you consent to receive SMS notifications from Young Scandinavians Club (YSC). Message and data rates may apply. Users can opt out in their notification settings. See our
+                <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
+                  Privacy Policy
+                </.link>
+                for more information.
+              </p>
+            </div>
+            <!-- Account Settings -->
+            <div class="space-y-4">
+              <h3 class="text-lg font-semibold text-zinc-800 border-b border-zinc-200 pb-2">
+                Account Settings
+              </h3>
+              <.input
+                type="select"
+                field={@form[:state]}
+                options={[
+                  Active: "active",
+                  "Pending Approval": "pending_approval",
+                  Rejected: "rejected",
+                  Suspended: "suspended",
+                  Deleted: "deleted"
+                ]}
+                label="State"
+              />
+              <.input
+                type="select"
+                field={@form[:role]}
+                options={[Member: "member", Admin: "admin"]}
+                label="Role"
+              />
 
-            <.input
-              :if={"#{@role}" == "admin"}
-              type="select"
-              field={@form[:board_position]}
-              options={[
-                None: nil,
-                President: "president",
-                "Vice President": "vice_president",
-                Secretary: "secretary",
-                Treasurer: "treasurer",
-                "Clear Lake Cabin Master": "clear_lake_cabin_master",
-                "Tahoe Cabin Master": "tahoe_cabin_master",
-                "Event Director": "event_director",
-                "Member Outreach & Events": "member_outreach",
-                "Membership Director": "membership_director"
-              ]}
-              label="Board Position"
-            />
+              <.input
+                :if={"#{@role}" == "admin"}
+                type="select"
+                field={@form[:board_position]}
+                options={[
+                  None: nil,
+                  President: "president",
+                  "Vice President": "vice_president",
+                  Secretary: "secretary",
+                  Treasurer: "treasurer",
+                  "Clear Lake Cabin Master": "clear_lake_cabin_master",
+                  "Tahoe Cabin Master": "tahoe_cabin_master",
+                  "Event Director": "event_director",
+                  "Member Outreach & Events": "member_outreach",
+                  "Membership Director": "membership_director"
+                ]}
+                label="Board Position"
+              />
+            </div>
+            <!-- Address Information -->
+            <div class="space-y-4">
+              <h3 class="text-lg font-semibold text-zinc-800 border-b border-zinc-200 pb-2">
+                Address Information
+              </h3>
+              <.inputs_for :let={address_form} field={@form[:billing_address]}>
+                <.input field={address_form[:address]} label="Address" />
+                <div class="grid grid-cols-2 gap-4">
+                  <.input field={address_form[:city]} label="City" />
+                  <.input field={address_form[:region]} label="Region/State" />
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <.input field={address_form[:postal_code]} label="Postal Code" />
+                  <.input field={address_form[:country]} label="Country" />
+                </div>
+              </.inputs_for>
+            </div>
 
             <div class="flex flex-row justify-end w-full pt-8">
-              <.button phx-disable-with="Saving..." type="submit">
+              <.button
+                phx-disable-with="Saving..."
+                type="submit"
+                disabled={!form_has_changes?(@original_form_data, @form)}
+                class={
+                  if(!form_has_changes?(@original_form_data, @form),
+                    do: "opacity-50 cursor-not-allowed",
+                    else: ""
+                  )
+                }
+              >
                 <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" />Save changes
               </.button>
             </div>
@@ -1124,7 +1171,9 @@ defmodule YscWeb.AdminUserDetailsLive do
   def mount(%{"id" => id} = _params, _session, socket) do
     current_user = socket.assigns[:current_user]
 
-    selected_user = Accounts.get_user!(id, [:family_members])
+    selected_user = Accounts.get_user!(id, [:family_members, :billing_address])
+
+    # Note: We don't pre-create billing_address here. cast_assoc will handle creating new records when billing_address is nil
 
     application =
       try do
@@ -1133,7 +1182,10 @@ defmodule YscWeb.AdminUserDetailsLive do
         Ecto.NoResultsError -> nil
       end
 
-    user_changeset = Accounts.User.update_user_changeset(selected_user, %{})
+    user_changeset = Accounts.User.update_user_with_address_changeset(selected_user, %{})
+    user_form = to_form(user_changeset, as: "user")
+    # Extract original data after form is created to ensure consistent formatting
+    original_form_data = extract_form_data(user_form)
 
     # Load active subscription
     active_subscription = Subscriptions.get_active_subscription(selected_user)
@@ -1213,7 +1265,8 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:bank_accounts, bank_accounts)
      |> assign(:unsealed_account_id, nil)
      |> assign(:unsealed_account, nil)
-     |> assign(form: to_form(user_changeset, as: "user"))}
+     |> assign(:original_form_data, original_form_data)
+     |> assign(form: user_form)}
   end
 
   def handle_params(params, _uri, socket) do
@@ -1260,21 +1313,27 @@ defmodule YscWeb.AdminUserDetailsLive do
     current_user = socket.assigns[:current_user]
     assigned = socket.assigns[:selected_user]
 
-    case Accounts.update_user(assigned, user_params, current_user) do
+    case Accounts.update_user_with_address(assigned, user_params, current_user) do
       {:ok, updated_user} ->
         {:noreply,
          socket
          |> put_flash(:info, "User updated")
          |> redirect(to: ~p"/admin/users/#{updated_user.id}/details")}
 
-      _ ->
-        {:noreply, socket |> put_flash(:error, "Something went wrong")}
+      {:error, changeset} ->
+        # Log the actual error for debugging
+        require Logger
+        Logger.error("Failed to update user with address: #{inspect(changeset.errors)}")
+
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to save: #{inspect(changeset.errors)}")}
     end
   end
 
   def handle_event("validate", %{"user" => user_params}, socket) do
     assigned = socket.assigns[:selected_user]
-    form_data = Accounts.change_user_registration(assigned, user_params)
+    form_data = Accounts.User.update_user_with_address_changeset(assigned, user_params)
 
     {:noreply,
      assign_form(socket, form_data)
@@ -1719,5 +1778,56 @@ defmodule YscWeb.AdminUserDetailsLive do
   defp load_notifications(socket, user_id) do
     notifications = Messages.list_user_messages(user_id, limit: 100)
     assign(socket, :notifications, notifications)
+  end
+
+  defp extract_form_data(form) do
+    # Get form parameters for current input values
+    params = form.params || %{}
+
+    # For billing_address, use the form params if available, otherwise fall back to struct values
+    billing_address_params = params["billing_address"] || %{}
+
+    # Get the current struct values as fallback
+    billing_address_value = form[:billing_address].value
+
+    billing_address_struct =
+      cond do
+        is_struct(billing_address_value, Ecto.Changeset) -> billing_address_value.data
+        is_struct(billing_address_value, Ysc.Accounts.Address) -> billing_address_value
+        is_nil(billing_address_value) -> %Ysc.Accounts.Address{}
+        true -> %Ysc.Accounts.Address{}
+      end
+
+    # Normalize all values to strings for consistent comparison
+    %{
+      "first_name" => to_string(params["first_name"] || form[:first_name].value || ""),
+      "last_name" => to_string(params["last_name"] || form[:last_name].value || ""),
+      "email" => to_string(params["email"] || form[:email].value || ""),
+      "phone_number" => to_string(params["phone_number"] || form[:phone_number].value || ""),
+      "most_connected_country" =>
+        to_string(params["most_connected_country"] || form[:most_connected_country].value || ""),
+      "state" => to_string(params["state"] || form[:state].value || ""),
+      "role" => to_string(params["role"] || form[:role].value || ""),
+      "board_position" =>
+        to_string(params["board_position"] || form[:board_position].value || ""),
+      "billing_address" => %{
+        "address" =>
+          to_string(billing_address_params["address"] || billing_address_struct.address || ""),
+        "city" => to_string(billing_address_params["city"] || billing_address_struct.city || ""),
+        "region" =>
+          to_string(billing_address_params["region"] || billing_address_struct.region || ""),
+        "postal_code" =>
+          to_string(
+            billing_address_params["postal_code"] || billing_address_struct.postal_code || ""
+          ),
+        "country" =>
+          to_string(billing_address_params["country"] || billing_address_struct.country || "")
+      }
+    }
+  end
+
+  defp form_has_changes?(original_data, current_form) do
+    current_data = extract_form_data(current_form)
+    current_data != original_data
   end
 end

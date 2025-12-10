@@ -30,7 +30,7 @@ defmodule Ysc.Accounts.SignupApplication do
                               String.to_atom(val)
                             end)
   @eligibility_lookup Enum.reduce(@eligibility_options, %{}, fn {text, val}, acc ->
-                        Map.put(acc, val, text)
+                        Map.put(acc, String.to_atom(val), text)
                       end)
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}

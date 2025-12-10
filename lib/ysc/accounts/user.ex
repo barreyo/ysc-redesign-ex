@@ -187,6 +187,30 @@ defmodule Ysc.Accounts.User do
     |> validate_phone(opts)
   end
 
+  @doc """
+  A changeset for updating user and address information together.
+  """
+  def update_user_with_address_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [
+      :state,
+      :role,
+      :first_name,
+      :last_name,
+      :phone_number,
+      :most_connected_country,
+      :board_position,
+      :stripe_id,
+      :quickbooks_customer_id,
+      :lifetime_membership_awarded_at
+    ])
+    |> cast_assoc(:billing_address, with: &Address.changeset/2)
+    |> validate_length(:first_name, min: 1, max: 150)
+    |> validate_length(:last_name, min: 1, max: 150)
+    |> validate_required([:first_name, :last_name])
+    |> validate_phone(opts)
+  end
+
   def update_user_state_changeset(user, attrs, _opts \\ []) do
     user |> cast(attrs, [:state])
   end

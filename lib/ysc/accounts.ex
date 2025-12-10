@@ -511,15 +511,18 @@ defmodule Ysc.Accounts do
   @doc """
   Sends an email verification code to the user.
   """
-  def send_email_verification_code(user, code, resend_key_suffix \\ nil) do
+  def send_email_verification_code(user, code, resend_key_suffix \\ nil, target_email \\ nil) do
+    # Use target_email if provided, otherwise use user's email
+    email_address = target_email || user.email
+
     # Include resend suffix in idempotency key to allow multiple sends
     suffix = if resend_key_suffix, do: "_#{resend_key_suffix}", else: ""
     idempotency_key = "account_setup_verification_#{user.id}#{suffix}"
 
     YscWeb.Emails.Notifier.schedule_email(
-      user.email,
+      email_address,
       idempotency_key,
-      "Account Setup Verification",
+      "Verify Your Email Address - YSC",
       "account_setup_verification",
       %{
         first_name: user.first_name,
@@ -741,6 +744,15 @@ defmodule Ysc.Accounts do
   def update_user(user, params, %User{} = current_user) do
     with :ok <- Policy.authorize(:user_update, current_user, user) do
       user |> User.update_user_changeset(params) |> Repo.update()
+    end
+  end
+
+  @doc """
+  Updates user and their billing address information.
+  """
+  def update_user_with_address(user, params, %User{} = current_user) do
+    with :ok <- Policy.authorize(:user_update, current_user, user) do
+      user |> User.update_user_with_address_changeset(params) |> Repo.update()
     end
   end
 

@@ -29,7 +29,7 @@ defmodule Ysc.Accounts.Address do
   def changeset(address, attrs) do
     address
     |> cast(attrs, [:address, :city, :region, :postal_code, :country, :user_id])
-    |> validate_required([:address, :city, :postal_code, :country, :user_id])
+    |> validate_required([:address, :city, :postal_code, :country])
     |> validate_length(:address, max: 255)
     |> validate_length(:city, max: 100)
     |> validate_length(:region, max: 100)

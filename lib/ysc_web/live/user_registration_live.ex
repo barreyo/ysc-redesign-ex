@@ -97,6 +97,19 @@ defmodule YscWeb.UserRegistrationLive do
                 placeholder="example@ysc.org"
                 required
               />
+              <.input type="phone-input" label="Phone Number" field={@form[:phone_number]} />
+              <.input
+                type="checkbox"
+                label="I would like to receive SMS notifications for account security, event reminders, and booking updates"
+                field={@form[:sms_opt_in]}
+              />
+              <p class="text-xs text-zinc-600 mt-1">
+                <strong>Young Scandinavians Club (YSC)</strong>: By voluntarily providing your phone number and explicitly opting in to text messaging, you agree to receive account security codes and booking reminders from Young Scandinavians Club(YSC). Message frequency may vary. Message & data rates may apply. Reply HELP for support or STOP to unsubscribe. Your phone number will not be shared with third parties for marketing or promotional purposes. You can also opt out at any time in your notification settings. See our
+                <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
+                  Privacy Policy
+                </.link>
+                for more information.
+              </p>
 
               <.header class="text-left pt-6">Personal Information</.header>
               <.input field={@form[:first_name]} label="First Name*" required />
@@ -359,11 +372,13 @@ defmodule YscWeb.UserRegistrationLive do
           }
         )
 
-        {:ok, _} =
-          Accounts.deliver_user_confirmation_instructions(
-            user,
-            &url(~p"/users/confirm/#{&1}")
-          )
+        # Email verification is now handled in the account setup flow with codes
+        # No need to send separate confirmation email with link
+        # {:ok, _} =
+        #   Accounts.deliver_user_confirmation_instructions(
+        #     user,
+        #     &url(~p"/users/confirm/#{&1}")
+        #   )
 
         # After successful registration, redirect to account setup flow
         {:noreply,
@@ -494,7 +509,7 @@ defmodule YscWeb.UserRegistrationLive do
 
     step_1_invalid =
       Enum.any?(Keyword.keys(base_errors), fn k ->
-        k in [:email, :phone_number, :password, :first_name, :last_name]
+        k in [:email, :password, :first_name, :last_name]
       end) ||
         Enum.any?(Keyword.keys(reg_form_errors), fn k ->
           k in [:birth_date, :address, :city, :country, :postal_code]

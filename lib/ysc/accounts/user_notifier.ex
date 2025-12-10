@@ -123,10 +123,13 @@ defmodule Ysc.Accounts.UserNotifier do
 
   @doc """
   Deliver email changed notification to a user.
+
+  Sends the notification to the old email address for security purposes,
+  so the user can be alerted even if the change was unauthorized.
   """
-  def deliver_email_changed_notification(user, new_email) do
+  def deliver_email_changed_notification(user, old_email, new_email) do
     Notifier.schedule_email(
-      new_email,
+      old_email,
       UUID.uuid4(),
       "Your YSC Email Has Been Changed",
       "email_changed",
@@ -134,9 +137,9 @@ defmodule Ysc.Accounts.UserNotifier do
       """
       ==============================
 
-      Hi #{new_email},
+      Hi #{String.capitalize(user.first_name)},
 
-      This is to confirm that the email address for your Young Scandinavians Club account has been successfully changed to #{new_email}.
+      This is to confirm that the email address for your Young Scandinavians Club account has been successfully changed from #{old_email} to #{new_email}.
 
       If you did not make this change, please contact us immediately at info@ysc.org so we can secure your account.
 

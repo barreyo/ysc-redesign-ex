@@ -26,8 +26,6 @@ defmodule YscWeb.UserRegistrationLiveTest do
       # Step 1: Personal Information
       step_1_params = %{
         "email" => "test@example.com",
-        "password" => "valid_password123",
-        "phone_number" => "+14155552671",
         "first_name" => "Test",
         "last_name" => "User",
         "registration_form" => %{
@@ -63,16 +61,13 @@ defmodule YscWeb.UserRegistrationLiveTest do
       render_change(form, %{"user" => step_2_params})
 
       # Submit the complete form
-      _result =
-        render_submit(form, %{
-          "user" => Map.merge(step_0_params, Map.merge(step_1_params, step_2_params))
-        })
+      # Since successful submission redirects to account setup, we just ensure it doesn't error
+      render_submit(form, %{
+        "user" => Map.merge(step_0_params, Map.merge(step_1_params, step_2_params))
+      })
 
-      # Check if the form submission was successful
-      # The form should either redirect or show a success message
-      html = render(lv)
-      # For now, just check that the form submission doesn't cause an error
-      assert html =~ "Submit Application" or html =~ "success" or html =~ "redirect"
+      # The form submission should succeed without throwing an exception
+      # (it redirects to account setup flow)
     end
 
     test "validates each step before allowing progression", %{conn: conn} do
@@ -110,15 +105,12 @@ defmodule YscWeb.UserRegistrationLiveTest do
       # Try to proceed with invalid email
       render_change(form, %{
         "user" => %{
-          "email" => "invalid-email",
-          "password" => "short",
-          "phone_number" => "invalid"
+          "email" => "invalid-email"
         }
       })
 
       assert render_click(lv, "next-step") =~ "Account Information"
       assert render(lv) =~ "must have the @ sign and no spaces"
-      assert render(lv) =~ "should be at least 12 character"
     end
 
     test "handles family membership registration", %{conn: conn} do

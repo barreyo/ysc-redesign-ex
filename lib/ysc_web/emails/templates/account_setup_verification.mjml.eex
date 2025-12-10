@@ -11,9 +11,9 @@
     <mj-spacer height="12px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">Hello <%= @first_name %>! 👋</mj-text>
     <mj-spacer height="24px"></mj-spacer>
-    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">Welcome to the Young Scandinavians Club! 🎉 We're excited to help you complete your account setup.</mj-text>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">We need to verify your email address to keep your account secure.</mj-text>
     <mj-spacer height="12px"></mj-spacer>
-    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">To continue setting up your account, please enter the verification code below:</mj-text>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">Please enter the verification code below to confirm your email address:</mj-text>
     <mj-spacer height="24px"></mj-spacer>
     <mj-text align="center" font-size="36px" font-weight="bold" color="#1447e6" background-color="#f3f4f6" padding="20px" border-radius="8px" line-height="1.2" padding="20px">
       <%= @verification_code %>

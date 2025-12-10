@@ -196,6 +196,8 @@ defmodule YscWeb.Router do
       get "/pending-review", PageController, :pending_review
 
       live "/users/settings", UserSettingsLive, :edit
+      live "/users/settings/phone-verification", UserSettingsLive, :phone_verification
+      live "/users/settings/email-verification", UserSettingsLive, :email_verification
       live "/users/payments", UserSettingsLive, :payments
       live "/users/membership", UserSettingsLive, :membership
       live "/users/membership/payment-method", UserSettingsLive, :payment_method

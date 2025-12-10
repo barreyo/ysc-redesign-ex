@@ -10,10 +10,157 @@ defmodule YscWeb.UserSettingsLive do
 
   alias Ysc.Subscriptions.Subscription
 
+  @impl true
   def render(assigns) do
     ~H"""
     <div class="max-w-screen-xl px-4 mx-auto py-8 lg:py-10 lg:px-10">
       <div class="md:flex md:flex-row md:flex-auto md:grow container mx-auto">
+        <.modal
+          :if={@live_action == :phone_verification}
+          id="phone-verification-modal"
+          on_cancel={JS.navigate(~p"/users/settings")}
+          show
+        >
+          <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-6">
+            Verify Your Phone Number
+          </h2>
+
+          <.simple_form
+            for={@phone_verification_form}
+            id="phone_verification_form"
+            phx-submit="verify_phone_code"
+            phx-change="validate_phone_code"
+            phx-hook="ResendTimer"
+          >
+            <p class="text-sm text-zinc-600 mb-4">
+              We sent a verification code via text message to <strong><%= @pending_phone_number %></strong>.
+              Please enter it below to confirm your phone number.
+            </p>
+
+            <%= if @phone_verification_error do %>
+              <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p class="text-sm text-red-800"><%= @phone_verification_error %></p>
+              </div>
+            <% end %>
+
+            <p
+              :if={dev_or_sandbox?()}
+              class="text-xs text-amber-600 mt-2 bg-amber-50 p-2 rounded border border-amber-200"
+            >
+              <strong>Dev Mode:</strong>
+              You can use <code class="bg-amber-100 px-1 rounded">000000</code>
+              as the verification code.
+            </p>
+            <.input
+              field={@phone_verification_form[:verification_code]}
+              type="otp"
+              label="Verification Code"
+              required
+            />
+            <p class="text-xs text-zinc-600 mt-1">
+              Didn't receive the code? Check your messages or
+              <%= if sms_resend_available?(assigns) do %>
+                <.link
+                  phx-click="resend_phone_code"
+                  class="text-blue-600 hover:underline cursor-pointer"
+                >
+                  click here to resend
+                </.link>
+              <% else %>
+                <% sms_countdown = max(0, sms_resend_seconds_remaining(assigns) || 0) %>
+                <span
+                  class="text-zinc-500 cursor-not-allowed font-bold"
+                  data-countdown={sms_countdown}
+                  data-timer-type="sms"
+                >
+                  resend in <%= sms_countdown %>s
+                </span>
+              <% end %>.
+            </p>
+
+            <:actions>
+              <div class="flex justify-end w-full">
+                <.button
+                  phx-disable-with="Verifying..."
+                  disabled={!@phone_code_valid}
+                  class={if !@phone_code_valid, do: "opacity-50 cursor-not-allowed", else: ""}
+                >
+                  <.icon name="hero-check-circle" class="w-5 h-5 me-1 -mt-0.5" />Verify Phone Number
+                </.button>
+              </div>
+            </:actions>
+          </.simple_form>
+        </.modal>
+
+        <.modal
+          :if={@live_action == :email_verification}
+          id="email-verification-modal"
+          on_cancel={JS.navigate(~p"/users/settings")}
+          show
+        >
+          <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-6">
+            Verify Your New Email Address
+          </h2>
+
+          <.simple_form
+            for={@email_verification_form}
+            id="email_verification_form"
+            phx-submit="verify_email_code"
+            phx-change="validate_email_code"
+            phx-hook="ResendTimer"
+          >
+            <p class="text-sm text-zinc-600 mb-4">
+              We sent a verification code to <strong><%= @pending_email %></strong>.
+              Please enter it below to confirm your new email address.
+            </p>
+
+            <%= if @email_verification_error do %>
+              <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p class="text-sm text-red-800"><%= @email_verification_error %></p>
+              </div>
+            <% end %>
+            <.input
+              field={@email_verification_form[:verification_code]}
+              type="otp"
+              label="Verification Code"
+              required
+            />
+            <p class="text-xs text-zinc-600 mt-1">
+              Didn't receive the code? Check your email or
+              <%= if email_resend_available?(assigns) do %>
+                <.link
+                  phx-click="resend_email_code"
+                  class="text-blue-600 hover:underline cursor-pointer"
+                >
+                  click here to resend
+                </.link>
+              <% else %>
+                <% email_countdown = max(0, email_resend_seconds_remaining(assigns) || 0) %>
+                <span
+                  class="text-zinc-500 cursor-not-allowed font-bold"
+                  data-countdown={email_countdown}
+                  data-timer-type="email"
+                >
+                  resend in <%= email_countdown %>s
+                </span>
+              <% end %>.
+            </p>
+
+            <:actions>
+              <div class="flex justify-end w-full">
+                <.button
+                  phx-disable-with="Verifying..."
+                  type="submit"
+                  disabled={!@email_code_valid}
+                  class={if !@email_code_valid, do: "opacity-50 cursor-not-allowed", else: ""}
+                >
+                  <.icon name="hero-check-circle" class="w-5 h-5 me-1 -mt-0.5" />Verify Email Address
+                </.button>
+              </div>
+            </:actions>
+          </.simple_form>
+        </.modal>
+
         <.modal
           :if={@live_action == :payment_method}
           id="update-payment-method-modal"
@@ -1263,11 +1410,14 @@ defmodule YscWeb.UserSettingsLive do
     """
   end
 
+  @impl true
   def mount(%{"token" => token}, _session, socket) do
     socket =
       case Accounts.update_user_email(socket.assigns.current_user, token) do
         {:ok, updated_user, new_email} ->
-          UserNotifier.deliver_email_changed_notification(updated_user, new_email)
+          # Send notification to old email address for security
+          old_email = socket.assigns.current_user.email
+          UserNotifier.deliver_email_changed_notification(updated_user, old_email, new_email)
           put_flash(socket, :info, "Email changed successfully.")
 
         :error ->
@@ -1277,6 +1427,7 @@ defmodule YscWeb.UserSettingsLive do
     {:ok, push_navigate(socket, to: ~p"/users/settings")}
   end
 
+  @impl true
   def mount(_params, _session, socket) do
     user = socket.assigns.current_user
     live_action = socket.assigns[:live_action] || :edit
@@ -1342,6 +1493,16 @@ defmodule YscWeb.UserSettingsLive do
         to_form(%{"membership_type" => default_select(family_plan_active?)})
       )
       |> assign(:trigger_submit, false)
+      |> assign(:phone_verification_form, to_form(%{"verification_code" => ""}))
+      |> assign(:sms_resend_disabled_until, nil)
+      |> assign(:pending_phone_number, nil)
+      |> assign(:phone_code_valid, false)
+      |> assign(:phone_verification_error, nil)
+      |> assign(:email_verification_form, to_form(%{"verification_code" => ""}))
+      |> assign(:email_resend_disabled_until, nil)
+      |> assign(:pending_email, nil)
+      |> assign(:email_code_valid, false)
+      |> assign(:email_verification_error, nil)
 
     socket =
       if live_action == :payments do
@@ -1362,6 +1523,7 @@ defmodule YscWeb.UserSettingsLive do
     {:ok, socket}
   end
 
+  @impl true
   def handle_event("validate_email", params, socket) do
     %{"current_password" => password, "user" => user_params} = params
 
@@ -1377,20 +1539,48 @@ defmodule YscWeb.UserSettingsLive do
   def handle_event("update_email", params, socket) do
     %{"current_password" => password, "user" => user_params} = params
     user = socket.assigns.current_user
+    new_email = user_params["email"]
 
-    case Accounts.apply_user_email(user, password, user_params) do
-      {:ok, applied_user} ->
-        Accounts.deliver_user_update_email_instructions(
-          applied_user,
-          user.email,
-          &url(~p"/users/settings/confirm-email/#{&1}")
-        )
-
-        info = "A link to confirm your email change has been sent to the new address."
-        {:noreply, socket |> put_flash(:info, info) |> assign(email_form_current_password: nil)}
-
-      {:error, changeset} ->
+    # Validate current password first
+    case Accounts.get_user_by_email_and_password(user.email, password) do
+      nil ->
+        # Invalid password
+        changeset = Accounts.change_user_email(user, user_params)
+        changeset = Ecto.Changeset.add_error(changeset, :current_password, "is invalid")
         {:noreply, assign(socket, :email_form, to_form(Map.put(changeset, :action, :insert)))}
+
+      _valid_user ->
+        # Password is valid, proceed with email change setup
+        if new_email != user.email do
+          # Send verification code to new email address
+          email_code = Accounts.generate_and_store_email_verification_code(user)
+
+          # Include timestamp in suffix to make idempotency key unique for each email change attempt
+          timestamp = DateTime.utc_now() |> DateTime.to_unix()
+          suffix = "email_change_#{timestamp}"
+
+          _job = Accounts.send_email_verification_code(user, email_code, suffix, new_email)
+
+          # Update form and store pending email
+          email_form = Accounts.change_user_email(user, user_params) |> to_form()
+
+          {:noreply,
+           socket
+           |> assign(:email_form, email_form)
+           |> assign(:pending_email, new_email)
+           |> assign(:email_form_current_password, nil)
+           |> push_patch(to: ~p"/users/settings/email-verification")
+           |> put_flash(
+             :info,
+             "Email change initiated. Please verify the code sent to your new email address."
+           )}
+        else
+          # Email hasn't changed
+          {:noreply,
+           socket
+           |> put_flash(:info, "Email address is the same.")
+           |> assign(email_form_current_password: nil)}
+        end
     end
   end
 
@@ -1442,18 +1632,364 @@ defmodule YscWeb.UserSettingsLive do
     %{"user" => user_params} = params
     user = socket.assigns.current_user
 
-    case Accounts.update_user_profile(user, user_params) do
-      {:ok, updated_user} ->
-        profile_form = Accounts.change_user_profile(updated_user, user_params) |> to_form()
+    # Check if phone number is being changed
+    current_phone = user.phone_number
+    new_phone = user_params["phone_number"]
 
-        {:noreply,
-         socket
-         |> assign(:user, updated_user)
-         |> assign(:profile_form, profile_form)
-         |> put_flash(:info, "Profile updated successfully.")}
+    if new_phone != current_phone and new_phone != "" and not is_nil(new_phone) do
+      # Phone number is being changed - handle with verification
 
-      {:error, changeset} ->
-        {:noreply, assign(socket, profile_form: to_form(changeset))}
+      # First, update other profile fields (excluding phone)
+      other_params = Map.delete(user_params, "phone_number")
+
+      case Accounts.update_user_profile(user, other_params) do
+        {:ok, updated_user} ->
+          # Send verification code to new phone number
+          phone_code = Accounts.generate_and_store_phone_verification_code(updated_user)
+
+          _job =
+            Accounts.send_phone_verification_code(updated_user, phone_code, "settings_change")
+
+          # Update form and store pending phone number
+          profile_form = Accounts.change_user_profile(updated_user, user_params) |> to_form()
+
+          {:noreply,
+           socket
+           |> assign(:user, updated_user)
+           |> assign(:profile_form, profile_form)
+           |> assign(:pending_phone_number, new_phone)
+           |> push_patch(to: ~p"/users/settings/phone-verification")
+           |> put_flash(
+             :info,
+             "Phone number update initiated. Please verify the code sent to your new number."
+           )}
+
+        {:error, changeset} ->
+          {:noreply, assign(socket, profile_form: to_form(changeset))}
+      end
+    else
+      # No phone change or phone is being cleared - normal update
+      case Accounts.update_user_profile(user, user_params) do
+        {:ok, updated_user} ->
+          profile_form = Accounts.change_user_profile(updated_user, user_params) |> to_form()
+
+          {:noreply,
+           socket
+           |> assign(:user, updated_user)
+           |> assign(:profile_form, profile_form)
+           |> put_flash(:info, "Profile updated successfully.")}
+
+        {:error, changeset} ->
+          {:noreply, assign(socket, profile_form: to_form(changeset))}
+      end
+    end
+  end
+
+  def handle_event("validate_phone_code", %{"verification_code" => code}, socket) do
+    # Only allow phone code validation if user has pending phone verification
+    pending_phone = socket.assigns.pending_phone_number
+
+    if pending_phone do
+      # Handle both OTP array format and single string format
+      normalized_code = normalize_verification_code(code)
+      # Basic validation - ensure it's 6 digits
+      is_valid =
+        String.length(normalized_code) == 6 && String.match?(normalized_code, ~r/^\d{6}$/)
+
+      {:noreply, assign(socket, phone_code_valid: is_valid, phone_verification_error: nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("verify_phone_code", params, socket) do
+    # Ensure user has pending phone verification
+    pending_phone = socket.assigns.pending_phone_number
+    user = socket.assigns.current_user
+
+    if pending_phone do
+      case params do
+        %{"verification_code" => entered_code} ->
+          # Handle both OTP array format and single string format
+          code = normalize_verification_code(entered_code)
+
+          case Accounts.verify_phone_verification_code(user, code) do
+            {:ok, :verified} ->
+              # Update user's phone number and mark as verified
+              phone_params = %{"phone_number" => pending_phone}
+
+              case Accounts.update_user_phone_and_sms(user, phone_params) do
+                {:ok, updated_user} ->
+                  {:ok, _} = Accounts.mark_phone_verified(updated_user)
+
+                  {:noreply,
+                   socket
+                   |> assign(:user, updated_user)
+                   |> assign(:pending_phone_number, nil)
+                   |> push_patch(to: ~p"/users/settings")
+                   |> put_flash(:info, "Phone number updated and verified successfully.")}
+
+                {:error, _} ->
+                  {:noreply,
+                   socket
+                   |> assign(
+                     :phone_verification_error,
+                     "Failed to update phone number. Please try again."
+                   )}
+              end
+
+            {:error, :not_found} ->
+              {:noreply,
+               socket
+               |> assign(
+                 :phone_verification_error,
+                 "No verification code found. Please request a new one."
+               )}
+
+            {:error, :expired} ->
+              {:noreply,
+               socket
+               |> assign(
+                 :phone_verification_error,
+                 "Verification code has expired. Please request a new one."
+               )}
+
+            {:error, :invalid_code} ->
+              {:noreply,
+               socket
+               |> assign(
+                 :phone_verification_error,
+                 "Invalid verification code. Please try again."
+               )}
+          end
+
+        _ ->
+          {:noreply,
+           socket
+           |> assign(:phone_verification_error, "Please enter a verification code.")}
+      end
+    else
+      {:noreply, assign(socket, :phone_verification_error, "No phone verification in progress.")}
+    end
+  end
+
+  def handle_event("resend_phone_code", _params, socket) do
+    # Ensure user has pending phone verification
+    pending_phone = socket.assigns.pending_phone_number
+    user = socket.assigns.current_user
+
+    if pending_phone do
+      user_id = user.id
+
+      case Ysc.ResendRateLimiter.check_and_record_resend(user_id, :sms) do
+        {:ok, :allowed} ->
+          # Resend allowed, proceed with sending SMS
+          {code, is_existing} =
+            case Ysc.VerificationCache.get_code(user_id, :phone_verification) do
+              {:ok, existing_code} ->
+                {existing_code, true}
+
+              {:error, _} ->
+                # Generate new code if none exists
+                new_code = Accounts.generate_and_store_phone_verification_code(user)
+                {new_code, false}
+            end
+
+          # Send the code via SMS
+          timestamp = DateTime.utc_now() |> DateTime.to_unix()
+
+          suffix =
+            if is_existing, do: "resend_existing_#{timestamp}", else: "resend_new_#{timestamp}"
+
+          _job = Accounts.send_phone_verification_code(user, code, suffix)
+
+          {:noreply,
+           socket
+           |> assign(:sms_resend_disabled_until, Ysc.ResendRateLimiter.disabled_until(60))
+           |> put_flash(:info, "Verification code sent to your phone.")}
+
+        {:error, :rate_limited, _remaining} ->
+          # Rate limited
+          {:noreply,
+           socket
+           |> put_flash(:error, "Please wait before requesting another verification code.")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("validate_email_code", %{"verification_code" => code}, socket) do
+    require Logger
+    Logger.debug("=== EMAIL VALIDATION EVENT ===")
+    Logger.debug("Validation code: #{inspect(code)}")
+
+    # Only allow email code validation if user has pending email verification
+    pending_email = socket.assigns.pending_email
+
+    if pending_email do
+      # Handle both OTP array format and single string format
+      normalized_code = normalize_verification_code(code)
+      # Basic validation - ensure it's 6 digits
+      is_valid =
+        String.length(normalized_code) == 6 && String.match?(normalized_code, ~r/^\d{6}$/)
+
+      Logger.debug("Normalized validation code: #{normalized_code}, is_valid: #{is_valid}")
+
+      {:noreply, assign(socket, email_code_valid: is_valid, email_verification_error: nil)}
+    else
+      Logger.debug("No pending email for validation")
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("verify_email_code", params, socket) do
+    require Logger
+    Logger.debug("=== EMAIL VERIFICATION EVENT TRIGGERED ===")
+    Logger.debug("Params: #{inspect(params)}")
+
+    Logger.debug(
+      "Socket assigns: pending_email=#{socket.assigns.pending_email}, live_action=#{socket.assigns.live_action}"
+    )
+
+    # Ensure user has pending email verification
+    pending_email = socket.assigns.pending_email
+    user = socket.assigns.current_user
+
+    Logger.debug("Pending email: #{pending_email}, User: #{user && user.email}")
+
+    if pending_email do
+      Logger.debug("Has pending email, processing verification...")
+
+      case params do
+        %{"verification_code" => entered_code} ->
+          Logger.debug("Found verification_code in params: #{inspect(entered_code)}")
+          # Handle both OTP array format and single string format
+          code = normalize_verification_code(entered_code)
+
+          Logger.debug("Normalized code: #{code}")
+
+          verification_result = Accounts.verify_email_verification_code(user, code)
+          Logger.debug("Verification result: #{inspect(verification_result)}")
+
+          case verification_result do
+            {:ok, :verified} ->
+              # Update user's email address
+              email_params = %{"email" => pending_email}
+
+              case user
+                   |> Accounts.User.email_changeset(email_params)
+                   |> Ysc.Repo.update() do
+                {:ok, updated_user} ->
+                  # Send email changed notification to the old email address for security
+                  old_email = user.email
+
+                  if old_email != updated_user.email do
+                    UserNotifier.deliver_email_changed_notification(
+                      updated_user,
+                      old_email,
+                      updated_user.email
+                    )
+                  end
+
+                  {:noreply,
+                   socket
+                   |> assign(:user, updated_user)
+                   |> assign(:pending_email, nil)
+                   |> assign(:current_email, updated_user.email)
+                   |> push_patch(to: ~p"/users/settings")
+                   |> put_flash(:info, "Email address updated successfully.")}
+
+                {:error, _changeset} ->
+                  {:noreply,
+                   socket
+                   |> assign(
+                     :email_verification_error,
+                     "Failed to update email address. Please try again."
+                   )}
+              end
+
+            {:error, :not_found} ->
+              {:noreply,
+               socket
+               |> assign(
+                 :email_verification_error,
+                 "No verification code found. Please request a new one."
+               )}
+
+            {:error, :expired} ->
+              {:noreply,
+               socket
+               |> assign(
+                 :email_verification_error,
+                 "Verification code has expired. Please request a new one."
+               )}
+
+            {:error, :invalid_code} ->
+              {:noreply,
+               socket
+               |> assign(
+                 :email_verification_error,
+                 "Invalid verification code. Please try again."
+               )}
+          end
+
+        _ ->
+          Logger.debug("No verification_code in params")
+
+          {:noreply,
+           assign(socket, :email_verification_error, "Please enter a verification code.")}
+      end
+    else
+      Logger.debug("No pending email verification")
+
+      {:noreply, assign(socket, :email_verification_error, "No email verification in progress.")}
+    end
+  end
+
+  def handle_event("resend_email_code", _params, socket) do
+    # Ensure user has pending email verification
+    pending_email = socket.assigns.pending_email
+    user = socket.assigns.current_user
+
+    if pending_email do
+      user_id = user.id
+
+      case Ysc.ResendRateLimiter.check_and_record_resend(user_id, :email) do
+        {:ok, :allowed} ->
+          # Resend allowed, proceed with sending email
+          {code, is_existing} =
+            case Ysc.VerificationCache.get_code(user_id, :email_verification) do
+              {:ok, existing_code} ->
+                {existing_code, true}
+
+              {:error, _} ->
+                # Generate new code if none exists
+                new_code = Accounts.generate_and_store_email_verification_code(user)
+                {new_code, false}
+            end
+
+          # Send the code via email
+          timestamp = DateTime.utc_now() |> DateTime.to_unix()
+
+          suffix =
+            if is_existing, do: "resend_existing_#{timestamp}", else: "resend_new_#{timestamp}"
+
+          _job = Accounts.send_email_verification_code(user, code, suffix, pending_email)
+
+          {:noreply,
+           socket
+           |> assign(:email_resend_disabled_until, Ysc.ResendRateLimiter.disabled_until(60))
+           |> put_flash(:info, "Verification code sent to your email.")}
+
+        {:error, :rate_limited, _remaining} ->
+          # Rate limited
+          {:noreply,
+           socket
+           |> put_flash(:error, "Please wait before requesting another verification code.")}
+      end
+    else
+      {:noreply, socket}
     end
   end
 
@@ -2138,6 +2674,7 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
+  @impl true
   def handle_info({:refresh_payment_methods, user_id}, socket) do
     if socket.assigns.user.id == user_id do
       user = socket.assigns.user
@@ -2162,6 +2699,47 @@ defmodule YscWeb.UserSettingsLive do
       {:noreply, socket}
     end
   end
+
+  # Helper functions for resend rate limiting - delegate to ResendRateLimiter
+  defp sms_resend_available?(assigns), do: Ysc.ResendRateLimiter.resend_available?(assigns, :sms)
+
+  defp sms_resend_seconds_remaining(assigns),
+    do: Ysc.ResendRateLimiter.resend_seconds_remaining(assigns, :sms)
+
+  defp email_resend_available?(assigns),
+    do: Ysc.ResendRateLimiter.resend_available?(assigns, :email)
+
+  defp email_resend_seconds_remaining(assigns),
+    do: Ysc.ResendRateLimiter.resend_seconds_remaining(assigns, :email)
+
+  # Helper function to check if we're in dev/sandbox mode
+  defp dev_or_sandbox? do
+    Mix.env() in [:dev, :test]
+  end
+
+  # Helper function to normalize verification code from OTP array/map or string format
+  defp normalize_verification_code(code) when is_map(code) do
+    # Handle map format: %{"0" => "1", "1" => "2", ...}
+    # Sort by key and join values, filtering out empty values
+    code
+    |> Enum.sort_by(fn {k, _v} -> String.to_integer(k) end)
+    |> Enum.map(fn {_k, v} -> v end)
+    |> Enum.reject(&(&1 == "" || &1 == nil))
+    |> Enum.join("")
+  end
+
+  defp normalize_verification_code(code) when is_list(code) do
+    # Join array elements and filter out empty values
+    code
+    |> Enum.reject(&(&1 == "" || &1 == nil))
+    |> Enum.join("")
+  end
+
+  defp normalize_verification_code(code) when is_binary(code) do
+    code
+  end
+
+  defp normalize_verification_code(_), do: ""
 
   defp paginate_payments(socket, new_page) when new_page >= 1 do
     %{payments_per_page: per_page, payments_total: total_count, user: user} = socket.assigns

@@ -13,22 +13,10 @@ defmodule YscWeb.AccountSetupLive do
         </.link>
       </div>
 
-      <div
-        :if={
-          length(build_stepper_steps(@skip_password, @skip_phone_setup, @skip_phone_verification)) > 1
-        }
-        class="w-full px-2"
-      >
+      <div :if={length(build_stepper_steps(@user_needs, @current_user)) > 1} class="w-full px-2">
         <.stepper
-          active_step={
-            stepper_active_step(
-              @current_step,
-              @skip_password,
-              @skip_phone_setup,
-              @skip_phone_verification
-            )
-          }
-          steps={build_stepper_steps(@skip_password, @skip_phone_setup, @skip_phone_verification)}
+          active_step={stepper_active_step(@user_needs, @current_step)}
+          steps={build_stepper_steps(@user_needs, @current_user)}
         />
       </div>
 
@@ -36,12 +24,12 @@ defmodule YscWeb.AccountSetupLive do
         <div :if={@current_step === 0}>
           <.alert_box :if={@from_signup}>
             <.icon name="hero-rocket-launch" class="w-12 h-12 text-blue-800 me-3 mt-1" />
-            Your application is submitted and is currently being reviewed by the board. We will email you as soon as your membership is approved..<br /><br />
+            Your application is submitted and is currently being reviewed by the board. We will email you as soon as your membership is approved.<br /><br />
             While you wait, let's finish setting up your account!
           </.alert_box>
 
           <.header class="text-left">
-            Verify Your Email Address
+            Your Email Address
             <:subtitle>
               We sent a verification code to <strong><%= @user.email %></strong>. Please enter it below to continue.
             </:subtitle>
@@ -52,6 +40,7 @@ defmodule YscWeb.AccountSetupLive do
             id="email_form"
             phx-submit="verify_code"
             phx-change="validate_email_code"
+            phx-hook="ResendTimer"
           >
             <.input
               field={@email_form[:verification_code]}
@@ -60,21 +49,34 @@ defmodule YscWeb.AccountSetupLive do
               required
             />
             <p class="text-xs text-zinc-600 mt-1">
-              Didn't receive the code? Check your spam folder or <.link
-                phx-click="resend_code"
-                class="text-blue-600 hover:underline cursor-pointer"
-              >
-                click here to resend
-              </.link>.
+              Didn't receive the code? Check your spam folder or
+              <%= if email_resend_available?(assigns) do %>
+                <.link phx-click="resend_code" class="text-blue-600 hover:underline cursor-pointer">
+                  click here to resend
+                </.link>
+              <% else %>
+                <% email_countdown = max(0, email_resend_seconds_remaining(assigns) || 0) %>
+                <span
+                  class="text-zinc-500 cursor-not-allowed"
+                  data-countdown={email_countdown}
+                  data-timer-type="email"
+                >
+                  resend in <%= email_countdown %>s
+                </span>
+              <% end %>.
             </p>
 
             <:actions>
-              <.button phx-disable-with="Verifying..." type="submit">Verify Code</.button>
+              <div class="flex justify-end w-full">
+                <.button phx-disable-with="Verifying..." type="submit">
+                  <.icon name="hero-check-circle" class="w-5 h-5 me-1 -mt-0.5" />Verify Code
+                </.button>
+              </div>
             </:actions>
           </.simple_form>
         </div>
 
-        <div :if={@current_step === 1 and not @skip_password}>
+        <div :if={@current_step === 1 and @user_needs.password_setup}>
           <.header class="text-left">
             Set Your Password
             <:subtitle>
@@ -104,12 +106,16 @@ defmodule YscWeb.AccountSetupLive do
             />
 
             <:actions>
-              <.button phx-disable-with="Setting password...">Set Password</.button>
+              <div class="flex justify-end w-full">
+                <.button phx-disable-with="Setting password...">
+                  <.icon name="hero-check-circle" class="w-5 h-5 me-1 -mt-0.5" />Set Password
+                </.button>
+              </div>
             </:actions>
           </.simple_form>
         </div>
 
-        <div :if={@current_step === 2 and not @skip_phone_setup}>
+        <div :if={@current_step === 2}>
           <.header class="text-left">
             Add Your Phone Number (Optional)
             <:subtitle>
@@ -141,12 +147,14 @@ defmodule YscWeb.AccountSetupLive do
               <.button class="bg-zinc-200 text-zinc-800 hover:bg-zinc-300" phx-click="skip_phone">
                 Skip for now
               </.button>
-              <.button phx-disable-with="Saving...">Save Phone Number</.button>
+              <.button phx-disable-with="Saving...">
+                <.icon name="hero-check-circle" class="w-5 h-5 me-1 -mt-0.5" />Save Phone Number
+              </.button>
             </:actions>
           </.simple_form>
         </div>
 
-        <div :if={@current_step === 3 and not @skip_phone_verification}>
+        <div :if={@current_step === 3 and @user_needs.phone_verification}>
           <.header class="text-left">
             Verify Your Phone Number
             <:subtitle>
@@ -159,6 +167,7 @@ defmodule YscWeb.AccountSetupLive do
             id="phone_verification_form"
             phx-submit="verify_phone_code"
             phx-change="validate_phone_code"
+            phx-hook="ResendTimer"
           >
             <p
               :if={dev_or_sandbox?()}
@@ -175,12 +184,24 @@ defmodule YscWeb.AccountSetupLive do
               required
             />
             <p class="text-xs text-zinc-600 mt-1">
-              Didn't receive the code? Check your messages or <.link
-                phx-click="resend_phone_code"
-                class="text-blue-600 hover:underline cursor-pointer"
-              >
-                click here to resend
-              </.link>.
+              Didn't receive the code? Check your messages or
+              <%= if sms_resend_available?(assigns) do %>
+                <.link
+                  phx-click="resend_phone_code"
+                  class="text-blue-600 hover:underline cursor-pointer"
+                >
+                  click here to resend
+                </.link>
+              <% else %>
+                <% sms_countdown = max(0, sms_resend_seconds_remaining(assigns) || 0) %>
+                <span
+                  class="text-zinc-500 cursor-not-allowed font-bold"
+                  data-countdown={sms_countdown}
+                  data-timer-type="sms"
+                >
+                  resend in <%= sms_countdown %>s
+                </span>
+              <% end %>.
             </p>
 
             <div class="py-2">
@@ -232,61 +253,62 @@ defmodule YscWeb.AccountSetupLive do
     """
   end
 
-  # Build stepper steps dynamically - only show steps that are actually needed
-  # Email verification OR password setup (never both, never phone)
-  # Build stepper steps dynamically based on which steps are skipped
-  # Email verification, password setup, and/or phone verification
-  defp build_stepper_steps(skip_password, _skip_phone_setup, skip_phone_verification) do
-    steps = ["Verify Email"]
+  # Build stepper steps dynamically - only show steps that are actually needed for this user
+  defp build_stepper_steps(user_needs, _current_user) do
+    steps = []
 
-    # Add password step if not skipped
-    steps = if not skip_password, do: steps ++ ["Set Password"], else: steps
+    # Add email verification if needed
+    steps = if user_needs.email_verification, do: steps ++ ["Verify Email"], else: steps
 
-    # Add phone step if phone verification is needed
-    steps = if not skip_phone_verification, do: steps ++ ["Phone & Verification"], else: steps
+    # Add password setup if needed
+    steps = if user_needs.password_setup, do: steps ++ ["Set Password"], else: steps
+
+    # Add phone step if phone setup or verification is needed
+    steps =
+      if user_needs.phone_setup or user_needs.phone_verification,
+        do: steps ++ ["Phone & Verification"],
+        else: steps
 
     steps
   end
 
   # Helper function to map current_step to stepper display step
-  # Simplified: only Email (step 0) or Email + Password (steps 0, 1)
-  defp stepper_active_step(
-         current_step,
-         skip_password,
-         _skip_phone_setup,
-         skip_phone_verification
-       ) do
-    case current_step do
-      # Email verification - always step 0
-      0 ->
-        0
+  # Dynamically calculates position based on which steps are shown
+  defp stepper_active_step(user_needs, current_step) when is_map(user_needs) do
+    # Build the step mapping dynamically based on which steps are shown
+    {_step_index, step_mapping} =
+      {0, %{}}
+      |> add_step_if_needed(Map.get(user_needs, :email_verification, false), 0)
+      |> add_step_if_needed(Map.get(user_needs, :password_setup, false), 1)
+      |> add_phone_steps_if_needed(user_needs)
 
-      # Password setup - position depends on what comes before
-      1 ->
-        1
+    # Return the mapped step or 0 if not found
+    Map.get(step_mapping, current_step, 0)
+  end
 
-      # Phone setup - position depends on what was skipped
-      2 ->
-        if skip_password, do: 1, else: 2
+  defp stepper_active_step(_invalid_user_needs, _current_step) do
+    # Fallback for invalid user_needs
+    0
+  end
 
-      # Phone verification - combined with setup visually
-      3 ->
-        if skip_password, do: 1, else: 2
+  # Helper function to conditionally add a step to the mapping
+  defp add_step_if_needed({step_index, step_mapping}, condition, step_key) do
+    if condition do
+      {step_index + 1, Map.put(step_mapping, step_key, step_index)}
+    else
+      {step_index, step_mapping}
+    end
+  end
 
-      # Complete - final step position
-      4 ->
-        cond do
-          # Only email
-          skip_password and skip_phone_verification -> 1
-          # Email + one more
-          skip_password or skip_phone_verification -> 2
-          # All three
-          true -> 3
-        end
-
-      # Default
-      _ ->
-        0
+  # Helper function to add phone steps (setup and verification map to same step)
+  defp add_phone_steps_if_needed({step_index, step_mapping}, user_needs) do
+    if Map.get(user_needs, :phone_setup, false) or Map.get(user_needs, :phone_verification, false) do
+      step_mapping = Map.put(step_mapping, 2, step_index)
+      # Phone verification maps to same step
+      step_mapping = Map.put(step_mapping, 3, step_index)
+      {step_index + 1, step_mapping}
+    else
+      {step_index, step_mapping}
     end
   end
 
@@ -295,41 +317,54 @@ defmodule YscWeb.AccountSetupLive do
     Mix.env() in [:dev, :test]
   end
 
+  # Helper functions for resend rate limiting - delegate to ResendRateLimiter
+  defp email_resend_available?(assigns),
+    do: Ysc.ResendRateLimiter.resend_available?(assigns, :email)
+
+  defp sms_resend_available?(assigns), do: Ysc.ResendRateLimiter.resend_available?(assigns, :sms)
+
+  defp email_resend_seconds_remaining(assigns),
+    do: Ysc.ResendRateLimiter.resend_seconds_remaining(assigns, :email)
+
+  defp sms_resend_seconds_remaining(assigns),
+    do: Ysc.ResendRateLimiter.resend_seconds_remaining(assigns, :sms)
+
   @impl true
   def mount(%{"user_id" => user_id}, _session, socket) do
     user = Accounts.get_user!(user_id)
     current_user = socket.assigns.current_user
 
-    # Determine if user needs account setup
-    # User needs setup if: email not verified OR password not set OR phone not verified
-    needs_account_setup =
-      is_nil(user.email_verified_at) or is_nil(user.password_set_at) or
-        is_nil(user.phone_verified_at)
+    # Determine user's current setup status
+    email_verified = not is_nil(user.email_verified_at)
+    password_set = not is_nil(user.password_set_at)
+    phone_verified = not is_nil(user.phone_verified_at)
+    phone_number_exists = not is_nil(user.phone_number)
 
-    is_own_setup = !!(current_user && current_user.id == user.id)
+    # Check if user owns this setup (is authenticated as this user)
+    is_owner = !!(current_user && current_user.id == user.id)
 
-    # Check authentication requirements based on user's progress
+    # Determine what the user actually needs to complete
+    needs_email_verification = not email_verified
+    needs_password_setup = not password_set
+    needs_phone_setup = not phone_number_exists
+    needs_phone_verification = phone_number_exists and not phone_verified
+
+    # User needs setup if they have incomplete requirements
+    needs_any_setup =
+      needs_email_verification or needs_password_setup or needs_phone_setup or
+        needs_phone_verification
+
+    # Access control logic:
+    # 1. If user doesn't need any setup, deny access
+    # 2. Email verification step: always allow (for signup flow)
+    # 3. Password/Phone steps: require ownership (authentication)
     can_access =
-      cond do
-        # User doesn't need account setup: deny access
-        not needs_account_setup ->
-          false
-
-        # Email not verified: allow anyone (initial access)
-        is_nil(user.email_verified_at) ->
-          true
-
-        # Email verified but password not set: require authentication
-        is_nil(user.password_set_at) ->
-          is_own_setup
-
-        # Password set but phone not verified: require authentication
-        is_nil(user.phone_verified_at) ->
-          is_own_setup
-
-        # Default: deny access
-        true ->
-          false
+      if not needs_any_setup do
+        # User has everything set up already
+        false
+      else
+        # User needs some setup - check specific access rules
+        true
       end
 
     if not can_access do
@@ -338,18 +373,41 @@ defmodule YscWeb.AccountSetupLive do
        |> put_flash(:error, "Your account setup is already complete.")
        |> redirect(to: ~p"/")}
     else
-      # Check if user came from signup form
-      from_signup =
-        socket |> Phoenix.LiveView.get_connect_params() |> get_in(["from_signup"]) == "true"
+      # Determine which steps the user needs (don't skip, just don't show unnecessary ones)
+      user_needs = %{
+        email_verification: not email_verified,
+        password_setup: not password_set,
+        phone_setup: not phone_number_exists,
+        phone_verification: phone_number_exists and not phone_verified
+      }
 
-      # Determine which steps to skip based on user's existing data
-      skip_password = not is_nil(user.password_set_at)
-      skip_phone_setup = not is_nil(user.phone_number)
-      skip_phone_verification = not is_nil(user.phone_verified_at)
+      # Determine starting step based on what user needs and their auth status
+      starting_step =
+        cond do
+          # If user needs email verification, start there (always accessible)
+          user_needs.email_verification ->
+            0
+
+          # If user needs password setup and is authenticated
+          user_needs.password_setup and is_owner ->
+            1
+
+          # If user needs phone setup and is authenticated
+          user_needs.phone_setup and is_owner ->
+            2
+
+          # If user needs phone verification and is authenticated
+          user_needs.phone_verification and is_owner ->
+            3
+
+          # User has completed all necessary steps
+          true ->
+            4
+        end
 
       # Create phone changeset with existing phone number if available
       phone_changeset =
-        if not is_nil(user.phone_number) do
+        if phone_number_exists do
           # Pre-fill with existing phone number
           Ysc.Accounts.User.registration_changeset(user, %{"phone_number" => user.phone_number},
             hash_password: false,
@@ -364,33 +422,7 @@ defmodule YscWeb.AccountSetupLive do
 
       phone_verification_changeset = %{"verification_code" => ""} |> to_form()
 
-      # Determine starting step based on user's progress and authentication
-      starting_step =
-        cond do
-          # Email verification needed (unauthenticated access allowed)
-          is_nil(user.email_verified_at) ->
-            0
-
-          # Email verified and authenticated, but password not set
-          is_own_setup and not is_nil(user.email_verified_at) and is_nil(user.password_set_at) ->
-            1
-
-          # Password set but phone not verified
-          is_own_setup and not is_nil(user.password_set_at) and is_nil(user.phone_verified_at) ->
-            cond do
-              # Need to set up phone
-              is_nil(user.phone_number) -> 2
-              # Have phone but need verification
-              not is_nil(user.phone_number) -> 3
-            end
-
-          # All required steps complete
-          true ->
-            4
-        end
-
-      # Start at the appropriate step based on authentication
-      # handle_params will handle URL parameter updates
+      # Start at the appropriate step
       current_step = starting_step
       password_changeset = Accounts.change_user_password(user)
 
@@ -416,36 +448,34 @@ defmodule YscWeb.AccountSetupLive do
         |> assign(:user, user)
         |> assign(:current_step, current_step)
         |> assign(:email_verified, false)
-        |> assign(:from_signup, from_signup)
-        |> assign(:skip_password, skip_password)
-        |> assign(:skip_phone_setup, skip_phone_setup)
-        |> assign(:skip_phone_verification, skip_phone_verification)
+        |> assign(:from_signup, false)
+        |> assign(:user_needs, user_needs)
         |> assign(:trigger_login, false)
         |> assign(:email_form, email_changeset)
         |> assign(:password_form, to_form(password_changeset))
         |> assign(:phone_form, to_form(phone_changeset))
         |> assign(:phone_verification_form, phone_verification_changeset)
+        |> assign(:user_needs, user_needs)
+        |> assign(:email_resend_disabled_until, nil)
+        |> assign(:sms_resend_disabled_until, nil)
 
       {:ok, socket}
     end
   end
 
   @impl true
-  def handle_params(_params, uri, socket) do
-    # Handle step parameter from URL query string
-    step_param =
-      case uri do
-        %URI{query: query} when query != nil ->
-          URI.decode_query(query)["step"]
-
-        _ ->
-          nil
-      end
+  def handle_params(params, _uri, socket) do
+    # Handle step and from_signup parameters from URL query string
+    step_param = params["step"]
+    from_signup = params["from_signup"] == "true"
 
     if step_param do
       requested_step = String.to_integer(step_param)
       current_user = socket.assigns.current_user
       user = socket.assigns.user
+
+      # Re-fetch user to get latest data for access control (important after email verification)
+      fresh_user = Accounts.get_user!(user.id)
 
       # Check authentication for steps that require it
       can_access_step =
@@ -454,12 +484,21 @@ defmodule YscWeb.AccountSetupLive do
             # Email verification step: always accessible
             true
 
-          requested_step > 0 and is_nil(user.email_verified_at) ->
+          requested_step > 0 and is_nil(fresh_user.email_verified_at) ->
             # Trying to access steps after email verification but email not verified
             false
 
-          requested_step > 0 and current_user != user ->
+          requested_step > 0 and not is_nil(current_user) and current_user.id != fresh_user.id ->
             # Trying to access authenticated steps but not the owner
+            false
+
+          requested_step > 0 and is_nil(current_user) and not is_nil(fresh_user.email_verified_at) ->
+            # User has verified email but session not set yet - allow access
+            # This handles the case where user just verified email and is being redirected
+            true
+
+          requested_step > 0 and is_nil(current_user) ->
+            # Trying to access authenticated steps but not logged in
             false
 
           true ->
@@ -473,39 +512,42 @@ defmodule YscWeb.AccountSetupLive do
          |> put_flash(:error, "Please verify your email first to continue account setup.")
          |> redirect(to: ~p"/users/log-in")}
       else
-        # Re-fetch user to get latest data for access control
-        fresh_user = Accounts.get_user!(user.id)
-        skip_password = socket.assigns.skip_password
-        skip_phone_verification = socket.assigns.skip_phone_verification
+        user_needs = socket.assigns.user_needs
 
-        has_verified_email = not is_nil(fresh_user.email_verified_at)
-        has_set_password = not is_nil(fresh_user.password_set_at)
-        has_verified_phone = not is_nil(fresh_user.phone_verified_at)
+        # Update socket assigns with fresh user data
+        socket = assign(socket, user: fresh_user)
 
-        # Calculate allowed step based on user's progress
+        # If current_user is not set but user has verified email, set current_user
+        # This handles the case where session is not fully loaded yet
+        socket =
+          if is_nil(current_user) and not is_nil(fresh_user.email_verified_at) do
+            assign(socket, current_user: fresh_user)
+          else
+            socket
+          end
+
+        # Calculate allowed step based on what user needs and their authentication
         allowed_step =
           cond do
-            # Users who haven't verified email can only access step 0
-            !has_verified_email ->
+            # Step 0 (email verification): Always allow if user needs it
+            requested_step == 0 and user_needs.email_verification ->
               0
 
-            # Users who have verified email but haven't set password can access step 1
-            has_verified_email and not has_set_password and not skip_password ->
-              min(requested_step, 1)
+            # Step 1 (password setup): Require authentication and need
+            requested_step == 1 and not is_nil(current_user) and user_needs.password_setup ->
+              1
 
-            # Users who have set password but haven't verified phone can access phone steps
-            has_verified_email and has_set_password and not has_verified_phone and
-                not skip_phone_verification ->
-              cond do
-                # Can access verification
-                not is_nil(fresh_user.phone_number) -> min(requested_step, 3)
-                # Can access setup
-                true -> min(requested_step, 2)
-              end
+            # Step 2 (phone setup): Require authentication and need
+            requested_step == 2 and not is_nil(current_user) and user_needs.phone_setup ->
+              2
 
-            # All required steps complete
+            # Step 3 (phone verification): Require authentication and need
+            requested_step == 3 and not is_nil(current_user) and user_needs.phone_verification ->
+              3
+
+            # Default: Stay on current step or go to completion
             true ->
-              4
+              socket.assigns.current_step
           end
 
         # Automatically send phone verification code if user reaches step 3 with unverified phone
@@ -528,11 +570,30 @@ defmodule YscWeb.AccountSetupLive do
             socket
           end
 
-        {:noreply, assign(socket, :current_step, allowed_step)}
+        {:noreply, assign(socket, current_step: allowed_step, from_signup: from_signup)}
       end
     else
-      {:noreply, socket}
+      {:noreply, assign(socket, :from_signup, from_signup)}
     end
+  end
+
+  @impl true
+  # Client-side hook for countdown timers
+  def handle_event("update_resend_timers", _params, socket) do
+    # This is called by JavaScript to trigger a re-render with updated timers
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("resend_timer_expired", %{"type" => type}, socket) do
+    # Clear the specific resend disabled state when timer expires
+    assign_key =
+      case type do
+        "email" -> :email_resend_disabled_until
+        "sms" -> :sms_resend_disabled_until
+      end
+
+    {:noreply, assign(socket, assign_key, nil)}
   end
 
   @impl true
@@ -585,31 +646,49 @@ defmodule YscWeb.AccountSetupLive do
   end
 
   def handle_event("resend_code", _params, socket) do
-    # Get existing code or generate new one
-    {code, is_existing} =
-      case Ysc.VerificationCache.get_code(socket.assigns.user.id, :email_verification) do
-        {:ok, existing_code} ->
-          {existing_code, true}
+    user_id = socket.assigns.user.id
 
-        {:error, _} ->
-          # Generate new code if none exists
-          new_code = Accounts.generate_and_store_email_verification_code(socket.assigns.user)
-          {new_code, false}
-      end
+    case Ysc.ResendRateLimiter.check_and_record_resend(user_id, :email) do
+      {:ok, :allowed} ->
+        # Resend allowed, proceed with sending email
+        {code, is_existing} =
+          case Ysc.VerificationCache.get_code(user_id, :email_verification) do
+            {:ok, existing_code} ->
+              {existing_code, true}
 
-    # Use timestamp to make idempotency key unique for resend attempts
-    timestamp = DateTime.utc_now() |> DateTime.to_unix()
-    suffix = if is_existing, do: "resend_existing_#{timestamp}", else: "resend_new_#{timestamp}"
-    _job = Accounts.send_email_verification_code(socket.assigns.user, code, suffix)
+            {:error, _} ->
+              # Generate new code if none exists
+              new_code = Accounts.generate_and_store_email_verification_code(socket.assigns.user)
+              {new_code, false}
+          end
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "A new verification code has been sent to your email.")}
+        # Use timestamp to make idempotency key unique for resend attempts
+        timestamp = DateTime.utc_now() |> DateTime.to_unix()
+
+        suffix =
+          if is_existing, do: "resend_existing_#{timestamp}", else: "resend_new_#{timestamp}"
+
+        _job = Accounts.send_email_verification_code(socket.assigns.user, code, suffix)
+
+        {:noreply,
+         socket
+         |> assign(:email_resend_disabled_until, Ysc.ResendRateLimiter.disabled_until(60))
+         |> put_flash(:info, "A new verification code has been sent to your email.")}
+
+      {:error, :rate_limited, _remaining} ->
+        # Rate limited
+        {:noreply,
+         socket
+         |> put_flash(:error, "Please wait before requesting another verification code.")}
+    end
   end
 
   def handle_event("validate_password", %{"user" => user_params}, socket) do
-    # Only allow password validation if email has been verified
-    if socket.assigns.current_step >= 1 and not is_nil(socket.assigns.user.email_verified_at) do
+    # Only allow password validation if user is authenticated and needs password setup
+    current_user = socket.assigns.current_user
+    user_needs = socket.assigns.user_needs
+
+    if current_user && user_needs.password_setup do
       password_form =
         socket.assigns.user
         |> Accounts.change_user_password(user_params)
@@ -618,13 +697,18 @@ defmodule YscWeb.AccountSetupLive do
 
       {:noreply, assign(socket, password_form: password_form)}
     else
-      {:noreply, socket}
+      {:noreply,
+       socket
+       |> put_flash(:error, "Please complete email verification first.")}
     end
   end
 
   def handle_event("validate_phone", %{"user" => user_params}, socket) do
-    # Only allow phone validation if user is on phone setup step
-    if socket.assigns.current_step >= 2 and not socket.assigns.skip_phone_setup do
+    # Only allow phone validation if user is authenticated and needs phone setup
+    current_user = socket.assigns.current_user
+    _user_needs = socket.assigns.user_needs
+
+    if current_user && socket.assigns.current_step == 2 do
       phone_form =
         socket.assigns.user
         |> Accounts.User.registration_changeset(user_params,
@@ -636,23 +720,33 @@ defmodule YscWeb.AccountSetupLive do
 
       {:noreply, assign(socket, phone_form: phone_form)}
     else
-      {:noreply, socket}
+      {:noreply,
+       socket
+       |> put_flash(:error, "Please complete password setup first.")}
     end
   end
 
   def handle_event("change_phone_number", _params, socket) do
-    # Allow user to change phone number by going back to step 2
-    # Reset skip_phone_setup to false so they can modify their phone
-    {:noreply,
-     socket
-     |> assign(:current_step, 2)
-     |> assign(:skip_phone_setup, false)
-     |> push_patch(to: ~p"/account/setup/#{socket.assigns.user.id}?step=2")}
+    # Allow authenticated user to change phone number by going back to step 2
+    current_user = socket.assigns.current_user
+    _user_needs = socket.assigns.user_needs
+
+    if current_user do
+      {:noreply,
+       socket
+       |> assign(:current_step, 2)
+       |> push_patch(to: ~p"/account/setup/#{socket.assigns.user.id}?step=2")}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("save_password", %{"user" => user_params}, socket) do
-    # Ensure email has been verified
-    if socket.assigns.current_step < 1 or is_nil(socket.assigns.user.email_verified_at) do
+    # Ensure user is authenticated and needs password setup
+    current_user = socket.assigns.current_user
+    user_needs = socket.assigns.user_needs
+
+    if is_nil(current_user) or not user_needs.password_setup do
       {:noreply,
        socket
        |> put_flash(:error, "Please verify your email address first.")}
@@ -677,11 +771,21 @@ defmodule YscWeb.AccountSetupLive do
               true -> 2
             end
 
+          # Recalculate user needs based on updated user
+          updated_user_needs = %{
+            email_verification: is_nil(updated_user.email_verified_at),
+            password_setup: is_nil(updated_user.password_set_at),
+            phone_setup: is_nil(updated_user.phone_number),
+            phone_verification:
+              not is_nil(updated_user.phone_number) and is_nil(updated_user.phone_verified_at)
+          }
+
           {:noreply,
            socket
            |> assign(:current_step, next_step)
            |> push_patch(to: ~p"/account/setup/#{socket.assigns.user.id}?step=#{next_step}")
            |> assign(:user, updated_user)
+           |> assign(:user_needs, updated_user_needs)
            |> assign(:password, password)
            |> put_flash(:info, "Password set successfully!")}
 
@@ -692,25 +796,39 @@ defmodule YscWeb.AccountSetupLive do
   end
 
   def handle_event("save_phone", %{"user" => user_params}, socket) do
-    # Ensure password has been set - re-fetch user to get latest data
-    user = Accounts.get_user!(socket.assigns.user.id)
+    # Ensure user is authenticated and needs phone setup
+    current_user = socket.assigns.current_user
+    _user_needs = socket.assigns.user_needs
 
-    if socket.assigns.current_step < 2 or is_nil(user.password_set_at) do
+    if is_nil(current_user) or socket.assigns.current_step != 2 do
       {:noreply,
        socket
-       |> put_flash(:error, "Please set your password first.")}
+       |> put_flash(:error, "Phone setup is not available at this step.")}
     else
+      # Re-fetch user to get latest data
+      user = Accounts.get_user!(socket.assigns.user.id)
+
       case Accounts.update_user_phone_and_sms(user, user_params) do
         {:ok, updated_user} ->
           # Generate and send phone verification code
           phone_code = Accounts.generate_and_store_phone_verification_code(updated_user)
           _job = Accounts.send_phone_verification_code(updated_user, phone_code, "initial")
 
+          # Recalculate user needs based on updated user
+          updated_user_needs = %{
+            email_verification: is_nil(updated_user.email_verified_at),
+            password_setup: is_nil(updated_user.password_set_at),
+            phone_setup: is_nil(updated_user.phone_number),
+            phone_verification:
+              not is_nil(updated_user.phone_number) and is_nil(updated_user.phone_verified_at)
+          }
+
           # Advance to phone verification step
           {:noreply,
            socket
            |> assign(:current_step, 3)
            |> assign(:user, updated_user)
+           |> assign(:user_needs, updated_user_needs)
            |> push_patch(to: ~p"/account/setup/#{socket.assigns.user.id}?step=3")
            |> put_flash(:info, "Phone number saved! Please verify it with the code we sent.")}
 
@@ -721,14 +839,17 @@ defmodule YscWeb.AccountSetupLive do
   end
 
   def handle_event("skip_phone", _params, socket) do
-    # Ensure user has completed password setup - re-fetch user to get latest data
-    user = Accounts.get_user!(socket.assigns.user.id)
+    # Ensure user is authenticated - re-fetch user to get latest data
+    current_user = socket.assigns.current_user
 
-    if is_nil(user.password_set_at) do
+    if is_nil(current_user) do
       {:noreply,
        socket
        |> put_flash(:error, "Please complete account setup first.")}
     else
+      # Re-fetch user to get latest data
+      user = Accounts.get_user!(socket.assigns.user.id)
+
       # After skipping phone setup, complete account setup
       # Generate session token and redirect for auto-login
       token = Accounts.generate_user_session_token(user)
@@ -743,92 +864,78 @@ defmodule YscWeb.AccountSetupLive do
 
   def handle_event("set-step", %{"step" => step_str}, socket) do
     requested_step = String.to_integer(step_str)
-    _current_step = socket.assigns.current_step
+    current_user = socket.assigns.current_user
+    user_needs = socket.assigns.user_needs
 
-    # Check if step is accessible based on progress
+    # Check if step is accessible based on authentication and user needs
     can_access_step =
       cond do
-        requested_step == 0 ->
-          # Email verification step: always accessible
+        # Step 0: Always allow if user needs email verification
+        requested_step == 0 and user_needs.email_verification ->
           true
 
-        requested_step > 0 and is_nil(socket.assigns.user.email_verified_at) ->
-          # Trying to access steps after email verification but email not verified
+        # Steps 1+: Require authentication
+        requested_step >= 1 and is_nil(current_user) ->
           false
 
-        true ->
-          # Other steps: accessible if user is authenticated (which mount ensures)
+        # Step 1: Allow if user needs password setup
+        requested_step == 1 and user_needs.password_setup ->
           true
+
+        # Step 2: Allow if user needs phone setup
+        requested_step == 2 and user_needs.phone_setup ->
+          true
+
+        # Step 3: Allow if user needs phone verification
+        requested_step == 3 and user_needs.phone_verification ->
+          true
+
+        # Default: Deny access
+        true ->
+          false
       end
 
     if not can_access_step do
       {:noreply,
        socket
-       |> put_flash(:error, "Please verify your email first to continue account setup.")
+       |> put_flash(:error, "Please complete the required steps in order.")
        |> redirect(to: ~p"/account/setup/#{socket.assigns.user.id}")}
     else
-      # Re-fetch user to get latest data for step validation
-      fresh_user = Accounts.get_user!(socket.assigns.user.id)
-      skip_password = socket.assigns.skip_password
-      skip_phone = socket.assigns.skip_phone
-
-      # Calculate the maximum allowed step based on progress
-      max_allowed_step =
-        cond do
-          is_nil(fresh_user.email_verified_at) ->
-            0
-
-          not is_nil(fresh_user.email_verified_at) and
-              (is_nil(fresh_user.password_set_at) and not skip_password) ->
-            1
-
-          not is_nil(fresh_user.password_set_at) or skip_password ->
-            cond do
-              is_nil(fresh_user.phone_number) and not skip_phone ->
-                2
-
-              not is_nil(fresh_user.phone_number) or skip_phone ->
-                if is_nil(fresh_user.phone_verified_at) and not skip_phone, do: 3, else: 4
-
-              true ->
-                4
-            end
-
-          true ->
-            0
-        end
-
-      allowed_step = min(requested_step, max_allowed_step)
-
-      if requested_step > max_allowed_step do
-        # Trying to jump ahead - show error message
-        {:noreply,
-         socket
-         |> put_flash(:error, "Please complete the current step before proceeding.")}
-      else
-        # Allow navigation to completed or current step
-        {:noreply, assign(socket, :current_step, allowed_step)}
-      end
+      {:noreply, assign(socket, :current_step, requested_step)}
     end
   end
 
   def handle_event("validate_phone_code", %{"verification_code" => code}, socket) do
-    # Handle both OTP array format and single string format
-    normalized_code = normalize_verification_code(code)
-    # Basic validation - ensure it's 6 digits
-    is_valid = String.length(normalized_code) == 6 && String.match?(normalized_code, ~r/^\d{6}$/)
-    {:noreply, assign(socket, phone_code_valid: is_valid)}
+    # Only allow phone code validation if user is authenticated and needs phone verification
+    current_user = socket.assigns.current_user
+    user_needs = socket.assigns.user_needs
+
+    if current_user && user_needs.phone_verification do
+      # Handle both OTP array format and single string format
+      normalized_code = normalize_verification_code(code)
+      # Basic validation - ensure it's 6 digits
+      is_valid =
+        String.length(normalized_code) == 6 && String.match?(normalized_code, ~r/^\d{6}$/)
+
+      {:noreply, assign(socket, phone_code_valid: is_valid)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("verify_phone_code", %{"verification_code" => entered_code}, socket) do
-    # Ensure user has phone setup - re-fetch user to get latest data
-    user = Accounts.get_user!(socket.assigns.user.id)
+    # Ensure user is authenticated and needs phone verification
+    current_user = socket.assigns.current_user
+    user_needs = socket.assigns.user_needs
 
-    if is_nil(user.phone_number) do
+    if is_nil(current_user) or not user_needs.phone_verification do
       {:noreply,
        socket
        |> put_flash(:error, "Please complete phone setup first.")}
     else
+      # Re-fetch user to get latest data
+      user = Accounts.get_user!(socket.assigns.user.id)
+
       # Handle both OTP array format and single string format
       code = normalize_verification_code(entered_code)
 
@@ -865,34 +972,52 @@ defmodule YscWeb.AccountSetupLive do
   end
 
   def handle_event("resend_phone_code", _params, socket) do
-    # Ensure user has phone setup - re-fetch user to get latest data
-    user = Accounts.get_user!(socket.assigns.user.id)
+    # Ensure user is authenticated and needs phone verification
+    current_user = socket.assigns.current_user
+    user_needs = socket.assigns.user_needs
 
-    if is_nil(user.phone_number) do
+    if is_nil(current_user) or not user_needs.phone_verification do
       {:noreply,
        socket
        |> put_flash(:error, "Please complete phone setup first.")}
     else
-      # Get existing code or generate new one
-      {code, is_existing} =
-        case Ysc.VerificationCache.get_code(user.id, :phone_verification) do
-          {:ok, existing_code} ->
-            {existing_code, true}
+      # Re-fetch user to get latest data
+      user = Accounts.get_user!(socket.assigns.user.id)
+      user_id = user.id
 
-          {:error, _} ->
-            # Generate new code if none exists
-            new_code = Accounts.generate_and_store_phone_verification_code(user)
-            {new_code, false}
-        end
+      case Ysc.ResendRateLimiter.check_and_record_resend(user_id, :sms) do
+        {:ok, :allowed} ->
+          # Resend allowed, proceed with sending SMS
+          {code, is_existing} =
+            case Ysc.VerificationCache.get_code(user_id, :phone_verification) do
+              {:ok, existing_code} ->
+                {existing_code, true}
 
-      # Send the code via SMS
-      timestamp = DateTime.utc_now() |> DateTime.to_unix()
-      suffix = if is_existing, do: "resend_existing_#{timestamp}", else: "resend_new_#{timestamp}"
-      _job = Accounts.send_phone_verification_code(user, code, suffix)
+              {:error, _} ->
+                # Generate new code if none exists
+                new_code = Accounts.generate_and_store_phone_verification_code(user)
+                {new_code, false}
+            end
 
-      {:noreply,
-       socket
-       |> put_flash(:info, "Verification code sent to your phone.")}
+          # Send the code via SMS
+          timestamp = DateTime.utc_now() |> DateTime.to_unix()
+
+          suffix =
+            if is_existing, do: "resend_existing_#{timestamp}", else: "resend_new_#{timestamp}"
+
+          _job = Accounts.send_phone_verification_code(user, code, suffix)
+
+          {:noreply,
+           socket
+           |> assign(:sms_resend_disabled_until, Ysc.ResendRateLimiter.disabled_until(60))
+           |> put_flash(:info, "Verification code sent to your phone.")}
+
+        {:error, :rate_limited, _remaining} ->
+          # Rate limited
+          {:noreply,
+           socket
+           |> put_flash(:error, "Please wait before requesting another verification code.")}
+      end
     end
   end
 
