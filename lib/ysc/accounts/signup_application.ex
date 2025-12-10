@@ -12,24 +12,26 @@ defmodule Ysc.Accounts.SignupApplication do
   @eligibility_options [
     {
       "I am a citizen of a Scandinavian country (Denmark, Finland, Iceland, Norway & Sweden)",
-      :citizen_of_scandinavia
+      "citizen_of_scandinavia"
     },
-    {"I was born in Scandinavia", :born_in_scandinavia},
+    {"I was born in Scandinavia", "born_in_scandinavia"},
     {
       "I have at least one Scandinavian-born parent, grandparent or great-grandparent",
-      :scandinavian_parent
+      "scandinavian_parent"
     },
     {
       "I have lived in Scandinavia for at least six (6) months",
-      :lived_in_scandinavia
+      "lived_in_scandinavia"
     },
-    {"I speak one of the Scandinavian languages", :speak_scandinavian_language},
-    {"I am the spouse of a member", :spouse_of_member}
+    {"I speak one of the Scandinavian languages", "speak_scandinavian_language"},
+    {"I am the spouse of a member", "spouse_of_member"}
   ]
-  @valid_eligibility_option Enum.map(@eligibility_options, fn {_text, val} -> val end)
-  @eligibility_atom_to_text Enum.reduce(@eligibility_options, %{}, fn {val, key}, acc ->
-                              Map.put(acc, key, val)
+  @valid_eligibility_option Enum.map(@eligibility_options, fn {_text, val} ->
+                              String.to_atom(val)
                             end)
+  @eligibility_lookup Enum.reduce(@eligibility_options, %{}, fn {text, val}, acc ->
+                        Map.put(acc, val, text)
+                      end)
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}
   @foreign_key_type Ecto.ULID
@@ -148,9 +150,10 @@ defmodule Ysc.Accounts.SignupApplication do
   defp validate_membership_eligibility(changeset) do
     changeset
     |> clean_and_validate_array(:membership_eligibility, @valid_eligibility_option)
+    |> validate_length(:membership_eligibility, min: 1)
   end
 
   @spec eligibility_options() :: [{<<_::64, _::_*8>>, <<_::64, _::_*8>>}, ...]
   def eligibility_options, do: @eligibility_options
-  def eligibility_lookup, do: @eligibility_atom_to_text
+  def eligibility_lookup, do: @eligibility_lookup
 end

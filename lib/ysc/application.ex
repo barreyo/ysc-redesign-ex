@@ -28,6 +28,8 @@ defmodule Ysc.Application do
         {Finch, name: Ysc.Finch},
         # Start cache
         {Cachex, name: :ysc_cache},
+        # Start verification code cache
+        Ysc.VerificationCache,
         # Start the Endpoint (http/https)
         YscWeb.Endpoint,
         # Start a worker by calling: Ysc.Worker.start_link(arg)

@@ -54,17 +54,21 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     default_src = "'self'"
 
     # Script sources - allow self, nonce, and external CDNs
+    # Cloudflare Turnstile
     script_src =
-      [
-        "'self'",
-        "'nonce-#{nonce}'",
-        "https://js.stripe.com",
-        "https://js.radar.com",
-        "https://cdn.jsdelivr.net",
-        "https://unpkg.com",
-        # Cloudflare Turnstile
-        "https://challenges.cloudflare.com"
-      ]
+      ([
+         "'self'",
+         "'nonce-#{nonce}'",
+         "https://js.stripe.com",
+         "https://js.radar.com",
+         "https://cdn.jsdelivr.net",
+         "https://unpkg.com",
+         "https://challenges.cloudflare.com"
+       ] ++
+         if(is_dev,
+           do: ["'unsafe-inline'"],
+           else: []
+         ))
       |> Enum.join(" ")
 
     # Style sources - allow self, unsafe-inline, and external CDNs
@@ -90,6 +94,8 @@ defmodule YscWeb.Plugs.SecurityHeaders do
           "'self'",
           "ws:",
           "wss:",
+          "http://localhost:*",
+          "https://localhost:*",
           "https://js.stripe.com",
           "https://challenges.cloudflare.com",
           "https://cdn.jsdelivr.net",
@@ -129,10 +135,10 @@ defmodule YscWeb.Plugs.SecurityHeaders do
       ]
       |> Enum.join(" ")
 
-    # Frame sources - allow Stripe, Cloudflare Turnstile, and Phoenix Live Reload (dev only)
+    # Frame sources - allow Stripe, Cloudflare Turnstile, and localhost for dev tools
     frame_src =
       if is_dev do
-        "'self' https://js.stripe.com https://challenges.cloudflare.com"
+        "'self' http://localhost:* https://localhost:* https://js.stripe.com https://challenges.cloudflare.com"
       else
         "https://js.stripe.com https://challenges.cloudflare.com"
       end
@@ -149,8 +155,8 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     # Form action - allow self and Stripe
     form_action = "'self' https://js.stripe.com"
 
-    # Frame ancestors - deny embedding
-    frame_ancestors = "'none'"
+    # Frame ancestors - allow localhost in dev for dev inbox, deny otherwise
+    frame_ancestors = if is_dev, do: "'self' http://localhost:*", else: "'none'"
 
     # Upgrade insecure requests
     upgrade_insecure_requests = "upgrade-insecure-requests"

@@ -860,8 +860,14 @@ defmodule YscWeb.AdminUsersLive do
   end
 
   defp format_phone_number(phone_number) do
-    {:ok, parsed} = ExPhoneNumber.parse(phone_number, "")
-    ExPhoneNumber.format(parsed, :international)
+    case ExPhoneNumber.parse(phone_number, "") do
+      {:ok, parsed} ->
+        ExPhoneNumber.format(parsed, :international)
+
+      {:error, _} ->
+        # Return as-is if parsing fails
+        phone_number
+    end
   end
 
   defp maybe_update_filter(%{"value" => [""]} = filter), do: Map.replace(filter, "value", "")

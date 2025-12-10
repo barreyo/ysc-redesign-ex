@@ -42,6 +42,13 @@ defmodule YscWeb.Router do
     plug :mount_site_settings
   end
 
+  # Pipeline for auto-login that bypasses CSRF but mounts current user
+  pipeline :auto_login do
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :fetch_current_user
+  end
+
   pipeline :admin_browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -136,11 +143,44 @@ defmodule YscWeb.Router do
       ] do
       live "/users/register", UserRegistrationLive, :new
       live "/users/log-in", UserLoginLive, :new
+    end
+  end
+
+  ## Special routes that bypass CSRF protection for programmatic logins
+  scope "/", YscWeb do
+    pipe_through [:auto_login]
+
+    get "/users/log-in/auto", UserSessionController, :auto_login
+  end
+
+  ## Password reset (allow unauthenticated access)
+  scope "/", YscWeb do
+    pipe_through [:browser, :redirect_if_user_is_authenticated]
+
+    live_session :password_reset,
+      on_mount: [
+        {YscWeb.UserAuth, :mount_current_user},
+        {YscWeb.Plugs.SiteSettingsPlugs, :mount_site_settings}
+      ] do
       live "/users/reset-password", UserForgotPasswordLive, :new
       live "/users/reset-password/:token", UserResetPasswordLive, :edit
     end
 
     post "/users/log-in", UserSessionController, :create
+  end
+
+  ## Account setup (allow access to both authenticated and unauthenticated users)
+  scope "/", YscWeb do
+    # No redirect_if_user_is_authenticated
+    pipe_through [:browser]
+
+    live_session :account_setup,
+      on_mount: [
+        {YscWeb.UserAuth, :mount_current_user},
+        {YscWeb.Plugs.SiteSettingsPlugs, :mount_site_settings}
+      ] do
+      live "/account/setup/:user_id", AccountSetupLive, :setup
+    end
   end
 
   scope "/", YscWeb do

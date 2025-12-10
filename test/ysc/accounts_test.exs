@@ -49,25 +49,21 @@ defmodule Ysc.AccountsTest do
   end
 
   describe "register_user/1" do
-    test "requires email and password to be set" do
+    test "requires email, first_name and last_name to be set" do
       {:error, changeset} = Accounts.register_user(%{})
 
       assert %{
-               password: ["can't be blank"],
                email: ["can't be blank"],
-               phone_number: ["can't be blank"],
                first_name: ["can't be blank"],
                last_name: ["can't be blank"]
              } = errors_on(changeset)
     end
 
-    test "validates email and password when given" do
-      {:error, changeset} = Accounts.register_user(%{email: "not valid", password: "not valid"})
+    test "validates email when given" do
+      {:error, changeset} = Accounts.register_user(%{email: "not valid"})
 
       assert %{
                email: ["must have the @ sign and no spaces"],
-               password: ["should be at least 12 character(s)"],
-               phone_number: ["can't be blank"],
                first_name: ["can't be blank"],
                last_name: ["can't be blank"]
              } = errors_on(changeset)
@@ -128,7 +124,7 @@ defmodule Ysc.AccountsTest do
   describe "change_user_registration/2" do
     test "returns a changeset" do
       assert %Ecto.Changeset{} = changeset = Accounts.change_user_registration(%User{})
-      assert changeset.required == [:phone_number, :password, :email, :first_name, :last_name]
+      assert changeset.required == [:email, :first_name, :last_name]
     end
 
     test "allows fields to be set" do
@@ -549,7 +545,7 @@ defmodule Ysc.AccountsTest do
       changeset =
         SignupApplication.application_changeset(%SignupApplication{}, %{
           membership_type: :single,
-          membership_eligibility: [:born_in_scandinavia],
+          membership_eligibility: ["born_in_scandinavia"],
           birth_date: ~D[1990-01-01],
           address: "123 Main St",
           city: "San Francisco",
@@ -569,7 +565,7 @@ defmodule Ysc.AccountsTest do
       changeset =
         SignupApplication.application_changeset(%SignupApplication{}, %{
           membership_type: :single,
-          membership_eligibility: [:born_in_scandinavia],
+          membership_eligibility: ["born_in_scandinavia"],
           birth_date: ~D[1990-01-01],
           address: "123 Main St",
           city: "San Francisco",

@@ -238,11 +238,27 @@ defmodule Ysc.Accounts do
       iex> register_user(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
-  """
+  defp clean_array_attrs(attrs) do
+    # Remove empty strings from array fields to prevent enum casting errors
+    Enum.reduce(attrs, %{}, fn {key, value}, acc ->
+      case value do
+        list when is_list(list) ->
+          # Filter out empty strings from arrays
+          cleaned_list = Enum.reject(list, &(&1 == ""))
+          Map.put(acc, key, cleaned_list)
+        _ ->
+          Map.put(acc, key, value)
+      end
+    end)
+  end
+
   def register_user(attrs) do
+    # Clean array fields by removing empty strings before creating changeset
+    cleaned_attrs = clean_array_attrs(attrs)
+
     Repo.transaction(fn ->
       case %User{}
-           |> User.registration_changeset(attrs, require_password: false)
+           |> User.registration_changeset(cleaned_attrs, require_password: false)
            |> Repo.insert() do
         {:ok, user} ->
           # Preload registration_form within the same transaction
@@ -414,7 +430,7 @@ defmodule Ysc.Accounts do
     end
   end
 
-  @doc """
+  @doc \"""
   Returns an `%Ecto.Changeset{}` for tracking user changes.
 
   ## Examples
@@ -447,78 +463,12 @@ defmodule Ysc.Accounts do
   end
 
   @doc """
-  Stores an email verification code for a user with expiration.
-
-  ## Parameters
-  - user: The user struct
-  - code: The verification code
-  - expires_in_seconds: How long until expiration (default: 600 = 10 minutes)
-
-  Returns :ok on success
-  """
-  def store_email_verification_code(user, code, expires_in_seconds \\ 600) do
-    Ysc.VerificationCache.store_code(user.id, :email_verification, code, expires_in_seconds)
-  end
-
-  @doc """
-  Stores a phone verification code for a user.
-  """
-  def store_phone_verification_code(user, code, expires_in_seconds \\ 600) do
-    Ysc.VerificationCache.store_code(user.id, :phone_verification, code, expires_in_seconds)
-  end
-
-  @doc """
-  Verifies an email verification code for a user.
-
-  Returns {:ok, :verified} if the code is valid and matches,
-  {:error, :not_found} if no code exists,
-  {:error, :expired} if the code has expired,
-  {:error, :invalid_code} if the code doesn't match.
-  """
-  def verify_email_verification_code(user, provided_code) do
-    Ysc.VerificationCache.verify_code(user.id, :email_verification, provided_code)
-  end
-
-  @doc """
-  Retrieves the current email verification code for a user if it exists and hasn't expired.
-
-  Returns {:ok, code} if found and valid, {:error, reason} otherwise.
-  """
-  def get_email_verification_code(user) do
-    Ysc.VerificationCache.get_code(user.id, :email_verification)
-  end
-
-  @doc """
-  Removes the email verification code for a user (useful for cleanup).
-  """
-  def remove_email_verification_code(user) do
-    Ysc.VerificationCache.remove_code(user.id, :email_verification)
-  end
-
-  @doc """
-  Generates and stores an email verification code for a user.
-
-  This is a convenience function that generates a code and stores it in the cache.
-
-  Returns the generated code.
-  """
-  def generate_and_store_email_verification_code(user, expires_in_seconds \\ 600) do
-    code = generate_email_verification_code()
-    :ok = store_email_verification_code(user, code, expires_in_seconds)
-    code
-  end
-
-  @doc """
   Sends an email verification code to the user.
   """
-  def send_email_verification_code(user, code, resend_key_suffix \\ nil) do
-    # Include resend suffix in idempotency key to allow multiple sends
-    suffix = if resend_key_suffix, do: "_#{resend_key_suffix}", else: ""
-    idempotency_key = "account_setup_verification_#{user.id}#{suffix}"
-
+  def send_email_verification_code(user, code) do
     YscWeb.Emails.Notifier.schedule_email(
       user.email,
-      idempotency_key,
+      "account_setup_verification_#{user.id}",
       "Account Setup Verification",
       "account_setup_verification",
       %{
@@ -552,54 +502,6 @@ defmodule Ysc.Accounts do
       {:ok, user}
     else
       {:error, :invalid_code}
-    end
-  end
-
-  @doc """
-  Generates and stores a phone verification code for a user.
-
-  This is a convenience function that generates a code and stores it in the cache.
-
-  Returns the generated code.
-  """
-  def generate_and_store_phone_verification_code(user, expires_in_seconds \\ 600) do
-    # Reuse the same code generation
-    code = generate_email_verification_code()
-    :ok = store_phone_verification_code(user, code, expires_in_seconds)
-    code
-  end
-
-  @doc """
-  Sends a phone verification code via SMS.
-  """
-  def send_phone_verification_code(user, code, resend_key_suffix \\ nil) do
-    # Include resend suffix in idempotency key to allow multiple sends
-    suffix = if resend_key_suffix, do: "_#{resend_key_suffix}", else: ""
-    idempotency_key = "phone_verification_#{user.id}#{suffix}"
-
-    YscWeb.Sms.Notifier.schedule_sms(
-      user.phone_number,
-      idempotency_key,
-      "phone_verification",
-      YscWeb.Sms.PhoneVerification.prepare_sms_data(user, code),
-      user.id
-    )
-  end
-
-  @doc """
-  Verifies a phone verification code for a user.
-
-  Returns {:ok, :verified} if the code is valid and matches,
-  {:error, :not_found} if no code exists,
-  {:error, :expired} if the code has expired,
-  {:error, :invalid_code} if the code doesn't match.
-  """
-  def verify_phone_verification_code(user, provided_code) do
-    # In dev/test environments, accept "000000" as a valid code
-    if Mix.env() in [:dev, :test] && provided_code == "000000" do
-      {:ok, :verified}
-    else
-      Ysc.VerificationCache.verify_code(user.id, :phone_verification, provided_code)
     end
   end
 
@@ -881,27 +783,17 @@ defmodule Ysc.Accounts do
   end
 
   @doc """
-  Sets the initial password for a user during account setup.
+  Updates the user password.
 
-  This is used when a user doesn't have a password yet and is setting one for the first time.
-  Unlike update_user_password, this doesn't validate a current password.
+  ## Examples
+
+      iex> update_user_password(user, "valid password", %{password: ...})
+      {:ok, %User{}}
+
+      iex> update_user_password(user, "invalid password", %{password: ...})
+      {:error, %Ecto.Changeset{}}
+
   """
-  def set_user_initial_password(user, attrs) do
-    changeset = User.password_changeset(user, attrs)
-
-    Ecto.Multi.new()
-    |> Ecto.Multi.update(:user, changeset)
-    |> Ecto.Multi.run(:mark_password_set, fn _repo, %{user: updated_user} ->
-      mark_password_set(updated_user)
-    end)
-    |> Repo.transaction()
-    |> case do
-      {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
-      {:error, :mark_password_set, changeset, _} -> {:error, changeset}
-    end
-  end
-
   def update_user_password(user, password, attrs) do
     changeset =
       user
@@ -1465,30 +1357,18 @@ defmodule Ysc.Accounts do
     )
   end
 
-  @doc """
-  Marks a user's email as verified by setting the email_verified_at timestamp.
-  """
-  def mark_email_verified(user) do
-    user
-    |> User.email_verification_changeset(%{email_verified_at: DateTime.utc_now()})
-    |> Repo.update()
-  end
+  defp clean_array_attrs(attrs) do
+    # Remove empty strings from array fields to prevent enum casting errors
+    Enum.reduce(attrs, %{}, fn {key, value}, acc ->
+      case value do
+        list when is_list(list) ->
+          # Filter out empty strings from arrays
+          cleaned_list = Enum.reject(list, &(&1 == ""))
+          Map.put(acc, key, cleaned_list)
 
-  @doc """
-  Marks a user's phone as verified by setting the phone_verified_at timestamp.
-  """
-  def mark_phone_verified(user) do
-    user
-    |> User.phone_verification_changeset(%{phone_verified_at: DateTime.utc_now()})
-    |> Repo.update()
-  end
-
-  @doc """
-  Marks a user's password as set by setting the password_set_at timestamp.
-  """
-  def mark_password_set(user) do
-    user
-    |> User.password_set_changeset(%{password_set_at: DateTime.utc_now()})
-    |> Repo.update()
+        _ ->
+          Map.put(acc, key, value)
+      end
+    end)
   end
 end

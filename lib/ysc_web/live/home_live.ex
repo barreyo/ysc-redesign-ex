@@ -1,7 +1,7 @@
 defmodule YscWeb.HomeLive do
   use YscWeb, :live_view
 
-  alias Ysc.{Accounts, Events, Subscriptions, Mailpoet}
+  alias Ysc.{Accounts, Events, Posts, Subscriptions, Mailpoet}
   alias Ysc.Bookings.{Booking, Season}
   import Ecto.Query
 
@@ -20,18 +20,23 @@ defmodule YscWeb.HomeLive do
         current_membership = get_current_membership(user_with_subs)
         upcoming_tickets = get_upcoming_tickets(user.id)
         future_bookings = get_future_active_bookings(user.id)
+        upcoming_events = Events.list_upcoming_events(3)
+        latest_news = Posts.list_posts(3)
 
         assign(socket,
           page_title: "Home",
           current_membership: current_membership,
           upcoming_tickets: upcoming_tickets,
           future_bookings: future_bookings,
+          upcoming_events: upcoming_events,
+          latest_news: latest_news,
           newsletter_email: "",
           newsletter_submitted: false,
           newsletter_error: nil
         )
       else
         upcoming_events = Events.list_upcoming_events(3)
+        latest_news = Posts.list_posts(3)
 
         # Determine hero video based on current Tahoe season
         # Use Clear Lake video during summer, Tahoe video otherwise
@@ -44,6 +49,7 @@ defmodule YscWeb.HomeLive do
         assign(socket,
           page_title: "Home",
           upcoming_events: upcoming_events,
+          latest_news: latest_news,
           hero_video: hero_video,
           newsletter_email: "",
           newsletter_submitted: false,
@@ -388,6 +394,68 @@ defmodule YscWeb.HomeLive do
       </div>
     </section>
 
+    <%!-- Latest News Section --%>
+    <section :if={@current_user == nil && length(@latest_news) > 0} class="py-16 lg:py-24 bg-zinc-50">
+      <div class="max-w-screen-xl mx-auto px-4">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-12">
+          <div>
+            <span class="text-blue-600 font-semibold text-sm uppercase tracking-wider">
+              Latest News
+            </span>
+            <h2 class="mt-3 text-3xl lg:text-4xl font-bold text-zinc-900">
+              Stay Informed
+            </h2>
+          </div>
+          <.link
+            navigate={~p"/news"}
+            class="mt-4 sm:mt-0 inline-flex items-center text-blue-600 font-semibold hover:text-blue-700 transition"
+          >
+            View all news <.icon name="hero-arrow-right" class="ml-2 w-5 h-5" />
+          </.link>
+        </div>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <%= for post <- @latest_news do %>
+            <.link
+              navigate={~p"/posts/#{post.url_name}"}
+              class="group bg-white rounded-2xl overflow-hidden hover:bg-zinc-50 transition-all hover:scale-[1.02] hover:shadow-2xl border border-zinc-100"
+            >
+              <div class="aspect-[16/10] bg-zinc-100 relative overflow-hidden">
+                <%= if post.featured_image do %>
+                  <img
+                    src={post.featured_image.optimized_image_path}
+                    alt={post.featured_image.alt_text || post.title}
+                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                <% else %>
+                  <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-blue-200">
+                    <.icon name="hero-newspaper" class="w-16 h-16 text-blue-400" />
+                  </div>
+                <% end %>
+                <div class="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1 text-sm font-medium text-zinc-700">
+                  News
+                </div>
+              </div>
+              <div class="p-6">
+                <h3 class="text-xl font-bold text-zinc-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                  <%= post.title %>
+                </h3>
+                <div class="mt-3 flex items-center text-zinc-500 text-sm">
+                  <.icon name="hero-clock" class="w-4 h-4 mr-2" />
+                  <%= Calendar.strftime(post.published_on, "%B %d, %Y") %>
+                </div>
+                <%= if post.preview_text do %>
+                  <p class="mt-3 text-zinc-600 line-clamp-3">
+                    <%= post.preview_text %>
+                  </p>
+                <% end %>
+              </div>
+            </.link>
+          <% end %>
+        </div>
+      </div>
+    </section>
+
     <%!-- Membership Options Section --%>
     <section
       :if={@current_user == nil}
@@ -609,6 +677,21 @@ defmodule YscWeb.HomeLive do
                 </div>
                 <.icon name="hero-chevron-right" class="w-5 h-5 text-zinc-400" />
               </.link>
+              <%= if @current_user && @current_user.role == :admin do %>
+                <.link
+                  navigate={~p"/expensereport"}
+                  class="flex items-center p-3 rounded hover:bg-zinc-50 transition-colors group"
+                >
+                  <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mr-3 group-hover:bg-orange-200 transition-colors">
+                    <.icon name="hero-receipt-refund" class="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div class="flex-1">
+                    <p class="font-semibold text-zinc-900">Expense Report</p>
+                    <p class="text-xs text-zinc-500">File expense report</p>
+                  </div>
+                  <.icon name="hero-chevron-right" class="w-5 h-5 text-zinc-400" />
+                </.link>
+              <% end %>
             </div>
           </div>
         </div>
@@ -769,6 +852,177 @@ defmodule YscWeb.HomeLive do
                     <% end %>
                   </div>
                 </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Community Events and News --%>
+        <div class="mt-12 space-y-8">
+          <%!-- Upcoming Events --%>
+          <div>
+            <div class="flex items-center justify-between mb-6">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <.icon name="hero-calendar-days" class="w-5 h-5 text-blue-600" />
+                </div>
+                <h2 class="text-xl font-bold text-zinc-900">Upcoming Events</h2>
+              </div>
+              <.link
+                navigate={~p"/events"}
+                class="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                View all events →
+              </.link>
+            </div>
+
+            <div
+              :if={Enum.empty?(@upcoming_events)}
+              class="bg-white rounded-lg p-8 text-center border border-zinc-200"
+            >
+              <div class="w-12 h-12 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <.icon name="hero-calendar" class="w-6 h-6 text-zinc-400" />
+              </div>
+              <h3 class="text-sm font-semibold text-zinc-900 mb-1">No upcoming events</h3>
+              <p class="text-xs text-zinc-500">Check back later for new community events</p>
+            </div>
+
+            <div :if={!Enum.empty?(@upcoming_events)} class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <%= for event <- Enum.take(@upcoming_events, 3) do %>
+                <.link
+                  navigate={~p"/events/#{event.id}"}
+                  class="group block bg-white rounded-lg border border-zinc-200 hover:border-blue-300 hover:shadow-md transition-all overflow-hidden"
+                >
+                  <div class="aspect-[16/10] relative overflow-hidden bg-zinc-100">
+                    <%= if event.image do %>
+                      <img
+                        src={event.image.optimized_image_path}
+                        alt={event.title}
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    <% else %>
+                      <div class="w-full h-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center">
+                        <.icon name="hero-calendar-days" class="w-8 h-8 text-white/80" />
+                      </div>
+                    <% end %>
+                    <div class="absolute top-2 left-2 bg-white/95 backdrop-blur-sm rounded px-2 py-1 shadow-sm">
+                      <div class="text-xs font-semibold text-zinc-500 uppercase">
+                        <%= Calendar.strftime(event.start_date, "%b %d") %>
+                      </div>
+                    </div>
+                    <div class="absolute top-2 right-2">
+                      <span class="inline-flex items-center px-2 py-1 bg-blue-500 text-white text-xs font-medium rounded-full">
+                        <%= case days_until_event(event) do
+                          0 -> "Today"
+                          1 -> "Tomorrow"
+                          days -> "In #{days} days"
+                        end %>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="p-4">
+                    <%= if event_badges(event) != [] do %>
+                      <div class="flex flex-wrap gap-2 mb-2">
+                        <.badge
+                          :for={{type, text} <- event_badges(event)}
+                          type={type}
+                          class="text-xs font-medium"
+                        >
+                          <.icon
+                            :if={text == "Selling Fast!"}
+                            name="hero-bolt-solid"
+                            class="w-3 h-3 inline-block me-0.5 -mt-0.5"
+                          />
+                          <%= text %>
+                        </.badge>
+                      </div>
+                    <% end %>
+                    <h3 class="font-bold text-zinc-900 group-hover:text-blue-600 transition-colors line-clamp-2 mb-2 text-sm">
+                      <%= event.title %>
+                    </h3>
+                    <div class="flex items-center gap-3 text-xs text-zinc-600">
+                      <div class="flex items-center">
+                        <.icon name="hero-clock" class="w-3 h-3 mr-1" />
+                        <%= Calendar.strftime(event.start_date, "%b %d") %>
+                      </div>
+                      <%= if event.location_name do %>
+                        <div class="flex items-center truncate">
+                          <.icon name="hero-map-pin" class="w-3 h-3 mr-1 flex-shrink-0" />
+                          <span class="truncate"><%= event.location_name %></span>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                </.link>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Latest News --%>
+          <div>
+            <div class="flex items-center justify-between mb-6">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                  <.icon name="hero-newspaper" class="w-5 h-5 text-emerald-600" />
+                </div>
+                <h2 class="text-xl font-bold text-zinc-900">Latest Club News</h2>
+              </div>
+              <.link
+                navigate={~p"/news"}
+                class="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                View all news →
+              </.link>
+            </div>
+
+            <div
+              :if={Enum.empty?(@latest_news)}
+              class="bg-white rounded-lg p-8 text-center border border-zinc-200"
+            >
+              <div class="w-12 h-12 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <.icon name="hero-document-text" class="w-6 h-6 text-zinc-400" />
+              </div>
+              <h3 class="text-sm font-semibold text-zinc-900 mb-1">No news available</h3>
+              <p class="text-xs text-zinc-500">Check back later for club updates</p>
+            </div>
+
+            <div :if={!Enum.empty?(@latest_news)} class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <%= for post <- Enum.take(@latest_news, 3) do %>
+                <.link
+                  navigate={~p"/posts/#{post.url_name}"}
+                  class="group block bg-white rounded-lg border border-zinc-200 hover:border-emerald-300 hover:shadow-md transition-all overflow-hidden"
+                >
+                  <div class="aspect-[16/10] relative overflow-hidden bg-zinc-100">
+                    <%= if post.featured_image do %>
+                      <img
+                        src={post.featured_image.optimized_image_path}
+                        alt={post.title}
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    <% else %>
+                      <div class="w-full h-full bg-gradient-to-br from-emerald-400 to-emerald-500 flex items-center justify-center">
+                        <.icon name="hero-newspaper" class="w-8 h-8 text-white/80" />
+                      </div>
+                    <% end %>
+                    <div class="absolute top-2 left-2 bg-emerald-500 text-white px-2 py-1 text-xs font-medium rounded-full">
+                      News
+                    </div>
+                  </div>
+                  <div class="p-4">
+                    <h3 class="font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors line-clamp-2 mb-2 text-sm">
+                      <%= post.title %>
+                    </h3>
+                    <div class="flex items-center text-xs text-zinc-600">
+                      <.icon name="hero-clock" class="w-3 h-3 mr-1" />
+                      <%= Calendar.strftime(post.published_on, "%b %d, %Y") %>
+                    </div>
+                    <%= if post.preview_text do %>
+                      <p class="mt-2 text-zinc-600 line-clamp-2 text-sm">
+                        <%= post.preview_text %>
+                      </p>
+                    <% end %>
+                  </div>
+                </.link>
               <% end %>
             </div>
           </div>
@@ -1011,5 +1265,51 @@ defmodule YscWeb.HomeLive do
            newsletter_error: "Unable to subscribe at this time. Please try again later."
          )}
     end
+  end
+
+  # Helper functions for event badges
+  defp event_badges(event) do
+    badges = []
+
+    # Add "Just Added" badge if applicable (within 48 hours of publishing)
+    just_added_badge =
+      case Map.get(event, :published_at) do
+        nil ->
+          []
+
+        published_at ->
+          if DateTime.diff(DateTime.utc_now(), published_at, :hour) <= 48 do
+            [{"green", "Just Added"}]
+          else
+            []
+          end
+      end
+
+    badges = badges ++ just_added_badge
+
+    # Add "Days Left" badge if applicable (1-3 days remaining)
+    days_left = days_until_event(event)
+
+    days_left_badge =
+      case days_left do
+        days when is_integer(days) and days >= 1 and days <= 3 ->
+          text = "#{days} #{if days == 1, do: "day", else: "days"} left"
+          [{"sky", text}]
+
+        _ ->
+          []
+      end
+
+    badges = badges ++ days_left_badge
+
+    # Add "Selling Fast!" badge if applicable
+    selling_fast_badge =
+      if Map.get(event, :selling_fast, false) do
+        [{"yellow", "Selling Fast!"}]
+      else
+        []
+      end
+
+    badges ++ selling_fast_badge
   end
 end

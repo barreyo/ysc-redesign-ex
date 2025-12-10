@@ -10,7 +10,9 @@ defmodule YscWeb.Layouts do
       "/users/log-in",
       "/users/register",
       "/users/reset-password",
-      "/users/settings/confirm-email"
+      "/users/settings/confirm-email",
+      "/users/log-in/auto",
+      "/account/setup"
     ])
   end
 end

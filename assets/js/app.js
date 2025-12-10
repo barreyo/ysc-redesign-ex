@@ -162,6 +162,100 @@ window.addEventListener("phx:animate-availability-update", () => {
     });
 });
 
+// Handle password visibility toggle
+document.addEventListener("click", (event) => {
+    if (event.target.closest(".password-toggle-btn")) {
+        const button = event.target.closest(".password-toggle-btn");
+        const targetId = button.getAttribute("data-target");
+        const input = document.querySelector(targetId);
+        const icon = button.querySelector('.h-5.w-5');
+
+        if (input && icon) {
+            if (input.type === "password") {
+                input.type = "text";
+                icon.classList.remove("hero-eye-solid");
+                icon.classList.add("hero-eye-slash-solid");
+            } else {
+                input.type = "password";
+                icon.classList.remove("hero-eye-slash-solid");
+                icon.classList.add("hero-eye-solid");
+            }
+        }
+    }
+});
+
+// Handle OTP input functionality
+document.addEventListener("input", (event) => {
+    if (event.target.matches("[data-otp-input-item]")) {
+        const input = event.target;
+        const container = input.closest("[data-otp-input]");
+        const inputs = container.querySelectorAll("[data-otp-input-item]");
+        const index = Array.from(inputs).indexOf(input);
+
+        // If a character was entered and it's not the last input, move to next
+        if (input.value && index < inputs.length - 1) {
+            inputs[index + 1].focus();
+        }
+    }
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.target.matches("[data-otp-input-item]")) {
+        const input = event.target;
+        const container = input.closest("[data-otp-input]");
+        const inputs = container.querySelectorAll("[data-otp-input-item]");
+        const index = Array.from(inputs).indexOf(input);
+
+        // Handle backspace
+        if (event.key === "Backspace" && !input.value && index > 0) {
+            inputs[index - 1].focus();
+        }
+
+        // Handle left arrow
+        if (event.key === "ArrowLeft" && index > 0) {
+            inputs[index - 1].focus();
+        }
+
+        // Handle right arrow
+        if (event.key === "ArrowRight" && index < inputs.length - 1) {
+            inputs[index + 1].focus();
+        }
+    }
+});
+
+document.addEventListener("paste", (event) => {
+    if (event.target.matches("[data-otp-input-item]")) {
+        event.preventDefault();
+        const paste = event.clipboardData.getData("text");
+        const container = event.target.closest("[data-otp-input]");
+        const inputs = container.querySelectorAll("[data-otp-input-item]");
+        const index = Array.from(inputs).indexOf(event.target);
+
+        // Fill inputs with pasted content
+        for (let i = 0; i < paste.length && index + i < inputs.length; i++) {
+            inputs[index + i].value = paste[i];
+        }
+
+        // Focus the next empty input or the last input
+        const nextEmptyIndex = Array.from(inputs).findIndex((input, i) => i > index && !input.value);
+        if (nextEmptyIndex !== -1) {
+            inputs[nextEmptyIndex].focus();
+        } else {
+            inputs[Math.min(index + paste.length, inputs.length - 1)].focus();
+        }
+    }
+});
+
+// Auto-submit hook for forms
+let AutoSubmit = {
+    mounted() {
+        this.el.dispatchEvent(new Event("submit", { bubbles: true }));
+    },
+};
+
+// Add AutoSubmit to hooks
+Hooks.AutoSubmit = AutoSubmit;
+
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session

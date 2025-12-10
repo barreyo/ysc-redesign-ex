@@ -24,10 +24,10 @@ defmodule YscWeb.UserResetPasswordLive do
         phx-submit="reset_password"
         phx-change="validate"
       >
-        <.input field={@form[:password]} type="password" label="New password" required />
+        <.input field={@form[:password]} type="password-toggle" label="New password" required />
         <.input
           field={@form[:password_confirmation]}
-          type="password"
+          type="password-toggle"
           label="Confirm new password"
           required
         />

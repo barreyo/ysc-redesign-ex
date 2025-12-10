@@ -138,16 +138,32 @@ defmodule YscWeb.AdminUserDetailsLive do
 
         <div :if={@live_action == :profile} class="max-w-lg px-2">
           <.simple_form for={@form} phx-change="validate" phx-submit="save">
-            <.input field={@form[:email]} label="Email" />
+            <div class="relative">
+              <.input field={@form[:email]} label="Email" />
+              <%= if @selected_user.email_verified_at != nil do %>
+                <.icon
+                  name="hero-check-circle"
+                  class="absolute right-3 mt-[15px] top-1/2 -translate-y-1/2 h-5 w-5 text-green-500 pointer-events-none"
+                />
+              <% end %>
+            </div>
             <.input field={@form[:first_name]} label="First Name" />
             <.input field={@form[:last_name]} label="Last Name" />
-            <.input
-              type="phone-input"
-              label="Phone Number"
-              id="phone_number"
-              value={@form[:phone_number].value}
-              field={@form[:phone_number]}
-            />
+            <div class="relative">
+              <.input
+                type="phone-input"
+                label="Phone Number"
+                id="phone_number"
+                value={@form[:phone_number].value}
+                field={@form[:phone_number]}
+              />
+              <%= if @selected_user.phone_verified_at != nil do %>
+                <.icon
+                  name="hero-check-circle"
+                  class="absolute right-3 mt-[15px] top-1/2 -translate-y-1/2 h-5 w-5 text-green-500 pointer-events-none"
+                />
+              <% end %>
+            </div>
             <p class="text-xs text-zinc-600 mt-1">
               By voluntarily providing your phone number and explicitly opting in to text messaging, you consent to receive SMS notifications from Young Scandinavians Club (YSC). Message and data rates may apply. Users can opt out in their notification settings. See our
               <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
@@ -1109,7 +1125,14 @@ defmodule YscWeb.AdminUserDetailsLive do
     current_user = socket.assigns[:current_user]
 
     selected_user = Accounts.get_user!(id, [:family_members])
-    application = Accounts.get_signup_application_from_user_id!(id, current_user, [:reviewed_by])
+
+    application =
+      try do
+        Accounts.get_signup_application_from_user_id!(id, current_user, [:reviewed_by])
+      rescue
+        Ecto.NoResultsError -> nil
+      end
+
     user_changeset = Accounts.User.update_user_changeset(selected_user, %{})
 
     # Load active subscription

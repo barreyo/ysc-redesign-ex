@@ -33,7 +33,7 @@ defmodule YscWeb.UserRegistrationLive do
           </.header>
 
           <p class="mt-2 mb-6 text-sm leading-6 text-zinc-600">
-            Filling out the application only takes a few minutes and we will notify you via email when we have reviewed and made a decision.
+            We are excited to have you join us! The application is quick—we'll email you as soon as your membership is approved.
           </p>
         </div>
 
@@ -44,7 +44,6 @@ defmodule YscWeb.UserRegistrationLive do
           phx-change="validate"
           phx-auto-recover="recover_wizard"
           phx-trigger-action={@trigger_submit}
-          action={~p"/users/log-in?_action=registered"}
           method="post"
         >
           <div class="space-y-4">
@@ -55,7 +54,7 @@ defmodule YscWeb.UserRegistrationLive do
             <div class={if @current_step !== 0, do: "hidden"}>
               <div class="py-4 space">
                 <p class="mb-4 text-sm font-semibold leading-6 text-zinc-800">
-                  What type of membership are you applying for?*
+                  Who is joining today?*
                 </p>
 
                 <.icon name="hero-user" class="hidden" />
@@ -67,12 +66,12 @@ defmodule YscWeb.UserRegistrationLive do
                       options={[
                         single: %{
                           option: "single",
-                          subtitle: "Membership just for yourself",
+                          subtitle: "Myself",
                           icon: "user"
                         },
                         family: %{
                           option: "family",
-                          subtitle: "Membership for you and your whole family",
+                          subtitle: "You, your partner and dependents (18 years or younger)",
                           icon: "user-group"
                         }
                       ]}
@@ -82,7 +81,7 @@ defmodule YscWeb.UserRegistrationLive do
 
                   <.checkgroup
                     field={rf[:membership_eligibility]}
-                    label="Which of the following apply to you? (select all that apply)"
+                    label="Tell us about your connection to Scandinavia (select all that apply)"
                     options={SignupApplication.eligibility_options()}
                   />
                 </.inputs_for>
@@ -98,26 +97,6 @@ defmodule YscWeb.UserRegistrationLive do
                 placeholder="example@ysc.org"
                 required
               />
-              <.input
-                type="phone-input"
-                label="Phone Number"
-                id="phone_number"
-                field={@form[:phone_number]}
-              />
-              <.input
-                type="checkbox"
-                label="I would like to receive SMS notifications for account security, event reminders, and booking updates"
-                field={@form[:sms_opt_in]}
-                id="sms_opt_in"
-              />
-              <p class="text-xs text-zinc-600 mt-1">
-                <strong>Young Scandinavians Club (YSC)</strong>: By voluntarily providing your phone number and explicitly opting in to text messaging, you agree to receive account security codes and booking reminders from Young Scandinavians Club(YSC). Message frequency may vary. Message & data rates may apply. Reply HELP for support or STOP to unsubscribe. Your phone number will not be shared with third parties for marketing or promotional purposes. You can also opt out at any time in your notification settings. See our
-                <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
-                  Privacy Policy
-                </.link>
-                for more information.
-              </p>
-              <.input field={@form[:password]} type="password" label="Password*" required />
 
               <.header class="text-left pt-6">Personal Information</.header>
               <.input field={@form[:first_name]} label="First Name*" required />
@@ -209,29 +188,29 @@ defmodule YscWeb.UserRegistrationLive do
                 <.input
                   prompt="Select country"
                   field={rf[:most_connected_nordic_country]}
-                  label="To which one Nordic country do you feel the most connected?*"
+                  label="To which one Nordic/Scandinavian country do you feel the most connected?*"
                   type="select"
                   options={[Sweden: "SE", Norway: "NO", Finland: "FI", Iceland: "IS", Denmark: "DK"]}
                   required
                 />
                 <.input
                   field={rf[:link_to_scandinavia]}
-                  label="If not born in or a citizen of a Scandinavian country, describe the descent or link to Scandinavia on which you base your eligibility for membership:"
+                  label="If not born in or a citizen of a Nordic/Scandinavian country, describe the descent or link to Scandinavia on which you base your eligibility for membership:"
                   type="textarea"
                 />
                 <.input
                   field={rf[:lived_in_scandinavia]}
-                  label="If you have lived in Scandinavia, where and for how long?"
+                  label="If you have lived in a Nordic/Scandinavian country, where and for how long?"
                   type="textarea"
                 />
                 <.input
                   field={rf[:spoken_languages]}
-                  label="Which, if any, Scandinavian languages do you speak?"
+                  label="Which, if any, Nordic/Scandinavian languages do you speak?"
                   type="textarea"
                 />
                 <.input
                   field={rf[:hear_about_the_club]}
-                  label="How did you hear about the Young Scandinavians Club?"
+                  label="How did you hear about the Young Scandinavians Club (YSC)?"
                   type="textarea"
                 />
 
@@ -241,7 +220,11 @@ defmodule YscWeb.UserRegistrationLive do
                     field={rf[:agreed_to_bylaws]}
                     label="I have read and agreed to the"
                   />
-                  <.link navigate={~p"/bylaws"} class="text-sm text-blue-600 ms-2 hover:underline">
+                  <.link
+                    navigate={~p"/bylaws"}
+                    target="_blank"
+                    class="text-sm text-blue-600 ms-2 hover:underline"
+                  >
                     Young Scandinavians Club Bylaws
                   </.link>
                 </div>
@@ -382,12 +365,14 @@ defmodule YscWeb.UserRegistrationLive do
             &url(~p"/users/confirm/#{&1}")
           )
 
-        # After successful registration, we're about to redirect via form submission
-        # Create a minimal changeset for the redirect, but don't try to render the form
-        # We'll use a simple changeset that won't cause issues with unloaded associations
-        changeset = Accounts.change_user_registration(user)
-        form = to_form(changeset, as: "user")
-        {:noreply, socket |> assign(trigger_submit: true, form: form)}
+        # After successful registration, redirect to account setup flow
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           "Application submitted successfully! Please complete your account setup."
+         )
+         |> redirect(to: ~p"/account/setup/#{user.id}?from_signup=true")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, socket |> assign(check_errors: true) |> assign_form(changeset)}

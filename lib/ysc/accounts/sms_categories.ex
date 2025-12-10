@@ -12,7 +12,8 @@ defmodule Ysc.Accounts.SmsCategories do
     # Security notifications (should always be sent, but respect account_notifications_sms)
     "two_factor_verification" => :account,
     "email_changed" => :account,
-    "password_changed" => :account
+    "password_changed" => :account,
+    "phone_verification" => :account
   }
 
   @doc """

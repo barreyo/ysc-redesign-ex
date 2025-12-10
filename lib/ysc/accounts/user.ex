@@ -37,7 +37,7 @@ defmodule Ysc.Accounts.User do
   schema "users" do
     field :email, :string
     field :password, :string, virtual: true, redact: true
-    field :hashed_password, :string, redact: true
+    field :hashed_password, :string, redact: true, default: nil
     field :confirmed_at, :utc_datetime
 
     field :state, UserAccountState
@@ -81,6 +81,11 @@ defmodule Ysc.Accounts.User do
     field :payment_id, :string, virtual: true
     field :sms_opt_in, :boolean, virtual: true
 
+    # Verification timestamps
+    field :email_verified_at, :utc_datetime
+    field :phone_verified_at, :utc_datetime
+    field :password_set_at, :utc_datetime
+
     timestamps()
   end
 
@@ -114,8 +119,13 @@ defmodule Ysc.Accounts.User do
       using this changeset for validations on a LiveView form before
       submitting the form), this option can be set to `false`.
       Defaults to `true`.
+
+    * `:require_password` - Requires password validation during registration.
+      Defaults to `false` for application-only registration.
   """
   def registration_changeset(user, attrs, opts \\ []) do
+    require_password = Keyword.get(opts, :require_password, false)
+
     user
     |> cast(attrs, [
       :email,
@@ -133,7 +143,7 @@ defmodule Ysc.Accounts.User do
     |> validate_length(:last_name, min: 1, max: 150)
     |> validate_required([:first_name, :last_name])
     |> validate_email(opts)
-    |> validate_password(opts)
+    |> validate_password_optional(opts, require_password)
     |> validate_phone_optional(opts)
     |> set_sms_notifications_from_opt_in(attrs)
     |> cast_assoc(:registration_form,
@@ -312,6 +322,16 @@ defmodule Ysc.Accounts.User do
     |> maybe_hash_password(opts)
   end
 
+  defp validate_password_optional(changeset, opts, require_password) do
+    if require_password do
+      validate_password(changeset, opts)
+    else
+      changeset
+      |> validate_length(:password, min: 12, max: 72)
+      |> maybe_hash_password(opts)
+    end
+  end
+
   defp maybe_hash_password(changeset, opts) do
     hash_password? = Keyword.get(opts, :hash_password, true)
     password = get_change(changeset, :password)
@@ -406,6 +426,33 @@ defmodule Ysc.Accounts.User do
     else
       add_error(changeset, :current_password, "is not valid")
     end
+  end
+
+  @doc """
+  Changeset for marking email as verified.
+  """
+  def email_verification_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:email_verified_at])
+    |> validate_required([:email_verified_at])
+  end
+
+  @doc """
+  Changeset for marking phone as verified.
+  """
+  def phone_verification_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:phone_verified_at])
+    |> validate_required([:phone_verified_at])
+  end
+
+  @doc """
+  Changeset for marking password as set.
+  """
+  def password_set_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:password_set_at])
+    |> validate_required([:password_set_at])
   end
 
   @doc """

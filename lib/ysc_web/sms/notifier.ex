@@ -12,7 +12,8 @@ defmodule YscWeb.Sms.Notifier do
     "booking_checkin_reminder" => YscWeb.Sms.BookingCheckinReminder,
     "two_factor_verification" => YscWeb.Sms.TwoFactorVerification,
     "email_changed" => YscWeb.Sms.EmailChanged,
-    "password_changed" => YscWeb.Sms.PasswordChanged
+    "password_changed" => YscWeb.Sms.PasswordChanged,
+    "phone_verification" => YscWeb.Sms.PhoneVerification
   }
 
   @doc """

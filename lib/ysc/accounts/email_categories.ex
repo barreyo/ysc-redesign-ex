@@ -37,7 +37,8 @@ defmodule Ysc.Accounts.EmailCategories do
     # Booking notifications (can be disabled)
     "booking_confirmation" => :account,
     "booking_refund_processed" => :account,
-    "booking_refund_pending" => :account
+    "booking_refund_pending" => :account,
+    "account_setup_verification" => :account
     # Newsletter notifications (can be disabled)
     # Note: Newsletter emails are handled by Mailpoet, not through this system
   }

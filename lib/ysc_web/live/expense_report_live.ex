@@ -1256,7 +1256,7 @@ defmodule YscWeb.ExpenseReportLive do
   defp render_form(assigns) do
     ~H"""
     <div class="py-8 lg:py-10">
-      <div class="max-w-screen-lg flex flex-col space-y-6 max-w-screen-lg mx-auto px-4">
+      <div class="flex flex-col space-y-6 max-w-screen-xl mx-auto px-4 lg:px-10">
         <div class="prose prose-zinc max-w-xl mx-auto lg:mx-0">
           <h1>Expense Report</h1>
           <p>

@@ -32,7 +32,7 @@ defmodule YscWeb.UserAuth do
   disconnected on sign out. The line can be safely removed
   if you are not using LiveView.
   """
-  def log_in_user(conn, user, params \\ %{}) do
+  def log_in_user(conn, user, params \\ %{}, redirect_to \\ nil) do
     token = Accounts.generate_user_session_token(user)
     user_return_to = get_session(conn, :user_return_to)
 
@@ -40,7 +40,22 @@ defmodule YscWeb.UserAuth do
     |> renew_session()
     |> put_token_in_session(token)
     |> maybe_write_remember_me_cookie(token, params)
-    |> redirect(to: user_return_to || signed_in_path(conn))
+    |> redirect(to: redirect_to || user_return_to || signed_in_path_for_user(user, conn))
+  end
+
+  # Get the appropriate signed-in path for a user
+  defp signed_in_path_for_user(user, conn) do
+    cond do
+      is_nil(user.email_verified_at) ->
+        # User hasn't verified email, redirect to account setup
+        ~p"/account/setup/#{user.id}"
+
+      user.state == :pending_approval ->
+        ~p"/pending-review"
+
+      true ->
+        signed_in_path(conn)
+    end
   end
 
   defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}) do

@@ -28,5 +28,32 @@ defmodule Ysc.Accounts.FamilyMember do
     |> validate_length(:first_name, min: 1, max: 160)
     |> validate_length(:last_name, min: 1, max: 160)
     |> validate_required([:first_name, :last_name, :type])
+    |> validate_birth_date()
+  end
+
+  # Validate that birth_date is reasonable (not too old, not in the future)
+  defp validate_birth_date(changeset) do
+    case get_field(changeset, :birth_date) do
+      nil ->
+        changeset
+
+      date ->
+        today = Date.utc_today()
+        # Reasonable minimum birth date
+        min_date = Date.new!(1900, 1, 1)
+        # Can't be born in the future
+        max_date = today
+
+        cond do
+          Date.before?(date, min_date) ->
+            add_error(changeset, :birth_date, "must be after 1900")
+
+          Date.after?(date, max_date) ->
+            add_error(changeset, :birth_date, "cannot be in the future")
+
+          true ->
+            changeset
+        end
+    end
   end
 end

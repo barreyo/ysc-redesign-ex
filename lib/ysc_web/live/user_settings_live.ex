@@ -362,7 +362,7 @@ defmodule YscWeb.UserSettingsLive do
                     field={@email_form[:current_password]}
                     name="current_password"
                     id="current_password_for_email"
-                    type="password"
+                    type="password-toggle"
                     label="Current password"
                     value={@email_form_current_password}
                     required
@@ -389,19 +389,19 @@ defmodule YscWeb.UserSettingsLive do
                   />
                   <.input
                     field={@password_form[:password]}
-                    type="password"
+                    type="password-toggle"
                     label="New password"
                     required
                   />
                   <.input
                     field={@password_form[:password_confirmation]}
-                    type="password"
+                    type="password-toggle"
                     label="Confirm new password"
                   />
                   <.input
                     field={@password_form[:current_password]}
                     name="current_password"
-                    type="password"
+                    type="password-toggle"
                     label="Current password"
                     id="current_password_for_password"
                     value={@current_password}
@@ -806,7 +806,7 @@ defmodule YscWeb.UserSettingsLive do
               <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
                 <p class="text-sm text-blue-900">
                   <strong>SMS Consent:</strong>
-                  By enabling SMS notifications, you consent to receive text messages from YSC. Message and data rates may apply. You can opt out at any time by unchecking the SMS options below. See our
+                  By voluntarily providing your phone number and explicitly opting in to text messaging, you consent to receive text messages from Young Scandinavians Club(YSC). Message and data rates may apply. You can opt out at any time by unchecking the SMS options below or sending a STOP message to the number you receive messages from. See our
                   <.link
                     navigate={~p"/privacy-policy"}
                     class="text-blue-700 hover:underline font-semibold"

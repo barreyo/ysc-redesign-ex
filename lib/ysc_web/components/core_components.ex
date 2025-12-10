@@ -305,7 +305,7 @@ defmodule YscWeb.CoreComponents do
     default: "text",
     values: ~w(checkbox color date datetime-local email file hidden month number password
                range radio search select tel text textarea time url week checkgroup
-               country-select large-radio phone-input date-text text-growing)
+               country-select large-radio phone-input date-text text-growing password-toggle otp)
 
   attr :field, Phoenix.HTML.FormField,
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
@@ -477,7 +477,6 @@ defmodule YscWeb.CoreComponents do
       <.label for={@id}><%= @label %></.label>
       <div class="w-full bg-white rounded text-left cursor-default focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
         <div class="grid grid-cols-1 gap-1 text-sm items-baseline">
-          <input type="hidden" name={@name} value="" />
           <div :for={{label, value} <- @options} class="flex items-center">
             <label for={"#{@name}-#{value}"} class="font-medium text-zinc-700 py-1">
               <input
@@ -485,7 +484,7 @@ defmodule YscWeb.CoreComponents do
                 id={"#{@name}-#{value}"}
                 name={@name}
                 value={value}
-                checked={@value && value in @value}
+                checked={@value && Enum.any?(@value, fn v -> to_string(v) == to_string(value) end)}
                 class="mr-2 h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-400 transition duration-150 ease-in-out"
                 {@rest}
               />
@@ -527,20 +526,24 @@ defmodule YscWeb.CoreComponents do
     ~H"""
     <div phx-feedback-for={@name}>
       <.label for={@id}><%= @label %></.label>
-      <input
-        type="text"
-        name={@name}
-        id={@id}
-        value={Phoenix.HTML.Form.normalize_value("date", @value)}
-        class={[
-          "mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6",
-          "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400",
-          @errors == [] && "border-zinc-300 focus:border-zinc-400",
-          @errors != [] && "border-rose-400 focus:border-rose-400"
-        ]}
-        onfocus="(this.type='date')"
-        {@rest}
-      />
+      <div class="relative">
+        <input
+          type="date"
+          name={@name}
+          id={@id}
+          value={Phoenix.HTML.Form.normalize_value("date", @value)}
+          class={[
+            "mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6",
+            "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400",
+            @errors == [] && "border-zinc-300 focus:border-zinc-400",
+            @errors != [] && "border-rose-400 focus:border-rose-400"
+          ]}
+          placeholder="YYYY-MM-DD"
+          pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
+          title="Date format: YYYY-MM-DD"
+          {@rest}
+        />
+      </div>
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
     """
@@ -592,6 +595,35 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  def input(%{type: "otp"} = assigns) do
+    # Generate id from name if not provided
+    id = assigns.id || assigns.name || "input-#{System.unique_integer([:positive])}"
+
+    assigns = assign(assigns, :id, id)
+
+    ~H"""
+    <div phx-feedback-for={@name}>
+      <.label :if={@label} for={@id}><%= @label %></.label>
+
+      <div class="flex gap-x-3 mt-1" data-otp-input="">
+        <%= for i <- 0..5 do %>
+          <input
+            type="text"
+            name={"#{@name}[#{i}]"}
+            id={"#{@id}_#{i}"}
+            maxlength="1"
+            class="block w-12 h-12 text-center border-gray-200 rounded-md sm:text-sm focus:scale-110 focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none"
+            placeholder="⚬"
+            data-otp-input-item=""
+            {@rest}
+          />
+        <% end %>
+      </div>
+      <.error :for={msg <- @errors}><%= msg %></.error>
+    </div>
+    """
+  end
+
   # Hidden inputs - no label needed
   def input(%{type: "hidden"} = assigns) do
     # Generate id from name if not provided
@@ -615,24 +647,49 @@ defmodule YscWeb.CoreComponents do
     # Generate id from name if not provided
     id = assigns.id || assigns.name || "input-#{System.unique_integer([:positive])}"
 
-    assigns = assign(assigns, :id, id)
+    # Handle password-toggle type
+    {type, is_password_toggle} =
+      case assigns.type do
+        "password-toggle" -> {"password", true}
+        other -> {other, false}
+      end
+
+    assigns =
+      assigns
+      |> assign(:id, id)
+      |> assign(:type, type)
+      |> assign(:is_password_toggle, is_password_toggle)
 
     ~H"""
     <div phx-feedback-for={@name}>
       <.label :if={@label} for={@id}><%= @label %></.label>
-      <input
-        type={@type}
-        name={@name}
-        id={@id}
-        value={Phoenix.HTML.Form.normalize_value(@type, @value)}
-        class={[
-          "mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6",
-          "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400",
-          @errors == [] && "border-zinc-300 focus:border-zinc-400",
-          @errors != [] && "border-rose-400 focus:border-rose-400"
-        ]}
-        {@rest}
-      />
+
+      <div class={["relative", @is_password_toggle && ""]}>
+        <input
+          type={@type}
+          name={@name}
+          id={@id}
+          value={Phoenix.HTML.Form.normalize_value(@type, @value)}
+          class={[
+            "mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6",
+            @is_password_toggle && "pr-10",
+            "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400",
+            @errors == [] && "border-zinc-300 focus:border-zinc-400",
+            @errors != [] && "border-rose-400 focus:border-rose-400"
+          ]}
+          {@rest}
+        />
+
+        <button
+          :if={@is_password_toggle}
+          type="button"
+          class="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer password-toggle-btn"
+          data-target={"##{@id}"}
+          aria-label="Toggle password visibility"
+        >
+          <.icon name="hero-eye-solid" class="h-5 w-5 text-zinc-400 hover:text-zinc-600" />
+        </button>
+      </div>
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
     """
@@ -900,7 +957,7 @@ defmodule YscWeb.CoreComponents do
 
     ~H"""
     <div class={"border-l-4 p-4 #{@base_classes}"}>
-      <div class={"flex items-start max-w-screen-lg mx-auto md:px-4 #{if @action_label, do: "", else: "items-center"}"}>
+      <div class={"flex items-start max-w-screen-xl mx-auto md:px-4 #{if @action_label, do: "", else: "items-center"}"}>
         <div class="flex-shrink-0 pt-1">
           <.icon name={@icon} class={"h-8 w-8 #{@icon_color}"} />
         </div>
@@ -2097,7 +2154,10 @@ defmodule YscWeb.CoreComponents do
 
   def alert_box(assigns) do
     ~H"""
-    <div class={"flex p-4 mb-4 text-sm text-#{@color}-800 rounded bg-#{@color}-50"} role="alert">
+    <div
+      class={"flex p-4 mb-4 text-sm text-#{@color}-800 rounded bg-#{@color}-50 border border-#{@color}-100"}
+      role="alert"
+    >
       <%= render_slot(@inner_block) %>
     </div>
     """

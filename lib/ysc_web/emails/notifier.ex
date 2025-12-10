@@ -15,6 +15,7 @@ defmodule YscWeb.Emails.Notifier do
   end
 
   @template_mappings %{
+    "account_setup_verification" => YscWeb.Emails.AccountSetupVerification,
     "application_rejected" => YscWeb.Emails.ApplicationRejected,
     "application_approved" => YscWeb.Emails.ApplicationApproved,
     "application_submitted" => YscWeb.Emails.ApplicationSubmitted,
