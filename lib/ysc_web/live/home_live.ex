@@ -89,7 +89,10 @@ defmodule YscWeb.HomeLive do
             class="group px-8 py-4 text-base font-bold text-zinc-900 bg-white rounded-lg hover:bg-blue-50 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
           >
             Apply for Membership
-            <span class="inline-block ml-2 transition-transform group-hover:translate-x-1">→</span>
+            <.icon
+              name="hero-arrow-right"
+              class="me-2 w-5 h-5 group-hover:translate-x-1 transition-transform duration-300"
+            />
           </.link>
           <.link
             navigate={~p"/events"}
