@@ -237,10 +237,10 @@ defmodule YscWeb.AccountSetupLive do
   # Build stepper steps dynamically based on which steps are skipped
   # Email verification, password setup, and/or phone verification
   defp build_stepper_steps(skip_password, _skip_phone_setup, skip_phone_verification) do
-    steps = ["Email"]
+    steps = ["Verify Email"]
 
     # Add password step if not skipped
-    steps = if not skip_password, do: steps ++ ["Password"], else: steps
+    steps = if not skip_password, do: steps ++ ["Set Password"], else: steps
 
     # Add phone step if phone verification is needed
     steps = if not skip_phone_verification, do: steps ++ ["Phone & Verification"], else: steps

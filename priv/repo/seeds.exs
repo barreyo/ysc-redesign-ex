@@ -142,6 +142,26 @@ create_address_for_user = fn user ->
   end
 end
 
+# Helper function to mark email as verified and password as set
+# This ensures seeded users can skip email verification and password setup
+mark_user_verified = fn user ->
+  now = DateTime.utc_now()
+
+  user
+  |> Ecto.Changeset.change()
+  |> Ecto.Changeset.put_change(:email_verified_at, now)
+  |> Ecto.Changeset.put_change(:password_set_at, now)
+  |> Repo.update()
+  |> case do
+    {:ok, updated_user} ->
+      updated_user
+
+    {:error, changeset} ->
+      IO.puts("Failed to mark user #{user.email} as verified: #{inspect(changeset.errors)}")
+      user
+  end
+end
+
 # Get or create admin user
 admin_user =
   case Repo.get_by(User, email: "admin@ysc.org") do
@@ -186,14 +206,16 @@ admin_user =
         {:ok, user} when not is_nil(user) ->
           # Create billing address from registration form
           create_address_for_user.(user)
-          user
+          # Mark email as verified and password as set
+          mark_user_verified.(user)
 
         {:ok, nil} ->
           # Conflict occurred, fetch the existing user
           user = Repo.get_by!(User, email: "admin@ysc.org")
           # Ensure address exists for existing admin user
           create_address_for_user.(user)
-          user
+          # Mark email as verified and password as set
+          mark_user_verified.(user)
 
         {:error, _changeset} ->
           # If insert fails, try to fetch again (might have been created by another process)
@@ -203,13 +225,15 @@ admin_user =
 
           # Ensure address exists for existing admin user
           create_address_for_user.(user)
-          user
+          # Mark email as verified and password as set
+          mark_user_verified.(user)
       end
 
     existing_user ->
       # Ensure address exists for existing admin user
       create_address_for_user.(existing_user)
-      existing_user
+      # Mark email as verified and password as set
+      mark_user_verified.(existing_user)
   end
 
 Enum.each(0..n_approved_users, fn n ->
@@ -295,6 +319,8 @@ Enum.each(0..n_approved_users, fn n ->
       {:ok, user} ->
         # Create billing address from registration form
         create_address_for_user.(user)
+        # Mark email as verified and password as set
+        mark_user_verified.(user)
         :ok
 
       {:error, changeset} ->
@@ -383,6 +409,8 @@ Enum.each(0..n_pending_users, fn n ->
       {:ok, user} ->
         # Create billing address from registration form
         create_address_for_user.(user)
+        # Mark email as verified and password as set
+        mark_user_verified.(user)
         :ok
 
       {:error, changeset} ->
@@ -444,6 +472,8 @@ Enum.each(0..n_rejected_users, fn n ->
       {:ok, user} ->
         # Create billing address from registration form
         create_address_for_user.(user)
+        # Mark email as verified and password as set
+        mark_user_verified.(user)
         :ok
 
       {:error, changeset} ->
@@ -505,6 +535,8 @@ Enum.each(0..n_deleted_users, fn n ->
       {:ok, user} ->
         # Create billing address from registration form
         create_address_for_user.(user)
+        # Mark email as verified and password as set
+        mark_user_verified.(user)
         :ok
 
       {:error, changeset} ->

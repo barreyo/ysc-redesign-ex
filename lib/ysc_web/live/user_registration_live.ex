@@ -54,7 +54,7 @@ defmodule YscWeb.UserRegistrationLive do
             <div class={if @current_step !== 0, do: "hidden"}>
               <div class="py-4 space">
                 <p class="mb-4 text-sm font-semibold leading-6 text-zinc-800">
-                  Who is joining today?*
+                  Who is applying for membership today?*
                 </p>
 
                 <.icon name="hero-user" class="hidden" />
