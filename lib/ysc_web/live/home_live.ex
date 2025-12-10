@@ -432,9 +432,6 @@ defmodule YscWeb.HomeLive do
                     <.icon name="hero-newspaper" class="w-16 h-16 text-blue-400" />
                   </div>
                 <% end %>
-                <div class="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1 text-sm font-medium text-zinc-700">
-                  News
-                </div>
               </div>
               <div class="p-6">
                 <h3 class="text-xl font-bold text-zinc-900 group-hover:text-blue-600 transition-colors line-clamp-2">
