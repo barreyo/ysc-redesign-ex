@@ -9,6 +9,7 @@ defmodule Ysc.Tickets.StripeService do
   - Integration with the ledger system
   """
 
+  alias Ysc.Repo
   alias Ysc.Tickets
 
   defp stripe_client do
@@ -195,6 +196,8 @@ defmodule Ysc.Tickets.StripeService do
   def ensure_stripe_customer(user) do
     case get_stripe_customer_id(user) do
       nil ->
+        # Preload billing_address to ensure it's available for customer creation
+        user = Ysc.Repo.preload(user, :billing_address)
         create_stripe_customer(user)
 
       customer_id ->
@@ -245,10 +248,42 @@ defmodule Ysc.Tickets.StripeService do
     customer_params = %{
       email: user.email,
       name: "#{user.first_name} #{user.last_name}",
+      description: "User ID: #{user.id}",
       metadata: %{
         user_id: user.id
       }
     }
+
+    # Add phone number if available
+    customer_params =
+      if user.phone_number && user.phone_number != "" do
+        Map.put(customer_params, :phone, user.phone_number)
+      else
+        customer_params
+      end
+
+    # Add address if billing_address is available
+    customer_params =
+      if user.billing_address do
+        address = %{
+          line1: user.billing_address.address,
+          city: user.billing_address.city,
+          postal_code: user.billing_address.postal_code,
+          country: user.billing_address.country
+        }
+
+        # Add state/region if available
+        address =
+          if user.billing_address.region && user.billing_address.region != "" do
+            Map.put(address, :state, user.billing_address.region)
+          else
+            address
+          end
+
+        Map.put(customer_params, :address, address)
+      else
+        customer_params
+      end
 
     case stripe_client().create_customer(customer_params) do
       {:ok, customer} ->

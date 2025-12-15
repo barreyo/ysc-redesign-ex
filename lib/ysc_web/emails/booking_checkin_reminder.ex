@@ -16,8 +16,9 @@ defmodule YscWeb.Emails.BookingCheckinReminder do
     "booking_checkin_reminder"
   end
 
-  def get_subject() do
-    "Your YSC Cabin Stay is Almost Here! 🏡"
+  def get_subject(booking) do
+    property_name = get_property_name(booking.property)
+    "Your #{property_name} Check-In Instructions - YSC Cabin Stay 🏡"
   end
 
   def booking_url(booking_id) do

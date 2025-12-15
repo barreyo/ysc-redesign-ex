@@ -29,7 +29,7 @@ defmodule YscWeb.AccountSetupLive do
           </.alert_box>
 
           <.header class="text-left">
-            Your Email Address
+            Verify Your Email Address
             <:subtitle>
               We sent a verification code to <strong><%= @user.email %></strong>. Please enter it below to continue.
             </:subtitle>
@@ -47,6 +47,7 @@ defmodule YscWeb.AccountSetupLive do
               type="otp"
               label="Verification Code"
               required
+              phx-input="validate_email_code"
             />
             <p class="text-xs text-zinc-600 mt-1">
               Didn't receive the code? Check your spam folder or
@@ -68,7 +69,12 @@ defmodule YscWeb.AccountSetupLive do
 
             <:actions>
               <div class="flex justify-end w-full">
-                <.button phx-disable-with="Verifying..." type="submit">
+                <.button
+                  phx-disable-with="Verifying..."
+                  type="submit"
+                  disabled={!@code_valid}
+                  class={if !@code_valid, do: "opacity-50 cursor-not-allowed", else: ""}
+                >
                   <.icon name="hero-check-circle" class="w-5 h-5 me-1 -mt-0.5" />Verify Code
                 </.button>
               </div>
@@ -182,6 +188,7 @@ defmodule YscWeb.AccountSetupLive do
               type="otp"
               label="Verification Code"
               required
+              phx-input="validate_phone_code"
             />
             <p class="text-xs text-zinc-600 mt-1">
               Didn't receive the code? Check your messages or
@@ -219,7 +226,11 @@ defmodule YscWeb.AccountSetupLive do
 
             <:actions>
               <div class="flex justify-end w-full">
-                <.button phx-disable-with="Verifying...">
+                <.button
+                  phx-disable-with="Verifying..."
+                  disabled={!@phone_code_valid}
+                  class={if !@phone_code_valid, do: "opacity-50 cursor-not-allowed", else: ""}
+                >
                   <.icon name="hero-check-circle" class="w-5 h-5 me-1 -mt-0.5" />Verify Phone Number
                 </.button>
               </div>
@@ -266,7 +277,7 @@ defmodule YscWeb.AccountSetupLive do
     # Add phone step if phone setup or verification is needed
     steps =
       if user_needs.phone_setup or user_needs.phone_verification,
-        do: steps ++ ["Phone & Verification"],
+        do: steps ++ ["Verify Phone Number"],
         else: steps
 
     steps
@@ -456,6 +467,8 @@ defmodule YscWeb.AccountSetupLive do
         |> assign(:phone_form, to_form(phone_changeset))
         |> assign(:phone_verification_form, phone_verification_changeset)
         |> assign(:user_needs, user_needs)
+        |> assign(:code_valid, false)
+        |> assign(:phone_code_valid, false)
         |> assign(:email_resend_disabled_until, nil)
         |> assign(:sms_resend_disabled_until, nil)
 

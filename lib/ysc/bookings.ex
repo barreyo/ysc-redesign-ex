@@ -2647,6 +2647,12 @@ defmodule Ysc.Bookings do
           end
 
         if charge_id do
+          # Extract metadata from payment intent for refund metadata
+          user_id = payment_intent.metadata["user_id"]
+
+          booking_id =
+            payment_intent.metadata["booking_id"] || payment_intent.metadata["ticket_order_id"]
+
           # Create refund using the charge ID
           refund_params = %{
             charge: charge_id,
@@ -2654,7 +2660,9 @@ defmodule Ysc.Bookings do
             reason: "requested_by_customer",
             metadata: %{
               reason: reason,
-              payment_intent_id: payment_intent_id
+              payment_intent_id: payment_intent_id,
+              user_id: user_id,
+              booking_id: booking_id
             }
           }
 

@@ -9,12 +9,15 @@ defmodule Ysc.Accounts.SmsCategories do
   @template_categories %{
     # Account notifications (can be disabled via account_notifications_sms)
     "booking_checkin_reminder" => :account,
-    # Security notifications (should always be sent, but respect account_notifications_sms)
+    # Security notifications (should always be sent, bypassing notification preferences)
     "two_factor_verification" => :account,
     "email_changed" => :account,
     "password_changed" => :account,
     "phone_verification" => :account
   }
+
+  # Security-critical templates that should always be sent regardless of notification preferences
+  @security_templates ["phone_verification", "two_factor_verification"]
 
   @doc """
   Gets the notification category for a given SMS template.
@@ -41,10 +44,15 @@ defmodule Ysc.Accounts.SmsCategories do
   @doc """
   Checks if a user should receive an SMS based on their notification preferences.
 
-  Account notifications check `account_notifications_sms` preference.
-  Event notifications check `event_notifications_sms` preference.
+  Security-critical templates (like verification codes) always return true,
+  bypassing notification preferences. Other templates respect user preferences:
+  - Account notifications check `account_notifications_sms` preference.
+  - Event notifications check `event_notifications_sms` preference.
 
   ## Examples
+
+      iex> should_send_sms?(%{account_notifications_sms: false}, "phone_verification")
+      true
 
       iex> should_send_sms?(%{account_notifications_sms: true}, "booking_confirmation")
       true
@@ -55,14 +63,20 @@ defmodule Ysc.Accounts.SmsCategories do
   """
   @spec should_send_sms?(map(), String.t()) :: boolean()
   def should_send_sms?(user, template_name) when is_binary(template_name) do
-    case get_category(template_name) do
-      :account ->
-        # Check if user has account SMS notifications enabled
-        Map.get(user, :account_notifications_sms, true)
+    # Security-critical templates (verification codes) should always be sent
+    # regardless of notification preferences
+    if template_name in @security_templates do
+      true
+    else
+      case get_category(template_name) do
+        :account ->
+          # Check if user has account SMS notifications enabled
+          Map.get(user, :account_notifications_sms, true)
 
-      :event ->
-        # Check if user has event SMS notifications enabled
-        Map.get(user, :event_notifications_sms, true)
+        :event ->
+          # Check if user has event SMS notifications enabled
+          Map.get(user, :event_notifications_sms, true)
+      end
     end
   end
 

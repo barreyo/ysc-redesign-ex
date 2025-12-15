@@ -22,7 +22,11 @@ defmodule Ysc.Customers do
     customer_params = %{
       email: user.email,
       name: "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
-      phone: user.phone_number
+      phone: user.phone_number,
+      description: "User ID: #{user.id}",
+      metadata: %{
+        user_id: user.id
+      }
     }
 
     case Stripe.Customer.create(customer_params) do
@@ -50,6 +54,76 @@ defmodule Ysc.Customers do
 
       {:error, error} ->
         {:error, error}
+    end
+  end
+
+  @doc """
+  Updates a Stripe customer with the latest user information.
+
+  ## Examples
+
+      iex> update_stripe_customer(user)
+      {:ok, %Stripe.Customer{}}
+
+      iex> update_stripe_customer(user_without_stripe_id)
+      {:error, :no_stripe_customer}
+
+  """
+  def update_stripe_customer(%User{} = user) do
+    if user.stripe_id do
+      # Preload billing_address to ensure it's available for customer update
+      user = Repo.preload(user, :billing_address)
+
+      customer_params = %{
+        email: user.email,
+        name: "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
+        phone: user.phone_number,
+        description: "User ID: #{user.id}",
+        metadata: %{
+          user_id: user.id
+        }
+      }
+
+      # Add address if billing_address exists
+      customer_params =
+        if user.billing_address do
+          address = %{
+            line1: user.billing_address.address,
+            city: user.billing_address.city,
+            postal_code: user.billing_address.postal_code,
+            country: user.billing_address.country
+          }
+
+          # Add state/region if available
+          address =
+            if user.billing_address.region && user.billing_address.region != "" do
+              Map.put(address, :state, user.billing_address.region)
+            else
+              address
+            end
+
+          Map.put(customer_params, :address, address)
+        else
+          customer_params
+        end
+
+      case Stripe.Customer.update(user.stripe_id, customer_params) do
+        {:ok, stripe_customer} ->
+          {:ok, stripe_customer}
+
+        {:error, error} ->
+          require Logger
+
+          Logger.error("Failed to update Stripe customer",
+            user_id: user.id,
+            stripe_customer_id: user.stripe_id,
+            error: inspect(error)
+          )
+
+          {:error, error}
+      end
+    else
+      {:error, :no_stripe_customer}
     end
   end
 

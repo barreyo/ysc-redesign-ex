@@ -14,7 +14,7 @@ defmodule YscWeb.EventDetailsLive do
     ~H"""
     <div class="min-h-screen">
       <%!-- Event Cover Image --%>
-      <div class="max-w-screen-xl mx-auto px-4 lg:px-10 pt-4">
+      <div class="max-w-screen-xl mx-auto px-4 lg:px-10 pt-8">
         <.live_component
           id={"event-cover-#{@event.id}"}
           module={YscWeb.Components.Image}
@@ -316,7 +316,10 @@ defmodule YscWeb.EventDetailsLive do
                 <%= if event_in_past?(@event) do %>
                   <!-- No additional content for past events -->
                 <% else %>
-                  <div :if={@current_user == nil} class="w-full space-y-4">
+                  <div
+                    :if={@current_user == nil && has_ticket_tiers?(@event.id)}
+                    class="w-full space-y-4"
+                  >
                     <div class="text-sm text-orange-700 px-3 py-2 bg-orange-50 rounded-lg border border-orange-200 text-center">
                       <.icon
                         name="hero-exclamation-circle"
@@ -412,7 +415,7 @@ defmodule YscWeb.EventDetailsLive do
                 <%= if event_in_past?(@event) do %>
                   <!-- No action button for past events -->
                 <% else %>
-                  <%= if @current_user == nil do %>
+                  <%= if @current_user == nil && has_ticket_tiers?(@event.id) do %>
                     <.button phx-click={
                       JS.navigate(~p"/users/log-in?redirect_to=#{~p"/events/#{@event.id}"}")
                     }>

@@ -145,7 +145,7 @@ end
 # Helper function to mark email as verified and password as set
 # This ensures seeded users can skip email verification and password setup
 mark_user_verified = fn user ->
-  now = DateTime.utc_now()
+  now = DateTime.utc_now() |> DateTime.truncate(:second)
 
   user
   |> Ecto.Changeset.change()
@@ -176,7 +176,7 @@ admin_user =
           last_name: "User",
           phone_number: "+14159009009",
           most_connected_country: countries |> Enum.shuffle() |> hd(),
-          confirmed_at: DateTime.utc_now(),
+          confirmed_at: DateTime.utc_now() |> DateTime.truncate(:second),
           registration_form: %{
             membership_type: "family",
             membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
@@ -195,9 +195,9 @@ admin_user =
             spoken_languages: "English and German",
             hear_about_the_club: "On internet",
             agreed_to_bylaws: "true",
-            agreed_to_bylaws_at: DateTime.utc_now(),
-            started: DateTime.utc_now(),
-            completed: DateTime.utc_now(),
+            agreed_to_bylaws_at: DateTime.utc_now() |> DateTime.truncate(:second),
+            started: DateTime.utc_now() |> DateTime.truncate(:second),
+            completed: DateTime.utc_now() |> DateTime.truncate(:second),
             browser_timezone: "America/Los_Angeles"
           }
         })
@@ -309,7 +309,7 @@ Enum.each(0..n_approved_users, fn n ->
           started: DateTime.utc_now(),
           completed: DateTime.utc_now(),
           browser_timezone: "America/Los_Angeles",
-          reviewed_at: DateTime.utc_now(),
+          reviewed_at: DateTime.utc_now() |> DateTime.truncate(:second),
           review_outcome: "approved",
           reviewed_by_user_id: admin_user.id
         }
@@ -462,7 +462,7 @@ Enum.each(0..n_rejected_users, fn n ->
           started: DateTime.utc_now(),
           completed: DateTime.utc_now(),
           browser_timezone: "America/Los_Angeles",
-          reviewed_at: DateTime.utc_now(),
+          reviewed_at: DateTime.utc_now() |> DateTime.truncate(:second),
           review_outcome: "rejected",
           reviewed_by_user_id: admin_user.id
         }
@@ -525,7 +525,7 @@ Enum.each(0..n_deleted_users, fn n ->
           started: DateTime.utc_now(),
           completed: DateTime.utc_now(),
           browser_timezone: "America/Los_Angeles",
-          reviewed_at: DateTime.utc_now(),
+          reviewed_at: DateTime.utc_now() |> DateTime.truncate(:second),
           review_outcome: "approved",
           reviewed_by_user_id: admin_user.id
         }

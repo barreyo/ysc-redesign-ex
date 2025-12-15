@@ -50,7 +50,7 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
     try do
       email_module = BookingCheckinReminder
       email_data = email_module.prepare_email_data(booking)
-      subject = email_module.get_subject()
+      subject = email_module.get_subject(booking)
       template_name = email_module.get_template_name()
 
       # Generate idempotency key to prevent duplicate emails

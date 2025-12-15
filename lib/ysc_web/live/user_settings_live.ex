@@ -56,6 +56,7 @@ defmodule YscWeb.UserSettingsLive do
               type="otp"
               label="Verification Code"
               required
+              phx-input="validate_phone_code"
             />
             <p class="text-xs text-zinc-600 mt-1">
               Didn't receive the code? Check your messages or
@@ -124,6 +125,7 @@ defmodule YscWeb.UserSettingsLive do
               type="otp"
               label="Verification Code"
               required
+              phx-input="validate_email_code"
             />
             <p class="text-xs text-zinc-600 mt-1">
               Didn't receive the code? Check your email or
@@ -1408,6 +1410,11 @@ defmodule YscWeb.UserSettingsLive do
       </div>
     </div>
     """
+  end
+
+  @impl true
+  def handle_params(_params, _uri, socket) do
+    {:noreply, socket}
   end
 
   @impl true

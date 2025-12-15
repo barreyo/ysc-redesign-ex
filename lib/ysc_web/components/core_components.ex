@@ -1586,7 +1586,7 @@ defmodule YscWeb.CoreComponents do
       <%!-- Menu header with logo and close button --%>
       <div class="flex items-center justify-between p-4 border-b border-zinc-200">
         <.link navigate="/" class="flex items-center gap-3" phx-click={hide_mobile_menu(@toggle_id)}>
-          <.ysc_logo no_circle={true} class="h-20" />
+          <.ysc_logo no_circle={true} class="h-14 w-14" />
           <span class="text-lg font-bold text-zinc-900">YSC.org</span>
         </.link>
         <button

@@ -431,9 +431,17 @@ defmodule Ysc.Accounts do
   Updates user phone number and SMS preferences.
   """
   def update_user_phone_and_sms(user, attrs) do
-    user
-    |> User.registration_changeset(attrs, hash_password: false, validate_email: false)
-    |> Repo.update()
+    with {:ok, updated_user} <-
+           user
+           |> User.registration_changeset(attrs, hash_password: false, validate_email: false)
+           |> Repo.update() do
+      # Update Stripe customer with new phone information
+      Task.start(fn ->
+        Ysc.Customers.update_stripe_customer(updated_user)
+      end)
+
+      {:ok, updated_user}
+    end
   end
 
   @doc """
@@ -742,8 +750,14 @@ defmodule Ysc.Accounts do
   end
 
   def update_user(user, params, %User{} = current_user) do
-    with :ok <- Policy.authorize(:user_update, current_user, user) do
-      user |> User.update_user_changeset(params) |> Repo.update()
+    with :ok <- Policy.authorize(:user_update, current_user, user),
+         {:ok, updated_user} <- user |> User.update_user_changeset(params) |> Repo.update() do
+      # Update Stripe customer with new information
+      Task.start(fn ->
+        Ysc.Customers.update_stripe_customer(updated_user)
+      end)
+
+      {:ok, updated_user}
     end
   end
 
@@ -751,8 +765,15 @@ defmodule Ysc.Accounts do
   Updates user and their billing address information.
   """
   def update_user_with_address(user, params, %User{} = current_user) do
-    with :ok <- Policy.authorize(:user_update, current_user, user) do
-      user |> User.update_user_with_address_changeset(params) |> Repo.update()
+    with :ok <- Policy.authorize(:user_update, current_user, user),
+         {:ok, updated_user} <-
+           user |> User.update_user_with_address_changeset(params) |> Repo.update() do
+      # Update Stripe customer with new information
+      Task.start(fn ->
+        Ysc.Customers.update_stripe_customer(updated_user)
+      end)
+
+      {:ok, updated_user}
     end
   end
 
@@ -767,9 +788,14 @@ defmodule Ysc.Accounts do
   Updates the user profile information.
   """
   def update_user_profile(user, attrs) do
-    user
-    |> User.profile_changeset(attrs)
-    |> Repo.update()
+    with {:ok, updated_user} <- user |> User.profile_changeset(attrs) |> Repo.update() do
+      # Update Stripe customer with new information
+      Task.start(fn ->
+        Ysc.Customers.update_stripe_customer(updated_user)
+      end)
+
+      {:ok, updated_user}
+    end
   end
 
   @doc """
@@ -806,9 +832,17 @@ defmodule Ysc.Accounts do
     # Ensure all keys are strings to match form params
     attrs_with_user_id = Map.merge(attrs, %{"user_id" => user.id})
 
-    address
-    |> Address.changeset(attrs_with_user_id)
-    |> Repo.insert_or_update()
+    with {:ok, _address} <-
+           address |> Address.changeset(attrs_with_user_id) |> Repo.insert_or_update() do
+      # Reload user with updated billing address and update Stripe customer
+      updated_user = get_user!(user.id, [:billing_address])
+
+      Task.start(fn ->
+        Ysc.Customers.update_stripe_customer(updated_user)
+      end)
+
+      {:ok, updated_user}
+    end
   end
 
   def get_billing_address(user) do
@@ -838,6 +872,11 @@ defmodule Ysc.Accounts do
          %UserToken{sent_to: email} <- Repo.one(query),
          {:ok, %{user: updated_user}} <- Repo.transaction(user_email_multi(user, email, context)),
          reloaded_user <- Repo.get!(User, updated_user.id) do
+      # Update Stripe customer with new email
+      Task.start(fn ->
+        Ysc.Customers.update_stripe_customer(reloaded_user)
+      end)
+
       {:ok, reloaded_user, email}
     else
       _ -> :error

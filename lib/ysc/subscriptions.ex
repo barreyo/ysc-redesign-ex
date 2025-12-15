@@ -719,7 +719,10 @@ defmodule Ysc.Subscriptions do
     stripe_params = %{
       customer: user.stripe_id,
       items: Enum.map(prices, fn price -> %{price: price.price, quantity: price.quantity} end),
-      expand: expand
+      expand: expand,
+      metadata: %{
+        user_id: user.id
+      }
     }
 
     stripe_params =

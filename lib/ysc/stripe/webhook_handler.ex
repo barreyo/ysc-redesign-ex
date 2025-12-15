@@ -208,6 +208,68 @@ defmodule Ysc.Stripe.WebhookHandler do
     :ok
   end
 
+  defp handle("customer.created", %Stripe.Customer{} = event) do
+    require Logger
+
+    # Try to find user by user_id in metadata first, then by email
+    user =
+      case event.metadata do
+        %{"user_id" => user_id_str} when is_binary(user_id_str) ->
+          Ysc.Accounts.get_user(user_id_str)
+
+        _ ->
+          # Fallback to finding by email
+          case event.email do
+            nil -> nil
+            email -> Ysc.Accounts.get_user_by_email(email)
+          end
+      end
+
+    if user do
+      if is_nil(user.stripe_id) do
+        # User doesn't have stripe_id set, update it
+        changeset = Ysc.Accounts.User.update_user_changeset(user, %{stripe_id: event.id})
+
+        case Repo.update(changeset) do
+          {:ok, updated_user} ->
+            Logger.info("Successfully linked Stripe customer to user",
+              user_id: user.id,
+              stripe_customer_id: event.id,
+              method: if(event.metadata["user_id"], do: "user_id_metadata", else: "email")
+            )
+
+            {:ok, updated_user}
+
+          {:error, changeset} ->
+            Logger.error("Failed to update user with stripe_id",
+              user_id: user.id,
+              stripe_customer_id: event.id,
+              changeset_errors: inspect(changeset.errors)
+            )
+
+            {:error, changeset}
+        end
+      else
+        # User already has stripe_id set
+        Logger.info("User already has Stripe customer ID, skipping update",
+          user_id: user.id,
+          existing_stripe_id: user.stripe_id,
+          webhook_stripe_id: event.id
+        )
+
+        :ok
+      end
+    else
+      Logger.warning("No user found for customer.created webhook",
+        stripe_customer_id: event.id,
+        email: event.email,
+        user_id_metadata: event.metadata["user_id"]
+      )
+
+      :ok
+    end
+  end
+
   defp handle("customer.updated", %Stripe.Customer{} = event) do
     user = Ysc.Accounts.get_user_from_stripe_id(event.id)
 
