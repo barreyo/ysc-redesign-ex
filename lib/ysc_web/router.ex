@@ -203,6 +203,7 @@ defmodule YscWeb.Router do
       live "/users/membership/payment-method", UserSettingsLive, :payment_method
       live "/users/notifications", UserSettingsLive, :notifications
       live "/users/settings/confirm-email/:token", UserSettingsLive, :confirm_email
+      live "/users/settings/family", FamilyManagementLive, :index
       live "/users/tickets", UserTicketsLive, :index
       live "/tickets/:order_id", UserTicketsLive, :show
       live "/orders/:order_id/confirmation", OrderConfirmationLive, :index
@@ -224,6 +225,7 @@ defmodule YscWeb.Router do
       ] do
       live "/users/confirm/:token", UserConfirmationLive, :edit
       live "/users/confirm", UserConfirmationInstructionsLive, :new
+      live "/family-invite/:token/accept", FamilyInviteAcceptanceLive, :index
     end
   end
 

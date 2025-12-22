@@ -14,7 +14,7 @@ defmodule YscWeb.EventDetailsLive do
     ~H"""
     <div class="min-h-screen">
       <%!-- Event Cover Image --%>
-      <div class="max-w-screen-xl mx-auto px-4 lg:px-10 pt-8">
+      <div class="max-w-screen-xl mx-auto px-4 pt-8">
         <.live_component
           id={"event-cover-#{@event.id}"}
           module={YscWeb.Components.Image}
@@ -25,7 +25,7 @@ defmodule YscWeb.EventDetailsLive do
       </div>
 
       <%!-- Main Content Grid --%>
-      <div class="max-w-screen-xl mx-auto px-4 py-8 lg:py-12 lg:px-10">
+      <div class="max-w-screen-xl mx-auto px-4 py-8 lg:py-12">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
           <%!-- Left Column: Event Details (2/3 width on desktop) --%>
           <div class="lg:col-span-2 space-y-10">

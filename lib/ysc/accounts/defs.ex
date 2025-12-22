@@ -28,4 +28,4 @@ defenum(MembershipEligibility, [
 
 defenum(SignupApplicationEventType, ["review_started", "review_completed", "review_updated"])
 defenum(UserApplicationReviewOutcome, ["approved", "rejected"])
-defenum(UserEventType, ["state_update", "role_update"])
+defenum(UserEventType, ["state_update", "role_update", "family_added", "family_removed"])

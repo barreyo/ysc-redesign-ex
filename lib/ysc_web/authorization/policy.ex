@@ -170,4 +170,38 @@ defmodule YscWeb.Authorization.Policy do
       allow role: :admin
     end
   end
+
+  object :family_invite do
+    action :create do
+      allow role: :admin
+      allow :can_send_family_invite
+    end
+
+    action :read do
+      allow role: :admin
+      allow :own_resource
+    end
+
+    action :revoke do
+      allow role: :admin
+      allow :own_resource
+    end
+  end
+
+  object :family_sub_account do
+    action :read do
+      allow role: :admin
+      allow :own_resource
+    end
+
+    action :remove do
+      allow role: :admin
+      allow :own_resource
+    end
+
+    action :manage do
+      allow role: :admin
+      allow :own_resource
+    end
+  end
 end

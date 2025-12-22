@@ -309,7 +309,7 @@ defmodule YscWeb.ClearLakeBookingLive do
   def render(assigns) do
     ~H"""
     <div class="py-8 lg:py-10">
-      <div class="max-w-screen-xl mx-auto flex flex-col px-4 space-y-6 lg:px-10">
+      <div class="max-w-screen-xl mx-auto flex flex-col px-4 space-y-6">
         <div class="prose prose-zinc">
           <h1>Clear Lake Cabin</h1>
           <p>

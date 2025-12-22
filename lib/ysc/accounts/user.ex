@@ -9,7 +9,7 @@ defmodule Ysc.Accounts.User do
   import Ecto.Changeset
 
   alias Ysc.Extensions.PhoneNumber
-  alias Ysc.Accounts.{Address, FamilyMember, SignupApplication}
+  alias Ysc.Accounts.{Address, FamilyMember, SignupApplication, User}
 
   @derive {
     Flop.Schema,
@@ -52,6 +52,9 @@ defmodule Ysc.Accounts.User do
     has_one :registration_form, SignupApplication
     has_one :billing_address, Address, foreign_key: :user_id
     has_many :family_members, FamilyMember, on_replace: :delete
+
+    belongs_to :primary_user, User, foreign_key: :primary_user_id
+    has_many :sub_accounts, User, foreign_key: :primary_user_id
 
     field :most_connected_country, :string
     field :lifetime_membership_awarded_at, :utc_datetime
@@ -157,6 +160,39 @@ defmodule Ysc.Accounts.User do
       drop_param: :family_members_delete,
       opts: opts
     )
+  end
+
+  @doc """
+  A user changeset for sub-account registration via family invite.
+
+  Similar to registration_changeset but:
+  - Sets primary_user_id from invite
+  - Sets state to :active (sub-accounts don't need approval)
+  - Password is optional (can be set later)
+  """
+  def sub_account_registration_changeset(user, attrs, primary_user_id, opts \\ []) do
+    require_password = Keyword.get(opts, :require_password, false)
+
+    user
+    |> cast(attrs, [
+      :email,
+      :password,
+      :first_name,
+      :last_name,
+      :phone_number,
+      :most_connected_country,
+      :sms_opt_in
+    ])
+    |> put_change(:primary_user_id, primary_user_id)
+    |> put_change(:state, :active)
+    |> validate_length(:first_name, min: 1, max: 150)
+    |> validate_length(:last_name, min: 1, max: 150)
+    |> validate_required([:first_name, :last_name])
+    |> validate_email(opts)
+    |> validate_password_optional(opts, require_password)
+    |> validate_phone_optional(opts)
+    |> set_sms_notifications_from_opt_in(attrs)
+    |> set_password_set_at_if_password_provided(opts)
   end
 
   @spec update_user_changeset(
@@ -324,6 +360,18 @@ defmodule Ysc.Accounts.User do
       changeset
       |> put_change(:account_notifications_sms, false)
       |> put_change(:event_notifications_sms, false)
+    end
+  end
+
+  defp set_password_set_at_if_password_provided(changeset, opts) do
+    hash_password? = Keyword.get(opts, :hash_password, true)
+    password = get_change(changeset, :password)
+
+    if hash_password? && password && changeset.valid? do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      put_change(changeset, :password_set_at, now)
+    else
+      changeset
     end
   end
 

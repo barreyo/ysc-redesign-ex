@@ -13,7 +13,7 @@ defmodule YscWeb.UserSettingsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-screen-xl px-4 mx-auto py-8 lg:py-10 lg:px-10">
+    <div class="max-w-screen-xl px-4 mx-auto py-8 lg:py-10">
       <div class="md:flex md:flex-row md:flex-auto md:grow container mx-auto">
         <.modal
           :if={@live_action == :phone_verification}
@@ -377,6 +377,20 @@ defmodule YscWeb.UserSettingsLive do
               <.icon name="hero-wallet" class="w-5 h-5 me-2" /> Payments
             </.link>
           </li>
+          <%= if @current_user && (Accounts.is_primary_user?(@current_user) || Accounts.is_sub_account?(@current_user)) do %>
+            <li>
+              <.link
+                navigate={~p"/users/settings/family"}
+                class={[
+                  "inline-flex items-center px-4 py-3 rounded w-full",
+                  @live_action == :family && "bg-blue-600 active text-zinc-100",
+                  @live_action != :family && "hover:bg-zinc-100 hover:text-zinc-900"
+                ]}
+              >
+                <.icon name="hero-user-group" class="w-5 h-5 me-2" /> Family
+              </.link>
+            </li>
+          <% end %>
           <li>
             <.link
               navigate={~p"/users/notifications"}
@@ -573,18 +587,46 @@ defmodule YscWeb.UserSettingsLive do
                 <h2 class="text-zinc-900 font-bold text-xl">Current Membership</h2>
               </div>
 
-              <p :if={@current_membership == nil} class="text-sm text-zinc-600">
+              <%= if @is_sub_account do %>
+                <div class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+                  <div class="flex">
+                    <div class="flex-shrink-0">
+                      <.icon name="hero-user-group" class="h-5 w-5 text-blue-400" />
+                    </div>
+                    <div class="ml-3">
+                      <h3 class="text-sm font-medium text-blue-800">
+                        Family Account
+                      </h3>
+                      <div class="mt-2 text-sm text-blue-700">
+                        <p>
+                          You are a family member account. You share the membership benefits from <strong><%= if @primary_user, do: "#{@primary_user.first_name} #{@primary_user.last_name}", else: "your primary account" %></strong>.
+                        </p>
+                        <p class="mt-1">
+                          As a family member, you cannot purchase or manage your own membership. All membership benefits are shared from the primary account holder.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+
+              <p :if={@current_membership == nil && !@is_sub_account} class="text-sm text-zinc-600">
                 <.icon name="hero-x-circle" class="me-1 w-5 h-5 text-red-600 -mt-0.5" />You are currently
                 <strong>not</strong>
                 an active and paying member of the YSC.
               </p>
 
-              <.membership_status current_membership={@current_membership} />
+              <.membership_status
+                current_membership={@current_membership}
+                primary_user={@primary_user}
+                is_sub_account={@is_sub_account}
+              />
 
               <div class="space-y-4">
                 <.button
                   :if={
-                    @current_membership != nil &&
+                    !@is_sub_account &&
+                      @current_membership != nil &&
                       !Subscriptions.scheduled_for_cancellation?(@current_membership) &&
                       @active_plan_type != :lifetime
                   }
@@ -599,7 +641,9 @@ defmodule YscWeb.UserSettingsLive do
                 </.button>
 
                 <.button
-                  :if={Subscriptions.scheduled_for_cancellation?(@current_membership)}
+                  :if={
+                    !@is_sub_account && Subscriptions.scheduled_for_cancellation?(@current_membership)
+                  }
                   phx-click="reactivate-membership"
                   color="green"
                   disabled={!@user_is_active}
@@ -614,8 +658,37 @@ defmodule YscWeb.UserSettingsLive do
                 <h2 class="text-zinc-900 font-bold text-xl">Manage Membership</h2>
               </div>
 
+              <%= if @is_sub_account do %>
+                <div class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+                  <div class="flex">
+                    <div class="flex-shrink-0">
+                      <.icon name="hero-information-circle" class="h-5 w-5 text-blue-400" />
+                    </div>
+                    <div class="ml-3">
+                      <h3 class="text-sm font-medium text-blue-800">
+                        Membership Management Unavailable
+                      </h3>
+                      <div class="mt-2 text-sm text-blue-700">
+                        <p>
+                          As a family member account, you cannot manage your own membership. The primary account holder manages the membership for all family members.
+                        </p>
+                        <%= if @primary_user do %>
+                          <p class="mt-1">
+                            Contact
+                            <strong>
+                              <%= @primary_user.first_name %> <%= @primary_user.last_name %>
+                            </strong>
+                            if you need to make changes to your membership.
+                          </p>
+                        <% end %>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+
               <div
-                :if={@active_plan_type == :lifetime}
+                :if={@active_plan_type == :lifetime && !@is_sub_account}
                 class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4"
               >
                 <div class="flex">
@@ -636,7 +709,7 @@ defmodule YscWeb.UserSettingsLive do
               </div>
 
               <div
-                :if={!@user_is_active}
+                :if={!@user_is_active && !@is_sub_account}
                 class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4"
               >
                 <div class="flex">
@@ -657,7 +730,7 @@ defmodule YscWeb.UserSettingsLive do
                 </div>
               </div>
 
-              <div :if={@active_plan_type != :lifetime}>
+              <div :if={@active_plan_type != :lifetime && !@is_sub_account}>
                 <.form
                   for={@membership_form}
                   id="membership_form"
@@ -1471,12 +1544,18 @@ defmodule YscWeb.UserSettingsLive do
     # Check if user is active to determine if they can manage membership
     user_is_active = user.state == :active
 
+    # Check if user is a sub-account and get primary user info
+    is_sub_account = Accounts.is_sub_account?(user)
+    primary_user = if is_sub_account, do: Accounts.get_primary_user(user), else: nil
+
     socket =
       socket
       |> assign(:page_title, "User Settings")
       |> assign(:current_password, nil)
       |> assign(:user, user)
       |> assign(:user_is_active, user_is_active)
+      |> assign(:is_sub_account, is_sub_account)
+      |> assign(:primary_user, primary_user)
       |> assign(:payment_intent_secret, payment_secret(live_action, user))
       |> assign(:public_key, public_key)
       |> assign(:email_form_current_password, nil)
@@ -2101,52 +2180,69 @@ defmodule YscWeb.UserSettingsLive do
          "You must have an approved account to manage your membership plan."
        )}
     else
-      membership_atom = String.to_existing_atom(membership_type)
-      return_url = url(~p"/billing/user/#{user.id}/finalize")
-      price_id = get_price_id(membership_atom)
-      default_payment_method = socket.assigns.default_payment_method
+      if Accounts.is_sub_account?(user) do
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Sub-accounts cannot purchase their own membership. You share the membership of your primary account."
+         )}
+      else
+        membership_atom = String.to_existing_atom(membership_type)
+        return_url = url(~p"/billing/user/#{user.id}/finalize")
+        price_id = get_price_id(membership_atom)
+        default_payment_method = socket.assigns.default_payment_method
 
-      case Customers.create_subscription(
-             user,
-             return_url: return_url,
-             prices: [%{price: price_id, quantity: 1}],
-             default_payment_method: default_payment_method.provider_id,
-             expand: ["latest_invoice"]
-           ) do
-        {:ok, stripe_subscription} ->
-          # Also save the subscription locally as a backup in case webhook fails
-          case Ysc.Subscriptions.create_subscription_from_stripe(user, stripe_subscription) do
-            {:ok, _local_subscription} ->
-              {:noreply,
-               socket
-               |> put_flash(:info, "Membership activated successfully!")
-               |> redirect(to: ~p"/users/membership")}
+        case Customers.create_subscription(
+               user,
+               return_url: return_url,
+               prices: [%{price: price_id, quantity: 1}],
+               default_payment_method: default_payment_method.provider_id,
+               expand: ["latest_invoice"]
+             ) do
+          {:ok, stripe_subscription} ->
+            # Also save the subscription locally as a backup in case webhook fails
+            case Ysc.Subscriptions.create_subscription_from_stripe(user, stripe_subscription) do
+              {:ok, _local_subscription} ->
+                {:noreply,
+                 socket
+                 |> put_flash(:info, "Membership activated successfully!")
+                 |> redirect(to: ~p"/users/membership")}
 
-            {:error, reason} ->
-              require Logger
+              {:error, reason} ->
+                require Logger
 
-              Logger.warning("Failed to save subscription locally, webhook should handle it",
-                user_id: user.id,
-                stripe_subscription_id: stripe_subscription.id,
-                error: reason
-              )
+                Logger.warning("Failed to save subscription locally, webhook should handle it",
+                  user_id: user.id,
+                  stripe_subscription_id: stripe_subscription.id,
+                  error: reason
+                )
 
-              {:noreply,
-               socket
-               |> put_flash(:info, "Membership activated successfully!")
-               |> redirect(to: ~p"/users/membership")}
-          end
+                {:noreply,
+                 socket
+                 |> put_flash(:info, "Membership activated successfully!")
+                 |> redirect(to: ~p"/users/membership")}
+            end
 
-        {:error, error} ->
-          require Logger
+          {:error, :sub_accounts_cannot_create_subscriptions} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               "Sub-accounts cannot purchase their own membership. You share the membership of your primary account."
+             )}
 
-          Logger.error("Failed to create subscription",
-            user_id: user.id,
-            error: error
-          )
+          {:error, error} ->
+            require Logger
 
-          {:noreply,
-           socket |> put_flash(:error, "Failed to activate membership. Please try again.")}
+            Logger.error("Failed to create subscription",
+              user_id: user.id,
+              error: error
+            )
+
+            {:noreply,
+             socket |> put_flash(:error, "Failed to activate membership. Please try again.")}
+        end
       end
     end
   end
@@ -2623,56 +2719,123 @@ defmodule YscWeb.UserSettingsLive do
                 direction =
                   if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
 
-                case Subscriptions.change_membership_plan(
-                       current_membership,
-                       new_price_id,
-                       direction
-                     ) do
-                  {:ok, updated_subscription} ->
-                    # Reload subscription with items to get updated data from Stripe
-                    updated_membership =
-                      updated_subscription
-                      |> Repo.preload(:subscription_items)
+                # Check for sub-accounts before downgrade
+                if direction == :downgrade do
+                  sub_accounts = Accounts.get_sub_accounts(user)
 
-                    # Determine success message based on direction
-                    success_message =
-                      case direction do
-                        :upgrade ->
-                          "Your membership plan has been upgraded. You have been charged the prorated difference."
-
-                        :downgrade ->
-                          "Your membership plan change has been scheduled. The new price will take effect at your next renewal."
-                      end
-
-                    {:noreply,
-                     socket
-                     |> assign(:current_membership, updated_membership)
-                     |> assign(:active_plan_type, new_atom)
-                     |> assign(:change_membership_button, false)
-                     |> assign(:membership_change_info, nil)
-                     |> assign(
-                       :membership_form,
-                       to_form(%{"membership_type" => Atom.to_string(new_atom)})
-                     )
-                     |> put_flash(:info, success_message)
-                     |> redirect(to: ~p"/users/membership")}
-
-                  {:scheduled, _schedule} ->
-                    {:noreply,
-                     put_flash(
-                       socket,
-                       :info,
-                       "Your membership plan will switch at your next renewal."
-                     )
-                     |> redirect(to: ~p"/users/membership")}
-
-                  {:error, reason} ->
+                  if length(sub_accounts) > 0 do
                     {:noreply,
                      put_flash(
                        socket,
                        :error,
-                       "Failed to change membership: #{inspect(reason)}"
+                       "Cannot downgrade membership while you have sub-accounts. Please remove all sub-accounts first."
                      )}
+                  else
+                    case Subscriptions.change_membership_plan(
+                           current_membership,
+                           new_price_id,
+                           direction
+                         ) do
+                      {:ok, updated_subscription} ->
+                        # Reload subscription with items to get updated data from Stripe
+                        updated_membership =
+                          updated_subscription
+                          |> Repo.preload(:subscription_items)
+
+                        # Determine success message based on direction
+                        success_message =
+                          case direction do
+                            :upgrade ->
+                              "Your membership plan has been upgraded. You have been charged the prorated difference."
+
+                            :downgrade ->
+                              "Your membership plan change has been scheduled. The new price will take effect at your next renewal."
+                          end
+
+                        {:noreply,
+                         socket
+                         |> assign(:current_membership, updated_membership)
+                         |> assign(:active_plan_type, new_atom)
+                         |> assign(:change_membership_button, false)
+                         |> assign(:membership_change_info, nil)
+                         |> assign(
+                           :membership_form,
+                           to_form(%{"membership_type" => Atom.to_string(new_atom)})
+                         )
+                         |> put_flash(:info, success_message)
+                         |> redirect(to: ~p"/users/membership")}
+
+                      {:scheduled, _schedule} ->
+                        {:noreply,
+                         put_flash(
+                           socket,
+                           :info,
+                           "Your membership plan will switch at your next renewal."
+                         )
+                         |> redirect(to: ~p"/users/membership")}
+
+                      {:error, reason} ->
+                        {:noreply,
+                         put_flash(
+                           socket,
+                           :error,
+                           "Failed to change membership: #{inspect(reason)}"
+                         )}
+                    end
+                  end
+                else
+                  # Handle upgrade case
+                  case Subscriptions.change_membership_plan(
+                         current_membership,
+                         new_price_id,
+                         direction
+                       ) do
+                    {:ok, updated_subscription} ->
+                      # Reload subscription with items to get updated data from Stripe
+                      updated_membership =
+                        updated_subscription
+                        |> Repo.preload(:subscription_items)
+
+                      # Determine success message based on direction
+                      success_message =
+                        case direction do
+                          :upgrade ->
+                            "Your membership plan has been upgraded. You have been charged the prorated difference."
+
+                          :downgrade ->
+                            "Your membership plan change has been scheduled. The new price will take effect at your next renewal."
+                        end
+
+                      {:noreply,
+                       socket
+                       |> assign(:current_membership, updated_membership)
+                       |> assign(:active_plan_type, new_atom)
+                       |> assign(:change_membership_button, false)
+                       |> assign(:membership_change_info, nil)
+                       |> assign(
+                         :membership_form,
+                         to_form(%{"membership_type" => Atom.to_string(new_atom)})
+                       )
+                       |> put_flash(:info, success_message)
+                       |> redirect(to: ~p"/users/membership")}
+
+                    {:scheduled, _schedule} ->
+                      {:noreply,
+                       put_flash(
+                         socket,
+                         :info,
+                         "Your membership plan will switch at your next renewal."
+                       )
+                       |> redirect(to: ~p"/users/membership")}
+
+                    {:error, reason} ->
+                      {:noreply,
+                       put_flash(
+                         socket,
+                         :error,
+                         "Failed to change membership: #{inspect(reason)}"
+                       )}
+                  end
                 end
               end
             end

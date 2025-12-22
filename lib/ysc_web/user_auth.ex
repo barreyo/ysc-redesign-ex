@@ -372,22 +372,31 @@ defmodule YscWeb.UserAuth do
 
   # Helper function to get the most expensive active membership
   # Optimized to use preloaded subscriptions when available
+  # For sub-accounts, checks the primary user's membership
   defp get_active_membership(user) do
+    # For sub-accounts, check the primary user's membership
+    user_to_check =
+      if Accounts.is_sub_account?(user) do
+        Accounts.get_primary_user(user) || user
+      else
+        user
+      end
+
     # Check for lifetime membership first (highest priority)
-    if Accounts.has_lifetime_membership?(user) do
+    if Accounts.has_lifetime_membership?(user_to_check) do
       # Return a special struct representing lifetime membership
       %{
         type: :lifetime,
-        awarded_at: user.lifetime_membership_awarded_at,
-        user_id: user.id
+        awarded_at: user_to_check.lifetime_membership_awarded_at,
+        user_id: user_to_check.id
       }
     else
       # Use preloaded subscriptions if available, otherwise fetch them
       subscriptions =
-        case user.subscriptions do
+        case user_to_check.subscriptions do
           %Ecto.Association.NotLoaded{} ->
             # Fallback: fetch subscriptions if not preloaded
-            Customers.subscriptions(user)
+            Customers.subscriptions(user_to_check)
             |> Enum.filter(&Subscriptions.valid?/1)
 
           subscriptions when is_list(subscriptions) ->

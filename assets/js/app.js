@@ -236,6 +236,14 @@ document.addEventListener("paste", (event) => {
         // Fill inputs with pasted content
         for (let i = 0; i < paste.length && index + i < inputs.length; i++) {
             inputs[index + i].value = paste[i];
+            // Trigger input event on each filled input to ensure LiveView picks up the change
+            inputs[index + i].dispatchEvent(new Event("input", { bubbles: true }));
+        }
+
+        // Trigger change event on the form to validate the code
+        const form = container.closest("form");
+        if (form) {
+            form.dispatchEvent(new Event("change", { bubbles: true }));
         }
 
         // Focus the next empty input or the last input

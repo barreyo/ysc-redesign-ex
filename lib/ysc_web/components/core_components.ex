@@ -613,7 +613,6 @@ defmodule YscWeb.CoreComponents do
             id={"#{@id}_#{i}"}
             maxlength="1"
             class="block w-12 h-12 text-center border-gray-200 rounded-md sm:text-sm focus:scale-110 focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none"
-            placeholder="⚬"
             data-otp-input-item=""
             {@rest}
           />
@@ -1435,7 +1434,7 @@ defmodule YscWeb.CoreComponents do
       </div>
     </aside>
 
-    <main class="px-6 lg:px-10 lg:ml-72 mt-0 lg:-mt-14">
+    <main class="px-4 lg:px-10 lg:ml-72 mt-0 lg:-mt-14">
       <%= render_slot(@inner_block) %>
     </main>
 
@@ -2496,9 +2495,12 @@ defmodule YscWeb.CoreComponents do
   ## Examples
 
       <.membership_status current_membership={@current_membership} />
+      <.membership_status current_membership={@current_membership} primary_user={@primary_user} is_sub_account={true} />
 
   """
   attr :current_membership, :any, required: true
+  attr :primary_user, :any, default: nil
+  attr :is_sub_account, :boolean, default: false
   attr :class, :string, default: ""
 
   def membership_status(assigns) do
@@ -2510,16 +2512,33 @@ defmodule YscWeb.CoreComponents do
       <div :if={membership_cancelled?(@current_membership)}>
         <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
           <p class="text-sm text-yellow-800 font-semibold">
-            <.icon name="hero-clock" class="w-5 h-5 text-yellow-600 inline-block -mt-0.5 me-2" />Your membership has been canceled.
+            <.icon name="hero-clock" class="w-5 h-5 text-yellow-600 inline-block -mt-0.5 me-2" />
+            <%= if @is_sub_account do %>
+              <%= if @primary_user do %>
+                The membership from
+                <strong><%= @primary_user.first_name %> <%= @primary_user.last_name %></strong>
+                has been canceled.
+              <% else %>
+                The primary account membership has been canceled.
+              <% end %>
+            <% else %>
+              Your membership has been canceled.
+            <% end %>
           </p>
 
           <p
             :if={get_membership_renewal_date(@current_membership) != nil}
             class="text-sm text-yellow-900 mt-2"
           >
-            You are still an active member until <strong>
-            <%= Timex.format!(get_membership_ends_at(@current_membership), "{Mshort} {D}, {YYYY}") %>
-            </strong>, at which point you will no longer have access to the YSC membership features.
+            <%= if @is_sub_account do %>
+              You will still have access to membership benefits until <strong>
+              <%= Timex.format!(get_membership_ends_at(@current_membership), "{Mshort} {D}, {YYYY}") %>
+              </strong>, at which point you will no longer have access to the YSC membership features.
+            <% else %>
+              You are still an active member until <strong>
+              <%= Timex.format!(get_membership_ends_at(@current_membership), "{Mshort} {D}, {YYYY}") %>
+              </strong>, at which point you will no longer have access to the YSC membership features.
+            <% end %>
           </p>
         </div>
       </div>
@@ -2527,12 +2546,28 @@ defmodule YscWeb.CoreComponents do
       <div :if={!membership_cancelled?(@current_membership)}>
         <div class="bg-green-50 border border-green-200 rounded-md p-4">
           <p class="text-sm text-green-800 font-semibold">
-            <.icon name="hero-check-circle" class="w-5 h-5 text-green-600 inline-block -mt-0.5 me-2" />You have an
-            active <strong><%= get_membership_type(@current_membership) %></strong> membership.
+            <.icon name="hero-check-circle" class="w-5 h-5 text-green-600 inline-block -mt-0.5 me-2" />
+            <%= if @is_sub_account do %>
+              You have access to an active
+              <strong><%= get_membership_type(@current_membership) %></strong>
+              membership
+              <%= if @primary_user do %>
+                from <strong><%= @primary_user.first_name %> <%= @primary_user.last_name %></strong>
+              <% end %>.
+            <% else %>
+              You have an active <strong><%= get_membership_type(@current_membership) %></strong>
+              membership.
+            <% end %>
           </p>
 
+          <%= if @is_sub_account && @primary_user do %>
+            <p class="text-sm text-green-900 mt-2">
+              As a family member, you share all membership benefits from the primary account holder.
+            </p>
+          <% end %>
+
           <p
-            :if={get_membership_renewal_date(@current_membership) != nil}
+            :if={get_membership_renewal_date(@current_membership) != nil && !@is_sub_account}
             class="text-sm text-green-900 mt-2"
           >
             Your membership will renew on <strong class="text-green-900">
@@ -2544,7 +2579,11 @@ defmodule YscWeb.CoreComponents do
             :if={get_membership_type(@current_membership) == "Lifetime"}
             class="text-sm text-green-900 mt-2 font-medium"
           >
-            Your lifetime membership never expires and includes all Family membership perks.
+            <%= if @is_sub_account do %>
+              The lifetime membership never expires and includes all Family membership perks.
+            <% else %>
+              Your lifetime membership never expires and includes all Family membership perks.
+            <% end %>
           </p>
         </div>
       </div>
@@ -2566,7 +2605,15 @@ defmodule YscWeb.CoreComponents do
           <div class="ml-3">
             <h3 class="text-lg font-medium text-red-900">No Active Membership</h3>
             <p class="text-sm text-red-700">
-              You need an active membership to access YSC events and benefits.
+              <%= if @is_sub_account do %>
+                <%= if @primary_user do %>
+                  The primary account holder (<strong><%= @primary_user.first_name %> <%= @primary_user.last_name %></strong>) does not have an active membership. You need an active membership from the primary account to access YSC events and benefits.
+                <% else %>
+                  The primary account does not have an active membership. You need an active membership from the primary account to access YSC events and benefits.
+                <% end %>
+              <% else %>
+                You need an active membership to access YSC events and benefits.
+              <% end %>
             </p>
           </div>
         </div>

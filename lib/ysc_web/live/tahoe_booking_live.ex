@@ -46,8 +46,8 @@ defmodule YscWeb.TahoeBookingLive do
         as: "booking_dates"
       )
 
-    # Load active bookings for the user first (needed for eligibility check)
-    active_bookings = if user, do: get_active_bookings(user.id), else: []
+    # Load active bookings for the entire family group (needed for eligibility check)
+    active_bookings = if user, do: get_family_group_active_bookings(user), else: []
 
     # Check if user can book (pass active_bookings to avoid duplicate query)
     {can_book, booking_error_title, booking_disabled_reason} =
@@ -182,10 +182,10 @@ defmodule YscWeb.TahoeBookingLive do
     # Check if user can book (re-check in case user state changed)
     user = socket.assigns.current_user
 
-    # Load active bookings for the user (only if not already loaded in mount)
+    # Load active bookings for the entire family group (only if not already loaded in mount)
     active_bookings =
       if user && !socket.assigns[:active_bookings] do
-        get_active_bookings(user.id)
+        get_family_group_active_bookings(user)
       else
         socket.assigns[:active_bookings] || []
       end
@@ -396,7 +396,7 @@ defmodule YscWeb.TahoeBookingLive do
   def render(assigns) do
     ~H"""
     <div class="py-8 lg:py-10">
-      <div class="max-w-screen-xl mx-auto flex flex-col px-4 space-y-6 lg:px-10">
+      <div class="max-w-screen-xl mx-auto flex flex-col px-4 space-y-6">
         <div class="prose prose-zinc">
           <h1>Lake Tahoe Cabin</h1>
           <p>
@@ -407,7 +407,13 @@ defmodule YscWeb.TahoeBookingLive do
         <div :if={@user && length(@active_bookings) > 0} class="mb-6">
           <div class="flex items-start">
             <div class="flex-1">
-              <h3 class="text-lg font-semibold text-zinc-900 mb-3">Your Active Bookings</h3>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-3">
+                <%= if Accounts.is_sub_account?(@user) || Accounts.is_primary_user?(@user) do %>
+                  Family Active Bookings
+                <% else %>
+                  Your Active Bookings
+                <% end %>
+              </h3>
               <div class="space-y-3">
                 <%= for booking <- @active_bookings do %>
                   <div class="bg-white rounded-md p-3 border border-zinc-200">
@@ -425,6 +431,11 @@ defmodule YscWeb.TahoeBookingLive do
                             <span class="text-sm text-zinc-600 font-medium">Buyout</span>
                           <% end %>
                         </div>
+                        <%= if Ecto.assoc_loaded?(booking.user) && booking.user && booking.user.id != @user.id do %>
+                          <div class="text-xs text-zinc-500 mb-1">
+                            Booked by <%= booking.user.first_name %> <%= booking.user.last_name %>
+                          </div>
+                        <% end %>
                         <div class="text-sm text-zinc-600">
                           <div class="flex items-center gap-4">
                             <span>
@@ -3554,16 +3565,17 @@ defmodule YscWeb.TahoeBookingLive do
 
       membership_type = get_membership_type(user_with_subs)
 
+      # Get all user IDs in the family group
+      family_user_ids = get_family_group_user_ids(user)
+
       # For family/lifetime members, check room count instead of just booking existence
       if membership_type in [:family, :lifetime] do
-        user_id = user.id
-
-        # Count rooms in overlapping bookings
+        # Count rooms in overlapping bookings across entire family group
         overlapping_query =
           from b in Booking,
             join: br in "booking_rooms",
             on: br.booking_id == b.id,
-            where: b.user_id == ^user_id,
+            where: b.user_id in ^family_user_ids,
             where: b.property == :tahoe,
             where: b.status in [:complete],
             where:
@@ -3587,18 +3599,16 @@ defmodule YscWeb.TahoeBookingLive do
           Map.put(
             errors,
             :active_booking,
-            "You have reached the maximum of 2 rooms for your #{String.capitalize("#{membership_type}")} membership in this time period."
+            "Your family group has reached the maximum of 2 rooms for your #{String.capitalize("#{membership_type}")} membership in this time period."
           )
         else
           errors
         end
       else
-        # Single membership: only one booking at a time
-        user_id = user.id
-
+        # Single membership: only one booking at a time (check entire family group)
         overlapping_query =
           from b in Booking,
-            where: b.user_id == ^user_id,
+            where: b.user_id in ^family_user_ids,
             where: b.property == :tahoe,
             where: b.status in [:complete],
             where:
@@ -3614,7 +3624,7 @@ defmodule YscWeb.TahoeBookingLive do
           Map.put(
             errors,
             :active_booking,
-            "You can only have one active reservation at a time. Please complete your existing reservation first."
+            "Your family group can only have one active reservation at a time. Please complete the existing reservation first."
           )
         else
           errors
@@ -3661,19 +3671,20 @@ defmodule YscWeb.TahoeBookingLive do
         end
 
       if Accounts.has_active_membership?(user_with_subs) do
-        # Check if user has an active booking (use provided active_bookings if available)
-        active_bookings_list = active_bookings || get_active_bookings(user.id)
+        # Check if any family member has an active booking (use provided active_bookings if available)
+        active_bookings_list = active_bookings || get_family_group_active_bookings(user)
 
         # Get membership type to check if user can have multiple bookings
         membership_type = get_membership_type(user_with_subs)
 
         # For family/lifetime members, check room count instead of just booking existence
+        # Check across entire family group
         if membership_type in [:family, :lifetime] do
-          # Count total rooms in active bookings
+          # Count total rooms in active bookings across family group
           total_rooms = count_rooms_in_active_bookings(active_bookings_list)
 
           if total_rooms >= 2 do
-            # User has 2 rooms already, check if any booking is still active
+            # Family group has 2 rooms already, check if any booking is still active
             # Get the latest checkout date from all active bookings
             latest_checkout_date = get_latest_checkout_date(active_bookings_list)
 
@@ -3688,7 +3699,7 @@ defmodule YscWeb.TahoeBookingLive do
                 {
                   false,
                   "Maximum rooms reached",
-                  "You have reached the maximum of 2 rooms for your #{String.capitalize("#{membership_type}")} membership. You can make a new reservation once your current stay is complete (after #{formatted_date}) or if you cancel your existing booking."
+                  "Your family group has reached the maximum of 2 rooms for your #{String.capitalize("#{membership_type}")} membership. You can make a new reservation once the current stay is complete (after #{formatted_date}) or if the existing booking is cancelled."
                 }
               else
                 {true, nil, nil}
@@ -3697,12 +3708,12 @@ defmodule YscWeb.TahoeBookingLive do
               {true, nil, nil}
             end
           else
-            # User has less than 2 rooms, allow booking (validation will ensure dates overlap)
+            # Family group has less than 2 rooms, allow booking (validation will ensure dates overlap)
             {true, nil, nil}
           end
         else
-          # Single membership: only one booking at a time
-          case get_active_booking(user.id, active_bookings_list) do
+          # Single membership: only one booking at a time (check entire family group)
+          case get_active_booking_from_family_group(user, active_bookings_list) do
             nil ->
               {true, nil, nil}
 
@@ -3715,10 +3726,14 @@ defmodule YscWeb.TahoeBookingLive do
                    (Date.compare(checkout_date, today) == :eq and not past_checkout_time?()) do
                 formatted_date = format_date(checkout_date)
 
+                # Determine who has the booking for better error message
+                booking_owner =
+                  if active_booking.user_id == user.id, do: "you", else: "a family member"
+
                 {
                   false,
-                  "Looks like you already have a booking!",
-                  "You can make a new reservation once your current stay is complete (after #{formatted_date}) or if you cancel your existing one."
+                  "Looks like #{booking_owner} already have a booking!",
+                  "You can make a new reservation once the current stay is complete (after #{formatted_date}) or if the existing booking is cancelled."
                 }
               else
                 {true, nil, nil}
@@ -3738,6 +3753,11 @@ defmodule YscWeb.TahoeBookingLive do
   defp get_active_booking(user_id, active_bookings) do
     bookings = active_bookings || get_active_bookings(user_id)
     List.first(bookings)
+  end
+
+  defp get_active_booking_from_family_group(user, active_bookings) do
+    # active_bookings should already contain all family group bookings
+    List.first(active_bookings)
   end
 
   defp get_latest_checkout_date(active_bookings) do
@@ -3786,6 +3806,44 @@ defmodule YscWeb.TahoeBookingLive do
       end
     end)
     |> Enum.take(limit)
+  end
+
+  # Get active bookings for the entire family group (primary user + all sub-accounts)
+  defp get_family_group_active_bookings(user, limit \\ 10) do
+    family_user_ids = get_family_group_user_ids(user)
+    today = Date.utc_today()
+    checkout_time = ~T[11:00:00]
+
+    query =
+      from b in Booking,
+        where: b.user_id in ^family_user_ids,
+        where: b.property == :tahoe,
+        where: b.status == :complete,
+        where: b.checkout_date >= ^today,
+        order_by: [asc: b.checkin_date],
+        limit: ^limit,
+        preload: [:rooms, :user]
+
+    bookings = Repo.all(query)
+
+    # Filter out bookings that are past checkout time today
+    bookings
+    |> Enum.filter(fn booking ->
+      if Date.compare(booking.checkout_date, today) == :eq do
+        now = DateTime.utc_now()
+        checkout_datetime = DateTime.new!(today, checkout_time, "Etc/UTC")
+        DateTime.compare(now, checkout_datetime) == :lt
+      else
+        true
+      end
+    end)
+    |> Enum.take(limit)
+  end
+
+  # Get all user IDs in the family group (primary user + all sub-accounts)
+  defp get_family_group_user_ids(user) do
+    family_group = Accounts.get_family_group(user)
+    Enum.map(family_group, & &1.id)
   end
 
   defp past_checkout_time? do

@@ -10,13 +10,13 @@ defmodule YscWeb.NewsLive do
   def render(assigns) do
     ~H"""
     <div class="py-6 md:py-10">
-      <div class="max-w-screen-xl mx-auto px-4 lg:px-10">
+      <div class="max-w-screen-xl mx-auto px-4">
         <div class="prose prose-zinc pb-8">
           <h1>Club News</h1>
         </div>
       </div>
 
-      <div :if={@featured != nil} class="max-w-screen-xl mx-auto px-4 lg:px-10">
+      <div :if={@featured != nil} class="max-w-screen-xl mx-auto px-4">
         <div id="featured" class="w-full flex flex-col pb-2">
           <.link
             navigate={~p"/posts/#{@featured.url_name}"}
@@ -91,7 +91,7 @@ defmodule YscWeb.NewsLive do
         </div>
       </div>
 
-      <div class="max-w-screen-xl mx-auto px-4 lg:px-10">
+      <div class="max-w-screen-xl mx-auto px-4">
         <div
           :if={@post_count > 0}
           id="news-grid"

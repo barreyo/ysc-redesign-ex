@@ -189,23 +189,28 @@ defmodule Ysc.Customers do
 
   """
   def create_subscription(%User{} = user, params) do
-    # Ensure user has a Stripe ID
-    user = ensure_stripe_customer(user)
+    # Prevent sub-accounts from creating subscriptions
+    if Ysc.Accounts.is_sub_account?(user) do
+      {:error, :sub_accounts_cannot_create_subscriptions}
+    else
+      # Ensure user has a Stripe ID
+      user = ensure_stripe_customer(user)
 
-    # Convert keyword list to map if needed
-    params_map =
-      if is_list(params) do
-        Enum.into(params, %{})
-      else
-        params
+      # Convert keyword list to map if needed
+      params_map =
+        if is_list(params) do
+          Enum.into(params, %{})
+        else
+          params
+        end
+
+      case Subscriptions.create_stripe_subscription(user, params_map) do
+        {:ok, stripe_subscription} ->
+          {:ok, stripe_subscription}
+
+        {:error, error} ->
+          {:error, error}
       end
-
-    case Subscriptions.create_stripe_subscription(user, params_map) do
-      {:ok, stripe_subscription} ->
-        {:ok, stripe_subscription}
-
-      {:error, error} ->
-        {:error, error}
     end
   end
 

@@ -17,7 +17,15 @@ defmodule YscWeb.HomeLive do
           |> Ysc.Repo.preload(subscriptions: :subscription_items)
           |> Accounts.User.populate_virtual_fields()
 
-        current_membership = get_current_membership(user_with_subs)
+        # Use current_membership from socket assigns (set by on_mount hook)
+        # which already handles sub-accounts correctly
+        current_membership =
+          socket.assigns.current_membership || get_current_membership(user_with_subs)
+
+        # Check if user is a sub-account and get primary user
+        is_sub_account = Accounts.is_sub_account?(user_with_subs)
+        primary_user = if is_sub_account, do: Accounts.get_primary_user(user_with_subs), else: nil
+
         upcoming_tickets = get_upcoming_tickets(user.id)
         future_bookings = get_future_active_bookings(user.id)
         upcoming_events = Events.list_upcoming_events(3)
@@ -26,6 +34,8 @@ defmodule YscWeb.HomeLive do
         assign(socket,
           page_title: "Home",
           current_membership: current_membership,
+          is_sub_account: is_sub_account,
+          primary_user: primary_user,
           upcoming_tickets: upcoming_tickets,
           future_bookings: future_bookings,
           upcoming_events: upcoming_events,
@@ -631,7 +641,11 @@ defmodule YscWeb.HomeLive do
                 Manage <.icon name="hero-arrow-right" class="w-4 h-4 ml-1" />
               </.link>
             </div>
-            <.membership_status current_membership={@current_membership} />
+            <.membership_status
+              current_membership={@current_membership}
+              is_sub_account={@is_sub_account || false}
+              primary_user={@primary_user}
+            />
           </div>
 
           <%!-- Quick Actions Card --%>
@@ -1035,8 +1049,16 @@ defmodule YscWeb.HomeLive do
   # Helper functions
 
   defp get_current_membership(user) do
+    # For sub-accounts, check the primary user's membership
+    user_to_check =
+      if Accounts.is_sub_account?(user) do
+        Accounts.get_primary_user(user) || user
+      else
+        user
+      end
+
     # Check for lifetime membership first
-    if Accounts.has_lifetime_membership?(user) do
+    if Accounts.has_lifetime_membership?(user_to_check) do
       lifetime_plan =
         Application.get_env(:ysc, :membership_plans)
         |> Enum.find(&(&1.id == :lifetime))
@@ -1044,20 +1066,45 @@ defmodule YscWeb.HomeLive do
       %{
         plan: lifetime_plan,
         type: :lifetime,
-        awarded_at: user.lifetime_membership_awarded_at,
+        awarded_at: user_to_check.lifetime_membership_awarded_at,
         renewal_date: nil
       }
     else
       # Get active subscriptions
-      active_subscriptions =
-        user.subscriptions
-        |> Enum.filter(fn sub -> Subscriptions.valid?(sub) and sub.stripe_status == "active" end)
+      # If subscriptions aren't preloaded, fetch them
+      subscriptions =
+        case user_to_check.subscriptions do
+          %Ecto.Association.NotLoaded{} ->
+            Ysc.Customers.subscriptions(user_to_check)
+            |> Enum.filter(fn sub ->
+              Subscriptions.valid?(sub) and sub.stripe_status == "active"
+            end)
 
-      case active_subscriptions do
+          subscriptions when is_list(subscriptions) ->
+            subscriptions
+            |> Enum.filter(fn sub ->
+              Subscriptions.valid?(sub) and sub.stripe_status == "active"
+            end)
+
+          _ ->
+            []
+        end
+
+      case subscriptions do
         [] ->
           nil
 
         [subscription | _] ->
+          # Preload subscription items if needed
+          subscription =
+            case subscription.subscription_items do
+              %Ecto.Association.NotLoaded{} ->
+                Ysc.Repo.preload(subscription, :subscription_items)
+
+              _ ->
+                subscription
+            end
+
           # Get the first subscription item to determine membership type
           case subscription.subscription_items do
             [item | _] ->

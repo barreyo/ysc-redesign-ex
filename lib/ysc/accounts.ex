@@ -182,27 +182,35 @@ defmodule Ysc.Accounts do
   @doc """
   Checks if a user has an active membership.
   Includes lifetime membership which never expires.
+
+  For sub-accounts, checks the primary user's membership.
   """
   def has_active_membership?(user) do
-    # Check for lifetime membership first
-    if has_lifetime_membership?(user) do
-      true
+    # If user is a sub-account, check primary user's membership
+    if is_sub_account?(user) do
+      primary_user = get_primary_user(user)
+      if primary_user, do: has_active_membership?(primary_user), else: false
     else
-      # Get all subscriptions for the user and check if any are valid (active or trialing)
-      case user.subscriptions do
-        %Ecto.Association.NotLoaded{} ->
-          # If subscriptions aren't loaded, fetch them
-          user_with_subscriptions = get_user!(user.id, [:subscriptions])
+      # Check for lifetime membership first
+      if has_lifetime_membership?(user) do
+        true
+      else
+        # Get all subscriptions for the user and check if any are valid (active or trialing)
+        case user.subscriptions do
+          %Ecto.Association.NotLoaded{} ->
+            # If subscriptions aren't loaded, fetch them
+            user_with_subscriptions = get_user!(user.id, [:subscriptions])
 
-          user_with_subscriptions.subscriptions
-          |> Enum.any?(&Ysc.Subscriptions.valid?/1)
+            user_with_subscriptions.subscriptions
+            |> Enum.any?(&Ysc.Subscriptions.valid?/1)
 
-        subscriptions when is_list(subscriptions) ->
-          subscriptions
-          |> Enum.any?(&Ysc.Subscriptions.valid?/1)
+          subscriptions when is_list(subscriptions) ->
+            subscriptions
+            |> Enum.any?(&Ysc.Subscriptions.valid?/1)
 
-        _ ->
-          false
+          _ ->
+            false
+        end
       end
     end
   end
@@ -1541,5 +1549,124 @@ defmodule Ysc.Accounts do
     user
     |> User.password_set_changeset(%{password_set_at: DateTime.utc_now()})
     |> Repo.update()
+  end
+
+  ## Family Account Functions
+
+  @doc """
+  Gets all users in a family group (primary user + all sub-accounts).
+  """
+  def get_family_group(user) do
+    primary_user = if is_sub_account?(user), do: get_primary_user(user), else: user
+
+    if primary_user do
+      sub_accounts = get_sub_accounts(primary_user)
+      [primary_user | sub_accounts]
+    else
+      [user]
+    end
+  end
+
+  @doc """
+  Gets all user IDs in a family group.
+  Useful for querying bookings across the family.
+  """
+  def get_family_group_user_ids(user) do
+    get_family_group(user)
+    |> Enum.map(& &1.id)
+  end
+
+  @doc """
+  Checks if a user is a primary user (not a sub-account).
+  """
+  def is_primary_user?(user) do
+    is_nil(user.primary_user_id)
+  end
+
+  @doc """
+  Checks if a user is a sub-account.
+  """
+  def is_sub_account?(user) do
+    not is_nil(user.primary_user_id)
+  end
+
+  @doc """
+  Gets the primary user for a sub-account.
+  Returns nil if user is not a sub-account.
+  """
+  def get_primary_user(user) do
+    if is_sub_account?(user) do
+      case user.primary_user do
+        %Ecto.Association.NotLoaded{} ->
+          Repo.get(User, user.primary_user_id)
+
+        primary_user when not is_nil(primary_user) ->
+          primary_user
+
+        _ ->
+          Repo.get(User, user.primary_user_id)
+      end
+    else
+      nil
+    end
+  end
+
+  @doc """
+  Gets all sub-accounts for a primary user.
+  """
+  def get_sub_accounts(primary_user) do
+    case primary_user.sub_accounts do
+      %Ecto.Association.NotLoaded{} ->
+        from(u in User, where: u.primary_user_id == ^primary_user.id)
+        |> Repo.all()
+
+      sub_accounts when is_list(sub_accounts) ->
+        sub_accounts
+
+      _ ->
+        []
+    end
+  end
+
+  @doc """
+  Checks if a user can send family invites.
+  """
+  def can_send_family_invite?(user) do
+    Ysc.Accounts.FamilyInvites.can_send_family_invite?(user)
+  end
+
+  @doc """
+  Removes a sub-account from a family group.
+  This makes the sub-account independent (no longer associated with primary).
+  """
+  def remove_sub_account(sub_account, primary_user) do
+    if sub_account.primary_user_id == primary_user.id do
+      Ecto.Multi.new()
+      |> Ecto.Multi.update(
+        :sub_account,
+        Ecto.Changeset.change(sub_account)
+        |> Ecto.Changeset.put_change(:primary_user_id, nil)
+      )
+      |> Ecto.Multi.insert(
+        :user_event,
+        UserEvent.new_user_event_changeset(
+          %UserEvent{},
+          %{
+            user_id: sub_account.id,
+            updated_by_user_id: primary_user.id,
+            type: :family_removed,
+            from: "#{primary_user.id}",
+            to: "none"
+          }
+        )
+      )
+      |> Repo.transaction()
+      |> case do
+        {:ok, %{sub_account: updated_sub_account}} -> {:ok, updated_sub_account}
+        {:error, _, changeset, _} -> {:error, changeset}
+      end
+    else
+      {:error, :unauthorized}
+    end
   end
 end

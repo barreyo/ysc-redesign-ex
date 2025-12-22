@@ -205,7 +205,12 @@ defmodule Ysc.Bookings.BookingValidator do
     user_id = Ecto.Changeset.get_field(changeset, :user_id) || (user && user.id)
 
     if checkin_date && checkout_date && user_id && not is_nil(user) do
-      membership_type = get_membership_type(user)
+      # Get primary user for membership type check (sub-accounts use primary's membership)
+      primary_user = get_primary_user_for_booking(user)
+      membership_type = get_membership_type(primary_user)
+
+      # Get all family member user IDs
+      family_user_ids = Ysc.Accounts.get_family_group_user_ids(primary_user)
 
       # Family and lifetime members can have up to 2 bookings in the same time period
       max_overlapping_bookings =
@@ -215,11 +220,11 @@ defmodule Ysc.Bookings.BookingValidator do
           0
         end
 
-      # Check for overlapping active bookings for this user
+      # Check for overlapping active bookings across ALL family members
       # Only count bookings with status = :complete (active bookings)
       overlapping_query =
         from b in Booking,
-          where: b.user_id == ^user_id,
+          where: b.user_id in ^family_user_ids,
           where: b.property == :tahoe,
           where: b.status == :complete,
           where:
@@ -243,7 +248,7 @@ defmodule Ysc.Bookings.BookingValidator do
       if overlapping_count > max_overlapping_bookings do
         error_message =
           if membership_type in [:family, :lifetime] do
-            "You can only have up to 2 bookings in the same time period. Please complete your existing booking first or book within the same time period as your existing booking."
+            "Your family can only have up to 2 bookings in the same time period. Please complete your existing booking first or book within the same time period as your existing booking."
           else
             "You can only have one active booking at a time. Please complete your existing booking first."
           end
@@ -263,8 +268,17 @@ defmodule Ysc.Bookings.BookingValidator do
 
   defp validate_single_active_booking(changeset, _user, _property), do: changeset
 
+  defp get_primary_user_for_booking(user) do
+    if Ysc.Accounts.is_sub_account?(user) do
+      Ysc.Accounts.get_primary_user(user) || user
+    else
+      user
+    end
+  end
+
   # Membership-based room limits: Family = 2 rooms, Single = 1 room
   # Family memberships can book 2 rooms with overlapping dates (same timeframe)
+  # Limits apply across the entire family group
   defp validate_membership_room_limits(changeset, user, :tahoe) do
     checkin_date = Ecto.Changeset.get_field(changeset, :checkin_date)
     checkout_date = Ecto.Changeset.get_field(changeset, :checkout_date)
@@ -272,7 +286,12 @@ defmodule Ysc.Bookings.BookingValidator do
     booking_id = Ecto.Changeset.get_field(changeset, :id)
 
     if checkin_date && checkout_date && user_id && not is_nil(user) do
-      membership_type = get_membership_type(user)
+      # Get primary user for membership type check (sub-accounts use primary's membership)
+      primary_user = get_primary_user_for_booking(user)
+      membership_type = get_membership_type(primary_user)
+
+      # Get all family member user IDs
+      family_user_ids = Ysc.Accounts.get_family_group_user_ids(primary_user)
 
       max_rooms =
         case membership_type do
@@ -285,13 +304,14 @@ defmodule Ysc.Bookings.BookingValidator do
       # For single memberships, check for exact same dates
       # Count the actual number of rooms (not bookings) in overlapping time period
       # Only count active bookings (status = :complete)
+      # Check across ALL family members
       base_query =
         if membership_type in [:family, :lifetime] do
           # Family: Allow overlapping dates (same timeframe)
           from b in Booking,
             join: br in "booking_rooms",
             on: br.booking_id == b.id,
-            where: b.user_id == ^user_id,
+            where: b.user_id in ^family_user_ids,
             where: b.property == :tahoe,
             where: b.status == :complete,
             where:
@@ -307,7 +327,7 @@ defmodule Ysc.Bookings.BookingValidator do
           from b in Booking,
             join: br in "booking_rooms",
             on: br.booking_id == b.id,
-            where: b.user_id == ^user_id,
+            where: b.user_id in ^family_user_ids,
             where: b.property == :tahoe,
             where: b.status == :complete,
             where: b.checkin_date == ^checkin_date,
@@ -327,10 +347,17 @@ defmodule Ysc.Bookings.BookingValidator do
       existing_room_count = Repo.one(room_count_query) || 0
 
       if existing_room_count >= max_rooms do
+        error_message =
+          if membership_type in [:family, :lifetime] do
+            "Your family membership allows maximum #{max_rooms} room(s) in the same time period"
+          else
+            "#{String.capitalize("#{membership_type}")} membership allows maximum #{max_rooms} room(s) in the same time period"
+          end
+
         Ecto.Changeset.add_error(
           changeset,
           :room_id,
-          "#{String.capitalize("#{membership_type}")} membership allows maximum #{max_rooms} room(s) in the same time period"
+          error_message
         )
       else
         changeset

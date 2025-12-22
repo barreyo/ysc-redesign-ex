@@ -555,8 +555,27 @@ defmodule Ysc.Subscriptions do
   Change membership plan with correct billing behavior:
   - Upgrades: charge proration delta immediately.
   - Downgrades: take effect at next renewal (no immediate credit/refund).
+
+  Prevents downgrades if user has sub-accounts.
   """
   def change_membership_plan(%Subscription{} = subscription, new_price_id, direction) do
+    # Prevent downgrade if user has sub-accounts
+    if direction == :downgrade do
+      user = Repo.preload(subscription, :user).user
+      sub_accounts = Ysc.Accounts.get_sub_accounts(user)
+
+      if length(sub_accounts) > 0 do
+        {:error,
+         "Cannot downgrade membership while you have sub-accounts. Please remove all sub-accounts first."}
+      else
+        do_change_membership_plan(subscription, new_price_id, direction)
+      end
+    else
+      do_change_membership_plan(subscription, new_price_id, direction)
+    end
+  end
+
+  defp do_change_membership_plan(%Subscription{} = subscription, new_price_id, direction) do
     with {:ok, stripe_sub} <- Stripe.Subscription.retrieve(subscription.stripe_id),
          [first_item | _] when first_item != nil <- stripe_sub.items.data do
       current_price_id = first_item.price.id
