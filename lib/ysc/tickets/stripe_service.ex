@@ -9,7 +9,6 @@ defmodule Ysc.Tickets.StripeService do
   - Integration with the ledger system
   """
 
-  alias Ysc.Repo
   alias Ysc.Tickets
 
   defp stripe_client do

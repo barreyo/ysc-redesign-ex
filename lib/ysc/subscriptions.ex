@@ -558,6 +558,12 @@ defmodule Ysc.Subscriptions do
 
   Prevents downgrades if user has sub-accounts.
   """
+  def change_membership_plan(%{type: :lifetime}, _new_price_id, _direction),
+    do: {:error, "Lifetime memberships cannot be changed"}
+
+  def change_membership_plan(nil, _new_price_id, _direction),
+    do: {:error, "No active subscription found"}
+
   def change_membership_plan(%Subscription{} = subscription, new_price_id, direction) do
     # Prevent downgrade if user has sub-accounts
     if direction == :downgrade do
@@ -652,12 +658,6 @@ defmodule Ysc.Subscriptions do
       _ -> {:error, :invalid_subscription_items}
     end
   end
-
-  def change_membership_plan(%{type: :lifetime}, _new_price_id, _direction),
-    do: {:error, "Lifetime memberships cannot be changed"}
-
-  def change_membership_plan(nil, _new_price_id, _direction),
-    do: {:error, "No subscription to change"}
 
   # Stripe integration functions
 

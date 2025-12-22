@@ -1,8 +1,11 @@
 defmodule YscWeb.HomeLive do
   use YscWeb, :live_view
 
-  alias Ysc.{Accounts, Events, Posts, Subscriptions, Mailpoet}
+  alias Ysc.{Accounts, Events, Posts, Subscriptions, Mailpoet, Tickets}
   alias Ysc.Bookings.{Booking, Season}
+  alias Ysc.Posts.Post
+  alias Ysc.Media.Image
+  alias HtmlSanitizeEx.Scrubber
   import Ecto.Query
 
   @impl true
@@ -360,48 +363,73 @@ defmodule YscWeb.HomeLive do
           </.link>
         </div>
 
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <%= for event <- @upcoming_events do %>
-            <.link
-              navigate={~p"/events/#{event.id}"}
-              class="group bg-zinc-800 rounded-2xl overflow-hidden hover:bg-zinc-750 transition-all hover:scale-[1.02] hover:shadow-2xl"
-            >
-              <div class="aspect-[16/10] bg-zinc-700 relative overflow-hidden">
-                <img
-                  :if={event.image}
-                  src={event.image.optimized_image_path}
-                  alt={event.title}
-                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            <div class={[
+              "flex flex-col rounded",
+              event.state == :cancelled && "opacity-70"
+            ]}>
+              <.link
+                navigate={~p"/events/#{event.id}"}
+                class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
+              >
+                <.live_component
+                  id={"home-event-cover-#{event.id}"}
+                  module={YscWeb.Components.Image}
+                  image_id={event.image_id}
+                  image={Map.get(event, :image)}
                 />
-                <div
-                  :if={!event.image}
-                  class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800"
+              </.link>
+
+              <div class="flex flex-col py-3 px-2 space-y-2">
+                <div>
+                  <.event_badge
+                    event={event}
+                    sold_out={event_sold_out?(event)}
+                    selling_fast={Map.get(event, :selling_fast, false)}
+                  />
+                </div>
+
+                <.link
+                  navigate={~p"/events/#{event.id}"}
+                  class="text-2xl md:text-xl leading-6 font-semibold text-white text-pretty"
                 >
-                  <.icon name="hero-calendar-days" class="w-16 h-16 text-white/50" />
-                </div>
-                <div class="absolute top-4 left-4 bg-white rounded-lg px-3 py-2 text-center shadow-lg">
-                  <div class="text-xs font-semibold text-zinc-500 uppercase">
-                    <%= Calendar.strftime(event.start_date, "%b") %>
-                  </div>
-                  <div class="text-2xl font-bold text-zinc-900 leading-none">
-                    <%= Calendar.strftime(event.start_date, "%d") %>
-                  </div>
-                </div>
-              </div>
-              <div class="p-6">
-                <h3 class="text-xl font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-2">
                   <%= event.title %>
-                </h3>
-                <div class="mt-3 flex items-center text-zinc-400 text-sm">
-                  <.icon name="hero-clock" class="w-4 h-4 mr-2" />
-                  <%= Calendar.strftime(event.start_date, "%A, %B %d at %I:%M %p") %>
+                </.link>
+
+                <div class="space-y-0.5">
+                  <p class="font-semibold text-sm text-zinc-200">
+                    <%= Timex.format!(event.start_date, "{WDshort}, {Mshort} {D}") %><span :if={
+                      event.start_time != nil && event.start_time != ""
+                    }>
+                    • <%= format_start_time(event.start_time) %>
+                  </span>
+                  </p>
+
+                  <p
+                    :if={event.location_name != nil && event.location_name != ""}
+                    class="text-zinc-300 text-sm"
+                  >
+                    <%= event.location_name %>
+                  </p>
                 </div>
-                <div :if={event.location_name} class="mt-2 flex items-center text-zinc-400 text-sm">
-                  <.icon name="hero-map-pin" class="w-4 h-4 mr-2" />
-                  <%= event.location_name %>
+
+                <p class="text-sm text-pretty text-zinc-400 py-1"><%= event.description %></p>
+
+                <div :if={event.state != :cancelled} class="flex flex-row space-x-2 pt-2 items-center">
+                  <p class={[
+                    "text-sm font-semibold",
+                    if event_sold_out?(event) do
+                      "text-zinc-300 line-through"
+                    else
+                      "text-zinc-200"
+                    end
+                  ]}>
+                    <%= event.pricing_info.display_text %>
+                  </p>
                 </div>
               </div>
-            </.link>
+            </div>
           <% end %>
         </div>
       </div>
@@ -427,40 +455,58 @@ defmodule YscWeb.HomeLive do
           </.link>
         </div>
 
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <%= for post <- @latest_news do %>
-            <.link
-              navigate={~p"/posts/#{post.url_name}"}
-              class="group bg-white rounded-2xl overflow-hidden hover:bg-zinc-50 transition-all hover:scale-[1.02] hover:shadow-2xl border border-zinc-100"
-            >
-              <div class="aspect-[16/10] bg-zinc-100 relative overflow-hidden">
-                <%= if post.featured_image do %>
+            <div id={"post-#{post.id}"} class="flex flex-col rounded">
+              <.link
+                navigate={~p"/posts/#{post.url_name}"}
+                class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
+              >
+                <div class="relative aspect-video">
+                  <canvas
+                    id={"blur-hash-image-#{post.id}"}
+                    src={get_blur_hash(post.featured_image)}
+                    class="absolute inset-0 z-0 rounded-lg w-full h-full object-cover"
+                    phx-hook="BlurHashCanvas"
+                  >
+                  </canvas>
+
                   <img
-                    src={post.featured_image.optimized_image_path}
-                    alt={post.featured_image.alt_text || post.title}
-                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    src={featured_image_url(post.featured_image)}
+                    id={"image-#{post.id}"}
+                    loading="lazy"
+                    phx-hook="BlurHashImage"
+                    class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover"
+                    alt={
+                      if post.featured_image,
+                        do:
+                          post.featured_image.alt_text || post.featured_image.title || post.title ||
+                            "News article image",
+                        else: "News article image"
+                    }
                   />
-                <% else %>
-                  <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-blue-200">
-                    <.icon name="hero-newspaper" class="w-16 h-16 text-blue-400" />
-                  </div>
-                <% end %>
-              </div>
-              <div class="p-6">
-                <h3 class="text-xl font-bold text-zinc-900 group-hover:text-blue-600 transition-colors line-clamp-2">
-                  <%= post.title %>
-                </h3>
-                <div class="mt-3 flex items-center text-zinc-500 text-sm">
-                  <.icon name="hero-clock" class="w-4 h-4 mr-2" />
-                  <%= Calendar.strftime(post.published_on, "%B %d, %Y") %>
                 </div>
-                <%= if post.preview_text do %>
-                  <p class="mt-3 text-zinc-600 line-clamp-3">
-                    <%= post.preview_text %>
+              </.link>
+
+              <div class="flex flex-col py-3 px-2 space-y-2">
+                <div class="space-y-0.5">
+                  <p class="font-semibold text-sm text-zinc-600">
+                    <%= Timex.format!(post.published_on, "{WDshort}, {Mshort} {D}") %>
                   </p>
-                <% end %>
+                </div>
+
+                <.link
+                  navigate={~p"/posts/#{post.url_name}"}
+                  class="text-2xl md:text-xl leading-6 font-semibold text-zinc-900 text-pretty"
+                >
+                  <%= post.title %>
+                </.link>
+
+                <p class="text-sm text-pretty text-zinc-600 py-1 line-clamp-3">
+                  <%= preview_text_plain(post) %>
+                </p>
               </div>
-            </.link>
+            </div>
           <% end %>
         </div>
       </div>
@@ -599,7 +645,7 @@ defmodule YscWeb.HomeLive do
     </section>
 
     <%!-- Logged-in User Dashboard --%>
-    <div :if={@current_user != nil} class="bg-white min-h-screen">
+    <div :if={@current_user != nil} class="bg-white min-h-screen pb-10">
       <%!-- Welcome Header --%>
       <div class="">
         <div class="max-w-screen-xl mx-auto px-4 py-6 lg:py-8">
@@ -623,7 +669,7 @@ defmodule YscWeb.HomeLive do
         <%!-- Quick Stats / Membership Card --%>
         <div class="grid lg:grid-cols-3 gap-6 mb-10">
           <%!-- Membership Status Card --%>
-          <div class="lg:col-span-2 bg-white rounded shadow-sm border border-zinc-200 p-6">
+          <div class="lg:col-span-2 bg-white rounded border border-zinc-200 p-6">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div class="flex items-center gap-3">
                 <div class="w-12 h-12 bg-blue-100 rounded flex items-center justify-center">
@@ -649,7 +695,7 @@ defmodule YscWeb.HomeLive do
           </div>
 
           <%!-- Quick Actions Card --%>
-          <div class="bg-white rounded shadow-sm border border-zinc-200 p-6">
+          <div class="bg-white rounded border border-zinc-200 p-6">
             <h3 class="text-lg font-bold text-zinc-900 mb-4">Quick Actions</h3>
             <div class="space-y-3">
               <.link
@@ -713,7 +759,7 @@ defmodule YscWeb.HomeLive do
         <%!-- Bookings and Events Grid --%>
         <div class="grid lg:grid-cols-2 gap-6">
           <%!-- Upcoming Bookings --%>
-          <div class="bg-white rounded shadow-sm border border-zinc-200 p-6">
+          <div class="bg-white rounded border border-zinc-200 p-6">
             <div class="flex items-center justify-between mb-6">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 bg-amber-100 rounded flex items-center justify-center">
@@ -791,7 +837,7 @@ defmodule YscWeb.HomeLive do
           </div>
 
           <%!-- Upcoming Events --%>
-          <div class="bg-white rounded shadow-sm border border-zinc-200 p-6">
+          <div class="bg-white rounded border border-zinc-200 p-6">
             <div class="flex items-center justify-between mb-6">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 bg-purple-100 rounded flex items-center justify-center">
@@ -901,73 +947,79 @@ defmodule YscWeb.HomeLive do
               <p class="text-xs text-zinc-500">Check back later for new community events</p>
             </div>
 
-            <div :if={!Enum.empty?(@upcoming_events)} class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              :if={!Enum.empty?(@upcoming_events)}
+              class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
               <%= for event <- Enum.take(@upcoming_events, 3) do %>
-                <.link
-                  navigate={~p"/events/#{event.id}"}
-                  class="group block bg-white rounded-lg border border-zinc-200 hover:border-blue-300 hover:shadow-md transition-all overflow-hidden"
-                >
-                  <div class="aspect-[16/10] relative overflow-hidden bg-zinc-100">
-                    <%= if event.image do %>
-                      <img
-                        src={event.image.optimized_image_path}
-                        alt={event.title}
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                <div class={[
+                  "flex flex-col rounded",
+                  event.state == :cancelled && "opacity-70"
+                ]}>
+                  <.link
+                    navigate={~p"/events/#{event.id}"}
+                    class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
+                  >
+                    <.live_component
+                      id={"dashboard-event-cover-#{event.id}"}
+                      module={YscWeb.Components.Image}
+                      image_id={event.image_id}
+                      image={Map.get(event, :image)}
+                    />
+                  </.link>
+
+                  <div class="flex flex-col py-3 px-2 space-y-2">
+                    <div>
+                      <.event_badge
+                        event={event}
+                        sold_out={event_sold_out?(event)}
+                        selling_fast={Map.get(event, :selling_fast, false)}
                       />
-                    <% else %>
-                      <div class="w-full h-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center">
-                        <.icon name="hero-calendar-days" class="w-8 h-8 text-white/80" />
-                      </div>
-                    <% end %>
-                    <div class="absolute top-2 left-2 bg-white/95 backdrop-blur-sm rounded px-2 py-1 shadow-sm">
-                      <div class="text-xs font-semibold text-zinc-500 uppercase">
-                        <%= Calendar.strftime(event.start_date, "%b %d") %>
-                      </div>
                     </div>
-                    <div class="absolute top-2 right-2">
-                      <span class="inline-flex items-center px-2 py-1 bg-blue-500 text-white text-xs font-medium rounded-full">
-                        <%= case days_until_event(event) do
-                          0 -> "Today"
-                          1 -> "Tomorrow"
-                          days -> "In #{days} days"
-                        end %>
-                      </span>
-                    </div>
-                  </div>
-                  <div class="p-4">
-                    <%= if event_badges(event) != [] do %>
-                      <div class="flex flex-wrap gap-2 mb-2">
-                        <.badge
-                          :for={{type, text} <- event_badges(event)}
-                          type={type}
-                          class="text-xs font-medium"
-                        >
-                          <.icon
-                            :if={text == "Selling Fast!"}
-                            name="hero-bolt-solid"
-                            class="w-3 h-3 inline-block me-0.5 -mt-0.5"
-                          />
-                          <%= text %>
-                        </.badge>
-                      </div>
-                    <% end %>
-                    <h3 class="font-bold text-zinc-900 group-hover:text-blue-600 transition-colors line-clamp-2 mb-2 text-sm">
+
+                    <.link
+                      navigate={~p"/events/#{event.id}"}
+                      class="text-2xl md:text-xl leading-6 font-semibold text-zinc-900 text-pretty"
+                    >
                       <%= event.title %>
-                    </h3>
-                    <div class="flex items-center gap-3 text-xs text-zinc-600">
-                      <div class="flex items-center">
-                        <.icon name="hero-clock" class="w-3 h-3 mr-1" />
-                        <%= Calendar.strftime(event.start_date, "%b %d") %>
-                      </div>
-                      <%= if event.location_name do %>
-                        <div class="flex items-center truncate">
-                          <.icon name="hero-map-pin" class="w-3 h-3 mr-1 flex-shrink-0" />
-                          <span class="truncate"><%= event.location_name %></span>
-                        </div>
-                      <% end %>
+                    </.link>
+
+                    <div class="space-y-0.5">
+                      <p class="font-semibold text-sm text-zinc-800">
+                        <%= Timex.format!(event.start_date, "{WDshort}, {Mshort} {D}") %><span :if={
+                          event.start_time != nil && event.start_time != ""
+                        }>
+                        • <%= format_start_time(event.start_time) %>
+                      </span>
+                      </p>
+
+                      <p
+                        :if={event.location_name != nil && event.location_name != ""}
+                        class="text-zinc-800 text-sm"
+                      >
+                        <%= event.location_name %>
+                      </p>
+                    </div>
+
+                    <p class="text-sm text-pretty text-zinc-600 py-1"><%= event.description %></p>
+
+                    <div
+                      :if={event.state != :cancelled}
+                      class="flex flex-row space-x-2 pt-2 items-center"
+                    >
+                      <p class={[
+                        "text-sm font-semibold",
+                        if event_sold_out?(event) do
+                          "text-zinc-800 line-through"
+                        else
+                          "text-zinc-800"
+                        end
+                      ]}>
+                        <%= event.pricing_info.display_text %>
+                      </p>
                     </div>
                   </div>
-                </.link>
+                </div>
               <% end %>
             </div>
           </div>
@@ -1000,43 +1052,61 @@ defmodule YscWeb.HomeLive do
               <p class="text-xs text-zinc-500">Check back later for club updates</p>
             </div>
 
-            <div :if={!Enum.empty?(@latest_news)} class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              :if={!Enum.empty?(@latest_news)}
+              class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
               <%= for post <- Enum.take(@latest_news, 3) do %>
-                <.link
-                  navigate={~p"/posts/#{post.url_name}"}
-                  class="group block bg-white rounded-lg border border-zinc-200 hover:border-emerald-300 hover:shadow-md transition-all overflow-hidden"
-                >
-                  <div class="aspect-[16/10] relative overflow-hidden bg-zinc-100">
-                    <%= if post.featured_image do %>
+                <div id={"dashboard-post-#{post.id}"} class="flex flex-col rounded">
+                  <.link
+                    navigate={~p"/posts/#{post.url_name}"}
+                    class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
+                  >
+                    <div class="relative aspect-video">
+                      <canvas
+                        id={"blur-hash-image-dashboard-#{post.id}"}
+                        src={get_blur_hash(post.featured_image)}
+                        class="absolute inset-0 z-0 rounded-lg w-full h-full object-cover"
+                        phx-hook="BlurHashCanvas"
+                      >
+                      </canvas>
+
                       <img
-                        src={post.featured_image.optimized_image_path}
-                        alt={post.title}
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        src={featured_image_url(post.featured_image)}
+                        id={"image-dashboard-#{post.id}"}
+                        loading="lazy"
+                        phx-hook="BlurHashImage"
+                        class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover"
+                        alt={
+                          if post.featured_image,
+                            do:
+                              post.featured_image.alt_text || post.featured_image.title || post.title ||
+                                "News article image",
+                            else: "News article image"
+                        }
                       />
-                    <% else %>
-                      <div class="w-full h-full bg-gradient-to-br from-emerald-400 to-emerald-500 flex items-center justify-center">
-                        <.icon name="hero-newspaper" class="w-8 h-8 text-white/80" />
-                      </div>
-                    <% end %>
-                    <div class="absolute top-2 left-2 bg-emerald-500 text-white px-2 py-1 text-xs font-medium rounded-full">
-                      News
                     </div>
-                  </div>
-                  <div class="p-4">
-                    <h3 class="font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors line-clamp-2 mb-2 text-sm">
-                      <%= post.title %>
-                    </h3>
-                    <div class="flex items-center text-xs text-zinc-600">
-                      <.icon name="hero-clock" class="w-3 h-3 mr-1" />
-                      <%= Calendar.strftime(post.published_on, "%b %d, %Y") %>
-                    </div>
-                    <%= if post.preview_text do %>
-                      <p class="mt-2 text-zinc-600 line-clamp-2 text-sm">
-                        <%= post.preview_text %>
+                  </.link>
+
+                  <div class="flex flex-col py-3 px-2 space-y-2">
+                    <div class="space-y-0.5">
+                      <p class="font-semibold text-sm text-zinc-600">
+                        <%= Timex.format!(post.published_on, "{WDshort}, {Mshort} {D}") %>
                       </p>
-                    <% end %>
+                    </div>
+
+                    <.link
+                      navigate={~p"/posts/#{post.url_name}"}
+                      class="text-2xl md:text-xl leading-6 font-semibold text-zinc-900 text-pretty"
+                    >
+                      <%= post.title %>
+                    </.link>
+
+                    <p class="text-sm text-pretty text-zinc-600 py-1 line-clamp-3">
+                      <%= preview_text_plain(post) %>
+                    </p>
                   </div>
-                </.link>
+                </div>
               <% end %>
             </div>
           </div>
@@ -1314,49 +1384,156 @@ defmodule YscWeb.HomeLive do
     end
   end
 
-  # Helper functions for event badges
-  defp event_badges(event) do
-    badges = []
-
-    # Add "Just Added" badge if applicable (within 48 hours of publishing)
-    just_added_badge =
-      case Map.get(event, :published_at) do
-        nil ->
-          []
-
-        published_at ->
-          if DateTime.diff(DateTime.utc_now(), published_at, :hour) <= 48 do
-            [{"green", "Just Added"}]
-          else
-            []
-          end
-      end
-
-    badges = badges ++ just_added_badge
-
-    # Add "Days Left" badge if applicable (1-3 days remaining)
-    days_left = days_until_event(event)
-
-    days_left_badge =
-      case days_left do
-        days when is_integer(days) and days >= 1 and days <= 3 ->
-          text = "#{days} #{if days == 1, do: "day", else: "days"} left"
-          [{"sky", text}]
-
-        _ ->
-          []
-      end
-
-    badges = badges ++ days_left_badge
-
-    # Add "Selling Fast!" badge if applicable
-    selling_fast_badge =
-      if Map.get(event, :selling_fast, false) do
-        [{"yellow", "Selling Fast!"}]
-      else
-        []
-      end
-
-    badges ++ selling_fast_badge
+  defp format_start_time(time) when is_binary(time) do
+    format_start_time(Timex.parse!(time, "{h12}:{m} {AM}"))
   end
+
+  defp format_start_time(time) do
+    Timex.format!(time, "{h12}:{m} {AM}")
+  end
+
+  defp event_sold_out?(event) do
+    # Get event ID (handle both structs and maps)
+    event_id = Map.get(event, :id) || Map.get(event, "id")
+
+    # Use preloaded ticket_tiers if available (from batch loading), otherwise fetch
+    ticket_tiers =
+      case Map.get(event, :ticket_tiers) do
+        nil -> Events.list_ticket_tiers_for_event(event_id)
+        tiers -> tiers
+      end
+
+    # Filter out donation tiers - donations don't count toward "sold out" status
+    non_donation_tiers =
+      Enum.filter(ticket_tiers, fn tier ->
+        tier_type = Map.get(tier, :type) || Map.get(tier, "type")
+        tier_type != "donation" && tier_type != :donation
+      end)
+
+    # If there are no non-donation tiers, event is not sold out
+    if Enum.empty?(non_donation_tiers) do
+      false
+    else
+      # Filter out pre-sale tiers (tiers that haven't started selling yet)
+      # We want to check tiers that are on sale OR have ended their sale
+      relevant_tiers =
+        Enum.filter(non_donation_tiers, fn tier ->
+          # Include tiers that are on sale OR have ended their sale
+          # Exclude tiers that haven't started their sale yet (pre-sale)
+          tier_on_sale?(tier) || tier_sale_ended?(tier)
+        end)
+
+      # If there are no relevant tiers (all are pre-sale), event is not sold out
+      if Enum.empty?(relevant_tiers) do
+        false
+      else
+        # Check if all relevant non-donation tiers are sold out
+        # A tier is sold out if available == 0 (unlimited tiers never count as sold out)
+        all_tiers_sold_out =
+          Enum.all?(relevant_tiers, fn tier ->
+            available = get_available_quantity(tier)
+            available == 0
+          end)
+
+        # Also check event capacity if max_attendees is set
+        # (Note: This includes all tickets including donations, but if capacity is reached,
+        #  all regular tickets are effectively sold out even if some tiers show availability)
+        event_at_capacity =
+          case Map.get(event, :max_attendees) || Map.get(event, "max_attendees") do
+            nil ->
+              false
+
+            _ ->
+              # Use preloaded ticket_count if available, otherwise query
+              case Map.get(event, :ticket_count) do
+                nil ->
+                  Tickets.event_at_capacity?(event)
+
+                ticket_count ->
+                  max_attendees =
+                    Map.get(event, :max_attendees) || Map.get(event, "max_attendees")
+
+                  ticket_count >= max_attendees
+              end
+          end
+
+        all_tiers_sold_out || event_at_capacity
+      end
+    end
+  end
+
+  defp tier_on_sale?(ticket_tier) do
+    now = DateTime.utc_now()
+
+    start_date = Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
+    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+
+    # Check if sale has started
+    sale_started =
+      case start_date do
+        nil -> true
+        sd -> DateTime.compare(now, sd) != :lt
+      end
+
+    # Check if sale has ended
+    sale_ended =
+      case end_date do
+        nil -> false
+        ed -> DateTime.compare(now, ed) == :gt
+      end
+
+    sale_started && !sale_ended
+  end
+
+  defp tier_sale_ended?(ticket_tier) do
+    now = DateTime.utc_now()
+
+    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+
+    case end_date do
+      nil -> false
+      ed -> DateTime.compare(now, ed) == :gt
+    end
+  end
+
+  defp get_available_quantity(ticket_tier) do
+    quantity = Map.get(ticket_tier, :quantity) || Map.get(ticket_tier, "quantity")
+
+    sold_count =
+      Map.get(ticket_tier, :sold_tickets_count) || Map.get(ticket_tier, "sold_tickets_count") || 0
+
+    case quantity do
+      # Unlimited
+      nil ->
+        :unlimited
+
+      0 ->
+        :unlimited
+
+      qty ->
+        available = qty - sold_count
+        max(0, available)
+    end
+  end
+
+  # Helper functions for news posts
+  defp preview_text_plain(%Post{preview_text: nil} = post) do
+    Scrubber.scrub(post.raw_body, YscWeb.Scrubber.StripEverythingExceptText)
+    |> String.replace(~r/<[^>]*>/, "")
+    |> String.trim()
+  end
+
+  defp preview_text_plain(post) do
+    post.preview_text
+    |> String.replace(~r/<[^>]*>/, "")
+    |> String.trim()
+  end
+
+  defp get_blur_hash(nil), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+  defp get_blur_hash(%Image{blur_hash: nil}), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+  defp get_blur_hash(%Image{blur_hash: blur_hash}), do: blur_hash
+
+  defp featured_image_url(nil), do: "/images/ysc_logo.png"
+  defp featured_image_url(%Image{optimized_image_path: nil} = image), do: image.raw_image_path
+  defp featured_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
 end

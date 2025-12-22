@@ -346,7 +346,6 @@ defmodule YscWeb.FamilyManagementLive do
                   id="invite-form"
                   phx-submit="send_invite"
                   phx-change="validate_invite"
-                  disabled={not @can_send_invite}
                 >
                   <%= if @family_members != [] do %>
                     <.input
