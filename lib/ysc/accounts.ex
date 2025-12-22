@@ -257,6 +257,22 @@ defmodule Ysc.Accounts do
           # This ensures the association is available immediately after insert
           user = Repo.preload(user, :registration_form)
 
+          # Copy date_of_birth from registration_form if not already set
+          user =
+            if is_nil(user.date_of_birth) && user.registration_form &&
+                 user.registration_form.birth_date do
+              case user
+                   |> User.update_user_changeset(%{
+                     date_of_birth: user.registration_form.birth_date
+                   })
+                   |> Repo.update() do
+                {:ok, updated_user} -> updated_user
+                {:error, _} -> user
+              end
+            else
+              user
+            end
+
           # Create billing address from signup application
           # This happens within the same transaction, so registration_form is guaranteed to be available
           case create_billing_address_from_signup(user) do
@@ -1174,7 +1190,13 @@ defmodule Ysc.Accounts do
     with :ok <- Policy.authorize(:signup_application_update, current_user, %{user_id: user.id}) do
       with :ok <- Policy.authorize(:user_update, current_user, %{user_id: user.id}) do
         Ecto.Multi.new()
-        |> Ecto.Multi.update(:user, User.update_user_state_changeset(user, %{state: :active}))
+        |> Ecto.Multi.update(
+          :user,
+          User.update_user_changeset(user, %{
+            state: :active,
+            date_of_birth: application.birth_date
+          })
+        )
         |> Ecto.Multi.update(
           :application,
           SignupApplication.review_outcome_changeset(application, %{
@@ -1336,10 +1358,53 @@ defmodule Ysc.Accounts do
       active_subscriptions
       |> Enum.group_by(& &1.user_id)
 
-    # Add subscriptions to each user
+    # Preload primary_user for sub-accounts to avoid N+1 queries when checking inherited membership
+    primary_user_ids =
+      users
+      |> Enum.filter(& &1.primary_user_id)
+      |> Enum.map(& &1.primary_user_id)
+      |> Enum.uniq()
+
+    primary_users_by_id =
+      if primary_user_ids != [] do
+        # Get primary users with their active subscriptions
+        primary_users = from(u in User, where: u.id in ^primary_user_ids) |> Repo.all()
+
+        # Get subscriptions for primary users
+        primary_user_subscriptions =
+          from(s in Ysc.Subscriptions.Subscription,
+            where: s.user_id in ^primary_user_ids,
+            where: s.stripe_status in ["active", "trialing", "past_due"],
+            preload: [:subscription_items]
+          )
+          |> Repo.all()
+
+        # Group subscriptions by user_id
+        primary_subscriptions_by_user =
+          primary_user_subscriptions
+          |> Enum.group_by(& &1.user_id)
+
+        # Add subscriptions to primary users
+        primary_users
+        |> Enum.map(fn primary_user ->
+          primary_user_subscriptions = Map.get(primary_subscriptions_by_user, primary_user.id, [])
+          {primary_user.id, %{primary_user | subscriptions: primary_user_subscriptions}}
+        end)
+        |> Map.new()
+      else
+        %{}
+      end
+
+    # Add subscriptions and primary_user to each user
     Enum.map(users, fn user ->
       user_subscriptions = Map.get(subscriptions_by_user, user.id, [])
-      %{user | subscriptions: user_subscriptions}
+
+      primary_user =
+        if user.primary_user_id, do: Map.get(primary_users_by_id, user.primary_user_id), else: nil
+
+      user
+      |> Map.put(:subscriptions, user_subscriptions)
+      |> Map.put(:primary_user, primary_user)
     end)
   end
 

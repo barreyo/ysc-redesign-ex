@@ -177,11 +177,12 @@ admin_user =
           phone_number: "+14159009009",
           most_connected_country: countries |> Enum.shuffle() |> hd(),
           confirmed_at: DateTime.utc_now() |> DateTime.truncate(:second),
+          date_of_birth: ~D[1980-01-15],
           registration_form: %{
             membership_type: "family",
             membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
             occupation: "Plumber",
-            birth_date: "1900-01-01",
+            birth_date: "1980-01-15",
             address: "Dance St 2",
             country: "USA",
             city: "Dance Town",
@@ -275,6 +276,12 @@ Enum.each(0..n_approved_users, fn n ->
   if existing_user do
     IO.puts("User already exists, skipping: #{email}")
   else
+    # Generate a reasonable birth date (between 1980 and 2000)
+    birth_year = 1980 + rem(n, 20)
+    birth_month = 1 + rem(n, 12)
+    birth_day = 1 + rem(n, 28)
+    birth_date = Date.new!(birth_year, birth_month, birth_day)
+
     regular_user =
       User.registration_changeset(%User{}, %{
         email: email,
@@ -286,12 +293,13 @@ Enum.each(0..n_approved_users, fn n ->
         phone_number: "+1415900900#{n}",
         confirmed_at: DateTime.utc_now(),
         most_connected_country: countries |> Enum.shuffle() |> hd(),
+        date_of_birth: birth_date,
         family_members: fam_members,
         registration_form: %{
           membership_type: membership_type,
           membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
           occupation: "Plumber",
-          birth_date: "1900-01-01",
+          birth_date: Date.to_iso8601(birth_date),
           address: "Dance St 2",
           country: "USA",
           city: "Dance Town",
@@ -368,6 +376,12 @@ Enum.each(0..n_pending_users, fn n ->
   if existing_user do
     IO.puts("User already exists, skipping: #{email}")
   else
+    # Generate a reasonable birth date (between 1985 and 2005)
+    birth_year = 1985 + rem(n, 20)
+    birth_month = 1 + rem(n, 12)
+    birth_day = 1 + rem(n, 28)
+    birth_date = Date.new!(birth_year, birth_month, birth_day)
+
     pending_user =
       User.registration_changeset(%User{}, %{
         email: email,
@@ -379,12 +393,13 @@ Enum.each(0..n_pending_users, fn n ->
         phone_number: "+1415900900#{n}",
         confirmed_at: DateTime.utc_now(),
         most_connected_country: countries |> Enum.shuffle() |> hd(),
+        date_of_birth: birth_date,
         family_members: fam_members,
         registration_form: %{
           membership_type: membership_type,
           membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
           occupation: "Plumber",
-          birth_date: "1970-02-04",
+          birth_date: Date.to_iso8601(birth_date),
           address: "Dance St 2",
           country: "USA",
           city: "Dance Town",
@@ -430,6 +445,12 @@ Enum.each(0..n_rejected_users, fn n ->
   if existing_user do
     IO.puts("User already exists, skipping: #{email}")
   else
+    # Generate a reasonable birth date (between 1975 and 1995)
+    birth_year = 1975 + rem(n, 20)
+    birth_month = 1 + rem(n, 12)
+    birth_day = 1 + rem(n, 28)
+    birth_date = Date.new!(birth_year, birth_month, birth_day)
+
     rejected_user =
       User.registration_changeset(%User{}, %{
         email: email,
@@ -440,11 +461,12 @@ Enum.each(0..n_rejected_users, fn n ->
         last_name: last_name,
         phone_number: "+1415900900#{n}",
         most_connected_country: countries |> Enum.shuffle() |> hd(),
+        date_of_birth: birth_date,
         registration_form: %{
           membership_type: "family",
           membership_eligibiltiy: [],
           occupation: "Plumber",
-          birth_date: "1900-01-01",
+          birth_date: Date.to_iso8601(birth_date),
           address: "Dance St 2",
           country: "USA",
           city: "Dance Town",
@@ -493,6 +515,12 @@ Enum.each(0..n_deleted_users, fn n ->
   if existing_user do
     IO.puts("User already exists, skipping: #{email}")
   else
+    # Generate a reasonable birth date (between 1980 and 2000)
+    birth_year = 1980 + rem(n, 20)
+    birth_month = 1 + rem(n, 12)
+    birth_day = 1 + rem(n, 28)
+    birth_date = Date.new!(birth_year, birth_month, birth_day)
+
     deleted_user =
       User.registration_changeset(%User{}, %{
         email: email,
@@ -503,11 +531,12 @@ Enum.each(0..n_deleted_users, fn n ->
         last_name: last_name,
         phone_number: "+1415900900#{n}",
         most_connected_country: countries |> Enum.shuffle() |> hd(),
+        date_of_birth: birth_date,
         registration_form: %{
           membership_type: "family",
           membership_eligibility: [],
           occupation: "Plumber",
-          birth_date: "1970-04-02",
+          birth_date: Date.to_iso8601(birth_date),
           address: "Dance St 2",
           country: "USA",
           city: "Dance Town",

@@ -332,10 +332,23 @@ defmodule YscWeb.UserRegistrationLive do
       |> Map.put("started", socket.assigns[:started])
       |> Map.put("browser_timezone", socket.assigns[:browser_timezone])
 
+    # Filter out empty family members (those without first_name, last_name, or birth_date)
+    filtered_family_members =
+      (user_params["family_members"] || [])
+      |> Enum.filter(fn fm ->
+        first_name = fm["first_name"] || ""
+        last_name = fm["last_name"] || ""
+        birth_date = fm["birth_date"] || ""
+
+        String.trim(first_name) != "" &&
+          String.trim(last_name) != "" &&
+          String.trim(birth_date) != ""
+      end)
+
     updated_user_params =
       user_params
       |> Map.replace("registration_form", reg_form_updated)
-      |> Map.put_new("family_members", [])
+      |> Map.put("family_members", filtered_family_members)
       |> Map.put("most_connected_country", reg_form_updated["most_connected_nordic_country"])
 
     case Accounts.register_user(updated_user_params) do

@@ -347,17 +347,21 @@ defmodule YscWeb.FamilyManagementLive do
                   phx-submit="send_invite"
                   phx-change="validate_invite"
                 >
-                  <%= if @family_members != [] do %>
+                  <% valid_family_members =
+                    Enum.filter(@family_members, fn fm ->
+                      not is_nil(fm.first_name) && String.trim(fm.first_name) != "" &&
+                        not is_nil(fm.last_name) && String.trim(fm.last_name) != ""
+                    end) %>
+                  <%= if valid_family_members != [] do %>
                     <.input
                       field={@invite_form[:family_member_id]}
                       type="select"
                       label="Select Family Member (Optional)"
-                      options={[
-                        {"", "Select a family member..."}
-                        | Enum.map(@family_members, fn fm ->
-                            {"#{fm.first_name} #{fm.last_name}", fm.id}
-                          end)
-                      ]}
+                      options={
+                        Enum.map(valid_family_members, fn fm ->
+                          {"#{fm.first_name} #{fm.last_name}", fm.id}
+                        end)
+                      }
                       prompt="Select a family member..."
                       disabled={not @can_send_invite}
                     />
@@ -385,7 +389,7 @@ defmodule YscWeb.FamilyManagementLive do
               <!-- Sub-Accounts Section -->
               <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
                 <h2 class="text-zinc-900 font-bold text-xl">
-                  Sub-Accounts (<%= length(@sub_accounts) %>)
+                  Family Accounts (<%= length(@sub_accounts) %>)
                 </h2>
 
                 <%= if @sub_accounts == [] do %>

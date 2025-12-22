@@ -268,8 +268,7 @@ defmodule YscWeb.AccountSetupLive do
   defp build_stepper_steps(user_needs, _current_user) do
     steps = []
 
-    # Add email verification if needed
-    steps = if user_needs.email_verification, do: steps ++ ["Verify Email"], else: steps
+    # Email verification is not shown in stepper (handled separately)
 
     # Add password setup if needed
     steps = if user_needs.password_setup, do: steps ++ ["Set Password"], else: steps
@@ -287,9 +286,9 @@ defmodule YscWeb.AccountSetupLive do
   # Dynamically calculates position based on which steps are shown
   defp stepper_active_step(user_needs, current_step) when is_map(user_needs) do
     # Build the step mapping dynamically based on which steps are shown
+    # Email verification (step 0) is not shown in stepper, so we skip it
     {_step_index, step_mapping} =
       {0, %{}}
-      |> add_step_if_needed(Map.get(user_needs, :email_verification, false), 0)
       |> add_step_if_needed(Map.get(user_needs, :password_setup, false), 1)
       |> add_phone_steps_if_needed(user_needs)
 

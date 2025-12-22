@@ -69,11 +69,12 @@ admin_user =
           phone_number: "+14159009009",
           most_connected_country: "SE",
           confirmed_at: DateTime.utc_now(),
+          date_of_birth: ~D[1980-01-15],
           registration_form: %{
             membership_type: "family",
             membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
             occupation: "Administrator",
-            birth_date: "1900-01-01",
+            birth_date: "1980-01-15",
             address: "123 Admin St",
             country: "USA",
             city: "San Francisco",

@@ -431,9 +431,16 @@ defmodule YscWeb.AdminUsersLive do
                       <% nil -> %>
                         <span class="text-sm text-zinc-400">—</span>
                       <% membership_type -> %>
-                        <.badge type="sky">
-                          <%= String.capitalize("#{membership_type}") %>
-                        </.badge>
+                        <div class="flex items-center gap-1">
+                          <.badge type="sky">
+                            <%= String.capitalize("#{membership_type}") %>
+                          </.badge>
+                          <%= if is_membership_inherited?(user) do %>
+                            <.tooltip tooltip_text="Membership inherited from parent account">
+                              <.icon name="hero-users" class="w-4 h-4 text-zinc-500" />
+                            </.tooltip>
+                          <% end %>
+                        </div>
                     <% end %>
                   </div>
                 </div>
@@ -534,9 +541,16 @@ defmodule YscWeb.AdminUsersLive do
                   <% nil -> %>
                     <span class="text-zinc-400">—</span>
                   <% membership_type -> %>
-                    <.badge type="sky">
-                      <%= String.capitalize("#{membership_type}") %>
-                    </.badge>
+                    <div class="flex items-center gap-1">
+                      <.badge type="sky">
+                        <%= String.capitalize("#{membership_type}") %>
+                      </.badge>
+                      <%= if is_membership_inherited?(user) do %>
+                        <.tooltip tooltip_text="Membership inherited from parent account">
+                          <.icon name="hero-users" class="w-4 h-4 text-zinc-500" />
+                        </.tooltip>
+                      <% end %>
+                    </div>
                 <% end %>
               </:col>
               <:action :let={{_, user}} label="Action">
@@ -896,6 +910,36 @@ defmodule YscWeb.AdminUsersLive do
   defp user_state_to_readable(state), do: String.capitalize("#{state}")
 
   defp get_active_membership_type(user) do
+    # If user is a sub-account, check primary user's membership
+    if Accounts.is_sub_account?(user) do
+      # Use preloaded primary_user if available (from our optimized preload),
+      # otherwise use the association or fetch it
+      primary_user =
+        cond do
+          # Check if we set it as a map key in preload_active_subscriptions
+          Map.has_key?(user, :primary_user) && not is_nil(user.primary_user) ->
+            user.primary_user
+
+          # Check if the association is loaded
+          Ecto.assoc_loaded?(user.primary_user) && not is_nil(user.primary_user) ->
+            user.primary_user
+
+          # Otherwise fetch it
+          true ->
+            Accounts.get_primary_user(user)
+        end
+
+      if primary_user do
+        get_active_membership_type_for_user(primary_user)
+      else
+        nil
+      end
+    else
+      get_active_membership_type_for_user(user)
+    end
+  end
+
+  defp get_active_membership_type_for_user(user) do
     # Check for lifetime membership first (highest priority)
     if Accounts.has_lifetime_membership?(user) do
       :lifetime
@@ -927,6 +971,10 @@ defmodule YscWeb.AdminUsersLive do
           get_membership_type_from_subscription(most_expensive)
       end
     end
+  end
+
+  defp is_membership_inherited?(user) do
+    Accounts.is_sub_account?(user) && get_active_membership_type(user) != nil
   end
 
   defp get_most_expensive_subscription(subscriptions) do

@@ -48,6 +48,7 @@ defmodule Ysc.Accounts.User do
     field :first_name, :string, redact: true
     field :last_name, :string, redact: true
     field :phone_number, :string, redact: true
+    field :date_of_birth, :date
 
     has_one :registration_form, SignupApplication
     has_one :billing_address, Address, foreign_key: :user_id
@@ -140,7 +141,8 @@ defmodule Ysc.Accounts.User do
       :phone_number,
       :most_connected_country,
       :board_position,
-      :sms_opt_in
+      :sms_opt_in,
+      :date_of_birth
     ])
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)
@@ -153,6 +155,7 @@ defmodule Ysc.Accounts.User do
       with: &SignupApplication.application_changeset/2,
       opts: opts
     )
+    |> copy_date_of_birth_from_application()
     |> cast_assoc(
       :family_members,
       with: &FamilyMember.family_member_changeset/2,
@@ -181,18 +184,20 @@ defmodule Ysc.Accounts.User do
       :last_name,
       :phone_number,
       :most_connected_country,
-      :sms_opt_in
+      :sms_opt_in,
+      :date_of_birth
     ])
     |> put_change(:primary_user_id, primary_user_id)
     |> put_change(:state, :active)
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)
-    |> validate_required([:first_name, :last_name])
+    |> validate_required([:first_name, :last_name, :date_of_birth])
     |> validate_email(opts)
+    |> set_password_set_at_if_password_provided(opts)
     |> validate_password_optional(opts, require_password)
     |> validate_phone_optional(opts)
     |> set_sms_notifications_from_opt_in(attrs)
-    |> set_password_set_at_if_password_provided(opts)
+    |> validate_date_of_birth()
   end
 
   @spec update_user_changeset(
@@ -215,12 +220,14 @@ defmodule Ysc.Accounts.User do
       :board_position,
       :stripe_id,
       :quickbooks_customer_id,
-      :lifetime_membership_awarded_at
+      :lifetime_membership_awarded_at,
+      :date_of_birth
     ])
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)
     |> validate_required([:first_name, :last_name])
     |> validate_phone(opts)
+    |> validate_date_of_birth()
   end
 
   @doc """
@@ -238,13 +245,15 @@ defmodule Ysc.Accounts.User do
       :board_position,
       :stripe_id,
       :quickbooks_customer_id,
-      :lifetime_membership_awarded_at
+      :lifetime_membership_awarded_at,
+      :date_of_birth
     ])
     |> cast_assoc(:billing_address, with: &Address.changeset/2)
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)
     |> validate_required([:first_name, :last_name])
     |> validate_phone(opts)
+    |> validate_date_of_birth()
   end
 
   def update_user_state_changeset(user, attrs, _opts \\ []) do
@@ -366,10 +375,17 @@ defmodule Ysc.Accounts.User do
   defp set_password_set_at_if_password_provided(changeset, opts) do
     hash_password? = Keyword.get(opts, :hash_password, true)
     password = get_change(changeset, :password)
+    # Also check if hashed_password was set (password was already hashed in a previous step)
+    hashed_password = get_change(changeset, :hashed_password)
 
-    if hash_password? && password && changeset.valid? do
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
-      put_change(changeset, :password_set_at, now)
+    if hash_password? && (password || hashed_password) do
+      # Only set password_set_at if it's not already set
+      if get_field(changeset, :password_set_at) do
+        changeset
+      else
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
+        put_change(changeset, :password_set_at, now)
+      end
     else
       changeset
     end
@@ -525,6 +541,47 @@ defmodule Ysc.Accounts.User do
     user
     |> cast(attrs, [:password_set_at])
     |> validate_required([:password_set_at])
+  end
+
+  defp copy_date_of_birth_from_application(changeset) do
+    # If date_of_birth is not directly set, try to get it from the nested registration_form
+    case get_change(changeset, :date_of_birth) do
+      nil ->
+        # Try to get birth_date from the nested registration_form changeset
+        registration_form_changeset = get_change(changeset, :registration_form)
+
+        case registration_form_changeset do
+          %Ecto.Changeset{changes: %{birth_date: birth_date}} when not is_nil(birth_date) ->
+            put_change(changeset, :date_of_birth, birth_date)
+
+          %Ecto.Changeset{data: %{birth_date: birth_date}} when not is_nil(birth_date) ->
+            put_change(changeset, :date_of_birth, birth_date)
+
+          _ ->
+            changeset
+        end
+
+      _ ->
+        changeset
+    end
+  end
+
+  defp validate_date_of_birth(changeset) do
+    date_of_birth = get_change(changeset, :date_of_birth) || get_field(changeset, :date_of_birth)
+
+    cond do
+      is_nil(date_of_birth) ->
+        changeset
+
+      Date.compare(date_of_birth, ~D[1900-01-01]) == :lt ->
+        add_error(changeset, :date_of_birth, "must be after 1900")
+
+      Date.compare(date_of_birth, Date.utc_today()) == :gt ->
+        add_error(changeset, :date_of_birth, "cannot be in the future")
+
+      true ->
+        changeset
+    end
   end
 
   @doc """

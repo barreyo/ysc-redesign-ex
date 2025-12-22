@@ -113,6 +113,7 @@ defmodule YscWeb.FamilyInviteAcceptanceLive do
             <.input field={@form[:email]} type="email" label="Email" required />
             <.input field={@form[:first_name]} label="First Name" required />
             <.input field={@form[:last_name]} label="Last Name" required />
+            <.input field={@form[:date_of_birth]} type="date" label="Date of Birth" required />
             <.input type="phone-input" label="Phone Number" field={@form[:phone_number]} />
             <.input field={@form[:password]} type="password-toggle" label="Password" required />
             <.input

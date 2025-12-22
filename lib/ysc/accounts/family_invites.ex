@@ -96,13 +96,32 @@ defmodule Ysc.Accounts.FamilyInvites do
               |> FamilyInvite.accept_changeset()
               |> Repo.update!()
 
+              # Mark email as verified (email was verified by primary user when sending invite)
+              # and ensure password_set_at is set if password was provided
+              now = DateTime.utc_now() |> DateTime.truncate(:second)
+              update_attrs = %{email_verified_at: now}
+
+              # Ensure password_set_at is set if password was provided but wasn't set by changeset
+              update_attrs =
+                if is_nil(user.password_set_at) && not is_nil(user.hashed_password) do
+                  Map.put(update_attrs, :password_set_at, now)
+                else
+                  update_attrs
+                end
+
+              # Update user with verification and password_set_at
+              updated_user =
+                user
+                |> Ecto.Changeset.change(update_attrs)
+                |> Repo.update!()
+
               # Copy billing address from primary user
-              copy_billing_address_from_primary(user, invite.primary_user_id)
+              copy_billing_address_from_primary(updated_user, invite.primary_user_id)
 
               # Create UserEvent to track family addition
               %UserEvent{}
               |> UserEvent.new_user_event_changeset(%{
-                user_id: user.id,
+                user_id: updated_user.id,
                 updated_by_user_id: invite.primary_user_id,
                 type: :family_added,
                 from: "none",
@@ -124,10 +143,10 @@ defmodule Ysc.Accounts.FamilyInvites do
                   end
                 end
 
-                Ysc.Customers.create_stripe_customer(user)
+                Ysc.Customers.create_stripe_customer(updated_user)
               end)
 
-              user
+              updated_user
 
             {:error, changeset} ->
               Repo.rollback(changeset)

@@ -59,14 +59,25 @@ defmodule YscWeb.Workers.UserExporter do
       filtered_query =
         if only_subscribed do
           # Include users with:
-          # 1. Active subscriptions (active, trialing, past_due)
-          # 2. Lifetime membership (lifetime_membership_awarded_at is not null)
+          # 1. Active subscriptions (active, trialing, past_due) - their own or inherited
+          # 2. Lifetime membership (lifetime_membership_awarded_at is not null) - their own or from primary user
+          # 3. Sub-accounts whose primary user has active membership
           from(u in User,
             left_join: s in Subscription,
             on: s.user_id == u.id,
+            left_join: pu in User,
+            on: pu.id == u.primary_user_id,
+            left_join: ps in Subscription,
+            on: ps.user_id == pu.id,
+            # User's own active subscription
+            # User's own lifetime membership
+            # Primary user's active subscription (inherited)
+            # Primary user's lifetime membership (inherited)
             where:
               s.stripe_status in ["active", "trialing", "past_due"] or
-                not is_nil(u.lifetime_membership_awarded_at),
+                not is_nil(u.lifetime_membership_awarded_at) or
+                ps.stripe_status in ["active", "trialing", "past_due"] or
+                not is_nil(pu.lifetime_membership_awarded_at),
             distinct: true
           )
         else
@@ -87,8 +98,32 @@ defmodule YscWeb.Workers.UserExporter do
         |> Repo.stream(max_rows: @stream_rows_count)
         |> Stream.map(fn user ->
           # Load subscriptions with subscription_items for this user
+          # Also preload primary_user and their subscriptions if user is a sub-account
           user
           |> Repo.preload(subscriptions: [:subscription_items])
+          |> then(fn user ->
+            if user.primary_user_id do
+              primary_user =
+                case user.primary_user do
+                  %Ecto.Association.NotLoaded{} ->
+                    Accounts.get_user!(user.primary_user_id, [:subscriptions])
+                    |> Repo.preload(subscriptions: [:subscription_items])
+
+                  primary_user when not is_nil(primary_user) ->
+                    # Ensure subscriptions are loaded
+                    primary_user
+                    |> Repo.preload(subscriptions: [:subscription_items])
+
+                  _ ->
+                    Accounts.get_user!(user.primary_user_id, [:subscriptions])
+                    |> Repo.preload(subscriptions: [:subscription_items])
+                end
+
+              %{user | primary_user: primary_user}
+            else
+              user
+            end
+          end)
         end)
         |> Stream.with_index()
         |> Stream.map(fn {entry, index} ->
@@ -134,19 +169,46 @@ defmodule YscWeb.Workers.UserExporter do
     result
     |> Map.put(:membership_type, membership_type)
     |> Map.put(:membership_renewal_date, renewal_date)
+    |> Map.put(:membership_inherited, get_membership_inherited_status(row, membership_type))
+    |> Map.put(:primary_user_email, get_primary_user_email(row))
+    |> Map.put(:primary_user_id, get_primary_user_id(row))
   end
 
   defp get_membership_info(user) do
+    # If user is a sub-account, check primary user's membership
+    user_to_check =
+      if Accounts.is_sub_account?(user) do
+        # Use preloaded primary_user if available
+        primary_user =
+          cond do
+            # Check if we preloaded it in the stream
+            Map.has_key?(user, :primary_user) && not is_nil(user.primary_user) ->
+              user.primary_user
+
+            # Check if the association is loaded
+            Ecto.assoc_loaded?(user.primary_user) && not is_nil(user.primary_user) ->
+              user.primary_user
+
+            # Otherwise fetch it
+            true ->
+              Accounts.get_primary_user(user)
+          end
+
+        primary_user || user
+      else
+        user
+      end
+
     # Check for lifetime membership first
-    if Accounts.has_lifetime_membership?(user) do
+    if Accounts.has_lifetime_membership?(user_to_check) do
       {"Lifetime", "Never"}
     else
       # Use preloaded subscriptions if available, otherwise query
       subscriptions =
-        case user.subscriptions do
+        case user_to_check.subscriptions do
           %Ecto.Association.NotLoaded{} ->
             # Subscriptions not preloaded, fetch them
-            Subscriptions.list_subscriptions(user)
+            Subscriptions.list_subscriptions(user_to_check)
 
           subscriptions when is_list(subscriptions) ->
             # Subscriptions already preloaded
@@ -204,6 +266,62 @@ defmodule YscWeb.Workers.UserExporter do
     datetime
     |> DateTime.shift_zone!("America/Los_Angeles")
     |> Timex.format!("%Y-%m-%d %I:%M %p %Z", :strftime)
+  end
+
+  defp get_membership_inherited_status(user, membership_type) do
+    # Check if user is a sub-account and has inherited membership
+    if Accounts.is_sub_account?(user) do
+      # If they have membership, it's inherited from primary user
+      if membership_type != nil, do: "Yes", else: "No"
+    else
+      "No"
+    end
+  end
+
+  defp get_primary_user_email(user) do
+    # Get primary user email if user is a sub-account
+    if Accounts.is_sub_account?(user) do
+      primary_user = get_primary_user(user)
+
+      if primary_user do
+        primary_user.email
+      else
+        nil
+      end
+    else
+      nil
+    end
+  end
+
+  defp get_primary_user_id(user) do
+    # Get primary user ID if user is a sub-account
+    if Accounts.is_sub_account?(user) do
+      primary_user = get_primary_user(user)
+
+      if primary_user do
+        primary_user.id
+      else
+        nil
+      end
+    else
+      nil
+    end
+  end
+
+  defp get_primary_user(user) do
+    cond do
+      # Check if we preloaded it in the stream
+      Map.has_key?(user, :primary_user) && not is_nil(user.primary_user) ->
+        user.primary_user
+
+      # Check if the association is loaded
+      Ecto.assoc_loaded?(user.primary_user) && not is_nil(user.primary_user) ->
+        user.primary_user
+
+      # Otherwise fetch it
+      true ->
+        Accounts.get_primary_user(user)
+    end
   end
 
   defp await_csv(channel) do

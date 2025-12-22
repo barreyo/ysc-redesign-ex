@@ -132,6 +132,19 @@ defmodule YscWeb.AdminUserDetailsLive do
                   Bank Accounts
                 </.link>
               </li>
+              <li class="me-2">
+                <.link
+                  navigate={~p"/admin/users/#{@user_id}/details/family"}
+                  class={[
+                    "inline-block p-4 border-b-2 rounded-t-lg",
+                    @live_action == :family && "text-blue-600 border-blue-600 active",
+                    @live_action != :family &&
+                      "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
+                  ]}
+                >
+                  Family
+                </.link>
+              </li>
             </ul>
           </div>
         </div>
@@ -156,6 +169,7 @@ defmodule YscWeb.AdminUserDetailsLive do
                 <.input field={@form[:first_name]} label="First Name" />
                 <.input field={@form[:last_name]} label="Last Name" />
               </div>
+              <.input field={@form[:date_of_birth]} type="date" label="Date of Birth" />
               <.input
                 field={@form[:most_connected_country]}
                 label="Most connected Nordic country:"
@@ -1163,6 +1177,121 @@ defmodule YscWeb.AdminUserDetailsLive do
             </div>
           </div>
         </div>
+
+        <div :if={@live_action == :family} class="max-w-full py-8 px-2">
+          <h2 class="text-xl font-semibold text-zinc-800 mb-4">Family Members</h2>
+
+          <div class="space-y-6">
+            <!-- Primary User (Parent Account) -->
+            <div :if={@primary_user} class="border border-zinc-200 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-zinc-800 mb-4">Primary Account</h3>
+              <div class="space-y-3">
+                <.link
+                  navigate={~p"/admin/users/#{@primary_user.id}/details"}
+                  class="block p-4 bg-zinc-50 rounded-lg hover:bg-zinc-100 transition-colors"
+                >
+                  <div class="flex items-center gap-4">
+                    <.user_avatar_image
+                      email={@primary_user.email}
+                      user_id={@primary_user.id}
+                      country={@primary_user.most_connected_country}
+                      class="w-12 h-12 rounded-full"
+                    />
+                    <div class="flex-1">
+                      <div class="font-semibold text-zinc-900">
+                        <%= "#{@primary_user.first_name} #{@primary_user.last_name}" %>
+                      </div>
+                      <div class="text-sm text-zinc-600"><%= @primary_user.email %></div>
+                      <%= if @primary_user.phone_number do %>
+                        <div class="text-sm text-zinc-500">
+                          <%= format_phone_number(@primary_user.phone_number) %>
+                        </div>
+                      <% end %>
+                    </div>
+                    <.badge type={user_state_to_badge_type(@primary_user.state)}>
+                      <%= user_state_to_readable(@primary_user.state) %>
+                    </.badge>
+                  </div>
+                </.link>
+              </div>
+            </div>
+            <!-- Sub Accounts -->
+            <div :if={length(@sub_accounts) > 0} class="border border-zinc-200 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-zinc-800 mb-4">
+                Sub Accounts (<%= length(@sub_accounts) %>)
+              </h3>
+              <div class="space-y-3">
+                <.link
+                  :for={sub_account <- @sub_accounts}
+                  navigate={~p"/admin/users/#{sub_account.id}/details"}
+                  class="block p-4 bg-zinc-50 rounded-lg hover:bg-zinc-100 transition-colors"
+                >
+                  <div class="flex items-center gap-4">
+                    <.user_avatar_image
+                      email={sub_account.email}
+                      user_id={sub_account.id}
+                      country={sub_account.most_connected_country}
+                      class="w-12 h-12 rounded-full"
+                    />
+                    <div class="flex-1">
+                      <div class="font-semibold text-zinc-900">
+                        <%= "#{sub_account.first_name} #{sub_account.last_name}" %>
+                      </div>
+                      <div class="text-sm text-zinc-600"><%= sub_account.email %></div>
+                      <%= if sub_account.phone_number do %>
+                        <div class="text-sm text-zinc-500">
+                          <%= format_phone_number(sub_account.phone_number) %>
+                        </div>
+                      <% end %>
+                    </div>
+                    <.badge type={user_state_to_badge_type(sub_account.state)}>
+                      <%= user_state_to_readable(sub_account.state) %>
+                    </.badge>
+                  </div>
+                </.link>
+              </div>
+            </div>
+            <!-- Family Members (Non-User Entities) -->
+            <div :if={length(@family_members) > 0} class="border border-zinc-200 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-zinc-800 mb-4">
+                Family Members (<%= length(@family_members) %>)
+              </h3>
+              <div class="space-y-3">
+                <div :for={family_member <- @family_members} class="p-4 bg-zinc-50 rounded-lg">
+                  <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span class="text-blue-600 font-semibold text-lg">
+                        <%= String.first(family_member.first_name) %>
+                      </span>
+                    </div>
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2">
+                        <div class="font-semibold text-zinc-900">
+                          <%= "#{family_member.first_name} #{family_member.last_name}" %>
+                        </div>
+                        <.badge type="sky" class="text-xs">
+                          <%= String.capitalize("#{family_member.type}") %>
+                        </.badge>
+                      </div>
+                      <%= if family_member.birth_date do %>
+                        <div class="text-sm text-zinc-600">
+                          Birth date: <%= Calendar.strftime(family_member.birth_date, "%B %d, %Y") %>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Empty State -->
+            <div
+              :if={!@primary_user && length(@sub_accounts) == 0 && length(@family_members) == 0}
+              class="text-center py-12 border border-zinc-200 rounded-lg"
+            >
+              <p class="text-zinc-500">No family members found for this user.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </.side_menu>
     """
@@ -1171,7 +1300,8 @@ defmodule YscWeb.AdminUserDetailsLive do
   def mount(%{"id" => id} = _params, _session, socket) do
     current_user = socket.assigns[:current_user]
 
-    selected_user = Accounts.get_user!(id, [:family_members, :billing_address])
+    selected_user =
+      Accounts.get_user!(id, [:family_members, :billing_address, :primary_user, :sub_accounts])
 
     # Note: We don't pre-create billing_address here. cast_assoc will handle creating new records when billing_address is nil
 
@@ -1266,6 +1396,9 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:unsealed_account_id, nil)
      |> assign(:unsealed_account, nil)
      |> assign(:original_form_data, original_form_data)
+     |> assign(:primary_user, nil)
+     |> assign(:sub_accounts, [])
+     |> assign(:family_members, [])
      |> assign(form: user_form)}
   end
 
@@ -1285,6 +1418,9 @@ defmodule YscWeb.AdminUserDetailsLive do
 
         :bank_accounts ->
           load_bank_accounts(socket, user_id)
+
+        :family ->
+          load_family_data(socket, user_id)
 
         _ ->
           socket
@@ -1685,6 +1821,71 @@ defmodule YscWeb.AdminUserDetailsLive do
     end
   end
 
+  defp load_family_data(socket, user_id) do
+    selected_user = Accounts.get_user!(user_id, [:family_members, :primary_user, :sub_accounts])
+
+    # Get primary user if this is a sub-account
+    primary_user = Accounts.get_primary_user(selected_user)
+
+    # Get sub accounts if this is a primary user (not a sub-account)
+    sub_accounts =
+      if primary_user do
+        # If user is a sub-account, don't show sub_accounts
+        []
+      else
+        # If user is a primary account, get their sub_accounts
+        Accounts.get_sub_accounts(selected_user)
+      end
+
+    # Get family members (non-user entities)
+    # If user is a sub-account, show family_members from the primary user
+    # Otherwise, show family_members from the selected user
+    family_members =
+      if primary_user do
+        # Load primary user with family_members
+        primary_user_with_members = Accounts.get_user!(primary_user.id, [:family_members])
+
+        case primary_user_with_members.family_members do
+          %Ecto.Association.NotLoaded{} -> []
+          members when is_list(members) -> members
+          _ -> []
+        end
+      else
+        # Get family_members from the selected user
+        case selected_user.family_members do
+          %Ecto.Association.NotLoaded{} -> []
+          members when is_list(members) -> members
+          _ -> []
+        end
+      end
+
+    socket
+    |> assign(:primary_user, primary_user)
+    |> assign(:sub_accounts, sub_accounts)
+    |> assign(:family_members, family_members)
+  end
+
+  defp format_phone_number(phone_number) do
+    case ExPhoneNumber.parse(phone_number, "") do
+      {:ok, parsed} ->
+        ExPhoneNumber.format(parsed, :international)
+
+      {:error, _} ->
+        # Return as-is if parsing fails
+        phone_number
+    end
+  end
+
+  defp user_state_to_badge_type(:active), do: "green"
+  defp user_state_to_badge_type(:pending_approval), do: "yellow"
+  defp user_state_to_badge_type(:rejected), do: "red"
+  defp user_state_to_badge_type(:suspended), do: "red"
+  defp user_state_to_badge_type(:deleted), do: "dark"
+  defp user_state_to_badge_type(_), do: "default"
+
+  defp user_state_to_readable(:pending_approval), do: "Pending Approval"
+  defp user_state_to_readable(state), do: String.capitalize("#{state}")
+
   defp parse_datetime(datetime_string) when is_binary(datetime_string) do
     # Parse datetime-local string (assumed to be in America/Los_Angeles timezone)
     # and convert to UTC for storage
@@ -1799,11 +2000,28 @@ defmodule YscWeb.AdminUserDetailsLive do
       end
 
     # Normalize all values to strings for consistent comparison
+    # For date_of_birth, convert Date struct to string if present
+    date_of_birth_value =
+      cond do
+        params["date_of_birth"] ->
+          params["date_of_birth"]
+
+        form[:date_of_birth].value && is_struct(form[:date_of_birth].value, Date) ->
+          Date.to_iso8601(form[:date_of_birth].value)
+
+        form[:date_of_birth].value ->
+          to_string(form[:date_of_birth].value)
+
+        true ->
+          ""
+      end
+
     %{
       "first_name" => to_string(params["first_name"] || form[:first_name].value || ""),
       "last_name" => to_string(params["last_name"] || form[:last_name].value || ""),
       "email" => to_string(params["email"] || form[:email].value || ""),
       "phone_number" => to_string(params["phone_number"] || form[:phone_number].value || ""),
+      "date_of_birth" => date_of_birth_value,
       "most_connected_country" =>
         to_string(params["most_connected_country"] || form[:most_connected_country].value || ""),
       "state" => to_string(params["state"] || form[:state].value || ""),
