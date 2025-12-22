@@ -46,6 +46,8 @@ import YearScrubber from "./year_scrubber";
 import ScrollPreserver from "./scroll_preserver";
 import HeroMode from "./hero_mode";
 import ResendTimer from "./resend_timer";
+import BackToTop from "./back_to_top";
+import HistoryNav from "./history_nav";
 
 let Hooks = {
     StickyNavbar,
@@ -71,6 +73,8 @@ let Hooks = {
     ScrollPreserver,
     HeroMode,
     ResendTimer,
+    BackToTop,
+    HistoryNav,
 };
 Hooks.LivePhone = LivePhone;
 

@@ -34,6 +34,7 @@ defmodule YscWeb.Emails.Notifier do
     "booking_refund_pending" => YscWeb.Emails.BookingRefundPending,
     "volunteer_confirmation" => YscWeb.Emails.VolunteerConfirmation,
     "volunteer_board_notification" => YscWeb.Emails.VolunteerBoardNotification,
+    "contact_form_board_notification" => YscWeb.Emails.ContactFormBoardNotification,
     "outage_notification" => YscWeb.Emails.OutageNotification,
     "membership_payment_failure" => YscWeb.Emails.MembershipPaymentFailure,
     "membership_renewal_success" => YscWeb.Emails.MembershipRenewalSuccess,

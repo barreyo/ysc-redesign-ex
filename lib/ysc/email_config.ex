@@ -64,6 +64,6 @@ defmodule Ysc.EmailConfig do
   Returns the Clear Lake cabin email address.
   """
   def clear_lake_email do
-    Application.get_env(:ysc, :emails)[:clear_lake_email] || "clearlake@ysc.org"
+    Application.get_env(:ysc, :emails)[:clear_lake_email] || "cl@ysc.org.org"
   end
 end

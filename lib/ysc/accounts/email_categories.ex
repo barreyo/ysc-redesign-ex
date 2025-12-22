@@ -28,6 +28,7 @@ defmodule Ysc.Accounts.EmailCategories do
     "admin_application_submitted" => :account,
     "conduct_violation_board_notification" => :account,
     "volunteer_board_notification" => :account,
+    "contact_form_board_notification" => :account,
     "expense_report_treasurer_notification" => :account,
     # Event notifications (can be disabled)
     "ticket_purchase_confirmation" => :account,

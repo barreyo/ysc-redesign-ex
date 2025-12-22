@@ -5,47 +5,234 @@ defmodule YscWeb.VolunteerLive do
   def render(assigns) do
     ~H"""
     <div class="py-8 lg:py-10 max-w-screen-xl mx-auto px-4">
-      <div class="max-w-xl mx-auto lg:mx-0 prose prose-zinc prose-a:text-blue-600 pb-10">
-        <h1>Volunteer with the YSC!</h1>
+      <%!-- Split Header Section --%>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 mb-12">
+        <div class="prose prose-zinc prose-a:text-blue-600">
+          <h1>Volunteer with the YSC!</h1>
+          <p>
+            Want to contribute to a vibrant community and help create memorable experiences for others?
+          </p>
+          <p>
+            The YSC thrives on the dedication of our volunteers. Whether you're passionate about event planning, outdoor adventures, or supporting our members, there's a place for you at the YSC. Join our team and make a lasting impact!
+          </p>
+        </div>
+        <div class="not-prose">
+          <%!-- Placeholder for volunteer photo --%>
+          <div class="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-2xl aspect-video flex items-center justify-center">
+            <div class="text-center relative">
+              <div class="absolute inset-0 flex items-center justify-center">
+                <div class="bg-blue-200 rounded-full blur-3xl opacity-20 transform scale-75 w-32 h-32">
+                </div>
+              </div>
+              <.icon
+                name="hero-user-group"
+                class="w-24 h-24 text-blue-300 mx-auto mb-4 relative z-10"
+              />
+              <p class="text-sm text-blue-400 italic relative z-10">
+                Volunteer community photo placeholder
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        <p>
-          Want to contribute to a vibrant community and help create memorable experiences for others?
-        </p>
-        <p>
-          The YSC thrives on the dedication of our volunteers. Whether you're passionate about event planning, outdoor adventures, or supporting our members, there's a place for you at the YSC. Fill out the form below to join our team and make a lasting impact!
-        </p>
+      <%!-- Form Section --%>
+      <div class="max-w-3xl">
+        <div class="prose prose-zinc prose-a:text-blue-600 mb-8">
+          <h2>Join Our Team</h2>
+          <p>
+            YSC is 100% volunteer-led. Your help keeps our cabins open and our traditions alive!
+          </p>
+        </div>
 
-        <div>
-          <.simple_form for={@form} phx-change="validate" phx-submit="save">
-            <.input field={@form[:name]} label="Name (*)" />
-            <.input field={@form[:email]} label="Email (*)" />
+        <div class="not-prose">
+          <.simple_form for={@form} phx-change="validate" phx-submit="save" id="volunteer-form">
+            <%!-- Name and Email in Two Columns --%>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <.input
+                field={@form[:name]}
+                label="Name (*)"
+                class="focus:ring-2 focus:ring-blue-500/20"
+              />
+              <.input
+                field={@form[:email]}
+                type="email"
+                label="Email (*)"
+                class="focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
 
-            <div>
-              <p class="font-semibold">
+            <%!-- Interest Cards --%>
+            <div class="mb-8">
+              <p class="font-semibold text-zinc-900 mb-4">
                 How would you like to volunteer with the YSC? Select all that apply.
               </p>
 
-              <div class="space-y-1">
-                <.input field={@form[:interest_events]} type="checkbox" label="Events/Parties" />
-                <.input field={@form[:interest_activities]} type="checkbox" label="Activities" />
-                <.input field={@form[:interest_clear_lake]} type="checkbox" label="Clear Lake" />
-                <.input field={@form[:interest_tahoe]} type="checkbox" label="Tahoe" />
-                <.input field={@form[:interest_marketing]} type="checkbox" label="Marketing" />
-                <.input field={@form[:interest_website]} type="checkbox" label="Website" />
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <%!-- Events/Parties --%>
+                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                  <input type="hidden" name={@form[:interest_events].name} value="false" />
+                  <input
+                    type="checkbox"
+                    name={@form[:interest_events].name}
+                    value="true"
+                    checked={
+                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_events].value)
+                    }
+                    class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
+                    phx-debounce="blur"
+                  />
+                  <.icon
+                    name="hero-calendar"
+                    class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
+                  />
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">Events & Parties</span>
+                  <span class="text-xs text-zinc-500">
+                    Help organize banquets and social gatherings.
+                  </span>
+                </label>
+
+                <%!-- Activities --%>
+                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                  <input type="hidden" name={@form[:interest_activities].name} value="false" />
+                  <input
+                    type="checkbox"
+                    name={@form[:interest_activities].name}
+                    value="true"
+                    checked={
+                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_activities].value)
+                    }
+                    class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
+                    phx-debounce="blur"
+                  />
+                  <.icon
+                    name="hero-map"
+                    class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
+                  />
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">Activities</span>
+                  <span class="text-xs text-zinc-500">
+                    Plan outdoor adventures and member activities.
+                  </span>
+                </label>
+
+                <%!-- Clear Lake --%>
+                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-orange-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                  <input type="hidden" name={@form[:interest_clear_lake].name} value="false" />
+                  <input
+                    type="checkbox"
+                    name={@form[:interest_clear_lake].name}
+                    value="true"
+                    checked={
+                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_clear_lake].value)
+                    }
+                    class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
+                    phx-debounce="blur"
+                  />
+                  <.icon
+                    name="hero-home"
+                    class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
+                  />
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">Clear Lake</span>
+                  <span class="text-xs text-zinc-500">
+                    Help maintain and manage our Clear Lake cabin.
+                  </span>
+                </label>
+
+                <%!-- Tahoe --%>
+                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-orange-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                  <input type="hidden" name={@form[:interest_tahoe].name} value="false" />
+                  <input
+                    type="checkbox"
+                    name={@form[:interest_tahoe].name}
+                    value="true"
+                    checked={
+                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_tahoe].value)
+                    }
+                    class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
+                    phx-debounce="blur"
+                  />
+                  <.icon
+                    name="hero-home-modern"
+                    class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
+                  />
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">Tahoe</span>
+                  <span class="text-xs text-zinc-500">
+                    Support our mountain retreat at Lake Tahoe.
+                  </span>
+                </label>
+
+                <%!-- Marketing --%>
+                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-purple-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                  <input type="hidden" name={@form[:interest_marketing].name} value="false" />
+                  <input
+                    type="checkbox"
+                    name={@form[:interest_marketing].name}
+                    value="true"
+                    checked={
+                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_marketing].value)
+                    }
+                    class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
+                    phx-debounce="blur"
+                  />
+                  <.icon
+                    name="hero-megaphone"
+                    class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
+                  />
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">Marketing</span>
+                  <span class="text-xs text-zinc-500">
+                    Help us grow our Instagram and newsletter.
+                  </span>
+                </label>
+
+                <%!-- Website --%>
+                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-purple-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                  <input type="hidden" name={@form[:interest_website].name} value="false" />
+                  <input
+                    type="checkbox"
+                    name={@form[:interest_website].name}
+                    value="true"
+                    checked={
+                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_website].value)
+                    }
+                    class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
+                    phx-debounce="blur"
+                  />
+                  <.icon
+                    name="hero-computer-desktop"
+                    class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
+                  />
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">Website</span>
+                  <span class="text-xs text-zinc-500">Help improve and maintain our website.</span>
+                </label>
               </div>
             </div>
 
-            <div :if={!@logged_in?} class="w-full flex">
+            <div :if={!@logged_in?} class="w-full flex mb-6">
               <Turnstile.widget theme="light" />
             </div>
 
-            <.button :if={!@submitted} type="submit">Submit</.button>
-            <div :if={@submitted} class="flex items-center">
-              <.icon name="hero-check-circle" class="text-green-600 w-6 h-6 -mt-1 me-1" />
-              <span class="text-zinc-600">
-                Submitted! Thank you for your interest in volunteering!
-              </span>
+            <div :if={@submitted} class="mb-6 p-6 bg-green-50 border-2 border-green-200 rounded-xl">
+              <div class="flex items-start gap-4">
+                <.icon name="hero-check-circle" class="text-green-600 w-8 h-8 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p class="text-green-800 font-bold text-lg mb-2">Välkommen!</p>
+                  <p class="text-green-700">
+                    One of our board members will reach out to you within a few days. Thank you for your interest in volunteering with the YSC!
+                  </p>
+                </div>
+              </div>
             </div>
+
+            <:actions>
+              <.button
+                :if={!@submitted}
+                type="submit"
+                class="w-full md:w-auto phx-submit-loading:opacity-75"
+              >
+                <span class="phx-submit-loading:hidden">Submit Application →</span>
+                <span class="hidden phx-submit-loading:inline text-zinc-300">Sending...</span>
+              </.button>
+            </:actions>
           </.simple_form>
         </div>
       </div>

@@ -1,272 +1,832 @@
 <div class="py-8 lg:py-10 max-w-screen-xl mx-auto px-4">
-  <div class="max-w-xl mx-auto lg:mx-0 prose prose-zinc prose-a:text-blue-600 pb-10">
+  <%!-- Hero Section --%>
+  <div id="history-hero" class="mb-16 prose prose-zinc prose-a:text-blue-600 max-w-3xl mx-auto">
+    <div class="not-prose mb-8 text-center">
+      <div class="inline-block px-8 py-4 bg-zinc-50 border-2 border-zinc-200 rounded-2xl">
+        <p class="text-6xl font-bold text-zinc-900 mb-2">Est. 1950</p>
+        <p class="text-lg text-zinc-600">
+          <%= Date.utc_today().year - 1950 %> Years of Scandinavian Community
+        </p>
+      </div>
+    </div>
+
     <h1>YSC History</h1>
 
+    <blockquote class="border-l-4 border-blue-600 pl-6 italic text-zinc-700 my-8">
+      <p class="text-lg leading-relaxed">
+        Established in 1950 by five friends—<strong>Arnold Rolkert</strong>, <strong>Gunnar Engen</strong>, <strong>Carlo Hojsgaard</strong>, <strong>Peter Larsen Bernard</strong>, and <strong>Ulla Lindberg</strong>—the YSC has blossomed into a thriving community for Scandinavian and Scandinavian-American individuals and families.
+      </p>
+    </blockquote>
+
     <p>
-      Imagine a place where you can connect with others who share your passion for Scandinavian traditions, enjoy cozy cabin getaways, and create lifelong memories. That's the Young Scandinavians Club (YSC)! Established in 1950 by five friends—Arnold Rolkert, Gunnar Engen, Carlo Hojsgaard, Peter Larsen Bernard, and Ulla Lindberg—the YSC has blossomed into a thriving community for Scandinavian and Scandinavian-American individuals and families. Whether you're drawn to our cultural celebrations, our scenic cabin retreats at Clear Lake and Lake Tahoe, or simply the joy of connecting with friendly faces, the YSC welcomes you with open arms.
+      Imagine a place where you can connect with others who share your passion for Scandinavian traditions, enjoy cozy cabin getaways, and create lifelong memories. That's the Young Scandinavians Club (YSC)! Whether you're drawn to our cultural celebrations, our scenic cabin retreats at Clear Lake and Lake Tahoe, or simply the joy of connecting with friendly faces, the YSC welcomes you with open arms.
     </p>
+  </div>
 
-    <h2>Key Events</h2>
-
-    <ol class="relative border-s border-zinc-200 not-prose list-none py-2">
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
+  <%!-- Sticky Navigation --%>
+  <div class="hidden lg:block fixed right-8 top-1/2 -translate-y-1/2 z-10 not-prose">
+    <div
+      id="history-nav"
+      class="bg-white border border-zinc-200 rounded-xl shadow-lg p-4"
+      phx-hook="HistoryNav"
+    >
+      <p class="text-xs font-semibold text-zinc-500 uppercase mb-3">Jump to</p>
+      <nav class="space-y-2">
+        <a
+          href="#key-events"
+          data-nav="key-events"
+          class="block text-sm text-blue-600 hover:text-blue-700 hover:underline nav-link transition-colors duration-200"
+        >
+          Key Events
+        </a>
+        <a
+          href="#presidents"
+          data-nav="presidents"
+          class="block text-sm text-blue-600 hover:text-blue-700 hover:underline nav-link transition-colors duration-200"
+        >
+          Presidents
+        </a>
+        <%!-- Decade sub-links --%>
+        <div class="ml-4 mt-2 space-y-1 border-l-2 border-zinc-200 pl-3">
+          <%= for {decade, _} <- Enum.sort_by(
+            @past_presidents
+            |> Enum.group_by(fn {years, _} ->
+              years
+              |> String.split("-")
+              |> List.first()
+              |> String.slice(0, 3)
+              |> Kernel.<>("0s")
+            end),
+            fn {decade, _} -> decade end
+          ) do %>
+            <a
+              href={"#presidents-#{String.replace(decade, "s", "")}"}
+              data-nav={"presidents-#{String.replace(decade, "s", "")}"}
+              class="block text-xs text-zinc-500 hover:text-blue-600 hover:underline nav-link transition-colors duration-200"
+            >
+              <%= decade %>
+            </a>
+          <% end %>
         </div>
-        <time class="mb-1 font-semibold leading-none text-sm text-zinc-500">August 1950</time>
-        <h3 class="text-lg font-semibold text-zinc-900">YSC Founded</h3>
-        <p class="mb-4 text-base font-normal text-zinc-500">
-          On August 19, 1950, Arnold Rolkert gathered a group of friends together including Gunnar Engen, Carlo Hojsgaard, Peter Larsen Bernard, and Ulla Lindberg tto form what they called The Young Scandinavians Club of San Francisco. Thirty members attended the club’s first general meeting the following January, and Arnold became its first president. The name was later changed to simply The Young Scandinavians Club.
-        </p>
-      </li>
+      </nav>
+    </div>
+  </div>
 
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1960</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Incorporated as non-profit</h3>
-        <p class="text-base font-normal text-zinc-500">
-          YSC incorporated as a nonprofit organization; 10th anniversary banquet at Canterbury Hotel (anniversaries celebrated every 5 years since); first ski cabin rented at Lake Tahoe.
-        </p>
-      </li>
+  <%!-- Back to Top Button --%>
+  <button
+    phx-hook="BackToTop"
+    id="back-to-top"
+    class="fixed bottom-8 right-8 z-20 opacity-0 pointer-events-none transition-opacity duration-300 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700"
+    aria-label="Back to top"
+  >
+    <.icon name="hero-arrow-up" class="w-6 h-6" />
+  </button>
 
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1961</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Lisa for President</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Lisa Gille (now Wiborg) begins four-year reign as president. She later serves another year. Started renting current Clear Lake cabin.
-        </p>
-      </li>
+  <%!-- Key Events Timeline --%>
+  <div class="mb-16">
+    <div class="prose prose-zinc prose-a:text-blue-600 mb-12 scroll-mt-24">
+      <h2 id="key-events">Key Events</h2>
+    </div>
 
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1963</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Purchased Clear Lake property</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Clear Lake property acquired for $28,000.00 – $10,000.00 down and $200.00/month for 10 years. 40 members take group flight to Scandinavia.
-        </p>
-      </li>
+    <div class="not-prose relative">
+      <%!-- Vertical Timeline Line --%>
+      <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-0.5 h-full bg-zinc-200">
+      </div>
 
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1964</time>
-        <h3 class="text-lg font-semibold text-zinc-900">
-          Cabin Manager and Activites Director on the board
-        </h3>
-        <p class="text-base font-normal text-zinc-500">
-          Cabin Manager and Activities Director positions elevated to Executive Committee status.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1966</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Improvements to Clear Lake</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Members make major improvements to Clear Lake property, including septic tank, parking area, and leach field.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1967</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Clear Lake bathroom construction</h3>
-        <p class="text-base font-normal text-zinc-500">
-          New bathrooms constructed at Clear Lake cabin. Executive Committee status.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1974</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Clear Lake paid off</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Clear Lake loan paid off. The cabin and it’s 3/4 acre lot is ours.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1976</time>
-        <h3 class="text-lg font-semibold text-zinc-900">New pier</h3>
-        <p class="text-base font-normal text-zinc-500">New pier built at Clear Lake.</p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1980</time>
-        <h3 class="text-lg font-semibold text-zinc-900">New dock</h3>
-        <p class="text-base font-normal text-zinc-500">New floating dock at Clear Lake.</p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1979-1981</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Clear Lake rebuild</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Formed CL Task Force to rebuild cabin. Produced architectural plans and received bids from contractors for 2-story building, cost $135 to $160K. Plans were dropped due to an existing building moratorium and resulting permit problems. It was decided to renovate instead.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1981-1982</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Major Clear Lake renovations</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Major renovations on Clear Lake cabin, with member Inge Sullivan as key contractor. Total cost $80,000. (Plumbing connections for two shower stalls and a toilet were installed in the men’s dressing room)
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1986</time>
-        <h3 class="text-lg font-semibold text-zinc-900">New floating docks</h3>
-        <p class="text-base font-normal text-zinc-500">
-          New floating docks with new steel pilings and sea wall reconstruction at Clear Lake.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1993</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Tahoe Cabin purchase</h3>
-        <p class="text-base font-normal text-zinc-500">Tahoe cabin purchased for $190,000.00.</p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1996-1999</time>
-        <h3 class="text-lg font-semibold text-zinc-900">New Clear Lake ambitions</h3>
-        <p class="text-base font-normal text-zinc-500">
-          A Bathroom Subcommittee was charged with expanding and remodeling the bathrooms at CL. After ten different design schemes construction drawings were submitted for bidding. The plans incorporated a separate new structure complete with handicapped access and resistant to periodic flooding. At a cost of $106,000 it was decided that we might as well build a whole new cabin. Preliminary drawings for a 2-story structure were made for a presentation at our 50th anniversary. The Bathroom Subcommittee was disbanded in 1999.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">1997</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Tahoe Cabin Master on the Board</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Andrew Vik, 24, becomes youngest president in YSC history. Changes made to the bylaws to include Tahoe Cabin Manager on the Executive Committee and the Board of Trustees at six full members (formerly five plus an alternate)
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">2000</time>
-        <h3 class="text-lg font-semibold text-zinc-900">YSC 50th Anniversary</h3>
-        <p class="text-base font-normal text-zinc-500">
-          YSC celebrates it’s 50th anniversary with a grand party at the Sir Francis Drake Hotel. Guest of honor: Arnold Rolkert – the first president, flies in from Sweden and delivers this speech.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">2003</time>
-        <h3 class="text-lg font-semibold text-zinc-900">New ski boat</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Clear Lake – Replaced 21 year old Ski Supreme with a brand new Moomba ski boat.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">2007</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Clear Lake bathroom remodel</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Bathrooms finally remodeled according to 1982 scheme – move wall to add a toilet and a shower from men’s to women’s room, and installing two showers in men’s room using existing plumbing. Purchase new gas stove, an electric double oven and a refrigerator for the pantry.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">2014</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Sauna in Tahoe</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Tahoe Cabin – After a strong fundraising drive by the Tahoe committee, the John Rollings Memorial Sauna is inaugurated in November this year.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">2015</time>
-        <h3 class="text-lg font-semibold text-zinc-900">65th Anniversary</h3>
-        <p class="text-base font-normal text-zinc-500">
-          In September, YSC celebrates its 65th Anniversary with a grand black-tie party at the Maritime Museum in San Francisco.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">2017</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Clear Lake flooded</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Clear Lake – After several dry years with many wildfires around the lake it is finally raining again. The Clear Lake cabin is again flooded with a foot of water on throughout the cabin.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">2019</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Longest serving President</h3>
-        <p class="text-base font-normal text-zinc-500">
-          With six consecutive years, Peter Nordström becomes the longest serving president of the YSC to date.
-        </p>
-      </li>
-
-      <li class="mb-10 ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">2020</time>
-        <h3 class="text-lg font-semibold text-zinc-900">Covid-19 Pandemic</h3>
-        <p class="text-base font-normal text-zinc-500">
-          Due to the COVID-19 pandemic, the YSC, (together with most of the world), has to freeze all operations and close our cabins.
-        </p>
-      </li>
-
-      <li class="ms-1">
-        <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
-        </div>
-        <time class="mb-1 text-sm font-semibold leading-none text-zinc-500">2025</time>
-        <h3 class="text-lg font-semibold text-zinc-900">75 Year Anniversary</h3>
-        <p class="text-base font-normal text-zinc-500">
-          The YSC celebrates its 75th Anniversary with a grand party at the Swedish American Hall in San Francisco.
-        </p>
-      </li>
-    </ol>
-
-    <h2>YSC Presidents</h2>
-
-    <ul class="relative border-s border-zinc-200 not-prose list-none py-2">
-      <%= for {years, president} <- @past_presidents do %>
-        <li class="mb-4 ms-1">
-          <div class="absolute w-3 h-3 bg-zinc-200 rounded-full mt-2.5 -start-1.5 border border-white">
+      <%!-- Timeline Items --%>
+      <div class="space-y-12 lg:space-y-16 pl-8 lg:pl-0">
+        <%!-- 1950 - YSC Founded --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border-l-4 border-blue-600 rounded-r-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <div class="flex items-center gap-3 mb-3 justify-end">
+                <span class="text-2xl font-black text-zinc-300">1950</span>
+                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Club Leadership
+                </span>
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Founding
+                </span>
+              </div>
+              <h3 class="text-xl font-bold text-zinc-900 mb-2">YSC Founded</h3>
+              <p class="text-zinc-600 leading-relaxed">
+                On August 19, 1950, Arnold Rolkert gathered a group of friends together including Gunnar Engen, Carlo Hojsgaard, Peter Larsen Bernard, and Ulla Lindberg to form what they called The Young Scandinavians Club of San Francisco. Thirty members attended the club's first general meeting the following January, and Arnold became its first president.
+              </p>
+            </div>
           </div>
-          <h3 class="text-lg font-semibold text-zinc-900"><%= president %></h3>
-          <p class="text-base font-normal text-zinc-500"><%= years %></p>
-        </li>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8">
+            <%!-- Placeholder for founder photo --%>
+            <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-xl aspect-video flex items-center justify-center">
+              <p class="text-sm text-zinc-400 italic">Founder photo placeholder</p>
+            </div>
+          </div>
+        </div>
+
+        <%!-- 1960 - Incorporated --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Organization
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">1960</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">Incorporated as non-profit</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                YSC incorporated as a nonprofit organization; 10th anniversary banquet at Canterbury Hotel (anniversaries celebrated every 5 years since); first ski cabin rented at Lake Tahoe.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1">
+            <%!-- Placeholder for 10th anniversary photo --%>
+            <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-xl aspect-video flex items-center justify-center">
+              <p class="text-sm text-zinc-400 italic">10th Anniversary photo placeholder</p>
+            </div>
+          </div>
+        </div>
+
+        <%!-- 1961 - Lisa for President --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right ml-0 lg:ml-0">
+            <div class="bg-white border-l-4 border-blue-600 rounded-r-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <div class="flex items-center gap-3 mb-3 justify-end">
+                <span class="text-2xl font-black text-zinc-300">1961</span>
+                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Club Leadership
+                </span>
+              </div>
+              <h3 class="text-xl font-bold text-zinc-900 mb-2">Lisa for President</h3>
+              <p class="text-zinc-600 leading-relaxed">
+                Lisa Gille (now Wiborg) begins four-year reign as president. She later serves another year. Started renting current Clear Lake cabin.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8">
+            <%!-- Stylized icon for empty slot --%>
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl aspect-video flex items-center justify-center">
+              <.icon name="hero-user-group" class="w-24 h-24 text-blue-300" />
+            </div>
+          </div>
+        </div>
+
+        <%!-- 1963 - Purchased Clear Lake --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Real Estate
+                </span>
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">1963</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">
+                Purchased Clear Lake property
+              </h3>
+              <p class="text-base text-zinc-600 leading-relaxed mb-4">
+                Clear Lake property acquired for $28,000.00 – $10,000.00 down and $200.00/month for 10 years. 40 members take group flight to Scandinavia.
+              </p>
+              <%!-- Mini Gallery for Clear Lake --%>
+              <div class="grid grid-cols-2 gap-2 mt-4">
+                <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-lg aspect-square flex items-center justify-center">
+                  <p class="text-xs text-zinc-400 italic">Clear Lake photo</p>
+                </div>
+                <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-lg aspect-square flex items-center justify-center">
+                  <p class="text-xs text-zinc-400 italic">Clear Lake photo</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
+        </div>
+
+        <%!-- 1964 - Cabin Manager on Board --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border-l-4 border-blue-600 rounded-r-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <div class="flex items-center gap-3 mb-3 justify-end">
+                <span class="text-2xl font-black text-zinc-300">1964</span>
+                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Club Leadership
+                </span>
+              </div>
+              <h3 class="text-xl font-bold text-zinc-900 mb-2">
+                Cabin Manager and Activities Director on the board
+              </h3>
+              <p class="text-zinc-600 leading-relaxed">
+                Cabin Manager and Activities Director positions elevated to Executive Committee status.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8">
+            <%!-- Stylized icon for empty slot --%>
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl aspect-video flex items-center justify-center">
+              <.icon name="hero-users" class="w-24 h-24 text-blue-300" />
+            </div>
+          </div>
+        </div>
+
+        <%!-- 1966 - Improvements to Clear Lake --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">1966</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">Improvements to Clear Lake</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                Members make major improvements to Clear Lake property, including septic tank, parking area, and leach field.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
+        </div>
+
+        <%!-- 1967 - Clear Lake bathroom construction --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2 justify-end">
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">1967</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">
+                Clear Lake bathroom construction
+              </h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                New bathrooms constructed at Clear Lake cabin.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8"></div>
+        </div>
+
+        <%!-- 1974 - Clear Lake paid off --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Real Estate
+                </span>
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">1974</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">Clear Lake paid off</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                Clear Lake loan paid off. The cabin and it's 3/4 acre lot is ours.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
+        </div>
+
+        <%!-- 1976 - New pier --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border-l-4 border-green-600 rounded-r-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <div class="flex items-center gap-3 mb-3 justify-end">
+                <span class="text-2xl font-black text-zinc-300">1976</span>
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <h3 class="text-xl font-bold text-zinc-900 mb-2">New pier</h3>
+              <p class="text-zinc-600 leading-relaxed">New pier built at Clear Lake.</p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8">
+            <%!-- Stylized icon for empty slot --%>
+            <div class="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-xl aspect-video flex items-center justify-center">
+              <.icon name="hero-anchor" class="w-24 h-24 text-green-300" />
+            </div>
+          </div>
+        </div>
+
+        <%!-- 1980 - New dock --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border-l-4 border-green-600 rounded-r-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <div class="flex items-center gap-3 mb-3">
+                <span class="text-2xl font-black text-zinc-300">1980</span>
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <h3 class="text-xl font-bold text-zinc-900 mb-2">New dock</h3>
+              <p class="text-zinc-600 leading-relaxed">
+                New floating dock at Clear Lake.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1">
+            <%!-- Stylized icon for empty slot --%>
+            <div class="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-xl aspect-video flex items-center justify-center">
+              <.icon name="hero-lifebuoy" class="w-24 h-24 text-green-300" />
+            </div>
+          </div>
+        </div>
+
+        <%!-- 1979-1981 - Clear Lake rebuild --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2 justify-end">
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">1979-1981</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">Clear Lake rebuild</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                Formed CL Task Force to rebuild cabin. Produced architectural plans and received bids from contractors for 2-story building, cost $135 to $160K. Plans were dropped due to an existing building moratorium and resulting permit problems. It was decided to renovate instead.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8"></div>
+        </div>
+
+        <%!-- 1981-1982 - Major Clear Lake renovations --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">1981-1982</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">
+                Major Clear Lake renovations
+              </h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                Major renovations on Clear Lake cabin, with member Inge Sullivan as key contractor. Total cost $80,000.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
+        </div>
+
+        <%!-- 1986 - New floating docks --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2 justify-end">
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">1986</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">New floating docks</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                New floating docks with new steel pilings and sea wall reconstruction at Clear Lake.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8"></div>
+        </div>
+
+        <%!-- 1993 - Tahoe Cabin purchase --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border-l-4 border-orange-600 rounded-r-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <div class="flex items-center gap-3 mb-3">
+                <span class="text-2xl font-black text-zinc-300">1993</span>
+                <span class="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  #RealEstate
+                </span>
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  #CabinLife
+                </span>
+              </div>
+              <h3 class="text-xl font-bold text-zinc-900 mb-2">Tahoe Cabin purchase</h3>
+              <p class="text-zinc-600 leading-relaxed mb-4">
+                Tahoe cabin purchased for $190,000.00, marking a major milestone in the club's growth.
+              </p>
+              <%!-- Mini Gallery for Tahoe --%>
+              <div class="grid grid-cols-2 gap-2 mt-4">
+                <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-lg aspect-square flex items-center justify-center">
+                  <p class="text-xs text-zinc-400 italic">Tahoe photo</p>
+                </div>
+                <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-lg aspect-square flex items-center justify-center">
+                  <p class="text-xs text-zinc-400 italic">Tahoe photo</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
+        </div>
+
+        <%!-- 1996-1999 - New Clear Lake ambitions --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2 justify-end">
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">1996-1999</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">New Clear Lake ambitions</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                A Bathroom Subcommittee was charged with expanding and remodeling the bathrooms at CL. After ten different design schemes construction drawings were submitted for bidding. The plans incorporated a separate new structure complete with handicapped access and resistant to periodic flooding. At a cost of $106,000 it was decided that we might as well build a whole new cabin. Preliminary drawings for a 2-story structure were made for a presentation at our 50th anniversary. The Bathroom Subcommittee was disbanded in 1999.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8"></div>
+        </div>
+
+        <%!-- 1997 - Tahoe Cabin Master on Board --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                  #ClubLeadership
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">1997</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">
+                Tahoe Cabin Master on the Board
+              </h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                Andrew Vik, 24, becomes youngest president in YSC history. Changes made to the bylaws to include Tahoe Cabin Manager on the Executive Committee and the Board of Trustees at six full members (formerly five plus an alternate).
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
+        </div>
+
+        <%!-- 2000 - YSC 50th Anniversary --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2 justify-end">
+                <span class="text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Anniversary
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">2000</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">YSC 50th Anniversary</h3>
+              <p class="text-base text-zinc-600 leading-relaxed mb-4">
+                YSC celebrates it's 50th anniversary with a grand party at the Sir Francis Drake Hotel. Guest of honor: Arnold Rolkert – the first president, flies in from Sweden and delivers this speech.
+              </p>
+              <%!-- Placeholder for 50th anniversary photo --%>
+              <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-xl aspect-video flex items-center justify-center">
+                <p class="text-sm text-zinc-400 italic">50th Anniversary photo placeholder</p>
+              </div>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8"></div>
+        </div>
+
+        <%!-- 2003 - New ski boat --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">2003</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">New ski boat</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                Clear Lake – Replaced 21 year old Ski Supreme with a brand new Moomba ski boat.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1">
+            <%!-- Stylized icon for empty slot --%>
+            <div class="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-xl aspect-video flex items-center justify-center">
+              <.icon name="hero-sparkles" class="w-24 h-24 text-green-300" />
+            </div>
+          </div>
+        </div>
+
+        <%!-- 2007 - Clear Lake bathroom remodel --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2 justify-end">
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">2007</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">
+                Clear Lake bathroom remodel
+              </h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                Bathrooms finally remodeled according to 1982 scheme – move wall to add a toilet and a shower from men's to women's room, and installing two showers in men's room using existing plumbing. Purchase new gas stove, an electric double oven and a refrigerator for the pantry.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8"></div>
+        </div>
+
+        <%!-- 2014 - Sauna in Tahoe --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">2014</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">Sauna in Tahoe</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                Tahoe Cabin – After a strong fundraising drive by the Tahoe committee, the John Rollings Memorial Sauna is inaugurated in November this year.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
+        </div>
+
+        <%!-- 2015 - 65th Anniversary --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2 justify-end">
+                <span class="text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Anniversary
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">2015</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">65th Anniversary</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                In September, YSC celebrates its 65th Anniversary with a grand black-tie party at the Maritime Museum in San Francisco.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8"></div>
+        </div>
+
+        <%!-- 2017 - Clear Lake flooded --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Cabin Life
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">2017</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">Clear Lake flooded</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                Clear Lake – After several dry years with many wildfires around the lake it is finally raining again. The Clear Lake cabin is again flooded with a foot of water on throughout the cabin.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
+        </div>
+
+        <%!-- 2019 - Longest serving President --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2 justify-end">
+                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                  #ClubLeadership
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">2019</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">Longest serving President</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                With six consecutive years, Peter Nordström becomes the longest serving president of the YSC to date.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8"></div>
+        </div>
+
+        <%!-- 2020 - Covid-19 Pandemic --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Organization
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">2020</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">Covid-19 Pandemic</h3>
+              <p class="text-base text-zinc-600 leading-relaxed">
+                Due to the COVID-19 pandemic, the YSC, (together with most of the world), has to freeze all operations and close our cabins.
+              </p>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
+        </div>
+
+        <%!-- 2025 - 75 Year Anniversary --%>
+        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
+          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
+            <div class="bg-white border-2 border-blue-200 rounded-xl p-6 hover:shadow-md transition-shadow bg-blue-50/30">
+              <div class="flex items-center gap-2 mb-2 justify-end">
+                <span class="text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                  Anniversary
+                </span>
+              </div>
+              <time class="block text-sm font-semibold text-zinc-500 mb-2">2025</time>
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">75 Year Anniversary</h3>
+              <p class="text-base text-zinc-600 leading-relaxed mb-4">
+                The YSC celebrates its 75th Anniversary with a grand party at the Swedish American Hall in San Francisco.
+              </p>
+              <%!-- Placeholder for 75th anniversary photo --%>
+              <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-xl aspect-video flex items-center justify-center">
+                <p class="text-sm text-zinc-400 italic">75th Anniversary photo placeholder</p>
+              </div>
+            </div>
+          </div>
+          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          </div>
+          <div class="lg:w-1/2 lg:pl-8"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%!-- YSC Presidents Grid --%>
+  <div class="mb-16">
+    <div class="prose prose-zinc prose-a:text-blue-600 mb-8 scroll-mt-24">
+      <h2 id="presidents">YSC Presidents</h2>
+    </div>
+
+    <div class="not-prose">
+      <% # Group presidents by decade
+      presidents_by_decade =
+        @past_presidents
+        |> Enum.group_by(fn {years, _} ->
+          years
+          |> String.split("-")
+          |> List.first()
+          |> String.slice(0, 3)
+          |> Kernel.<>("0s")
+        end)
+        |> Enum.sort_by(fn {decade, _} -> decade end) %>
+      <%= for {decade, presidents} <- presidents_by_decade do %>
+        <div class="mb-8 scroll-mt-24" id={"presidents-#{String.replace(decade, "s", "")}"}>
+          <h3 class="text-lg font-bold text-zinc-700 mb-4"><%= decade %></h3>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            <%= for {years, president} <- presidents do %>
+              <% is_founder =
+                String.contains?(president, "Arnold Rolkert") ||
+                  String.contains?(president, "Gunnar Engen") ||
+                  String.contains?(president, "Carlo Hojsgaard")
+
+              is_longest_serving = String.contains?(president, "Peter Nordström")
+              is_youngest = String.contains?(president, "Andrew Vik")
+
+              badge_text =
+                cond do
+                  is_founder -> "Founder"
+                  is_longest_serving -> "Longest Serving"
+                  is_youngest -> "Youngest"
+                  true -> nil
+                end
+
+              badge_color =
+                cond do
+                  is_founder -> "bg-amber-100 text-amber-800 border-amber-300"
+                  is_longest_serving -> "bg-purple-100 text-purple-800 border-purple-300"
+                  is_youngest -> "bg-green-100 text-green-800 border-green-300"
+                  true -> ""
+                end
+
+              is_tbd = String.contains?(president, "TBD") || String.contains?(years, "present")
+
+              card_bg =
+                cond do
+                  is_tbd -> "bg-blue-50/50"
+                  is_founder -> "bg-amber-50"
+                  is_longest_serving -> "bg-purple-50"
+                  is_youngest -> "bg-green-50"
+                  true -> "bg-zinc-50"
+                end
+
+              card_border =
+                cond do
+                  is_tbd -> "border-2 border-dashed border-blue-300"
+                  is_founder -> "border-2 border-amber-300"
+                  is_longest_serving -> "border-2 border-purple-300"
+                  is_youngest -> "border-2 border-green-300"
+                  true -> "border border-zinc-100"
+                end %>
+              <div class={[
+                "p-4 rounded-lg flex flex-col items-center text-center hover:shadow-md transition-shadow",
+                card_bg,
+                card_border
+              ]}>
+                <span class="text-xs font-bold text-blue-600 uppercase mb-2"><%= years %></span>
+                <h4 class="font-bold text-zinc-900 text-sm mb-1 leading-tight">
+                  <%= president %>
+                </h4>
+                <span
+                  :if={badge_text}
+                  class={[
+                    "text-[10px] px-2 py-0.5 rounded-full mt-1 border font-semibold",
+                    badge_color
+                  ]}
+                >
+                  <%= badge_text %>
+                </span>
+                <%= if is_tbd do %>
+                  <.link
+                    navigate={~p"/contact?subject=Board%20of%20Directors"}
+                    class="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                  >
+                    Join Us →
+                  </.link>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
       <% end %>
-    </ul>
+    </div>
+  </div>
+
+  <%!-- Legacy CTA --%>
+  <div class="not-prose">
+    <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-3xl p-12 text-center">
+      <h3 class="text-3xl font-bold text-zinc-900 mb-4">Be Part of Our Next 75 Years</h3>
+      <p class="text-lg text-zinc-700 mb-8 leading-relaxed">
+        Join the YSC today and become part of a vibrant community that celebrates Scandinavian heritage, creates lasting memories, and builds lifelong friendships.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <.link
+          navigate={~p"/users/register"}
+          class="inline-flex items-center justify-center px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Join YSC
+        </.link>
+        <.link
+          navigate={~p"/contact"}
+          class="inline-flex items-center justify-center px-8 py-3 bg-white text-blue-600 font-semibold rounded-lg border-2 border-blue-600 hover:bg-blue-50 transition-colors"
+        >
+          Learn More
+        </.link>
+      </div>
+    </div>
   </div>
 </div>

@@ -25,7 +25,7 @@ This document summarizes the audit and fixes made to ensure the application is p
 - `EMAIL_BOARD` - Board email (defaults to "board@ysc.org")
 - `EMAIL_VOLUNTEER` - Volunteer email (defaults to "volunteer@ysc.org")
 - `EMAIL_TAHOE` - Tahoe cabin email (defaults to "tahoe@ysc.org")
-- `EMAIL_CLEAR_LAKE` - Clear Lake cabin email (defaults to "clearlake@ysc.org")
+- `EMAIL_CLEAR_LAKE` - Clear Lake cabin email (defaults to "cl@ysc.org.org")
 
 ### 2. ✅ Radar API Key
 
@@ -114,7 +114,7 @@ The following hardcoded values are acceptable and don't need to be configurable:
 - `EMAIL_BOARD` - Board email (defaults to "board@ysc.org")
 - `EMAIL_VOLUNTEER` - Volunteer email (defaults to "volunteer@ysc.org")
 - `EMAIL_TAHOE` - Tahoe email (defaults to "tahoe@ysc.org")
-- `EMAIL_CLEAR_LAKE` - Clear Lake email (defaults to "clearlake@ysc.org")
+- `EMAIL_CLEAR_LAKE` - Clear Lake email (defaults to "cl@ysc.org.org")
 - `S3_BUCKET` - S3 bucket name (defaults to "media")
 - `S3_REGION` - AWS region (defaults to "us-west-1")
 - `S3_BASE_URL` - S3 base URL (optional, constructed if not set)

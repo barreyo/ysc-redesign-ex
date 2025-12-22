@@ -11,6 +11,15 @@ html {
     scroll-behavior: smooth;
 }
 
+
+/* Ensure the scroll stops below sticky navbar for history page sections */
+
+#key-events,
+#presidents,
+[id^="presidents-"] {
+    scroll-margin-top: 6rem;
+}
+
 body {
     /* Prevent layout shifts when navbar becomes fixed */
     transition: padding-top 0.1s ease-out;
