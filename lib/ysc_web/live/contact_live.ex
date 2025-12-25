@@ -84,7 +84,7 @@ defmodule YscWeb.ContactLive do
             </a>
 
             <a
-              href="mailto:cl@ysc.org.org"
+              href="mailto:cl@ysc.org"
               class="p-5 border border-zinc-200 rounded-xl hover:bg-zinc-50 hover:border-blue-300 transition-all duration-200"
             >
               <div class="flex items-start gap-3">
@@ -92,7 +92,7 @@ defmodule YscWeb.ContactLive do
                 <div>
                   <h3 class="font-bold text-zinc-900 mb-1">Clear Lake Cabin</h3>
                   <p class="text-sm text-zinc-600">Questions about bookings or stays.</p>
-                  <p class="text-sm text-blue-600 mt-2">cl@ysc.org.org</p>
+                  <p class="text-sm text-blue-600 mt-2">cl@ysc.org</p>
                 </div>
               </div>
             </a>

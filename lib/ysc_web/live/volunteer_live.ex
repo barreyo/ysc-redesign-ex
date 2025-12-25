@@ -70,15 +70,20 @@ defmodule YscWeb.VolunteerLive do
 
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <%!-- Events/Parties --%>
-                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                <label
+                  for={@form[:interest_events].id}
+                  class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
+                >
                   <input type="hidden" name={@form[:interest_events].name} value="false" />
                   <input
                     type="checkbox"
+                    id={@form[:interest_events].id}
                     name={@form[:interest_events].name}
                     value="true"
                     checked={
                       Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_events].value)
                     }
+                    aria-label="Events & Parties: Help organize banquets and social gatherings"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
                     phx-debounce="blur"
                   />
@@ -93,15 +98,20 @@ defmodule YscWeb.VolunteerLive do
                 </label>
 
                 <%!-- Activities --%>
-                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                <label
+                  for={@form[:interest_activities].id}
+                  class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
+                >
                   <input type="hidden" name={@form[:interest_activities].name} value="false" />
                   <input
                     type="checkbox"
+                    id={@form[:interest_activities].id}
                     name={@form[:interest_activities].name}
                     value="true"
                     checked={
                       Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_activities].value)
                     }
+                    aria-label="Activities: Plan outdoor adventures and member activities"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
                     phx-debounce="blur"
                   />
@@ -116,15 +126,20 @@ defmodule YscWeb.VolunteerLive do
                 </label>
 
                 <%!-- Clear Lake --%>
-                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-orange-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                <label
+                  for={@form[:interest_clear_lake].id}
+                  class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-orange-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
+                >
                   <input type="hidden" name={@form[:interest_clear_lake].name} value="false" />
                   <input
                     type="checkbox"
+                    id={@form[:interest_clear_lake].id}
                     name={@form[:interest_clear_lake].name}
                     value="true"
                     checked={
                       Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_clear_lake].value)
                     }
+                    aria-label="Clear Lake: Help maintain and manage our Clear Lake cabin"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
                     phx-debounce="blur"
                   />
@@ -139,15 +154,20 @@ defmodule YscWeb.VolunteerLive do
                 </label>
 
                 <%!-- Tahoe --%>
-                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-orange-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                <label
+                  for={@form[:interest_tahoe].id}
+                  class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-orange-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
+                >
                   <input type="hidden" name={@form[:interest_tahoe].name} value="false" />
                   <input
                     type="checkbox"
+                    id={@form[:interest_tahoe].id}
                     name={@form[:interest_tahoe].name}
                     value="true"
                     checked={
                       Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_tahoe].value)
                     }
+                    aria-label="Tahoe: Support our mountain retreat at Lake Tahoe"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
                     phx-debounce="blur"
                   />
@@ -162,15 +182,20 @@ defmodule YscWeb.VolunteerLive do
                 </label>
 
                 <%!-- Marketing --%>
-                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-purple-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                <label
+                  for={@form[:interest_marketing].id}
+                  class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-purple-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
+                >
                   <input type="hidden" name={@form[:interest_marketing].name} value="false" />
                   <input
                     type="checkbox"
+                    id={@form[:interest_marketing].id}
                     name={@form[:interest_marketing].name}
                     value="true"
                     checked={
                       Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_marketing].value)
                     }
+                    aria-label="Marketing: Help us grow our Instagram and newsletter"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
                     phx-debounce="blur"
                   />
@@ -185,15 +210,20 @@ defmodule YscWeb.VolunteerLive do
                 </label>
 
                 <%!-- Website --%>
-                <label class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-purple-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group">
+                <label
+                  for={@form[:interest_website].id}
+                  class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-purple-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
+                >
                   <input type="hidden" name={@form[:interest_website].name} value="false" />
                   <input
                     type="checkbox"
+                    id={@form[:interest_website].id}
                     name={@form[:interest_website].name}
                     value="true"
                     checked={
                       Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_website].value)
                     }
+                    aria-label="Website: Help improve and maintain our website"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
                     phx-debounce="blur"
                   />

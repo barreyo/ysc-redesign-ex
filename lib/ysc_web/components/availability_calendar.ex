@@ -471,23 +471,50 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
               !morning_blocked && !afternoon_blocked ->
                 # Fully available
-                "bg-green-50 text-zinc-900 border border-green-200 hover:bg-green-100"
+                # For Clear Lake day bookings, add spot-based background color
+                spot_bg_class = get_clear_lake_spot_background(day, assigns)
+
+                if spot_bg_class do
+                  "#{spot_bg_class} text-zinc-900 border border-green-200 hover:opacity-80"
+                else
+                  "bg-green-50 text-zinc-900 border border-green-200 hover:bg-green-100"
+                end
 
               morning_blocked && !afternoon_blocked ->
                 # Check-out day (Blocked -> Available)
+                spot_bg_class = get_clear_lake_spot_background(day, assigns)
+
                 case morning_style do
                   :gray ->
-                    # If yesterday was gray (past/scope), and today is available, just show green
-                    "bg-green-50 text-zinc-900 border border-green-200 hover:bg-green-100"
+                    # If yesterday was gray (past/scope), and today is available, use spot-based or green
+                    bg_class = if spot_bg_class, do: spot_bg_class, else: "bg-green-50"
+                    "#{bg_class} text-zinc-900 border border-green-200 hover:opacity-80"
 
                   :blackout ->
-                    "bg-gradient-to-r from-red-800 to-green-50 text-zinc-900 border border-zinc-300"
+                    if spot_bg_class == "bg-amber-50" do
+                      "bg-gradient-to-r from-red-800 to-amber-50 text-zinc-900 border border-zinc-300"
+                    else
+                      if spot_bg_class == "bg-teal-50" do
+                        "bg-gradient-to-r from-red-800 to-teal-50 text-zinc-900 border border-zinc-300"
+                      else
+                        "bg-gradient-to-r from-red-800 to-green-50 text-zinc-900 border border-zinc-300"
+                      end
+                    end
 
                   :booked ->
-                    "bg-gradient-to-r from-red-200 to-green-50 text-zinc-900 border border-zinc-300"
+                    if spot_bg_class == "bg-amber-50" do
+                      "bg-gradient-to-r from-red-200 to-amber-50 text-zinc-900 border border-zinc-300"
+                    else
+                      if spot_bg_class == "bg-teal-50" do
+                        "bg-gradient-to-r from-red-200 to-teal-50 text-zinc-900 border border-zinc-300"
+                      else
+                        "bg-gradient-to-r from-red-200 to-green-50 text-zinc-900 border border-zinc-300"
+                      end
+                    end
 
                   _ ->
-                    "bg-green-50 text-zinc-900 border border-green-200 hover:bg-green-100"
+                    bg_class = if spot_bg_class, do: spot_bg_class, else: "bg-green-50"
+                    "#{bg_class} text-zinc-900 border border-green-200 hover:opacity-80"
                 end
 
               !morning_blocked && afternoon_blocked ->
@@ -842,6 +869,65 @@ defmodule YscWeb.Components.AvailabilityCalendar do
   defp availability_display(day, mode, availability, assigns) do
     info = Map.get(availability, day)
 
+    # For Clear Lake day bookings, render visual indicator
+    if assigns[:property] == :clear_lake && mode == :day && info && info.spots_available do
+      render_clear_lake_spots_html(day, info, assigns)
+    else
+      availability_display_text(day, mode, availability, assigns)
+    end
+  end
+
+  defp render_clear_lake_spots_html(_day, info, _assigns) do
+    spots_available = info.spots_available
+    max_spots = 12
+    spots_taken = max_spots - spots_available
+
+    visual_state =
+      cond do
+        spots_available == 0 -> :full
+        spots_available <= 3 -> :high_occupancy
+        spots_available <= 6 -> :medium_occupancy
+        true -> :low_occupancy
+      end
+
+    dots_html =
+      for i <- 1..12 do
+        dot_class =
+          if i <= spots_taken do
+            if visual_state == :full, do: "bg-red-500", else: "bg-amber-400"
+          else
+            "bg-teal-200"
+          end
+
+        "<div class=\"w-1 h-1 rounded-full #{dot_class}\"></div>"
+      end
+      |> Enum.join("")
+
+    text_class =
+      case visual_state do
+        :full -> "text-red-600"
+        :high_occupancy -> "text-amber-600"
+        _ -> "text-zinc-600"
+      end
+
+    spots_text = if spots_available != 1, do: "spots", else: "spot"
+
+    """
+    <div class="flex flex-col items-center gap-1">
+      <div class="flex flex-wrap justify-center gap-0.5 max-w-[60px]">
+        #{dots_html}
+      </div>
+      <span class="text-[10px] font-medium whitespace-nowrap #{text_class}">
+        #{spots_available} #{spots_text}
+      </span>
+    </div>
+    """
+    |> Phoenix.HTML.raw()
+  end
+
+  defp availability_display_text(day, mode, availability, assigns) do
+    info = Map.get(availability, day)
+
     if info do
       # Check if this is a valid checkout date in the current context
       is_valid_checkout =
@@ -883,6 +969,42 @@ defmodule YscWeb.Components.AvailabilityCalendar do
       end
     else
       ""
+    end
+  end
+
+  defp get_clear_lake_spot_background(day, assigns) do
+    # Only apply spot-based background for Clear Lake day bookings
+    if assigns[:property] == :clear_lake && assigns[:selected_booking_mode] == :day do
+      info = Map.get(assigns.availability, day)
+
+      if info && info.spots_available do
+        spots_available = info.spots_available
+
+        cond do
+          # Fully booked
+          spots_available == 0 ->
+            nil
+
+          # Let the existing unavailable styling handle this
+
+          # Low availability (1-3 spots)
+          spots_available >= 1 && spots_available <= 3 ->
+            "bg-amber-50"
+
+          # High availability (9-12 spots)
+          spots_available >= 9 && spots_available <= 12 ->
+            "bg-teal-50"
+
+          # Medium availability (4-8 spots) - use default green
+          true ->
+            nil
+            # Use default green-50 background
+        end
+      else
+        nil
+      end
+    else
+      nil
     end
   end
 

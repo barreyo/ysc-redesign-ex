@@ -792,7 +792,7 @@ defmodule YscWeb.HomeLive do
             <div :if={!Enum.empty?(@future_bookings)} class="space-y-4">
               <%= for booking <- @future_bookings do %>
                 <.link
-                  navigate={~p"/bookings/#{booking.id}"}
+                  navigate={~p"/bookings/#{booking.id}/receipt"}
                   class="block p-4 rounded border border-zinc-200 hover:border-blue-300 hover:shadow-md transition-all group"
                 >
                   <div class="flex items-start justify-between mb-3">

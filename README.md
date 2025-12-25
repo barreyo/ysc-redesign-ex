@@ -220,7 +220,7 @@ You can get these from your [Stripe Dashboard](https://dashboard.stripe.com/apik
 - `EMAIL_BOARD` - Board email address (defaults to "board@ysc.org")
 - `EMAIL_VOLUNTEER` - Volunteer email address (defaults to "volunteer@ysc.org")
 - `EMAIL_TAHOE` - Tahoe cabin email address (defaults to "tahoe@ysc.org")
-- `EMAIL_CLEAR_LAKE` - Clear Lake cabin email address (defaults to "cl@ysc.org.org")
+- `EMAIL_CLEAR_LAKE` - Clear Lake cabin email address (defaults to "cl@ysc.org")
 
 ### Setting Environment Variables
 

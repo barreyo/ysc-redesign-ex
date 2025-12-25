@@ -37,6 +37,7 @@ import Turnstile from "./phoenix_turnstile";
 import StripeInput from "./stripe_payment";
 import StripeElements from "./stripe_elements";
 import CheckoutTimer from "./checkout_timer";
+import HoldCountdown from "./hold_countdown";
 import PanelResizer from "./panel_resizer";
 import EmailPreview from "./email_preview";
 import AdminSearch from "./admin_search";
@@ -48,6 +49,8 @@ import HeroMode from "./hero_mode";
 import ResendTimer from "./resend_timer";
 import BackToTop from "./back_to_top";
 import HistoryNav from "./history_nav";
+import InfoNav from "./info_nav";
+import Confetti from "./confetti";
 
 let Hooks = {
     StickyNavbar,
@@ -64,6 +67,7 @@ let Hooks = {
     StripeInput,
     StripeElements,
     CheckoutTimer,
+    HoldCountdown,
     PanelResizer,
     EmailPreview,
     AdminSearch,
@@ -75,6 +79,8 @@ let Hooks = {
     ResendTimer,
     BackToTop,
     HistoryNav,
+    InfoNav,
+    Confetti,
 };
 Hooks.LivePhone = LivePhone;
 

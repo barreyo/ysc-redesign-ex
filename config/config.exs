@@ -137,7 +137,7 @@ config :ysc, :emails,
   board_email: System.get_env("EMAIL_BOARD", "board@ysc.org"),
   volunteer_email: System.get_env("EMAIL_VOLUNTEER", "volunteer@ysc.org"),
   tahoe_email: System.get_env("EMAIL_TAHOE", "tahoe@ysc.org"),
-  clear_lake_email: System.get_env("EMAIL_CLEAR_LAKE", "cl@ysc.org.org")
+  clear_lake_email: System.get_env("EMAIL_CLEAR_LAKE", "cl@ysc.org")
 
 # Removed Bling configuration - using internal subscription management
 

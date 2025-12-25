@@ -461,7 +461,7 @@ defmodule YscWeb.AdminUserDetailsLive do
               </:col>
               <:action :let={{_, booking}} label="Action">
                 <.link
-                  navigate={~p"/bookings/#{booking.id}"}
+                  navigate={~p"/admin/bookings/#{booking.id}"}
                   class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
                 >
                   View

@@ -124,245 +124,215 @@ defmodule YscWeb.BookingCheckoutLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="py-8 lg:py-10 max-w-screen-lg mx-auto px-4">
-      <div class="max-w-xl mx-auto">
-        <div class="prose prose-zinc mb-6">
-          <h1>Complete Your Booking</h1>
-          <p>Review your booking details and complete payment</p>
-        </div>
+    <div class="py-8 lg:py-10 max-w-screen-xl mx-auto px-4">
+      <div class="prose prose-zinc mb-8">
+        <h1>Complete Your Booking</h1>
+      </div>
 
-        <div class="space-y-6">
-          <!-- Booking Summary -->
-          <div>
-            <div class="bg-white rounded-lg border border-zinc-200 p-6">
-              <h2 class="text-xl font-semibold text-zinc-900 mb-4">Booking Summary</h2>
-
-              <div class="space-y-4">
-                <div>
-                  <div class="text-sm text-zinc-600">Property</div>
-                  <div class="font-medium text-zinc-900">
-                    <%= String.capitalize(Atom.to_string(@booking.property)) %>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="text-sm text-zinc-600">Check-in</div>
-                  <div class="font-medium text-zinc-900">
-                    <%= format_date(@booking.checkin_date, @timezone) %>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="text-sm text-zinc-600">Check-out</div>
-                  <div class="font-medium text-zinc-900">
-                    <%= format_date(@booking.checkout_date, @timezone) %>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="text-sm text-zinc-600">Nights</div>
-                  <div class="font-medium text-zinc-900">
-                    <%= Date.diff(@booking.checkout_date, @booking.checkin_date) %>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="text-sm text-zinc-600">Guests</div>
-                  <div class="font-medium text-zinc-900"><%= @booking.guests_count %></div>
-                </div>
-
-                <div>
-                  <div class="text-sm text-zinc-600">Booking Mode</div>
-                  <div class="font-medium text-zinc-900">
-                    <%= if @booking.booking_mode == :buyout do %>
-                      Full Buyout
-                    <% else %>
-                      Per Guest
-                    <% end %>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="text-sm text-zinc-600">Reference</div>
-                  <div class="font-mono text-sm text-zinc-900"><%= @booking.reference_id %></div>
-                </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        <!-- Left Column: Booking Summary and Payment -->
+        <div class="lg:col-span-2 space-y-6">
+          <!-- Visual Booking Summary -->
+          <div class="flex items-center gap-6 p-6 bg-zinc-50 rounded-lg border border-zinc-200">
+            <div class="h-20 w-20 bg-zinc-200 rounded-lg overflow-hidden flex-shrink-0">
+              <img
+                src={get_property_thumbnail(@booking.property)}
+                alt={atom_to_readable(@booking.property) <> " Cabin"}
+                class="object-cover h-full w-full"
+              />
+            </div>
+            <div class="flex-1">
+              <h2 class="text-2xl font-bold text-zinc-900">
+                <%= atom_to_readable(@booking.property) %> Cabin
+              </h2>
+              <p class="text-zinc-500 mt-1">
+                <%= format_date_short(@booking.checkin_date, @timezone) %> — <%= format_date_short(
+                  @booking.checkout_date,
+                  @timezone
+                ) %>, <%= Calendar.strftime(@booking.checkout_date, "%Y") %> (<%= Date.diff(
+                  @booking.checkout_date,
+                  @booking.checkin_date
+                ) %> <%= if Date.diff(
+                              @booking.checkout_date,
+                              @booking.checkin_date
+                            ) == 1,
+                            do: "night",
+                            else: "nights" %>)
+              </p>
+              <div class="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                <span class="text-zinc-600">
+                  <%= @booking.guests_count %> <%= if @booking.guests_count == 1,
+                    do: "adult",
+                    else: "adults" %>
+                  <%= if @booking.children_count && @booking.children_count > 0 do %>
+                    , <%= @booking.children_count %> <%= if @booking.children_count == 1,
+                      do: "child",
+                      else: "children" %>
+                  <% end %>
+                </span>
+                <%= if @booking.booking_mode == :room && Ecto.assoc_loaded?(@booking.rooms) &&
+                      length(@booking.rooms) > 0 do %>
+                  <span class="text-zinc-400">•</span>
+                  <span class="text-zinc-600">
+                    <%= Enum.map(@booking.rooms, & &1.name) |> Enum.join(", ") %>
+                  </span>
+                <% end %>
               </div>
             </div>
           </div>
           <!-- Payment Section -->
-          <div>
-            <div class="bg-white rounded-lg border border-zinc-200 p-6">
-              <h2 class="text-xl font-semibold text-zinc-900 mb-4">Payment</h2>
-              <!-- Price Breakdown -->
-              <div class="space-y-3 mb-6">
-                <%= if @price_breakdown do %>
-                  <%= render_price_breakdown(assigns) %>
-                <% end %>
-
-                <div class="border-t border-zinc-200 pt-3">
-                  <div class="flex justify-between items-center">
-                    <span class="text-lg font-semibold text-zinc-900">Total</span>
-                    <span class="text-2xl font-bold text-zinc-900">
-                      <%= MoneyHelper.format_money!(@total_price) %>
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <!-- Payment Error -->
-              <div :if={@payment_error} class="mb-4 p-3 bg-red-50 border border-red-200 rounded">
-                <p class="text-sm text-red-800"><%= @payment_error %></p>
-              </div>
-              <!-- Payment Form -->
-              <div :if={@show_payment_form && @payment_intent && !@is_expired}>
-                <div
-                  id="stripe-payment-container"
-                  phx-hook="StripeElements"
-                  data-client-secret={@payment_intent.client_secret}
-                  data-booking-id={@booking.id}
-                >
-                  <div id="payment-element">
-                    <!-- Stripe Elements will mount here -->
-                  </div>
-                  <div id="payment-message" class="hidden mt-4"></div>
-                </div>
-
-                <div class="flex gap-3 mt-4">
-                  <button
-                    id="submit-payment"
-                    type="button"
-                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={@is_expired}
-                  >
-                    Pay <%= MoneyHelper.format_money!(@total_price) %>
-                  </button>
-                  <button
-                    type="button"
-                    phx-click="cancel-booking"
-                    phx-confirm="Are you sure you want to cancel this booking? The availability will be released immediately."
-                    class="px-6 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 font-semibold py-3 rounded-lg transition duration-200"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-              <!-- Expired Booking Message -->
+          <div class="bg-white rounded-lg border border-zinc-200 p-8 shadow-sm">
+            <h2 class="text-xl font-bold mb-6">Secure Payment</h2>
+            <!-- Payment Error -->
+            <div :if={@payment_error} class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p class="text-sm text-red-800"><%= @payment_error %></p>
+            </div>
+            <!-- Payment Form -->
+            <div :if={@show_payment_form && @payment_intent && !@is_expired}>
               <div
-                :if={assigns[:is_expired] && @is_expired}
-                class="mt-4 p-4 bg-red-50 border border-red-200 rounded"
+                id="stripe-payment-container"
+                phx-hook="StripeElements"
+                data-client-secret={@payment_intent.client_secret}
+                data-booking-id={@booking.id}
               >
-                <p class="text-sm font-semibold text-red-800 mb-2">Booking Expired</p>
-                <p class="text-sm text-red-700">
-                  This booking has expired and is no longer available for payment. Please create a new booking.
-                </p>
-                <a
-                  href={get_property_redirect_path(@booking.property)}
-                  class="mt-3 inline-block text-sm font-medium text-red-800 hover:text-red-900 underline"
+                <div id="payment-element" class="mb-6">
+                  <!-- Stripe Elements will mount here -->
+                </div>
+                <div id="payment-message" class="hidden mt-4"></div>
+              </div>
+
+              <div class="flex flex-col sm:flex-row gap-4 pt-6 border-t border-zinc-100">
+                <button
+                  id="submit-payment"
+                  type="button"
+                  class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all shadow-lg shadow-blue-100 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
+                  disabled={@is_expired}
                 >
-                  Create New Booking →
-                </a>
+                  <.icon name="hero-lock-closed" class="w-5 h-5" />
+                  <span>Pay <%= MoneyHelper.format_money!(@total_price) %> Securely</span>
+                </button>
+                <button
+                  type="button"
+                  phx-click="cancel-booking"
+                  phx-confirm="Are you sure you want to cancel this booking? The availability will be released immediately."
+                  class="px-8 py-4 text-zinc-500 font-semibold hover:text-red-600 transition-colors"
+                >
+                  Cancel
+                </button>
               </div>
-              <!-- Hold Expiry Warning -->
-              <div
-                :if={@booking.hold_expires_at && (!assigns[:is_expired] || !@is_expired)}
-                class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded"
+
+              <div class="mt-6 flex items-center justify-center gap-2 text-zinc-400">
+                <.icon name="hero-lock-closed" class="w-4 h-4" />
+                <span class="text-xs uppercase tracking-widest font-semibold">
+                  Encrypted & Secure
+                </span>
+              </div>
+            </div>
+            <!-- Expired Booking Message -->
+            <div
+              :if={assigns[:is_expired] && @is_expired}
+              class="p-6 bg-red-50 border border-red-200 rounded-lg"
+            >
+              <p class="text-sm font-semibold text-red-800 mb-2">Booking Expired</p>
+              <p class="text-sm text-red-700 mb-4">
+                This booking has expired and is no longer available for payment. Please create a new booking.
+              </p>
+              <a
+                href={get_property_redirect_path(@booking.property)}
+                class="inline-block text-sm font-medium text-red-800 hover:text-red-900 underline"
               >
-                <p class="text-xs text-yellow-800">
-                  Your booking will be held until <%= format_datetime(
-                    @booking.hold_expires_at,
-                    @timezone
-                  ) %>.
-                  Please complete payment before then.
-                </p>
-              </div>
+                Create New Booking →
+              </a>
             </div>
           </div>
         </div>
+        <!-- Right Column: Countdown Timer and Price Details -->
+        <aside class="space-y-6 lg:sticky lg:top-24">
+          <!-- Hold Expiry Countdown -->
+          <div
+            :if={@booking.hold_expires_at && (!assigns[:is_expired] || !@is_expired)}
+            class="bg-amber-50 border border-amber-200 rounded-lg p-6"
+          >
+            <div class="flex items-center gap-3 text-amber-800 mb-2">
+              <.icon name="hero-clock" class="w-5 h-5 animate-pulse" />
+              <span class="font-bold">Hold Expires</span>
+            </div>
+            <p class="text-sm text-amber-700 leading-relaxed">
+              We've reserved your rooms! Complete payment within
+              <span
+                class="font-bold tabular-nums"
+                id="hold-countdown"
+                phx-hook="HoldCountdown"
+                data-expires-at={DateTime.to_iso8601(@booking.hold_expires_at)}
+                data-timezone={@timezone}
+              >
+                <%= calculate_remaining_time(@booking.hold_expires_at) %>
+              </span>
+              before they are released.
+            </p>
+          </div>
+          <!-- Price Details -->
+          <div class="bg-zinc-900 text-white rounded-lg p-6 shadow-xl">
+            <h3 class="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4">
+              Price Details
+            </h3>
+            <div class="space-y-3">
+              <%= if @price_breakdown do %>
+                <%= render_price_breakdown_sidebar(assigns) %>
+              <% end %>
+              <div class="pt-4 border-t border-zinc-700 flex justify-between items-baseline">
+                <span class="text-lg font-bold">Total</span>
+                <span class="text-3xl font-black text-blue-400">
+                  <%= MoneyHelper.format_money!(@total_price) %>
+                </span>
+              </div>
+            </div>
+          </div>
+          <!-- What Happens Next -->
+          <div class="bg-white rounded-lg border border-zinc-200 p-6">
+            <h3 class="text-lg font-bold text-zinc-900 mb-4">What Happens Next?</h3>
+            <ol class="space-y-3 text-sm text-zinc-600">
+              <li class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs">
+                  1
+                </span>
+                <span>Complete your secure payment above</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs">
+                  2
+                </span>
+                <span>Receive instant confirmation email with booking details</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs">
+                  3
+                </span>
+                <span>
+                  Get cabin access information (door code or key instructions) via email before check-in
+                </span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs">
+                  4
+                </span>
+                <span>Access your booking details and manage your reservation anytime</span>
+              </li>
+            </ol>
+          </div>
+          <!-- Booking Reference (Help Section) -->
+          <div class="bg-zinc-50 rounded-lg border border-zinc-200 p-6">
+            <h3 class="text-sm font-semibold text-zinc-900 mb-2">Booking Reference</h3>
+            <div class="inline-flex items-center px-3 py-1.5 bg-white border border-zinc-300 rounded-lg font-mono text-sm font-semibold text-zinc-900">
+              <%= @booking.reference_id %>
+            </div>
+            <p class="mt-2 text-xs text-zinc-500">
+              Save this reference number for your records. You'll also receive it via email.
+            </p>
+          </div>
+        </aside>
       </div>
     </div>
-    """
-  end
-
-  defp render_price_breakdown(assigns) do
-    ~H"""
-    <%= if @booking.booking_mode == :day do %>
-      <%= if @price_breakdown[:nights] && @price_breakdown[:guests_count] do %>
-        <div class="flex justify-between text-sm">
-          <span class="text-zinc-600">
-            <%= @price_breakdown.guests_count %> guest(s) × <%= @price_breakdown.nights %> night(s)
-          </span>
-          <span class="text-zinc-900">
-            <%= if @price_breakdown[:price_per_guest_per_night] do %>
-              @ <%= MoneyHelper.format_money!(@price_breakdown.price_per_guest_per_night) %>/guest/night
-            <% end %>
-          </span>
-        </div>
-      <% end %>
-    <% end %>
-    <%= if @booking.booking_mode == :buyout do %>
-      <%= if @price_breakdown[:nights] do %>
-        <div class="flex justify-between text-sm">
-          <span class="text-zinc-600">
-            <%= @price_breakdown.nights %> night(s)
-          </span>
-          <span class="text-zinc-900">
-            <%= if @price_breakdown[:price_per_night] do %>
-              @ <%= MoneyHelper.format_money!(@price_breakdown.price_per_night) %>/night
-            <% end %>
-          </span>
-        </div>
-      <% end %>
-    <% end %>
-    <%= if @booking.booking_mode == :room do %>
-      <%= if @price_breakdown[:multi_room] && @price_breakdown[:rooms] do %>
-        <!-- Multiple rooms -->
-        <%= for room_item <- @price_breakdown.rooms do %>
-          <div class="flex justify-between text-sm mb-2">
-            <span class="text-zinc-600">
-              <%= if room_item["room_name"] do %>
-                <%= room_item["room_name"] %>:
-              <% end %>
-              <%= @price_breakdown.nights %> night(s)
-              <%= if @price_breakdown[:guests_count] do %>
-                × <%= @price_breakdown.guests_count %> guest(s)
-              <% end %>
-              <%= if @price_breakdown[:children_count] && @price_breakdown.children_count > 0 do %>
-                × <%= @price_breakdown.children_count %> child(ren)
-              <% end %>
-            </span>
-            <span class="text-zinc-900">
-              <%= if room_item["total"] do %>
-                <%= MoneyHelper.format_money!(
-                  Money.new(room_item["total"]["currency"], room_item["total"]["amount"])
-                ) %>
-              <% end %>
-            </span>
-          </div>
-        <% end %>
-      <% else %>
-        <!-- Single room -->
-        <%= if @price_breakdown[:nights] do %>
-          <div class="flex justify-between text-sm">
-            <span class="text-zinc-600">
-              <%= @price_breakdown.nights %> night(s)
-              <%= if @price_breakdown[:guests_count] do %>
-                × <%= @price_breakdown.guests_count %> guest(s)
-              <% end %>
-              <%= if @price_breakdown[:children_count] && @price_breakdown.children_count > 0 do %>
-                × <%= @price_breakdown.children_count %> child(ren)
-              <% end %>
-            </span>
-            <span class="text-zinc-900">
-              <%= if @price_breakdown[:base_per_night] do %>
-                Base: <%= MoneyHelper.format_money!(@price_breakdown.base_per_night) %>/night
-              <% end %>
-              <%= if @price_breakdown[:children_per_night] && Money.positive?(@price_breakdown.children_per_night) do %>
-                + Children: <%= MoneyHelper.format_money!(@price_breakdown.children_per_night) %>/night
-              <% end %>
-            </span>
-          </div>
-        <% end %>
-      <% end %>
-    <% end %>
     """
   end
 
@@ -408,7 +378,7 @@ defmodule YscWeb.BookingCheckoutLive do
           {:noreply,
            socket
            |> put_flash(:info, "Payment successful! Your booking is confirmed.")
-           |> push_navigate(to: ~p"/bookings/#{booking.id}/receipt")}
+           |> push_navigate(to: ~p"/bookings/#{booking.id}/receipt?confetti=true")}
 
         {:error, reason} ->
           {:noreply,
@@ -466,35 +436,42 @@ defmodule YscWeb.BookingCheckoutLive do
         end
 
       :room ->
-        # For room bookings, use stored pricing if available, otherwise calculate
+        # For room bookings, always recalculate to ensure correct pricing
+        # (stored pricing may be incorrect if calculated per-room instead of per-guest)
         children_count = booking.children_count || 0
 
-        if booking.total_price && booking.pricing_items do
-          # Use stored pricing from booking
-          {:ok, booking.total_price,
-           extract_price_breakdown_from_pricing_items(booking.pricing_items, nights)}
-        else
-          # Fallback: calculate price for first room (shouldn't happen for new bookings)
-          room_ids =
-            if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do
-              Enum.map(booking.rooms, & &1.id)
-            else
-              []
-            end
-
-          if room_ids == [] do
-            {:error, :rooms_required}
+        room_ids =
+          if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do
+            Enum.map(booking.rooms, & &1.id)
           else
-            # Calculate price for all rooms
-            calculate_multi_room_price_for_checkout(
-              booking.property,
-              booking.checkin_date,
-              booking.checkout_date,
-              room_ids,
-              booking.guests_count,
-              children_count,
-              nights
-            )
+            []
+          end
+
+        if room_ids == [] do
+          {:error, :rooms_required}
+        else
+          # Always recalculate price correctly for per-guest pricing
+          # For per-guest pricing, calculate once for total guests regardless of room count
+          case calculate_multi_room_price_for_checkout(
+                 booking.property,
+                 booking.checkin_date,
+                 booking.checkout_date,
+                 room_ids,
+                 booking.guests_count,
+                 children_count,
+                 nights
+               ) do
+            {:ok, recalculated_total, breakdown} ->
+              {:ok, recalculated_total, breakdown}
+
+            error ->
+              # Fallback to stored pricing if recalculation fails
+              if booking.total_price && booking.pricing_items do
+                {:ok, booking.total_price,
+                 extract_price_breakdown_from_pricing_items(booking.pricing_items, nights)}
+              else
+                error
+              end
           end
         end
 
@@ -660,18 +637,22 @@ defmodule YscWeb.BookingCheckoutLive do
     end
   end
 
-  # Helper to extract price breakdown from stored pricing_items
+  # Helper to extract price breakdown from stored pricing_items (fallback only)
+  # For per-guest pricing with multiple rooms, aggregate into single line item
   defp extract_price_breakdown_from_pricing_items(pricing_items, nights)
        when is_map(pricing_items) do
     case pricing_items do
-      %{"type" => "room", "rooms" => rooms} when is_list(rooms) ->
-        # Multiple rooms - combine breakdowns
+      %{"type" => "room", "rooms" => rooms} when is_list(rooms) and length(rooms) > 0 ->
+        # Multiple rooms - for per-guest pricing, show single aggregated line item
+        guests_count = pricing_items["guests_count"] || 0
+        children_count = pricing_items["children_count"] || 0
+
         %{
           nights: nights,
-          guests_count: pricing_items["guests_count"] || 0,
-          children_count: pricing_items["children_count"] || 0,
-          rooms: rooms,
-          multi_room: true
+          guests_count: guests_count,
+          children_count: children_count,
+          multi_room: true,
+          room_count: length(rooms)
         }
 
       %{"type" => "room"} ->
@@ -690,6 +671,7 @@ defmodule YscWeb.BookingCheckoutLive do
   defp extract_price_breakdown_from_pricing_items(_, nights), do: %{nights: nights}
 
   # Helper to calculate price for multiple rooms (fallback)
+  # For per-guest pricing, calculate once for total guests regardless of room count
   defp calculate_multi_room_price_for_checkout(
          property,
          checkin_date,
@@ -699,44 +681,104 @@ defmodule YscWeb.BookingCheckoutLive do
          children_count,
          nights
        ) do
-    # Calculate price for each room and sum
-    results =
-      Enum.reduce(room_ids, {:ok, Money.new(0, :USD), []}, fn room_id, acc ->
-        case acc do
-          {:ok, total_acc, breakdowns_acc} ->
-            case Bookings.calculate_booking_price(
-                   property,
-                   checkin_date,
-                   checkout_date,
-                   :room,
-                   room_id,
-                   guests_count,
-                   children_count
-                 ) do
-              {:ok, room_total, breakdown} when is_map(breakdown) ->
-                {:ok, Money.add(total_acc, room_total), [breakdown | breakdowns_acc]}
+    # For per-guest pricing, calculate price once using the first room
+    # The number of rooms doesn't affect the price - only total guests matter
+    first_room_id = List.first(room_ids)
 
-              {:ok, room_total} ->
-                {:ok, Money.add(total_acc, room_total), breakdowns_acc}
+    case Bookings.calculate_booking_price(
+           property,
+           checkin_date,
+           checkout_date,
+           :room,
+           first_room_id,
+           guests_count,
+           children_count
+         ) do
+      {:ok, total, breakdown} when is_map(breakdown) ->
+        # Extract all pricing details from breakdown for detailed display
+        base_total = breakdown[:base]
+        children_total = breakdown[:children]
+        billable_people = breakdown[:billable_people] || guests_count
+        adult_price_per_night = breakdown[:adult_price_per_night]
+        children_price_per_night = breakdown[:children_price_per_night]
 
-              error ->
-                error
+        # Calculate per-night rates if not already provided
+        base_per_night =
+          if base_total && nights > 0 do
+            case Money.div(base_total, nights) do
+              {:ok, per_night} -> per_night
+              _ -> adult_price_per_night
             end
+          else
+            adult_price_per_night
+          end
 
-          error ->
-            error
-        end
-      end)
+        children_per_night =
+          if children_total && nights > 0 && children_count > 0 do
+            # Calculate per-child-per-night price
+            case Money.div(children_total, children_count * nights) do
+              {:ok, per_night} -> per_night
+              _ -> children_price_per_night
+            end
+          else
+            children_price_per_night
+          end
 
-    case results do
-      {:ok, total, breakdowns} ->
+        # Return complete breakdown for detailed display
+        breakdown_map = %{
+          nights: nights,
+          guests_count: guests_count,
+          children_count: children_count,
+          billable_people: billable_people,
+          multi_room: true,
+          room_count: length(room_ids)
+        }
+
+        breakdown_map =
+          if base_total do
+            Map.put(breakdown_map, :base, base_total)
+          else
+            breakdown_map
+          end
+
+        breakdown_map =
+          if children_total do
+            Map.put(breakdown_map, :children, children_total)
+          else
+            breakdown_map
+          end
+
+        breakdown_map =
+          if base_per_night do
+            Map.put(breakdown_map, :base_per_night, base_per_night)
+          else
+            breakdown_map
+          end
+
+        breakdown_map =
+          if adult_price_per_night do
+            Map.put(breakdown_map, :adult_price_per_night, adult_price_per_night)
+          else
+            breakdown_map
+          end
+
+        breakdown_map =
+          if children_per_night && Money.positive?(children_per_night) do
+            Map.put(breakdown_map, :children_per_night, children_per_night)
+          else
+            breakdown_map
+          end
+
+        {:ok, total, breakdown_map}
+
+      {:ok, total} ->
         {:ok, total,
          %{
            nights: nights,
            guests_count: guests_count,
            children_count: children_count,
-           rooms: Enum.reverse(breakdowns),
-           multi_room: true
+           multi_room: true,
+           room_count: length(room_ids)
          }}
 
       error ->
@@ -855,22 +897,13 @@ defmodule YscWeb.BookingCheckoutLive do
   end
 
   # Timezone-aware formatting functions
-  defp format_date(%Date{} = date, _timezone) do
-    # Dates don't have timezone, but we format them consistently
-    Calendar.strftime(date, "%B %d, %Y")
+  defp format_date_short(%Date{} = date, _timezone) do
+    # Shorter format for visual summaries: "Dec 23"
+    Calendar.strftime(date, "%b %d")
   end
 
-  defp format_date(nil, _timezone), do: "—"
-  defp format_date(_, _timezone), do: "—"
-
-  defp format_datetime(%DateTime{} = datetime, timezone) do
-    datetime
-    |> DateTime.shift_zone!(timezone)
-    |> Calendar.strftime("%B %d, %Y at %I:%M %p %Z")
-  end
-
-  defp format_datetime(nil, _timezone), do: "—"
-  defp format_datetime(_, _timezone), do: "—"
+  defp format_date_short(nil, _timezone), do: "—"
+  defp format_date_short(_, _timezone), do: "—"
 
   defp get_property_redirect_path(property) do
     case property do
@@ -879,6 +912,190 @@ defmodule YscWeb.BookingCheckoutLive do
       _ -> ~p"/"
     end
   end
+
+  defp get_property_thumbnail(property) do
+    case property do
+      :tahoe -> ~p"/images/tahoe/tahoe_cabin_main.webp"
+      :clear_lake -> ~p"/images/clear_lake/clear_lake_dock.webp"
+      _ -> ~p"/images/ysc_logo.png"
+    end
+  end
+
+  defp render_price_breakdown_sidebar(assigns) do
+    ~H"""
+    <%= if @booking.booking_mode == :room do %>
+      <%= if @price_breakdown[:nights] do %>
+        <% nights = @price_breakdown.nights %>
+        <% guests_count = @price_breakdown[:guests_count] || 0 %>
+        <% children_count = @price_breakdown[:children_count] || 0 %>
+        <% billable_people = @price_breakdown[:billable_people] || guests_count %>
+        <% adult_price_per_night =
+          @price_breakdown[:adult_price_per_night] || @price_breakdown[:base_per_night] %>
+        <% children_price_per_night = @price_breakdown[:children_price_per_night] %>
+        <% base_total = @price_breakdown[:base] %>
+        <% children_total = @price_breakdown[:children] %>
+        <!-- Calculate adult_price_per_night from base_total if not available -->
+        <% adult_price_per_night =
+          if !adult_price_per_night && base_total && nights > 0 && billable_people > 0 do
+            case Money.div(base_total, nights * billable_people) do
+              {:ok, price} -> price
+              _ -> nil
+            end
+          else
+            adult_price_per_night
+          end %>
+        <!-- Adults pricing -->
+        <%= if billable_people > 0 && (base_total || adult_price_per_night) do %>
+          <% final_base_total =
+            if base_total,
+              do: base_total,
+              else:
+                (if adult_price_per_night && billable_people > 0 && nights > 0 do
+                   case Money.mult(adult_price_per_night, billable_people * nights) do
+                     {:ok, total} -> total
+                     _ -> nil
+                   end
+                 else
+                   nil
+                 end) %>
+          <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
+            <div class="text-zinc-400">
+              <%= billable_people %> <%= if billable_people == 1, do: "adult", else: "adults" %>
+            </div>
+            <div class="text-right text-zinc-500 text-xs tabular-nums">
+              <%= if adult_price_per_night do %>
+                <%= MoneyHelper.format_money!(adult_price_per_night) %>/night
+              <% end %>
+            </div>
+            <div class="text-zinc-400 text-xs">
+              × <%= nights %> <%= if nights == 1, do: "night", else: "nights" %>
+            </div>
+            <div class="text-right font-medium tabular-nums">
+              <%= if final_base_total do %>
+                <%= MoneyHelper.format_money!(final_base_total) %>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+        <!-- Children pricing -->
+        <%= if children_count > 0 && (children_total || children_price_per_night) do %>
+          <% # Calculate children_price_per_night from children_total if not available
+          calculated_children_price_per_night =
+            if !children_price_per_night && children_total && children_count > 0 && nights > 0 do
+              case Money.div(children_total, children_count * nights) do
+                {:ok, price} -> price
+                _ -> nil
+              end
+            else
+              children_price_per_night
+            end
+
+          final_children_total =
+            if children_total,
+              do: children_total,
+              else:
+                (if calculated_children_price_per_night && children_count > 0 && nights > 0 do
+                   case Money.mult(calculated_children_price_per_night, children_count * nights) do
+                     {:ok, total} -> total
+                     _ -> nil
+                   end
+                 else
+                   nil
+                 end) %>
+          <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm mt-3">
+            <div class="text-zinc-400">
+              <%= children_count %> <%= if children_count == 1, do: "child", else: "children" %>
+            </div>
+            <div class="text-right text-zinc-500 text-xs tabular-nums">
+              <%= if calculated_children_price_per_night do %>
+                <%= MoneyHelper.format_money!(calculated_children_price_per_night) %>/night
+              <% end %>
+            </div>
+            <div class="text-zinc-400 text-xs">
+              × <%= nights %> <%= if nights == 1, do: "night", else: "nights" %>
+            </div>
+            <div class="text-right font-medium tabular-nums">
+              <%= if final_children_total do %>
+                <%= MoneyHelper.format_money!(final_children_total) %>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+    <% else %>
+      <!-- Day booking (per guest per night) -->
+      <%= if @booking.booking_mode == :day && @price_breakdown[:nights] do %>
+        <% nights = @price_breakdown.nights %>
+        <% guests_count = @price_breakdown[:guests_count] || 0 %>
+        <% price_per_guest_per_night = @price_breakdown[:price_per_guest_per_night] %>
+        <%= if guests_count > 0 && price_per_guest_per_night do %>
+          <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
+            <div class="text-zinc-400">
+              <%= guests_count %> <%= if guests_count == 1, do: "guest", else: "guests" %>
+            </div>
+            <div class="text-right text-zinc-500 text-xs tabular-nums">
+              <%= MoneyHelper.format_money!(price_per_guest_per_night) %>/night
+            </div>
+            <div class="text-zinc-400 text-xs">
+              × <%= nights %> <%= if nights == 1, do: "night", else: "nights" %>
+            </div>
+            <div class="text-right font-medium tabular-nums">
+              <%= case Money.mult(price_per_guest_per_night, guests_count * nights) do
+                {:ok, total} -> MoneyHelper.format_money!(total)
+                _ -> MoneyHelper.format_money!(@total_price)
+              end %>
+            </div>
+          </div>
+        <% else %>
+          <!-- Fallback if price_per_guest_per_night not available -->
+          <div class="flex justify-between text-sm">
+            <span class="text-zinc-400">
+              <%= nights %> <%= if nights == 1, do: "night", else: "nights" %>
+            </span>
+            <span class="font-medium">
+              <%= MoneyHelper.format_money!(@total_price) %>
+            </span>
+          </div>
+        <% end %>
+      <% else %>
+        <!-- Buyout booking -->
+        <%= if @price_breakdown[:nights] do %>
+          <div class="flex justify-between text-sm">
+            <span class="text-zinc-400">
+              <%= @price_breakdown.nights %> <%= if @price_breakdown.nights == 1,
+                do: "night",
+                else: "nights" %>
+            </span>
+            <span class="font-medium">
+              <%= MoneyHelper.format_money!(@total_price) %>
+            </span>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+    """
+  end
+
+  defp calculate_remaining_time(%DateTime{} = expires_at) do
+    now = DateTime.utc_now()
+    diff_seconds = DateTime.diff(expires_at, now, :second)
+
+    if diff_seconds > 0 do
+      hours = div(diff_seconds, 3600)
+      minutes = div(rem(diff_seconds, 3600), 60)
+      seconds = rem(diff_seconds, 60)
+
+      if hours > 0 do
+        "#{String.pad_leading(Integer.to_string(hours), 2, "0")}:#{String.pad_leading(Integer.to_string(minutes), 2, "0")}:#{String.pad_leading(Integer.to_string(seconds), 2, "0")}"
+      else
+        "#{String.pad_leading(Integer.to_string(minutes), 2, "0")}:#{String.pad_leading(Integer.to_string(seconds), 2, "0")}"
+      end
+    else
+      "00:00"
+    end
+  end
+
+  defp calculate_remaining_time(_), do: "—"
 
   defp booking_expired?(booking) do
     case booking do
@@ -894,4 +1111,20 @@ defmodule YscWeb.BookingCheckoutLive do
         true
     end
   end
+
+  defp atom_to_readable(atom) when is_binary(atom) do
+    atom
+    |> String.split("_")
+    |> Enum.map_join(" ", &String.capitalize/1)
+  end
+
+  defp atom_to_readable(atom) when is_atom(atom) do
+    atom
+    |> Atom.to_string()
+    |> String.split("_")
+    |> Enum.map_join(" ", &String.capitalize/1)
+  end
+
+  defp atom_to_readable(nil), do: "—"
+  defp atom_to_readable(_), do: "—"
 end

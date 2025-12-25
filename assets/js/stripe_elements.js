@@ -68,19 +68,40 @@ const StripeElements = {
                     appearance: {
                         theme: 'stripe',
                         variables: {
-                            colorPrimary: '#3b82f6',
+                            colorPrimary: '#2563eb', // blue-600
                             colorBackground: '#ffffff',
-                            colorText: '#1f2937',
+                            colorText: '#18181b', // zinc-900
+                            colorTextSecondary: '#71717a', // zinc-500
                             colorDanger: '#ef4444',
-                            fontFamily: 'system-ui, sans-serif',
+                            colorBorder: '#e4e4e7', // zinc-200
+                            fontFamily: 'system-ui, -apple-system, sans-serif',
                             spacingUnit: '4px',
-                            borderRadius: '8px',
+                            borderRadius: '12px',
+                        },
+                        rules: {
+                            '.Input': {
+                                borderRadius: '8px',
+                                borderColor: '#e4e4e7',
+                                padding: '12px',
+                            },
+                            '.Input:focus': {
+                                borderColor: '#2563eb',
+                                boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.1)',
+                            },
+                            '.Label': {
+                                fontWeight: '500',
+                                fontSize: '14px',
+                                marginBottom: '8px',
+                            }
                         }
                     }
                 });
 
                 this.paymentElement = this.elements.create('payment', {
-                    layout: 'tabs'
+                    layout: 'tabs',
+                    business: {
+                        name: 'The Young Scandinavians Club'
+                    }
                 });
 
                 this.paymentElement.mount('#payment-element');

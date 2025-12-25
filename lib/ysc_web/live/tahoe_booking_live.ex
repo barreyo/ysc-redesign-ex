@@ -472,7 +472,7 @@ defmodule YscWeb.TahoeBookingLive do
                           </span>
                         <% end %>
                         <.link
-                          navigate={~p"/bookings/#{booking.id}"}
+                          navigate={~p"/bookings/#{booking.id}/receipt"}
                           class="text-blue-600 hover:text-blue-800 text-xs font-medium"
                         >
                           View Details →
@@ -542,7 +542,7 @@ defmodule YscWeb.TahoeBookingLive do
         <div
           :if={@active_tab == :booking}
           class={[
-            "bg-white rounded-lg border border-zinc-200 p-6 space-y-6 min-h-[600px]",
+            "min-h-[600px]",
             if(!@can_book, do: "relative opacity-60", else: "")
           ]}
         >
@@ -551,933 +551,1087 @@ defmodule YscWeb.TahoeBookingLive do
             class="absolute inset-0 bg-white bg-opacity-50 rounded-lg pointer-events-none z-10"
           >
           </div>
-          <!-- Date Selection and Guest Counters (Inline) -->
-          <div class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <!-- Date Selection -->
-              <div class="md:col-span-1">
-                <.date_range_picker
-                  label="Check-in & Check-out Dates"
-                  id="booking_date_range"
-                  form={@date_form}
-                  start_date_field={@date_form[:checkin_date]}
-                  end_date_field={@date_form[:checkout_date]}
-                  min={@restricted_min_date}
-                  max={@restricted_max_date}
-                  disabled={!@can_book}
-                  date_tooltips={@date_tooltips}
-                  property={@property}
-                  today={@today}
-                />
-              </div>
-              <!-- Guests and Children Selection (Dropdown) -->
-              <div class="md:col-span-1 py-1 ms-0 md:ms-4">
-                <div id="guests-label" class="block text-sm font-semibold text-zinc-700 mb-2">
-                  Guests
+          <!-- Two-Column Layout -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start pb-24 lg:pb-0">
+            <!-- Left Column: Selection Area (2 columns on large screens) -->
+            <div class="lg:col-span-2 space-y-8">
+              <!-- Section 1: Stay Details -->
+              <section class="bg-zinc-50 p-6 rounded-lg border border-zinc-200">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                  <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                    1
+                  </span>
+                  Stay Details
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <!-- Date Selection -->
+                  <div>
+                    <.date_range_picker
+                      label="Check-in & Check-out Dates"
+                      id="booking_date_range"
+                      form={@date_form}
+                      start_date_field={@date_form[:checkin_date]}
+                      end_date_field={@date_form[:checkout_date]}
+                      min={@restricted_min_date}
+                      max={@restricted_max_date}
+                      disabled={!@can_book}
+                      date_tooltips={@date_tooltips}
+                      property={@property}
+                      today={@today}
+                    />
+                  </div>
+                  <!-- Guests and Children Selection (Dropdown) -->
+                  <div class="py-1">
+                    <div id="guests-label" class="block text-sm font-semibold text-zinc-700 mb-2">
+                      Guests
+                    </div>
+                    <div class="relative">
+                      <!-- Dropdown Trigger -->
+                      <button
+                        type="button"
+                        id="guests-dropdown-button"
+                        phx-click="toggle-guests-dropdown"
+                        disabled={!@can_book}
+                        aria-labelledby="guests-label"
+                        aria-expanded={@guests_dropdown_open}
+                        aria-haspopup="true"
+                        class="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span class="text-zinc-900">
+                          <%= format_guests_display(@guests_count, @children_count) %>
+                        </span>
+                        <.icon
+                          name="hero-chevron-down"
+                          class={[
+                            "w-5 h-5 text-zinc-500 transition-transform duration-200 ease-in-out",
+                            if(@guests_dropdown_open, do: "rotate-180", else: "")
+                          ]}
+                        />
+                      </button>
+                      <!-- Dropdown Panel -->
+                      <div
+                        :if={@guests_dropdown_open}
+                        phx-click-away="close-guests-dropdown"
+                        class="absolute z-10 w-full mt-1 bg-white border border-zinc-300 rounded-md shadow-lg p-4"
+                      >
+                        <div class="space-y-4">
+                          <!-- Adults Counter -->
+                          <div>
+                            <div
+                              id="adults-label"
+                              class="block text-sm font-semibold text-zinc-700 mb-2"
+                            >
+                              Number of Adults
+                            </div>
+                            <div
+                              class="flex items-center space-x-3"
+                              role="group"
+                              aria-labelledby="adults-label"
+                            >
+                              <button
+                                type="button"
+                                id="decrease-guests-button"
+                                phx-click="decrease-guests"
+                                disabled={@guests_count <= 1}
+                                aria-label="Decrease number of adults"
+                                class={[
+                                  "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
+                                  if(@guests_count <= 1,
+                                    do:
+                                      "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
+                                    else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                                  )
+                                ]}
+                              >
+                                <.icon name="hero-minus" class="w-5 h-5" />
+                              </button>
+                              <span
+                                id="guests-count-display"
+                                class="w-12 text-center font-medium text-lg text-zinc-900"
+                                aria-live="polite"
+                              >
+                                <%= @guests_count %>
+                              </span>
+                              <button
+                                type="button"
+                                id="increase-guests-button"
+                                phx-click="increase-guests"
+                                aria-label="Increase number of adults"
+                                class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
+                              >
+                                <.icon name="hero-plus" class="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                          <!-- Children Counter -->
+                          <div>
+                            <div
+                              id="children-label"
+                              class="block text-sm font-semibold text-zinc-700 mb-2"
+                            >
+                              Number of Children (ages 5-17)
+                            </div>
+                            <div
+                              class="flex items-center space-x-3"
+                              role="group"
+                              aria-labelledby="children-label"
+                            >
+                              <button
+                                type="button"
+                                id="decrease-children-button"
+                                phx-click="decrease-children"
+                                disabled={@children_count <= 0}
+                                aria-label="Decrease number of children"
+                                class={[
+                                  "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
+                                  if(@children_count <= 0,
+                                    do:
+                                      "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
+                                    else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                                  )
+                                ]}
+                              >
+                                <.icon name="hero-minus" class="w-5 h-5" />
+                              </button>
+                              <span
+                                id="children-count-display"
+                                class="w-12 text-center font-medium text-lg text-zinc-900"
+                                aria-live="polite"
+                              >
+                                <%= @children_count %>
+                              </span>
+                              <button
+                                type="button"
+                                id="increase-children-button"
+                                phx-click="increase-children"
+                                aria-label="Increase number of children"
+                                class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
+                              >
+                                <.icon name="hero-plus" class="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                          <p class="text-sm text-zinc-600 pt-2 border-t border-zinc-200">
+                            Children 5-17 years: $25/night. Children under 5 stay for free.
+                          </p>
+                          <!-- Done Button -->
+                          <div class="pt-2">
+                            <button
+                              type="button"
+                              phx-click="close-guests-dropdown"
+                              class="w-full px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-md transition-colors duration-200"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="relative">
-                  <!-- Dropdown Trigger -->
-                  <button
-                    type="button"
-                    id="guests-dropdown-button"
-                    phx-click="toggle-guests-dropdown"
-                    disabled={!@can_book}
-                    aria-labelledby="guests-label"
-                    aria-expanded={@guests_dropdown_open}
-                    aria-haspopup="true"
-                    class="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+                <!-- Error Messages -->
+                <div class="mt-4 space-y-1">
+                  <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm">
+                    <%= @form_errors[:checkin_date] %>
+                  </p>
+                  <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm">
+                    <%= @form_errors[:checkout_date] %>
+                  </p>
+                  <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:weekend] %>
+                  </p>
+                  <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:max_nights] %>
+                  </p>
+                  <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:active_booking] %>
+                  </p>
+                  <p
+                    :if={@date_validation_errors[:advance_booking_limit]}
+                    class="text-red-600 text-sm"
                   >
-                    <span class="text-zinc-900">
+                    <%= @date_validation_errors[:advance_booking_limit] %>
+                  </p>
+                  <p :if={@date_validation_errors[:season_booking_mode]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:season_booking_mode] %>
+                  </p>
+                  <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:season_date_range] %>
+                  </p>
+                  <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:availability] %>
+                  </p>
+                </div>
+              </section>
+              <!-- Booking Mode Selection -->
+              <div :if={@checkin_date}>
+                <fieldset>
+                  <legend class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Booking Type
+                  </legend>
+                  <form phx-change="booking-mode-changed">
+                    <div class="flex gap-4" role="radiogroup">
+                      <label class="flex items-center">
+                        <input
+                          type="radio"
+                          id="booking-mode-room"
+                          name="booking_mode"
+                          value="room"
+                          checked={@selected_booking_mode == :room}
+                          class="mr-2"
+                        />
+                        <span>Individual Room(s)</span>
+                      </label>
+                      <label class={[
+                        "flex items-center",
+                        if(not can_select_booking_mode?(@seasons, @checkin_date),
+                          do: "opacity-50 cursor-not-allowed",
+                          else: ""
+                        )
+                      ]}>
+                        <input
+                          type="radio"
+                          id="booking-mode-buyout"
+                          name="booking_mode"
+                          value="buyout"
+                          checked={@selected_booking_mode == :buyout}
+                          disabled={not can_select_booking_mode?(@seasons, @checkin_date)}
+                          class={[
+                            "mr-2",
+                            if(not can_select_booking_mode?(@seasons, @checkin_date),
+                              do: "cursor-not-allowed opacity-50",
+                              else: ""
+                            )
+                          ]}
+                          onclick={
+                            if(not can_select_booking_mode?(@seasons, @checkin_date),
+                              do: "return false;",
+                              else: ""
+                            )
+                          }
+                        />
+                        <span class={
+                          if(not can_select_booking_mode?(@seasons, @checkin_date),
+                            do: "text-zinc-400",
+                            else: ""
+                          )
+                        }>
+                          Full Buyout
+                        </span>
+                      </label>
+                    </div>
+                  </form>
+                </fieldset>
+                <p
+                  :if={not can_select_booking_mode?(@seasons, @checkin_date)}
+                  class="text-sm text-zinc-500 mt-2 ml-6"
+                >
+                  Full buyout is not available for the selected dates.
+                </p>
+              </div>
+              <!-- Restricted Date Range Message -->
+              <div
+                :if={@dates_restricted && @membership_type in [:family, :lifetime]}
+                class="p-3 bg-blue-50 border border-blue-200 rounded-md"
+              >
+                <div class="flex items-start">
+                  <div class="flex-shrink-0">
+                    <.icon name="hero-information-circle" class="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div class="ms-2 flex-1">
+                    <p class="text-sm text-blue-800">
+                      <strong>Second Room Booking:</strong>
+                      Since you already have one room reserved, your second room booking must be within the same time period. The date range is restricted to ensure both bookings overlap and stay within the 4-night maximum.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <!-- Section 2: Choose Your Rooms -->
+              <section :if={@selected_booking_mode == :room && @checkin_date && @checkout_date}>
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                  <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                    2
+                  </span>
+                  Choose Your Rooms
+                  <%= if can_select_multiple_rooms?(assigns) && length(@selected_room_ids) > 0 do %>
+                    <span class="text-sm font-normal text-zinc-500">
+                      (<%= length(@selected_room_ids) %>/<%= max_rooms_for_user(assigns) %>)
+                    </span>
+                  <% end %>
+                </h2>
+                <!-- Family Membership Notice -->
+                <div
+                  :if={
+                    can_select_multiple_rooms?(assigns) &&
+                      length(@selected_room_ids) < max_rooms_for_user(assigns) &&
+                      (parse_guests_count(@guests_count) || 1) > 1
+                  }
+                  class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                >
+                  <div class="flex items-start gap-2">
+                    <.icon
+                      name="hero-light-bulb-solid"
+                      class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"
+                    />
+                    <p class="text-sm text-blue-900 font-medium">
+                      <strong>Family Membership Benefit:</strong>
+                      You can book up to <%= max_rooms_for_user(assigns) %> rooms in the same reservation.
+                    </p>
+                  </div>
+                </div>
+                <fieldset>
+                  <div
+                    class="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch"
+                    role={if can_select_multiple_rooms?(assigns), do: "group", else: "radiogroup"}
+                  >
+                    <%= for room <- @available_rooms do %>
+                      <% {availability, reason} = room.availability_status || {:available, nil} %>
+                      <% is_unavailable = availability == :unavailable %>
+                      <% max_rooms_reached =
+                        can_select_multiple_rooms?(assigns) &&
+                          length(@selected_room_ids) >= max_rooms_for_user(assigns) %>
+                      <% room_already_selected =
+                        (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) ||
+                          (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id) %>
+                      <% guests_count = parse_guests_count(@guests_count) || 1 %>
+                      <% children_count = parse_children_count(@children_count) || 0 %>
+                      <% total_people = guests_count + children_count %>
+                      <% only_one_person_selected = total_people == 1 %>
+                      <% cannot_add_second_room =
+                        can_select_multiple_rooms?(assigns) && only_one_person_selected &&
+                          length(@selected_room_ids) > 0 && !room_already_selected %>
+                      <% is_disabled =
+                        (is_unavailable && !room_already_selected) ||
+                          (max_rooms_reached && !room_already_selected) ||
+                          cannot_add_second_room %>
+                      <div class={[
+                        "border-2 rounded-lg overflow-hidden flex flex-col h-full transition-all",
+                        if(is_disabled,
+                          do: "border-zinc-200 bg-zinc-50 cursor-not-allowed opacity-60",
+                          else:
+                            if(
+                              (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) ||
+                                (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id),
+                              do: "border-blue-500 bg-blue-50 shadow-lg",
+                              else:
+                                "border-zinc-300 hover:border-blue-400 hover:shadow-lg cursor-pointer"
+                            )
+                        )
+                      ]}>
+                        <label :if={!is_disabled} class="block cursor-pointer flex flex-col h-full">
+                          <input
+                            type={
+                              if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"
+                            }
+                            id={"room-#{room.id}"}
+                            name={
+                              if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"
+                            }
+                            value={room.id}
+                            checked={
+                              if can_select_multiple_rooms?(assigns) do
+                                room.id in @selected_room_ids
+                              else
+                                @selected_room_id == room.id
+                              end
+                            }
+                            aria-label={"Select #{room.name}"}
+                            phx-click="room-changed"
+                            phx-value-room-id={room.id}
+                            class="sr-only"
+                          />
+                          <!-- Room Image with Alert Overlay -->
+                          <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
+                            <!-- Alert Overlay on Image -->
+                            <div
+                              :if={is_unavailable && reason}
+                              class="absolute top-0 left-0 right-0 bg-gradient-to-r from-amber-50 to-amber-100 border-b border-amber-200 p-3 z-10"
+                            >
+                              <div class="flex items-start gap-2">
+                                <.icon
+                                  name="hero-exclamation-triangle-solid"
+                                  class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"
+                                />
+                                <div class="flex-1">
+                                  <p class="text-xs font-semibold text-amber-900 mb-1">
+                                    Not Available
+                                  </p>
+                                  <p class="text-xs text-amber-800"><%= reason %></p>
+                                </div>
+                              </div>
+                            </div>
+                            <%= if room.image && room.image.id do %>
+                              <!-- Render image with blur hash -->
+                              <canvas
+                                id={"blur-hash-room-#{room.id}"}
+                                src={get_room_blur_hash(room.image)}
+                                class="absolute inset-0 z-0 w-full h-full object-cover"
+                                phx-hook="BlurHashCanvas"
+                              >
+                              </canvas>
+                              <img
+                                src={get_room_image_url(room.image)}
+                                id={"image-room-#{room.id}"}
+                                loading="lazy"
+                                phx-hook="BlurHashImage"
+                                class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
+                                alt={room.image.alt_text || room.image.title || "#{room.name} image"}
+                              />
+                            <% else %>
+                              <!-- Placeholder when no image -->
+                              <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
+                                  <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
+                                </div>
+                              </div>
+                            <% end %>
+                          </div>
+                          <!-- Room Content -->
+                          <div class="p-5 flex-1 flex flex-col">
+                            <div class="flex items-start justify-between mb-3">
+                              <div class="flex-1">
+                                <div class="font-bold text-zinc-900 text-lg mb-1">
+                                  <%= room.name %>
+                                </div>
+                                <div class="text-sm text-zinc-600 leading-relaxed">
+                                  <%= room.description %>
+                                </div>
+                              </div>
+                              <div class="ml-3 flex-shrink-0">
+                                <div class={
+                                  if (can_select_multiple_rooms?(assigns) &&
+                                        room.id in @selected_room_ids) or
+                                       (!can_select_multiple_rooms?(assigns) &&
+                                          @selected_room_id == room.id) do
+                                    "w-6 h-6 rounded-full border-2 flex items-center justify-center bg-blue-600 border-blue-600 shadow-md"
+                                  else
+                                    "w-6 h-6 rounded-full border-2 flex items-center justify-center border-zinc-300 bg-white"
+                                  end
+                                }>
+                                  <svg
+                                    :if={
+                                      (can_select_multiple_rooms?(assigns) &&
+                                         room.id in @selected_room_ids) or
+                                        (!can_select_multiple_rooms?(assigns) &&
+                                           @selected_room_id == room.id)
+                                    }
+                                    class="w-4 h-4 text-white"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path
+                                      fill-rule="evenodd"
+                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                      clip-rule="evenodd"
+                                    />
+                                  </svg>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="flex items-center gap-2 text-xs text-zinc-500 mb-3">
+                              <span class="font-medium">Max <%= room.capacity_max %> guests</span>
+                              <span :if={room.min_billable_occupancy > 1}>
+                                • Min <%= room.min_billable_occupancy %> guests
+                              </span>
+                            </div>
+                            <!-- Room Features: Bed Icons (More Prominent) -->
+                            <div
+                              :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
+                              class="mb-4 mt-auto pb-3 border-b border-zinc-200"
+                            >
+                              <p class="text-xs font-semibold text-zinc-400 uppercase mb-2">
+                                Room Features
+                              </p>
+                              <div class="flex items-center gap-3 flex-wrap">
+                                <span
+                                  :if={room.single_beds > 0}
+                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
+                                >
+                                  <%= raw(bed_icon_svg(:single, "w-5 h-5 text-zinc-600")) %>
+                                  <span class="font-medium"><%= room.single_beds %> Twin</span>
+                                </span>
+                                <span
+                                  :if={room.queen_beds > 0}
+                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
+                                >
+                                  <%= raw(bed_icon_svg(:queen, "w-5 h-5 text-zinc-600")) %>
+                                  <span class="font-medium"><%= room.queen_beds %> Queen</span>
+                                </span>
+                                <span
+                                  :if={room.king_beds > 0}
+                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
+                                >
+                                  <%= raw(bed_icon_svg(:king, "w-5 h-5 text-zinc-600")) %>
+                                  <span class="font-medium"><%= room.king_beds %> King</span>
+                                </span>
+                              </div>
+                            </div>
+
+                            <div class="border-t border-zinc-200 pt-3">
+                              <div class="text-base text-zinc-900 font-bold">
+                                <div :if={room.minimum_price}>
+                                  <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
+                                  <span class="text-xs text-zinc-500 font-normal ml-1">
+                                    (<%= room.min_billable_occupancy %> guest min)
+                                  </span>
+                                </div>
+                                <div :if={!room.minimum_price}>
+                                  <%= MoneyHelper.format_money!(
+                                    room.adult_price_per_night || Money.new(45, :USD)
+                                  ) %> <span class="text-sm font-normal">per adult</span>
+                                </div>
+                              </div>
+                              <div class="text-xs text-zinc-500 mt-1">
+                                <%= MoneyHelper.format_money!(
+                                  room.children_price_per_night || Money.new(25, :USD)
+                                ) %> per child
+                              </div>
+                            </div>
+                          </div>
+                        </label>
+                        <div
+                          :if={is_disabled}
+                          class="block cursor-not-allowed flex flex-col h-full relative"
+                        >
+                          <input
+                            type={
+                              if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"
+                            }
+                            name={
+                              if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"
+                            }
+                            value={room.id}
+                            checked={false}
+                            disabled={true}
+                            class="sr-only"
+                            readonly
+                          />
+                          <!-- Room Image with Alert Overlay -->
+                          <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
+                            <!-- Alert Overlay on Image -->
+                            <div
+                              :if={is_unavailable && reason}
+                              class="absolute top-0 left-0 right-0 bg-gradient-to-r from-amber-50 to-amber-100 border-b border-amber-200 p-3 z-10"
+                            >
+                              <div class="flex items-start gap-2">
+                                <.icon
+                                  name="hero-exclamation-triangle-solid"
+                                  class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"
+                                />
+                                <div class="flex-1">
+                                  <p class="text-xs font-semibold text-amber-900 mb-1">
+                                    Not Available
+                                  </p>
+                                  <p class="text-xs text-amber-800"><%= reason %></p>
+                                </div>
+                              </div>
+                            </div>
+                            <%= if room.image && room.image.id do %>
+                              <!-- Render image with blur hash -->
+                              <canvas
+                                id={"blur-hash-room-disabled-#{room.id}"}
+                                src={get_room_blur_hash(room.image)}
+                                class="absolute inset-0 z-0 w-full h-full object-cover"
+                                phx-hook="BlurHashCanvas"
+                              >
+                              </canvas>
+                              <img
+                                src={get_room_image_url(room.image)}
+                                id={"image-room-disabled-#{room.id}"}
+                                loading="lazy"
+                                phx-hook="BlurHashImage"
+                                class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
+                                alt={room.image.alt_text || room.image.title || "#{room.name} image"}
+                              />
+                            <% else %>
+                              <!-- Placeholder when no image -->
+                              <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
+                                  <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
+                                </div>
+                              </div>
+                            <% end %>
+                          </div>
+                          <!-- Room Content -->
+                          <div class="p-5 flex-1 flex flex-col opacity-60">
+                            <div class="flex items-start justify-between mb-3">
+                              <div class="flex-1">
+                                <div class="font-bold text-zinc-900 text-lg mb-1">
+                                  <%= room.name %>
+                                </div>
+                                <div class="text-sm text-zinc-600 leading-relaxed">
+                                  <%= room.description %>
+                                </div>
+                              </div>
+                              <div class="ml-3 flex-shrink-0">
+                                <div class="w-6 h-6 rounded-full border-2 border-zinc-300 bg-white">
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="flex items-center gap-2 text-xs text-zinc-500 mb-3">
+                              <span class="font-medium">Max <%= room.capacity_max %> guests</span>
+                              <span :if={room.min_billable_occupancy > 1}>
+                                • Min <%= room.min_billable_occupancy %> guests
+                              </span>
+                            </div>
+                            <!-- Room Features: Bed Icons -->
+                            <div
+                              :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
+                              class="mb-4 mt-auto pb-3 border-b border-zinc-200"
+                            >
+                              <p class="text-xs font-semibold text-zinc-400 uppercase mb-2">
+                                Room Features
+                              </p>
+                              <div class="flex items-center gap-3 flex-wrap">
+                                <span
+                                  :if={room.single_beds > 0}
+                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
+                                >
+                                  <%= raw(bed_icon_svg(:single, "w-5 h-5 text-zinc-600")) %>
+                                  <span class="font-medium"><%= room.single_beds %> Twin</span>
+                                </span>
+                                <span
+                                  :if={room.queen_beds > 0}
+                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
+                                >
+                                  <%= raw(bed_icon_svg(:queen, "w-5 h-5 text-zinc-600")) %>
+                                  <span class="font-medium"><%= room.queen_beds %> Queen</span>
+                                </span>
+                                <span
+                                  :if={room.king_beds > 0}
+                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
+                                >
+                                  <%= raw(bed_icon_svg(:king, "w-5 h-5 text-zinc-600")) %>
+                                  <span class="font-medium"><%= room.king_beds %> King</span>
+                                </span>
+                              </div>
+                            </div>
+
+                            <div class="border-t border-zinc-200 pt-3">
+                              <div class="text-base text-zinc-900 font-bold">
+                                <div :if={room.minimum_price}>
+                                  <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
+                                  <span class="text-xs text-zinc-500 font-normal ml-1">
+                                    (<%= room.min_billable_occupancy %> guest min)
+                                  </span>
+                                </div>
+                                <div :if={!room.minimum_price}>
+                                  <%= MoneyHelper.format_money!(
+                                    room.adult_price_per_night || Money.new(45, :USD)
+                                  ) %> <span class="text-sm font-normal">per adult</span>
+                                </div>
+                              </div>
+                              <div class="text-xs text-zinc-500 mt-1">
+                                <%= MoneyHelper.format_money!(
+                                  room.children_price_per_night || Money.new(25, :USD)
+                                ) %> per child
+                              </div>
+                            </div>
+                          </div>
+                          <!-- Check Other Dates Button for Unavailable Rooms -->
+                          <div
+                            :if={is_unavailable && reason}
+                            class="p-4 bg-amber-50 border-t border-amber-200"
+                          >
+                            <button
+                              type="button"
+                              phx-click="switch-tab"
+                              phx-value-tab="booking"
+                              class="w-full text-sm font-semibold text-amber-900 hover:text-amber-950 underline"
+                            >
+                              Check other dates →
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    <% end %>
+                  </div>
+                </fieldset>
+                <p :if={@form_errors[:room_id]} class="text-red-600 text-sm mt-1">
+                  <%= @form_errors[:room_id] %>
+                </p>
+                <p
+                  :if={
+                    can_select_multiple_rooms?(assigns) &&
+                      length(@selected_room_ids) > 0 &&
+                      (parse_guests_count(@guests_count) || 1) +
+                        (parse_children_count(@children_count) || 0) == 1
+                  }
+                  class="text-amber-600 text-sm mt-2"
+                >
+                  <.icon
+                    name="hero-exclamation-triangle-solid"
+                    class="w-4 h-4 text-amber-600 inline-block me-1"
+                  />
+                  Cannot book multiple rooms with only 1 person. Please select more people to book additional rooms.
+                </p>
+              </section>
+              <!-- Buyout Selection (for buyout bookings) -->
+              <section :if={@selected_booking_mode == :buyout && @checkin_date && @checkout_date}>
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                  <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                    2
+                  </span>
+                  Full Cabin Buyout
+                </h2>
+                <div class={[
+                  "border-2 rounded-lg p-8 text-center",
+                  if(@date_validation_errors[:availability],
+                    do: "border-red-200 bg-red-50",
+                    else: "border-indigo-100 bg-indigo-50"
+                  )
+                ]}>
+                  <div class={[
+                    "inline-flex items-center justify-center w-16 h-16 rounded-full mb-4",
+                    if(@date_validation_errors[:availability],
+                      do: "bg-red-100 text-red-600",
+                      else: "bg-indigo-100 text-indigo-600"
+                    )
+                  ]}>
+                    <.icon
+                      name={
+                        if @date_validation_errors[:availability],
+                          do: "hero-exclamation-circle",
+                          else: "hero-home-modern"
+                      }
+                      class="w-8 h-8"
+                    />
+                  </div>
+                  <h3 class={[
+                    "text-2xl font-bold mb-2",
+                    if(@date_validation_errors[:availability],
+                      do: "text-red-900",
+                      else: "text-indigo-900"
+                    )
+                  ]}>
+                    <%= if @date_validation_errors[:availability],
+                      do: "Buyout Unavailable",
+                      else: "Full Cabin Buyout" %>
+                  </h3>
+                  <p class={[
+                    "mb-4 max-w-md mx-auto text-base",
+                    if(@date_validation_errors[:availability],
+                      do: "text-red-800",
+                      else: "text-indigo-800"
+                    )
+                  ]}>
+                    <%= if @date_validation_errors[:availability] do %>
+                      <%= @date_validation_errors[:availability] %>
+                    <% else %>
+                      You are reserving the entire Tahoe cabin for your group.
+                      This includes exclusive use of all 7 bedrooms, 3 bathrooms, and the sauna.
+                    <% end %>
+                  </p>
+                  <div
+                    :if={!@date_validation_errors[:availability]}
+                    class="flex flex-wrap justify-center gap-3 text-sm font-medium text-indigo-700"
+                  >
+                    <span class="bg-white px-4 py-2 rounded-full border border-indigo-200 shadow-sm">
+                      Up to 17 Guests
+                    </span>
+                    <span class="bg-white px-4 py-2 rounded-full border border-indigo-200 shadow-sm">
+                      Exclusive Access
+                    </span>
+                    <span class="bg-white px-4 py-2 rounded-full border border-indigo-200 shadow-sm">
+                      Fixed Nightly Rate
+                    </span>
+                  </div>
+                </div>
+              </section>
+            </div>
+            <!-- Right Column: Sticky Reservation Summary (1 column on large screens) -->
+            <aside class="lg:sticky lg:top-24">
+              <div class="bg-white rounded-lg border-2 border-zinc-200 shadow-xl overflow-hidden">
+                <div class="p-6 border-b border-zinc-100 bg-zinc-50">
+                  <h3 class="text-xl font-bold text-zinc-900">Your Reservation</h3>
+                </div>
+
+                <div class="p-6 space-y-4">
+                  <!-- Dates -->
+                  <div :if={@checkin_date && @checkout_date} class="space-y-3">
+                    <div class="flex justify-between items-start text-sm">
+                      <span class="text-zinc-500 font-medium">Check-in</span>
+                      <span class="font-semibold text-zinc-900 text-right">
+                        <%= Calendar.strftime(@checkin_date, "%b %d, %Y") %>
+                      </span>
+                    </div>
+                    <div class="flex justify-between items-start text-sm">
+                      <span class="text-zinc-500 font-medium">Check-out</span>
+                      <span class="font-semibold text-zinc-900 text-right">
+                        <%= Calendar.strftime(@checkout_date, "%b %d, %Y") %>
+                      </span>
+                    </div>
+                    <div class="flex justify-between items-start text-sm">
+                      <span class="text-zinc-500 font-medium">Nights</span>
+                      <span class="font-semibold text-zinc-900">
+                        <%= Date.diff(@checkout_date, @checkin_date) %> <%= if Date.diff(
+                                                                                 @checkout_date,
+                                                                                 @checkin_date
+                                                                               ) == 1,
+                                                                               do: "night",
+                                                                               else: "nights" %>
+                      </span>
+                    </div>
+                  </div>
+                  <!-- Guests -->
+                  <div :if={@guests_count || @children_count} class="flex justify-between text-sm">
+                    <span class="text-zinc-500 font-medium">Guests</span>
+                    <span class="font-semibold text-zinc-900">
                       <%= format_guests_display(@guests_count, @children_count) %>
                     </span>
-                    <.icon
-                      name="hero-chevron-down"
-                      class={[
-                        "w-5 h-5 text-zinc-500 transition-transform duration-200 ease-in-out",
-                        if(@guests_dropdown_open, do: "rotate-180", else: "")
-                      ]}
-                    />
-                  </button>
-                  <!-- Dropdown Panel -->
+                  </div>
+                  <!-- Family Membership Notice in Summary Card -->
                   <div
-                    :if={@guests_dropdown_open}
-                    phx-click-away="close-guests-dropdown"
-                    class="absolute z-10 w-full mt-1 bg-white border border-zinc-300 rounded-md shadow-lg p-4"
+                    :if={
+                      @selected_booking_mode == :room &&
+                        can_select_multiple_rooms?(assigns) &&
+                        length(@selected_room_ids) < max_rooms_for_user(assigns) &&
+                        (parse_guests_count(@guests_count) || 1) > 1
+                    }
+                    class="p-2 bg-blue-50 border border-blue-200 rounded-lg"
                   >
-                    <div class="space-y-4">
-                      <!-- Adults Counter -->
-                      <div>
-                        <div id="adults-label" class="block text-sm font-semibold text-zinc-700 mb-2">
-                          Number of Adults
-                        </div>
-                        <div
-                          class="flex items-center space-x-3"
-                          role="group"
-                          aria-labelledby="adults-label"
-                        >
-                          <button
-                            type="button"
-                            id="decrease-guests-button"
-                            phx-click="decrease-guests"
-                            disabled={@guests_count <= 1}
-                            aria-label="Decrease number of adults"
-                            class={[
-                              "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
-                              if(@guests_count <= 1,
-                                do: "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
-                                else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
-                              )
-                            ]}
-                          >
-                            <.icon name="hero-minus" class="w-5 h-5" />
-                          </button>
-                          <span
-                            id="guests-count-display"
-                            class="w-12 text-center font-medium text-lg text-zinc-900"
-                            aria-live="polite"
-                          >
-                            <%= @guests_count %>
-                          </span>
-                          <button
-                            type="button"
-                            id="increase-guests-button"
-                            phx-click="increase-guests"
-                            aria-label="Increase number of adults"
-                            class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
-                          >
-                            <.icon name="hero-plus" class="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                      <!-- Children Counter -->
-                      <div>
-                        <div
-                          id="children-label"
-                          class="block text-sm font-semibold text-zinc-700 mb-2"
-                        >
-                          Number of Children (ages 5-17)
-                        </div>
-                        <div
-                          class="flex items-center space-x-3"
-                          role="group"
-                          aria-labelledby="children-label"
-                        >
-                          <button
-                            type="button"
-                            id="decrease-children-button"
-                            phx-click="decrease-children"
-                            disabled={@children_count <= 0}
-                            aria-label="Decrease number of children"
-                            class={[
-                              "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
-                              if(@children_count <= 0,
-                                do: "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
-                                else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
-                              )
-                            ]}
-                          >
-                            <.icon name="hero-minus" class="w-5 h-5" />
-                          </button>
-                          <span
-                            id="children-count-display"
-                            class="w-12 text-center font-medium text-lg text-zinc-900"
-                            aria-live="polite"
-                          >
-                            <%= @children_count %>
-                          </span>
-                          <button
-                            type="button"
-                            id="increase-children-button"
-                            phx-click="increase-children"
-                            aria-label="Increase number of children"
-                            class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
-                          >
-                            <.icon name="hero-plus" class="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                      <p class="text-sm text-zinc-600 pt-2 border-t border-zinc-200">
-                        Children 5-17 years: $25/night. Children under 5 stay for free.
+                    <div class="flex items-start gap-2">
+                      <.icon
+                        name="hero-light-bulb-solid"
+                        class="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5"
+                      />
+                      <p class="text-xs text-blue-900 leading-tight">
+                        <strong>Family Membership:</strong>
+                        You can book up to <%= max_rooms_for_user(assigns) %> rooms.
                       </p>
-                      <!-- Done Button -->
-                      <div class="pt-2">
+                    </div>
+                  </div>
+
+                  <hr class="border-zinc-100" />
+                  <!-- Selected Rooms or Buyout -->
+                  <div
+                    :if={@selected_booking_mode == :room && length(@selected_room_ids) > 0}
+                    class="space-y-2"
+                  >
+                    <p class="text-xs font-bold text-zinc-400 uppercase">Selected Rooms</p>
+                    <%= for room_id <- @selected_room_ids do %>
+                      <% room = Enum.find(@available_rooms, &(&1.id == room_id)) %>
+                      <div :if={room} class="flex justify-between items-center text-sm">
+                        <span class="text-zinc-700"><%= room.name %></span>
                         <button
-                          type="button"
-                          phx-click="close-guests-dropdown"
-                          class="w-full px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-md transition-colors duration-200"
+                          phx-click="remove-room"
+                          phx-value-room-id={room_id}
+                          class="text-red-600 hover:text-red-800 text-xs underline"
                         >
-                          Done
+                          Remove
                         </button>
                       </div>
+                    <% end %>
+                  </div>
+
+                  <div
+                    :if={@selected_booking_mode == :buyout && @checkin_date && @checkout_date}
+                    class="space-y-2"
+                  >
+                    <p class="text-xs font-bold text-zinc-400 uppercase">Booking Type</p>
+                    <div class="text-sm text-zinc-700 font-medium">Full Cabin Buyout</div>
+                  </div>
+                  <!-- Price Breakdown -->
+                  <div :if={@calculated_price && @price_breakdown && @checkin_date && @checkout_date}>
+                    <hr class="border-zinc-100" />
+                    <div class="space-y-2">
+                      <!-- Buyout Price -->
+                      <div
+                        :if={@selected_booking_mode == :buyout}
+                        class="flex justify-between text-sm"
+                      >
+                        <span class="text-zinc-600">
+                          Full Buyout
+                          <%= if @price_breakdown.nights && @price_breakdown.price_per_night do %>
+                            (<%= MoneyHelper.format_money!(@price_breakdown.price_per_night) %> × <%= @price_breakdown.nights %>)
+                          <% end %>
+                        </span>
+                        <span class="font-semibold text-zinc-900">
+                          <%= MoneyHelper.format_money!(@calculated_price) %>
+                        </span>
+                      </div>
+                      <!-- Room Price Breakdown -->
+                      <div :if={@selected_booking_mode == :room}>
+                        <div
+                          :if={@price_breakdown[:using_minimum_pricing]}
+                          class="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-md"
+                        >
+                          <div class="flex items-start gap-2">
+                            <.icon
+                              name="hero-information-circle"
+                              class="w-3 h-3 text-amber-600 flex-shrink-0 mt-0.5"
+                            />
+                            <p class="text-[10px] text-amber-800 leading-tight">
+                              Minimum occupancy pricing applied
+                            </p>
+                          </div>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                          <span class="text-zinc-600">
+                            Base Price
+                            <%= if @price_breakdown.nights && @price_breakdown[:adult_price_per_night] do %>
+                              <% adult_count =
+                                @price_breakdown[:billable_people] || @price_breakdown[:guests_count] ||
+                                  0 %> (<%= adult_count %> <%= if adult_count == 1,
+                                do: "adult",
+                                else: "adults" %> × <%= @price_breakdown.nights %>)
+                            <% end %>
+                          </span>
+                          <span class="font-semibold text-zinc-900">
+                            <%= if @price_breakdown[:base],
+                              do: MoneyHelper.format_money!(@price_breakdown.base) %>
+                          </span>
+                        </div>
+                        <div
+                          :if={@price_breakdown[:children] && @price_breakdown[:children_per_night]}
+                          class="flex justify-between text-sm"
+                        >
+                          <span class="text-zinc-600">
+                            Children
+                            <%= if @price_breakdown.nights do %>
+                              (<%= @price_breakdown[:children_count] || 0 %> × <%= @price_breakdown.nights %>)
+                            <% end %>
+                          </span>
+                          <span class="font-semibold text-zinc-900">
+                            <%= MoneyHelper.format_money!(@price_breakdown.children) %>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <hr class="border-zinc-200 my-3" />
+
+                    <div class="flex justify-between items-end">
+                      <span class="text-lg font-bold text-zinc-900">Total</span>
+                      <div class="text-right">
+                        <span class="text-2xl font-black text-blue-600">
+                          <%= MoneyHelper.format_money!(@calculated_price) %>
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-            <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm mt-1">
-              <%= @form_errors[:checkin_date] %>
-            </p>
-            <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm mt-1">
-              <%= @form_errors[:checkout_date] %>
-            </p>
-            <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm mt-1">
-              <%= @date_validation_errors[:weekend] %>
-            </p>
-            <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm mt-1">
-              <%= @date_validation_errors[:max_nights] %>
-            </p>
-            <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm mt-1">
-              <%= @date_validation_errors[:active_booking] %>
-            </p>
-            <p :if={@date_validation_errors[:advance_booking_limit]} class="text-red-600 text-sm mt-1">
-              <%= @date_validation_errors[:advance_booking_limit] %>
-            </p>
-            <p :if={@date_validation_errors[:season_booking_mode]} class="text-red-600 text-sm mt-1">
-              <%= @date_validation_errors[:season_booking_mode] %>
-            </p>
-            <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm mt-1">
-              <%= @date_validation_errors[:season_date_range] %>
-            </p>
-            <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm mt-1">
-              <%= @date_validation_errors[:availability] %>
-            </p>
-          </div>
-          <!-- Booking Mode Selection -->
-          <div
-            :if={@dates_restricted && @membership_type in [:family, :lifetime]}
-            class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md"
-          >
-            <div class="flex items-start">
-              <div class="flex-shrink-0">
-                <.icon name="hero-information-circle" class="h-5 w-5 text-blue-600" />
-              </div>
-              <div class="ms-2 flex-1">
-                <p class="text-sm text-blue-800">
-                  <strong>Second Room Booking:</strong>
-                  Since you already have one room reserved, your second room booking must be within the same time period. The date range is restricted to ensure both bookings overlap and stay within the 4-night maximum.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div :if={@checkin_date}>
-            <fieldset>
-              <legend class="block text-sm font-semibold text-zinc-700 mb-2">
-                Booking Type
-              </legend>
-              <form phx-change="booking-mode-changed">
-                <div class="flex gap-4" role="radiogroup">
-                  <label class="flex items-center">
-                    <input
-                      type="radio"
-                      id="booking-mode-room"
-                      name="booking_mode"
-                      value="room"
-                      checked={@selected_booking_mode == :room}
-                      class="mr-2"
-                    />
-                    <span>Individual Room(s)</span>
-                  </label>
-                  <label class={[
-                    "flex items-center",
-                    if(not can_select_booking_mode?(@seasons, @checkin_date),
-                      do: "opacity-50 cursor-not-allowed",
-                      else: ""
-                    )
-                  ]}>
-                    <input
-                      type="radio"
-                      id="booking-mode-buyout"
-                      name="booking_mode"
-                      value="buyout"
-                      checked={@selected_booking_mode == :buyout}
-                      disabled={not can_select_booking_mode?(@seasons, @checkin_date)}
-                      class={[
-                        "mr-2",
-                        if(not can_select_booking_mode?(@seasons, @checkin_date),
-                          do: "cursor-not-allowed opacity-50",
-                          else: ""
-                        )
-                      ]}
-                      onclick={
-                        if(not can_select_booking_mode?(@seasons, @checkin_date),
-                          do: "return false;",
-                          else: ""
+                  <!-- Error Messages -->
+                  <div :if={@price_error || @capacity_error} class="space-y-1">
+                    <p :if={@price_error} class="text-red-600 text-xs">
+                      <%= @price_error %>
+                    </p>
+                    <p :if={@capacity_error} class="text-red-600 text-xs">
+                      <%= @capacity_error %>
+                    </p>
+                  </div>
+                  <!-- Submit Button -->
+                  <div class="pt-2">
+                    <button
+                      :if={@can_book}
+                      phx-click="create-booking"
+                      disabled={
+                        !can_submit_booking?(
+                          @selected_booking_mode,
+                          @checkin_date,
+                          @checkout_date,
+                          get_selected_rooms_for_submit(assigns),
+                          @capacity_error,
+                          @price_error,
+                          @form_errors,
+                          @date_validation_errors
                         )
                       }
-                    />
-                    <span class={
-                      if(not can_select_booking_mode?(@seasons, @checkin_date),
-                        do: "text-zinc-400",
-                        else: ""
-                      )
-                    }>
-                      Full Buyout
-                    </span>
-                  </label>
-                </div>
-              </form>
-            </fieldset>
-            <p
-              :if={not can_select_booking_mode?(@seasons, @checkin_date)}
-              class="text-sm text-zinc-500 mt-2 ml-6"
-            >
-              Full buyout is not available for the selected dates.
-            </p>
-          </div>
-          <!-- Room Selection (for room bookings) -->
-          <div :if={@selected_booking_mode == :room && @checkin_date && @checkout_date}>
-            <div class="mb-4 p-3 bg-zinc-50 border border-zinc-200 rounded-md">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-zinc-900">Selected Dates</p>
-                  <p class="text-sm text-zinc-600">
-                    <%= Calendar.strftime(@checkin_date, "%B %d, %Y") %> - <%= Calendar.strftime(
-                      @checkout_date,
-                      "%B %d, %Y"
-                    ) %>
-                  </p>
-                  <p class="text-xs text-zinc-500 mt-1">
-                    <%= Date.diff(@checkout_date, @checkin_date) %> night(s)
-                  </p>
-                </div>
-              </div>
-            </div>
-            <fieldset>
-              <legend class="block text-sm font-semibold text-zinc-700 mb-4">
-                <%= if can_select_multiple_rooms?(assigns) do %>
-                  Select Room(s) <%= if length(@selected_room_ids) > 0,
-                    do: "(#{length(@selected_room_ids)}/#{max_rooms_for_user(assigns)})",
-                    else: "" %>
-                <% else %>
-                  Select Room
-                <% end %>
-              </legend>
-              <div
-                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch"
-                role={if can_select_multiple_rooms?(assigns), do: "group", else: "radiogroup"}
-              >
-                <%= for room <- @available_rooms do %>
-                  <% {availability, reason} = room.availability_status || {:available, nil} %>
-                  <% is_unavailable = availability == :unavailable %>
-                  <% max_rooms_reached =
-                    can_select_multiple_rooms?(assigns) &&
-                      length(@selected_room_ids) >= max_rooms_for_user(assigns) %>
-                  <% room_already_selected =
-                    (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) ||
-                      (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id) %>
-                  <% guests_count = parse_guests_count(@guests_count) || 1 %>
-                  <% children_count = parse_children_count(@children_count) || 0 %>
-                  <% total_people = guests_count + children_count %>
-                  <% only_one_person_selected = total_people == 1 %>
-                  <% cannot_add_second_room =
-                    can_select_multiple_rooms?(assigns) && only_one_person_selected &&
-                      length(@selected_room_ids) > 0 && !room_already_selected %>
-                  <% is_disabled =
-                    (is_unavailable && !room_already_selected) ||
-                      (max_rooms_reached && !room_already_selected) ||
-                      cannot_add_second_room %>
-                  <div class={[
-                    "border rounded-lg overflow-hidden flex flex-col h-full",
-                    if(is_disabled,
-                      do: "border-zinc-200 bg-zinc-50 cursor-not-allowed opacity-60",
-                      else:
-                        "border-zinc-300 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all"
-                    )
-                  ]}>
-                    <label :if={!is_disabled} class="block cursor-pointer flex flex-col h-full">
-                      <input
-                        type={if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"}
-                        id={"room-#{room.id}"}
-                        name={if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"}
-                        value={room.id}
-                        checked={
-                          if can_select_multiple_rooms?(assigns) do
-                            room.id in @selected_room_ids
-                          else
-                            @selected_room_id == room.id
-                          end
-                        }
-                        aria-label={"Select #{room.name}"}
-                        phx-click="room-changed"
-                        phx-value-room-id={room.id}
-                        class="sr-only"
-                      />
-                      <!-- Room Image with Alert Overlay -->
-                      <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
-                        <!-- Alert Overlay on Image -->
-                        <div
-                          :if={is_unavailable && reason}
-                          class="absolute top-0 left-0 right-0 bg-amber-50 border-b border-amber-200 p-2 z-10"
-                        >
-                          <div class="flex items-start gap-2">
-                            <.icon
-                              name="hero-exclamation-triangle-solid"
-                              class="w-4 h-4 text-amber-600 flex-shrink-0"
-                            />
-                            <p class="text-xs text-amber-800"><%= reason %></p>
-                          </div>
-                        </div>
-                        <%= if room.image && room.image.id do %>
-                          <!-- Render image with blur hash -->
-                          <canvas
-                            id={"blur-hash-room-#{room.id}"}
-                            src={get_room_blur_hash(room.image)}
-                            class="absolute inset-0 z-0 w-full h-full object-cover"
-                            phx-hook="BlurHashCanvas"
-                          >
-                          </canvas>
-                          <img
-                            src={get_room_image_url(room.image)}
-                            id={"image-room-#{room.id}"}
-                            loading="lazy"
-                            phx-hook="BlurHashImage"
-                            class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
-                            alt={room.image.alt_text || room.image.title || "#{room.name} image"}
-                          />
-                        <% else %>
-                          <!-- Placeholder when no image -->
-                          <div class="absolute inset-0 flex items-center justify-center">
-                            <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
-                              <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
-                            </div>
-                          </div>
-                        <% end %>
-                      </div>
-                      <!-- Room Content -->
-                      <div class="p-4 flex-1 flex flex-col">
-                        <div class="flex items-start justify-between mb-2">
-                          <div class="flex-1">
-                            <div class="font-semibold text-zinc-900 text-lg"><%= room.name %></div>
-                            <div class="text-sm text-zinc-600 mt-1">
-                              <%= room.description %>
-                            </div>
-                          </div>
-                          <div class="ml-3 flex-shrink-0">
-                            <div class={
-                              if (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) or
-                                   (!can_select_multiple_rooms?(assigns) &&
-                                      @selected_room_id == room.id) do
-                                "w-5 h-5 rounded border-2 flex items-center justify-center bg-blue-600 border-blue-600"
-                              else
-                                "w-5 h-5 rounded border-2 flex items-center justify-center border-zinc-300"
-                              end
-                            }>
-                              <svg
-                                :if={
-                                  (can_select_multiple_rooms?(assigns) &&
-                                     room.id in @selected_room_ids) or
-                                    (!can_select_multiple_rooms?(assigns) &&
-                                       @selected_room_id == room.id)
-                                }
-                                class="w-3 h-3 text-white"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fill-rule="evenodd"
-                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                  clip-rule="evenodd"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div class="flex items-center gap-2 text-xs text-zinc-500 mb-3">
-                          <span>Max <%= room.capacity_max %> guests</span>
-                          <span :if={room.min_billable_occupancy > 1}>
-                            • Min <%= room.min_billable_occupancy %> guests
-                          </span>
-                        </div>
-
-                        <div
-                          :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
-                          class="flex items-center gap-2 mb-3 text-xs text-zinc-500 mt-auto"
-                        >
-                          <span :if={room.single_beds > 0} class="flex items-center gap-1">
-                            <%= raw(bed_icon_svg(:single, "w-4 h-4")) %>
-                            <span><%= room.single_beds %> Twin</span>
-                          </span>
-                          <span :if={room.queen_beds > 0} class="flex items-center gap-1">
-                            <%= raw(bed_icon_svg(:queen, "w-4 h-4")) %>
-                            <span><%= room.queen_beds %> Queen</span>
-                          </span>
-                          <span :if={room.king_beds > 0} class="flex items-center gap-1">
-                            <%= raw(bed_icon_svg(:king, "w-4 h-4")) %>
-                            <span><%= room.king_beds %> King</span>
-                          </span>
-                        </div>
-
-                        <div class="border-t border-zinc-200 pt-3">
-                          <div class="text-sm text-zinc-900 font-medium">
-                            <div :if={room.minimum_price}>
-                              <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
-                              <span class="text-xs text-zinc-500 font-normal">
-                                (<%= room.min_billable_occupancy %> guest min)
-                              </span>
-                            </div>
-                            <div :if={!room.minimum_price}>
-                              <%= MoneyHelper.format_money!(
-                                room.adult_price_per_night || Money.new(45, :USD)
-                              ) %> per adult
-                            </div>
-                          </div>
-                          <div class="text-xs text-zinc-500 mt-1">
-                            <%= MoneyHelper.format_money!(
-                              room.children_price_per_night || Money.new(25, :USD)
-                            ) %> per child
-                          </div>
-                        </div>
-                      </div>
-                    </label>
-                    <div :if={is_disabled} class="block cursor-not-allowed flex flex-col h-full">
-                      <input
-                        type={if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"}
-                        name={if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"}
-                        value={room.id}
-                        checked={false}
-                        disabled={true}
-                        class="sr-only"
-                        readonly
-                      />
-                      <!-- Room Image with Alert Overlay -->
-                      <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
-                        <!-- Alert Overlay on Image -->
-                        <div
-                          :if={is_unavailable && reason}
-                          class="absolute top-0 left-0 right-0 bg-amber-50 border-b border-amber-200 p-2 z-10"
-                        >
-                          <div class="flex items-start gap-2">
-                            <.icon
-                              name="hero-exclamation-triangle-solid"
-                              class="w-4 h-4 text-amber-600 flex-shrink-0"
-                            />
-                            <p class="text-xs text-amber-800"><%= reason %></p>
-                          </div>
-                        </div>
-                        <%= if room.image && room.image.id do %>
-                          <!-- Render image with blur hash -->
-                          <canvas
-                            id={"blur-hash-room-disabled-#{room.id}"}
-                            src={get_room_blur_hash(room.image)}
-                            class="absolute inset-0 z-0 w-full h-full object-cover"
-                            phx-hook="BlurHashCanvas"
-                          >
-                          </canvas>
-                          <img
-                            src={get_room_image_url(room.image)}
-                            id={"image-room-disabled-#{room.id}"}
-                            loading="lazy"
-                            phx-hook="BlurHashImage"
-                            class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
-                            alt={room.image.alt_text || room.image.title || "#{room.name} image"}
-                          />
-                        <% else %>
-                          <!-- Placeholder when no image -->
-                          <div class="absolute inset-0 flex items-center justify-center">
-                            <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
-                              <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
-                            </div>
-                          </div>
-                        <% end %>
-                      </div>
-                      <!-- Room Content -->
-                      <div class="p-4 flex-1 flex flex-col">
-                        <div class="flex items-start justify-between mb-2">
-                          <div class="flex-1">
-                            <div class="font-semibold text-zinc-900 text-lg"><%= room.name %></div>
-                            <div class="text-sm text-zinc-600 mt-1">
-                              <%= room.description %>
-                            </div>
-                          </div>
-                          <div class="ml-3 flex-shrink-0">
-                            <div class="w-5 h-5 rounded border-2 border-zinc-300"></div>
-                          </div>
-                        </div>
-
-                        <div class="flex items-center gap-2 text-xs text-zinc-500 mb-3">
-                          <span>Max <%= room.capacity_max %> guests</span>
-                          <span :if={room.min_billable_occupancy > 1}>
-                            • Min <%= room.min_billable_occupancy %> guests
-                          </span>
-                        </div>
-
-                        <div
-                          :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
-                          class="flex items-center gap-2 mb-3 text-xs text-zinc-500 mt-auto"
-                        >
-                          <span :if={room.single_beds > 0} class="flex items-center gap-1">
-                            <%= raw(bed_icon_svg(:single, "w-4 h-4")) %>
-                            <span><%= room.single_beds %> Twin</span>
-                          </span>
-                          <span :if={room.queen_beds > 0} class="flex items-center gap-1">
-                            <%= raw(bed_icon_svg(:queen, "w-4 h-4")) %>
-                            <span><%= room.queen_beds %> Queen</span>
-                          </span>
-                          <span :if={room.king_beds > 0} class="flex items-center gap-1">
-                            <%= raw(bed_icon_svg(:king, "w-4 h-4")) %>
-                            <span><%= room.king_beds %> King</span>
-                          </span>
-                        </div>
-
-                        <div class="border-t border-zinc-200 pt-3">
-                          <div class="text-sm text-zinc-900 font-medium">
-                            <div :if={room.minimum_price}>
-                              <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
-                              <span class="text-xs text-zinc-500 font-normal">
-                                (<%= room.min_billable_occupancy %> guest min)
-                              </span>
-                            </div>
-                            <div :if={!room.minimum_price}>
-                              <%= MoneyHelper.format_money!(
-                                room.adult_price_per_night || Money.new(45, :USD)
-                              ) %> per adult
-                            </div>
-                          </div>
-                          <div class="text-xs text-zinc-500 mt-1">
-                            <%= MoneyHelper.format_money!(
-                              room.children_price_per_night || Money.new(25, :USD)
-                            ) %> per child
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                <% end %>
-              </div>
-            </fieldset>
-            <p :if={@form_errors[:room_id]} class="text-red-600 text-sm mt-1">
-              <%= @form_errors[:room_id] %>
-            </p>
-            <div
-              :if={can_select_multiple_rooms?(assigns) && length(@selected_room_ids) > 0}
-              class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md"
-            >
-              <p class="text-sm font-semibold text-blue-900 mb-2">
-                Selected Rooms (<%= length(@selected_room_ids) %>/<%= max_rooms_for_user(assigns) %>):
-              </p>
-              <ul class="text-sm text-blue-800 space-y-1">
-                <%= for room_id <- @selected_room_ids do %>
-                  <% room = Enum.find(@available_rooms, &(&1.id == room_id)) %>
-                  <li :if={room} class="flex items-center justify-between">
-                    <span>• <%= room.name %></span>
-                    <button
-                      phx-click="remove-room"
-                      phx-value-room-id={room_id}
-                      class="text-blue-600 hover:text-blue-800 text-xs underline"
+                      class={
+                        if can_submit_booking?(
+                             @selected_booking_mode,
+                             @checkin_date,
+                             @checkout_date,
+                             get_selected_rooms_for_submit(assigns),
+                             @capacity_error,
+                             @price_error,
+                             @form_errors,
+                             @date_validation_errors
+                           ) do
+                          "w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-blue-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                        else
+                          "w-full bg-zinc-300 text-zinc-600 font-semibold py-4 rounded-xl cursor-not-allowed opacity-50"
+                        end
+                      }
                     >
-                      Remove
+                      Confirm Booking
                     </button>
-                  </li>
-                <% end %>
-              </ul>
-            </div>
-            <p
-              :if={
-                can_select_multiple_rooms?(assigns) &&
-                  length(@selected_room_ids) < max_rooms_for_user(assigns) &&
-                  (parse_guests_count(@guests_count) || 1) > 1
-              }
-              class="text-blue-600 text-sm mt-2"
-            >
-              <.icon name="hero-light-bulb-solid" class="w-4 h-4 text-blue-600 inline-block me-1" />
-              Family membership: You can book up to <%= max_rooms_for_user(assigns) %> rooms in the same reservation.
-            </p>
-            <p
-              :if={
-                can_select_multiple_rooms?(assigns) &&
-                  length(@selected_room_ids) > 0 &&
-                  (parse_guests_count(@guests_count) || 1) +
-                    (parse_children_count(@children_count) || 0) == 1
-              }
-              class="text-amber-600 text-sm mt-2"
-            >
-              <.icon
-                name="hero-exclamation-triangle-solid"
-                class="w-4 h-4 text-amber-600 inline-block me-1"
-              />
-              Cannot book multiple rooms with only 1 person. Please select more people to book additional rooms.
-            </p>
-          </div>
-          <!-- Buyout Selection (for buyout bookings) -->
-          <div :if={@selected_booking_mode == :buyout && @checkin_date && @checkout_date}>
-            <div class="mb-4 p-3 bg-zinc-50 border border-zinc-200 rounded-md">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-zinc-900">Selected Dates</p>
-                  <p class="text-sm text-zinc-600">
-                    <%= Calendar.strftime(@checkin_date, "%B %d, %Y") %> - <%= Calendar.strftime(
-                      @checkout_date,
-                      "%B %d, %Y"
-                    ) %>
-                  </p>
-                  <p class="text-xs text-zinc-500 mt-1">
-                    <%= Date.diff(@checkout_date, @checkin_date) %> night(s)
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div class={[
-              "border-2 rounded-lg p-6 text-center mb-6",
-              if(@date_validation_errors[:availability],
-                do: "border-red-200 bg-red-50",
-                else: "border-indigo-100 bg-indigo-50"
-              )
-            ]}>
-              <div class={[
-                "inline-flex items-center justify-center w-12 h-12 rounded-full mb-4",
-                if(@date_validation_errors[:availability],
-                  do: "bg-red-100 text-red-600",
-                  else: "bg-indigo-100 text-indigo-600"
-                )
-              ]}>
-                <.icon
-                  name={
-                    if @date_validation_errors[:availability],
-                      do: "hero-exclamation-circle",
-                      else: "hero-home-modern"
-                  }
-                  class="w-6 h-6"
-                />
-              </div>
-              <h3 class={[
-                "text-xl font-semibold mb-2",
-                if(@date_validation_errors[:availability],
-                  do: "text-red-900",
-                  else: "text-indigo-900"
-                )
-              ]}>
-                <%= if @date_validation_errors[:availability],
-                  do: "Buyout Unavailable",
-                  else: "Full Cabin Buyout" %>
-              </h3>
-              <p class={[
-                "mb-4 max-w-md mx-auto",
-                if(@date_validation_errors[:availability],
-                  do: "text-red-800",
-                  else: "text-indigo-800"
-                )
-              ]}>
-                <%= if @date_validation_errors[:availability] do %>
-                  <%= @date_validation_errors[:availability] %>
-                <% else %>
-                  You are reserving the entire Tahoe cabin for your group.
-                  This includes exclusive use of all 7 bedrooms, 3 bathrooms, and the sauna.
-                <% end %>
-              </p>
-              <div
-                :if={!@date_validation_errors[:availability]}
-                class="flex flex-wrap justify-center gap-3 text-sm font-medium text-indigo-700"
-              >
-                <span class="bg-white px-3 py-1 rounded-full border border-indigo-200">
-                  Up to 17 Guests
-                </span>
-                <span class="bg-white px-3 py-1 rounded-full border border-indigo-200">
-                  Exclusive Access
-                </span>
-                <span class="bg-white px-3 py-1 rounded-full border border-indigo-200">
-                  Fixed Nightly Rate
-                </span>
-              </div>
-            </div>
-          </div>
-          <!-- Reservation Summary & Price Display -->
-          <div
-            :if={@calculated_price && @checkin_date && @checkout_date}
-            class="bg-zinc-50 rounded-md p-6 space-y-4"
-          >
-            <div>
-              <h3 class="text-lg font-semibold text-zinc-900 mb-4">Reservation Summary</h3>
-              <!-- Dates -->
-              <div class="space-y-2 mb-4">
-                <div class="flex items-center text-sm">
-                  <span class="font-semibold text-zinc-700 w-24">Check-in:</span>
-                  <span class="text-zinc-900">
-                    <%= Calendar.strftime(@checkin_date, "%B %d, %Y") %>
-                  </span>
-                </div>
-                <div class="flex items-center text-sm">
-                  <span class="font-semibold text-zinc-700 w-24">Check-out:</span>
-                  <span class="text-zinc-900">
-                    <%= Calendar.strftime(@checkout_date, "%B %d, %Y") %>
-                  </span>
-                </div>
-                <div class="flex items-center text-sm">
-                  <span class="font-semibold text-zinc-700 w-24">Nights:</span>
-                  <span class="text-zinc-900">
-                    <%= Date.diff(@checkout_date, @checkin_date) %> night(s)
-                  </span>
-                </div>
-              </div>
-              <!-- Reservation Type Description -->
-              <div class="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
-                <p class="text-sm text-blue-900">
-                  <span :if={@selected_booking_mode == :room}>
-                    <strong>Individual Room(s):</strong>
-                    You are booking specific rooms. You will share common areas (kitchen, living room, sauna) with other members.
-                  </span>
-                  <span :if={@selected_booking_mode == :buyout}>
-                    <strong>Full Buyout (Exclusive Rental):</strong>
-                    You'll have the entire cabin exclusively for your group. Perfect for larger groups or special occasions!
-                  </span>
-                </p>
-              </div>
-              <!-- Price Breakdown -->
-              <div :if={@price_breakdown} class="border-t border-zinc-200 pt-4">
-                <h4 class="text-sm font-semibold text-zinc-700 mb-3">Price Breakdown</h4>
-                <div class="space-y-2 text-sm">
-                  <!-- Buyout Breakdown -->
-                  <div :if={@selected_booking_mode == :buyout} class="flex justify-between text-sm">
-                    <span class="text-zinc-600">
-                      Full Buyout
-                      <%= if @price_breakdown.nights && @price_breakdown.price_per_night do %>
-                        (<%= MoneyHelper.format_money!(@price_breakdown.price_per_night) %> × <%= @price_breakdown.nights %> night<%= if @price_breakdown.nights !=
-                                                                                                                                           1,
-                                                                                                                                         do:
-                                                                                                                                           "s",
-                                                                                                                                         else:
-                                                                                                                                           "" %>)
-                      <% end %>
-                    </span>
-                    <span class="font-medium text-zinc-900">
-                      <%= MoneyHelper.format_money!(@calculated_price) %>
-                    </span>
-                  </div>
-                  <!-- Room Breakdown -->
-                  <div :if={@selected_booking_mode == :room}>
                     <div
-                      :if={@price_breakdown[:using_minimum_pricing]}
-                      class="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-md"
+                      :if={!@can_book}
+                      class="w-full bg-zinc-300 text-zinc-600 font-semibold py-4 rounded-xl text-center cursor-not-allowed"
                     >
-                      <div class="flex items-start gap-2">
-                        <.icon
-                          name="hero-information-circle"
-                          class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"
-                        />
-                        <p class="text-xs text-amber-800">
-                          <strong>Minimum occupancy pricing applied:</strong>
-                          You're being charged for <%= @price_breakdown[:billable_people] %> adults to meet the room's minimum occupancy requirement (you selected <%= @price_breakdown[
-                            :guests_count
-                          ] %> adult<%= if @price_breakdown[:guests_count] != 1, do: "s", else: "" %>).
-                        </p>
-                      </div>
+                      Booking Unavailable
                     </div>
-                    <div class="flex justify-between text-sm">
-                      <span class="text-zinc-600">
-                        Base Price
-                        <%= if @price_breakdown.nights && @price_breakdown[:adult_price_per_night] do %>
-                          <% # Always use billable_people for display (respects min_billable_occupancy)
-                          # For multiple rooms with use_actual_guests=true, billable_people equals guests_count
-                          # For single room, billable_people respects room's min_billable_occupancy
-                          adult_count =
-                            @price_breakdown[:billable_people] || @price_breakdown[:guests_count] ||
-                              0 %> (<%= adult_count %> <%= if adult_count ==
-                                                                1,
-                                                              do: "adult",
-                                                              else: "adults" %> × <%= MoneyHelper.format_money!(
-                            @price_breakdown.adult_price_per_night
-                          ) %> × <%= @price_breakdown.nights %> night<%= if @price_breakdown.nights !=
-                                                                              1,
-                                                                            do: "s",
-                                                                            else: "" %>)
-                          <%= if @price_breakdown[:using_minimum_pricing] do %>
-                            <span class="text-amber-600 text-xs ml-1">(minimum)</span>
-                          <% end %>
-                        <% end %>
-                      </span>
-                      <span class="font-medium text-zinc-900">
-                        <%= if @price_breakdown[:base],
-                          do: MoneyHelper.format_money!(@price_breakdown.base) %>
-                      </span>
-                    </div>
-                    <div
-                      :if={@price_breakdown[:children] && @price_breakdown[:children_per_night]}
-                      class="flex justify-between text-sm mt-2"
+                    <p
+                      :if={@can_book && @calculated_price}
+                      class="text-center text-xs text-zinc-400 mt-2"
                     >
-                      <span class="text-zinc-600">
-                        Children (5-17)
-                        <%= if @price_breakdown.nights && @price_breakdown[:children_price_per_night] do %>
-                          (<%= @price_breakdown[:children_count] || 0 %> <%= if (@price_breakdown[
-                                                                                   :children_count
-                                                                                 ] ||
-                                                                                   0) == 1,
-                                                                                do: "child",
-                                                                                else: "children" %> × <%= MoneyHelper.format_money!(
-                            @price_breakdown.children_price_per_night
-                          ) %> × <%= @price_breakdown.nights %> night<%= if @price_breakdown.nights !=
-                                                                              1,
-                                                                            do: "s",
-                                                                            else: "" %>)
-                        <% end %>
-                      </span>
-                      <span class="font-medium text-zinc-900">
-                        <%= MoneyHelper.format_money!(@price_breakdown.children) %>
-                      </span>
-                    </div>
+                      You won't be charged yet.
+                    </p>
                   </div>
                 </div>
-
-                <div class="flex justify-between items-center mt-4 pt-4 border-t border-zinc-300">
-                  <span class="text-lg font-semibold text-zinc-900">Total Price:</span>
-                  <span class="text-2xl font-bold text-blue-600">
+              </div>
+              <!-- Link to Rules -->
+              <div class="mt-4 p-4 text-center">
+                <button
+                  phx-click="switch-tab"
+                  phx-value-tab="information"
+                  class="text-sm text-zinc-500 hover:text-blue-600 underline"
+                >
+                  View Cabin Rules & Cancellation Policy
+                </button>
+              </div>
+            </aside>
+          </div>
+          <!-- Mobile Sticky Footer (only visible on mobile) -->
+          <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-zinc-200 shadow-2xl z-50 p-4">
+            <div class="max-w-screen-xl mx-auto flex items-center justify-between gap-4">
+              <div class="flex-1">
+                <div :if={@calculated_price} class="text-right">
+                  <p class="text-xs text-zinc-500 uppercase">Total</p>
+                  <p class="text-xl font-black text-blue-600">
                     <%= MoneyHelper.format_money!(@calculated_price) %>
-                  </span>
+                  </p>
+                </div>
+                <div :if={!@calculated_price} class="text-sm text-zinc-500">
+                  Select dates and rooms
                 </div>
               </div>
-            </div>
-          </div>
-
-          <p :if={@price_error} class="text-red-600 text-sm">
-            <%= @price_error %>
-          </p>
-          <p :if={@capacity_error} class="text-red-600 text-sm mt-2">
-            <%= @capacity_error %>
-          </p>
-          <!-- Restricted Date Range Message -->
-
-          <!-- Submit Button -->
-          <div>
-            <button
-              :if={@can_book}
-              phx-click="create-booking"
-              disabled={
-                !can_submit_booking?(
-                  @selected_booking_mode,
-                  @checkin_date,
-                  @checkout_date,
-                  get_selected_rooms_for_submit(assigns),
-                  @capacity_error,
-                  @price_error,
-                  @form_errors,
-                  @date_validation_errors
-                )
-              }
-              class={
-                if can_submit_booking?(
-                     @selected_booking_mode,
-                     @checkin_date,
-                     @checkout_date,
-                     get_selected_rooms_for_submit(assigns),
-                     @capacity_error,
-                     @price_error,
-                     @form_errors,
-                     @date_validation_errors
-                   ) do
-                  "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-md transition duration-200"
-                else
-                  "w-full bg-zinc-300 text-zinc-600 font-semibold py-3 px-4 rounded-md cursor-not-allowed opacity-50"
-                end
-              }
-            >
-              Create Booking
-            </button>
-            <div
-              :if={!@can_book}
-              class="w-full bg-zinc-300 text-zinc-600 font-semibold py-3 px-4 rounded-md text-center cursor-not-allowed"
-            >
-              Booking Unavailable
+              <button
+                :if={@can_book}
+                phx-click="create-booking"
+                disabled={
+                  !can_submit_booking?(
+                    @selected_booking_mode,
+                    @checkin_date,
+                    @checkout_date,
+                    get_selected_rooms_for_submit(assigns),
+                    @capacity_error,
+                    @price_error,
+                    @form_errors,
+                    @date_validation_errors
+                  )
+                }
+                class={
+                  if can_submit_booking?(
+                       @selected_booking_mode,
+                       @checkin_date,
+                       @checkout_date,
+                       get_selected_rooms_for_submit(assigns),
+                       @capacity_error,
+                       @price_error,
+                       @form_errors,
+                       @date_validation_errors
+                     ) do
+                    "px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                  else
+                    "px-6 py-3 bg-zinc-300 text-zinc-600 font-semibold rounded-xl cursor-not-allowed opacity-50"
+                  end
+                }
+              >
+                Book Now
+              </button>
             </div>
           </div>
         </div>

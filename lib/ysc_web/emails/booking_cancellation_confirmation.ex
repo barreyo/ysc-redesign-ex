@@ -20,7 +20,7 @@ defmodule YscWeb.Emails.BookingCancellationConfirmation do
   end
 
   def booking_url(booking_id) do
-    YscWeb.Endpoint.url() <> "/bookings/#{booking_id}"
+    YscWeb.Endpoint.url() <> "/bookings/#{booking_id}/receipt"
   end
 
   @doc """
