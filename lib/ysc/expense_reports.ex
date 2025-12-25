@@ -25,7 +25,7 @@ defmodule Ysc.ExpenseReports do
       from er in ExpenseReport,
         where: er.user_id == ^user.id,
         order_by: [desc: :inserted_at],
-        preload: [:expense_items, :income_items, :address]
+        preload: [:expense_items, :income_items, :address, :event]
     )
     |> Enum.map(fn report ->
       # Load bank_account separately without accessing encrypted fields

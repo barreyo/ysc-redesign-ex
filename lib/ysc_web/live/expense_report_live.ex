@@ -89,6 +89,15 @@ defmodule YscWeb.ExpenseReportLive do
     |> handle_modal_params(params)
   end
 
+  defp apply_action(socket, :list, _params) do
+    user = socket.assigns.current_user
+    expense_reports = ExpenseReports.list_expense_reports(user)
+
+    socket
+    |> assign(:page_title, "My Expense Reports")
+    |> assign(:expense_reports, expense_reports)
+  end
+
   defp apply_action(socket, :success, %{"id" => id}) do
     user = socket.assigns.current_user
 
@@ -1078,6 +1087,7 @@ defmodule YscWeb.ExpenseReportLive do
   def render(assigns) do
     case assigns.live_action do
       :success -> render_success(assigns)
+      :list -> render_list(assigns)
       _ -> render_form(assigns)
     end
   end
@@ -1415,7 +1425,7 @@ defmodule YscWeb.ExpenseReportLive do
           <!-- Secondary Actions -->
           <div class="flex flex-wrap justify-center gap-3 pt-2">
             <.link
-              navigate={~p"/expensereport"}
+              navigate={~p"/expensereports"}
               class="px-4 py-2 text-sm font-medium text-zinc-700 hover:text-zinc-900 hover:underline"
             >
               View My Reports
@@ -1441,25 +1451,176 @@ defmodule YscWeb.ExpenseReportLive do
     """
   end
 
+  defp render_list(assigns) do
+    ~H"""
+    <div class="py-8 lg:py-10">
+      <div class="max-w-screen-xl mx-auto px-4">
+        <!-- Header -->
+        <div class="mb-8">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h1 class="text-3xl font-bold text-zinc-900">My Expense Reports</h1>
+              <p class="text-zinc-600 mt-2">
+                View and manage all your submitted expense reports.
+              </p>
+            </div>
+            <.link
+              navigate={~p"/expensereport"}
+              class="px-6 py-3 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 min-h-[44px] flex items-center gap-2"
+            >
+              <.icon name="hero-plus" class="w-5 h-5" /> Submit New Report
+            </.link>
+          </div>
+        </div>
+        <!-- Expense Reports List -->
+        <%= if Enum.empty?(@expense_reports) do %>
+          <div class="bg-white rounded-lg border border-zinc-200 p-12 text-center">
+            <div class="flex flex-col items-center max-w-md mx-auto">
+              <.icon name="hero-document-text" class="w-16 h-16 text-zinc-400 mb-4" />
+              <h3 class="text-lg font-semibold text-zinc-900 mb-2">No expense reports yet</h3>
+              <p class="text-sm text-zinc-600 mb-6">
+                You haven't submitted any expense reports. Submit your first expense report to get started.
+              </p>
+              <.link
+                navigate={~p"/expensereport"}
+                class="px-6 py-3 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 min-h-[44px] flex items-center gap-2 inline-flex"
+              >
+                <.icon name="hero-plus" class="w-5 h-5" /> Submit Your First Report
+              </.link>
+            </div>
+          </div>
+        <% else %>
+          <div class="space-y-4">
+            <%= for report <- @expense_reports do %>
+              <% totals = ExpenseReports.calculate_totals(report) %>
+              <div class="bg-white rounded-lg border border-zinc-200 shadow-sm hover:shadow-md transition-shadow">
+                <div class="p-6">
+                  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <!-- Left side: Report details -->
+                    <div class="flex-1">
+                      <div class="flex items-start justify-between mb-2">
+                        <div>
+                          <h3 class="text-lg font-semibold text-zinc-900 mb-1">
+                            <%= report.purpose %>
+                          </h3>
+                          <div class="flex items-center gap-4 text-sm text-zinc-600">
+                            <span class="font-mono text-xs"><%= report.id %></span>
+                            <span>
+                              Submitted <%= Calendar.strftime(report.inserted_at, "%B %d, %Y") %>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- Report summary -->
+                      <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span class="text-zinc-500">Total Expenses</span>
+                          <p class="font-semibold text-zinc-900 mt-1">
+                            <%= case Ysc.MoneyHelper.format_money(totals.expense_total) do
+                              {:ok, amount} -> amount
+                              amount when is_binary(amount) -> amount
+                              _ -> "N/A"
+                            end %>
+                          </p>
+                        </div>
+                        <%= if not Money.zero?(totals.income_total) do %>
+                          <div>
+                            <span class="text-zinc-500">Total Income</span>
+                            <p class="font-semibold text-zinc-900 mt-1">
+                              <%= case Ysc.MoneyHelper.format_money(totals.income_total) do
+                                {:ok, amount} -> amount
+                                amount when is_binary(amount) -> amount
+                                _ -> "N/A"
+                              end %>
+                            </p>
+                          </div>
+                        <% end %>
+                        <div>
+                          <span class="text-zinc-500">Net Total</span>
+                          <p class="font-semibold text-lg text-zinc-900 mt-1">
+                            <%= case Ysc.MoneyHelper.format_money(totals.net_total) do
+                              {:ok, amount} -> amount
+                              amount when is_binary(amount) -> amount
+                              _ -> "N/A"
+                            end %>
+                          </p>
+                        </div>
+                      </div>
+                      <!-- Additional info -->
+                      <div class="mt-4 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+                        <%= if report.event do %>
+                          <span>
+                            <.icon name="hero-calendar" class="w-4 h-4 inline mr-1" />
+                            <%= report.event.title %>
+                          </span>
+                        <% end %>
+                        <span>
+                          <.icon name="hero-banknotes" class="w-4 h-4 inline mr-1" />
+                          <%= case report.reimbursement_method do
+                            "bank_transfer" -> "Bank Transfer"
+                            "check" -> "Check"
+                            _ -> "Not specified"
+                          end %>
+                        </span>
+                        <span>
+                          <.icon name="hero-document-text" class="w-4 h-4 inline mr-1" />
+                          <%= length(report.expense_items) %> expense item<%= if length(
+                                                                                   report.expense_items
+                                                                                 ) != 1,
+                                                                                 do: "s",
+                                                                                 else: "" %>
+                        </span>
+                      </div>
+                    </div>
+                    <!-- Right side: Actions -->
+                    <div class="flex-shrink-0 flex flex-col gap-2">
+                      <.link
+                        navigate={~p"/expensereport/#{report.id}/success"}
+                        class="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 min-h-[44px] flex items-center justify-center gap-2"
+                      >
+                        <.icon name="hero-document-magnifying-glass" class="w-5 h-5" /> View Details
+                      </.link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
   defp render_form(assigns) do
     ~H"""
     <div class="py-8 lg:py-10">
       <div class="max-w-screen-xl mx-auto px-4">
         <!-- Header -->
-        <div class="prose prose-zinc max-w-none mb-8">
-          <h1>Expense Report</h1>
-          <p>
-            Submit your expenses for reimbursement. Expenses must be submitted
-            <strong>within 30 days</strong>
-            of the date of purchase. Once submitted, you will receive an email confirmation and your reimbursement will be processed by the treasurer.
-          </p>
-          <p :if={@treasurer}>
-            If you have questions, please contact:
-            <strong><%= @treasurer.first_name %> <%= @treasurer.last_name %></strong>
-            (<a href={"mailto:#{@treasurer.email}"} class="text-blue-600 hover:underline">
-              <%= @treasurer.email %>
-            </a>).
-          </p>
+        <div class="mb-8">
+          <div class="flex items-start justify-between mb-4">
+            <div class="prose prose-zinc max-w-none flex-1">
+              <h1>Expense Report</h1>
+              <p>
+                Submit your expenses for reimbursement. Expenses must be submitted
+                <strong>within 30 days</strong>
+                of the date of purchase. Once submitted, you will receive an email confirmation and your reimbursement will be processed by the treasurer.
+              </p>
+              <p :if={@treasurer}>
+                If you have questions, please contact:
+                <strong><%= @treasurer.first_name %> <%= @treasurer.last_name %></strong>
+                (<a href={"mailto:#{@treasurer.email}"} class="text-blue-600 hover:underline">
+                  <%= @treasurer.email %>
+                </a>).
+              </p>
+            </div>
+            <.link
+              navigate={~p"/expensereports"}
+              class="ml-6 px-4 py-2 text-sm font-medium text-zinc-700 bg-white border border-zinc-300 rounded-md hover:bg-zinc-50 min-h-[44px] flex items-center gap-2 flex-shrink-0"
+            >
+              <.icon name="hero-document-text" class="w-5 h-5" /> View My Reports
+            </.link>
+          </div>
         </div>
         <!-- 2-Column Layout: Form on left, Sticky Summary on right -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">

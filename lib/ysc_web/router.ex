@@ -209,6 +209,7 @@ defmodule YscWeb.Router do
       live "/orders/:order_id/confirmation", OrderConfirmationLive, :index
       live "/bookings/:id", UserBookingDetailLive, :index
       live "/expensereport", ExpenseReportLive, :index
+      live "/expensereports", ExpenseReportLive, :list
       live "/expensereport/:id/success", ExpenseReportLive, :success
     end
   end

@@ -26,6 +26,7 @@ defmodule Ysc.Repo.Migrations.CreateUsersAuthTables do
     create unique_index(:users, [:email])
     create index(:users, [:role])
     create index(:users, [:state])
+    create index(:users, [:board_position])
 
     create table(:users_tokens, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
