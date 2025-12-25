@@ -510,9 +510,12 @@ trix-toolbar .trix-button-row {
     position: sticky;
 }
 
+
 /* Expense Report Success Page Styles */
 
+
 /* Print styles for expense report success page */
+
 @media print {
     /* Hide navigation */
     #site-header,
@@ -520,34 +523,26 @@ trix-toolbar .trix-button-row {
     header {
         display: none !important;
     }
-
     /* Hide footer */
     footer {
         display: none !important;
     }
-
     /* Hide reimbursement timeline */
     .reimbursement-timeline {
         display: none !important;
     }
-
     /* Hide action buttons */
     .print-hide {
         display: none !important;
     }
-
     /* Ensure content prints properly */
     body {
         margin: 0;
         padding: 0;
     }
-
     .max-w-xl {
         max-width: 100% !important;
     }
-}
-    top: 0;
-    z-index: 2;
 }
 
 trix-toolbar .trix-button-group {
