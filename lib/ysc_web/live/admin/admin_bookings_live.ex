@@ -1965,7 +1965,7 @@ defmodule YscWeb.AdminBookingsLive do
                     <div class="flex-1">
                       <div class="flex items-center gap-3 mb-2">
                         <.link
-                          navigate={~p"/bookings/#{pending_refund.booking.id}"}
+                          navigate={~p"/admin/bookings/#{pending_refund.booking.id}"}
                           class="font-semibold text-zinc-900 hover:text-blue-600"
                         >
                           Booking: <%= pending_refund.booking.reference_id %>

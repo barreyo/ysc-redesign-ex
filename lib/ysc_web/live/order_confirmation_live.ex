@@ -3,6 +3,10 @@ defmodule YscWeb.OrderConfirmationLive do
 
   alias Ysc.Tickets
   alias Ysc.Events
+  alias Ysc.Ledgers.Refund
+  alias Ysc.MoneyHelper
+  alias Ysc.Repo
+  import Ecto.Query
 
   @impl true
   def mount(%{"order_id" => order_id}, _session, socket) do
@@ -16,13 +20,20 @@ defmodule YscWeb.OrderConfirmationLive do
       ticket_order ->
         # Verify the order belongs to the current user
         if ticket_order.user_id == socket.assigns.current_user.id do
-          # Load the event for display
-          event = Events.get_event!(ticket_order.event_id)
+          # Load the event with cover image preloaded
+          event =
+            Events.get_event!(ticket_order.event_id)
+            |> Repo.preload(:cover_image)
+
+          # Get refund information if order has refunds
+          refund_data = get_refund_data_for_order(ticket_order)
 
           {:ok,
            socket
            |> assign(:ticket_order, ticket_order)
            |> assign(:event, event)
+           |> assign(:user_first_name, socket.assigns.current_user.first_name || "Member")
+           |> assign(:refund_data, refund_data)
            |> assign(:page_title, "Order Confirmation")}
         else
           {:ok,
@@ -51,112 +62,324 @@ defmodule YscWeb.OrderConfirmationLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="py-8 lg:py-10 max-w-screen-lg mx-auto px-4">
-      <div class="max-w-xl mx-auto">
-        <!-- Success Header -->
-        <div class="text-center mb-8">
-          <div class="text-green-500 mb-4">
-            <.icon name="hero-check-circle" class="w-16 h-16 mx-auto" />
-          </div>
-          <h1 class="text-3xl font-bold text-zinc-900 mb-2">Order Confirmed!</h1>
-          <p class="text-zinc-600">
-            Your tickets have been successfully confirmed. You'll receive a confirmation email shortly.
+    <div class="py-8 lg:py-10 max-w-screen-xl mx-auto px-4">
+      <!-- Header -->
+      <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-100 pb-8">
+        <div>
+          <%= if @ticket_order.status == :cancelled do %>
+            <div class="flex items-center gap-2 text-red-600 mb-2">
+              <.icon name="hero-x-circle" class="w-6 h-6" />
+              <span class="font-bold uppercase tracking-wider text-sm">Order Cancelled</span>
+            </div>
+            <h1 class="text-4xl font-bold text-zinc-900">
+              Order Cancelled
+            </h1>
+            <p class="text-zinc-500 mt-2 text-lg">
+              Your order for <strong><%= @event.title %></strong>
+              has been cancelled.
+              <%= if @refund_data && @refund_data.total_refunded do %>
+                A refund of
+                <strong><%= MoneyHelper.format_money!(@refund_data.total_refunded) %></strong>
+                has been processed.
+              <% else %>
+                Refund information is shown in the payment summary on the right.
+              <% end %>
+            </p>
+          <% else %>
+            <div class="flex items-center gap-2 text-green-600 mb-2">
+              <.icon name="hero-check-circle-solid" class="w-6 h-6" />
+              <span class="font-bold uppercase tracking-wider text-sm">Order Confirmed</span>
+            </div>
+            <h1 class="text-4xl font-bold text-zinc-900">
+              See you at the Event, <%= @user_first_name %>!
+            </h1>
+            <p class="text-zinc-500 mt-2 text-lg">
+              Your tickets for <strong><%= @event.title %></strong> are confirmed.
+              We've sent a copy of these details to your email.
+            </p>
+          <% end %>
+        </div>
+        <div class="text-left md:text-right">
+          <p class="text-xs font-bold text-zinc-400 uppercase tracking-widest">Order Reference</p>
+          <p class="font-mono text-lg font-semibold text-zinc-900 whitespace-nowrap">
+            <%= @ticket_order.reference_id %>
           </p>
         </div>
-        <!-- Order Details Card -->
-        <div class="bg-white rounded-lg shadow-sm border border-zinc-200 mb-6">
-          <div class="px-6 py-4 border-b border-zinc-200">
-            <h2 class="text-lg font-semibold text-zinc-900">Order Details</h2>
-          </div>
-          <div class="px-6 py-4 space-y-4">
-            <div class="grid grid-cols-2 gap-4">
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <!-- Left Column: Main Content -->
+        <div class="lg:col-span-2 space-y-8">
+          <!-- Event Details Card -->
+          <div class="bg-zinc-50 rounded-lg border border-zinc-200 overflow-hidden">
+            <!-- Event Cover Image -->
+            <div class="h-48 bg-zinc-200 relative">
+              <%= if @event.cover_image do %>
+                <.live_component
+                  id={"order-confirmation-event-cover-#{@event.id}"}
+                  module={YscWeb.Components.Image}
+                  image_id={@event.image_id}
+                  image={@event.cover_image}
+                  preferred_type={:optimized}
+                  class="w-full h-full object-cover"
+                />
+              <% else %>
+                <div class="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                  <div class="text-center text-white">
+                    <.icon name="hero-calendar" class="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p class="text-xl font-semibold"><%= @event.title %></p>
+                  </div>
+                </div>
+              <% end %>
+              <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent flex items-end p-6">
+                <div class="flex items-center justify-between w-full">
+                  <h2 class="text-white text-xl font-bold flex items-center gap-2">
+                    <.icon name="hero-information-circle" class="w-8 h-8" /> Event Details
+                  </h2>
+                  <span class="text-sm font-medium bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+                    <%= length(@ticket_order.tickets) %> <%= if length(@ticket_order.tickets) == 1,
+                      do: "Ticket",
+                      else: "Tickets" %>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
               <div>
-                <dt class="text-sm font-medium text-zinc-500">Order ID</dt>
-                <dd class="mt-1 text-sm text-zinc-900 font-mono">
-                  <%= @ticket_order.reference_id %>
-                </dd>
+                <p class="text-xs font-bold text-zinc-400 uppercase mb-1">Event</p>
+                <p class="text-xl font-bold text-zinc-900"><%= @event.title %></p>
+                <p class="text-sm text-zinc-500"><%= @event.description %></p>
               </div>
               <div>
-                <dt class="text-sm font-medium text-zinc-500">Event</dt>
-                <dd class="mt-1 text-sm text-zinc-900"><%= @event.title %></dd>
-              </div>
-              <div>
-                <dt class="text-sm font-medium text-zinc-500">Date</dt>
-                <dd class="mt-1 text-sm text-zinc-900">
+                <p class="text-xs font-bold text-zinc-400 uppercase mb-1">Date & Time</p>
+                <p class="text-xl font-bold text-zinc-900">
                   <%= if @event.start_date do %>
                     <%= Calendar.strftime(@event.start_date, "%B %d, %Y") %>
                   <% else %>
                     TBD
                   <% end %>
-                </dd>
-              </div>
-              <div>
-                <dt class="text-sm font-medium text-zinc-500">Time</dt>
-                <dd class="mt-1 text-sm text-zinc-900">
+                </p>
+                <p class="text-sm text-zinc-500">
                   <%= if @event.start_time do %>
                     <%= Calendar.strftime(@event.start_time, "%I:%M %p") %>
                   <% else %>
+                    Time TBD
+                  <% end %>
+                </p>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-zinc-400 uppercase mb-1">Location</p>
+                <p class="text-xl font-bold text-zinc-900">
+                  <%= if @event.location_name do %>
+                    <%= @event.location_name %>
+                  <% else %>
                     TBD
                   <% end %>
-                </dd>
+                </p>
+                <p :if={@event.address} class="text-sm text-zinc-500">
+                  <%= @event.address %>
+                </p>
+              </div>
+            </div>
+          </div>
+          <!-- Tickets Card -->
+          <div class="bg-white rounded-lg border border-zinc-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-zinc-200 bg-zinc-50">
+              <h2 class="text-lg font-semibold text-zinc-900 flex items-center gap-2">
+                <.icon name="hero-ticket" class="w-5 h-5" /> Your Tickets
+              </h2>
+            </div>
+            <div class="px-6 py-4">
+              <div class="space-y-3">
+                <%= for ticket <- @ticket_order.tickets do %>
+                  <% is_refunded = ticket.status == :cancelled %>
+                  <div class={[
+                    "flex justify-between items-center p-4 rounded-lg border",
+                    if(is_refunded,
+                      do: "bg-red-50 border-red-200 opacity-60",
+                      else: "bg-zinc-50 border-zinc-200"
+                    )
+                  ]}>
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2">
+                        <p class={[
+                          "font-semibold",
+                          if(is_refunded, do: "text-zinc-500 line-through", else: "text-zinc-900")
+                        ]}>
+                          <%= ticket.ticket_tier.name %>
+                        </p>
+                        <%= if is_refunded do %>
+                          <span class="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">
+                            Refunded
+                          </span>
+                        <% end %>
+                      </div>
+                      <p class={[
+                        "text-sm font-mono",
+                        if(is_refunded, do: "text-zinc-400", else: "text-zinc-500")
+                      ]}>
+                        Ticket #<%= ticket.reference_id %>
+                      </p>
+                    </div>
+                    <div class="text-right">
+                      <p class={[
+                        "font-bold text-lg",
+                        if(is_refunded,
+                          do: "text-zinc-400 line-through",
+                          else: "text-zinc-900"
+                        )
+                      ]}>
+                        <%= cond do %>
+                          <% ticket.ticket_tier.type == "donation" || ticket.ticket_tier.type == :donation -> %>
+                            <%= get_donation_amount_for_ticket(ticket, @ticket_order) %>
+                          <% ticket.ticket_tier.price == nil -> %>
+                            Free
+                          <% Money.zero?(ticket.ticket_tier.price) -> %>
+                            Free
+                          <% true -> %>
+                            <%= MoneyHelper.format_money!(ticket.ticket_tier.price) %>
+                        <% end %>
+                      </p>
+                    </div>
+                  </div>
+                <% end %>
               </div>
             </div>
           </div>
         </div>
-        <!-- Tickets Card -->
-        <div class="bg-white rounded-lg shadow-sm border border-zinc-200 mb-6">
-          <div class="px-6 py-4 border-b border-zinc-200">
-            <h2 class="text-lg font-semibold text-zinc-900">Your Tickets</h2>
-          </div>
-          <div class="px-6 py-4">
-            <div class="space-y-4">
-              <%= for ticket <- @ticket_order.tickets do %>
-                <div class="flex justify-between items-center p-4 bg-zinc-50 rounded-lg">
-                  <div>
-                    <p class="font-medium text-zinc-900"><%= ticket.ticket_tier.name %></p>
-                    <p class="text-sm text-zinc-500">Ticket #<%= ticket.reference_id %></p>
-                  </div>
-                  <div class="text-right">
-                    <p class="font-semibold text-zinc-900">
-                      <%= cond do %>
-                        <% ticket.ticket_tier.type == "donation" || ticket.ticket_tier.type == :donation -> %>
-                          <%= get_donation_amount_for_ticket(ticket, @ticket_order) %>
-                        <% ticket.ticket_tier.price == nil -> %>
-                          Free
-                        <% Money.zero?(ticket.ticket_tier.price) -> %>
-                          Free
-                        <% true -> %>
-                          <%= case Money.to_string(ticket.ticket_tier.price) do
-                            {:ok, amount} -> amount
-                            {:error, _} -> "Error"
-                          end %>
-                      <% end %>
-                    </p>
-                  </div>
-                </div>
-              <% end %>
-            </div>
-          </div>
-        </div>
-        <!-- Payment Summary Card -->
-        <div class="bg-white rounded-lg shadow-sm border border-zinc-200 mb-6">
-          <div class="px-6 py-4 border-b border-zinc-200">
-            <h2 class="text-lg font-semibold text-zinc-900">Payment Summary</h2>
-          </div>
-          <div class="px-6 py-4">
-            <div class="space-y-3">
+        <!-- Right Column: Sidebar -->
+        <aside class="space-y-6">
+          <!-- Payment Summary -->
+          <div class={[
+            "rounded-lg p-8 shadow-xl",
+            if(@ticket_order.status == :cancelled || (@refund_data && @refund_data.total_refunded),
+              do: "bg-red-50 border-2 border-red-200",
+              else: "bg-zinc-900 text-white"
+            )
+          ]}>
+            <h3 class={[
+              "text-xs font-bold uppercase tracking-widest mb-6",
+              if(@ticket_order.status == :cancelled || (@refund_data && @refund_data.total_refunded),
+                do: "text-red-700",
+                else: "text-zinc-400"
+              )
+            ]}>
+              <%= if @ticket_order.status == :cancelled ||
+                       (@refund_data && @refund_data.total_refunded),
+                     do: "Payment & Refund Summary",
+                     else: "Payment Summary" %>
+            </h3>
+            <div class={[
+              "space-y-4 text-sm",
+              if(@ticket_order.status == :cancelled || (@refund_data && @refund_data.total_refunded),
+                do: "text-zinc-900",
+                else: ""
+              )
+            ]}>
               <div class="flex justify-between">
-                <span class="text-zinc-600">Subtotal</span>
-                <span class="font-medium">
-                  <%= case Money.to_string(@ticket_order.total_amount) do
-                    {:ok, amount} -> amount
-                    {:error, _} -> "Error"
-                  end %>
+                <span class={
+                  if(
+                    @ticket_order.status == :cancelled ||
+                      (@refund_data && @refund_data.total_refunded),
+                    do: "text-zinc-600",
+                    else: "text-zinc-400"
+                  )
+                }>
+                  Total Paid
+                </span>
+                <span class={[
+                  "font-bold text-xl",
+                  if(
+                    @ticket_order.status == :cancelled ||
+                      (@refund_data && @refund_data.total_refunded),
+                    do: "text-zinc-900",
+                    else: "text-blue-400"
+                  )
+                ]}>
+                  <%= MoneyHelper.format_money!(@ticket_order.total_amount) %>
                 </span>
               </div>
-              <div class="flex justify-between">
-                <span class="text-zinc-600">Payment Method</span>
-                <span class="font-medium">
+              <%= if @refund_data && @refund_data.total_refunded do %>
+                <div class="flex justify-between border-t border-red-200 pt-4">
+                  <span class="text-zinc-600">Refunded</span>
+                  <span class="font-bold text-green-600 text-xl">
+                    <%= MoneyHelper.format_money!(@refund_data.total_refunded) %>
+                  </span>
+                </div>
+                <%= if @refund_data.processed_refunds && length(@refund_data.processed_refunds) > 0 do %>
+                  <div class="border-t border-red-200 pt-4 space-y-2">
+                    <p class="text-xs font-semibold text-zinc-600 uppercase tracking-wider">
+                      Refund Details
+                    </p>
+                    <%= for refund <- @refund_data.processed_refunds do %>
+                      <div class="flex justify-between text-xs">
+                        <span class="text-zinc-500">
+                          <%= MoneyHelper.format_money!(refund.amount) %>
+                          <%= if refund.reason do %>
+                            <span class="text-zinc-400">
+                              • <%= String.slice(refund.reason, 0, 30) %><%= if String.length(
+                                                                                  refund.reason
+                                                                                ) > 30, do: "..." %>
+                            </span>
+                          <% end %>
+                        </span>
+                        <span class={[
+                          "font-medium",
+                          if(refund.status == :completed,
+                            do: "text-green-600",
+                            else: "text-amber-600"
+                          )
+                        ]}>
+                          <%= if refund.status == :completed,
+                            do: "Processed",
+                            else: String.capitalize(Atom.to_string(refund.status)) %>
+                        </span>
+                      </div>
+                    <% end %>
+                  </div>
+                <% end %>
+                <%= if @refund_data.refunded_tickets && length(@refund_data.refunded_tickets) > 0 do %>
+                  <div class="border-t border-red-200 pt-4 space-y-2">
+                    <p class="text-xs font-semibold text-zinc-600 uppercase tracking-wider">
+                      Refunded Tickets
+                    </p>
+                    <%= for ticket <- @refund_data.refunded_tickets do %>
+                      <div class="text-xs text-zinc-600">
+                        <span class="font-medium"><%= ticket.ticket_tier.name %></span>
+                        <span class="text-zinc-400 font-mono">• #<%= ticket.reference_id %></span>
+                      </div>
+                    <% end %>
+                  </div>
+                <% end %>
+                <div class="flex justify-between border-t-2 border-red-300 pt-4 mt-4">
+                  <span class="font-semibold text-zinc-900">Net Amount</span>
+                  <span class="font-bold text-red-600 text-xl">
+                    <%= case Money.sub(@ticket_order.total_amount, @refund_data.total_refunded) do
+                      {:ok, net} -> MoneyHelper.format_money!(net)
+                      _ -> MoneyHelper.format_money!(@ticket_order.total_amount)
+                    end %>
+                  </span>
+                </div>
+              <% end %>
+              <div class={[
+                "flex justify-between",
+                if(
+                  @ticket_order.status == :cancelled || (@refund_data && @refund_data.total_refunded),
+                  do: "border-t border-red-200 pt-4",
+                  else: "border-t border-zinc-800 pt-4"
+                )
+              ]}>
+                <span class={
+                  if(
+                    @ticket_order.status == :cancelled ||
+                      (@refund_data && @refund_data.total_refunded),
+                    do: "text-zinc-600",
+                    else: "text-zinc-400"
+                  )
+                }>
+                  Method
+                </span>
+                <span>
                   <%= if @ticket_order.payment do
                     get_payment_method_description(@ticket_order.payment)
                   else
@@ -164,38 +387,53 @@ defmodule YscWeb.OrderConfirmationLive do
                   end %>
                 </span>
               </div>
-              <div class="border-t pt-3">
-                <div class="flex justify-between">
-                  <span class="text-lg font-semibold text-zinc-900">Total</span>
-                  <span class="text-lg font-bold text-zinc-900">
-                    <%= case Money.to_string(@ticket_order.total_amount) do
-                      {:ok, amount} -> amount
-                      {:error, _} -> "Error"
-                    end %>
-                  </span>
-                </div>
+              <div class="flex justify-between">
+                <span class={
+                  if(
+                    @ticket_order.status == :cancelled ||
+                      (@refund_data && @refund_data.total_refunded),
+                    do: "text-zinc-600",
+                    else: "text-zinc-400"
+                  )
+                }>
+                  Tickets
+                </span>
+                <span>
+                  <%= length(Enum.filter(@ticket_order.tickets, fn t -> t.status != :cancelled end)) %>
+                  <%= if @refund_data && @refund_data.refunded_tickets && length(@refund_data.refunded_tickets) > 0 do %>
+                    <span class="text-zinc-400">
+                      (<%= length(@refund_data.refunded_tickets) %> refunded)
+                    </span>
+                  <% end %>
+                </span>
               </div>
             </div>
           </div>
-        </div>
-        <!-- Action Buttons -->
-        <div class="flex flex-col sm:flex-row gap-4">
-          <.button phx-click="view-tickets" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
-            View All My Tickets
-          </.button>
-          <.button phx-click="view-event" class="flex-1 bg-zinc-200 text-zinc-800 hover:bg-zinc-300">
-            Back to Event
-          </.button>
-        </div>
-        <!-- Additional Info -->
-        <div class="mt-8 text-center">
-          <p class="text-sm text-zinc-500">
-            Need help? Contact us at
-            <a href="mailto:info@ysc.org" class="text-blue-600 hover:text-blue-500">
-              info@ysc.org
-            </a>
-          </p>
-        </div>
+          <!-- Action Buttons -->
+          <div class="space-y-3">
+            <button
+              phx-click="view-tickets"
+              class="w-full py-4 bg-zinc-100 text-zinc-800 rounded-lg font-bold hover:bg-zinc-200 transition-all"
+            >
+              View All My Tickets
+            </button>
+            <button
+              phx-click="view-event"
+              class="w-full py-4 border-2 border-zinc-100 text-zinc-500 rounded-lg font-bold hover:bg-zinc-50 transition-all"
+            >
+              Back to Event
+            </button>
+          </div>
+        </aside>
+      </div>
+      <!-- Footer Note -->
+      <div class="mt-12 pt-8 border-t border-zinc-100">
+        <p class="text-sm text-zinc-500 text-center">
+          Need help? Contact us at
+          <a href="mailto:info@ysc.org" class="text-blue-600 hover:text-blue-500 underline">
+            info@ysc.org
+          </a>
+        </p>
       </div>
     </div>
     """
@@ -290,6 +528,45 @@ defmodule YscWeb.OrderConfirmationLive do
           _ ->
             "Payment Method"
         end
+    end
+  end
+
+  defp get_refund_data_for_order(ticket_order) do
+    if ticket_order.payment do
+      # Get processed refunds for this payment
+      processed_refunds =
+        from(r in Refund,
+          where: r.payment_id == ^ticket_order.payment.id,
+          order_by: [desc: r.inserted_at]
+        )
+        |> Repo.all()
+
+      # Get refunded tickets (cancelled tickets from this order)
+      refunded_tickets =
+        from(t in Ysc.Events.Ticket,
+          where: t.ticket_order_id == ^ticket_order.id,
+          where: t.status == :cancelled,
+          preload: [:ticket_tier],
+          order_by: [desc: t.updated_at]
+        )
+        |> Repo.all()
+
+      # Calculate total refunded amount
+      processed_total =
+        Enum.reduce(processed_refunds, Money.new(0, :USD), fn refund, acc ->
+          case Money.add(acc, refund.amount) do
+            {:ok, sum} -> sum
+            _ -> acc
+          end
+        end)
+
+      %{
+        processed_refunds: processed_refunds,
+        refunded_tickets: refunded_tickets,
+        total_refunded: if(Money.positive?(processed_total), do: processed_total, else: nil)
+      }
+    else
+      nil
     end
   end
 end
