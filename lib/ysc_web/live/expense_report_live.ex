@@ -98,11 +98,14 @@ defmodule YscWeb.ExpenseReportLive do
     |> assign(:expense_reports, expense_reports)
   end
 
-  defp apply_action(socket, :success, %{"id" => id}) do
+  defp apply_action(socket, :success, %{"id" => id} = params) do
     user = socket.assigns.current_user
 
     expense_report = ExpenseReports.get_expense_report!(id, user)
     totals = ExpenseReports.calculate_totals(expense_report)
+
+    # Show confetti only if confetti=true parameter is present (from form submission redirect)
+    show_confetti = Map.get(params, "confetti") == "true"
 
     socket
     |> assign(:page_title, "Expense Report Submitted")
@@ -110,6 +113,7 @@ defmodule YscWeb.ExpenseReportLive do
     |> assign(:totals, totals)
     |> assign(:bank_accounts, ExpenseReports.list_bank_accounts(user))
     |> assign(:billing_address, Accounts.get_billing_address(user))
+    |> assign(:show_confetti, show_confetti)
   end
 
   defp handle_modal_params(socket, params) do
@@ -641,9 +645,10 @@ defmodule YscWeb.ExpenseReportLive do
           )
 
           # Expense report is already created with "submitted" status, no need to call submit_expense_report
+          # Add confetti=true parameter to trigger confetti animation on success page
           {:noreply,
            socket
-           |> redirect(to: ~p"/expensereport/#{expense_report.id}/success")}
+           |> redirect(to: ~p"/expensereport/#{expense_report.id}/success?confetti=true")}
 
         {:error, changeset} ->
           Logger.error(
@@ -1097,7 +1102,7 @@ defmodule YscWeb.ExpenseReportLive do
     <div
       id="expense-report-success"
       phx-hook="Confetti"
-      data-show-confetti="true"
+      data-show-confetti={if @show_confetti, do: "true", else: "false"}
       class="py-8 lg:py-10 max-w-screen-xl mx-auto px-4"
     >
       <div class="max-w-xl mx-auto">
@@ -1645,9 +1650,9 @@ defmodule YscWeb.ExpenseReportLive do
                   placeholder="What is the purpose of this expense report?"
                   required
                 />
-                <.error :for={error <- @form[:purpose].errors} class="mt-1 text-sm text-red-600">
+                <p :for={error <- @form[:purpose].errors} class="mt-1 text-sm text-red-600">
                   <%= error_to_string(error) %>
-                </.error>
+                </p>
 
                 <div class="mt-4">
                   <label
@@ -1734,12 +1739,9 @@ defmodule YscWeb.ExpenseReportLive do
                             <% true -> %>
                           <% end %>
                         <% end %>
-                        <.error
-                          :for={error <- expense_f[:date].errors}
-                          class="mt-1 text-sm text-red-600"
-                        >
+                        <p :for={error <- expense_f[:date].errors} class="mt-1 text-sm text-red-600">
                           <%= error_to_string(error) %>
-                        </.error>
+                        </p>
                       </div>
                       <div>
                         <div phx-feedback-for={expense_f[:vendor].name}>
@@ -1775,12 +1777,9 @@ defmodule YscWeb.ExpenseReportLive do
                             <option value="USPS">USPS</option>
                           </datalist>
                         </div>
-                        <.error
-                          :for={error <- expense_f[:vendor].errors}
-                          class="mt-1 text-sm text-red-600"
-                        >
+                        <p :for={error <- expense_f[:vendor].errors} class="mt-1 text-sm text-red-600">
                           <%= error_to_string(error) %>
-                        </.error>
+                        </p>
                       </div>
                       <div>
                         <.input
@@ -1794,12 +1793,9 @@ defmodule YscWeb.ExpenseReportLive do
                         >
                           <div class="text-zinc-800">$</div>
                         </.input>
-                        <.error
-                          :for={error <- expense_f[:amount].errors}
-                          class="mt-1 text-sm text-red-600"
-                        >
+                        <p :for={error <- expense_f[:amount].errors} class="mt-1 text-sm text-red-600">
                           <%= error_to_string(error) %>
-                        </.error>
+                        </p>
                       </div>
                     </div>
 
@@ -1811,12 +1807,12 @@ defmodule YscWeb.ExpenseReportLive do
                         placeholder="What did you buy?"
                         required
                       />
-                      <.error
+                      <p
                         :for={error <- expense_f[:description].errors}
                         class="mt-1 text-sm text-red-600"
                       >
                         <%= error_to_string(error) %>
-                      </.error>
+                      </p>
                     </div>
 
                     <div>
@@ -2046,12 +2042,9 @@ defmodule YscWeb.ExpenseReportLive do
                           min={get_date_min()}
                           required
                         />
-                        <.error
-                          :for={error <- income_f[:date].errors}
-                          class="mt-1 text-sm text-red-600"
-                        >
+                        <p :for={error <- income_f[:date].errors} class="mt-1 text-sm text-red-600">
                           <%= error_to_string(error) %>
-                        </.error>
+                        </p>
                       </div>
                       <div>
                         <.input
@@ -2065,12 +2058,9 @@ defmodule YscWeb.ExpenseReportLive do
                         >
                           <div class="text-zinc-800">$</div>
                         </.input>
-                        <.error
-                          :for={error <- income_f[:amount].errors}
-                          class="mt-1 text-sm text-red-600"
-                        >
+                        <p :for={error <- income_f[:amount].errors} class="mt-1 text-sm text-red-600">
                           <%= error_to_string(error) %>
-                        </.error>
+                        </p>
                       </div>
                     </div>
 
@@ -2081,12 +2071,12 @@ defmodule YscWeb.ExpenseReportLive do
                         label="Description"
                         required
                       />
-                      <.error
+                      <p
                         :for={error <- income_f[:description].errors}
                         class="mt-1 text-sm text-red-600"
                       >
                         <%= error_to_string(error) %>
-                      </.error>
+                      </p>
                     </div>
 
                     <div>
@@ -2341,12 +2331,12 @@ defmodule YscWeb.ExpenseReportLive do
                       }
                       required
                     />
-                    <.error
+                    <p
                       :for={error <- @form[:bank_account_id].errors}
                       class="mt-1 text-sm text-red-600"
                     >
                       <%= error_to_string(error) %>
-                    </.error>
+                    </p>
                     <div class="flex items-center gap-2">
                       <span class="text-sm text-zinc-600">Or</span>
                       <button
@@ -2375,12 +2365,12 @@ defmodule YscWeb.ExpenseReportLive do
                       Add Bank Account
                     </button>
                   </div>
-                  <.error
+                  <p
                     :for={error <- @form[:reimbursement_method].errors}
                     class="mt-1 text-sm text-red-600"
                   >
                     <%= error_to_string(error) %>
-                  </.error>
+                  </p>
                 </div>
               </div>
 

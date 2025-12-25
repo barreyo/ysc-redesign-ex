@@ -803,7 +803,7 @@ defmodule YscWeb.HomeLive do
                         </span>
                         <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
                           <%= case days_until_booking(booking) do
-                            :started -> "In progress"
+                            :started -> "Currenty Staying"
                             0 -> "Today"
                             1 -> "Tomorrow"
                             days -> "In #{days} days"
