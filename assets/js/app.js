@@ -51,6 +51,7 @@ import BackToTop from "./back_to_top";
 import HistoryNav from "./history_nav";
 import InfoNav from "./info_nav";
 import Confetti from "./confetti";
+import AutoConsumeUpload from "./auto_consume_upload";
 
 let Hooks = {
     StickyNavbar,
@@ -81,6 +82,7 @@ let Hooks = {
     HistoryNav,
     InfoNav,
     Confetti,
+    AutoConsumeUpload,
 };
 Hooks.LivePhone = LivePhone;
 
@@ -275,6 +277,47 @@ let AutoSubmit = {
 
 // Add AutoSubmit to hooks
 Hooks.AutoSubmit = AutoSubmit;
+
+// Auto-consume uploads when they reach 100% progress
+// Listen for multiple possible events
+window.addEventListener("phx:file-update", (e) => {
+    console.log("phx:file-update event:", e.detail);
+    const {ref, progress} = e.detail || {};
+    if (progress === 100) {
+        // Find the consume button for this ref
+        const consumeButton = document.getElementById(`receipt-consume-${ref}`) ||
+                              document.getElementById(`proof-consume-${ref}`);
+        if (consumeButton && !consumeButton.disabled) {
+            console.log("Auto-consuming upload:", ref);
+            // Small delay to ensure upload is fully processed
+            setTimeout(() => {
+                consumeButton.click();
+            }, 200);
+        }
+    }
+});
+
+// Also listen for progress updates via DOM observation
+// Check progress bars periodically for completed uploads
+setInterval(() => {
+    document.querySelectorAll('progress[data-ref]').forEach((progress) => {
+        const ref = progress.getAttribute('data-ref');
+        const progressValue = parseInt(progress.value) || 0;
+        const uploadType = progress.getAttribute('data-upload-type');
+
+        // Check if progress is 100% and button is not disabled
+        if (progressValue === 100) {
+            const consumeButton = document.getElementById(`${uploadType}-consume-${ref}`);
+            if (consumeButton && !consumeButton.disabled && !consumeButton.dataset.consumed) {
+                console.log("Auto-consuming upload via progress check:", ref, "progress:", progressValue);
+                consumeButton.dataset.consumed = 'true';
+                setTimeout(() => {
+                    consumeButton.click();
+                }, 300);
+            }
+        }
+    });
+}, 500);
 
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()

@@ -149,6 +149,13 @@ defmodule YscWeb.ExpenseReportLive do
      |> assign(:totals, totals)}
   end
 
+  # Handle file upload triggers (when files are selected, auto_upload starts)
+  def handle_event("validate", params, socket) do
+    # This handles upload events that don't have expense_report params
+    # With auto_upload: true, the upload starts automatically
+    {:noreply, socket}
+  end
+
   def handle_event("recover", %{"expense_report" => expense_report_params}, socket) do
     # Custom recovery handler for form recovery after crash/disconnection
     # This ensures nested items and form state are properly restored
@@ -192,7 +199,27 @@ defmodule YscWeb.ExpenseReportLive do
     changeset = socket.assigns.form.source
 
     expense_items =
-      Ecto.Changeset.get_field(changeset, :expense_items, []) ++ [%ExpenseReportItem{}]
+      Ecto.Changeset.get_field(changeset, :expense_items, [])
+
+    # Get the date from the last expense item if it exists
+    last_date =
+      expense_items
+      |> List.last()
+      |> case do
+        %Ecto.Changeset{} = item ->
+          Ecto.Changeset.get_field(item, :date)
+
+        %ExpenseReportItem{} = item ->
+          item.date
+
+        _ ->
+          nil
+      end
+
+    new_item = %ExpenseReportItem{}
+    new_item = if last_date, do: %{new_item | date: last_date}, else: new_item
+
+    expense_items = expense_items ++ [new_item]
 
     new_changeset =
       changeset
@@ -1256,11 +1283,14 @@ defmodule YscWeb.ExpenseReportLive do
   defp render_form(assigns) do
     ~H"""
     <div class="py-8 lg:py-10">
-      <div class="flex flex-col space-y-6 max-w-screen-xl mx-auto px-4">
-        <div class="prose prose-zinc max-w-xl mx-auto lg:mx-0">
+      <div class="max-w-screen-xl mx-auto px-4">
+        <!-- Header -->
+        <div class="prose prose-zinc max-w-none mb-8">
           <h1>Expense Report</h1>
           <p>
-            Submit your expenses for reimbursement. Expenses must be submitted within 30 days of the date of purchase. Once submitted, you will receive an email confirmation and your reimbursement will be processed by the treasurer.
+            Submit your expenses for reimbursement. Expenses must be submitted
+            <strong>within 30 days</strong>
+            of the date of purchase. Once submitted, you will receive an email confirmation and your reimbursement will be processed by the treasurer.
           </p>
           <p :if={@treasurer}>
             If you have questions, please contact:
@@ -1270,69 +1300,71 @@ defmodule YscWeb.ExpenseReportLive do
             </a>).
           </p>
         </div>
+        <!-- 2-Column Layout: Form on left, Sticky Summary on right -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <!-- Main Form Column -->
+          <div class="lg:col-span-2 pb-24 lg:pb-0">
+            <.simple_form
+              for={@form}
+              id="expense-report-form"
+              phx-submit="save"
+              phx-change="validate"
+              phx-auto-recover="recover"
+              multipart={true}
+            >
+              <!-- Step 1: Basic Information -->
+              <div class="bg-white rounded-lg border border-zinc-200 p-6 mb-6">
+                <h2 class="text-xl font-semibold text-zinc-900 mb-4">1. Basic Information</h2>
 
-        <div class="max-w-xl mx-auto lg:mx-0">
-          <.simple_form
-            for={@form}
-            id="expense-report-form"
-            phx-submit="save"
-            phx-change="validate"
-            phx-auto-recover="recover"
-            multipart={true}
-          >
-            <.input
-              field={@form[:purpose]}
-              type="textarea"
-              label="Purpose"
-              placeholder="What is the purpose of this expense report?"
-              required
-            />
+                <.input
+                  field={@form[:purpose]}
+                  type="textarea"
+                  label="Purpose"
+                  placeholder="What is the purpose of this expense report?"
+                  required
+                />
+                <.error :for={error <- @form[:purpose].errors} class="mt-1 text-sm text-red-600">
+                  <%= error_to_string(error) %>
+                </.error>
 
-            <div class="mt-4">
-              <label
-                for="expense_report_event_id"
-                class="block text-sm font-semibold leading-6 text-zinc-800"
-              >
-                Related Event (Optional)
-              </label>
-              <div class="flex items-center gap-2 mt-2">
-                <div>
-                  <.input
-                    field={@form[:event_id]}
-                    type="select"
-                    label=""
-                    options={[
-                      {"None - Not related to an event", ""}
-                      | Enum.map(@events, fn event ->
-                          label =
-                            "#{event.title} - #{Calendar.strftime(event.start_date, "%B %d, %Y")}"
-
-                          {label, event.id}
-                        end)
-                    ]}
-                  />
-                </div>
-                <%= if Ecto.Changeset.get_field(@form.source, :event_id) do %>
-                  <button
-                    type="button"
-                    phx-click="clear_event"
-                    class="px-2 py-2 text-sm font-medium text-red-600 hover:text-red-800 border border-red-300 rounded-md hover:bg-red-50 h-10 flex items-center justify-center shrink-0"
-                    title="Clear event selection"
+                <div class="mt-4">
+                  <label
+                    for="expense_report_event_id"
+                    class="block text-sm font-semibold leading-6 text-zinc-800"
                   >
-                    <.icon name="hero-x-mark" class="w-4 h-4" />
-                  </button>
-                <% end %>
-              </div>
-              <p class="mt-1 text-sm text-zinc-500">
-                If this expense report relates to an event, please select it to help with reporting.
-                You can select from recent or upcoming events.
-              </p>
-            </div>
+                    Related Event (Optional)
+                  </label>
+                  <div class="flex items-center gap-2 mt-2">
+                    <div class="flex-1">
+                      <.input
+                        field={@form[:event_id]}
+                        type="select"
+                        label=""
+                        options={[
+                          {"None - Not related to an event", ""}
+                          | Enum.map(@events, fn event ->
+                              label =
+                                "#{event.title} - #{Calendar.strftime(event.start_date, "%B %d, %Y")}"
 
-            <div class="space-y-6 mt-6">
-              <div>
+                              {label, event.id}
+                            end)
+                        ]}
+                      />
+                    </div>
+                  </div>
+                  <p class="mt-1 text-sm text-zinc-500">
+                    If this expense report relates to an event, please select it to help with reporting.
+                    You can select from recent or upcoming events.
+                  </p>
+                </div>
+              </div>
+              <!-- Step 2: Expense Items -->
+              <div class="bg-white rounded-lg border border-zinc-200 p-6 mb-6">
                 <div class="mb-4">
-                  <h3 class="text-lg font-semibold text-zinc-900">Expense Items</h3>
+                  <h2 class="text-xl font-semibold text-zinc-900">2. Expense Items</h2>
+                  <p class="text-sm text-zinc-500 mt-1">
+                    Add all expenses you want to be reimbursed for. All items must have a receipt.
+                  </p>
                 </div>
 
                 <.inputs_for :let={expense_f} field={@form[:expense_items]}>
@@ -1345,122 +1377,275 @@ defmodule YscWeb.ExpenseReportLive do
                         type="button"
                         phx-click="remove_expense_item"
                         phx-value-index={expense_f.index}
-                        class="text-red-600 hover:text-red-800"
+                        class="px-3 py-2 text-sm font-medium text-red-600 hover:text-red-800 border border-red-300 rounded-md hover:bg-red-50 min-h-[44px] flex items-center gap-2"
                       >
-                        <.icon name="hero-x-mark" class="w-5 h-5 -mt-1 me-1" />Remove
+                        <.icon name="hero-x-mark" class="w-5 h-5" />Remove
                       </button>
                     </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <.input field={expense_f[:date]} type="date" label="Date" required />
-                      <.input
-                        field={expense_f[:vendor]}
-                        type="text"
-                        label="Vendor"
-                        placeholder="Costco, Amazon, etc."
-                        required
-                      />
+                    <!-- Date, Vendor, Amount in one row for better visibility -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <.input
+                          field={expense_f[:date]}
+                          type="date"
+                          label="Date"
+                          max={get_date_max()}
+                          min={get_date_min()}
+                          required
+                        />
+                        <%= if expense_f[:date].value do %>
+                          <%= cond do %>
+                            <% is_date_older_than_30_days(expense_f[:date].value) -> %>
+                              <div class="mt-1 flex items-center gap-1 text-sm text-amber-600">
+                                <.icon name="hero-exclamation-triangle" class="w-4 h-4" />
+                                <span>
+                                  This date is more than 30 days ago. Please contact the treasurer if you need to submit older expenses.
+                                </span>
+                              </div>
+                            <% is_date_close_to_30_day_limit(expense_f[:date].value) -> %>
+                              <div class="mt-1 flex items-center gap-1 text-sm text-amber-600">
+                                <.icon name="hero-information-circle" class="w-4 h-4" />
+                                <span>
+                                  Note: This is close to the 30-day limit.
+                                </span>
+                              </div>
+                            <% true -> %>
+                          <% end %>
+                        <% end %>
+                        <.error
+                          :for={error <- expense_f[:date].errors}
+                          class="mt-1 text-sm text-red-600"
+                        >
+                          <%= error_to_string(error) %>
+                        </.error>
+                      </div>
+                      <div>
+                        <div phx-feedback-for={expense_f[:vendor].name}>
+                          <.input
+                            field={expense_f[:vendor]}
+                            type="text"
+                            label="Vendor"
+                            placeholder="Costco, Amazon, etc."
+                            list={"vendor-list-#{expense_f.index}"}
+                            required
+                          />
+                          <datalist id={"vendor-list-#{expense_f.index}"}>
+                            <!-- Most common vendors first -->
+                            <option value="Costco">Costco</option>
+                            <option value="Amazon">Amazon</option>
+                            <option value="Target">Target</option>
+                            <option value="Walmart">Walmart</option>
+                            <option value="Safeway">Safeway</option>
+                            <!-- Club-specific vendors -->
+                            <option value="Kelseyville Lumber">Kelseyville Lumber</option>
+                            <!-- Other common vendors -->
+                            <option value="Whole Foods">Whole Foods</option>
+                            <option value="Trader Joe's">Trader Joe's</option>
+                            <option value="Home Depot">Home Depot</option>
+                            <option value="Lowe's">Lowe's</option>
+                            <option value="Staples">Staples</option>
+                            <option value="Ikea">Ikea</option>
+                            <option value="Office Depot">Office Depot</option>
+                            <option value="FedEx">FedEx</option>
+                            <option value="UPS">UPS</option>
+                            <option value="USPS">USPS</option>
+                          </datalist>
+                        </div>
+                        <.error
+                          :for={error <- expense_f[:vendor].errors}
+                          class="mt-1 text-sm text-red-600"
+                        >
+                          <%= error_to_string(error) %>
+                        </.error>
+                      </div>
+                      <div>
+                        <.input
+                          field={expense_f[:amount]}
+                          type="text"
+                          label="Amount"
+                          phx-hook="MoneyInput"
+                          value={format_money_for_input(expense_f[:amount].value)}
+                          placeholder="0.00"
+                          required
+                        >
+                          <div class="text-zinc-800">$</div>
+                        </.input>
+                        <.error
+                          :for={error <- expense_f[:amount].errors}
+                          class="mt-1 text-sm text-red-600"
+                        >
+                          <%= error_to_string(error) %>
+                        </.error>
+                      </div>
                     </div>
 
-                    <.input
-                      field={expense_f[:description]}
-                      type="textarea"
-                      label="Description"
-                      placeholder="What did you buy?"
-                      required
-                    />
-
-                    <.input
-                      field={expense_f[:amount]}
-                      type="text"
-                      label="Amount"
-                      phx-hook="MoneyInput"
-                      value={format_money_for_input(expense_f[:amount].value)}
-                      placeholder="0.00"
-                      required
-                    >
-                      <div class="text-zinc-800">$</div>
-                    </.input>
+                    <div>
+                      <.input
+                        field={expense_f[:description]}
+                        type="textarea"
+                        label="Description"
+                        placeholder="What did you buy?"
+                        required
+                      />
+                      <.error
+                        :for={error <- expense_f[:description].errors}
+                        class="mt-1 text-sm text-red-600"
+                      >
+                        <%= error_to_string(error) %>
+                      </.error>
+                    </div>
 
                     <div>
                       <label class="block text-sm font-medium text-zinc-700 mb-2">Receipt</label>
                       <p class="text-xs text-zinc-500 mb-3">
                         Upload a photo or PDF of your receipt. Accepted formats: PDF, JPG, JPEG, PNG, WEBP (max 10MB)
                       </p>
-                      <!-- Show uploaded attachments -->
+                      <!-- Show uploaded receipt with inline preview -->
                       <div
                         :if={expense_f[:receipt_s3_path].value}
-                        class="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg"
+                        class="mb-3 p-4 bg-green-50 border-2 border-green-300 rounded-lg"
                       >
-                        <div class="flex items-center justify-between">
-                          <div class="flex items-center gap-2">
-                            <.icon name="hero-document-text" class="w-5 h-5 text-green-600" />
-                            <span class="text-sm text-green-800 font-medium">Receipt attached</span>
-                            <a
-                              href={ExpenseReports.receipt_url(expense_f[:receipt_s3_path].value)}
-                              target="_blank"
-                              class="text-xs text-blue-600 hover:underline"
-                            >
-                              View
-                            </a>
+                        <div class="flex items-start gap-4">
+                          <div class="flex-shrink-0">
+                            <%= if is_pdf?(expense_f[:receipt_s3_path].value) do %>
+                              <div class="w-24 h-24 bg-red-50 border-2 border-red-300 rounded-lg flex items-center justify-center">
+                                <.icon name="hero-document-text" class="w-12 h-12 text-red-600" />
+                              </div>
+                            <% else %>
+                              <img
+                                src={ExpenseReports.receipt_url(expense_f[:receipt_s3_path].value)}
+                                alt="Receipt preview"
+                                class="w-24 h-24 object-cover rounded-lg border-2 border-green-300"
+                              />
+                            <% end %>
                           </div>
-                          <button
-                            type="button"
-                            phx-click="remove-receipt"
-                            phx-value-index={expense_f.index}
-                            class="text-xs text-red-600 hover:text-red-800 font-medium"
-                          >
-                            Remove
-                          </button>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-2">
+                              <.icon
+                                name="hero-check-circle"
+                                class="w-5 h-5 text-green-600 flex-shrink-0"
+                              />
+                              <span class="text-sm font-medium text-green-800">Receipt attached</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                              <a
+                                href={ExpenseReports.receipt_url(expense_f[:receipt_s3_path].value)}
+                                target="_blank"
+                                class="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                              >
+                                View full size
+                              </a>
+                              <button
+                                type="button"
+                                phx-click="remove-receipt"
+                                phx-value-index={expense_f.index}
+                                class="text-sm text-red-600 hover:text-red-800 font-medium min-h-[44px] px-3 py-2 border border-red-300 rounded-md hover:bg-red-50"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <!-- Upload new receipt -->
-                      <div
-                        :if={!expense_f[:receipt_s3_path].value}
-                        phx-drop-target={@uploads.receipt.ref}
-                      >
-                        <.live_file_input upload={@uploads.receipt} />
+                      <!-- Drag-and-drop upload zone with immediate feedback -->
+                      <div :if={!expense_f[:receipt_s3_path].value} class="relative">
+                        <!-- Upload zone - always rendered but visually hidden when entries exist -->
+                        <label
+                          class={
+                            "flex flex-col items-center justify-center w-full min-h-[200px] border-2 border-zinc-300 border-dashed rounded-lg cursor-pointer bg-zinc-50 hover:bg-zinc-100 hover:border-blue-400 transition-colors " <>
+                              if(Enum.empty?(@uploads.receipt.entries), do: "", else: "hidden")
+                          }
+                          phx-drop-target={@uploads.receipt.ref}
+                        >
+                          <.live_file_input
+                            upload={@uploads.receipt}
+                            class="hidden"
+                            capture="environment"
+                          />
+                          <div class="flex flex-col items-center justify-center pt-5 pb-6 px-4">
+                            <.icon name="hero-photo" class="w-12 h-12 text-zinc-400 mb-3" />
+                            <p class="mb-2 text-sm text-zinc-500">
+                              <span class="font-semibold">Click to upload</span> or drag and drop
+                            </p>
+                            <p class="text-xs text-zinc-400">PDF, JPG, JPEG, PNG, WEBP (MAX. 10MB)</p>
+                            <p class="text-xs text-zinc-400 mt-1">
+                              On mobile, this will open your camera
+                            </p>
+                          </div>
+                        </label>
+                        <!-- Upload progress for entries - only show if entry matches this expense item index -->
                         <%= for entry <- @uploads.receipt.entries do %>
-                          <div class="mt-2">
-                            <article class="upload-entry">
-                              <div class="flex items-center gap-2">
-                                <%= if is_pdf?(entry.client_name) do %>
-                                  <div class="w-16 h-16 bg-red-50 border border-red-200 rounded flex items-center justify-center">
-                                    <.icon name="hero-document-text" class="w-8 h-8 text-red-600" />
+                          <%= if entry.client_name do %>
+                            <div class="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                              <div class="flex items-start gap-4">
+                                <div class="flex-shrink-0">
+                                  <%= if is_pdf?(entry.client_name) do %>
+                                    <div class="w-20 h-20 bg-red-50 border-2 border-red-300 rounded-lg flex items-center justify-center">
+                                      <.icon name="hero-document-text" class="w-10 h-10 text-red-600" />
+                                    </div>
+                                  <% else %>
+                                    <div class="w-20 h-20 bg-blue-100 border-2 border-blue-300 rounded-lg flex items-center justify-center">
+                                      <.icon name="hero-photo" class="w-10 h-10 text-blue-600" />
+                                    </div>
+                                  <% end %>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                  <div class="flex items-center gap-2 mb-2">
+                                    <.icon
+                                      name="hero-arrow-up-tray"
+                                      class="w-5 h-5 text-blue-600 flex-shrink-0"
+                                    />
+                                    <span class="text-sm font-medium text-blue-800">
+                                      File selected: <%= entry.client_name %>
+                                    </span>
                                   </div>
-                                <% else %>
-                                  <.live_img_preview
-                                    entry={entry}
-                                    class="w-16 h-16 object-cover rounded"
-                                  />
-                                <% end %>
-                                <div class="flex-1">
-                                  <p class="text-sm text-zinc-700"><%= entry.client_name %></p>
-                                  <progress value={entry.progress} max="100" class="w-full">
+                                  <progress
+                                    value={entry.progress}
+                                    max="100"
+                                    class="w-full h-2 mb-3"
+                                    id={"receipt-progress-#{entry.ref}"}
+                                    data-ref={entry.ref}
+                                    data-index={expense_f.index}
+                                    data-upload-type="receipt"
+                                    phx-hook="AutoConsumeUpload"
+                                  >
                                     <%= entry.progress %>%
                                   </progress>
+                                  <div class="flex gap-2">
+                                    <button
+                                      type="button"
+                                      phx-click="consume-receipt"
+                                      phx-value-ref={entry.ref}
+                                      phx-value-index={expense_f.index}
+                                      disabled={!entry.done? || entry.progress != 100}
+                                      id={"receipt-consume-#{entry.ref}"}
+                                      data-ref={entry.ref}
+                                      data-done={entry.done?}
+                                      data-progress={entry.progress}
+                                      class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed min-h-[44px]"
+                                    >
+                                      <%= cond do %>
+                                        <% entry.done? && entry.progress == 100 -> %>
+                                          Attach Receipt
+                                        <% entry.done? -> %>
+                                          Processing...
+                                        <% true -> %>
+                                          Uploading... (<%= entry.progress %>%)
+                                      <% end %>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      phx-click="cancel-upload"
+                                      phx-value-ref={entry.ref}
+                                      class="px-4 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 border border-red-300 min-h-[44px]"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
                                 </div>
-                                <button
-                                  type="button"
-                                  phx-click="consume-receipt"
-                                  phx-value-ref={entry.ref}
-                                  phx-value-index={expense_f.index}
-                                  disabled={entry.progress != 100}
-                                  class="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-                                >
-                                  Attach
-                                </button>
-                                <button
-                                  type="button"
-                                  phx-click="cancel-upload"
-                                  phx-value-ref={entry.ref}
-                                  class="px-3 py-1 text-sm font-medium text-red-600 rounded-md hover:bg-red-50"
-                                >
-                                  Cancel
-                                </button>
                               </div>
-                            </article>
-                          </div>
+                            </div>
+                          <% end %>
                         <% end %>
                       </div>
                     </div>
@@ -1471,17 +1656,45 @@ defmodule YscWeb.ExpenseReportLive do
                   <button
                     type="button"
                     phx-click="add_expense_item"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                    class="px-6 py-3 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 min-h-[44px] flex items-center gap-2"
                   >
-                    <.icon name="hero-plus" class="w-5 h-5 -mt-0.5 me-1" />Add Expense Item
+                    <.icon name="hero-plus" class="w-5 h-5" />Add Expense Item
                   </button>
                 </div>
               </div>
-
-              <div>
+              <!-- Step 3: Income Items (Optional) -->
+              <div class="bg-white rounded-lg border border-zinc-200 p-6 mb-6">
                 <div class="mb-4">
-                  <h3 class="text-lg font-semibold text-zinc-900">Income Items (Optional)</h3>
+                  <h2 class="text-xl font-semibold text-zinc-900">3. Income Items (Optional)</h2>
+                  <p class="text-sm text-zinc-500 mt-1">
+                    If you received any income related to this expense report, add it here to offset your expenses.
+                  </p>
                 </div>
+                <!-- Empty state for income items -->
+                <%= if Enum.empty?(Ecto.Changeset.get_field(@form.source, :income_items, [])) do %>
+                  <div class="border-2 border-dashed border-zinc-300 rounded-lg p-8 text-center bg-zinc-50 mb-4">
+                    <div class="flex flex-col items-center max-w-md mx-auto">
+                      <.icon name="hero-currency-dollar" class="w-12 h-12 text-zinc-400 mb-3" />
+                      <p class="text-sm font-medium text-zinc-600 mb-2">No income items yet</p>
+                      <p class="text-xs text-zinc-500 mb-3">
+                        Add income items if you received any payments related to these expenses
+                      </p>
+                      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-left w-full">
+                        <p class="text-xs font-medium text-blue-900 mb-1">Example:</p>
+                        <p class="text-xs text-blue-800">
+                          You collected $20 cash from a member for a guest ticket, or received a refund that should offset your expenses.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        phx-click="add_income_item"
+                        class="px-6 py-3 text-sm font-medium text-blue-600 bg-white border border-blue-300 rounded-md hover:bg-blue-50 min-h-[44px] flex items-center gap-2"
+                      >
+                        <.icon name="hero-plus" class="w-5 h-5" />Add Income Item
+                      </button>
+                    </div>
+                  </div>
+                <% end %>
 
                 <.inputs_for :let={income_f} field={@form[:income_items]}>
                   <div class="border border-zinc-200 rounded-lg p-4 mb-4 space-y-4">
@@ -1500,307 +1713,516 @@ defmodule YscWeb.ExpenseReportLive do
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <.input field={income_f[:date]} type="date" label="Date" required />
-                      <.input
-                        field={income_f[:amount]}
-                        type="text"
-                        label="Amount"
-                        phx-hook="MoneyInput"
-                        value={format_money_for_input(income_f[:amount].value)}
-                        placeholder="0.00"
-                        required
-                      >
-                        <div class="text-zinc-800">$</div>
-                      </.input>
+                      <div>
+                        <.input
+                          field={income_f[:date]}
+                          type="date"
+                          label="Date"
+                          max={get_date_max()}
+                          min={get_date_min()}
+                          required
+                        />
+                        <.error
+                          :for={error <- income_f[:date].errors}
+                          class="mt-1 text-sm text-red-600"
+                        >
+                          <%= error_to_string(error) %>
+                        </.error>
+                      </div>
+                      <div>
+                        <.input
+                          field={income_f[:amount]}
+                          type="text"
+                          label="Amount"
+                          phx-hook="MoneyInput"
+                          value={format_money_for_input(income_f[:amount].value)}
+                          placeholder="0.00"
+                          required
+                        >
+                          <div class="text-zinc-800">$</div>
+                        </.input>
+                        <.error
+                          :for={error <- income_f[:amount].errors}
+                          class="mt-1 text-sm text-red-600"
+                        >
+                          <%= error_to_string(error) %>
+                        </.error>
+                      </div>
                     </div>
 
-                    <.input
-                      field={income_f[:description]}
-                      type="textarea"
-                      label="Description"
-                      required
-                    />
+                    <div>
+                      <.input
+                        field={income_f[:description]}
+                        type="textarea"
+                        label="Description"
+                        required
+                      />
+                      <.error
+                        :for={error <- income_f[:description].errors}
+                        class="mt-1 text-sm text-red-600"
+                      >
+                        <%= error_to_string(error) %>
+                      </.error>
+                    </div>
 
                     <div>
                       <label class="block text-sm font-medium text-zinc-700 mb-2">
                         Proof Document
                       </label>
-                      <!-- Show uploaded attachments -->
+                      <p class="text-xs text-zinc-500 mb-3">
+                        Upload proof of income (invoice, payment confirmation, etc.)
+                      </p>
+                      <!-- Show uploaded proof with inline preview -->
                       <div
                         :if={income_f[:proof_s3_path].value}
-                        class="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg"
+                        class="mb-3 p-4 bg-green-50 border-2 border-green-300 rounded-lg"
                       >
-                        <div class="flex items-center justify-between">
-                          <div class="flex items-center gap-2">
-                            <.icon name="hero-document-text" class="w-5 h-5 text-green-600" />
-                            <span class="text-sm text-green-800 font-medium">
-                              Proof document attached
-                            </span>
-                            <a
-                              href={ExpenseReports.receipt_url(income_f[:proof_s3_path].value)}
-                              target="_blank"
-                              class="text-xs text-blue-600 hover:underline"
-                            >
-                              View
-                            </a>
+                        <div class="flex items-start gap-4">
+                          <div class="flex-shrink-0">
+                            <%= if is_pdf?(income_f[:proof_s3_path].value) do %>
+                              <div class="w-24 h-24 bg-red-50 border-2 border-red-300 rounded-lg flex items-center justify-center">
+                                <.icon name="hero-document-text" class="w-12 h-12 text-red-600" />
+                              </div>
+                            <% else %>
+                              <img
+                                src={ExpenseReports.receipt_url(income_f[:proof_s3_path].value)}
+                                alt="Proof document preview"
+                                class="w-24 h-24 object-cover rounded-lg border-2 border-green-300"
+                              />
+                            <% end %>
                           </div>
-                          <button
-                            type="button"
-                            phx-click="remove-proof"
-                            phx-value-index={income_f.index}
-                            class="text-xs text-red-600 hover:text-red-800 font-medium"
-                          >
-                            Remove
-                          </button>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-2">
+                              <.icon
+                                name="hero-check-circle"
+                                class="w-5 h-5 text-green-600 flex-shrink-0"
+                              />
+                              <span class="text-sm font-medium text-green-800">
+                                Proof document attached
+                              </span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                              <a
+                                href={ExpenseReports.receipt_url(income_f[:proof_s3_path].value)}
+                                target="_blank"
+                                class="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                              >
+                                View full size
+                              </a>
+                              <button
+                                type="button"
+                                phx-click="remove-proof"
+                                phx-value-index={income_f.index}
+                                class="text-sm text-red-600 hover:text-red-800 font-medium min-h-[44px] px-3 py-2 border border-red-300 rounded-md hover:bg-red-50"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <!-- Upload new proof document -->
-                      <div :if={!income_f[:proof_s3_path].value} phx-drop-target={@uploads.proof.ref}>
-                        <.live_file_input upload={@uploads.proof} />
+                      <!-- Drag-and-drop upload zone with immediate feedback -->
+                      <div :if={!income_f[:proof_s3_path].value} class="relative">
+                        <!-- Upload zone - always rendered but visually hidden when entries exist -->
+                        <label
+                          class={
+                            "flex flex-col items-center justify-center w-full min-h-[200px] border-2 border-zinc-300 border-dashed rounded-lg cursor-pointer bg-zinc-50 hover:bg-zinc-100 hover:border-blue-400 transition-colors " <>
+                              if(Enum.empty?(@uploads.proof.entries), do: "", else: "hidden")
+                          }
+                          phx-drop-target={@uploads.proof.ref}
+                        >
+                          <.live_file_input
+                            upload={@uploads.proof}
+                            class="hidden"
+                            capture="environment"
+                          />
+                          <div class="flex flex-col items-center justify-center pt-5 pb-6 px-4">
+                            <.icon name="hero-photo" class="w-12 h-12 text-zinc-400 mb-3" />
+                            <p class="mb-2 text-sm text-zinc-500">
+                              <span class="font-semibold">Click to upload</span> or drag and drop
+                            </p>
+                            <p class="text-xs text-zinc-400">PDF, JPG, JPEG, PNG, WEBP (MAX. 10MB)</p>
+                            <p class="text-xs text-zinc-400 mt-1">
+                              On mobile, this will open your camera
+                            </p>
+                          </div>
+                        </label>
+                        <!-- Upload progress for entries - only show if entry matches this income item index -->
                         <%= for entry <- @uploads.proof.entries do %>
-                          <div class="mt-2">
-                            <article class="upload-entry">
-                              <div class="flex items-center gap-2">
-                                <%= if is_pdf?(entry.client_name) do %>
-                                  <div class="w-16 h-16 bg-red-50 border border-red-200 rounded flex items-center justify-center">
-                                    <.icon name="hero-document-text" class="w-8 h-8 text-red-600" />
+                          <%= if entry.client_name do %>
+                            <div class="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                              <div class="flex items-start gap-4">
+                                <div class="flex-shrink-0">
+                                  <%= if is_pdf?(entry.client_name) do %>
+                                    <div class="w-20 h-20 bg-red-50 border-2 border-red-300 rounded-lg flex items-center justify-center">
+                                      <.icon name="hero-document-text" class="w-10 h-10 text-red-600" />
+                                    </div>
+                                  <% else %>
+                                    <div class="w-20 h-20 bg-blue-100 border-2 border-blue-300 rounded-lg flex items-center justify-center">
+                                      <.icon name="hero-photo" class="w-10 h-10 text-blue-600" />
+                                    </div>
+                                  <% end %>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                  <div class="flex items-center gap-2 mb-2">
+                                    <.icon
+                                      name="hero-arrow-up-tray"
+                                      class="w-5 h-5 text-blue-600 flex-shrink-0"
+                                    />
+                                    <span class="text-sm font-medium text-blue-800">
+                                      File selected: <%= entry.client_name %>
+                                    </span>
                                   </div>
-                                <% else %>
-                                  <.live_img_preview
-                                    entry={entry}
-                                    class="w-16 h-16 object-cover rounded"
-                                  />
-                                <% end %>
-                                <div class="flex-1">
-                                  <p class="text-sm text-zinc-700"><%= entry.client_name %></p>
-                                  <progress value={entry.progress} max="100" class="w-full">
+                                  <progress
+                                    value={entry.progress}
+                                    max="100"
+                                    class="w-full h-2 mb-3"
+                                    id={"proof-progress-#{entry.ref}"}
+                                    data-ref={entry.ref}
+                                    data-index={income_f.index}
+                                    data-upload-type="proof"
+                                    phx-hook="AutoConsumeUpload"
+                                  >
                                     <%= entry.progress %>%
                                   </progress>
+                                  <div class="flex gap-2">
+                                    <button
+                                      type="button"
+                                      phx-click="consume-proof"
+                                      phx-value-ref={entry.ref}
+                                      phx-value-index={income_f.index}
+                                      disabled={!entry.done? || entry.progress != 100}
+                                      id={"proof-consume-#{entry.ref}"}
+                                      data-ref={entry.ref}
+                                      data-done={entry.done?}
+                                      data-progress={entry.progress}
+                                      class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed min-h-[44px]"
+                                    >
+                                      <%= cond do %>
+                                        <% entry.done? && entry.progress == 100 -> %>
+                                          Attach Proof
+                                        <% entry.done? -> %>
+                                          Processing...
+                                        <% true -> %>
+                                          Uploading... (<%= entry.progress %>%)
+                                      <% end %>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      phx-click="cancel-proof-upload"
+                                      phx-value-ref={entry.ref}
+                                      class="px-4 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 border border-red-300 min-h-[44px]"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
                                 </div>
-                                <button
-                                  type="button"
-                                  phx-click="consume-proof"
-                                  phx-value-ref={entry.ref}
-                                  phx-value-index={income_f.index}
-                                  disabled={entry.progress != 100}
-                                  class="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-                                >
-                                  Attach
-                                </button>
-                                <button
-                                  type="button"
-                                  phx-click="cancel-proof-upload"
-                                  phx-value-ref={entry.ref}
-                                  class="px-3 py-1 text-sm font-medium text-red-600 rounded-md hover:bg-red-50"
-                                >
-                                  Cancel
-                                </button>
                               </div>
-                            </article>
-                          </div>
+                            </div>
+                          <% end %>
                         <% end %>
                       </div>
                     </div>
                   </div>
                 </.inputs_for>
 
-                <div class="mt-4">
+                <div
+                  :if={not Enum.empty?(Ecto.Changeset.get_field(@form.source, :income_items, []))}
+                  class="mt-4"
+                >
                   <button
                     type="button"
                     phx-click="add_income_item"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                    class="px-6 py-3 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 min-h-[44px] flex items-center gap-2"
                   >
-                    <.icon name="hero-plus" class="w-5 h-5 -mt-0.5 me-1" />Add Income Item
+                    <.icon name="hero-plus" class="w-5 h-5" />Add Income Item
                   </button>
                 </div>
               </div>
-            </div>
+              <!-- Step 4: Reimbursement Method -->
+              <div class="bg-white rounded-lg border border-zinc-200 p-6 mb-6">
+                <h2 class="text-xl font-semibold text-zinc-900 mb-4">4. Reimbursement Method</h2>
 
-            <div class="mt-6 p-4 bg-zinc-50 rounded-lg">
-              <h3 class="text-lg font-semibold text-zinc-900 mb-4">Summary</h3>
-              <div class="space-y-2">
-                <div class="flex justify-between">
-                  <span class="text-zinc-700">Total Expenses:</span>
-                  <span class="font-semibold"><%= Money.to_string!(@totals.expense_total) %></span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-zinc-700">Total Income:</span>
-                  <span class="font-semibold"><%= Money.to_string!(@totals.income_total) %></span>
-                </div>
-                <div class="flex justify-between pt-2 border-t border-zinc-300">
-                  <span class="text-lg font-semibold text-zinc-900">Net Total:</span>
-                  <span class="text-lg font-bold"><%= Money.to_string!(@totals.net_total) %></span>
-                </div>
-              </div>
-            </div>
-
-            <div class="mt-6">
-              <h3 class="text-lg font-semibold text-zinc-900 mb-4">Reimbursement Method</h3>
-
-              <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p class="text-sm text-green-800">
-                  <strong>Bank Transfer is preferred</strong>
-                  - Checks cost $1.50 each and take longer to process.
-                </p>
-              </div>
-
-              <.input
-                field={@form[:reimbursement_method]}
-                type="select"
-                label="How would you like to receive reimbursement?"
-                options={[{"Bank Transfer (Preferred)", "bank_transfer"}, {"Check", "check"}]}
-                required
-              />
-
-              <div
-                :if={@form[:reimbursement_method].value == "check"}
-                class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200"
-              >
-                <h4 class="font-semibold text-zinc-900 mb-2">Check Mailing Address</h4>
-                <p :if={@billing_address} class="text-sm text-zinc-700 mb-2">
-                  Your check will be mailed to:
-                </p>
-                <p :if={@billing_address} class="text-sm font-medium text-zinc-900 mb-4">
-                  <%= format_address(@billing_address) %>
-                </p>
-                <p :if={@billing_address} class="text-xs text-zinc-600">
-                  To update this address, please visit your
-                  <.link navigate={~p"/users/settings"} class="text-blue-600 hover:underline">
-                    user settings
-                  </.link>
-                  before submitting.
-                </p>
-                <div
-                  :if={!@billing_address}
-                  class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg"
-                >
-                  <p class="text-sm text-yellow-800 font-medium mb-2">
-                    <strong>No address on file.</strong>
+                <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p class="text-sm text-green-800">
+                    <strong>Bank Transfer is preferred</strong>
+                    - Checks cost $1.50 each and take longer to process.
                   </p>
-                  <p class="text-sm text-yellow-700">
-                    Please update your address in
-                    <.link
-                      navigate={~p"/users/settings"}
-                      class="text-blue-600 hover:underline font-medium"
-                    >
+                </div>
+
+                <.input
+                  field={@form[:reimbursement_method]}
+                  type="select"
+                  label="How would you like to receive reimbursement?"
+                  options={[{"Bank Transfer (Preferred)", "bank_transfer"}, {"Check", "check"}]}
+                  required
+                />
+
+                <div
+                  :if={@form[:reimbursement_method].value == "check"}
+                  class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200"
+                >
+                  <h4 class="font-semibold text-zinc-900 mb-2">Check Mailing Address</h4>
+                  <p :if={@billing_address} class="text-sm text-zinc-700 mb-2">
+                    Your check will be mailed to:
+                  </p>
+                  <p :if={@billing_address} class="text-sm font-medium text-zinc-900 mb-4">
+                    <%= format_address(@billing_address) %>
+                  </p>
+                  <p :if={@billing_address} class="text-xs text-zinc-600">
+                    To update this address, please visit your
+                    <.link navigate={~p"/users/settings"} class="text-blue-600 hover:underline">
                       user settings
                     </.link>
                     before submitting.
                   </p>
-                </div>
-                <.error :for={error <- @form[:reimbursement_method].errors}>
-                  <%= error_to_string(error) %>
-                </.error>
-                <.error :for={error <- @form[:address_id].errors}>
-                  <%= error_to_string(error) %>
-                </.error>
-              </div>
-
-              <div :if={@form[:reimbursement_method].value == "bank_transfer"} class="mt-4">
-                <h4 class="font-semibold text-zinc-900 mb-2">Bank Account</h4>
-                <div :if={length(@bank_accounts) > 0} class="space-y-3">
-                  <.input
-                    field={@form[:bank_account_id]}
-                    type="select"
-                    label="Select Bank Account"
-                    options={
-                      [{"-- Select Bank Account --", ""}] ++
-                        Enum.map(@bank_accounts, fn ba ->
-                          {"****#{ba.account_number_last_4}", ba.id}
-                        end)
-                    }
-                    required
-                  />
-                  <.error :for={error <- @form[:bank_account_id].errors}>
+                  <div
+                    :if={!@billing_address}
+                    class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg"
+                  >
+                    <p class="text-sm text-yellow-800 font-medium mb-2">
+                      <strong>No address on file.</strong>
+                    </p>
+                    <p class="text-sm text-yellow-700">
+                      Please update your address in
+                      <.link
+                        navigate={~p"/users/settings"}
+                        class="text-blue-600 hover:underline font-medium"
+                      >
+                        user settings
+                      </.link>
+                      before submitting.
+                    </p>
+                  </div>
+                  <.error :for={error <- @form[:reimbursement_method].errors}>
                     <%= error_to_string(error) %>
                   </.error>
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm text-zinc-600">Or</span>
+                  <.error :for={error <- @form[:address_id].errors}>
+                    <%= error_to_string(error) %>
+                  </.error>
+                </div>
+
+                <div :if={@form[:reimbursement_method].value == "bank_transfer"} class="mt-4">
+                  <h4 class="font-semibold text-zinc-900 mb-2">Bank Account</h4>
+                  <div :if={length(@bank_accounts) > 0} class="space-y-3">
+                    <.input
+                      field={@form[:bank_account_id]}
+                      type="select"
+                      label="Select Bank Account"
+                      options={
+                        [{"-- Select Bank Account --", ""}] ++
+                          Enum.map(@bank_accounts, fn ba ->
+                            {"****#{ba.account_number_last_4}", ba.id}
+                          end)
+                      }
+                      required
+                    />
+                    <.error
+                      :for={error <- @form[:bank_account_id].errors}
+                      class="mt-1 text-sm text-red-600"
+                    >
+                      <%= error_to_string(error) %>
+                    </.error>
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm text-zinc-600">Or</span>
+                      <button
+                        type="button"
+                        phx-click="open-bank-account-modal"
+                        class="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                      >
+                        add a new bank account
+                      </button>
+                    </div>
+                  </div>
+                  <div :if={length(@bank_accounts) == 0} class="space-y-3">
+                    <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p class="text-sm text-yellow-800 font-medium mb-2">
+                        <strong>No bank account on file.</strong>
+                      </p>
+                      <p class="text-sm text-yellow-700">
+                        Please add a bank account to continue.
+                      </p>
+                    </div>
                     <button
                       type="button"
                       phx-click="open-bank-account-modal"
-                      class="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                      class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
                     >
-                      add a new bank account
+                      Add Bank Account
                     </button>
                   </div>
-                </div>
-                <div :if={length(@bank_accounts) == 0} class="space-y-3">
-                  <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p class="text-sm text-yellow-800 font-medium mb-2">
-                      <strong>No bank account on file.</strong>
-                    </p>
-                    <p class="text-sm text-yellow-700">
-                      Please add a bank account to continue.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    phx-click="open-bank-account-modal"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  <.error
+                    :for={error <- @form[:reimbursement_method].errors}
+                    class="mt-1 text-sm text-red-600"
                   >
-                    Add Bank Account
-                  </button>
+                    <%= error_to_string(error) %>
+                  </.error>
                 </div>
-                <.error :for={error <- @form[:reimbursement_method].errors}>
-                  <%= error_to_string(error) %>
-                </.error>
               </div>
-            </div>
 
-            <:actions>
-              <div class="space-y-4">
-                <!-- Certification checkbox -->
-                <div class="p-4 bg-zinc-50 border border-zinc-200 rounded-lg">
-                  <.input
-                    field={@form[:certification_accepted]}
-                    type="checkbox"
-                    label={
-                      user_name =
-                        cond do
-                          @current_user.first_name && @current_user.last_name ->
-                            "#{@current_user.first_name} #{@current_user.last_name}"
+              <:actions>
+                <div class="space-y-4 bg-white rounded-lg border border-zinc-200 p-6">
+                  <!-- Certification checkbox -->
+                  <div class="p-4 bg-zinc-50 border border-zinc-200 rounded-lg">
+                    <.input
+                      field={@form[:certification_accepted]}
+                      type="checkbox"
+                      label={
+                        user_name =
+                          cond do
+                            @current_user.first_name && @current_user.last_name ->
+                              "#{@current_user.first_name} #{@current_user.last_name}"
 
-                          @current_user.display_name ->
-                            @current_user.display_name
+                            @current_user.display_name ->
+                              @current_user.display_name
 
-                          true ->
-                            @current_user.email
-                        end
+                            true ->
+                              @current_user.email
+                          end
 
-                      "I, #{user_name}, certify that the attached receipts or invoices represent legitimate expenses incurred solely for the benefit of YSC. I also certify that I have not been previously reimbursed for these expenses."
-                    }
-                    required
-                  />
-                </div>
-                <!-- Error messages above button with fixed height to prevent layout shift -->
-                <div class="min-h-[60px] space-y-1">
-                  <%= if !can_submit?(@form, @bank_accounts, @billing_address, @current_user) do %>
-                    <%= for error <- get_submission_errors(@form, @bank_accounts, @billing_address, @current_user) do %>
-                      <p class="text-sm text-red-600"><%= error %></p>
+                        "I, #{user_name}, certify that the attached receipts or invoices represent legitimate expenses incurred solely for the benefit of YSC. I also certify that I have not been previously reimbursed for these expenses."
+                      }
+                      required
+                    />
+                  </div>
+                  <!-- Error messages above button with fixed height to prevent layout shift -->
+                  <div class="min-h-[60px] space-y-1">
+                    <%= if !can_submit?(@form, @bank_accounts, @billing_address, @current_user) do %>
+                      <%= for error <- get_submission_errors(@form, @bank_accounts, @billing_address, @current_user) do %>
+                        <p class="text-sm text-red-600"><%= error %></p>
+                      <% end %>
                     <% end %>
+                  </div>
+                  <!-- Submit button with improved state transitions -->
+                  <.button
+                    type="submit"
+                    name="_action"
+                    value="submit"
+                    phx-disable-with="Submitting..."
+                    disabled={!can_submit?(@form, @bank_accounts, @billing_address, @current_user)}
+                    class={
+                      "w-full min-w-[180px] min-h-[44px] px-6 py-3 text-sm font-medium rounded-md transition-all duration-200 " <>
+                        if(can_submit?(@form, @bank_accounts, @billing_address, @current_user),
+                          do: "text-white bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg transform hover:scale-[1.02]",
+                          else: "text-zinc-400 bg-zinc-300 cursor-not-allowed"
+                        )
+                    }
+                  >
+                    <%= if can_submit?(@form, @bank_accounts, @billing_address, @current_user) do %>
+                      <.icon name="hero-paper-airplane" class="w-4 h-4 inline mr-2" />
+                      Submit <%= Money.to_string!(@totals.net_total) %> Report
+                    <% else %>
+                      Complete checklist to submit
+                    <% end %>
+                  </.button>
+                </div>
+              </:actions>
+            </.simple_form>
+          </div>
+          <!-- Sticky Summary Sidebar -->
+          <div class="lg:col-span-1">
+            <div class="lg:sticky lg:top-8">
+              <!-- Mobile: Fixed bottom summary -->
+              <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-200 shadow-lg z-40 p-4">
+                <div class="max-w-screen-xl mx-auto">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-semibold text-zinc-900">Net Total</span>
+                    <span class="text-lg font-bold text-zinc-900">
+                      <%= Money.to_string!(@totals.net_total) %>
+                    </span>
+                  </div>
+                  <.button
+                    type="submit"
+                    form="expense-report-form"
+                    name="_action"
+                    value="submit"
+                    phx-disable-with="Submitting..."
+                    disabled={!can_submit?(@form, @bank_accounts, @billing_address, @current_user)}
+                    class={
+                      "w-full min-h-[44px] px-6 py-3 text-sm font-medium rounded-md transition-all duration-200 " <>
+                        if(can_submit?(@form, @bank_accounts, @billing_address, @current_user),
+                          do: "text-white bg-green-600 hover:bg-green-700 shadow-md",
+                          else: "text-zinc-400 bg-zinc-300 cursor-not-allowed"
+                        )
+                    }
+                  >
+                    <%= if can_submit?(@form, @bank_accounts, @billing_address, @current_user) do %>
+                      <.icon name="hero-paper-airplane" class="w-4 h-4 inline mr-2" />
+                      Submit <%= Money.to_string!(@totals.net_total) %> Report
+                    <% else %>
+                      Complete checklist to submit
+                    <% end %>
+                  </.button>
+                </div>
+              </div>
+              <!-- Desktop: Sticky sidebar -->
+              <div class="hidden lg:block bg-white rounded-lg border border-zinc-200 p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-zinc-900 mb-4">Summary</h3>
+                <div class="space-y-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm text-zinc-600">Total Expenses</span>
+                    <span class="text-sm font-semibold text-zinc-900">
+                      <%= Money.to_string!(@totals.expense_total) %>
+                    </span>
+                  </div>
+                  <%= if not Money.zero?(@totals.income_total) do %>
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm text-zinc-600">Total Income</span>
+                      <span class="text-sm font-semibold text-zinc-900">
+                        <%= Money.to_string!(@totals.income_total) %>
+                      </span>
+                    </div>
+                  <% end %>
+                  <div class="pt-3 border-t border-zinc-300">
+                    <div class="flex justify-between items-center">
+                      <span class="text-base font-semibold text-zinc-900">Net Total</span>
+                      <span class="text-lg font-bold text-zinc-900">
+                        <%= Money.to_string!(@totals.net_total) %>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <!-- Dynamic Readiness Checklist -->
+                <div class="mt-6 pt-6 border-t border-zinc-200">
+                  <h4 class="text-sm font-semibold text-zinc-900 mb-3">Readiness Checklist</h4>
+                  <div class="space-y-2">
+                    <%= for {label, status} <- get_readiness_checklist_with_status(@form, @bank_accounts, @billing_address, @current_user) do %>
+                      <div class="flex items-start gap-2">
+                        <%= case status do %>
+                          <% :completed -> %>
+                            <.icon
+                              name="hero-check-circle"
+                              class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5"
+                            />
+                            <span class="text-sm text-green-700 line-through"><%= label %></span>
+                          <% :error -> %>
+                            <.icon
+                              name="hero-exclamation-circle"
+                              class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"
+                            />
+                            <span class="text-sm text-red-600"><%= label %></span>
+                          <% :pending -> %>
+                            <.icon
+                              name="hero-minus-circle"
+                              class="w-5 h-5 text-zinc-400 flex-shrink-0 mt-0.5"
+                            />
+                            <span class="text-sm text-zinc-600"><%= label %></span>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                  <%= if can_submit?(@form, @bank_accounts, @billing_address, @current_user) do %>
+                    <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div class="flex items-center gap-2 text-sm text-green-700 font-medium">
+                        <.icon name="hero-check-circle" class="w-5 h-5" />
+                        <span>Ready to submit!</span>
+                      </div>
+                    </div>
                   <% end %>
                 </div>
-                <!-- Fixed-size submit button -->
-                <.button
-                  type="submit"
-                  name="_action"
-                  value="submit"
-                  phx-disable-with="Submitting..."
-                  disabled={!can_submit?(@form, @bank_accounts, @billing_address, @current_user)}
-                  class={
-                    "w-full sm:w-auto min-w-[180px] h-[42px] px-4 py-2 text-sm font-medium rounded-md " <>
-                      if(can_submit?(@form, @bank_accounts, @billing_address, @current_user),
-                        do: "text-white bg-green-600 hover:bg-green-700",
-                        else: "text-zinc-400 bg-zinc-300 cursor-not-allowed"
-                      )
-                  }
-                >
-                  Submit for Review
-                </.button>
               </div>
-            </:actions>
-          </.simple_form>
+            </div>
+          </div>
         </div>
       </div>
       <!-- Bank Account Modal -->
@@ -2039,6 +2461,43 @@ defmodule YscWeb.ExpenseReportLive do
 
   defp format_money_for_input(_), do: ""
 
+  # Calculate date constraints for expense items (30 days back, no future dates)
+  defp get_date_max do
+    Date.utc_today() |> Date.to_string()
+  end
+
+  defp get_date_min do
+    Date.utc_today()
+    |> Date.add(-30)
+    |> Date.to_string()
+  end
+
+  defp is_date_older_than_30_days(date_string) when is_binary(date_string) do
+    case Date.from_iso8601(date_string) do
+      {:ok, date} ->
+        days_ago = Date.diff(Date.utc_today(), date)
+        days_ago > 30
+
+      _ ->
+        false
+    end
+  end
+
+  defp is_date_older_than_30_days(_), do: false
+
+  defp is_date_close_to_30_day_limit(date_string) when is_binary(date_string) do
+    case Date.from_iso8601(date_string) do
+      {:ok, date} ->
+        days_ago = Date.diff(Date.utc_today(), date)
+        days_ago >= 25 && days_ago <= 30
+
+      _ ->
+        false
+    end
+  end
+
+  defp is_date_close_to_30_day_limit(_), do: false
+
   defp is_pdf?(filename) when is_binary(filename) do
     String.downcase(filename) |> String.ends_with?(".pdf")
   end
@@ -2090,6 +2549,100 @@ defmodule YscWeb.ExpenseReportLive do
   end
 
   defp get_receipt_path_from_item(_), do: nil
+
+  defp get_readiness_checklist_with_status(form, bank_accounts, billing_address, _user) do
+    changeset = form.source
+    expense_items = Ecto.Changeset.get_field(changeset, :expense_items, [])
+
+    # Check purpose
+    purpose_value = form[:purpose].value
+    purpose_complete = !is_nil(purpose_value) && purpose_value != ""
+    purpose_errors = form[:purpose].errors || []
+
+    purpose_has_error =
+      (length(purpose_errors) > 0 && !purpose_complete) ||
+        (form.source.action == :validate && !purpose_complete)
+
+    # Check expense items exist and are valid
+    expense_items_complete =
+      length(expense_items) > 0 &&
+        Enum.all?(expense_items, fn item ->
+          date = get_field_from_item(item, :date)
+          vendor = get_field_from_item(item, :vendor)
+          description = get_field_from_item(item, :description)
+          amount = get_field_from_item(item, :amount)
+
+          !is_nil(date) && !is_nil(vendor) && vendor != "" && !is_nil(description) &&
+            description != "" && !is_nil(amount)
+        end)
+
+    expense_items_has_error = length(expense_items) == 0 && form.source.action == :validate
+
+    # Check all expense items have receipts
+    all_receipts_attached =
+      expense_items
+      |> Enum.all?(fn item ->
+        receipt_path = get_receipt_path_from_item(item)
+        !is_nil(receipt_path) && receipt_path != ""
+      end)
+
+    receipts_has_error =
+      length(expense_items) > 0 && !all_receipts_attached && form.source.action == :validate
+
+    # Check reimbursement method
+    method = form[:reimbursement_method].value
+
+    reimbursement_complete =
+      case method do
+        "bank_transfer" ->
+          bank_account_id = form[:bank_account_id].value
+          length(bank_accounts) > 0 && !is_nil(bank_account_id) && bank_account_id != ""
+
+        "check" ->
+          !is_nil(billing_address)
+
+        _ ->
+          false
+      end
+
+    reimbursement_has_error =
+      !is_nil(method) && !reimbursement_complete && form.source.action == :validate
+
+    # Check certification
+    certification_complete =
+      form[:certification_accepted].value == true ||
+        form[:certification_accepted].value == "true"
+
+    certification_has_error = form.source.action == :validate && !certification_complete
+
+    [
+      {"Purpose filled out",
+       if(purpose_has_error,
+         do: :error,
+         else: if(purpose_complete, do: :completed, else: :pending)
+       )},
+      {"At least one expense item added",
+       if(expense_items_has_error,
+         do: :error,
+         else: if(expense_items_complete, do: :completed, else: :pending)
+       )},
+      {"All expense items have receipts",
+       if(receipts_has_error,
+         do: :error,
+         else: if(all_receipts_attached, do: :completed, else: :pending)
+       )},
+      {"Reimbursement method configured",
+       if(reimbursement_has_error,
+         do: :error,
+         else: if(reimbursement_complete, do: :completed, else: :pending)
+       )},
+      {"Certification accepted",
+       if(certification_has_error,
+         do: :error,
+         else: if(certification_complete, do: :completed, else: :pending)
+       )}
+    ]
+  end
 
   defp get_submission_errors(form, bank_accounts, billing_address, _user) do
     errors = []

@@ -12,7 +12,7 @@
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">A new expense report has been submitted and requires your review.</mj-text>
     <mj-spacer height="24px"></mj-spacer>
     <!-- Important Notice -->
-    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px" css-class="yellow-alert-box">
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px" padding-left="16px" css-class="yellow-alert-box">
       <strong>⚠️ Action Required:</strong> Please review this expense report and process the reimbursement as soon as possible.
     </mj-text>
     <mj-spacer height="24px"></mj-spacer>
@@ -108,7 +108,7 @@
     </mj-text>
     <mj-spacer height="24px"></mj-spacer>
     <!-- QuickBooks Info -->
-    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px" css-class="blue-alert-box-large">
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px" padding-left="16px" css-class="blue-alert-box-large">
       <strong>📊 QuickBooks Sync:</strong> This expense report will be automatically synced to QuickBooks. Check the sync status in the admin panel.
     </mj-text>
     <mj-spacer height="24px"></mj-spacer>
