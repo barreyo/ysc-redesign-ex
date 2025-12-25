@@ -9,7 +9,10 @@ defmodule YscWeb.OrderConfirmationLive do
   import Ecto.Query
 
   @impl true
-  def mount(%{"order_id" => order_id}, _session, socket) do
+  def mount(%{"order_id" => order_id} = params, _session, socket) do
+    # Show confetti only if confetti=true parameter is present (from checkout redirect)
+    show_confetti = Map.get(params, "confetti") == "true"
+
     case Tickets.get_ticket_order(order_id) do
       nil ->
         {:ok,
@@ -34,6 +37,7 @@ defmodule YscWeb.OrderConfirmationLive do
            |> assign(:event, event)
            |> assign(:user_first_name, socket.assigns.current_user.first_name || "Member")
            |> assign(:refund_data, refund_data)
+           |> assign(:show_confetti, show_confetti)
            |> assign(:page_title, "Order Confirmation")}
         else
           {:ok,
@@ -62,7 +66,12 @@ defmodule YscWeb.OrderConfirmationLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="py-8 lg:py-10 max-w-screen-xl mx-auto px-4">
+    <div
+      id="order-confirmation"
+      phx-hook="Confetti"
+      data-show-confetti={if @show_confetti, do: "true", else: "false"}
+      class="py-8 lg:py-10 max-w-screen-xl mx-auto px-4"
+    >
       <!-- Header -->
       <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-100 pb-8">
         <div>

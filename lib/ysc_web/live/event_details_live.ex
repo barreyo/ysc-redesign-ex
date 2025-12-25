@@ -1964,7 +1964,7 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:ticket_order, order_with_tickets)
          |> assign(:user_tickets, updated_user_tickets)
          |> assign(:selected_tickets, %{})
-         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation")}
+         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation?confetti=true")}
 
       {:error, reason} ->
         {:noreply,
@@ -2005,7 +2005,7 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:user_tickets, updated_user_tickets)
          |> assign(:payment_intent, nil)
          |> assign(:selected_tickets, %{})
-         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation")}
+         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation?confetti=true")}
 
       {:error, _reason} ->
         {:noreply,
