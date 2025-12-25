@@ -319,6 +319,26 @@ setInterval(() => {
     });
 }, 500);
 
+// Handle print-page event for PDF download
+window.addEventListener("phx:print-page", () => {
+    window.print();
+});
+
+// Handle copy to clipboard for Report ID
+document.addEventListener("click", (event) => {
+    if (event.target.closest('[phx-click="copy-report-id"]')) {
+        const button = event.target.closest('[phx-click="copy-report-id"]');
+        const reportId = button.getAttribute('phx-value-id');
+        if (reportId) {
+            navigator.clipboard.writeText(reportId).then(() => {
+                // Flash message will be shown by LiveView
+            }).catch((err) => {
+                console.error('Failed to copy:', err);
+            });
+        }
+    }
+});
+
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session

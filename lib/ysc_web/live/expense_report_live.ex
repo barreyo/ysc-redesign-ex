@@ -150,7 +150,7 @@ defmodule YscWeb.ExpenseReportLive do
   end
 
   # Handle file upload triggers (when files are selected, auto_upload starts)
-  def handle_event("validate", params, socket) do
+  def handle_event("validate", _params, socket) do
     # This handles upload events that don't have expense_report params
     # With auto_upload: true, the upload starts automatically
     {:noreply, socket}
@@ -338,6 +338,19 @@ defmodule YscWeb.ExpenseReportLive do
 
   def handle_event("validate-upload", _params, socket) do
     {:noreply, socket}
+  end
+
+  def handle_event("copy-report-id", %{"id" => _id}, socket) do
+    {:noreply,
+     socket
+     |> put_flash(:info, "Report ID copied to clipboard")}
+  end
+
+  def handle_event("download-pdf", _params, socket) do
+    # Trigger browser print dialog which can save as PDF
+    {:noreply,
+     socket
+     |> push_event("print-page", %{})}
   end
 
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
@@ -1071,7 +1084,12 @@ defmodule YscWeb.ExpenseReportLive do
 
   defp render_success(assigns) do
     ~H"""
-    <div class="py-8 lg:py-10 max-w-screen-xl mx-auto px-4">
+    <div
+      id="expense-report-success"
+      phx-hook="Confetti"
+      data-show-confetti="true"
+      class="py-8 lg:py-10 max-w-screen-xl mx-auto px-4"
+    >
       <div class="max-w-xl mx-auto">
         <!-- Success Header -->
         <div class="text-center mb-8">
@@ -1082,6 +1100,95 @@ defmodule YscWeb.ExpenseReportLive do
           <p class="text-zinc-600">
             Your expense report has been successfully submitted. You'll receive a confirmation email shortly.
           </p>
+        </div>
+        <!-- Reimbursement Timeline -->
+        <div class="reimbursement-timeline bg-white rounded-lg shadow-sm border border-zinc-200 mb-6 p-6">
+          <h2 class="text-lg font-semibold text-zinc-900 mb-4">Reimbursement Timeline</h2>
+          <div class="space-y-4">
+            <!-- Step 1: Submitted -->
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0">
+                <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                  <.icon name="hero-check" class="w-5 h-5 text-white" />
+                </div>
+              </div>
+              <div class="flex-1 -pt-2">
+                <p class="text-sm font-medium text-zinc-900">Report Submitted</p>
+                <p class="text-xs text-zinc-500 mt-1">Your expense report has been received</p>
+              </div>
+            </div>
+            <!-- Connector Line -->
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0">
+                <div class="w-8 h-8 flex items-center justify-center">
+                  <div class="w-0.5 h-8 bg-zinc-300"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Step 2: Under Review (Active) -->
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0">
+                <div class="w-8 h-8 rounded-full bg-blue-100 border-2 border-blue-400 flex items-center justify-center animate-pulse">
+                  <.icon name="hero-clock" class="w-5 h-5 text-blue-600" />
+                </div>
+              </div>
+              <div class="flex-1 -pt-2">
+                <p class="text-sm font-medium text-zinc-900">Under Review</p>
+                <p class="text-xs text-zinc-500 mt-1">Treasurer is reviewing your submission</p>
+              </div>
+            </div>
+            <!-- Connector Line -->
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0">
+                <div class="w-8 h-8 flex items-center justify-center">
+                  <div class="w-0.5 h-8 bg-zinc-300"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Step 3: Processing -->
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0">
+                <div class="w-8 h-8 rounded-full bg-zinc-100 border-2 border-zinc-300 flex items-center justify-center">
+                  <.icon name="hero-arrow-path" class="w-5 h-5 text-zinc-400" />
+                </div>
+              </div>
+              <div class="flex-1 -pt-2">
+                <p class="text-sm font-medium text-zinc-500">Processing Payment</p>
+                <p class="text-xs text-zinc-500 mt-1">Reimbursement is being processed</p>
+              </div>
+            </div>
+            <!-- Connector Line -->
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0">
+                <div class="w-8 h-8 flex items-center justify-center">
+                  <div class="w-0.5 h-8 bg-zinc-300"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Step 4: Completed -->
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0">
+                <div class="w-8 h-8 rounded-full bg-zinc-100 border-2 border-zinc-300 flex items-center justify-center">
+                  <.icon name="hero-banknotes" class="w-5 h-5 text-zinc-400" />
+                </div>
+              </div>
+              <div class="flex-1 -pt-2">
+                <p class="text-sm font-medium text-zinc-500">Reimbursement Complete</p>
+                <p class="text-xs text-zinc-500 mt-1">
+                  <%= case @expense_report.reimbursement_method do
+                    "bank_transfer" -> "Funds will be transferred to your bank account"
+                    "check" -> "Check will be mailed to your address"
+                    _ -> "Reimbursement will be processed"
+                  end %>
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 pt-4 border-t border-zinc-200">
+            <p class="text-xs text-zinc-500">
+              <strong>Typical processing time:</strong> 5-7 business days from submission
+            </p>
+          </div>
         </div>
         <!-- Expense Report Summary Card -->
         <div class="bg-white rounded-lg shadow-sm border border-zinc-200 mb-6">
@@ -1106,7 +1213,20 @@ defmodule YscWeb.ExpenseReportLive do
             <% end %>
             <div>
               <dt class="text-sm font-medium text-zinc-500">Report ID</dt>
-              <dd class="mt-1 text-sm text-zinc-900 font-mono"><%= @expense_report.id %></dd>
+              <dd class="mt-1 flex items-center gap-2">
+                <span class="text-xs sm:text-sm text-zinc-900 font-mono break-all">
+                  <%= @expense_report.id %>
+                </span>
+                <button
+                  type="button"
+                  phx-click="copy-report-id"
+                  phx-value-id={@expense_report.id}
+                  class="px-1.5 py-0.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 rounded transition-colors flex-shrink-0"
+                  title="Copy Report ID"
+                >
+                  <.icon name="hero-clipboard" class="w-4 h-4 -mt-1.5" />
+                </button>
+              </dd>
             </div>
             <div>
               <dt class="text-sm font-medium text-zinc-500">Submitted</dt>
@@ -1149,9 +1269,13 @@ defmodule YscWeb.ExpenseReportLive do
                         <% end %>
                       </p>
                       <%= if item.receipt_s3_path do %>
-                        <p class="text-xs text-green-600 mt-1">
-                          <.icon name="hero-document-check" class="w-4 h-4 inline" /> Receipt attached
-                        </p>
+                        <a
+                          href={ExpenseReports.receipt_url(item.receipt_s3_path)}
+                          target="_blank"
+                          class="text-xs text-green-600 mt-1 hover:text-green-700 hover:underline inline-flex items-center gap-1"
+                        >
+                          <.icon name="hero-document-check" class="w-4 h-4" /> Receipt attached
+                        </a>
                       <% end %>
                     </div>
                     <div class="text-right ml-4">
@@ -1187,9 +1311,13 @@ defmodule YscWeb.ExpenseReportLive do
                         <% end %>
                       </p>
                       <%= if item.proof_s3_path do %>
-                        <p class="text-xs text-green-600 mt-1">
-                          <.icon name="hero-document-check" class="w-4 h-4 inline" /> Proof attached
-                        </p>
+                        <a
+                          href={ExpenseReports.receipt_url(item.proof_s3_path)}
+                          target="_blank"
+                          class="text-xs text-green-600 mt-1 hover:text-green-700 hover:underline inline-flex items-center gap-1"
+                        >
+                          <.icon name="hero-document-check" class="w-4 h-4" /> Proof attached
+                        </a>
                       <% end %>
                     </div>
                     <div class="text-right ml-4">
@@ -1267,13 +1395,46 @@ defmodule YscWeb.ExpenseReportLive do
           </div>
         </div>
         <!-- Actions -->
-        <div class="flex justify-center space-x-4">
-          <.link
-            navigate={~p"/expensereport"}
-            class="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-          >
-            Submit Another Report
-          </.link>
+        <div class="print-hide space-y-4">
+          <!-- Primary Actions -->
+          <div class="flex flex-wrap justify-center gap-3">
+            <.link
+              navigate={~p"/expensereport"}
+              class="px-6 py-3 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 min-h-[44px] flex items-center justify-center gap-2"
+            >
+              <.icon name="hero-plus" class="w-5 h-5" /> Submit Another Report
+            </.link>
+            <button
+              type="button"
+              phx-click="download-pdf"
+              class="px-6 py-3 text-sm font-medium text-zinc-700 bg-white border border-zinc-300 rounded-md hover:bg-zinc-50 min-h-[44px] flex items-center justify-center gap-2"
+            >
+              <.icon name="hero-arrow-down-tray" class="w-5 h-5" /> Download as PDF
+            </button>
+          </div>
+          <!-- Secondary Actions -->
+          <div class="flex flex-wrap justify-center gap-3 pt-2">
+            <.link
+              navigate={~p"/expensereport"}
+              class="px-4 py-2 text-sm font-medium text-zinc-700 hover:text-zinc-900 hover:underline"
+            >
+              View My Reports
+            </.link>
+            <span class="text-zinc-300">•</span>
+            <.link
+              navigate={~p"/"}
+              class="px-4 py-2 text-sm font-medium text-zinc-700 hover:text-zinc-900 hover:underline"
+            >
+              Return to Dashboard
+            </.link>
+            <span class="text-zinc-300">•</span>
+            <.link
+              href={"mailto:treasurer@ysc.org?subject=Question about Expense Report #{@expense_report.id}&body=Hi Treasurer,%0D%0A%0D%0AI have a question regarding my expense report (ID: #{@expense_report.id}).%0D%0A%0D%0A[Please describe your question or issue here]%0D%0A%0D%0AThank you!"}
+              class="px-4 py-2 text-sm font-medium text-zinc-700 hover:text-zinc-900 hover:underline"
+            >
+              Something wrong? Contact Treasurer
+            </.link>
+          </div>
         </div>
       </div>
     </div>
@@ -1438,10 +1599,12 @@ defmodule YscWeb.ExpenseReportLive do
                             <option value="Safeway">Safeway</option>
                             <!-- Club-specific vendors -->
                             <option value="Kelseyville Lumber">Kelseyville Lumber</option>
+                            <option value="Riviera Foods">Riviera Foods</option>
                             <!-- Other common vendors -->
                             <option value="Whole Foods">Whole Foods</option>
                             <option value="Trader Joe's">Trader Joe's</option>
                             <option value="Home Depot">Home Depot</option>
+                            <option value="Total Wine & More">Total Wine & More</option>
                             <option value="Lowe's">Lowe's</option>
                             <option value="Staples">Staples</option>
                             <option value="Ikea">Ikea</option>
