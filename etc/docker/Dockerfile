@@ -10,7 +10,8 @@ RUN apk add --no-cache \
     python3 \
     nodejs \
     npm \
-    zstd
+    zstd \
+    ffmpeg
 
 # Set environment variables
 ENV MIX_ENV=prod \

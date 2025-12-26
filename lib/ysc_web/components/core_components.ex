@@ -2735,6 +2735,10 @@ defmodule YscWeb.CoreComponents do
     default: nil,
     doc: "Path to the background video (takes precedence over image)"
 
+  attr :poster, :string,
+    default: nil,
+    doc: "Path to the poster image shown while video is loading"
+
   attr :height, :string,
     default: "70vh",
     doc: "Height of the hero section (e.g., '100vh', '500px')"
@@ -2776,6 +2780,7 @@ defmodule YscWeb.CoreComponents do
         muted
         loop
         playsinline
+        poster={@poster}
         class="absolute inset-0 w-full h-full object-cover"
       >
         <source src={@video} type="video/mp4" />

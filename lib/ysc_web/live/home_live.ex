@@ -51,12 +51,15 @@ defmodule YscWeb.HomeLive do
         upcoming_events = Events.list_upcoming_events(3)
         latest_news = Posts.list_posts(3)
 
-        # Determine hero video based on current Tahoe season
+        # Determine hero video and poster image based on current Tahoe season
         # Use Clear Lake video during summer, Tahoe video otherwise
-        hero_video =
+        {hero_video, hero_poster} =
           case Season.for_date(:tahoe, Date.utc_today()) do
-            %{name: "Summer"} -> ~p"/video/clear_lake_hero.mp4"
-            _ -> ~p"/video/tahoe_hero.mp4"
+            %{name: "Summer"} ->
+              {~p"/video/clear_lake_hero.mp4", ~p"/images/clear_lake_hero_poster.jpg"}
+
+            _ ->
+              {~p"/video/tahoe_hero.mp4", ~p"/images/tahoe_hero_poster.jpg"}
           end
 
         assign(socket,
@@ -64,6 +67,7 @@ defmodule YscWeb.HomeLive do
           upcoming_events: upcoming_events,
           latest_news: latest_news,
           hero_video: hero_video,
+          hero_poster: hero_poster,
           newsletter_email: "",
           newsletter_submitted: false,
           newsletter_error: nil
@@ -77,7 +81,7 @@ defmodule YscWeb.HomeLive do
   def render(assigns) do
     ~H"""
     <div :if={@current_user == nil}>
-      <.hero video={@hero_video} height="90vh" overlay_opacity="bg-black/40">
+      <.hero video={@hero_video} poster={@hero_poster} height="90vh" overlay_opacity="bg-black/40">
         <div class="mb-6 pt-6">
           <span class="inline-block px-4 py-1.5 text-sm font-semibold tracking-widest uppercase bg-white/10 backdrop-blur-sm rounded-full border border-white/20 text-white/90">
             Est. 1950 · San Francisco
