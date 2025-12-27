@@ -416,7 +416,7 @@ defmodule YscWeb.TahoeBookingLive do
               </h3>
               <div class="space-y-3">
                 <%= for booking <- @active_bookings do %>
-                  <div class="bg-white rounded-md p-3 border border-zinc-200">
+                  <div class="bg-white rounded p-3 border border-zinc-200">
                     <div class="flex items-start justify-between">
                       <div class="flex-1">
                         <div class="flex items-center gap-2 mb-1 pb-1">
@@ -486,7 +486,7 @@ defmodule YscWeb.TahoeBookingLive do
           </div>
         </div>
         <!-- Booking Eligibility Banner -->
-        <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded p-4">
           <div class="flex items-start">
             <div class="flex-shrink-0">
               <.icon name="hero-exclamation-triangle-solid" class="h-5 w-5 text-amber-600" />
@@ -556,7 +556,7 @@ defmodule YscWeb.TahoeBookingLive do
             <!-- Left Column: Selection Area (2 columns on large screens) -->
             <div class="lg:col-span-2 space-y-8">
               <!-- Section 1: Stay Details -->
-              <section class="bg-zinc-50 p-6 rounded-lg border border-zinc-200">
+              <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
                 <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
                   <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
                     1
@@ -595,7 +595,7 @@ defmodule YscWeb.TahoeBookingLive do
                         aria-labelledby="guests-label"
                         aria-expanded={@guests_dropdown_open}
                         aria-haspopup="true"
-                        class="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="w-full px-3 py-2 border border-zinc-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <span class="text-zinc-900">
                           <%= format_guests_display(@guests_count, @children_count) %>
@@ -612,7 +612,7 @@ defmodule YscWeb.TahoeBookingLive do
                       <div
                         :if={@guests_dropdown_open}
                         phx-click-away="close-guests-dropdown"
-                        class="absolute z-10 w-full mt-1 bg-white border border-zinc-300 rounded-md shadow-lg p-4"
+                        class="absolute z-10 w-full mt-1 bg-white border border-zinc-300 rounded shadow-lg p-4"
                       >
                         <div class="space-y-4">
                           <!-- Adults Counter -->
@@ -719,7 +719,7 @@ defmodule YscWeb.TahoeBookingLive do
                             <button
                               type="button"
                               phx-click="close-guests-dropdown"
-                              class="w-full px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-md transition-colors duration-200"
+                              class="w-full px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded transition-colors duration-200"
                             >
                               Done
                             </button>
@@ -832,7 +832,7 @@ defmodule YscWeb.TahoeBookingLive do
               <!-- Restricted Date Range Message -->
               <div
                 :if={@dates_restricted && @membership_type in [:family, :lifetime]}
-                class="p-3 bg-blue-50 border border-blue-200 rounded-md"
+                class="p-3 bg-blue-50 border border-blue-200 rounded"
               >
                 <div class="flex items-start">
                   <div class="flex-shrink-0">
@@ -866,7 +866,7 @@ defmodule YscWeb.TahoeBookingLive do
                       length(@selected_room_ids) < max_rooms_for_user(assigns) &&
                       (parse_guests_count(@guests_count) || 1) > 1
                   }
-                  class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                  class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded"
                 >
                   <div class="flex items-start gap-2">
                     <.icon
@@ -905,7 +905,7 @@ defmodule YscWeb.TahoeBookingLive do
                           (max_rooms_reached && !room_already_selected) ||
                           cannot_add_second_room %>
                       <div class={[
-                        "border-2 rounded-lg overflow-hidden flex flex-col h-full transition-all",
+                        "border-2 rounded overflow-hidden flex flex-col h-full transition-all",
                         if(is_disabled,
                           do: "border-zinc-200 bg-zinc-50 cursor-not-allowed opacity-60",
                           else:
@@ -1038,7 +1038,7 @@ defmodule YscWeb.TahoeBookingLive do
                             <!-- Room Features: Bed Icons (More Prominent) -->
                             <div
                               :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
-                              class="mb-4 mt-auto pb-3 border-b border-zinc-200"
+                              class="mb-4 mt-auto pb-3"
                             >
                               <p class="text-xs font-semibold text-zinc-400 uppercase mb-2">
                                 Room Features
@@ -1179,7 +1179,7 @@ defmodule YscWeb.TahoeBookingLive do
                             <!-- Room Features: Bed Icons -->
                             <div
                               :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
-                              class="mb-4 mt-auto pb-3 border-b border-zinc-200"
+                              class="mb-4 mt-auto pb-3"
                             >
                               <p class="text-xs font-semibold text-zinc-400 uppercase mb-2">
                                 Room Features
@@ -1230,20 +1230,6 @@ defmodule YscWeb.TahoeBookingLive do
                               </div>
                             </div>
                           </div>
-                          <!-- Check Other Dates Button for Unavailable Rooms -->
-                          <div
-                            :if={is_unavailable && reason}
-                            class="p-4 bg-amber-50 border-t border-amber-200"
-                          >
-                            <button
-                              type="button"
-                              phx-click="switch-tab"
-                              phx-value-tab="booking"
-                              class="w-full text-sm font-semibold text-amber-900 hover:text-amber-950 underline"
-                            >
-                              Check other dates →
-                            </button>
-                          </div>
                         </div>
                       </div>
                     <% end %>
@@ -1277,7 +1263,7 @@ defmodule YscWeb.TahoeBookingLive do
                   Full Cabin Buyout
                 </h2>
                 <div class={[
-                  "border-2 rounded-lg p-8 text-center",
+                  "border-2 rounded p-8 text-center",
                   if(@date_validation_errors[:availability],
                     do: "border-red-200 bg-red-50",
                     else: "border-indigo-100 bg-indigo-50"
@@ -1343,7 +1329,7 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
             <!-- Right Column: Sticky Reservation Summary (1 column on large screens) -->
             <aside class="lg:sticky lg:top-24">
-              <div class="bg-white rounded-lg border-2 border-zinc-200 shadow-xl overflow-hidden">
+              <div class="bg-white rounded border-2 border-zinc-200 shadow-xl overflow-hidden">
                 <div class="p-6 border-b border-zinc-100 bg-zinc-50">
                   <h3 class="text-xl font-bold text-zinc-900">Your Reservation</h3>
                 </div>
@@ -1390,7 +1376,7 @@ defmodule YscWeb.TahoeBookingLive do
                         length(@selected_room_ids) < max_rooms_for_user(assigns) &&
                         (parse_guests_count(@guests_count) || 1) > 1
                     }
-                    class="p-2 bg-blue-50 border border-blue-200 rounded-lg"
+                    class="p-2 bg-blue-50 border border-blue-200 rounded"
                   >
                     <div class="flex items-start gap-2">
                       <.icon
@@ -1456,7 +1442,7 @@ defmodule YscWeb.TahoeBookingLive do
                       <div :if={@selected_booking_mode == :room}>
                         <div
                           :if={@price_breakdown[:using_minimum_pricing]}
-                          class="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-md"
+                          class="mb-2 p-2 bg-amber-50 border border-amber-200 rounded"
                         >
                           <div class="flex items-start gap-2">
                             <.icon
@@ -1523,7 +1509,7 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                   <!-- Submit Button -->
                   <div class="pt-2">
-                    <button
+                    <.button
                       :if={@can_book}
                       phx-click="create-booking"
                       disabled={
@@ -1549,17 +1535,17 @@ defmodule YscWeb.TahoeBookingLive do
                              @form_errors,
                              @date_validation_errors
                            ) do
-                          "w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-blue-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                          "w-full text-lg py-4"
                         else
-                          "w-full bg-zinc-300 text-zinc-600 font-semibold py-4 rounded-xl cursor-not-allowed opacity-50"
+                          "w-full bg-zinc-200 text-zinc-600 hover:bg-zinc-300 opacity-50 cursor-not-allowed"
                         end
                       }
                     >
                       Confirm Booking
-                    </button>
+                    </.button>
                     <div
                       :if={!@can_book}
-                      class="w-full bg-zinc-300 text-zinc-600 font-semibold py-4 rounded-xl text-center cursor-not-allowed"
+                      class="w-full bg-zinc-200 text-zinc-600 font-semibold py-4 rounded text-center cursor-not-allowed"
                     >
                       Booking Unavailable
                     </div>
@@ -1574,13 +1560,13 @@ defmodule YscWeb.TahoeBookingLive do
               </div>
               <!-- Link to Rules -->
               <div class="mt-4 p-4 text-center">
-                <button
+                <.button
                   phx-click="switch-tab"
                   phx-value-tab="information"
-                  class="text-sm text-zinc-500 hover:text-blue-600 underline"
+                  class="text-sm text-zinc-500 hover:text-blue-600 underline bg-transparent hover:bg-transparent border-0 shadow-none"
                 >
                   View Cabin Rules & Cancellation Policy
-                </button>
+                </.button>
               </div>
             </aside>
           </div>
@@ -1598,7 +1584,7 @@ defmodule YscWeb.TahoeBookingLive do
                   Select dates and rooms
                 </div>
               </div>
-              <button
+              <.button
                 :if={@can_book}
                 phx-click="create-booking"
                 disabled={
@@ -1624,14 +1610,14 @@ defmodule YscWeb.TahoeBookingLive do
                        @form_errors,
                        @date_validation_errors
                      ) do
-                    "px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                    "px-6 py-3"
                   else
-                    "px-6 py-3 bg-zinc-300 text-zinc-600 font-semibold rounded-xl cursor-not-allowed opacity-50"
+                    "px-6 py-3 bg-zinc-200 text-zinc-600 hover:bg-zinc-300 opacity-50 cursor-not-allowed"
                   end
                 }
               >
                 Book Now
-              </button>
+              </.button>
             </div>
           </div>
         </div>
@@ -1710,7 +1696,7 @@ defmodule YscWeb.TahoeBookingLive do
             />
           </div>
           <!-- Reservations & Booking (Collapsible) -->
-          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
             <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
               <span class="flex items-center">
                 <span class="mr-2">🗓️</span>
@@ -1785,7 +1771,7 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </details>
           <!-- Getting There (Collapsible) -->
-          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
             <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
               <span class="flex items-center">
                 <span class="mr-2">🚗</span>
@@ -1845,7 +1831,7 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </details>
           <!-- Winter Driving & Weather Tips (Collapsible) -->
-          <details class="border border-blue-200 rounded-lg p-4 bg-blue-50">
+          <details class="border border-blue-200 rounded p-4 bg-blue-50">
             <summary class="cursor-pointer font-semibold text-lg text-blue-900 mb-4 list-none flex items-center justify-between">
               <span class="flex items-center">
                 <span class="mr-2">❄️</span>
@@ -1913,7 +1899,7 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </details>
           <!-- Parking & Transportation (Collapsible) -->
-          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
             <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
               <span class="flex items-center">
                 <span class="mr-2">🚙</span>
@@ -1957,7 +1943,7 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </details>
           <!-- Bear Safety Instructions (Collapsible) -->
-          <details class="border border-red-200 rounded-lg p-4 bg-red-50">
+          <details class="border border-red-200 rounded p-4 bg-red-50">
             <summary class="cursor-pointer font-semibold text-lg text-red-900 mb-4 list-none flex items-center justify-between">
               <span class="flex items-center">
                 <span class="mr-2">🐻</span>
@@ -1993,7 +1979,7 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </details>
           <!-- Cancellation Policy (Collapsible) -->
-          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
             <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
               <span class="flex items-center">
                 <span class="mr-2">🧾</span>
@@ -2073,7 +2059,7 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </details>
           <!-- Cabin Rules & Etiquette (Collapsible) -->
-          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
             <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
               <span class="flex items-center">
                 <span class="mr-2">🧺</span>
@@ -2116,7 +2102,7 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </details>
           <!-- What to Bring (Collapsible) -->
-          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
             <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
               <span class="flex items-center">
                 <span class="mr-2">🎒</span>
@@ -2145,7 +2131,7 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </details>
           <!-- Rates & Seasonal Rules (Collapsible) -->
-          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
             <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
               <span class="flex items-center">
                 <span class="mr-2">💰</span>
@@ -2178,7 +2164,7 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </details>
           <!-- Cleanliness & Chores (Collapsible) -->
-          <details class="border border-zinc-200 rounded-lg p-4 bg-zinc-50">
+          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
             <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
               <span class="flex items-center">
                 <span class="mr-2">🧹</span>

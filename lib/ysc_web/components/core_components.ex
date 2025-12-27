@@ -219,21 +219,42 @@ defmodule YscWeb.CoreComponents do
 
       <.button>Send!</.button>
       <.button phx-click="go" class="ml-2">Send!</.button>
+      <.button variant="outline" color="zinc">Outlined Button</.button>
   """
   attr :type, :string, default: nil
   attr :class, :string, default: nil
   attr :color, :string, default: "blue"
+  attr :variant, :string, default: "solid"
   attr :rest, :global, include: ~w(disabled form name value)
 
   slot :inner_block, required: true
 
   def button(assigns) do
+    variant = assigns[:variant] || "solid"
+
+    base_classes =
+      "phx-submit-loading:opacity-75 rounded py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80 text-sm font-semibold leading-6"
+
+    variant_classes =
+      case variant do
+        "outline" ->
+          "border border-#{assigns.color}-200 hover:bg-#{assigns.color}-50 text-#{assigns.color}-700 active:text-#{assigns.color}-700 bg-transparent"
+
+        _ ->
+          "bg-#{assigns.color}-700 hover:bg-#{assigns.color}-800 text-zinc-100 active:text-zinc-100/80"
+      end
+
+    assigns =
+      assigns
+      |> assign(:base_classes, base_classes)
+      |> assign(:variant_classes, variant_classes)
+
     ~H"""
     <button
       type={@type}
       class={[
-        "phx-submit-loading:opacity-75 rounded bg-#{@color}-700 hover:bg-#{@color}-800 py-2 px-3 transition duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-80",
-        "text-sm font-semibold leading-6 text-zinc-100 active:text-zinc-100/80",
+        @base_classes,
+        @variant_classes,
         @class
       ]}
       {@rest}

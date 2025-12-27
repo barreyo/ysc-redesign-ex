@@ -420,18 +420,12 @@ defmodule YscWeb.OrderConfirmationLive do
           </div>
           <!-- Action Buttons -->
           <div class="space-y-3">
-            <button
-              phx-click="view-tickets"
-              class="w-full py-4 bg-zinc-100 text-zinc-800 rounded-lg font-bold hover:bg-zinc-200 transition-all"
-            >
-              View All My Tickets
-            </button>
-            <button
-              phx-click="view-event"
-              class="w-full py-4 border-2 border-zinc-100 text-zinc-500 rounded-lg font-bold hover:bg-zinc-50 transition-all"
-            >
-              Back to Event
-            </button>
+            <.button phx-click="view-tickets" class="w-full py-3">
+              <.icon name="hero-ticket" class="w-5 h-5 -mt-0.5 me-2" />View All My Tickets
+            </.button>
+            <.button phx-click="view-event" class="w-full py-3" variant="outline" color="zinc">
+              <.icon name="hero-arrow-left" class="w-5 h-5 -mt-0.5 me-2" />Back to Event
+            </.button>
           </div>
         </aside>
       </div>

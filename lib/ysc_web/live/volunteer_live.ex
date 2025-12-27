@@ -18,21 +18,11 @@ defmodule YscWeb.VolunteerLive do
         </div>
         <div class="not-prose">
           <%!-- Placeholder for volunteer photo --%>
-          <div class="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-2xl aspect-video flex items-center justify-center">
-            <div class="text-center relative">
-              <div class="absolute inset-0 flex items-center justify-center">
-                <div class="bg-blue-200 rounded-full blur-3xl opacity-20 transform scale-75 w-32 h-32">
-                </div>
-              </div>
-              <.icon
-                name="hero-user-group"
-                class="w-24 h-24 text-blue-300 mx-auto mb-4 relative z-10"
-              />
-              <p class="text-sm text-blue-400 italic relative z-10">
-                Volunteer community photo placeholder
-              </p>
-            </div>
-          </div>
+          <img
+            src="/images/ysc_group_photo.jpg"
+            alt="Group of YSC Members and Volunteers"
+            class="w-full h-full object-cover rounded-2xl aspect-video flex items-center justify-center"
+          />
         </div>
       </div>
 

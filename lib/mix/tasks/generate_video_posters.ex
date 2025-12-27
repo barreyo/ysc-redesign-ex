@@ -77,7 +77,7 @@ defmodule Mix.Tasks.GenerateVideoPosters do
 
       # Run ffmpeg - it outputs to stderr by default, so we capture both
       case System.cmd("ffmpeg", cmd, stderr_to_stdout: true) do
-        {output, 0} ->
+        {_output, 0} ->
           Mix.shell().info("  ✓ Generated #{poster_path}")
           :ok
 

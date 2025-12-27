@@ -1,6 +1,7 @@
 export default {
     mounted() {
         this.handleScrollSpy();
+        this.handleProgressIndicator();
     },
 
     handleScrollSpy() {
@@ -94,9 +95,38 @@ export default {
         this.observer = observer;
     },
 
+    handleProgressIndicator() {
+        const progressFill = this.el.querySelector("#nav-progress-fill");
+        if (!progressFill) return;
+
+        const updateProgress = () => {
+            const scrollTop = window.scrollY || document.documentElement.scrollTop;
+            const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrollProgress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+
+            // Get the height of the navigation container
+            const navHeight = this.el.offsetHeight;
+            const progressHeight = (scrollProgress / 100) * navHeight;
+
+            progressFill.style.height = `${Math.min(progressHeight, navHeight)}px`;
+        };
+
+        // Update on scroll
+        window.addEventListener("scroll", updateProgress);
+        updateProgress(); // Initial update
+
+        // Store cleanup function
+        this.progressCleanup = () => {
+            window.removeEventListener("scroll", updateProgress);
+        };
+    },
+
     destroyed() {
         if (this.observer) {
             this.observer.disconnect();
+        }
+        if (this.progressCleanup) {
+            this.progressCleanup();
         }
     }
 };

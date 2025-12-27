@@ -34,8 +34,14 @@ defmodule YscWeb.Components.ImageCarousel do
   attr :images, :list, required: true, doc: "List of image maps with :src and :alt keys"
   attr :class, :string, default: "", doc: "Additional CSS classes for the container"
 
+  slot :overlay,
+    doc: "Optional overlay content (e.g., title section) that appears over the carousel"
+
   def image_carousel(assigns) do
-    assigns = assign(assigns, :image_count, length(assigns.images))
+    assigns =
+      assigns
+      |> assign(:image_count, length(assigns.images))
+      |> assign(:has_overlay, assigns.overlay != [])
 
     ~H"""
     <div class={["image-carousel-container", @class]}>
@@ -128,6 +134,23 @@ defmodule YscWeb.Components.ImageCarousel do
           pointer-events: all;
         }
 
+        /* Overlay layer - appears when overlay slot is provided */
+        .image-carousel-container .carousel-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.1));
+          z-index: 5;
+          pointer-events: none;
+        }
+
+        /* Overlay content */
+        .image-carousel-container .carousel-overlay-content {
+          position: absolute;
+          inset: 0;
+          z-index: 6;
+          pointer-events: none;
+        }
+
         /* Dots navigation */
         .image-carousel-container .carousel-dots {
           position: absolute;
@@ -218,6 +241,13 @@ defmodule YscWeb.Components.ImageCarousel do
             </div>
           <% end %>
         </div>
+        <!-- Overlay layer - only shown when overlay slot is provided -->
+        <%= if @has_overlay do %>
+          <div class="carousel-overlay"></div>
+          <div class="carousel-overlay-content">
+            <%= render_slot(@overlay) %>
+          </div>
+        <% end %>
         <!-- Navigation buttons - one set for each possible slide state -->
         <%= for i <- 0..(@image_count - 1) do %>
           <label

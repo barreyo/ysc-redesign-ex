@@ -263,7 +263,7 @@ defmodule YscWeb.BookingReceiptLive do
       <!-- Door Code Banner (if applicable) -->
       <%= if @show_door_code && @door_code do %>
         <div class={[
-          "mb-8 rounded-2xl p-8 shadow-xl border-4",
+          "mb-8 rounded-lg p-8 shadow-xl border-4",
           if(@booking.property == :clear_lake,
             do: "bg-gradient-to-r from-teal-600 to-teal-700 border-teal-400 text-white",
             else: "bg-gradient-to-r from-blue-600 to-blue-700 border-blue-400 text-white"
@@ -293,7 +293,7 @@ defmodule YscWeb.BookingReceiptLive do
               </p>
             </div>
             <div class="flex-shrink-0">
-              <div class="bg-white/20 backdrop-blur-sm rounded-xl px-8 py-6 border-2 border-white/30">
+              <div class="bg-white/20 backdrop-blur-sm rounded-lg px-8 py-6 border-2 border-white/30">
                 <p class={[
                   "text-xs font-bold uppercase tracking-widest mb-2 text-center",
                   if(@booking.property == :clear_lake, do: "text-teal-200", else: "text-blue-200")
@@ -314,7 +314,7 @@ defmodule YscWeb.BookingReceiptLive do
         <div class="lg:col-span-2 space-y-8">
           <%= if @booking.status == :canceled do %>
             <!-- Cancelled Booking Notice -->
-            <div class="bg-red-50 border-2 border-red-300 rounded-xl p-6 mb-6">
+            <div class="bg-red-50 border-2 border-red-300 rounded-lg p-6 mb-6">
               <div class="flex items-start gap-4">
                 <.icon
                   name="hero-exclamation-triangle"
@@ -653,26 +653,17 @@ defmodule YscWeb.BookingReceiptLive do
           <% end %>
           <!-- Action Buttons -->
           <div class="space-y-3">
-            <button
-              phx-click="view-bookings"
-              class="w-full py-4 bg-zinc-100 text-zinc-800 rounded-lg font-bold hover:bg-zinc-200 transition-all"
-            >
-              Manage All My Bookings
-            </button>
+            <.button phx-click="view-bookings" class="w-full py-3">
+              <.icon name="hero-document-text" class="w-5 h-5 -mt-0.5 me-2" />Manage All My Bookings
+            </.button>
             <%= if @booking.status != :canceled && @can_cancel do %>
-              <button
-                phx-click="show-cancel-modal"
-                class="w-full py-4 bg-red-50 text-red-700 rounded-lg font-bold hover:bg-red-100 transition-all border border-red-200 flex items-center justify-center gap-2"
-              >
-                <.icon name="hero-x-circle" class="w-5 h-5" /> Cancel Reservation
-              </button>
+              <.button phx-click="show-cancel-modal" class="w-full py-3" color="red">
+                <.icon name="hero-x-circle" class="w-5 h-5 -mt-0.5 me-2" />Cancel Reservation
+              </.button>
             <% end %>
-            <button
-              phx-click="go-home"
-              class="w-full py-4 border-2 border-zinc-100 text-zinc-500 rounded-lg font-bold hover:bg-zinc-50 transition-all"
-            >
-              Return to Dashboard
-            </button>
+            <.button phx-click="go-home" class="w-full py-3" color="zinc" variant="outline">
+              <.icon name="hero-arrow-left" class="w-5 h-5 -mt-0.5 me-2" />Return to Dashboard
+            </.button>
           </div>
         </aside>
       </div>

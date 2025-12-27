@@ -121,7 +121,12 @@ defmodule Ysc.MixProject do
       ],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["generate_video_posters", "tailwind default", "esbuild default"],
-      "assets.deploy": ["generate_video_posters", "tailwind default --minify", "esbuild default --minify", "phx.digest"]
+      "assets.deploy": [
+        "generate_video_posters",
+        "tailwind default --minify",
+        "esbuild default --minify",
+        "phx.digest"
+      ]
     ]
   end
 end

@@ -202,23 +202,26 @@ defmodule YscWeb.BookingCheckoutLive do
               </div>
 
               <div class="flex flex-col sm:flex-row gap-4 pt-6 border-t border-zinc-100">
-                <button
+                <.button
                   id="submit-payment"
                   type="button"
-                  class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl text-lg transition-all shadow-lg shadow-blue-100 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
+                  class="flex-1 w-full text-lg py-3.5"
                   disabled={@is_expired}
                 >
-                  <.icon name="hero-lock-closed" class="w-5 h-5" />
-                  <span>Pay <%= MoneyHelper.format_money!(@total_price) %> Securely</span>
-                </button>
-                <button
+                  <.icon name="hero-lock-closed" class="w-5 h-5 -mt-1 me-1" />
+                  <span class="text-lg font-semibold">
+                    Pay <%= MoneyHelper.format_money!(@total_price) %> Securely
+                  </span>
+                </.button>
+                <.button_link
                   type="button"
                   phx-click="cancel-booking"
                   phx-confirm="Are you sure you want to cancel this booking? The availability will be released immediately."
-                  class="px-8 py-4 text-zinc-500 font-semibold hover:text-red-600 transition-colors"
+                  color="red"
+                  class="text-zinc-500 hover:text-white"
                 >
                   Cancel
-                </button>
+                </.button_link>
               </div>
 
               <div class="mt-6 flex items-center justify-center gap-2 text-zinc-400">
