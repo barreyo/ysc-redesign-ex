@@ -41,6 +41,7 @@ defmodule YscWeb.AccountSetupLive do
             phx-submit="verify_code"
             phx-change="validate_email_code"
             phx-hook="ResendTimer"
+            class="pt-8"
           >
             <.input
               field={@email_form[:verification_code]}
@@ -174,6 +175,7 @@ defmodule YscWeb.AccountSetupLive do
             phx-submit="verify_phone_code"
             phx-change="validate_phone_code"
             phx-hook="ResendTimer"
+            class="pt-8"
           >
             <p
               :if={dev_or_sandbox?()}
@@ -200,7 +202,7 @@ defmodule YscWeb.AccountSetupLive do
                   click here to resend
                 </.link>
               <% else %>
-                <% sms_countdown = max(0, sms_resend_seconds_remaining(assigns) || 0) %>
+                <% sms_countdown = sms_resend_seconds_remaining(assigns) |> max(0) %>
                 <span
                   class="text-zinc-500 cursor-not-allowed font-bold"
                   data-countdown={sms_countdown}
