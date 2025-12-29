@@ -508,7 +508,12 @@ defmodule Ysc.Accounts do
   {:error, :invalid_code} if the code doesn't match.
   """
   def verify_email_verification_code(user, provided_code) do
-    Ysc.VerificationCache.verify_code(user.id, :email_verification, provided_code)
+    # In dev/test environments, accept "000000" as a valid code
+    if dev_or_sandbox?() and provided_code == "000000" do
+      {:ok, :verified}
+    else
+      Ysc.VerificationCache.verify_code(user.id, :email_verification, provided_code)
+    end
   end
 
   @doc """
@@ -631,7 +636,7 @@ defmodule Ysc.Accounts do
   """
   def verify_phone_verification_code(user, provided_code) do
     # In dev/test environments, accept "000000" as a valid code
-    if Mix.env() in [:dev, :test] && provided_code == "000000" do
+    if dev_or_sandbox?() and provided_code == "000000" do
       {:ok, :verified}
     else
       Ysc.VerificationCache.verify_code(user.id, :phone_verification, provided_code)
@@ -1733,5 +1738,11 @@ defmodule Ysc.Accounts do
     else
       {:error, :unauthorized}
     end
+  end
+
+  # Helper function to check if we're in dev/sandbox mode
+  defp dev_or_sandbox? do
+    env = Application.get_env(:ysc, :environment, "dev")
+    env in ["dev", "test", "sandbox"]
   end
 end

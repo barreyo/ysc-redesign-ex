@@ -1892,14 +1892,7 @@ defmodule YscWeb.UserSettingsLive do
 
           Logger.debug("Normalized code: #{code}")
 
-          # In dev/sandbox, always accept 000000 as valid code
-          verification_result =
-            if dev_or_sandbox?() and code == "000000" do
-              {:ok, :verified}
-            else
-              Accounts.verify_email_verification_code(user, code)
-            end
-
+          verification_result = Accounts.verify_email_verification_code(user, code)
           Logger.debug("Verification result: #{inspect(verification_result)}")
 
           case verification_result do
@@ -2838,7 +2831,8 @@ defmodule YscWeb.UserSettingsLive do
 
   # Helper function to check if we're in dev/sandbox mode
   defp dev_or_sandbox? do
-    Mix.env() in [:dev, :test]
+    env = Application.get_env(:ysc, :environment, "dev")
+    env in ["dev", "test", "sandbox"]
   end
 
   # Helper function to normalize verification code from OTP array/map or string format
