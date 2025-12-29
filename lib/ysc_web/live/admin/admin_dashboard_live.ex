@@ -729,7 +729,7 @@ defmodule YscWeb.AdminDashboardLive do
 
         change_percent = ((current_amount - prev_amount) / prev_amount * 100) |> round()
 
-        month_name = Timex.format!(prev_month_start, "{Mshort}", :strftime)
+        month_name = Timex.format!(prev_month_start, "{Mshort}")
 
         if change_percent >= 0 do
           "+#{change_percent}% from #{month_name}"
