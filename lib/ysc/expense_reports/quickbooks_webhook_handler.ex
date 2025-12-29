@@ -6,8 +6,6 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookHandler do
   when payments are initiated in QuickBooks.
   """
   require Logger
-  alias Ysc.Webhooks
-  alias Ysc.ExpenseReports
 
   @doc """
   Processes a QuickBooks webhook event.
