@@ -623,7 +623,15 @@ defmodule YscWeb.AccountSetupLive do
     # Handle both OTP array format and single string format
     code = normalize_verification_code(entered_code)
 
-    case Accounts.verify_email_verification_code(socket.assigns.user, code) do
+    # In dev/sandbox, always accept 000000 as valid code
+    verification_result =
+      if dev_or_sandbox?() and code == "000000" do
+        {:ok, :verified}
+      else
+        Accounts.verify_email_verification_code(socket.assigns.user, code)
+      end
+
+    case verification_result do
       {:ok, :verified} ->
         # Mark email as verified in database
         {:ok, updated_user} = Accounts.mark_email_verified(socket.assigns.user)

@@ -1728,7 +1728,15 @@ defmodule YscWeb.UserSettingsLive do
           # Handle both OTP array format and single string format
           code = normalize_verification_code(entered_code)
 
-          case Accounts.verify_phone_verification_code(user, code) do
+          # In dev/sandbox, always accept 000000 as valid code
+          verification_result =
+            if dev_or_sandbox?() and code == "000000" do
+              {:ok, :verified}
+            else
+              Accounts.verify_phone_verification_code(user, code)
+            end
+
+          case verification_result do
             {:ok, :verified} ->
               # Update user's phone number and mark as verified
               phone_params = %{"phone_number" => pending_phone}
@@ -1884,7 +1892,14 @@ defmodule YscWeb.UserSettingsLive do
 
           Logger.debug("Normalized code: #{code}")
 
-          verification_result = Accounts.verify_email_verification_code(user, code)
+          # In dev/sandbox, always accept 000000 as valid code
+          verification_result =
+            if dev_or_sandbox?() and code == "000000" do
+              {:ok, :verified}
+            else
+              Accounts.verify_email_verification_code(user, code)
+            end
+
           Logger.debug("Verification result: #{inspect(verification_result)}")
 
           case verification_result do
