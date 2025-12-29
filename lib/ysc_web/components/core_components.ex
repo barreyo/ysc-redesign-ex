@@ -2312,7 +2312,7 @@ defmodule YscWeb.CoreComponents do
     <article
       id={@id}
       class={[
-        "py-4 px-4 text-base rounded",
+        "p-6 bg-zinc-50/50 rounded-lg border border-zinc-100 mb-4 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300",
         @reply && "mb-3 ml-6"
       ]}
       phx-mounted={
@@ -2320,29 +2320,29 @@ defmodule YscWeb.CoreComponents do
           JS.transition({"transition ease-in duration-500", "opacity-0 ping", "opacity-100"})
       }
     >
-      <footer class="flex justify-between items-center">
-        <div class="flex items-center">
-          <p class="inline-flex items-center mr-3 text-sm text-zinc-900 font-semibold">
-            <.user_avatar_image
-              email={@author_email}
-              user_id={@author_id}
-              country={@author_most_connected}
-              class="w-6 rounded-full mr-2"
-            />
-            <%= @author %>
-          </p>
-          <p class="text-sm text-zinc-600">
-            <time
-              pubdate
-              datetime={Timex.format!(@date, "%Y-%m-%d", :strftime)}
-              title={Timex.format!(@date, "%B %e, %Y", :strftime)}
-            >
-              <%= Timex.format!(@date, "%b %e, %Y", :strftime) %>
-            </time>
-          </p>
+      <footer class="flex justify-between items-center mb-4">
+        <div class="flex items-center gap-3">
+          <.user_avatar_image
+            email={@author_email}
+            user_id={@author_id}
+            country={@author_most_connected}
+            class="w-8 h-8 rounded-full ring-2 ring-white shadow-sm"
+          />
+          <div>
+            <p class="text-sm font-black text-zinc-900 leading-none"><%= @author %></p>
+            <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">
+              <time
+                pubdate
+                datetime={Timex.format!(@date, "%Y-%m-%d", :strftime)}
+                title={Timex.format!(@date, "%B %e, %Y", :strftime)}
+              >
+                <%= Timex.format!(@date, "%b %e, %Y", :strftime) %>
+              </time>
+            </p>
+          </div>
         </div>
       </footer>
-      <p class="text-zinc-600">
+      <p class="text-zinc-600 leading-relaxed ps-11 text-sm md:text-base">
         <%= @text %>
       </p>
       <div :if={!@reply} class="flex items-center mt-4 space-x-4">

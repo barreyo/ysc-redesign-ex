@@ -7,26 +7,42 @@ defmodule YscWeb.NewsLive do
   alias Ysc.Posts.Post
   alias Ysc.Media.Image
 
+  @board_position_to_title_lookup %{
+    president: "President",
+    vice_president: "Vice President",
+    secretary: "Secretary",
+    treasurer: "Treasurer",
+    clear_lake_cabin_master: "Clear Lake Cabin Master",
+    tahoe_cabin_master: "Tahoe Cabin Master",
+    event_director: "Event Director",
+    member_outreach: "Member Outreach & Events",
+    membership_director: "Membership Director"
+  }
+
   def render(assigns) do
     ~H"""
-    <div class="py-6 md:py-10">
-      <div class="max-w-screen-xl mx-auto px-4">
-        <div class="prose prose-zinc pb-8">
-          <h1>Club News</h1>
+    <div class="py-6 md:py-12">
+      <%!-- The "Masthead" Header --%>
+      <div class="max-w-screen-xl mx-auto px-4 mb-16">
+        <div class="text-center py-12 border-y border-zinc-200">
+          <h1 class="text-6xl md:text-8xl font-black text-zinc-900 tracking-tighter">
+            Club News
+          </h1>
         </div>
       </div>
 
-      <div :if={@featured != nil} class="max-w-screen-xl mx-auto px-4">
-        <div id="featured" class="w-full flex flex-col pb-2">
+      <%!-- Modernized Featured Post - Impact Hero --%>
+      <div :if={@featured != nil} class="max-w-screen-xl mx-auto px-4 mb-16">
+        <div id="featured" class="group">
           <.link
             navigate={~p"/posts/#{@featured.url_name}"}
-            class="w-full hover:opacity-80 transition-opacity duration-200 ease-in-out"
+            class="block hover:opacity-95 transition-opacity duration-300"
           >
-            <div class="relative w-full aspect-video">
+            <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden shadow-2xl">
               <canvas
                 id={"blur-hash-image-#{@featured.id}"}
                 src={get_blur_hash(@featured.featured_image)}
-                class="absolute inset-0 z-0 rounded-lg w-full h-full object-cover"
+                class="absolute inset-0 z-0 w-full h-full object-cover"
                 phx-hook="BlurHashCanvas"
               >
               </canvas>
@@ -34,7 +50,7 @@ defmodule YscWeb.NewsLive do
                 src={featured_image_url(@featured.featured_image)}
                 id={"image-#{@featured.id}"}
                 phx-hook="BlurHashImage"
-                class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover rounded-lg w-full h-full"
+                class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover w-full h-full group-hover:scale-105 transition-transform duration-700"
                 loading="eager"
                 alt={
                   if @featured.featured_image,
@@ -44,53 +60,66 @@ defmodule YscWeb.NewsLive do
                     else: "Featured news image"
                 }
               />
+
+              <%!-- Overlay gradient for text readability --%>
+              <div class="absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900/80 via-zinc-900/40 to-transparent">
+              </div>
+
+              <%!-- Content overlay --%>
+              <div class="absolute inset-0 z-[3] flex flex-col justify-end p-8 md:p-12">
+                <div class="max-w-3xl">
+                  <div class="flex items-center gap-2 mb-4">
+                    <span class="px-3 py-1 bg-amber-50/90 backdrop-blur-md border border-amber-200 text-amber-700 text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm">
+                      <.icon name="hero-star-solid" class="w-3 h-3 inline me-1" />Pinned News
+                    </span>
+                  </div>
+
+                  <div class="flex items-center gap-3 mb-4 text-white/90">
+                    <span class="text-[10px] font-black text-white uppercase tracking-[0.2em]">
+                      <%= Timex.format!(@featured.published_on, "{Mshort} {D}, {YYYY}") %>
+                    </span>
+                    <span class="h-3 w-px bg-white/40"></span>
+                    <span class="text-[10px] font-bold text-white/80 uppercase tracking-widest">
+                      <%= reading_time(@featured) %> min read
+                    </span>
+                  </div>
+
+                  <h2 class="font-black text-zinc-50 text-4xl md:text-5xl lg:text-6xl leading-tight tracking-tighter mb-4 group-hover:text-white transition-colors">
+                    <%= @featured.title %>
+                  </h2>
+
+                  <article class="text-zinc-200 text-base md:text-lg leading-relaxed line-clamp-3 mb-6">
+                    <%= raw(preview_text(@featured)) %>
+                  </article>
+
+                  <div class="flex items-center gap-3 pt-4 border-t border-white/20">
+                    <.user_avatar_image
+                      email={@featured.author.email}
+                      user_id={@featured.author.id}
+                      country={@featured.author.most_connected_country}
+                      class="w-10 h-10 rounded-full ring-2 ring-white/30"
+                    />
+                    <div>
+                      <p class="text-sm font-black text-white leading-tight">
+                        <%= String.capitalize(@featured.author.first_name || "") %>
+                        <%= String.capitalize(@featured.author.last_name || "") %>
+                      </p>
+                      <p
+                        :if={@featured.author.board_position}
+                        class="text-xs text-white/80 font-medium mt-0.5"
+                      >
+                        YSC <%= format_board_position(@featured.author.board_position) %>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </.link>
-
-          <%!-- <div class="w-full bg-gradient-to-t opacity-50 from-white to-zinc-900 h-80 absolute bottom-0">
-          </div> --%>
-
-          <div class="py-4 md:py-6 px-2 lg:px-4 max-w-screen-xl mx-auto flex flex-col justify-between w-full">
-            <div>
-              <div class="flex items-center gap-1 mb-2">
-                <.badge type="yellow">
-                  <.icon name="hero-star-solid" class="w-4 h-4 text-yellow-500 me-1 -mt-1" />Pinned News
-                </.badge>
-              </div>
-
-              <div class="text-sm leading-6 text-zinc-600">
-                <p class="sr-only">Date</p>
-                <p>
-                  <%= Timex.format!(@featured.published_on, "{WDfull}, {Mfull} {D}, {YYYY}") %>
-                </p>
-              </div>
-
-              <.link
-                navigate={~p"/posts/#{@featured.url_name}"}
-                class="font-extrabold text-zinc-800 text-4xl md:text-5xl leading-tight drop-shadow-sm"
-              >
-                <%= @featured.title %>
-              </.link>
-
-              <article class="mx-auto max-w-none text-zinc-600 mt-3 md:mt-4 prose prose-invert prose-zinc prose-base md:prose-lg prose-a:text-blue-300 max-h-40 text-wrap overflow-hidden">
-                <%= raw(preview_text(@featured)) %>
-              </article>
-            </div>
-
-            <div class="pt-6">
-              <.user_card
-                email={@featured.author.email}
-                title={@featured.author.board_position}
-                user_id={@featured.author.id}
-                most_connected_country={@featured.author.most_connected_country}
-                first_name={@featured.author.first_name}
-                last_name={@featured.author.last_name}
-              />
-            </div>
-          </div>
         </div>
       </div>
 
+      <%!-- Balanced Masonry Grid --%>
       <div class="max-w-screen-xl mx-auto px-4">
         <div
           :if={@post_count > 0}
@@ -100,26 +129,26 @@ defmodule YscWeb.NewsLive do
           phx-viewport-bottom={!@end_of_timeline? && "next-page"}
           phx-page-loading
         >
-          <div :for={post <- @posts} id={"post-#{post.id}"} class="article-preview">
-            <.link
-              navigate={~p"/posts/#{post.url_name}"}
-              class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
-            >
-              <div class="relative aspect-video">
+          <div
+            :for={post <- @posts}
+            id={"post-#{post.id}"}
+            class="group flex flex-col bg-white rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-xl hover:-translate-y-2 transition-all duration-500 border border-transparent hover:border-blue-500/20"
+          >
+            <.link navigate={~p"/posts/#{post.url_name}"} class="block">
+              <div class="relative aspect-[16/10] overflow-hidden rounded-lg mb-8">
                 <canvas
                   id={"blur-hash-image-#{post.id}"}
                   src={get_blur_hash(post.featured_image)}
-                  class="absolute inset-0 z-0 rounded-lg w-full h-full object-cover"
+                  class="absolute inset-0 z-0 w-full h-full object-cover"
                   phx-hook="BlurHashCanvas"
                 >
                 </canvas>
-
                 <img
                   src={featured_image_url(post.featured_image)}
                   id={"image-#{post.id}"}
                   loading="lazy"
                   phx-hook="BlurHashImage"
-                  class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover"
+                  class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover w-full h-full transition-transform duration-700 group-hover:scale-110"
                   alt={
                     if post.featured_image,
                       do:
@@ -131,35 +160,52 @@ defmodule YscWeb.NewsLive do
               </div>
             </.link>
 
-            <div class="px-2 flex flex-col justify-between w-full py-4">
-              <div>
-                <div class="text-sm leading-6 text-zinc-600">
-                  <p class="sr-only">Date</p>
-                  <p>
-                    <%= Timex.format!(post.published_on, "{WDfull}, {Mfull} {D}, {YYYY}") %>
-                  </p>
-                </div>
-
-                <.link
-                  navigate={~p"/posts/#{post.url_name}"}
-                  class="font-extrabold text-zinc-800 text-3xl leading-10"
-                >
-                  <%= post.title %>
-                </.link>
-
-                <article class="text-zinc-600 mt-4 prose prose-zinc prose-base prose-a:text-blue-600 max-h-[10.5rem] overflow-hidden text-wrap">
-                  <%= raw(preview_text(post)) %>
-                </article>
+            <div class="px-4 pb-4 flex flex-col flex-1">
+              <div class="flex items-center gap-3 mb-4">
+                <span class="text-[10px] font-black text-teal-600 uppercase tracking-[0.2em]">
+                  <%= Timex.format!(post.published_on, "{Mshort} {D}") %>
+                </span>
+                <span class="h-3 w-px bg-zinc-200"></span>
+                <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">
+                  <%= reading_time(post) %> min read
+                </span>
               </div>
 
-              <div class="pt-6">
-                <.user_card
-                  email={post.author.email}
-                  title={post.author.board_position}
-                  user_id={post.author.id}
-                  most_connected_country={post.author.most_connected_country}
-                  first_name={post.author.first_name}
-                  last_name={post.author.last_name}
+              <.link
+                navigate={~p"/posts/#{post.url_name}"}
+                class="text-2xl font-black text-zinc-900 tracking-tighter leading-[1.1] mb-4 group-hover:text-blue-600 transition-colors"
+              >
+                <%= post.title %>
+              </.link>
+
+              <article class="text-zinc-500 text-sm leading-relaxed line-clamp-3 mb-8">
+                <%= raw(preview_text(post)) %>
+              </article>
+
+              <div class="mt-auto pt-6 border-t border-zinc-50 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <.user_avatar_image
+                    email={post.author.email}
+                    user_id={post.author.id}
+                    country={post.author.most_connected_country}
+                    class="w-8 h-8 rounded-full grayscale group-hover:grayscale-0 transition-all"
+                  />
+                  <div>
+                    <p class="text-[10px] font-black text-zinc-400 group-hover:text-zinc-900 uppercase tracking-widest transition-colors leading-tight">
+                      <%= String.capitalize(post.author.first_name || "") %>
+                      <%= String.capitalize(post.author.last_name || "") %>
+                    </p>
+                    <p
+                      :if={post.author.board_position}
+                      class="text-[9px] text-zinc-400 group-hover:text-zinc-600 font-medium mt-0.5"
+                    >
+                      YSC <%= format_board_position(post.author.board_position) %>
+                    </p>
+                  </div>
+                </div>
+                <.icon
+                  name="hero-arrow-right"
+                  class="w-5 h-5 text-zinc-200 group-hover:text-blue-600 group-hover:translate-x-1 transition-all"
                 />
               </div>
             </div>
@@ -245,4 +291,69 @@ defmodule YscWeb.NewsLive do
   defp featured_image_url(nil), do: "/images/ysc_logo.png"
   defp featured_image_url(%Image{optimized_image_path: nil} = image), do: image.raw_image_path
   defp featured_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
+
+  # Calculate reading time based on word count (average 225 words per minute)
+  # Uses rendered_body if available, otherwise falls back to raw_body
+  defp reading_time(%Post{} = post) do
+    cond do
+      post.rendered_body && post.rendered_body != "" ->
+        word_count = count_words_in_html(post.rendered_body)
+        calculate_minutes(word_count)
+
+      post.raw_body && post.raw_body != "" ->
+        # Strip HTML tags and count words
+        text = Scrubber.scrub(post.raw_body, YscWeb.Scrubber.StripEverythingExceptText)
+        word_count = count_words_in_text(text)
+        calculate_minutes(word_count)
+
+      post.preview_text && post.preview_text != "" ->
+        word_count = count_words_in_html(post.preview_text)
+        calculate_minutes(word_count)
+
+      true ->
+        "1"
+    end
+  end
+
+  # Count words in HTML by stripping tags and counting
+  defp count_words_in_html(html) do
+    html
+    |> String.replace(~r/<[^>]*>/, " ")
+    |> String.replace(~r/&[a-z]+;/i, " ")
+    |> String.replace(~r/&#\d+;/, " ")
+    |> count_words_in_text
+  end
+
+  # Count words in plain text
+  defp count_words_in_text(text) do
+    text
+    |> String.trim()
+    |> String.split(~r/\s+/)
+    |> Enum.reject(&(&1 == ""))
+    |> length()
+  end
+
+  # Calculate minutes from word count (225 words per minute)
+  defp calculate_minutes(word_count) when word_count <= 0, do: "1"
+
+  defp calculate_minutes(word_count) do
+    minutes = max(1, round(word_count / 225.0))
+    Integer.to_string(minutes)
+  end
+
+  # Format board position using the lookup map
+  defp format_board_position(position) when is_atom(position) do
+    Map.get(@board_position_to_title_lookup, position, String.capitalize(to_string(position)))
+  end
+
+  defp format_board_position(position) when is_binary(position) do
+    position
+    |> String.downcase()
+    |> String.to_existing_atom()
+    |> format_board_position()
+  rescue
+    ArgumentError -> String.capitalize(position)
+  end
+
+  defp format_board_position(_), do: ""
 end

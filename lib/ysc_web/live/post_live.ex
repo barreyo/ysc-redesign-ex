@@ -8,8 +8,34 @@ defmodule YscWeb.PostLive do
   alias Ysc.Posts.Post
   alias Ysc.Posts.Comment
 
+  @board_position_to_title_lookup %{
+    president: "President",
+    vice_president: "Vice President",
+    secretary: "Secretary",
+    treasurer: "Treasurer",
+    clear_lake_cabin_master: "Clear Lake Cabin Master",
+    tahoe_cabin_master: "Tahoe Cabin Master",
+    event_director: "Event Director",
+    member_outreach: "Member Outreach & Events",
+    membership_director: "Membership Director"
+  }
+
   def render(assigns) do
     ~H"""
+    <%!-- Reading Progress Bar --%>
+    <div
+      id="reading-progress-container"
+      class="fixed top-0 left-0 w-full h-1 z-50 pointer-events-none"
+      phx-hook="ReadingProgress"
+    >
+      <div
+        id="reading-progress"
+        class="h-full bg-teal-500 transition-all duration-150"
+        style="width: 0%"
+      >
+      </div>
+    </div>
+
     <div class="py-8 lg:py-10">
       <div :if={@post == nil} class="my-14 mx-auto">
         <.empty_viking_state
@@ -19,41 +45,52 @@ defmodule YscWeb.PostLive do
         />
       </div>
 
+      <%!-- The "Journalist" Header Section --%>
       <div :if={@post != nil} class="max-w-screen-lg mx-auto px-4">
-        <div class="max-w-xl mx-auto">
-          <div class="text-sm leading-6 text-zinc-600">
-            <p class="sr-only">Date</p>
-            <p>
-              <%= Timex.format!(post_date(@post), "{WDfull}, {Mfull} {D}, {YYYY}") %>
-            </p>
+        <div class="max-w-3xl mx-auto text-center mb-12">
+          <div class="flex items-center justify-center gap-3 mb-6">
+            <span class="text-[10px] font-black text-teal-600 uppercase tracking-[0.3em]">
+              Club News
+            </span>
+            <span class="h-3 w-px bg-zinc-200"></span>
+            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+              <%= Timex.format!(post_date(@post), "{Mshort} {D}, {YYYY}") %>
+            </span>
           </div>
-
-          <div class="not-prose pb-4">
-            <h1 class="font-extrabold text-zinc-800 text-4xl"><%= @post.title %></h1>
-          </div>
-
-          <div id="post-author">
-            <.user_card
+          <h1 class="text-4xl md:text-6xl font-black text-zinc-900 tracking-tighter leading-[1.1] mb-8">
+            <%= @post.title %>
+          </h1>
+          <div class="flex items-center justify-center gap-4 py-6 border-y border-zinc-100">
+            <.user_avatar_image
               email={@post.author.email}
-              title={@post.author.board_position}
               user_id={@post.author.id}
-              most_connected_country={@post.author.most_connected_country}
-              first_name={@post.author.first_name}
-              last_name={@post.author.last_name}
+              country={@post.author.most_connected_country}
+              class="w-10 h-10 rounded-full"
             />
+            <div class="text-left">
+              <p class="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Post By</p>
+              <p class="text-sm font-medium text-zinc-500">
+                <%= String.capitalize(@post.author.first_name || "") %>
+                <%= String.capitalize(@post.author.last_name || "") %>
+                <%= if @post.author.board_position do %>
+                  , YSC <%= format_board_position(@post.author.board_position) %>
+                <% end %>
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
+      <%!-- The "Immersive" Hero Image --%>
       <div
         :if={@post != nil && @post.image_id != nil}
         id="post-featured-image"
-        class="mt-8 relative mx-auto rounded max-w-5xl aspect-video"
+        class="mt-16 md:mt-20 relative mx-auto rounded-xl max-w-6xl aspect-video overflow-hidden"
       >
         <canvas
           id={"blur-hash-image-#{@post.image_id}"}
           src={get_blur_hash(@post.featured_image)}
-          class="absolute inset-0 z-0 rounded-lg w-full h-full object-cover"
+          class="absolute inset-0 z-0 w-full h-full object-cover"
           phx-hook="BlurHashCanvas"
         >
         </canvas>
@@ -62,7 +99,7 @@ defmodule YscWeb.PostLive do
           src={featured_image_url(@post.featured_image)}
           id={"image-#{@post.image_id}"}
           loading="lazy"
-          class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover"
+          class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
           phx-hook="BlurHashImage"
           alt={
             if @post.featured_image,
@@ -74,50 +111,52 @@ defmodule YscWeb.PostLive do
         />
       </div>
 
+      <%!-- Typography Palate Cleanser with Drop Cap --%>
       <div :if={@post != nil} class="max-w-screen-lg mx-auto px-4">
-        <article class="prose prose-zinc prose-base prose-a:text-blue-600 max-w-xl mx-auto">
-          <div id="article-body" class="py-8 post-render" phx-hook="GLightboxHook">
+        <article class="prose prose-zinc prose-lg lg:prose-xl prose-a:text-teal-600 prose-strong:text-zinc-900 max-w-3xl mx-auto py-12 bg-zinc-50/50 rounded-xl px-8 md:px-12">
+          <div
+            id="article-body"
+            class="post-render first-letter:text-7xl first-letter:font-black first-letter:text-zinc-900 first-letter:mr-3 first-letter:float-left first-letter:leading-[.8] leading-relaxed text-zinc-600 font-light border-l border-zinc-100 ml-[-2rem] pl-8"
+            phx-hook="GLightboxHook"
+          >
             <%= raw(@post.raw_body) %>
           </div>
         </article>
       </div>
 
-      <div :if={@post != nil && @current_user != nil} class="max-w-screen-lg mx-auto px-4">
-        <section class="max-w-xl mx-auto py-8">
-          <div class="max-w-2xl">
-            <div class="flex justify-between items-center mb-6">
-              <h2 class="text-2xl font-bold text-zinc-900 leading-8">
-                Discussion (<%= @n_comments %>)
+      <%!-- Interactive "Discussion" Area --%>
+      <div :if={@post != nil && @current_user != nil} class="max-w-screen-lg mx-auto px-4 mt-16">
+        <section class="max-w-2xl mx-auto">
+          <div class="bg-white border border-zinc-200 rounded-xl p-10 shadow-sm">
+            <div class="flex items-center gap-3 mb-8">
+              <div class="w-1.5 h-6 bg-teal-500 rounded-full"></div>
+              <h2 class="text-2xl font-black text-zinc-900 tracking-tight">
+                Community Discussion (<%= @n_comments %>)
               </h2>
             </div>
 
-            <.form class="mb-6" for={@form} id="primary-post-comment" phx-submit="save">
+            <.form class="group mb-6" for={@form} id="primary-post-comment" phx-submit="save">
               <.input
                 field={@form[:text]}
                 type="textarea"
                 id="comment"
                 rows="4"
-                class="px-0 w-full text-sm text-zinc-900 border-0 focus:ring-0 focus:outline-none"
-                placeholder="Write a nice comment..."
+                class="w-full bg-zinc-50 border-none rounded-lg p-6 text-zinc-900 placeholder:text-zinc-400 focus:ring-2 focus:ring-teal-500/20 transition-all min-h-[120px]"
+                placeholder="Share your thoughts..."
                 required
               >
               </.input>
               <input type="hidden" name="comment[post_id]" value={@post.id} />
-              <button
-                type="submit"
-                class={[
-                  "inline-flex items-center py-2.5 px-4 text-sm font-bold text-center text-zinc-100 bg-blue-700 rounded focus:ring-4 focus:ring-blue-200 hover:bg-blue-800 mt-4 disabled:opacity-80 disabled:cursor-not-allowed",
-                  @loading && "disabled"
-                ]}
-                disabled={@loading}
-              >
-                Post Comment
-                <.icon
-                  :if={@loading}
-                  name="hero-arrow-path"
-                  class="w-5 h-5 animate-spin ml-2 text-zinc-100"
-                />
-              </button>
+              <div class="flex justify-end mt-4">
+                <.button type="submit">
+                  Post Comment
+                  <.icon
+                    :if={@loading}
+                    name="hero-arrow-path"
+                    class="w-4 h-4 animate-spin ml-2 text-white"
+                  />
+                </.button>
+              </div>
             </.form>
 
             <div id={"comment-section-#{@post.id}"} phx-update="stream">
@@ -235,4 +274,20 @@ defmodule YscWeb.PostLive do
 
   defp get_blur_hash(%Image{blur_hash: nil}), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
   defp get_blur_hash(%Image{blur_hash: blur_hash}), do: blur_hash
+
+  # Format board position using the lookup map
+  defp format_board_position(position) when is_atom(position) do
+    Map.get(@board_position_to_title_lookup, position, String.capitalize(to_string(position)))
+  end
+
+  defp format_board_position(position) when is_binary(position) do
+    position
+    |> String.downcase()
+    |> String.to_existing_atom()
+    |> format_board_position()
+  rescue
+    ArgumentError -> String.capitalize(position)
+  end
+
+  defp format_board_position(_), do: ""
 end

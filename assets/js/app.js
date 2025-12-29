@@ -53,6 +53,7 @@ import InfoNav from "./info_nav";
 import Confetti from "./confetti";
 import AutoConsumeUpload from "./auto_consume_upload";
 import ImageCarouselAutoplay from "./image_carousel_autoplay";
+import ReadingProgress from "./reading_progress";
 
 let Hooks = {
     StickyNavbar,
@@ -85,6 +86,7 @@ let Hooks = {
     Confetti,
     AutoConsumeUpload,
     ImageCarouselAutoplay,
+    ReadingProgress,
 };
 Hooks.LivePhone = LivePhone;
 
