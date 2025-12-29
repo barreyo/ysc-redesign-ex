@@ -11,28 +11,28 @@ defmodule Ysc.Repo.Migrations.CreateAuthEvents do
 
       # Authentication attempt details
       # "login_attempt", "login_success", "login_failure", "logout", "password_reset", etc.
-      add :event_type, :string, null: false
+      add :event_type, :text, null: false
       add :success, :boolean, null: false
       # "invalid_credentials", "account_locked", "email_not_confirmed", etc.
-      add :failure_reason, :string, null: true
+      add :failure_reason, :text, null: true
 
       # User identification (for failed attempts where user_id might be null)
-      add :email_attempted, :string, null: true
+      add :email_attempted, :text, null: true
 
       # Network and device information
-      add :ip_address, :string, null: true
+      add :ip_address, :text, null: true
       add :user_agent, :text, null: true
       # "desktop", "mobile", "tablet"
-      add :device_type, :string, null: true
-      add :browser, :string, null: true
-      add :browser_version, :string, null: true
-      add :operating_system, :string, null: true
-      add :os_version, :string, null: true
+      add :device_type, :text, null: true
+      add :browser, :text, null: true
+      add :browser_version, :text, null: true
+      add :operating_system, :text, null: true
+      add :os_version, :text, null: true
 
       # Geographic information (if available)
-      add :country, :string, null: true
-      add :region, :string, null: true
-      add :city, :string, null: true
+      add :country, :text, null: true
+      add :region, :text, null: true
+      add :city, :text, null: true
       add :latitude, :float, null: true
       add :longitude, :float, null: true
 
@@ -44,7 +44,7 @@ defmodule Ysc.Repo.Migrations.CreateAuthEvents do
       add :threat_indicators, {:array, :string}, default: []
 
       # Session information
-      add :session_id, :string, null: true
+      add :session_id, :text, null: true
       add :remember_me, :boolean, default: false
 
       # Additional metadata

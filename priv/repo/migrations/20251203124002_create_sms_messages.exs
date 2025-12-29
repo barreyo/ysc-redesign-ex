@@ -11,8 +11,8 @@ defmodule Ysc.Repo.Migrations.CreateSmsMessages do
       add :provider_message_id, :string, null: false
 
       # Message details
-      add :to, :string, null: false
-      add :from, :string, null: false
+      add :to, :text, null: false
+      add :from, :text, null: false
       add :body, :text, null: false
       add :is_mms, :boolean, default: false, null: false
       add :media_urls, {:array, :string}, default: [], null: false

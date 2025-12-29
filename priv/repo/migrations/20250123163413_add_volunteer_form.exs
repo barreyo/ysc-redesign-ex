@@ -5,8 +5,8 @@ defmodule Ysc.Repo.Migrations.AddVolunteerForm do
     create table(:volunteer_signups, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
 
-      add :email, :string
-      add :name, :string
+      add :email, :text
+      add :name, :text
 
       add :interest_events, :boolean, default: false
       add :interest_activities, :boolean, default: false

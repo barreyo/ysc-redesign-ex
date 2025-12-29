@@ -5,7 +5,7 @@ defmodule Ysc.Repo.Migrations.CreateRefundPolicies do
     # Create refund_policies table
     create table(:refund_policies, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
-      add :name, :string, size: 255, null: false
+      add :name, :text, null: false
       add :description, :text, null: true
 
       # Property this policy applies to
@@ -50,7 +50,7 @@ defmodule Ysc.Repo.Migrations.CreateRefundPolicies do
       add :refund_percentage, :decimal, precision: 5, scale: 2, null: false
 
       # Optional description for this specific rule
-      add :description, :string, size: 500, null: true
+      add :description, :text, null: true
 
       # Order/priority for this rule (lower number = higher priority)
       # Used to determine evaluation order when multiple rules have same days_before_checkin

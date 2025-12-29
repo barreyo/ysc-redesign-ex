@@ -9,7 +9,7 @@ defmodule Ysc.Repo.Migrations.AddPostsComments do
 
       # Default here has to be a valid atom: [:draft, :published, :deleted]
       add :state, :string, null: false, default: "draft"
-      add :title, :string, default: "Untitled Post"
+      add :title, :text, default: "Untitled Post"
 
       add :url_name, :text
       add :rendered_body, :text

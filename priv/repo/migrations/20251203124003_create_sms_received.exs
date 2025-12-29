@@ -8,11 +8,11 @@ defmodule Ysc.Repo.Migrations.CreateSmsReceived do
 
       # Provider and provider-specific message ID
       add :provider, :string, null: false, default: "flowroute"
-      add :provider_message_id, :string, null: false
+      add :provider_message_id, :text, null: false
 
       # Message details from webhook
-      add :from, :string, null: false
-      add :to, :string, null: false
+      add :from, :text, null: false
+      add :to, :text, null: false
       add :body, :text, null: true
       add :is_mms, :boolean, default: false, null: false
       add :direction, :string, null: false, default: "inbound"
@@ -25,7 +25,7 @@ defmodule Ysc.Repo.Migrations.CreateSmsReceived do
       add :amount_nanodollars, :bigint, null: true
 
       # Callback URL (if provided)
-      add :message_callback_url, :string, null: true
+      add :message_callback_url, :text, null: true
 
       # Timestamp from provider
       add :provider_timestamp, :utc_datetime, null: true

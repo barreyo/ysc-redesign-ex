@@ -8,7 +8,7 @@ defmodule Ysc.Repo.Migrations.CreateSmsDeliveryReceipts do
 
       # Provider and provider-specific message ID - links to sms_messages
       add :provider, :string, null: false, default: "flowroute"
-      add :provider_message_id, :string, null: false
+      add :provider_message_id, :text, null: false
 
       # Link to the original outbound SMS message
       add :sms_message_id,
@@ -19,8 +19,8 @@ defmodule Ysc.Repo.Migrations.CreateSmsDeliveryReceipts do
       add :body, :text, null: true
       add :level, :integer, null: true
       add :status, :string, null: false
-      add :status_code, :string, null: true
-      add :status_code_description, :string, null: true
+      add :status_code, :text, null: true
+      add :status_code_description, :text, null: true
 
       # Timestamp from provider
       add :provider_timestamp, :utc_datetime, null: true

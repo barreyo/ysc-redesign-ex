@@ -5,10 +5,10 @@ defmodule Ysc.Repo.Migrations.AddWebhookModel do
     create table(:webhook_events, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
 
-      add :provider, :string, null: false
+      add :provider, :text, null: false
       add :state, :string, default: "pending"
-      add :event_id, :string, null: false
-      add :event_type, :string, null: false
+      add :event_id, :text, null: false
+      add :event_type, :text, null: false
 
       add :payload, :map, null: false, default: %{}
 

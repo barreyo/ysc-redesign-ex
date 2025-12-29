@@ -13,8 +13,8 @@ defmodule Ysc.Repo.Migrations.CreateUsersAuthTables do
       add :state, :string, null: false, default: "pending_approval"
       add :role, :string, null: false, default: "member"
 
-      add :first_name, :string, null: true
-      add :last_name, :string, null: true
+      add :first_name, :text, null: true
+      add :last_name, :text, null: true
       add :phone_number, :string, null: true
 
       add :most_connected_country, :string

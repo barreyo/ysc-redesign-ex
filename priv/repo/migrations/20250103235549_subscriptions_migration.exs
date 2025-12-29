@@ -5,12 +5,12 @@ defmodule Ysc.Repo.Migrations.CreateSubscriptions do
     create table(:subscriptions, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
 
-      add :name, :string, null: false
+      add :name, :text, null: false
       add :ends_at, :utc_datetime
       add :trial_ends_at, :utc_datetime
 
-      add :stripe_id, :string
-      add :stripe_status, :string
+      add :stripe_id, :text
+      add :stripe_status, :text
 
       add :start_date, :utc_datetime, null: true
       add :current_period_start, :utc_datetime, null: true
@@ -31,9 +31,9 @@ defmodule Ysc.Repo.Migrations.CreateSubscriptions do
       add :subscription_id, references(:subscriptions, on_delete: :delete_all, type: :binary_id),
         null: false
 
-      add :stripe_id, :string, null: false
-      add :stripe_product_id, :string, null: false
-      add :stripe_price_id, :string, null: false
+      add :stripe_id, :text, null: false
+      add :stripe_product_id, :text, null: false
+      add :stripe_price_id, :text, null: false
       add :quantity, :integer
 
       timestamps(type: :utc_datetime)

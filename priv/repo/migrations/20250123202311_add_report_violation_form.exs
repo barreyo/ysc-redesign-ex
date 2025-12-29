@@ -6,9 +6,9 @@ defmodule Ysc.Repo.Migrations.AddReportViolationForm do
       add :id, :binary_id, null: false, primary_key: true
       add :email, :citext, null: false
 
-      add :first_name, :string, null: false
-      add :last_name, :string, null: false
-      add :phone, :string, null: false
+      add :first_name, :text, null: false
+      add :last_name, :text, null: false
+      add :phone, :text, null: false
 
       add :summary, :text, null: false
 

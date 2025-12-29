@@ -5,9 +5,9 @@ defmodule Ysc.Repo.Migrations.AddLedger do
     create table(:ledger_accounts, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
 
-      add :account_type, :string
-      add :name, :string
-      add :description, :string
+      add :account_type, :text
+      add :name, :text
+      add :description, :text
 
       timestamps()
     end
@@ -21,7 +21,7 @@ defmodule Ysc.Repo.Migrations.AddLedger do
       add :reference_id, :string
 
       add :external_provider, :string
-      add :external_payment_id, :string
+      add :external_payment_id, :text
       add :amount, :money_with_currency
       add :status, :string
       add :payment_date, :utc_datetime
@@ -53,10 +53,10 @@ defmodule Ysc.Repo.Migrations.AddLedger do
 
       add :account_id, references(:ledger_accounts, column: :id, type: :binary_id)
 
-      add :related_entity_type, :string
+      add :related_entity_type, :text
       add :related_entity_id, :binary_id
       add :payment_id, references(:payments, column: :id, type: :binary_id)
-      add :description, :string
+      add :description, :text
       add :amount, :money_with_currency
 
       timestamps()

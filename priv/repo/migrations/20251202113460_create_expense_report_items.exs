@@ -10,12 +10,12 @@ defmodule Ysc.Repo.Migrations.CreateExpenseReportItems do
           null: false
 
       add :date, :date, null: false
-      add :vendor, :string, null: false
+      add :vendor, :text, null: false
       add :description, :text, null: false
       add :amount, :money_with_currency, null: false
 
       # Receipt stored as S3 path
-      add :receipt_s3_path, :string, size: 2048, null: true
+      add :receipt_s3_path, :text, null: true
 
       timestamps()
     end

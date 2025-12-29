@@ -4,8 +4,8 @@ defmodule Ysc.Repo.Migrations.AddQuickbooksSyncFields do
   def up do
     # Add QuickBooks sync fields to payments table
     alter table(:payments) do
-      add :quickbooks_sales_receipt_id, :string
-      add :quickbooks_sync_status, :string
+      add :quickbooks_sales_receipt_id, :text
+      add :quickbooks_sync_status, :text
       add :quickbooks_sync_error, :map
       add :quickbooks_response, :map
       add :quickbooks_synced_at, :utc_datetime
@@ -18,8 +18,8 @@ defmodule Ysc.Repo.Migrations.AddQuickbooksSyncFields do
 
     # Add QuickBooks sync fields to refunds table
     alter table(:refunds) do
-      add :quickbooks_sales_receipt_id, :string
-      add :quickbooks_sync_status, :string
+      add :quickbooks_sales_receipt_id, :text
+      add :quickbooks_sync_status, :text
       add :quickbooks_sync_error, :map
       add :quickbooks_response, :map
       add :quickbooks_synced_at, :utc_datetime
@@ -32,8 +32,8 @@ defmodule Ysc.Repo.Migrations.AddQuickbooksSyncFields do
 
     # Add QuickBooks sync fields to payouts table
     alter table(:payouts) do
-      add :quickbooks_deposit_id, :string
-      add :quickbooks_sync_status, :string
+      add :quickbooks_deposit_id, :text
+      add :quickbooks_sync_status, :text
       add :quickbooks_sync_error, :map
       add :quickbooks_response, :map
       add :quickbooks_synced_at, :utc_datetime

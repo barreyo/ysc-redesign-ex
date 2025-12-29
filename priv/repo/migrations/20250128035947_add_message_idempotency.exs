@@ -6,8 +6,8 @@ defmodule Ysc.Repo.Migrations.AddMessageIdempotency do
       add :id, :binary_id, null: false, primary_key: true
 
       add :message_type, :string, null: false, default: "email"
-      add :idempotency_key, :string, null: false
-      add :message_template, :string, null: false
+      add :idempotency_key, :text, null: false
+      add :message_template, :text, null: false
       add :params, :map, null: false, default: %{}
 
       add :rendered_message, :text, null: true
@@ -16,7 +16,7 @@ defmodule Ysc.Repo.Migrations.AddMessageIdempotency do
         null: true
 
       add :email, :citext, null: true
-      add :phone_number, :string, null: true
+      add :phone_number, :text, null: true
 
       timestamps()
     end

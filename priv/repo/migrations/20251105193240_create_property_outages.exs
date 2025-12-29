@@ -11,10 +11,10 @@ defmodule Ysc.Repo.Migrations.CreatePropertyOutages do
     # Create property_outages table
     create table(:property_outages, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
-      add :description, :string
+      add :description, :text
       add :incident_type, :property_outage_incident_type
-      add :company_name, :string
-      add :incident_id, :string, null: false
+      add :company_name, :text
+      add :incident_id, :text, null: false
       add :incident_date, :date
       add :property, :booking_property
 

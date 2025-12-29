@@ -14,7 +14,7 @@ defmodule Ysc.Repo.Migrations.CreateExpenseReportIncomeItems do
       add :amount, :money_with_currency, null: false
 
       # Proof document stored as S3 path
-      add :proof_s3_path, :string, size: 2048, null: true
+      add :proof_s3_path, :text, null: true
 
       timestamps()
     end

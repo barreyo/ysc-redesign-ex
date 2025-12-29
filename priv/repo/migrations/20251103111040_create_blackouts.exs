@@ -5,7 +5,7 @@ defmodule Ysc.Repo.Migrations.CreateBlackouts do
     # Create blackouts table for property hold dates
     create table(:blackouts, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
-      add :reason, :string, size: 500, null: false
+      add :reason, :text, null: false
       add :property, :booking_property, null: false
       add :start_date, :date, null: false
       add :end_date, :date, null: false

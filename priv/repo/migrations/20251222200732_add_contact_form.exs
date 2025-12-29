@@ -4,9 +4,9 @@ defmodule Ysc.Repo.Migrations.AddContactForm do
   def change do
     create table(:contact_forms, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
-      add :name, :string, null: false
+      add :name, :text, null: false
       add :email, :citext, null: false
-      add :subject, :string, null: false
+      add :subject, :text, null: false
       add :message, :text, null: false
 
       add :user_id, references(:users, on_delete: :nilify_all, column: :id, type: :binary_id),

@@ -12,8 +12,8 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
 
       add :organizer_id, references(:users, column: :id, type: :binary_id, on_delete: :nothing)
 
-      add :title, :string, size: 256
-      add :description, :string, size: 1024, null: true
+      add :title, :text, size: 256
+      add :description, :text, size: 1024, null: true
       add :max_attendees, :integer, null: true
       add :age_restriction, :integer, null: true
       add :show_participants, :boolean, default: false
@@ -29,11 +29,11 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
       add :end_date, :utc_datetime, null: true
       add :end_time, :time, null: true
 
-      add :location_name, :string, size: 1024, null: true
-      add :address, :string, size: 1024, null: true
+      add :location_name, :text, size: 1024, null: true
+      add :address, :text, size: 1024, null: true
       add :latitude, :float, null: true
       add :longitude, :float, null: true
-      add :place_id, :string, null: true
+      add :place_id, :text, null: true
 
       add :lock_version, :integer, default: 1
 
@@ -47,7 +47,7 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
     create table(:agendas, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
       add :event_id, references(:events, column: :id, type: :binary_id, on_delete: :delete_all)
-      add :title, :string, size: 256
+      add :title, :text, size: 256
       add :position, :integer, default: 0
 
       timestamps()
@@ -62,8 +62,8 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
 
       add :position, :integer, default: 0
 
-      add :title, :string, size: 256
-      add :description, :string, size: 1024, null: true
+      add :title, :text, size: 256
+      add :description, :text, size: 1024, null: true
       add :start_time, :time, null: true
       add :end_time, :time, null: true
 
@@ -77,8 +77,8 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
 
       add :event_id, references(:events, column: :id, type: :binary_id, on_delete: :delete_all)
 
-      add :question, :string
-      add :answer, :string, size: 1024
+      add :question, :text
+      add :answer, :text, size: 1024
 
       timestamps()
     end
@@ -88,8 +88,8 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
     create table(:ticket_tiers, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
 
-      add :name, :string, size: 256
-      add :description, :string, size: 1024, null: true
+      add :name, :text, size: 256
+      add :description, :text, size: 1024, null: true
 
       add :type, :string, default: "paid"
 
@@ -143,9 +143,9 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
 
       add :ticket_id, references(:tickets, column: :id, type: :binary_id)
 
-      add :first_name, :string
-      add :last_name, :string
-      add :email, :string
+      add :first_name, :text
+      add :last_name, :text
+      add :email, :text
 
       timestamps()
     end

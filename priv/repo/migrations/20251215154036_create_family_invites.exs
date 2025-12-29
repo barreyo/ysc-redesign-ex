@@ -4,8 +4,8 @@ defmodule Ysc.Repo.Migrations.CreateFamilyInvites do
   def change do
     create table(:family_invites, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
-      add :email, :string, null: false
-      add :token, :string, null: false
+      add :email, :text, null: false
+      add :token, :text, null: false
       add :expires_at, :utc_datetime, null: false
       add :accepted_at, :utc_datetime
 

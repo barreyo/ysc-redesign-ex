@@ -3,8 +3,8 @@ defmodule Ysc.Repo.Migrations.AddQuickbooksFieldsToExpenseReports do
 
   def change do
     alter table(:expense_reports) do
-      add :quickbooks_bill_id, :string
-      add :quickbooks_vendor_id, :string
+      add :quickbooks_bill_id, :text
+      add :quickbooks_vendor_id, :text
       add :quickbooks_sync_status, :string, default: "pending"
       add :quickbooks_sync_error, :text
       add :quickbooks_synced_at, :utc_datetime

@@ -3,7 +3,7 @@ defmodule Ysc.Repo.Migrations.AddQuickbooksCustomerIdToUsers do
 
   def up do
     alter table(:users) do
-      add :quickbooks_customer_id, :string
+      add :quickbooks_customer_id, :text
     end
 
     create index(:users, [:quickbooks_customer_id])

@@ -42,16 +42,19 @@ defmodule YscWeb.QuickbooksWebhookController do
         # Create webhook event and queue for background processing
         # We respond quickly and process asynchronously
         case create_webhook_event(params) do
-          {:ok, webhook_event} ->
+          {:ok, webhook_event} when is_struct(webhook_event) ->
             # Process the webhook event asynchronously
             # The handler will enqueue a worker to process the BillPayment
-            if webhook_event do
-              Task.start(fn ->
-                QuickbooksWebhookHandler.handle_webhook_event(webhook_event)
-              end)
-            end
+            Task.start(fn ->
+              QuickbooksWebhookHandler.handle_webhook_event(webhook_event)
+            end)
 
             # Respond with 200 OK immediately (within 3 seconds requirement)
+            send_resp(conn, 200, "OK")
+
+          {:ok, _skipped_or_other} ->
+            # Webhook was skipped (non-BillPayment entity, no entities, etc.)
+            # Just respond with 200 OK
             send_resp(conn, 200, "OK")
 
           {:error, %Ysc.Webhooks.DuplicateWebhookEventError{}} ->

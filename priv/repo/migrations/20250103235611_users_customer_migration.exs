@@ -3,7 +3,7 @@ defmodule Ysc.Repo.Migrations.UsersCustomerColumns do
 
   def change do
     alter table(:users) do
-      add :stripe_id, :string, null: true
+      add :stripe_id, :text, null: true
     end
 
     create unique_index(:users, [:stripe_id])

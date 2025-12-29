@@ -6,12 +6,12 @@ defmodule Ysc.Repo.Migrations.CreatePayouts do
     create table(:payouts, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
 
-      add :stripe_payout_id, :string, null: false
+      add :stripe_payout_id, :text, null: false
       add :amount, :money_with_currency, null: false
       add :currency, :string, null: false
       add :status, :string, null: false
       add :arrival_date, :utc_datetime
-      add :description, :string
+      add :description, :text
       add :metadata, :map
 
       # Link to the payment record created for this payout in the ledger

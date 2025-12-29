@@ -8,10 +8,10 @@ defmodule Ysc.Repo.Migrations.AddRefundsTable do
 
       add :reference_id, :string
 
-      add :external_provider, :string
-      add :external_refund_id, :string
+      add :external_provider, :text
+      add :external_refund_id, :text
       add :amount, :money_with_currency
-      add :reason, :string
+      add :reason, :text
       add :status, :string
 
       # Reference to the original payment being refunded
