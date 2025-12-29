@@ -245,17 +245,17 @@ defmodule YscWeb.Workers.UserExporter do
   end
 
   defp get_membership_type_from_subscription(subscription) do
-    case subscription.subscription_items do
-      [item | _] ->
-        membership_plans = Application.get_env(:ysc, :membership_plans, [])
+    plan_id = YscWeb.UserAuth.get_membership_plan_type(subscription)
 
-        case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
-          %{name: name} -> name
-          _ -> "Unknown"
-        end
+    if plan_id do
+      membership_plans = Application.get_env(:ysc, :membership_plans, [])
 
-      _ ->
-        nil
+      case Enum.find(membership_plans, &(&1.id == plan_id)) do
+        %{name: name} -> name
+        _ -> "Unknown"
+      end
+    else
+      nil
     end
   end
 

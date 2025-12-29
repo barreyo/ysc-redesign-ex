@@ -20,11 +20,6 @@ defmodule YscWeb.HomeLive do
           |> Ysc.Repo.preload(subscriptions: :subscription_items)
           |> Accounts.User.populate_virtual_fields()
 
-        # Use current_membership from socket assigns (set by on_mount hook)
-        # which already handles sub-accounts correctly
-        current_membership =
-          socket.assigns.current_membership || get_current_membership(user_with_subs)
-
         # Check if user is a sub-account and get primary user
         is_sub_account = Accounts.is_sub_account?(user_with_subs)
         primary_user = if is_sub_account, do: Accounts.get_primary_user(user_with_subs), else: nil
@@ -36,7 +31,6 @@ defmodule YscWeb.HomeLive do
 
         assign(socket,
           page_title: "Home",
-          current_membership: current_membership,
           is_sub_account: is_sub_account,
           primary_user: primary_user,
           upcoming_tickets: upcoming_tickets,
@@ -649,7 +643,7 @@ defmodule YscWeb.HomeLive do
     </section>
 
     <%!-- Logged-in User Dashboard --%>
-    <main :if={@current_user != nil} class="flex-1 w-full bg-zinc-50/50 min-h-screen pb-10">
+    <main :if={@current_user != nil} class="flex-1 w-full bg-zinc-50/50 min-h-screen">
       <%!-- Welcome Header with Soft Background --%>
       <div class="bg-white border-b border-zinc-100">
         <div class="max-w-screen-xl mx-auto px-4 py-10 lg:py-16">
@@ -662,10 +656,10 @@ defmodule YscWeb.HomeLive do
                 Hej, <%= String.capitalize(@current_user.first_name) %>
               </h1>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="hidden md:flex items-center gap-4">
               <div class="text-right hidden md:block">
                 <p class="text-sm font-bold text-zinc-900">
-                  <%= get_membership_display_name(@current_membership) %>
+                  <%= YscWeb.UserAuth.get_membership_plan_display_name(@current_membership) %>
                 </p>
                 <p class="text-xs text-zinc-500">
                   Member since <%= Calendar.strftime(@current_user.inserted_at, "%Y") %>
@@ -685,7 +679,7 @@ defmodule YscWeb.HomeLive do
       </div>
 
       <%!-- Dashboard Content --%>
-      <div class="max-w-screen-xl mx-auto px-4 -mt-8">
+      <div class="max-w-screen-xl mx-auto px-4 -mt-8 pb-20">
         <%!-- App Launcher Grid --%>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
           <.link
@@ -781,15 +775,15 @@ defmodule YscWeb.HomeLive do
                   <.link
                     navigate={~p"/bookings/#{booking.id}/receipt"}
                     class={[
-                      "bg-white rounded overflow-hidden flex flex-col md:flex-row transition-all group",
+                      "bg-white rounded overflow-hidden flex flex-col md:flex-row transition-all duration-300 group hover:-translate-y-1 hover:shadow-lg",
                       if is_active do
                         if booking.property == :tahoe do
-                          "border border-blue-200 ring-4 ring-blue-500/5 shadow-[0_0_25px_-5px_rgba(37,99,235,0.2)]"
+                          "border border-blue-200 ring-4 ring-blue-500/5 shadow-sm hover:border-blue-200 hover:ring-4 hover:ring-blue-500/5"
                         else
-                          "border border-emerald-200 ring-4 ring-emerald-500/5 shadow-[0_0_25px_-5px_rgba(16,185,129,0.2)]"
+                          "border border-emerald-200 ring-4 ring-emerald-500/5 shadow-sm hover:border-emerald-200 hover:ring-4 hover:ring-emerald-500/5"
                         end
                       else
-                        "border border-zinc-200 shadow-lg hover:shadow-lg"
+                        "border border-zinc-200 shadow-sm hover:border-zinc-200"
                       end
                     ]}
                   >
@@ -826,7 +820,7 @@ defmodule YscWeb.HomeLive do
                           "inline-block px-2 py-0.5 text-[10px] font-black rounded uppercase tracking-tighter",
                           case days_until_booking(booking) do
                             :started -> "bg-amber-100 text-amber-800 animate-pulse"
-                            0 -> "bg-amber-100 text-amber-800"
+                            0 -> "bg-amber-100 text-amber-800 animate-pulse"
                             1 -> "bg-blue-100 text-blue-800"
                             days when days <= 7 -> "bg-emerald-100 text-emerald-800"
                             _ -> "bg-zinc-100 text-zinc-800"
@@ -951,17 +945,16 @@ defmodule YscWeb.HomeLive do
           <%!-- Sidebar --%>
           <aside class="space-y-10">
             <%!-- Membership Status Card --%>
-            <% has_active_membership = membership_active?(@current_membership) %>
             <div class={[
               "relative overflow-hidden rounded-lg p-8 text-white shadow-lg",
-              if has_active_membership do
+              if @active_membership? do
                 "bg-zinc-900"
               else
                 "bg-gradient-to-br from-amber-900 via-orange-900 to-red-900"
               end
             ]}>
               <div class="absolute inset-0 z-0 opacity-40">
-                <%= if has_active_membership do %>
+                <%= if @active_membership? do %>
                   <div class="absolute -top-[20%] -left-[10%] h-[80%] w-[80%] rounded-full bg-teal-500 blur-[80px]">
                   </div>
                   <div class="absolute top-[20%] -right-[10%] h-[70%] w-[70%] rounded-full bg-blue-600 blur-[80px]">
@@ -981,7 +974,7 @@ defmodule YscWeb.HomeLive do
               <div class="relative z-10">
                 <div class={[
                   "mb-4 inline-flex h-10 w-10 items-center justify-center rounded backdrop-blur-md",
-                  if has_active_membership do
+                  if @active_membership? do
                     "bg-white/10"
                   else
                     "bg-white/20"
@@ -991,7 +984,7 @@ defmodule YscWeb.HomeLive do
                     name="hero-identification"
                     class={[
                       "w-6 h-6",
-                      if has_active_membership do
+                      if @active_membership? do
                         "text-teal-400"
                       else
                         "text-amber-300"
@@ -1001,17 +994,17 @@ defmodule YscWeb.HomeLive do
                 </div>
 
                 <h3 class="text-2xl font-black tracking-tight mb-2">
-                  <%= get_membership_display_name(@current_membership) %>
+                  <%= YscWeb.UserAuth.get_membership_plan_display_name(@current_membership) %>
                 </h3>
                 <p class={[
                   "text-sm leading-relaxed mb-8",
-                  if has_active_membership do
+                  if @active_membership? do
                     "text-zinc-300"
                   else
                     "text-amber-100 font-semibold"
                   end
                 ]}>
-                  <%= if has_active_membership do %>
+                  <%= if @active_membership? do %>
                     <%= get_membership_description(
                       @current_membership,
                       @is_sub_account || false,
@@ -1033,14 +1026,14 @@ defmodule YscWeb.HomeLive do
                   navigate={~p"/users/membership"}
                   class={[
                     "flex w-full items-center justify-center rounded px-6 py-4 text-sm font-black transition-all hover:scale-[1.02] active:scale-[0.98]",
-                    if has_active_membership do
+                    if @active_membership? do
                       "bg-white text-zinc-900 hover:bg-teal-50"
                     else
                       "bg-white text-amber-900 hover:bg-amber-50 shadow-lg animate-pulse"
                     end
                   ]}
                 >
-                  <%= if has_active_membership do %>
+                  <%= if @active_membership? do %>
                     Manage Membership
                   <% else %>
                     <%= if @current_membership == nil do %>
@@ -1075,7 +1068,7 @@ defmodule YscWeb.HomeLive do
                         >
                         </canvas>
                         <img
-                          src={featured_image_url(post.featured_image)}
+                          src={thumbnail_image_url(post.featured_image)}
                           id={"image-sidebar-#{post.id}"}
                           loading="lazy"
                           phx-hook="BlurHashImage"
@@ -1275,155 +1268,51 @@ defmodule YscWeb.HomeLive do
           </div>
         </div>
       </div>
+
+      <%!-- White Buffer Zone with Gradient Transition --%>
+      <div class="h-24 bg-gradient-to-b from-transparent to-white"></div>
     </main>
     """
   end
 
   # Helper functions
 
-  defp membership_active?(nil), do: false
-  defp membership_active?(%{type: :lifetime}), do: true
-
-  defp membership_active?(%{subscription: subscription}) when not is_nil(subscription) do
-    Ysc.Subscriptions.active?(subscription)
-  end
-
-  defp membership_active?(%{renewal_date: renewal_date}) when not is_nil(renewal_date) do
-    # Check if renewal date is in the future (membership is active until renewal date)
-    now = DateTime.utc_now()
-    DateTime.compare(now, renewal_date) != :gt
-  end
-
-  defp membership_active?(%{plan: _plan}), do: true
-  defp membership_active?(_), do: false
-
-  defp get_membership_display_name(nil), do: "No Membership"
-  defp get_membership_display_name(%{type: :lifetime}), do: "Lifetime Plan"
-
-  defp get_membership_display_name(%{plan: %{id: plan_id}}) when not is_nil(plan_id) do
-    plan_id
-    |> Atom.to_string()
-    |> String.split("_")
-    |> Enum.map(&String.capitalize/1)
-    |> Enum.join(" ")
-    |> then(&"#{&1} Plan")
-  end
-
-  defp get_membership_display_name(_), do: "Active Membership"
-
   defp get_membership_description(nil, _is_sub_account, _primary_user) do
     "You need an active membership to access YSC events and benefits."
   end
 
-  defp get_membership_description(%{type: :lifetime}, is_sub_account, primary_user) do
-    if is_sub_account do
-      "You are a lifetime member through #{if primary_user, do: "#{primary_user.first_name} #{primary_user.last_name}", else: "the primary account"}. Enjoy full access to all club properties and events forever."
-    else
-      "You are a lifetime member. Enjoy full access to all club properties and events forever."
-    end
-  end
+  defp get_membership_description(membership, is_sub_account, primary_user) do
+    plan_type = YscWeb.UserAuth.get_membership_plan_type(membership)
+    renewal_date = YscWeb.UserAuth.get_membership_renewal_date(membership)
 
-  defp get_membership_description(
-         %{plan: plan, renewal_date: renewal_date},
-         is_sub_account,
-         primary_user
-       )
-       when not is_nil(renewal_date) do
-    plan_name =
-      plan.id
-      |> Atom.to_string()
-      |> String.split("_")
-      |> Enum.map(&String.capitalize/1)
-      |> Enum.join(" ")
-
-    if is_sub_account do
-      "You have access to a #{plan_name} membership through #{if primary_user, do: "#{primary_user.first_name} #{primary_user.last_name}", else: "the primary account"}. Your membership benefits are shared from the primary account."
-    else
-      "You have an active #{plan_name} membership. Your membership will renew on #{Timex.format!(renewal_date, "{Mshort} {D}, {YYYY}")}."
-    end
-  end
-
-  defp get_membership_description(_membership, _is_sub_account, _primary_user) do
-    "You have an active membership with access to all club properties and events."
-  end
-
-  defp get_current_membership(user) do
-    # For sub-accounts, check the primary user's membership
-    user_to_check =
-      if Accounts.is_sub_account?(user) do
-        Accounts.get_primary_user(user) || user
-      else
-        user
-      end
-
-    # Check for lifetime membership first
-    if Accounts.has_lifetime_membership?(user_to_check) do
-      lifetime_plan =
-        Application.get_env(:ysc, :membership_plans)
-        |> Enum.find(&(&1.id == :lifetime))
-
-      %{
-        plan: lifetime_plan,
-        type: :lifetime,
-        awarded_at: user_to_check.lifetime_membership_awarded_at,
-        renewal_date: nil
-      }
-    else
-      # Get active subscriptions
-      # If subscriptions aren't preloaded, fetch them
-      subscriptions =
-        case user_to_check.subscriptions do
-          %Ecto.Association.NotLoaded{} ->
-            Ysc.Customers.subscriptions(user_to_check)
-            |> Enum.filter(fn sub ->
-              Subscriptions.valid?(sub) and sub.stripe_status == "active"
-            end)
-
-          subscriptions when is_list(subscriptions) ->
-            subscriptions
-            |> Enum.filter(fn sub ->
-              Subscriptions.valid?(sub) and sub.stripe_status == "active"
-            end)
-
-          _ ->
-            []
+    case plan_type do
+      :lifetime ->
+        if is_sub_account do
+          "You are a lifetime member through #{if primary_user, do: "#{primary_user.first_name} #{primary_user.last_name}", else: "the primary account"}. Enjoy full access to all club properties and events forever."
+        else
+          "You are a lifetime member. Enjoy full access to all club properties and events forever."
         end
 
-      case subscriptions do
-        [] ->
-          nil
+      plan_id when not is_nil(plan_id) ->
+        plan_name =
+          plan_id
+          |> Atom.to_string()
+          |> String.split("_")
+          |> Enum.map(&String.capitalize/1)
+          |> Enum.join(" ")
 
-        [subscription | _] ->
-          # Preload subscription items if needed
-          subscription =
-            case subscription.subscription_items do
-              %Ecto.Association.NotLoaded{} ->
-                Ysc.Repo.preload(subscription, :subscription_items)
-
-              _ ->
-                subscription
-            end
-
-          # Get the first subscription item to determine membership type
-          case subscription.subscription_items do
-            [item | _] ->
-              membership_plans = Application.get_env(:ysc, :membership_plans)
-              plan = Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id))
-
-              if plan do
-                %{
-                  plan: plan,
-                  subscription: subscription,
-                  renewal_date: subscription.current_period_end
-                }
-              else
-                nil
-              end
-
-            [] ->
-              nil
+        if is_sub_account do
+          "You have access to a #{plan_name} membership through #{if primary_user, do: "#{primary_user.first_name} #{primary_user.last_name}", else: "the primary account"}. Your membership benefits are shared from the primary account."
+        else
+          if renewal_date do
+            "You have an active #{plan_name} membership. Your membership will renew on #{Timex.format!(renewal_date, "{Mshort} {D}, {YYYY}")}."
+          else
+            "You have an active #{plan_name} membership."
           end
-      end
+        end
+
+      _ ->
+        "You have an active membership with access to all club properties and events."
     end
   end
 
@@ -1765,4 +1654,8 @@ defmodule YscWeb.HomeLive do
   defp featured_image_url(nil), do: "/images/ysc_logo.png"
   defp featured_image_url(%Image{optimized_image_path: nil} = image), do: image.raw_image_path
   defp featured_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
+
+  defp thumbnail_image_url(nil), do: "/images/ysc_logo.png"
+  defp thumbnail_image_url(%Image{thumbnail_path: nil} = image), do: image.raw_image_path
+  defp thumbnail_image_url(%Image{thumbnail_path: thumbnail_path}), do: thumbnail_path
 end

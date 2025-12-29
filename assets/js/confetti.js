@@ -38,8 +38,8 @@ const Confetti = {
 
         // Gentle drift from top - multiple small bursts across the top
         // Creates a calm, organic "petal fall" effect
-        const burstCount = 3;
-        const burstInterval = 400; // Space out the bursts for a gentle cascade
+        const burstCount = 5;
+        const burstInterval = 300; // Space out the bursts for a gentle cascade
 
         for (let i = 0; i < burstCount; i++) {
             setTimeout(() => {

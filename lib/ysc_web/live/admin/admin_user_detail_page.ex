@@ -1775,17 +1775,17 @@ defmodule YscWeb.AdminUserDetailsLive do
   end
 
   defp get_membership_plan_name(subscription) do
-    case subscription.subscription_items do
-      [item | _] ->
-        membership_plans = Application.get_env(:ysc, :membership_plans, [])
+    plan_id = YscWeb.UserAuth.get_membership_plan_type(subscription)
 
-        case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
-          %{name: name} -> "#{name} Membership"
-          _ -> "Unknown Membership"
-        end
+    if plan_id do
+      membership_plans = Application.get_env(:ysc, :membership_plans, [])
 
-      _ ->
-        "Unknown Membership"
+      case Enum.find(membership_plans, &(&1.id == plan_id)) do
+        %{name: name} -> "#{name} Membership"
+        _ -> "Unknown Membership"
+      end
+    else
+      "Unknown Membership"
     end
   end
 
@@ -1918,22 +1918,8 @@ defmodule YscWeb.AdminUserDetailsLive do
     |> Ecto.Changeset.validate_required([:membership_type])
   end
 
-  defp get_current_membership_type_from_subscription(nil), do: nil
-
-  defp get_current_membership_type_from_subscription(subscription) do
-    case subscription.subscription_items do
-      [item | _] ->
-        membership_plans = Application.get_env(:ysc, :membership_plans, [])
-
-        case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
-          %{id: id} -> id
-          _ -> nil
-        end
-
-      _ ->
-        nil
-    end
-  end
+  defp get_current_membership_type_from_subscription(subscription),
+    do: YscWeb.UserAuth.get_membership_plan_type(subscription)
 
   defp get_membership_type_options(_subscription) do
     membership_plans = Application.get_env(:ysc, :membership_plans, [])

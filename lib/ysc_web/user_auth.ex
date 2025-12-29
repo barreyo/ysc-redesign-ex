@@ -370,10 +370,211 @@ defmodule YscWeb.UserAuth do
 
   defp not_approved_path(_conn), do: ~p"/pending-review"
 
-  # Helper function to get the most expensive active membership
-  # Optimized to use preloaded subscriptions when available
-  # For sub-accounts, checks the primary user's membership
-  defp get_active_membership(user) do
+  @doc """
+  Checks if a membership is active.
+
+  Returns `true` if the membership is active, `false` otherwise.
+
+  ## Examples
+
+      iex> membership_active?(nil)
+      false
+
+      iex> membership_active?(%{type: :lifetime})
+      true
+
+      iex> membership_active?(%Ysc.Subscriptions.Subscription{stripe_status: "active"})
+      true
+  """
+  def membership_active?(nil), do: false
+  def membership_active?(%{type: :lifetime}), do: true
+
+  def membership_active?(%Ysc.Subscriptions.Subscription{} = subscription),
+    do: Subscriptions.valid?(subscription)
+
+  def membership_active?(_), do: false
+
+  @doc """
+  Gets the plan type from a membership.
+
+  Returns the plan ID as an atom (`:lifetime`, `:single`, `:family`, etc.) or `nil`.
+
+  ## Examples
+
+      iex> get_membership_plan_type(nil)
+      nil
+
+      iex> get_membership_plan_type(%{type: :lifetime})
+      :lifetime
+
+      iex> get_membership_plan_type(%Ysc.Subscriptions.Subscription{...})
+      :family
+  """
+  def get_membership_plan_type(nil), do: nil
+  def get_membership_plan_type(%{type: :lifetime}), do: :lifetime
+
+  def get_membership_plan_type(%Ysc.Subscriptions.Subscription{} = subscription) do
+    subscription = Ysc.Repo.preload(subscription, :subscription_items)
+
+    case subscription.subscription_items do
+      [item | _] ->
+        membership_plans = Application.get_env(:ysc, :membership_plans, [])
+
+        case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
+          %{id: plan_id} when not is_nil(plan_id) -> plan_id
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  def get_membership_plan_type(%{plan: %{id: plan_id}}) when not is_nil(plan_id), do: plan_id
+  def get_membership_plan_type(_), do: nil
+
+  @doc """
+  Gets the renewal or end date for a membership.
+
+  For lifetime memberships, returns `nil` (never expires).
+  For subscriptions, returns the `current_period_end` DateTime.
+
+  ## Examples
+
+      iex> get_membership_renewal_date(nil)
+      nil
+
+      iex> get_membership_renewal_date(%{type: :lifetime})
+      nil
+
+      iex> get_membership_renewal_date(%Ysc.Subscriptions.Subscription{current_period_end: ~U[2026-12-29 15:40:25Z]})
+      ~U[2026-12-29 15:40:25Z]
+  """
+  def get_membership_renewal_date(nil), do: nil
+  def get_membership_renewal_date(%{type: :lifetime}), do: nil
+
+  def get_membership_renewal_date(%Ysc.Subscriptions.Subscription{} = subscription),
+    do: subscription.current_period_end
+
+  def get_membership_renewal_date(%{renewal_date: renewal_date}) when not is_nil(renewal_date),
+    do: renewal_date
+
+  def get_membership_renewal_date(_), do: nil
+
+  @doc """
+  Gets a formatted display name for the membership plan.
+
+  Returns a human-readable string like "Lifetime Plan", "Single Plan", "Family Plan", etc.
+
+  ## Examples
+
+      iex> get_membership_plan_display_name(nil)
+      "No Membership"
+
+      iex> get_membership_plan_display_name(%{type: :lifetime})
+      "Lifetime Plan"
+
+      iex> get_membership_plan_display_name(%Ysc.Subscriptions.Subscription{...})
+      "Family Plan"
+  """
+  def get_membership_plan_display_name(nil), do: "No Membership"
+  def get_membership_plan_display_name(%{type: :lifetime}), do: "Lifetime Plan"
+
+  def get_membership_plan_display_name(%Ysc.Subscriptions.Subscription{} = subscription) do
+    case get_membership_plan_type(subscription) do
+      nil ->
+        "Active Membership"
+
+      plan_id ->
+        plan_id
+        |> Atom.to_string()
+        |> String.split("_")
+        |> Enum.map(&String.capitalize/1)
+        |> Enum.join(" ")
+        |> then(&"#{&1} Plan")
+    end
+  end
+
+  def get_membership_plan_display_name(%{plan: %{id: plan_id}}) when not is_nil(plan_id) do
+    plan_id
+    |> Atom.to_string()
+    |> String.split("_")
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
+    |> then(&"#{&1} Plan")
+  end
+
+  def get_membership_plan_display_name(_), do: "Active Membership"
+
+  @doc """
+  Gets the membership plan type for a user.
+
+  This is a convenience function that gets the active membership for a user
+  and returns the plan type. Use this when you have a User object instead
+  of a membership struct.
+
+  ## Examples
+
+      iex> get_user_membership_plan_type(user)
+      :family
+
+      iex> get_user_membership_plan_type(user_with_no_membership)
+      nil
+  """
+  def get_user_membership_plan_type(user) when is_nil(user), do: nil
+
+  def get_user_membership_plan_type(user) do
+    membership = get_active_membership(user)
+    get_membership_plan_type(membership)
+  end
+
+  @doc """
+  Gets a formatted membership type string for display.
+
+  Returns a capitalized string like "Lifetime", "Single", "Family", etc.
+
+  ## Examples
+
+      iex> get_membership_type_display_string(nil)
+      "Unknown"
+
+      iex> get_membership_type_display_string(%{type: :lifetime})
+      "Lifetime"
+
+      iex> get_membership_type_display_string(%Ysc.Subscriptions.Subscription{...})
+      "Family"
+  """
+  def get_membership_type_display_string(nil), do: "Unknown"
+
+  def get_membership_type_display_string(membership) do
+    case get_membership_plan_type(membership) do
+      nil ->
+        "Unknown"
+
+      plan_id ->
+        plan_id
+        |> Atom.to_string()
+        |> String.split("_")
+        |> Enum.map(&String.capitalize/1)
+        |> Enum.join(" ")
+    end
+  end
+
+  @doc """
+  Gets the active membership for a user.
+
+  Returns the membership struct (lifetime map or subscription) or nil.
+  For sub-accounts, checks the primary user's membership.
+
+  ## Examples
+
+      iex> get_active_membership(user)
+      %Ysc.Subscriptions.Subscription{...}
+
+      iex> get_active_membership(user_with_lifetime)
+      %{type: :lifetime, ...}
+  """
+  def get_active_membership(user) do
     # For sub-accounts, check the primary user's membership
     user_to_check =
       if Accounts.is_sub_account?(user) do

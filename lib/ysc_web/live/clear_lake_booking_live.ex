@@ -2223,27 +2223,9 @@ defmodule YscWeb.ClearLakeBookingLive do
   end
 
   defp get_membership_type_from_subscription(subscription) do
-    # Only preload if not already loaded
-    subscription =
-      case subscription.subscription_items do
-        %Ecto.Association.NotLoaded{} ->
-          Ysc.Repo.preload(subscription, :subscription_items)
-
-        _ ->
-          subscription
-      end
-
-    case subscription.subscription_items do
-      [item | _] ->
-        membership_plans = Application.get_env(:ysc, :membership_plans, [])
-
-        case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
-          %{id: id} -> id
-          _ -> :none
-        end
-
-      _ ->
-        :none
+    case YscWeb.UserAuth.get_membership_plan_type(subscription) do
+      nil -> :none
+      plan_id -> plan_id
     end
   end
 

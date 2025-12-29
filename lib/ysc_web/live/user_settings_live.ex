@@ -1230,12 +1230,18 @@ defmodule YscWeb.UserSettingsLive do
                   class={[
                     "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
                     if(@payment_filter == :tahoe,
-                      do: "bg-indigo-600 text-white shadow-md",
+                      do: "bg-blue-600 text-white shadow-md",
                       else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
                     )
                   ]}
                 >
-                  <span>🏠</span> Tahoe
+                  <.icon
+                    name="hero-home"
+                    class={[
+                      "w-4 h-4",
+                      if(@payment_filter == :tahoe, do: "text-white", else: "text-blue-600")
+                    ]}
+                  />Tahoe
                 </button>
                 <button
                   phx-click="filter-payments"
@@ -1243,12 +1249,18 @@ defmodule YscWeb.UserSettingsLive do
                   class={[
                     "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
                     if(@payment_filter == :clear_lake,
-                      do: "bg-teal-600 text-white shadow-md",
+                      do: "bg-emerald-600 text-white shadow-md",
                       else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
                     )
                   ]}
                 >
-                  <span>🌊</span> Clear Lake
+                  <.icon
+                    name="hero-home"
+                    class={[
+                      "w-4 h-4",
+                      if(@payment_filter == :clear_lake, do: "text-white", else: "text-emerald-600")
+                    ]}
+                  />Clear Lake
                 </button>
                 <button
                   phx-click="filter-payments"
@@ -1256,12 +1268,18 @@ defmodule YscWeb.UserSettingsLive do
                   class={[
                     "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
                     if(@payment_filter == :events,
-                      do: "bg-green-600 text-white shadow-md",
+                      do: "bg-purple-600 text-white shadow-md",
                       else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
                     )
                   ]}
                 >
-                  <span>🎟️</span> Events
+                  <.icon
+                    name="hero-ticket"
+                    class={[
+                      "w-4 h-4",
+                      if(@payment_filter == :events, do: "text-white", else: "text-purple-600")
+                    ]}
+                  />Events
                 </button>
                 <button
                   phx-click="filter-payments"
@@ -1274,7 +1292,32 @@ defmodule YscWeb.UserSettingsLive do
                     )
                   ]}
                 >
-                  <span>🎁</span> Donations
+                  <.icon
+                    name="hero-gift"
+                    class={[
+                      "w-4 h-4",
+                      if(@payment_filter == :donations, do: "text-white", else: "text-yellow-600")
+                    ]}
+                  />Donations
+                </button>
+                <button
+                  phx-click="filter-payments"
+                  phx-value-filter="membership"
+                  class={[
+                    "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
+                    if(@payment_filter == :membership,
+                      do: "bg-teal-600 text-white shadow-md",
+                      else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                    )
+                  ]}
+                >
+                  <.icon
+                    name="hero-heart"
+                    class={[
+                      "w-4 h-4",
+                      if(@payment_filter == :membership, do: "text-white", else: "text-teal-600")
+                    ]}
+                  />Membership
                 </button>
               </div>
               <!-- Desktop Table View -->
@@ -2853,6 +2896,10 @@ defmodule YscWeb.UserSettingsLive do
     Enum.filter(payments, fn payment_info -> payment_info.type == :donation end)
   end
 
+  defp apply_payment_filter(payments, :membership) do
+    Enum.filter(payments, fn payment_info -> payment_info.type == :membership end)
+  end
+
   defp apply_payment_filter(payments, _), do: payments
 
   defp calculate_yearly_stats(payments) do
@@ -2954,23 +3001,7 @@ defmodule YscWeb.UserSettingsLive do
     Enum.find(plans, &(&1.id == memberhip_type))[:stripe_price_id]
   end
 
-  defp get_membership_plan(nil), do: nil
-
-  defp get_membership_plan(%{type: :lifetime}), do: :lifetime
-
-  defp get_membership_plan(%Subscription{stripe_status: "active"} = subscription) do
-    item = Enum.at(subscription.subscription_items, 0)
-
-    get_membership_type_from_price_id(item.stripe_price_id)
-  end
-
-  defp get_membership_plan(_), do: nil
-
-  defp get_membership_type_from_price_id(price_id) do
-    plans = Application.get_env(:ysc, :membership_plans)
-
-    Enum.find(plans, &(&1.stripe_price_id == price_id))[:id]
-  end
+  defp get_membership_plan(membership), do: YscWeb.UserAuth.get_membership_plan_type(membership)
 
   # defp payment_to_badge_style("paid"), do: "green"
   # defp payment_to_badge_style("open"), do: "blue"

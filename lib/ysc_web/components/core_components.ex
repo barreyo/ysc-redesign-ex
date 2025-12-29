@@ -2643,37 +2643,8 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
-  defp get_membership_type(%{type: :lifetime}), do: "Lifetime"
-
-  defp get_membership_type(%{subscription: subscription}) when is_map(subscription) do
-    get_membership_type_from_subscription(subscription)
-  end
-
-  defp get_membership_type(subscription) when is_struct(subscription) do
-    get_membership_type_from_subscription(subscription)
-  end
-
-  defp get_membership_type(%{type: type}) when type == :lifetime, do: "Lifetime"
-  defp get_membership_type(_), do: "Unknown"
-
-  defp get_membership_type_from_subscription(subscription) do
-    item = Enum.at(subscription.subscription_items, 0)
-
-    if item do
-      get_membership_type_from_price_id(item.stripe_price_id)
-    else
-      "Unknown"
-    end
-  end
-
-  defp get_membership_type_from_price_id(price_id) do
-    plans = Application.get_env(:ysc, :membership_plans)
-
-    case Enum.find(plans, &(&1.stripe_price_id == price_id)) do
-      %{id: id} -> String.capitalize("#{id}")
-      _ -> "Unknown"
-    end
-  end
+  defp get_membership_type(membership),
+    do: YscWeb.UserAuth.get_membership_type_display_string(membership)
 
   # Helper functions to handle different membership data structures
   defp membership_active?(%{type: :lifetime}), do: true
