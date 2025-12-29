@@ -342,6 +342,7 @@ if config_env() == :prod do
     client_id: System.get_env("QUICKBOOKS_CLIENT_ID"),
     client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET"),
     company_id: System.get_env("QUICKBOOKS_COMPANY_ID"),
+    webhook_verifier_token: System.get_env("QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN"),
     url: System.get_env("QUICKBOOKS_BASE_URL", "https://sandbox-quickbooks.api.intuit.com/v3"),
     app_id: System.get_env("QUICKBOOKS_APP_ID"),
     access_token: System.get_env("QUICKBOOKS_ACCESS_TOKEN"),

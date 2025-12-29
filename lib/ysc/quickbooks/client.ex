@@ -3762,4 +3762,101 @@ defmodule Ysc.Quickbooks.Client do
       end
     end
   end
+
+  @doc """
+  Gets a BillPayment by ID from QuickBooks.
+  """
+  @spec get_bill_payment(String.t()) :: {:ok, map()} | {:error, atom() | String.t()}
+  def get_bill_payment(bill_payment_id) do
+    with {:ok, access_token} <- get_access_token(),
+         {:ok, company_id} <- get_company_id() do
+      url = build_url(company_id, "billpayment/#{bill_payment_id}", [])
+      headers = build_headers(access_token)
+
+      Logger.info("Getting QuickBooks BillPayment",
+        company_id: company_id,
+        bill_payment_id: bill_payment_id
+      )
+
+      request = Finch.build(:get, url, headers)
+
+      case Finch.request(request, Ysc.Finch) do
+        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+          case Jason.decode(response_body) do
+            {:ok, data} ->
+              bill_payment = get_response_entity(data, "BillPayment")
+
+              Logger.info("Successfully retrieved QuickBooks BillPayment",
+                bill_payment_id: Map.get(bill_payment, "Id")
+              )
+
+              {:ok, bill_payment}
+
+            {:error, error} ->
+              Logger.error("Failed to parse QuickBooks response",
+                error: inspect(error),
+                response: response_body
+              )
+
+              {:error, :invalid_response}
+          end
+
+        {:ok, %Finch.Response{status: 401, body: _response_body}} ->
+          Logger.warning("QuickBooks authentication failed, attempting token refresh")
+
+          case refresh_access_token() do
+            {:ok, new_access_token} ->
+              headers = build_headers(new_access_token)
+              request = Finch.build(:get, url, headers)
+
+              case Finch.request(request, Ysc.Finch) do
+                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                when status in 200..299 ->
+                  case Jason.decode(retry_response_body) do
+                    {:ok, data} ->
+                      bill_payment = get_response_entity(data, "BillPayment")
+                      {:ok, bill_payment}
+
+                    _error ->
+                      {:error, :invalid_response}
+                  end
+
+                {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+                  error = parse_error_response(retry_response_body)
+
+                  Logger.error(
+                    "[QB Client] get_bill_payment: QuickBooks API error after token refresh",
+                    status: status,
+                    parsed_error: error
+                  )
+
+                  {:error, error}
+
+                {:error, error} ->
+                  Logger.error("Request failed after token refresh", error: inspect(error))
+                  {:error, :request_failed}
+              end
+
+            error ->
+              Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+              {:error, :authentication_failed}
+          end
+
+        {:ok, %Finch.Response{status: status, body: response_body}} ->
+          error = parse_error_response(response_body)
+
+          Logger.error("Failed to get QuickBooks BillPayment",
+            status: status,
+            error: error,
+            bill_payment_id: bill_payment_id
+          )
+
+          {:error, error}
+
+        {:error, error} ->
+          Logger.error("Failed to get BillPayment from QuickBooks", error: inspect(error))
+          {:error, :request_failed}
+      end
+    end
+  end
 end

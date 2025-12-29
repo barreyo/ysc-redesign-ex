@@ -12,6 +12,7 @@ defmodule Ysc.Webhooks.Reprocessor do
   alias Ysc.Webhooks.WebhookEvent
   alias Ysc.Webhooks
   alias Ysc.Stripe.WebhookHandler
+  alias Ysc.ExpenseReports.QuickbooksWebhookHandler
   alias Ysc.Repo
   import Ecto.Query, warn: false
 
@@ -243,6 +244,29 @@ defmodule Ysc.Webhooks.Reprocessor do
           case Webhooks.update_webhook_state(webhook_event, :processed) do
             {:ok, _updated_webhook} ->
               Logger.info("Successfully re-processed webhook event",
+                webhook_id: webhook_event.id,
+                event_type: webhook_event.event_type
+              )
+
+              {:ok, result}
+
+            {:error, changeset} ->
+              Logger.error("Failed to update webhook state after successful re-processing",
+                webhook_id: webhook_event.id,
+                error: changeset
+              )
+
+              {:error, {:state_update_failed, changeset}}
+          end
+
+        provider when provider in ["quickbooks", :quickbooks] ->
+          # For QuickBooks webhooks, call the webhook handler
+          result = QuickbooksWebhookHandler.handle_webhook_event(webhook_event)
+
+          # Update the webhook state to processed
+          case Webhooks.update_webhook_state(webhook_event, :processed) do
+            {:ok, _updated_webhook} ->
+              Logger.info("Successfully re-processed QuickBooks webhook event",
                 webhook_id: webhook_event.id,
                 event_type: webhook_event.event_type
               )

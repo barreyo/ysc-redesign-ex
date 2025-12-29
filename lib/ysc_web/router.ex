@@ -313,4 +313,11 @@ defmodule YscWeb.Router do
       get "/setup-payment", Ysc.Controllers.StripePaymentMethodController, :setup_payment
     end
   end
+
+  # Webhook endpoints (no CSRF protection needed)
+  scope "/webhooks", YscWeb do
+    pipe_through [:api]
+
+    post "/quickbooks", QuickbooksWebhookController, :webhook
+  end
 end

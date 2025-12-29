@@ -245,6 +245,17 @@ defmodule Ysc.ExpenseReports do
     |> Repo.update()
   end
 
+  @doc """
+  Marks an expense report as paid.
+
+  This is called when a payment is initiated in QuickBooks (via webhook).
+  """
+  def mark_expense_report_as_paid(%ExpenseReport{} = expense_report) do
+    expense_report
+    |> ExpenseReport.changeset(%{status: "paid"})
+    |> Repo.update()
+  end
+
   def submit_expense_report(%ExpenseReport{} = expense_report) do
     result =
       expense_report
