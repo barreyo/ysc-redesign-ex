@@ -1,7 +1,7 @@
 defmodule YscWeb.HomeLive do
   use YscWeb, :live_view
 
-  alias Ysc.{Accounts, Events, Posts, Subscriptions, Mailpoet, Tickets}
+  alias Ysc.{Accounts, Events, Posts, Mailpoet, Tickets}
   alias Ysc.Bookings.{Booking, Season}
   alias Ysc.Posts.Post
   alias Ysc.Media.Image
@@ -775,55 +775,64 @@ defmodule YscWeb.HomeLive do
                   <.link
                     navigate={~p"/bookings/#{booking.id}/receipt"}
                     class={[
-                      "bg-white rounded overflow-hidden flex flex-col md:flex-row transition-all duration-300 group hover:-translate-y-1 hover:shadow-lg",
+                      "relative bg-white rounded-lg overflow-hidden flex flex-col md:flex-row transition-all duration-300 group hover:-translate-y-1 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-zinc-100",
                       if is_active do
                         if booking.property == :tahoe do
-                          "border border-blue-200 ring-4 ring-blue-500/5 shadow-sm hover:border-blue-200 hover:ring-4 hover:ring-blue-500/5"
+                          "ring-1 ring-blue-500/10"
                         else
-                          "border border-emerald-200 ring-4 ring-emerald-500/5 shadow-sm hover:border-emerald-200 hover:ring-4 hover:ring-emerald-500/5"
+                          "ring-1 ring-emerald-500/10"
                         end
                       else
-                        "border border-zinc-200 shadow-sm hover:border-zinc-200"
+                        ""
                       end
                     ]}
                   >
                     <div class={[
-                      "md:w-2 flex-shrink-0",
+                      "md:w-1.5 flex-shrink-0",
                       if booking.property == :tahoe do
-                        "bg-blue-600"
+                        "bg-gradient-to-b from-blue-500 to-blue-700"
                       else
-                        "bg-emerald-600"
+                        "bg-gradient-to-b from-emerald-500 to-emerald-700"
                       end
                     ]}>
                     </div>
-                    <div class="p-6 flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-                      <div class="space-y-1 border-r border-zinc-100 pr-4">
+                    <div class="p-8 flex-1 grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+                      <div class="space-y-1 md:border-r border-zinc-100 pr-6">
                         <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
                           Destination
                         </p>
-                        <p class="font-black text-xl text-zinc-900 tracking-tighter">
+                        <p class="font-black text-2xl text-zinc-900 tracking-tighter">
                           <%= format_property_name(booking.property) %>
                         </p>
-                        <p class="text-xs font-mono text-zinc-500"><%= booking.reference_id %></p>
+                        <p class="text-[10px] font-mono text-zinc-400"><%= booking.reference_id %></p>
                       </div>
-                      <div class="space-y-1">
+                      <div class="space-y-2">
                         <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
-                          Dates
+                          Schedule
                         </p>
-                        <p class="font-bold text-zinc-900">
+                        <p class="font-bold text-zinc-800">
                           <%= Calendar.strftime(booking.checkin_date, "%b %d") %> — <%= Calendar.strftime(
                             booking.checkout_date,
                             "%b %d"
                           ) %>
                         </p>
                         <span class={[
-                          "inline-block px-2 py-0.5 text-[10px] font-black rounded uppercase tracking-tighter",
+                          "inline-flex items-center px-2.5 py-0.5 text-[10px] font-black rounded uppercase tracking-tighter",
                           case days_until_booking(booking) do
-                            :started -> "bg-amber-100 text-amber-800 animate-pulse"
-                            0 -> "bg-amber-100 text-amber-800 animate-pulse"
-                            1 -> "bg-blue-100 text-blue-800"
-                            days when days <= 7 -> "bg-emerald-100 text-emerald-800"
-                            _ -> "bg-zinc-100 text-zinc-800"
+                            :started ->
+                              "bg-amber-50 text-amber-700 ring-1 ring-amber-200/50 animate-pulse"
+
+                            0 ->
+                              "bg-amber-50 text-amber-700 ring-1 ring-amber-200/50 animate-pulse"
+
+                            1 ->
+                              "bg-blue-50 text-blue-700 ring-1 ring-blue-200/50"
+
+                            days when days <= 7 ->
+                              "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/50"
+
+                            _ ->
+                              "bg-zinc-50 text-zinc-700 ring-1 ring-zinc-200/50"
                           end
                         ]}>
                           <%= case days_until_booking(booking) do
@@ -834,14 +843,14 @@ defmodule YscWeb.HomeLive do
                           end %>
                         </span>
                         <%= if booking.booking_mode == :buyout do %>
-                          <span class="inline-block mt-1 px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-black rounded uppercase tracking-tighter">
+                          <span class="inline-block mt-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 ring-1 ring-amber-200/50 text-[10px] font-black rounded uppercase tracking-tighter">
                             Full Buyout
                           </span>
                         <% end %>
                       </div>
-                      <div class="flex justify-end gap-2">
-                        <span class="px-4 py-2 bg-zinc-900 text-white text-xs font-bold rounded group-hover:bg-zinc-700 transition">
-                          View Booking
+                      <div class="flex justify-end">
+                        <span class="px-5 py-2.5 bg-zinc-900 text-white text-xs font-bold rounded group-hover:bg-blue-600 transition-colors shadow shadow-zinc-200 group-hover:shadow-blue-200">
+                          View Details
                         </span>
                       </div>
                     </div>
@@ -884,7 +893,7 @@ defmodule YscWeb.HomeLive do
                       _ ->
                         nil
                     end %>
-                  <div class="bg-zinc-50/50 border-2 border-dashed border-zinc-200 rounded-lg p-6 hover:shadow-lg transition-all">
+                  <div class="bg-white/50 border-2 border-dashed border-zinc-200 rounded-lg p-8 hover:shadow-lg transition-all">
                     <div class="flex justify-between items-start mb-4">
                       <span class={[
                         "px-2 py-1 text-[10px] font-bold rounded",
@@ -1270,7 +1279,7 @@ defmodule YscWeb.HomeLive do
       </div>
 
       <%!-- White Buffer Zone with Gradient Transition --%>
-      <div class="h-24 bg-gradient-to-b from-transparent to-white"></div>
+      <div class="h-32 bg-gradient-to-b from-transparent to-white"></div>
     </main>
     """
   end

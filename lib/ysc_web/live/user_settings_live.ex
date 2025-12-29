@@ -8,7 +8,6 @@ defmodule YscWeb.UserSettingsLive do
   alias Ysc.Repo
   alias Ysc.Subscriptions
 
-  alias Ysc.Subscriptions.Subscription
   import Ecto.Query
 
   @impl true

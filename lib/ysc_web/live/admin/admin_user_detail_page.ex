@@ -150,7 +150,7 @@ defmodule YscWeb.AdminUserDetailsLive do
         </div>
 
         <div :if={@live_action == :profile} class="max-w-lg px-2 space-y-8">
-          <.simple_form for={@form} phx-change="validate" phx-submit="save">
+          <.simple_form for={@form} phx-change="validate" phx-submit="save" class="py-8">
             <!-- Personal Information -->
             <div class="space-y-4">
               <h3 class="text-lg font-semibold text-zinc-800 border-b border-zinc-200 pb-2">

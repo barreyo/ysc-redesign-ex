@@ -1273,10 +1273,15 @@ defmodule YscWeb.CoreComponents do
       aria-label="Sidebar"
       phx-click-away={hide_sidebar("#admin-navigation")}
     >
-      <div class="h-full px-5 py-8 overflow-y-auto bg-zinc-100 relative">
+      <div class="h-full px-5 py-8 overflow-y-auto bg-zinc-900 relative">
         <.link navigate="/" class="items-center group ps-2.5 mb-5 inline-block">
-          <.ysc_logo class="h-28 me-3" />
-          <span class="block group-hover:underline text-sm font-bold text-zinc-600 py-4">
+          <div class="flex items-center gap-2">
+            <.ysc_logo class="h-20 me-3" />
+            <span class="text-[10px] font-black bg-zinc-800 text-white px-2 py-0.5 rounded">
+              ADMIN
+            </span>
+          </div>
+          <span class="block group-hover:underline text-sm font-bold text-zinc-400 py-4">
             Go to site <.icon name="hero-arrow-right" class="h-4 w-4" />
           </span>
         </.link>
@@ -1286,19 +1291,26 @@ defmodule YscWeb.CoreComponents do
             <.link
               navigate="/admin"
               class={[
-                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
-                @active_page == :dashboard && "bg-zinc-200 text-zinc-800"
+                "flex items-center px-3 py-4 rounded group transition-colors",
+                if(@active_page == :dashboard,
+                  do:
+                    "bg-gradient-to-r from-blue-600/20 to-transparent border-l-4 border-blue-500 text-white",
+                  else: "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                )
               ]}
               aria-current={@active_page == :dashboard}
             >
               <.icon
+                :if={@active_page == :dashboard}
                 name="hero-chart-pie"
-                class={[
-                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
-                  @active_page == :dashboard && "text-zinc-800"
-                ]}
+                class="w-5 h-5 transition duration-75 text-blue-400"
               />
-              <span class="ms-3">Overview</span>
+              <.icon
+                :if={@active_page != :dashboard}
+                name="hero-chart-pie"
+                class="w-5 h-5 transition duration-75 text-blue-500"
+              />
+              <span class={["ms-3", @active_page == :dashboard && "font-semibold"]}>Overview</span>
             </.link>
           </li>
 
@@ -1306,19 +1318,26 @@ defmodule YscWeb.CoreComponents do
             <.link
               navigate="/admin/posts"
               class={[
-                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
-                @active_page == :news && "bg-zinc-200 text-zinc-800"
+                "flex items-center px-3 py-4 rounded group transition-colors",
+                if(@active_page == :news,
+                  do:
+                    "bg-gradient-to-r from-blue-600/20 to-transparent border-l-4 border-blue-500 text-white",
+                  else: "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                )
               ]}
               aria-current={@active_page == :news}
             >
               <.icon
+                :if={@active_page == :news}
                 name="hero-document-text"
-                class={[
-                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
-                  @active_page == :news && "text-zinc-800"
-                ]}
+                class="w-5 h-5 transition duration-75 text-blue-400"
               />
-              <span class="ms-3">Posts</span>
+              <.icon
+                :if={@active_page != :news}
+                name="hero-document-text"
+                class="w-5 h-5 transition duration-75 text-blue-500"
+              />
+              <span class={["ms-3", @active_page == :news && "font-semibold"]}>Posts</span>
             </.link>
           </li>
 
@@ -1326,19 +1345,26 @@ defmodule YscWeb.CoreComponents do
             <.link
               navigate="/admin/events"
               class={[
-                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
-                @active_page == :events && "bg-zinc-200 text-zinc-800"
+                "flex items-center px-3 py-4 rounded group transition-colors",
+                if(@active_page == :events,
+                  do:
+                    "bg-gradient-to-r from-blue-600/20 to-transparent border-l-4 border-blue-500 text-white",
+                  else: "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                )
               ]}
               aria-current={@active_page == :events}
             >
               <.icon
+                :if={@active_page == :events}
                 name="hero-calendar"
-                class={[
-                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
-                  @active_page == :events && "text-zinc-800"
-                ]}
+                class="w-5 h-5 transition duration-75 text-blue-400"
               />
-              <span class="ms-3">Events</span>
+              <.icon
+                :if={@active_page != :events}
+                name="hero-calendar"
+                class="w-5 h-5 transition duration-75 text-blue-500"
+              />
+              <span class={["ms-3", @active_page == :events && "font-semibold"]}>Events</span>
             </.link>
           </li>
 
@@ -1346,19 +1372,26 @@ defmodule YscWeb.CoreComponents do
             <.link
               navigate="/admin/bookings"
               class={[
-                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
-                @active_page == :bookings && "bg-zinc-200 text-zinc-800"
+                "flex items-center px-3 py-4 rounded group transition-colors",
+                if(@active_page == :bookings,
+                  do:
+                    "bg-gradient-to-r from-blue-600/20 to-transparent border-l-4 border-blue-500 text-white",
+                  else: "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                )
               ]}
               aria-current={@active_page == :bookings}
             >
               <.icon
+                :if={@active_page == :bookings}
                 name="hero-home"
-                class={[
-                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
-                  @active_page == :bookings && "text-zinc-800"
-                ]}
+                class="w-5 h-5 transition duration-75 text-blue-400"
               />
-              <span class="ms-3">Bookings</span>
+              <.icon
+                :if={@active_page != :bookings}
+                name="hero-home"
+                class="w-5 h-5 transition duration-75 text-blue-500"
+              />
+              <span class={["ms-3", @active_page == :bookings && "font-semibold"]}>Bookings</span>
             </.link>
           </li>
 
@@ -1366,19 +1399,26 @@ defmodule YscWeb.CoreComponents do
             <.link
               navigate="/admin/users"
               class={[
-                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
-                @active_page == :members && "bg-zinc-200 text-zinc-800"
+                "flex items-center px-3 py-4 rounded group transition-colors",
+                if(@active_page == :members,
+                  do:
+                    "bg-gradient-to-r from-blue-600/20 to-transparent border-l-4 border-blue-500 text-white",
+                  else: "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                )
               ]}
               aria-current={@active_page == :members}
             >
               <.icon
+                :if={@active_page == :members}
                 name="hero-users"
-                class={[
-                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
-                  @active_page == :members && "text-zinc-800"
-                ]}
+                class="w-5 h-5 transition duration-75 text-blue-400"
               />
-              <span class="ms-3">Users</span>
+              <.icon
+                :if={@active_page != :members}
+                name="hero-users"
+                class="w-5 h-5 transition duration-75 text-blue-500"
+              />
+              <span class={["ms-3", @active_page == :members && "font-semibold"]}>Users</span>
             </.link>
           </li>
 
@@ -1386,19 +1426,26 @@ defmodule YscWeb.CoreComponents do
             <.link
               navigate="/admin/money"
               class={[
-                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
-                @active_page == :money && "bg-zinc-200 text-zinc-800"
+                "flex items-center px-3 py-4 rounded group transition-colors",
+                if(@active_page == :money,
+                  do:
+                    "bg-gradient-to-r from-blue-600/20 to-transparent border-l-4 border-blue-500 text-white",
+                  else: "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                )
               ]}
               aria-current={@active_page == :money}
             >
               <.icon
+                :if={@active_page == :money}
                 name="hero-wallet"
-                class={[
-                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
-                  @active_page == :money && "text-zinc-800"
-                ]}
+                class="w-5 h-5 transition duration-75 text-blue-400"
               />
-              <span class="ms-3">Money</span>
+              <.icon
+                :if={@active_page != :money}
+                name="hero-wallet"
+                class="w-5 h-5 transition duration-75 text-blue-500"
+              />
+              <span class={["ms-3", @active_page == :money && "font-semibold"]}>Money</span>
             </.link>
           </li>
 
@@ -1406,19 +1453,26 @@ defmodule YscWeb.CoreComponents do
             <.link
               navigate="/admin/media"
               class={[
-                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
-                @active_page == :media && "bg-zinc-200 text-zinc-800"
+                "flex items-center px-3 py-4 rounded group transition-colors",
+                if(@active_page == :media,
+                  do:
+                    "bg-gradient-to-r from-blue-600/20 to-transparent border-l-4 border-blue-500 text-white",
+                  else: "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                )
               ]}
               aria-current={@active_page == :media}
             >
               <.icon
+                :if={@active_page == :media}
                 name="hero-photo"
-                class={[
-                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
-                  @active_page == :media && "text-zinc-800"
-                ]}
+                class="w-5 h-5 transition duration-75 text-blue-400"
               />
-              <span class="ms-3">Media</span>
+              <.icon
+                :if={@active_page != :media}
+                name="hero-photo"
+                class="w-5 h-5 transition duration-75 text-blue-500"
+              />
+              <span class={["ms-3", @active_page == :media && "font-semibold"]}>Media</span>
             </.link>
           </li>
 
@@ -1426,36 +1480,46 @@ defmodule YscWeb.CoreComponents do
             <.link
               navigate="/admin/settings"
               class={[
-                "flex items-center px-3 py-4 text-zinc-600 rounded hover:bg-zinc-200 hover:text-zinc-800 group",
-                @active_page == :admin_settings && "bg-zinc-200 text-zinc-800"
+                "flex items-center px-3 py-4 rounded group transition-colors",
+                if(@active_page == :admin_settings,
+                  do:
+                    "bg-gradient-to-r from-blue-600/20 to-transparent border-l-4 border-blue-500 text-white",
+                  else: "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                )
               ]}
               aria-current={@active_page == :admin_settings}
             >
               <.icon
+                :if={@active_page == :admin_settings}
                 name="hero-cog-6-tooth"
-                class={[
-                  "w-5 h-5 text-zinc-500 transition duration-75 group-hover:text-zinc-800",
-                  @active_page == :admin_settings && "text-zinc-800"
-                ]}
+                class="w-5 h-5 transition duration-75 text-blue-400"
               />
-              <span class="ms-3">Settings</span>
+              <.icon
+                :if={@active_page != :admin_settings}
+                name="hero-cog-6-tooth"
+                class="w-5 h-5 transition duration-75 text-blue-500"
+              />
+              <span class={["ms-3", @active_page == :admin_settings && "font-semibold"]}>
+                Settings
+              </span>
             </.link>
           </li>
         </ul>
 
-        <div class="absolute inset-x-0 bottom-0 px-4 py-4 border-t border-1 border-zinc-200 bg-zinc-100">
+        <div class="absolute inset-x-0 bottom-0 px-4 py-4 border-t border-zinc-700 bg-zinc-900">
           <.user_card
             email={@email}
             user_id={@user_id}
             most_connected_country={@most_connected_country}
             first_name={@first_name}
             last_name={@last_name}
+            class="[&_.text-zinc-800]:text-zinc-300 [&_.text-zinc-500]:text-zinc-400"
           />
         </div>
       </div>
     </aside>
 
-    <main class="px-4 lg:px-10 lg:ml-72 mt-0 lg:-mt-14">
+    <main class="px-4 lg:px-10 lg:ml-72 mt-0 lg:-mt-14 min-h-screen">
       <%= render_slot(@inner_block) %>
     </main>
 
