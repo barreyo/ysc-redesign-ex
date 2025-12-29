@@ -122,7 +122,7 @@ defmodule YscWeb.OrderConfirmationLive do
           <!-- Event Details Card -->
           <div class="bg-zinc-50 rounded-lg border border-zinc-200 overflow-hidden">
             <!-- Event Cover Image -->
-            <div class="h-48 bg-zinc-200 relative">
+            <div class="h-48 bg-zinc-200 relative overflow-hidden">
               <%= if @event.cover_image do %>
                 <.live_component
                   id={"order-confirmation-event-cover-#{@event.id}"}
@@ -130,30 +130,32 @@ defmodule YscWeb.OrderConfirmationLive do
                   image_id={@event.image_id}
                   image={@event.cover_image}
                   preferred_type={:optimized}
-                  class="w-full h-full object-cover"
+                  class="w-full h-full object-cover relative z-0"
                 />
               <% else %>
-                <div class="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                <div class="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center relative z-0">
                   <div class="text-center text-white">
                     <.icon name="hero-calendar" class="w-16 h-16 mx-auto mb-4 opacity-50" />
                     <p class="text-xl font-semibold"><%= @event.title %></p>
                   </div>
                 </div>
               <% end %>
-              <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent flex items-end p-6">
+              <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent flex items-end p-6 z-10">
                 <div class="flex items-center justify-between w-full">
                   <h2 class="text-white text-xl font-bold flex items-center gap-2">
                     <.icon name="hero-information-circle" class="w-8 h-8" /> Event Details
                   </h2>
                   <span class="text-sm font-medium bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
-                    <%= length(@ticket_order.tickets) %> <%= if length(@ticket_order.tickets) == 1,
-                      do: "Ticket",
-                      else: "Tickets" %>
+                    <%= length(@ticket_order.tickets) %> <%= if length(@ticket_order.tickets) == 1 do
+                      "Ticket"
+                    else
+                      "Tickets"
+                    end %>
                   </span>
                 </div>
               </div>
             </div>
-            <div class="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="p-8 grid grid-cols-1 md:grid-cols-3 gap-8 relative z-0">
               <div>
                 <p class="text-xs font-bold text-zinc-400 uppercase mb-1">Event</p>
                 <p class="text-xl font-bold text-zinc-900"><%= @event.title %></p>
