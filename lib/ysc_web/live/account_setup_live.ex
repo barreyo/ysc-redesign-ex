@@ -57,7 +57,7 @@ defmodule YscWeb.AccountSetupLive do
                   click here to resend
                 </.link>
               <% else %>
-                <% email_countdown = max(0, email_resend_seconds_remaining(assigns) || 0) %>
+                <% email_countdown = email_resend_seconds_remaining(assigns) |> max(0) %>
                 <span
                   class="text-zinc-500 cursor-not-allowed"
                   data-countdown={email_countdown}
