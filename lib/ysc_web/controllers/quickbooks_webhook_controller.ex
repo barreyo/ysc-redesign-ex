@@ -81,7 +81,7 @@ defmodule YscWeb.QuickbooksWebhookController do
   # Verifies the intuit-signature header from QuickBooks
   defp verify_signature(conn) do
     # Get the verifier token from environment
-    verifier_token = Application.get_env(:ysc, :quickbooks_webhook_verifier_token)
+    verifier_token = Application.get_env(:ysc, :quickbooks)[:webhook_verifier_token]
 
     if is_nil(verifier_token) || verifier_token == "" do
       Logger.warning("QuickBooks webhook verifier token not configured")
