@@ -178,19 +178,6 @@ defmodule YscWeb.EventsListLive do
     Timex.format!(time, "{h12}:{m} {AM}")
   end
 
-  defp format_event_date_time(event) do
-    date_str = Timex.format!(event.start_date, "{Mshort} {D}")
-
-    time_str =
-      if event.start_time && event.start_time != "" do
-        " • #{format_start_time(event.start_time)}"
-      else
-        ""
-      end
-
-    "#{date_str}#{time_str}"
-  end
-
   defp format_event_date(event) do
     Timex.format!(event.start_date, "{Mshort} {D}")
   end

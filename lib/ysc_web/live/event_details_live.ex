@@ -13,138 +13,247 @@ defmodule YscWeb.EventDetailsLive do
   def render(assigns) do
     ~H"""
     <div class="min-h-screen">
-      <%!-- Event Cover Image --%>
+      <%!-- Split-Header: Event Cover Image with Floating Card --%>
       <div class="max-w-screen-xl mx-auto px-4 pt-8">
-        <.live_component
-          id={"event-cover-#{@event.id}"}
-          module={YscWeb.Components.Image}
-          image_id={@event.image_id}
-          preferred_type={:optimized}
-          class="w-full max-h-[50vh] object-cover"
-        />
-      </div>
-
-      <%!-- Main Content Grid --%>
-      <div class="max-w-screen-xl mx-auto px-4 py-8 lg:py-12">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
-          <%!-- Left Column: Event Details (2/3 width on desktop) --%>
-          <div class="lg:col-span-2 space-y-10">
-            <%!-- Event Header --%>
-            <div class="space-y-3">
-              <p :if={@event.state == :cancelled} class="font-semibold text-red-600">
-                // This event has been cancelled //
-              </p>
-
-              <div :if={@event.state != :cancelled && event_at_capacity?(@event)}>
-                <.badge type="red">SOLD OUT</.badge>
-              </div>
-
-              <p
-                :if={
-                  @event.start_date != nil && @event.start_date != "" && @event.state != :cancelled
-                }
-                class="font-semibold text-blue-600"
-              >
-                <%= format_start_date(@event.start_date) %>
-              </p>
-
-              <h1
-                :if={@event.title != nil && @event.title != ""}
-                class="text-3xl md:text-4xl lg:text-5xl font-bold text-zinc-900 leading-tight"
-              >
-                <%= @event.title %>
-              </h1>
-
-              <p
-                :if={@event.description != nil && @event.description != ""}
-                class="text-lg text-zinc-600"
-              >
-                <%= @event.description %>
-              </p>
+        <div class="relative mb-16 lg:mb-24">
+          <%!-- Image with rounded corners and gradient overlay --%>
+          <div class="rounded-2xl overflow-hidden relative">
+            <.live_component
+              id={"event-cover-#{@event.id}"}
+              module={YscWeb.Components.Image}
+              image_id={@event.image_id}
+              preferred_type={:optimized}
+              class="w-full h-[50vh] lg:h-[60vh] object-cover"
+            />
+            <%!-- Gradient overlay for better text readability --%>
+            <div class="absolute inset-0 bg-gradient-to-t from-zinc-900/90 via-zinc-900/40 to-transparent pointer-events-none">
             </div>
+          </div>
 
-            <%!-- User's Existing Tickets --%>
-            <div :if={@current_user != nil && length(@user_tickets) > 0} class="space-y-4">
-              <h3 class="text-zinc-800 text-2xl font-semibold">Your Tickets</h3>
-              <div class="bg-white rounded border border-zinc-200 p-5">
-                <div class="flex items-center mb-4">
-                  <.icon name="hero-check-circle" class="text-green-500 w-5 h-5 me-2" />
-                  <h4 class="text-zinc-800 font-semibold">Your confirmed tickets for this event</h4>
+          <%!-- Floating Card with Title/Date/Location - Overlaps bottom of image --%>
+          <div class="absolute bottom-0 left-0 right-0 transform translate-y-1/2 px-4 lg:px-8 z-10">
+            <div class="bg-white rounded-xl shadow-2xl border border-zinc-100 p-8 lg:p-10">
+              <div class="space-y-4">
+                <p :if={@event.state == :cancelled} class="font-semibold text-red-600">
+                  // This event has been cancelled //
+                </p>
+
+                <div :if={@event.state != :cancelled && event_at_capacity?(@event)}>
+                  <.badge type="red">SOLD OUT</.badge>
                 </div>
-                <div class="space-y-3">
-                  <%= for {tier_name, tickets} <- group_tickets_by_tier(@user_tickets) do %>
-                    <div class="flex justify-between items-center bg-zinc-50 rounded-lg p-4 border border-zinc-200">
-                      <div>
-                        <p class="font-medium text-zinc-900">
-                          <%= length(tickets) %>x <%= tier_name %>
-                        </p>
-                        <p class="text-sm text-zinc-500">
-                          <%= if length(tickets) == 1 do %>
-                            Ticket #<%= List.first(tickets).reference_id %>
-                          <% else %>
-                            <%= length(tickets) %> confirmed tickets
-                          <% end %>
-                        </p>
-                      </div>
-                      <div class="text-right">
-                        <p class="font-semibold text-zinc-900">
-                          <%= cond do %>
-                            <% List.first(tickets).ticket_tier.type == "donation" || List.first(tickets).ticket_tier.type == :donation -> %>
-                              <%= get_donation_amount_for_tickets(tickets) %>
-                            <% List.first(tickets).ticket_tier.price == nil -> %>
-                              Free
-                            <% Money.zero?(List.first(tickets).ticket_tier.price) -> %>
-                              Free
-                            <% true -> %>
-                              <%= case Money.to_string(List.first(tickets).ticket_tier.price) do
-                                {:ok, amount} -> amount
-                                {:error, _} -> "Error"
-                              end %>
-                          <% end %>
-                        </p>
-                        <p class="text-xs text-green-600 font-medium">Confirmed</p>
-                      </div>
-                    </div>
+
+                <div
+                  :if={
+                    @event.start_date != nil && @event.start_date != "" && @event.state != :cancelled
+                  }
+                  class="flex items-center gap-3 mb-4"
+                >
+                  <p class="text-xs font-black text-blue-600 uppercase tracking-[0.2em]">
+                    <%= format_start_date(@event.start_date) %>
+                  </p>
+                  <%= if event_selling_fast?(@event) do %>
+                    <span class="h-3 w-px bg-zinc-200"></span>
+                    <span class="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded uppercase tracking-widest">
+                      High Demand
+                    </span>
                   <% end %>
                 </div>
-                <p class="text-sm text-zinc-600 mt-4">
-                  You may purchase additional tickets if there are any available.
+
+                <h1
+                  :if={@event.title != nil && @event.title != ""}
+                  class="text-3xl md:text-4xl lg:text-5xl font-black text-zinc-900 tracking-tighter leading-tight"
+                >
+                  <%= @event.title %>
+                </h1>
+
+                <p
+                  :if={@event.description != nil && @event.description != ""}
+                  class="text-lg text-zinc-600 font-light leading-relaxed"
+                >
+                  <%= @event.description %>
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
 
-            <%!-- Date and Time --%>
-            <div class="space-y-4">
-              <h3 class="text-zinc-800 text-2xl font-semibold">Date and Time</h3>
+      <%!-- Main Content Grid --%>
+      <div class="max-w-screen-xl mx-auto px-4 py-12 lg:py-16">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-16">
+          <%!-- Left Column: Event Details (8/12 width on desktop) --%>
+          <div class="lg:col-span-8 space-y-16">
+            <%!-- User's Existing Tickets - Member Pass Style --%>
+            <div :if={@current_user != nil && length(@user_tickets) > 0} class="mb-12 space-y-6">
+              <%= for {order_id, order_tickets} <- group_tickets_by_order(@user_tickets) do %>
+                <% tiers_by_name = group_tickets_by_tier(order_tickets) %>
+                <% first_ticket = List.first(order_tickets) %>
+                <% ticket_order = first_ticket.ticket_order %>
+                <% order_label =
+                  if ticket_order && ticket_order.reference_id do
+                    ticket_order.reference_id
+                  else
+                    "Order ##{String.slice(order_id, 0, 8)}"
+                  end %>
+                <% purchase_date =
+                  if ticket_order && ticket_order.completed_at do
+                    Timex.format!(ticket_order.completed_at, "{Mshort} {D}, {YYYY}")
+                  else
+                    if first_ticket.inserted_at do
+                      Timex.format!(first_ticket.inserted_at, "{Mshort} {D}, {YYYY}")
+                    else
+                      nil
+                    end
+                  end %>
+                <div class="bg-zinc-900 rounded-xl p-10 text-white shadow-2xl relative overflow-hidden border border-white/5">
+                  <div class="relative z-10">
+                    <%!-- Order Label Badge --%>
+                    <div class="flex items-center justify-between mb-6">
+                      <div class="flex items-center gap-2">
+                        <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/30">
+                          <%= order_label %>
+                        </span>
+                        <%= if purchase_date do %>
+                          <span class="text-[10px] text-zinc-500 uppercase tracking-widest">
+                            • <%= purchase_date %>
+                          </span>
+                        <% end %>
+                      </div>
+                    </div>
 
-              <div class="items-center flex text-zinc-700 font-medium">
-                <.icon name="hero-calendar" class="me-2 w-5 h-5 text-zinc-500" />
-                <%= Ysc.Events.DateTimeFormatter.format_datetime(%{
-                  start_date: format_date(@event.start_date),
-                  start_time: format_time(@event.start_time),
-                  end_date: format_date(@event.end_date),
-                  end_time: format_time(@event.end_time)
-                }) %>
-              </div>
-
-              <div>
-                <add-to-calendar-button
-                  name={@event.title}
-                  startDate={date_for_add_to_cal(@event.start_date)}
-                  {if get_end_date_for_calendar(@event), do: [endDate: date_for_add_to_cal(get_end_date_for_calendar(@event))], else: []}
-                  options="'Apple','Google','iCal','Outlook.com','Yahoo'"
-                  startTime={@event.start_time}
-                  {if get_end_time_for_calendar(@event), do: [endTime: get_end_time_for_calendar(@event)], else: []}
-                  timeZone="America/Los_Angeles"
-                  location={@event.location_name}
-                  size="5"
-                  lightMode="bodyScheme"
-                >
-                </add-to-calendar-button>
-              </div>
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                      <div class="flex items-center gap-5">
+                        <div class="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center ring-1 ring-emerald-500/50">
+                          <.icon name="hero-check-badge-solid" class="w-8 h-8 text-emerald-500" />
+                        </div>
+                        <div>
+                          <h3 class="text-2xl font-black tracking-tight leading-none">
+                            Your Tickets
+                          </h3>
+                          <div class="mt-2 space-y-1">
+                            <%= for {tier_name, tickets} <- tiers_by_name do %>
+                              <p class="text-xs text-zinc-500 uppercase tracking-widest font-bold">
+                                <%= length(tickets) %>x <%= tier_name %>
+                              </p>
+                            <% end %>
+                          </div>
+                        </div>
+                      </div>
+                      <.link
+                        navigate={~p"/orders/#{order_id}/confirmation"}
+                        class="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                      >
+                        View Order
+                      </.link>
+                    </div>
+                  </div>
+                  <div class="absolute -right-12 -top-12 w-40 h-40 bg-emerald-500/10 blur-[80px] rounded-full">
+                  </div>
+                </div>
+              <% end %>
             </div>
 
-            <%!-- Location --%>
+            <%!-- Meta Info Row - Magazine Style --%>
+            <% has_duration = @event.start_time != nil && @event.end_time != nil %>
+            <div class={[
+              "grid gap-0 border border-zinc-100 rounded-xl overflow-hidden bg-white shadow-sm mb-12",
+              if has_duration do
+                "grid-cols-1 md:grid-cols-3"
+              else
+                "grid-cols-1 md:grid-cols-2"
+              end
+            ]}>
+              <div class={[
+                "p-8 border-b",
+                if has_duration do
+                  "md:border-b-0 md:border-r md:border-dashed border-zinc-200"
+                else
+                  "md:border-b-0 md:border-r md:border-dashed border-zinc-200"
+                end
+              ]}>
+                <p class="text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-2">
+                  When
+                </p>
+                <p class="font-black text-xl text-zinc-900 tracking-tighter leading-none">
+                  <%= if @event.start_date != nil do %>
+                    <%= Timex.format!(@event.start_date, "{Mshort} {D}") %>
+                  <% else %>
+                    TBD
+                  <% end %>
+                </p>
+                <p class="text-sm text-zinc-500 mt-2 font-medium">
+                  <%= if @event.start_time != nil do %>
+                    Starts at <%= case format_time(@event.start_time) do
+                      %Time{} = time -> Timex.format!(time, "{h12}:{m} {AM}")
+                      _ -> ""
+                    end %>
+                  <% else %>
+                    Time TBD
+                  <% end %>
+                </p>
+                <%= if !event_in_past?(@event) && @event.state != :cancelled do %>
+                  <div class="mt-3 inline-flex items-center gap-2 bg-blue-50 px-2 py-1 rounded-full">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                    <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                      Upcoming
+                    </span>
+                  </div>
+                <% end %>
+              </div>
+              <div class={[
+                "p-8 border-b",
+                if has_duration do
+                  "md:border-b-0 md:border-r md:border-dashed border-zinc-200"
+                else
+                  "md:border-b-0"
+                end
+              ]}>
+                <p class="text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-2">
+                  Where
+                </p>
+                <p class="font-black text-xl text-zinc-900 tracking-tighter leading-none">
+                  <%= if @event.location_name != nil && @event.location_name != "" do %>
+                    <%= @event.location_name %>
+                  <% else %>
+                    TBD
+                  <% end %>
+                </p>
+                <p class="text-sm text-zinc-500 mt-2 font-medium">
+                  <%= if @event.address != nil && @event.address != "" do %>
+                    <%= @event.address %>
+                  <% else %>
+                    Location TBD
+                  <% end %>
+                </p>
+              </div>
+              <%= if has_duration do %>
+                <div class="p-8 bg-zinc-50/30">
+                  <p class="text-xs font-black text-zinc-400 uppercase tracking-[0.2em] mb-2">
+                    Duration
+                  </p>
+                  <p class="font-black text-xl text-zinc-900 tracking-tighter leading-none">
+                    <%= case {format_time(@event.start_time), format_time(@event.end_time)} do
+                      {%Time{} = start_time, %Time{} = end_time} ->
+                        duration_minutes = Time.diff(end_time, start_time, :minute)
+                        hours = div(duration_minutes, 60)
+                        minutes = rem(duration_minutes, 60)
+
+                        cond do
+                          hours > 0 && minutes > 0 -> "#{hours}h #{minutes}m"
+                          hours > 0 -> "#{hours} Hour#{if hours > 1, do: "s", else: ""}"
+                          minutes > 0 -> "#{minutes} Minute#{if minutes > 1, do: "s", else: ""}"
+                          true -> "TBD"
+                        end
+
+                      _ ->
+                        "TBD"
+                    end %>
+                  </p>
+                </div>
+              <% end %>
+            </div>
+
+            <%!-- Location Details --%>
             <div
               :if={
                 (@event.location_name != "" && @event.location_name != nil) ||
@@ -152,7 +261,6 @@ defmodule YscWeb.EventDetailsLive do
               }
               class="space-y-4"
             >
-              <h3 class="text-zinc-800 text-2xl font-semibold">Location</h3>
               <div class="flex items-start gap-2">
                 <.icon name="hero-map-pin" class="w-5 h-5 text-zinc-500 mt-1" />
                 <div>
@@ -195,7 +303,10 @@ defmodule YscWeb.EventDetailsLive do
                   />
                 </button>
 
-                <div id="event-map" class="hidden rounded overflow-hidden">
+                <div
+                  id="event-map"
+                  class="hidden bg-zinc-50 rounded-2xl border border-zinc-200 overflow-hidden"
+                >
                   <.live_component
                     id={"#{@event.id}-map"}
                     module={YscWeb.Components.MapComponent}
@@ -217,10 +328,12 @@ defmodule YscWeb.EventDetailsLive do
             </div>
 
             <%!-- Agenda --%>
-            <div :if={length(@agendas) > 0} class="space-y-4">
-              <h3 class="text-zinc-800 text-2xl font-semibold">Agenda</h3>
+            <section :if={length(@agendas) > 0} class="space-y-6">
+              <h3 class="text-2xl font-black text-zinc-900 tracking-tight mb-12 flex items-center gap-3">
+                <span class="w-8 h-px bg-zinc-200"></span> Agenda
+              </h3>
 
-              <div :if={length(@agendas) > 1} class="py-2">
+              <div :if={length(@agendas) > 1} class="py-2 mb-8">
                 <ul class="flex flex-wrap gap-2 text-sm font-medium text-zinc-600">
                   <%= for agenda <- @agendas do %>
                     <li id={"agenda-selector-#{agenda.id}"}>
@@ -242,22 +355,36 @@ defmodule YscWeb.EventDetailsLive do
               </div>
 
               <%= for agenda <- @agendas do %>
-                <div :if={agenda.id == @active_agenda} class="space-y-3">
+                <div :if={agenda.id == @active_agenda} class="relative pl-8 space-y-12">
+                  <%!-- Vertical Timeline Line --%>
+                  <div class="absolute left-3 top-2 bottom-2 w-px bg-zinc-100"></div>
+
                   <%= for agenda_item <- agenda.agenda_items do %>
-                    <div
-                      class="rounded-lg py-3 px-4"
-                      style={"background-color: #{ULIDColor.generate_color_from_idx(agenda_item.position)}"}
-                    >
-                      <div
-                        class="border-l-2"
-                        style={"border-left-color: #{ULIDColor.generate_color_from_idx(agenda_item.position, :dark)}"}
-                      >
-                        <div class="px-3">
-                          <p class="text-sm font-semibold text-zinc-600">
+                    <% is_current = agenda_item_current?(agenda_item, @event) %>
+                    <div class="relative group">
+                      <div class={[
+                        "absolute -left-[25px] w-4 h-4 rounded-full border-4 border-white transition-all shadow-sm z-10 mt-1.5",
+                        if is_current do
+                          "bg-blue-600 animate-pulse"
+                        else
+                          "bg-zinc-200 group-hover:bg-blue-600 group-hover:scale-125"
+                        end
+                      ]}>
+                      </div>
+                      <div class="flex flex-col md:flex-row md:items-baseline gap-2 md:gap-8">
+                        <div class="w-36 flex-shrink-0">
+                          <span class="text-xs font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-widest whitespace-nowrap group-hover:bg-blue-600 group-hover:text-white transition-colors">
                             <%= format_start_end(agenda_item.start_time, agenda_item.end_time) %>
-                          </p>
-                          <p class="text-zinc-900 text-lg font-semibold"><%= agenda_item.title %></p>
-                          <p :if={agenda_item.description != nil} class="text-zinc-600 text-sm mt-2">
+                          </span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <h4 class="text-lg font-black text-zinc-900 tracking-tight leading-none group-hover:text-blue-600 transition-colors">
+                            <%= agenda_item.title %>
+                          </h4>
+                          <p
+                            :if={agenda_item.description != nil}
+                            class="text-sm text-zinc-500 font-light mt-2 leading-relaxed"
+                          >
                             <%= agenda_item.description %>
                           </p>
                         </div>
@@ -266,39 +393,44 @@ defmodule YscWeb.EventDetailsLive do
                   <% end %>
                 </div>
               <% end %>
-            </div>
+            </section>
 
             <%!-- Details --%>
-            <div class="space-y-4">
-              <h3 class="text-zinc-800 text-2xl font-semibold">Details</h3>
-              <div class="prose prose-zinc prose-base prose-a:text-blue-600 max-w-none pb-10 lg:pb-0">
+            <section class="space-y-6">
+              <h3 class="text-2xl font-black text-zinc-900 tracking-tight mb-6 flex items-center gap-3">
+                <span class="w-8 h-px bg-zinc-200"></span> Details
+              </h3>
+              <article class="prose prose-zinc prose-lg max-w-none text-zinc-600 font-light leading-relaxed">
                 <div id="article-body" class="post-render">
                   <%= raw(event_body(@event)) %>
                 </div>
-              </div>
-            </div>
+              </article>
+            </section>
           </div>
 
-          <%!-- Right Column: Sticky Ticket Sidebar (1/3 width on desktop) --%>
-          <div class="lg:col-span-1">
+          <%!-- Right Column: Sticky Ticket Sidebar (4/12 width on desktop) --%>
+          <aside class="lg:col-span-4">
             <%!-- Spacer for mobile bottom bar --%>
             <div class="h-36 lg:hidden"></div>
 
             <%!-- Desktop: Sticky sidebar --%>
-            <div :if={@event.state != :cancelled} class="hidden lg:block sticky top-8">
-              <div class="bg-white rounded shadow-lg border border-zinc-200 p-6 space-y-5">
+            <div :if={@event.state != :cancelled} class="hidden lg:block sticky top-24 space-y-8">
+              <div class="bg-white rounded-xl shadow-2xl border border-zinc-100 overflow-hidden">
                 <%= if event_in_past?(@event) do %>
-                  <div class="w-full text-center py-4">
-                    <div class="text-red-500 mb-2">
+                  <div class="p-8 text-center bg-zinc-50/50">
+                    <div class="text-red-500 mb-4">
                       <.icon name="hero-clock" class="w-10 h-10 mx-auto" />
                     </div>
                     <p class="text-red-700 font-semibold">Event has ended</p>
                     <p class="text-red-500 text-sm mt-1">Tickets are no longer available</p>
                   </div>
                 <% else %>
-                  <div class="text-center">
+                  <div class="p-8 text-center bg-zinc-50/50 shadow-[inset_0_-10px_20px_-15px_rgba(0,0,0,0.1)]">
+                    <p class="text-xs font-black text-zinc-400 uppercase tracking-[0.3em] mb-2">
+                      Admission
+                    </p>
                     <p class={[
-                      "font-bold text-2xl text-zinc-900",
+                      "text-4xl font-black text-zinc-900 tracking-tighter",
                       if event_at_capacity?(@event) do
                         "line-through"
                       else
@@ -307,7 +439,7 @@ defmodule YscWeb.EventDetailsLive do
                     ]}>
                       <%= @event.pricing_info.display_text %>
                     </p>
-                    <p :if={@event.start_date != nil} class="text-sm text-zinc-500 mt-1">
+                    <p :if={@event.start_date != nil} class="text-sm text-zinc-500 mt-2">
                       <%= format_start_date(@event.start_date) %>
                     </p>
                   </div>
@@ -316,136 +448,259 @@ defmodule YscWeb.EventDetailsLive do
                 <%= if event_in_past?(@event) do %>
                   <!-- No additional content for past events -->
                 <% else %>
-                  <div
-                    :if={@current_user == nil && has_ticket_tiers?(@event.id)}
-                    class="w-full space-y-4"
-                  >
-                    <div class="text-sm text-orange-700 px-3 py-2 bg-orange-50 rounded-lg border border-orange-200 text-center">
-                      <.icon
-                        name="hero-exclamation-circle"
-                        class="text-orange-500 w-5 h-5 me-1 -mt-0.5"
-                      /> You need to be signed in and have an active membership to purchase tickets
+                  <%!-- Ticket Perforation Line with Notch Cutouts --%>
+                  <div class="relative h-px border-t-2 border-dashed border-zinc-200 mx-4">
+                    <div class="absolute -left-11 -top-3 w-6 h-6 bg-white rounded-full border-r border-zinc-100 shadow-inner">
                     </div>
-                    <.button
-                      class="w-full"
-                      phx-click={
-                        JS.navigate(~p"/users/log-in?redirect_to=#{~p"/events/#{@event.id}"}")
-                      }
-                    >
-                      Sign In to Continue
-                    </.button>
-                  </div>
-
-                  <div
-                    :if={@current_user != nil && !@active_membership? && has_ticket_tiers?(@event.id)}
-                    class="w-full"
-                  >
-                    <div class="text-sm text-orange-700 px-3 py-2 bg-orange-50 rounded-lg border border-orange-200 text-center">
-                      <.icon
-                        name="hero-exclamation-circle"
-                        class="text-orange-500 w-5 h-5 me-1 -mt-0.5"
-                      /> Active membership required to purchase tickets
+                    <div class="absolute -right-11 -top-3 w-6 h-6 bg-white rounded-full border-l border-zinc-100 shadow-inner">
                     </div>
                   </div>
 
-                  <%= if has_ticket_tiers?(@event.id) do %>
-                    <%= if event_at_capacity?(@event) do %>
-                      <div class="w-full">
-                        <.tooltip tooltip_text="This event is sold out">
-                          <.button
-                            :if={@current_user != nil && @active_membership?}
-                            class="w-full opacity-50 cursor-not-allowed"
-                            disabled
-                          >
-                            <.icon name="hero-ticket" class="me-2 -mt-0.5" />Sold Out
-                          </.button>
-                        </.tooltip>
+                  <div class="p-8 space-y-6 shadow-[inset_0_10px_20px_-15px_rgba(0,0,0,0.05)]">
+                    <%= if event_selling_fast?(@event) && !event_at_capacity?(@event) do %>
+                      <% available_capacity = get_event_available_capacity(@event.id) %>
+                      <% sold_percentage = get_event_sold_percentage(@event) %>
+                      <div class="p-4 bg-orange-50 rounded-xl border border-orange-100 space-y-3">
+                        <div class="flex items-center gap-3">
+                          <div class="flex-shrink-0 w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                            <.icon name="hero-fire-solid" class="w-4 h-4 text-white" />
+                          </div>
+                          <p class="text-[11px] font-black text-orange-800 uppercase tracking-tight">
+                            Demand is High
+                          </p>
+                        </div>
+                        <%= if sold_percentage != nil do %>
+                          <div class="space-y-2">
+                            <div class="flex justify-between items-end">
+                              <p class="text-[10px] font-black text-orange-600 uppercase tracking-widest">
+                                Limited Availability
+                              </p>
+                              <p class="text-[10px] font-mono text-zinc-400">
+                                <%= sold_percentage %>% Booked
+                              </p>
+                            </div>
+                            <div class="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden">
+                              <div
+                                class="bg-orange-500 h-full transition-all duration-1000 animate-pulse"
+                                style={"width: #{sold_percentage}%"}
+                              >
+                              </div>
+                            </div>
+                          </div>
+                        <% else %>
+                          <p class="text-[11px] text-orange-700 font-medium">
+                            <%= if available_capacity != :unlimited && available_capacity <= 10 do
+                              "Less than #{available_capacity} spot#{if available_capacity == 1, do: "", else: "s"} remaining"
+                            else
+                              "Selling Fast"
+                            end %>
+                          </p>
+                        <% end %>
                       </div>
-                    <% else %>
-                      <.button
-                        :if={@current_user != nil && @active_membership?}
-                        class="w-full text-lg py-3"
-                        phx-click="open-ticket-modal"
-                      >
-                        <.icon name="hero-ticket" class="me-2 -mt-0.5" />Get Tickets
-                      </.button>
                     <% end %>
-                  <% else %>
-                    <div class="w-full text-center py-2">
-                      <p class="font-bold text-green-700 text-sm">No registration required</p>
+
+                    <div class="space-y-3">
+                      <%= if has_ticket_tiers?(@event.id) do %>
+                        <% available_capacity = get_event_available_capacity(@event.id) %>
+                        <div
+                          :if={available_capacity != :unlimited && !event_at_capacity?(@event)}
+                          class="flex items-center gap-3 text-sm text-zinc-600 font-medium"
+                        >
+                          <.icon name="hero-users" class="w-4 h-4 text-blue-500" />
+                          <%= available_capacity %> Spots Available
+                        </div>
+                        <div
+                          :if={@active_membership?}
+                          class="flex items-center gap-3 text-sm text-zinc-600 font-medium"
+                        >
+                          <.icon name="hero-check-badge" class="w-4 h-4 text-blue-500" />
+                          Member Exclusive
+                        </div>
+                      <% end %>
                     </div>
-                  <% end %>
+
+                    <div
+                      :if={@current_user == nil && has_ticket_tiers?(@event.id)}
+                      class="w-full space-y-4"
+                    >
+                      <div class="text-sm text-orange-700 px-3 py-2 bg-orange-50 rounded-lg border border-orange-200 text-center">
+                        <.icon
+                          name="hero-exclamation-circle"
+                          class="text-orange-500 w-5 h-5 me-1 -mt-0.5"
+                        /> You need to be signed in and have an active membership to purchase tickets
+                      </div>
+                      <.button
+                        class="w-full py-4 bg-zinc-900 text-white font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-blue-600 transition-all shadow-xl shadow-zinc-200 active:scale-95"
+                        phx-click={
+                          JS.navigate(~p"/users/log-in?redirect_to=#{~p"/events/#{@event.id}"}")
+                        }
+                      >
+                        Sign In to Continue
+                      </.button>
+                    </div>
+
+                    <div
+                      :if={
+                        @current_user != nil && !@active_membership? && has_ticket_tiers?(@event.id)
+                      }
+                      class="w-full"
+                    >
+                      <div class="text-sm text-orange-700 px-3 py-2 bg-orange-50 rounded-lg border border-orange-200 text-center">
+                        <.icon
+                          name="hero-exclamation-circle"
+                          class="text-orange-500 w-5 h-5 me-1 -mt-0.5"
+                        /> Active membership required to purchase tickets
+                      </div>
+                    </div>
+
+                    <%= if has_ticket_tiers?(@event.id) do %>
+                      <%= if event_at_capacity?(@event) do %>
+                        <div class="w-full">
+                          <.tooltip tooltip_text="This event is sold out">
+                            <.button
+                              :if={@current_user != nil && @active_membership?}
+                              class="w-full py-4 uppercase tracking-widest"
+                              disabled
+                            >
+                              <.icon name="hero-ticket" class="me-2 -mt-0.5" />Sold Out
+                            </.button>
+                          </.tooltip>
+                        </div>
+                      <% else %>
+                        <.button
+                          :if={@current_user != nil && @active_membership?}
+                          class="w-full py-4 uppercase tracking-widest"
+                          phx-click="open-ticket-modal"
+                        >
+                          <.icon name="hero-ticket" class="me-2 -mt-0.5" />Claim Your Spot
+                        </.button>
+                      <% end %>
+                    <% else %>
+                      <div class="w-full text-center py-2">
+                        <p class="font-bold text-green-700 text-sm">No registration required</p>
+                      </div>
+                    <% end %>
+                  </div>
                 <% end %>
+              </div>
+
+              <%!-- Add to Calendar --%>
+              <div class="p-6 rounded-xl border border-zinc-100 flex items-center justify-between">
+                <span class="text-sm font-bold text-zinc-900">Don't forget.</span>
+                <add-to-calendar-button
+                  name={@event.title}
+                  startDate={date_for_add_to_cal(@event.start_date)}
+                  {if get_end_date_for_calendar(@event), do: [endDate: date_for_add_to_cal(get_end_date_for_calendar(@event))], else: []}
+                  options="'Apple','Google','iCal','Outlook.com','Yahoo'"
+                  startTime={@event.start_time}
+                  {if get_end_time_for_calendar(@event), do: [endTime: get_end_time_for_calendar(@event)], else: []}
+                  timeZone="America/Los_Angeles"
+                  location={@event.location_name}
+                  size="4"
+                  lightMode="bodyScheme"
+                >
+                </add-to-calendar-button>
               </div>
             </div>
 
             <%!-- Mobile: Fixed bottom bar --%>
-            <div
-              :if={@event.state != :cancelled}
-              class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] px-4 py-6 z-50"
-            >
-              <div class="max-w-screen-md mx-auto flex items-center justify-between gap-4">
-                <%= if event_in_past?(@event) do %>
-                  <div class="flex-1 text-center">
-                    <div class="text-red-700 font-medium text-sm">
-                      Event Ended
-                    </div>
-                    <div class="text-red-500 text-xs mt-1">
-                      Tickets are no longer available
-                    </div>
-                  </div>
-                <% else %>
-                  <div class="flex-1 min-w-0">
-                    <p class={[
-                      "font-bold text-lg text-zinc-900 truncate",
-                      if event_at_capacity?(@event) do
-                        "line-through"
-                      else
-                        ""
-                      end
-                    ]}>
-                      <%= @event.pricing_info.display_text %>
-                    </p>
-                    <p :if={@event.start_date != nil} class="text-xs text-zinc-500 truncate">
-                      <%= format_start_date(@event.start_date) %>
-                    </p>
-                  </div>
-                <% end %>
+            <div :if={@event.state != :cancelled} class="lg:hidden fixed bottom-0 left-0 right-0 z-50">
+              <div class="h-8 bg-gradient-to-t from-white to-transparent"></div>
 
-                <%= if event_in_past?(@event) do %>
-                  <!-- No action button for past events -->
-                <% else %>
-                  <%= if @current_user == nil && has_ticket_tiers?(@event.id) do %>
-                    <.button phx-click={
-                      JS.navigate(~p"/users/log-in?redirect_to=#{~p"/events/#{@event.id}"}")
-                    }>
-                      Sign In
-                    </.button>
+              <div class="bg-white/95 backdrop-blur-md border-t border-zinc-100 px-6 py-5 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
+                <div class="max-w-screen-md mx-auto flex items-center justify-between gap-6">
+                  <%= if event_in_past?(@event) do %>
+                    <div class="flex-1 text-center">
+                      <div class="text-red-700 font-black text-base">
+                        Event Ended
+                      </div>
+                      <div class="text-red-500 text-xs mt-1">
+                        Tickets are no longer available
+                      </div>
+                    </div>
                   <% else %>
-                    <%= if has_ticket_tiers?(@event.id) do %>
-                      <%= if event_at_capacity?(@event) do %>
-                        <div class="text-red-700 font-medium text-sm text-center">
-                          Sold Out
-                        </div>
-                      <% else %>
-                        <%= if @active_membership? do %>
-                          <.button phx-click="open-ticket-modal">
-                            <.icon name="hero-ticket" class="me-1 -mt-0.5 w-4 h-4" />Get Tickets
-                          </.button>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 mb-0.5">
+                        <p class={[
+                          "font-black text-2xl text-zinc-900 tracking-tighter leading-none",
+                          if event_at_capacity?(@event) do
+                            "line-through"
+                          else
+                            ""
+                          end
+                        ]}>
+                          <%= @event.pricing_info.display_text %>
+                        </p>
+                        <%= if event_selling_fast?(@event) && !event_at_capacity?(@event) do %>
+                          <span class="text-[9px] font-black text-orange-600 uppercase tracking-widest bg-orange-50 px-1.5 py-0.5 rounded">
+                            Selling Fast
+                          </span>
                         <% else %>
-                          <div class="text-orange-700 font-medium text-sm text-center">
-                            Membership Required
-                          </div>
+                          <%= if event_live?(@event) do %>
+                            <span class="text-[9px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-1.5 py-0.5 rounded">
+                              Live
+                            </span>
+                          <% end %>
                         <% end %>
-                      <% end %>
+                      </div>
+                      <p
+                        :if={@event.start_date != nil}
+                        class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate"
+                      >
+                        <%= format_start_date(@event.start_date) %>
+                        <%= if @event.start_time != nil do %>
+                          • <%= case format_time(@event.start_time) do
+                            %Time{} = time -> Timex.format!(time, "{h12}:{m} {AM}")
+                            _ -> ""
+                          end %>
+                        <% end %>
+                      </p>
+                    </div>
+                  <% end %>
+
+                  <%= if event_in_past?(@event) do %>
+                    <!-- No action button for past events -->
+                  <% else %>
+                    <%= if @current_user == nil && has_ticket_tiers?(@event.id) do %>
+                      <.button
+                        class="flex-shrink-0 px-8 py-3.5 uppercase tracking-widest"
+                        phx-click={
+                          JS.navigate(~p"/users/log-in?redirect_to=#{~p"/events/#{@event.id}"}")
+                        }
+                      >
+                        <.icon name="hero-ticket" class="w-5 h-5 me-2 -mt-0.5" />Sign In
+                      </.button>
                     <% else %>
-                      <span class="text-sm font-bold text-green-700">No registration required</span>
+                      <%= if has_ticket_tiers?(@event.id) do %>
+                        <%= if event_at_capacity?(@event) do %>
+                          <div class="text-red-700 font-black text-sm text-center">
+                            Sold Out
+                          </div>
+                        <% else %>
+                          <%= if @active_membership? do %>
+                            <.button
+                              class="flex-shrink-0 px-8 py-3.5 uppercase tracking-widest"
+                              phx-click="open-ticket-modal"
+                            >
+                              <.icon name="hero-ticket" class="w-5 h-5 me-2 -mt-0.5" />Get Tickets
+                            </.button>
+                          <% else %>
+                            <div class="text-orange-700 font-black text-sm text-center">
+                              Membership Required
+                            </div>
+                          <% end %>
+                        <% end %>
+                      <% else %>
+                        <span class="text-xs font-black text-green-700 uppercase tracking-widest">
+                          No registration required
+                        </span>
+                      <% end %>
                     <% end %>
                   <% end %>
-                <% end %>
+                </div>
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </div>
@@ -798,7 +1053,7 @@ defmodule YscWeb.EventDetailsLive do
                     <.icon name="hero-shopping-cart" class="w-8 h-8 mx-auto" />
                   </div>
                   <p class="text-zinc-500 text-sm">No tickets selected</p>
-                  <p class="hidden lg:block text-zinc-400 text-xs mt-1">
+                  <p class="hidden lg:block text-zinc-400 text-sm mt-1">
                     Select tickets from the left to see your order
                   </p>
                 </div>
@@ -2242,15 +2497,6 @@ defmodule YscWeb.EventDetailsLive do
   defp default_active_agenda([]), do: nil
   defp default_active_agenda(agendas), do: hd(agendas).id
 
-  defp format_date(nil), do: ""
-  defp format_date(""), do: ""
-
-  defp format_date(dt) when is_binary(dt) do
-    Timex.parse!(dt, "{ISO:Extended}")
-  end
-
-  defp format_date(dt), do: dt
-
   defp format_time(nil), do: nil
   defp format_time(""), do: nil
 
@@ -2733,6 +2979,19 @@ defmodule YscWeb.EventDetailsLive do
     |> Enum.sort_by(fn {_tier_name, tickets} -> length(tickets) end, :desc)
   end
 
+  defp group_tickets_by_order(tickets) do
+    tickets
+    |> Enum.filter(&(&1.ticket_order_id != nil))
+    |> Enum.group_by(& &1.ticket_order_id)
+    |> Enum.sort_by(
+      fn {_order_id, order_tickets} ->
+        # Sort by the most recent ticket's inserted_at (most recent orders first)
+        List.first(order_tickets).inserted_at
+      end,
+      {:desc, DateTime}
+    )
+  end
+
   defp format_donation_amount(selected_tickets, tier_id) do
     case Map.get(selected_tickets, tier_id) do
       nil ->
@@ -2840,12 +3099,6 @@ defmodule YscWeb.EventDetailsLive do
     end
   end
 
-  # Helper function to calculate donation amount for grouped tickets
-  defp get_donation_amount_for_tickets(tickets) do
-    ticket = List.first(tickets)
-    get_donation_amount_for_single_ticket(ticket)
-  end
-
   # Helper function to calculate donation amount for a single ticket
   defp get_donation_amount_for_single_ticket(ticket) do
     if ticket.ticket_order do
@@ -2912,6 +3165,124 @@ defmodule YscWeb.EventDetailsLive do
       end
     else
       "Donation"
+    end
+  end
+
+  # Check if event is "selling fast" (based on recent ticket sales)
+  # Uses the same logic as Events.event_selling_fast?/1:
+  # An event is "selling fast" if it has sold 10 or more non-donation tickets in the last 3 days
+  defp event_selling_fast?(event) do
+    Events.event_selling_fast?(event.id)
+  end
+
+  # Calculate the percentage of tickets sold for an event
+  defp get_event_sold_percentage(event) do
+    if event.max_attendees != nil && event.max_attendees > 0 do
+      case Ysc.Tickets.BookingLocker.check_availability_with_lock(event.id) do
+        {:ok, availability} ->
+          event_capacity = availability.event_capacity
+          max_attendees = event_capacity.max_attendees
+
+          if max_attendees != nil && max_attendees > 0 do
+            current_attendees = event_capacity.current_attendees
+            percentage = round(current_attendees / max_attendees * 100)
+            min(percentage, 100)
+          else
+            nil
+          end
+
+        {:error, _} ->
+          nil
+      end
+    else
+      nil
+    end
+  end
+
+  # Check if event is currently "live" (happening now in PST)
+  defp event_live?(event) do
+    if event.start_date != nil && event.start_time != nil &&
+         event.end_time != nil do
+      # Get current time in PST
+      now_pst = DateTime.now!("America/Los_Angeles")
+      now_time_pst = DateTime.to_time(now_pst)
+      today_pst = DateTime.to_date(now_pst)
+
+      # Get event date in PST
+      event_date_pst =
+        case event.start_date do
+          %DateTime{} = dt ->
+            dt_pst = DateTime.shift_zone!(dt, "America/Los_Angeles")
+            DateTime.to_date(dt_pst)
+
+          %Date{} = d ->
+            d
+
+          _ ->
+            nil
+        end
+
+      # Check if event is happening today
+      if event_date_pst == today_pst do
+        # Get start and end times
+        start_time = format_time(event.start_time)
+        end_time = format_time(event.end_time)
+
+        case {start_time, end_time} do
+          {%Time{} = start, %Time{} = end_time_val} ->
+            # Check if current time is between start and end times
+            Time.compare(now_time_pst, start) != :lt &&
+              Time.compare(now_time_pst, end_time_val) != :gt
+
+          _ ->
+            false
+        end
+      else
+        false
+      end
+    else
+      false
+    end
+  end
+
+  # Check if an agenda item is currently happening (between start_time and end_time)
+  # All comparisons are done in PST timezone since events are in PST
+  defp agenda_item_current?(agenda_item, event) do
+    # Only check if event is happening today and has start_date/start_time
+    if event.start_date != nil && event.start_time != nil &&
+         agenda_item.start_time != nil && agenda_item.end_time != nil do
+      # Get current time in PST
+      now_pst = DateTime.now!("America/Los_Angeles")
+      now_time_pst = DateTime.to_time(now_pst)
+      today_pst = DateTime.to_date(now_pst)
+
+      # Get event date in PST (convert DateTime to PST first if needed, then get Date)
+      event_date_pst =
+        case event.start_date do
+          %DateTime{} = dt ->
+            # Convert UTC DateTime to PST, then get the date
+            dt_pst = DateTime.shift_zone!(dt, "America/Los_Angeles")
+            DateTime.to_date(dt_pst)
+
+          %Date{} = d ->
+            # Date structs don't have timezone, use as-is
+            d
+
+          _ ->
+            nil
+        end
+
+      # Only show pulse if event is happening today (in PST)
+      if event_date_pst == today_pst do
+        # Check if current time (in PST) is between agenda item start and end times
+        # Agenda item times are stored as Time structs and are in PST context
+        Time.compare(now_time_pst, agenda_item.start_time) != :lt &&
+          Time.compare(now_time_pst, agenda_item.end_time) != :gt
+      else
+        false
+      end
+    else
+      false
     end
   end
 end
