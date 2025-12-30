@@ -154,7 +154,7 @@ defmodule YscWeb.EventsLive do
           <div class="max-w-screen-xl mx-auto px-4">
             <h2 class="text-3xl font-black text-zinc-300 tracking-tighter italic mb-12 group relative inline-block">
               <span class="inline-block transition-all duration-500 ease-in-out group-hover:-translate-y-full group-hover:opacity-0">
-                Det som varit
+                <%= random_past_events_title() %>
               </span>
               <span class="absolute left-0 top-0 inline-block transition-all duration-500 ease-in-out translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 whitespace-nowrap">
                 What Was
@@ -564,5 +564,10 @@ defmodule YscWeb.EventsLive do
         available = qty - sold_count
         max(0, available)
     end
+  end
+
+  defp random_past_events_title do
+    ["Hvad var", "Det Som Varit", "Hva var", "Mikä oli", "Hvað var"]
+    |> Enum.random()
   end
 end

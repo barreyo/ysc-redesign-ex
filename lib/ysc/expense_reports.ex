@@ -823,6 +823,8 @@ defmodule Ysc.ExpenseReports do
     end
   end
 
+  def can_access_file?(_, _), do: {:error, :not_found}
+
   # Normalizes S3 path by removing bucket name prefix if present
   # The database stores just the key (e.g., "receipts/..."), not "bucket-name/receipts/..."
   defp normalize_s3_path(s3_path) do
@@ -858,6 +860,4 @@ defmodule Ysc.ExpenseReports do
         false
     end
   end
-
-  def can_access_file?(_, _), do: {:error, :not_found}
 end
