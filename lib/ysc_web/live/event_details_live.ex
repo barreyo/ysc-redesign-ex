@@ -15,7 +15,7 @@ defmodule YscWeb.EventDetailsLive do
     <div class="min-h-screen">
       <%!-- Split-Header: Event Cover Image with Floating Card --%>
       <div class="max-w-screen-xl mx-auto px-4 pt-8">
-        <div class="relative mb-16 lg:mb-24">
+        <div class="relative mb-24 lg:mb-32">
           <%!-- Image with rounded corners and gradient overlay --%>
           <div class="rounded-2xl overflow-hidden relative">
             <.live_component
@@ -32,7 +32,7 @@ defmodule YscWeb.EventDetailsLive do
 
           <%!-- Floating Card with Title/Date/Location - Overlaps bottom of image --%>
           <div class="absolute bottom-0 left-0 right-0 transform translate-y-1/2 px-4 lg:px-8 z-10">
-            <div class="bg-white rounded-xl shadow-2xl border border-zinc-100 p-8 lg:p-10">
+            <div class="bg-white rounded-xl shadow-2xl border border-zinc-100 p-6 lg:p-10">
               <div class="space-y-4">
                 <p :if={@event.state == :cancelled} class="font-semibold text-red-600">
                   // This event has been cancelled //
@@ -79,7 +79,7 @@ defmodule YscWeb.EventDetailsLive do
       </div>
 
       <%!-- Main Content Grid --%>
-      <div class="max-w-screen-xl mx-auto px-4 py-12 lg:py-16">
+      <div class="max-w-screen-xl mx-auto px-4 pt-8 pb-12 lg:py-16">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <%!-- Left Column: Event Details (8/12 width on desktop) --%>
           <div class="lg:col-span-8 space-y-16">

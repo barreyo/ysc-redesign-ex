@@ -12,8 +12,11 @@ defmodule YscWeb.EventsLive do
       <%!-- The "Masthead" Header --%>
       <div class="max-w-screen-xl mx-auto px-4 mb-16">
         <div class="text-center py-12 border-y border-zinc-200">
-          <h1 class="text-6xl md:text-8xl font-black text-zinc-900 tracking-tighter">
+          <p class="text-xs font-black text-blue-400 uppercase tracking-widest mb-4">
             Events
+          </p>
+          <h1 class="text-6xl md:text-8xl font-black text-zinc-900 tracking-tighter">
+            What's Next
           </h1>
         </div>
       </div>
@@ -49,54 +52,64 @@ defmodule YscWeb.EventsLive do
               />
 
               <%!-- Overlay gradient for text readability --%>
-              <div class="absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900/80 via-zinc-900/40 to-transparent">
+              <div class="absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900/90 via-zinc-900/50 to-transparent">
               </div>
 
               <%!-- Content overlay --%>
-              <div class="absolute inset-0 z-[3] flex flex-col justify-end p-8 md:p-12">
+              <div class="absolute inset-0 z-[3] flex flex-col justify-end p-4 sm:p-6 md:p-8 lg:p-12">
                 <div class="max-w-3xl">
-                  <div class="flex items-center gap-2 mb-4 flex-wrap">
-                    <span class="px-3 py-1.5 bg-blue-500/90 backdrop-blur-md border border-blue-400 text-white text-xs font-black uppercase tracking-widest rounded-lg shadow-sm">
-                      <.icon name="hero-calendar-solid" class="w-3.5 h-3.5 inline me-1" />Happening Soon
+                  <div class="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3 md:mb-4 flex-wrap">
+                    <span class="px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-500/90 backdrop-blur-md border border-blue-400 text-white text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-lg shadow-sm">
+                      <.icon
+                        name="hero-calendar-solid"
+                        class="w-3 h-3 sm:w-3.5 sm:h-3.5 inline me-0.5 sm:me-1"
+                      />Happening Soon
                     </span>
                     <%= for badge <- get_hero_event_badges(@hero_event) do %>
                       <span class={[
-                        "px-3 py-1.5 backdrop-blur-md border rounded-lg text-xs font-black uppercase tracking-widest shadow-sm",
+                        "px-2 sm:px-3 py-1 sm:py-1.5 backdrop-blur-md border rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest shadow-sm",
                         badge_class(badge)
                       ]}>
-                        <.icon :if={badge.icon} name={badge.icon} class="w-3.5 h-3.5 inline me-1" />
+                        <.icon
+                          :if={badge.icon}
+                          name={badge.icon}
+                          class="w-3 h-3 sm:w-3.5 sm:h-3.5 inline me-0.5 sm:me-1"
+                        />
                         <%= badge.text %>
                       </span>
                     <% end %>
                   </div>
 
-                  <div class="flex items-center gap-3 mb-4 text-white/90">
-                    <span class="text-sm md:text-base font-black text-white uppercase tracking-[0.2em]">
+                  <div class="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 md:mb-4 text-white/90 flex-wrap">
+                    <span class="text-xs sm:text-sm md:text-base font-black text-white uppercase tracking-[0.2em]">
                       <%= format_event_date_time(@hero_event) %>
                     </span>
-                    <span :if={@hero_event.location_name} class="h-4 w-px bg-white/40"></span>
+                    <span :if={@hero_event.location_name} class="h-3 sm:h-4 w-px bg-white/40"></span>
                     <span
                       :if={@hero_event.location_name}
-                      class="text-sm md:text-base font-bold text-white/80 uppercase tracking-widest"
+                      class="text-xs sm:text-sm md:text-base font-bold text-white/80 uppercase tracking-widest"
                     >
-                      <.icon name="hero-map-pin" class="w-4 h-4 inline me-1" />
+                      <.icon
+                        name="hero-map-pin"
+                        class="w-3.5 h-3.5 sm:w-4 sm:h-4 inline me-0.5 sm:me-1"
+                      />
                       <%= @hero_event.location_name %>
                     </span>
                   </div>
 
-                  <h2 class="font-black text-zinc-50 text-4xl md:text-5xl lg:text-6xl leading-tight tracking-tighter mb-4 group-hover:text-white transition-colors">
+                  <h2 class="font-black text-zinc-50 text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl leading-tight tracking-tighter mb-2 sm:mb-3 md:mb-4 group-hover:text-white transition-colors">
                     <%= @hero_event.title %>
                   </h2>
 
                   <p
                     :if={@hero_event.description}
-                    class="text-zinc-200 text-base md:text-lg leading-relaxed line-clamp-3 mb-6"
+                    class="text-zinc-200 text-sm sm:text-base md:text-lg leading-relaxed line-clamp-2 sm:line-clamp-3 mb-3 sm:mb-4 md:mb-6"
                   >
                     <%= @hero_event.description %>
                   </p>
 
-                  <div class="flex items-center gap-3 pt-4 border-t border-white/20">
-                    <span class="bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl text-zinc-900 text-base font-black shadow-sm ring-1 ring-black/5">
+                  <div class="flex items-center gap-2 sm:gap-3 pt-2 sm:pt-3 md:pt-4 border-t border-white/20">
+                    <span class="bg-white/90 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-zinc-900 text-sm sm:text-base font-black shadow-sm ring-1 ring-black/5">
                       <%= @hero_event.pricing_info.display_text %>
                     </span>
                   </div>
@@ -139,8 +152,13 @@ defmodule YscWeb.EventsLive do
       <%= if @past_events_exist do %>
         <section class="mt-32 pt-16 border-t border-zinc-100">
           <div class="max-w-screen-xl mx-auto px-4">
-            <h2 class="text-3xl font-black text-zinc-300 tracking-tighter italic mb-12">
-              Past Events
+            <h2 class="text-3xl font-black text-zinc-300 tracking-tighter italic mb-12 group relative inline-block">
+              <span class="inline-block transition-all duration-500 ease-in-out group-hover:-translate-y-full group-hover:opacity-0">
+                Det som varit
+              </span>
+              <span class="absolute left-0 top-0 inline-block transition-all duration-500 ease-in-out translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 whitespace-nowrap">
+                What Was
+              </span>
             </h2>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div

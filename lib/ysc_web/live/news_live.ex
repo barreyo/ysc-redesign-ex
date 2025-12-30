@@ -62,51 +62,54 @@ defmodule YscWeb.NewsLive do
               />
 
               <%!-- Overlay gradient for text readability --%>
-              <div class="absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900/80 via-zinc-900/40 to-transparent">
+              <div class="absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900/90 via-zinc-900/50 to-transparent">
               </div>
 
               <%!-- Content overlay --%>
-              <div class="absolute inset-0 z-[3] flex flex-col justify-end p-8 md:p-12">
+              <div class="absolute inset-0 z-[3] flex flex-col justify-end p-4 sm:p-6 md:p-8 lg:p-12">
                 <div class="max-w-3xl">
-                  <div class="flex items-center gap-2 mb-4">
-                    <span class="px-3 py-1 bg-amber-50/90 backdrop-blur-md border border-amber-200 text-amber-700 text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm">
-                      <.icon name="hero-star-solid" class="w-3 h-3 inline me-1" />Pinned News
+                  <div class="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3 md:mb-4">
+                    <span class="px-2 sm:px-3 py-0.5 sm:py-1 bg-amber-50/90 backdrop-blur-md border border-amber-200 text-amber-700 text-[8px] sm:text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm">
+                      <.icon
+                        name="hero-star-solid"
+                        class="w-2.5 h-2.5 sm:w-3 sm:h-3 inline me-0.5 sm:me-1"
+                      />Pinned News
                     </span>
                   </div>
 
-                  <div class="flex items-center gap-3 mb-4 text-white/90">
-                    <span class="text-[10px] font-black text-white uppercase tracking-[0.2em]">
+                  <div class="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 md:mb-4 text-white/90 flex-wrap">
+                    <span class="text-[9px] sm:text-[10px] font-black text-white uppercase tracking-[0.2em]">
                       <%= Timex.format!(@featured.published_on, "{Mshort} {D}, {YYYY}") %>
                     </span>
-                    <span class="h-3 w-px bg-white/40"></span>
-                    <span class="text-[10px] font-bold text-white/80 uppercase tracking-widest">
+                    <span class="h-2.5 sm:h-3 w-px bg-white/40"></span>
+                    <span class="text-[9px] sm:text-[10px] font-bold text-white/80 uppercase tracking-widest">
                       <%= reading_time(@featured) %> min read
                     </span>
                   </div>
 
-                  <h2 class="font-black text-zinc-50 text-4xl md:text-5xl lg:text-6xl leading-tight tracking-tighter mb-4 group-hover:text-white transition-colors">
+                  <h2 class="font-black text-zinc-50 text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl leading-tight tracking-tighter mb-2 sm:mb-3 md:mb-4 group-hover:text-white transition-colors">
                     <%= @featured.title %>
                   </h2>
 
-                  <article class="text-zinc-200 text-base md:text-lg leading-relaxed line-clamp-3 mb-6">
+                  <article class="text-zinc-200 text-sm sm:text-base md:text-lg leading-relaxed line-clamp-2 sm:line-clamp-3 mb-3 sm:mb-4 md:mb-6">
                     <%= raw(preview_text(@featured)) %>
                   </article>
 
-                  <div class="flex items-center gap-3 pt-4 border-t border-white/20">
+                  <div class="flex items-center gap-2 sm:gap-3 pt-2 sm:pt-3 md:pt-4 border-t border-white/20">
                     <.user_avatar_image
                       email={@featured.author.email}
                       user_id={@featured.author.id}
                       country={@featured.author.most_connected_country}
-                      class="w-10 h-10 rounded-full ring-2 ring-white/30"
+                      class="w-8 h-8 sm:w-10 sm:h-10 rounded-full ring-2 ring-white/30"
                     />
                     <div>
-                      <p class="text-sm font-black text-white leading-tight">
+                      <p class="text-xs sm:text-sm font-black text-white leading-tight">
                         <%= String.capitalize(@featured.author.first_name || "") %>
                         <%= String.capitalize(@featured.author.last_name || "") %>
                       </p>
                       <p
                         :if={@featured.author.board_position}
-                        class="text-xs text-white/80 font-medium mt-0.5"
+                        class="text-[10px] sm:text-xs text-white/80 font-medium mt-0.5"
                       >
                         YSC <%= format_board_position(@featured.author.board_position) %>
                       </p>
