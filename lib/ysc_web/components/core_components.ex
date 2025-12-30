@@ -1852,7 +1852,7 @@ defmodule YscWeb.CoreComponents do
     <div class="flex flex-wrap gap-2">
       <.badge :for={{type, text} <- @badges} type={type} class="text-xs font-medium">
         <.icon
-          :if={text == "Selling Fast!"}
+          :if={text == "Going Fast!"}
           name="hero-bolt-solid"
           class="w-3 h-3 inline-block me-0.5 -mt-0.5"
         />
@@ -1952,13 +1952,22 @@ defmodule YscWeb.CoreComponents do
     # Add "Selling Fast!" badge if applicable (always show when true)
     selling_fast_badge =
       if selling_fast do
-        [{"yellow", "Selling Fast!"}]
+        [{"yellow", "Going Fast!"}]
       else
         []
       end
 
     badges = badges ++ selling_fast_badge
     badges
+  end
+
+  attr :event, :any, required: true
+  attr :class, :string, default: nil
+  attr :sold_out, :boolean, default: false
+  attr :selling_fast, :boolean, default: false
+
+  def event_card(assigns) do
+    YscWeb.Components.Events.EventCard.event_card(assigns)
   end
 
   # Helper function to calculate days until event starts

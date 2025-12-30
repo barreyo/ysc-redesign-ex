@@ -141,7 +141,7 @@ defmodule YscWeb.EventDetailsLive do
                       </div>
                       <.link
                         navigate={~p"/orders/#{order_id}/confirmation"}
-                        class="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                        class="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded text-xs font-black uppercase tracking-widest transition-all"
                       >
                         View Order
                       </.link>
@@ -492,7 +492,7 @@ defmodule YscWeb.EventDetailsLive do
                             <%= if available_capacity != :unlimited && available_capacity <= 10 do
                               "Less than #{available_capacity} spot#{if available_capacity == 1, do: "", else: "s"} remaining"
                             else
-                              "Selling Fast"
+                              "Going Fast"
                             end %>
                           </p>
                         <% end %>
@@ -585,7 +585,10 @@ defmodule YscWeb.EventDetailsLive do
               </div>
 
               <%!-- Add to Calendar --%>
-              <div class="p-6 rounded-xl border border-zinc-100 flex items-center justify-between">
+              <div
+                :if={!event_in_past?(@event)}
+                class="p-6 rounded-xl border border-zinc-100 flex items-center justify-between"
+              >
                 <span class="text-sm font-bold text-zinc-900">Don't forget.</span>
                 <add-to-calendar-button
                   name={@event.title}
@@ -633,7 +636,7 @@ defmodule YscWeb.EventDetailsLive do
                         </p>
                         <%= if event_selling_fast?(@event) && !event_at_capacity?(@event) do %>
                           <span class="text-[9px] font-black text-orange-600 uppercase tracking-widest bg-orange-50 px-1.5 py-0.5 rounded">
-                            Selling Fast
+                            Going Fast
                           </span>
                         <% else %>
                           <%= if event_live?(@event) do %>

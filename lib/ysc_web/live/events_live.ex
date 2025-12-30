@@ -404,7 +404,7 @@ defmodule YscWeb.EventsLive do
         if selling_fast do
           [
             %{
-              text: "Selling Fast!",
+              text: "Going Fast!",
               class: "bg-amber-500/90 border-amber-400 text-white",
               icon: "hero-bolt-solid"
             }

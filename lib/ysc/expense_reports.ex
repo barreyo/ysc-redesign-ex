@@ -744,10 +744,120 @@ defmodule Ysc.ExpenseReports do
 
   @doc """
   Constructs the full URL for an expense report receipt/proof stored in S3.
+  Returns a controller route that generates presigned URLs for secure access.
   """
   def receipt_url(s3_path) when is_binary(s3_path) do
-    S3Config.object_url(s3_path, S3Config.expense_reports_bucket_name())
+    # Base64 encode the S3 path to safely handle special characters in the URL
+    encoded_path = Base.url_encode64(s3_path, padding: false)
+    "/expensereport/files/#{encoded_path}"
   end
 
   def receipt_url(_), do: nil
+
+  @doc """
+  Checks if a user can access a file by verifying they own the expense report
+  that contains the file, or if they are an admin. Also allows access to recently
+  uploaded files (within 24 hours) that haven't been submitted yet, so users can
+  preview their uploads during form editing.
+
+  Returns:
+  - `{:ok, expense_report}` if the user has access (expense_report may be nil for unsaved reports)
+  - `{:error, :not_found}` if the file is not found in any expense report and not recently uploaded
+  - `{:error, :unauthorized}` if the user does not own the expense report and is not an admin
+  """
+  def can_access_file?(%User{} = user, s3_path) when is_binary(s3_path) do
+    # Check if user is admin - admins can access any file
+    is_admin = user.role == :admin
+
+    # Normalize the S3 path - remove bucket name prefix if present
+    # The database stores just the key (e.g., "receipts/..."), not "bucket-name/receipts/..."
+    normalized_path = normalize_s3_path(s3_path)
+
+    # First, try to find the file in expense_report_items (for submitted reports)
+    expense_item_query =
+      from eri in ExpenseReportItem,
+        join: er in ExpenseReport,
+        on: eri.expense_report_id == er.id,
+        where: eri.receipt_s3_path == ^normalized_path,
+        select: er
+
+    expense_report = Repo.one(expense_item_query)
+
+    if expense_report do
+      # Check if user owns the report or is admin
+      if expense_report.user_id == user.id || is_admin do
+        {:ok, expense_report}
+      else
+        {:error, :unauthorized}
+      end
+    else
+      # If not found in expense items, check income items (for submitted reports)
+      income_item_query =
+        from erii in ExpenseReportIncomeItem,
+          join: er in ExpenseReport,
+          on: erii.expense_report_id == er.id,
+          where: erii.proof_s3_path == ^normalized_path,
+          select: er
+
+      expense_report = Repo.one(income_item_query)
+
+      if expense_report do
+        # Check if user owns the report or is admin
+        if expense_report.user_id == user.id || is_admin do
+          {:ok, expense_report}
+        else
+          {:error, :unauthorized}
+        end
+      else
+        # File not found in any submitted expense report
+        # Check if it's a recently uploaded file (for preview during form editing)
+        # Files uploaded via LiveView have timestamps in their names like: receipts/1767121378_filename
+        if is_recently_uploaded_file?(normalized_path) do
+          # Allow access to recently uploaded files (within 24 hours)
+          # This allows users to preview their uploads before submitting the form
+          {:ok, nil}
+        else
+          {:error, :not_found}
+        end
+      end
+    end
+  end
+
+  # Normalizes S3 path by removing bucket name prefix if present
+  # The database stores just the key (e.g., "receipts/..."), not "bucket-name/receipts/..."
+  defp normalize_s3_path(s3_path) do
+    bucket_name = S3Config.expense_reports_bucket_name()
+    prefix = "#{bucket_name}/"
+
+    if String.starts_with?(s3_path, prefix) do
+      String.replace_prefix(s3_path, prefix, "")
+    else
+      s3_path
+    end
+  end
+
+  # Checks if a file was recently uploaded (within 24 hours) based on timestamp in filename
+  # LiveView uploads have format: receipts/TIMESTAMP_filename
+  defp is_recently_uploaded_file?(s3_path) do
+    # Extract timestamp from path like "receipts/1767121378_filename" or "receipts/1767121378_live_view_upload-..."
+    case Regex.run(~r/receipts\/(\d+)_/, s3_path) || Regex.run(~r/proofs\/(\d+)_/, s3_path) do
+      [_full_match, timestamp_str] ->
+        case Integer.parse(timestamp_str) do
+          {timestamp, _} ->
+            # Check if timestamp is within last 24 hours
+            file_time = DateTime.from_unix!(timestamp, :second)
+            now = DateTime.utc_now()
+            hours_ago = DateTime.diff(now, file_time, :hour)
+            hours_ago <= 24
+
+          :error ->
+            false
+        end
+
+      _ ->
+        false
+    end
+  end
+
+  def can_access_file?(_, _), do: {:error, :not_found}
 end

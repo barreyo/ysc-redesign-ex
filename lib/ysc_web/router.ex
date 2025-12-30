@@ -187,6 +187,7 @@ defmodule YscWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     get "/financials", PageController, :financials
+    get "/expensereport/files/:encoded_path", ExpenseReportFileController, :show
 
     live_session :require_authenticated_user,
       on_mount: [

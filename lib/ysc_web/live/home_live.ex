@@ -1201,77 +1201,14 @@ defmodule YscWeb.HomeLive do
 
             <div
               :if={!Enum.empty?(@upcoming_events)}
-              class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
             >
               <%= for event <- Enum.take(@upcoming_events, 3) do %>
-                <div class={[
-                  "flex flex-col rounded",
-                  event.state == :cancelled && "opacity-70"
-                ]}>
-                  <.link
-                    navigate={~p"/events/#{event.id}"}
-                    class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
-                  >
-                    <.live_component
-                      id={"dashboard-event-cover-#{event.id}"}
-                      module={YscWeb.Components.Image}
-                      image_id={event.image_id}
-                      image={Map.get(event, :image)}
-                    />
-                  </.link>
-
-                  <div class="flex flex-col py-3 px-2 space-y-2">
-                    <div>
-                      <.event_badge
-                        event={event}
-                        sold_out={event_sold_out?(event)}
-                        selling_fast={Map.get(event, :selling_fast, false)}
-                      />
-                    </div>
-
-                    <.link
-                      navigate={~p"/events/#{event.id}"}
-                      class="text-2xl md:text-xl leading-6 font-black text-zinc-900 text-pretty hover:text-teal-600 transition-colors"
-                    >
-                      <%= event.title %>
-                    </.link>
-
-                    <div class="space-y-0.5">
-                      <p class="font-bold text-sm text-zinc-800">
-                        <%= Timex.format!(event.start_date, "{WDshort}, {Mshort} {D}") %><span :if={
-                          event.start_time != nil && event.start_time != ""
-                        }>
-                        • <%= format_start_time(event.start_time) %>
-                      </span>
-                      </p>
-
-                      <p
-                        :if={event.location_name != nil && event.location_name != ""}
-                        class="text-zinc-800 text-sm"
-                      >
-                        <%= event.location_name %>
-                      </p>
-                    </div>
-
-                    <p class="text-sm text-pretty text-zinc-600 py-1"><%= event.description %></p>
-
-                    <div
-                      :if={event.state != :cancelled}
-                      class="flex flex-row space-x-2 pt-2 items-center"
-                    >
-                      <p class={[
-                        "text-sm font-bold",
-                        if event_sold_out?(event) do
-                          "text-zinc-800 line-through"
-                        else
-                          "text-zinc-800"
-                        end
-                      ]}>
-                        <%= event.pricing_info.display_text %>
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <.event_card
+                  event={event}
+                  sold_out={event_sold_out?(event)}
+                  selling_fast={Map.get(event, :selling_fast, false)}
+                />
               <% end %>
             </div>
           </div>

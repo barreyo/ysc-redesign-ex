@@ -1447,11 +1447,13 @@ defmodule YscWeb.UserSettingsLive do
     address_changeset = Accounts.change_billing_address(user)
 
     public_key = Application.get_env(:stripity_stripe, :public_key)
-    default_payment_method = Ysc.Payments.get_default_payment_method(user)
 
+    # Optimize: Load payment methods once and derive default from the list
     all_payment_methods =
       Ysc.Payments.list_payment_methods(user)
       |> Enum.sort_by(fn pm -> {!pm.is_default, pm.inserted_at} end)
+
+    default_payment_method = Enum.find(all_payment_methods, & &1.is_default)
 
     membership_plans = Application.get_env(:ysc, :membership_plans)
 
@@ -1460,7 +1462,27 @@ defmodule YscWeb.UserSettingsLive do
 
     # This is all very dumb, but it's just a quick way to get the current membership status
     current_membership = socket.assigns.current_membership
-    family_plan_active? = Customers.subscribed_to_price?(user, get_price_id(:family))
+
+    # Optimize: Use already preloaded subscriptions from authentication instead of querying again
+    # The user's subscriptions are already preloaded via preload_active_subscriptions_for_auth
+    family_plan_active? =
+      case user.subscriptions do
+        %Ecto.Association.NotLoaded{} ->
+          # Fallback if subscriptions aren't preloaded (shouldn't happen in normal flow)
+          Customers.subscribed_to_price?(user, get_price_id(:family))
+
+        subscriptions when is_list(subscriptions) ->
+          subscriptions
+          |> Enum.any?(fn subscription ->
+            Subscriptions.active?(subscription) and
+              Enum.any?(subscription.subscription_items || [], fn item ->
+                item.stripe_price_id == get_price_id(:family)
+              end)
+          end)
+
+        _ ->
+          false
+      end
 
     active_plan = get_membership_plan(current_membership)
 
@@ -3424,27 +3446,27 @@ defmodule YscWeb.UserSettingsLive do
 
   defp get_payment_icon_bg(%{type: :booking, booking: booking}) when not is_nil(booking) do
     case booking.property do
-      :tahoe -> "bg-indigo-50 group-hover:bg-indigo-600"
-      :clear_lake -> "bg-teal-50 group-hover:bg-teal-600"
+      :tahoe -> "bg-blue-50 group-hover:bg-blue-600"
+      :clear_lake -> "bg-emerald-50 group-hover:bg-emerald-600"
       _ -> "bg-purple-50 group-hover:bg-purple-600"
     end
   end
 
-  defp get_payment_icon_bg(%{type: :ticket}), do: "bg-green-50 group-hover:bg-green-600"
-  defp get_payment_icon_bg(%{type: :membership}), do: "bg-blue-50 group-hover:bg-blue-600"
+  defp get_payment_icon_bg(%{type: :ticket}), do: "bg-purple-50 group-hover:bg-purple-600"
+  defp get_payment_icon_bg(%{type: :membership}), do: "bg-teal-50 group-hover:bg-teal-600"
   defp get_payment_icon_bg(%{type: :donation}), do: "bg-yellow-50 group-hover:bg-yellow-600"
   defp get_payment_icon_bg(_), do: "bg-zinc-50 group-hover:bg-zinc-600"
 
   defp get_payment_icon_color(%{type: :booking, booking: booking}) when not is_nil(booking) do
     case booking.property do
-      :tahoe -> "text-indigo-600 group-hover:text-white"
-      :clear_lake -> "text-teal-600 group-hover:text-white"
+      :tahoe -> "text-blue-600 group-hover:text-white"
+      :clear_lake -> "text-emerald-600 group-hover:text-white"
       _ -> "text-purple-600 group-hover:text-white"
     end
   end
 
-  defp get_payment_icon_color(%{type: :ticket}), do: "text-green-600 group-hover:text-white"
-  defp get_payment_icon_color(%{type: :membership}), do: "text-blue-600 group-hover:text-white"
+  defp get_payment_icon_color(%{type: :ticket}), do: "text-purple-600 group-hover:text-white"
+  defp get_payment_icon_color(%{type: :membership}), do: "text-teal-600 group-hover:text-white"
   defp get_payment_icon_color(%{type: :donation}), do: "text-yellow-600 group-hover:text-white"
   defp get_payment_icon_color(_), do: "text-zinc-600 group-hover:text-white"
 

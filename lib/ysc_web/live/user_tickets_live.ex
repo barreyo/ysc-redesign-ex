@@ -164,7 +164,7 @@ defmodule YscWeb.UserTicketsLive do
                     </div>
                     <.link
                       navigate={~p"/orders/#{ticket_order.id}/confirmation"}
-                      class="px-6 py-3 bg-white border border-zinc-200 text-zinc-900 font-bold rounded-xl hover:bg-zinc-50 transition shadow-sm"
+                      class="px-6 py-3 bg-white border border-zinc-200 text-zinc-900 font-bold rounded hover:bg-zinc-50 transition shadow-sm"
                     >
                       View Order
                     </.link>

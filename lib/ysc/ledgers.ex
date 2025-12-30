@@ -1786,35 +1786,65 @@ defmodule Ysc.Ledgers do
   @doc """
   Gets paginated payments and free ticket orders for a user with ticket order and membership information.
   Returns items ordered by inserted_at (created date) descending.
+
+  Optimized to batch load all related data to avoid N+1 queries.
   """
   def list_user_payments_paginated(user_id, page \\ 1, per_page \\ 20) do
-    # Get all payments
-    all_payments =
-      from(p in Payment,
-        where: p.user_id == ^user_id,
-        preload: [:user, :payment_method],
-        order_by: [desc: p.inserted_at]
-      )
-      |> Repo.all()
-      |> Enum.map(&enrich_payment_with_details/1)
-
-    # Get all free ticket orders (completed orders without payment_id)
     alias Ysc.Tickets.TicketOrder
 
-    all_free_ticket_orders =
+    # Get total count for payments and free ticket orders separately
+    payment_count =
+      from(p in Payment, where: p.user_id == ^user_id, select: count())
+      |> Repo.one()
+
+    free_ticket_order_count =
+      from(to in TicketOrder,
+        where: to.user_id == ^user_id,
+        where: to.status == :completed,
+        where: is_nil(to.payment_id),
+        select: count()
+      )
+      |> Repo.one()
+
+    total_count = payment_count + free_ticket_order_count
+
+    # Calculate offset
+    offset = (page - 1) * per_page
+
+    # We need to fetch more items than per_page to account for mixing payments and free orders
+    # Fetch enough to cover the page, then sort and slice
+    fetch_limit = per_page + offset + 10
+
+    # Get payments with pagination (don't preload user - we already have it)
+    payments =
+      from(p in Payment,
+        where: p.user_id == ^user_id,
+        order_by: [desc: p.inserted_at],
+        limit: ^fetch_limit
+      )
+      |> Repo.all()
+
+    # Get free ticket orders
+    free_ticket_orders =
       from(to in TicketOrder,
         where: to.user_id == ^user_id,
         where: to.status == :completed,
         where: is_nil(to.payment_id),
         preload: [:event, tickets: :ticket_tier],
-        order_by: [desc: to.inserted_at]
+        order_by: [desc: to.inserted_at],
+        limit: ^fetch_limit
       )
       |> Repo.all()
-      |> Enum.map(&enrich_free_ticket_order/1)
+
+    # Batch enrich all payments at once (this will batch load payment_methods too)
+    enriched_payments = batch_enrich_payments(payments)
+
+    # Enrich free ticket orders (already preloaded, just need to format)
+    enriched_free_orders = Enum.map(free_ticket_orders, &enrich_free_ticket_order/1)
 
     # Combine and sort by inserted_at
     all_items =
-      (all_payments ++ all_free_ticket_orders)
+      (enriched_payments ++ enriched_free_orders)
       |> Enum.sort_by(
         fn item ->
           case item do
@@ -1831,14 +1861,191 @@ defmodule Ysc.Ledgers do
         {:desc, DateTime}
       )
 
-    # Calculate total count
-    total_count = length(all_items)
-
     # Apply pagination
-    offset = (page - 1) * per_page
     paginated_items = Enum.slice(all_items, offset, per_page)
 
     {paginated_items, total_count}
+  end
+
+  # Batch enrich payments to avoid N+1 queries
+  defp batch_enrich_payments(payments) when payments == [], do: []
+
+  defp batch_enrich_payments(payments) do
+    payment_ids = Enum.map(payments, & &1.id)
+
+    # Batch load payment methods for all payments
+    payment_method_ids =
+      payments
+      |> Enum.map(& &1.payment_method_id)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    payment_methods_map =
+      if payment_method_ids != [] do
+        from(pm in Ysc.Payments.PaymentMethod,
+          where: pm.id in ^payment_method_ids
+        )
+        |> Repo.all()
+        |> Enum.map(fn pm -> {pm.id, pm} end)
+        |> Map.new()
+      else
+        %{}
+      end
+
+    # Attach payment methods to payments
+    payments =
+      Enum.map(payments, fn payment ->
+        payment_method =
+          if payment.payment_method_id,
+            do: Map.get(payment_methods_map, payment.payment_method_id),
+            else: nil
+
+        %{payment | payment_method: payment_method}
+      end)
+
+    # Batch load all revenue entries for all payments
+    revenue_entries_map =
+      from(e in LedgerEntry,
+        join: a in LedgerAccount,
+        on: e.account_id == a.id,
+        where: e.payment_id in ^payment_ids,
+        where: a.account_type == ^"revenue",
+        where: e.debit_credit == ^:credit,
+        preload: [:account]
+      )
+      |> Repo.all()
+      |> Enum.group_by(& &1.payment_id)
+      |> Enum.map(fn {payment_id, entries} -> {payment_id, List.first(entries)} end)
+      |> Map.new()
+
+    # Extract entity types and IDs
+    event_payment_ids =
+      revenue_entries_map
+      |> Enum.filter(fn {_id, entry} -> entry && entry.related_entity_type == :event end)
+      |> Enum.map(fn {id, _entry} -> id end)
+
+    booking_payment_ids =
+      revenue_entries_map
+      |> Enum.filter(fn {_id, entry} -> entry && entry.related_entity_type == :booking end)
+      |> Enum.map(fn {id, _entry} -> id end)
+
+    membership_payment_ids =
+      revenue_entries_map
+      |> Enum.filter(fn {_id, entry} -> entry && entry.related_entity_type == :membership end)
+      |> Enum.map(fn {id, _entry} -> id end)
+
+    # Batch load ticket orders for event payments
+    ticket_orders_map =
+      if event_payment_ids != [] do
+        from(to in Ysc.Tickets.TicketOrder,
+          where: to.payment_id in ^event_payment_ids,
+          preload: [:event, tickets: :ticket_tier]
+        )
+        |> Repo.all()
+        |> Enum.group_by(& &1.payment_id)
+        |> Enum.map(fn {payment_id, orders} -> {payment_id, List.first(orders)} end)
+        |> Map.new()
+      else
+        %{}
+      end
+
+    # Batch load bookings for booking payments
+    bookings_map =
+      if booking_payment_ids != [] do
+        booking_entity_ids =
+          revenue_entries_map
+          |> Enum.filter(fn {id, entry} ->
+            id in booking_payment_ids && entry && entry.related_entity_id
+          end)
+          |> Enum.map(fn {_id, entry} -> entry.related_entity_id end)
+
+        if booking_entity_ids != [] do
+          from(b in Ysc.Bookings.Booking,
+            where: b.id in ^booking_entity_ids,
+            preload: [rooms: :room_category]
+          )
+          |> Repo.all()
+          |> Enum.map(fn booking -> {booking.id, booking} end)
+          |> Map.new()
+        else
+          %{}
+        end
+      else
+        %{}
+      end
+
+    # Create a reverse map from payment_id to booking_id for lookup
+    payment_to_booking_id_map =
+      revenue_entries_map
+      |> Enum.filter(fn {_id, entry} -> entry && entry.related_entity_type == :booking end)
+      |> Enum.map(fn {payment_id, entry} -> {payment_id, entry.related_entity_id} end)
+      |> Map.new()
+
+    # Batch load subscriptions for membership payments
+    subscriptions_map =
+      if membership_payment_ids != [] do
+        subscription_ids =
+          revenue_entries_map
+          |> Enum.filter(fn {id, entry} ->
+            id in membership_payment_ids && entry && entry.related_entity_id
+          end)
+          |> Enum.map(fn {_id, entry} -> entry.related_entity_id end)
+
+        if subscription_ids != [] do
+          from(s in Ysc.Subscriptions.Subscription,
+            where: s.id in ^subscription_ids,
+            preload: [:subscription_items]
+          )
+          |> Repo.all()
+          |> Enum.map(fn subscription -> {subscription.id, subscription} end)
+          |> Map.new()
+        else
+          %{}
+        end
+      else
+        %{}
+      end
+
+    # Create a reverse map from payment_id to subscription_id for lookup
+    payment_to_subscription_id_map =
+      revenue_entries_map
+      |> Enum.filter(fn {_id, entry} -> entry && entry.related_entity_type == :membership end)
+      |> Enum.map(fn {payment_id, entry} -> {payment_id, entry.related_entity_id} end)
+      |> Map.new()
+
+    # Enrich each payment using the preloaded data
+    Enum.map(payments, fn payment ->
+      revenue_entry = Map.get(revenue_entries_map, payment.id)
+      entity_type = if revenue_entry, do: revenue_entry.related_entity_type, else: nil
+
+      ticket_order = Map.get(ticket_orders_map, payment.id)
+
+      booking_id = Map.get(payment_to_booking_id_map, payment.id)
+      booking = if booking_id, do: Map.get(bookings_map, booking_id), else: nil
+
+      subscription_id = Map.get(payment_to_subscription_id_map, payment.id)
+
+      subscription =
+        if subscription_id, do: Map.get(subscriptions_map, subscription_id), else: nil
+
+      payment_info = %{
+        payment: payment,
+        type: determine_payment_type(entity_type),
+        ticket_order: ticket_order,
+        event: if(ticket_order, do: ticket_order.event, else: nil),
+        booking: booking,
+        subscription: subscription,
+        description:
+          build_payment_description(%{
+            entity_type: entity_type,
+            ticket_order: ticket_order,
+            booking: booking,
+            subscription: subscription
+          })
+      }
+
+      payment_info
+    end)
   end
 
   defp enrich_payment_with_details(payment) do

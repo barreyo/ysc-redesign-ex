@@ -201,7 +201,7 @@ defmodule YscWeb.Emails.ExpenseReportTreasurerNotification do
   end
 
   defp expense_report_url(expense_report_id) do
-    YscWeb.Endpoint.url() <> "/expensereport/#{expense_report_id}"
+    YscWeb.Endpoint.url() <> "/expensereport/#{expense_report_id}/success"
   end
 
   defp admin_expense_report_url(expense_report_id) do

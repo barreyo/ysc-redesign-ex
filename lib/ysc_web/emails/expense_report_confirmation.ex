@@ -177,7 +177,7 @@ defmodule YscWeb.Emails.ExpenseReportConfirmation do
   end
 
   defp expense_report_url(expense_report_id) do
-    YscWeb.Endpoint.url() <> "/expensereport/#{expense_report_id}"
+    YscWeb.Endpoint.url() <> "/expensereport/#{expense_report_id}/success"
   end
 
   defp format_reimbursement_method("bank_transfer"), do: "Bank Transfer"
