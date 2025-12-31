@@ -29,6 +29,25 @@ defmodule YscWeb.ContactLive do
           </div>
 
           <div class="not-prose">
+            <div :if={@logged_in?} class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-blue-200">
+                  <.user_avatar_image
+                    email={@current_user.email}
+                    user_id={@current_user.id}
+                    country={@current_user.most_connected_country}
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-blue-900">Submitting as</p>
+                  <p class="text-sm text-blue-700">
+                    <%= @current_user.first_name %> <%= @current_user.last_name %> (<%= @current_user.email %>)
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <.simple_form
               :if={!@submitted}
               for={@form}
@@ -36,8 +55,8 @@ defmodule YscWeb.ContactLive do
               phx-change="validate"
               phx-submit="save"
             >
-              <.input field={@form[:name]} label="Name" />
-              <.input field={@form[:email]} type="email" label="Email" />
+              <.input :if={!@logged_in?} field={@form[:name]} label="Name" />
+              <.input :if={!@logged_in?} field={@form[:email]} type="email" label="Email" />
               <.input
                 field={@form[:subject]}
                 type="select"
@@ -192,6 +211,7 @@ defmodule YscWeb.ContactLive do
     {:ok,
      socket
      |> assign(:page_title, "Contact")
+     |> assign(:current_user, current_user)
      |> assign(:logged_in?, current_user != nil)
      |> assign(:remote_ip, remote_ip)
      |> assign(:submitted, false)
@@ -201,14 +221,22 @@ defmodule YscWeb.ContactLive do
 
   @impl true
   def handle_event("validate", %{"contact_form" => contact_params}, socket) do
-    params = add_user_id(contact_params, socket.assigns[:current_user])
+    params =
+      contact_params
+      |> add_user_info(socket.assigns[:current_user])
+      |> add_user_id(socket.assigns[:current_user])
+
     changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, params)
     {:noreply, assign_form(socket, changeset)}
   end
 
   @impl true
   def handle_event("save", %{"contact_form" => contact_params} = values, socket) do
-    params = add_user_id(contact_params, socket.assigns[:current_user])
+    params =
+      contact_params
+      |> add_user_info(socket.assigns[:current_user])
+      |> add_user_id(socket.assigns[:current_user])
+
     changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, params)
 
     if socket.assigns.logged_in? do
@@ -271,4 +299,12 @@ defmodule YscWeb.ContactLive do
 
   defp add_user_id(params, nil), do: params
   defp add_user_id(params, user), do: Map.put(params, "user_id", user.id)
+
+  defp add_user_info(params, nil), do: params
+
+  defp add_user_info(params, user) do
+    params
+    |> Map.put("name", "#{user.first_name} #{user.last_name}")
+    |> Map.put("email", user.email)
+  end
 end
