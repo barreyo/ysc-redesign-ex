@@ -26,7 +26,11 @@ defmodule YscWeb.HomeLive do
 
         upcoming_tickets = get_upcoming_tickets(user.id)
         future_bookings = get_future_active_bookings(user.id)
-        upcoming_events = Events.list_upcoming_events(3)
+
+        upcoming_events =
+          Events.list_upcoming_events(3)
+          |> Enum.reject(&(&1.state == :cancelled))
+
         latest_news = Posts.list_posts(3)
 
         assign(socket,
@@ -42,7 +46,10 @@ defmodule YscWeb.HomeLive do
           newsletter_error: nil
         )
       else
-        upcoming_events = Events.list_upcoming_events(3)
+        upcoming_events =
+          Events.list_upcoming_events(3)
+          |> Enum.reject(&(&1.state == :cancelled))
+
         latest_news = Posts.list_posts(3)
 
         # Determine hero video and poster image based on current Tahoe season
@@ -454,7 +461,7 @@ defmodule YscWeb.HomeLive do
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
           <div>
             <span class="text-blue-400 font-black text-xs uppercase tracking-[0.3em]">
-              The Social Calendar
+              The social calendar
             </span>
             <h2 class="mt-4 text-4xl lg:text-6xl font-black text-white tracking-tighter leading-none">
               Upcoming Events
@@ -472,9 +479,9 @@ defmodule YscWeb.HomeLive do
           </.link>
         </div>
 
-        <div class="flex flex-wrap justify-center gap-8">
+        <div class="flex flex-wrap justify-center gap-8 lg:gap-10">
           <%= for event <- @upcoming_events do %>
-            <div class="group flex flex-col bg-white/5 backdrop-blur-sm rounded-[2.5rem] border border-white/10 hover:border-blue-500/50 transition-all duration-500 overflow-hidden shadow-2xl w-full md:max-w-[calc(50%-2rem)] lg:max-w-[calc(33.333%-2rem)]">
+            <div class="group flex flex-col bg-white/5 backdrop-blur-sm rounded-[2.5rem] border border-white/10 hover:border-blue-500/50 transition-all duration-500 overflow-hidden shadow-2xl w-full md:max-w-md lg:max-w-[calc(33.333%-2rem)]">
               <.link
                 navigate={~p"/events/#{event.id}"}
                 class="block relative aspect-[16/11] overflow-hidden"
@@ -501,7 +508,7 @@ defmodule YscWeb.HomeLive do
                 <div class="absolute top-6 left-6 flex gap-2 z-[2] flex-wrap">
                   <%= if Timex.diff(Timex.now(), event.inserted_at, :days) <= 7 do %>
                     <span class="px-3 py-1 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">
-                      New
+                      Just Added
                     </span>
                   <% end %>
                   <%= if event_sold_out?(event) do %>
@@ -511,7 +518,7 @@ defmodule YscWeb.HomeLive do
                   <% end %>
                 </div>
                 <div class="absolute bottom-4 right-4 z-[2]">
-                  <span class="bg-zinc-900/80 backdrop-blur-md px-4 py-2 rounded-xl text-white text-xs font-black ring-1 ring-white/10">
+                  <span class="bg-zinc-900/80 backdrop-blur-md px-4 py-2 rounded-xl text-white text-xs font-black ring-1 ring-white/10 tracking-widest">
                     <%= event.pricing_info.display_text %>
                   </span>
                 </div>
@@ -524,7 +531,7 @@ defmodule YscWeb.HomeLive do
                   <span class="text-blue-400 font-black text-xs tracking-widest uppercase">
                     <%= Timex.format!(event.start_date, "{Mshort} {D}") %>
                   </span>
-                  <span class="w-1 h-1 bg-white/20 rounded-full"></span>
+                  <span class="w-1.5 h-1.5 bg-white/20 rounded-full"></span>
                   <%= if event.start_time && event.start_time != "" do %>
                     <span class="text-zinc-400 text-xs font-bold uppercase tracking-widest text-[10px]">
                       <%= format_event_time(event.start_time) %>
@@ -580,16 +587,16 @@ defmodule YscWeb.HomeLive do
           </p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
           <%= for {post, index} <- Enum.with_index(@latest_news) do %>
             <.link
               navigate={~p"/posts/#{post.url_name}"}
               class={[
-                "group cursor-pointer",
-                if(index == 1, do: "md:mt-16", else: "")
+                "group block transition-all duration-500",
+                if(rem(index, 2) == 1, do: "md:mt-20", else: "")
               ]}
             >
-              <div class="relative overflow-hidden rounded-[2rem] mb-8 aspect-square shadow-sm group-hover:shadow-2xl transition-all duration-500">
+              <div class="relative overflow-hidden rounded-[2.5rem] mb-8 aspect-square shadow-sm group-hover:shadow-2xl transition-all">
                 <canvas
                   id={"blur-hash-news-#{post.id}"}
                   src={get_blur_hash(post.featured_image)}
@@ -617,12 +624,12 @@ defmodule YscWeb.HomeLive do
                   post
                 ) %> min read
               </time>
-              <h3 class="text-2xl font-black text-zinc-900 tracking-tighter mt-3 group-hover:text-blue-600 transition-colors">
+              <h3 class="text-2xl font-black text-zinc-900 tracking-tighter mt-3 group-hover:text-blue-600 transition-colors leading-none">
                 <%= post.title %>
               </h3>
               <%= if post.preview_text || post.rendered_body do %>
-                <p class="text-zinc-500 mt-3 text-sm leading-relaxed line-clamp-2">
-                  <%= preview_text_for_news(post) %>
+                <p class="text-zinc-500 mt-4 text-sm leading-relaxed line-clamp-2 italic">
+                  "<%= preview_text_for_news(post) %>"
                 </p>
               <% end %>
             </.link>
