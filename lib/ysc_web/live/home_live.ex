@@ -280,60 +280,109 @@ defmodule YscWeb.HomeLive do
     </section>
 
     <%!-- Property Portfolio Section --%>
-    <section :if={@current_user == nil} class="py-16 lg:py-24 bg-white">
+    <section :if={@current_user == nil} class="py-16 lg:py-32 bg-white">
       <div class="max-w-screen-xl mx-auto px-4">
-        <div class="text-center max-w-3xl mx-auto mb-16">
-          <span class="text-blue-600 font-semibold text-sm uppercase tracking-wider">
-            Our Properties
-          </span>
-          <h2 class="mt-3 text-3xl lg:text-5xl font-black text-zinc-900 tracking-tight">
-            Two Iconic Retreats
-          </h2>
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-20">
+          <div class="max-w-2xl">
+            <span class="text-blue-600 font-black text-xs uppercase tracking-[0.3em]">
+              Exclusive Retreats
+            </span>
+            <h2 class="mt-4 text-4xl lg:text-7xl font-black text-zinc-900 tracking-tighter">
+              The Cabin Legacy.
+            </h2>
+          </div>
+          <p class="text-zinc-500 text-lg lg:max-w-xs font-light leading-relaxed">
+            Membership unlocks year-round access to our two historic, member-run sanctuaries.
+          </p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+        <div class="space-y-32">
           <%!-- Lake Tahoe --%>
-          <div class="md:mt-20">
-            <.link
-              navigate={~p"/bookings/tahoe"}
-              class="group relative block overflow-hidden rounded-[3rem] shadow-2xl"
-            >
-              <img
-                src={~p"/images/tahoe/tahoe_cabin_main.webp"}
-                alt="Lake Tahoe Cabin"
-                class="w-full aspect-[3/4] object-cover group-hover:scale-110 transition-transform duration-700"
-              />
-              <div class="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-80">
+          <div class="grid lg:grid-cols-12 gap-12 items-center">
+            <div class="lg:col-span-5 order-2 lg:order-1">
+              <div class="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest mb-6">
+                <.icon name="hero-map-pin" class="w-3 h-3 mr-1" /> Lake Tahoe, CA
               </div>
-              <div class="absolute bottom-10 left-10">
-                <h3 class="text-3xl font-black text-white">The Alpine Retreat</h3>
-                <p class="text-blue-300 font-bold uppercase tracking-widest text-xs mt-2">
-                  Lake Tahoe
-                </p>
+              <h3 class="text-4xl font-black text-zinc-900 tracking-tight mb-4">
+                The Alpine Retreat
+              </h3>
+              <p class="text-zinc-600 text-lg leading-relaxed mb-6 font-light">
+                Ski in winter, hike in summer, and relax year-round. Perfectly positioned for alpine adventures and cozy
+                <em>hygge</em>
+                evenings by the fire.
+              </p>
+              <ul class="space-y-4 mb-8">
+                <li class="flex items-start gap-3 text-zinc-700 text-sm">
+                  <.icon name="hero-check-circle" class="w-5 h-5 text-teal-500 flex-shrink-0" />
+                  <span>Minutes from world-class ski resorts & hiking trails</span>
+                </li>
+                <li class="flex items-start gap-3 text-zinc-700 text-sm">
+                  <.icon name="hero-check-circle" class="w-5 h-5 text-teal-500 flex-shrink-0" />
+                  <span>
+                    Member-only rates: <strong>$45.00 / night</strong>
+                  </span>
+                </li>
+              </ul>
+              <.link
+                navigate={~p"/bookings/tahoe"}
+                class="inline-flex items-center px-8 py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-blue-600 transition-all shadow-lg"
+              >
+                Book Tahoe Stay
+              </.link>
+            </div>
+            <div class="lg:col-span-7 order-1 lg:order-2">
+              <div class="relative group overflow-hidden rounded-[2.5rem] shadow-2xl">
+                <img
+                  src={~p"/images/tahoe/tahoe_cabin_main.webp"}
+                  alt="Lake Tahoe Cabin"
+                  class="w-full aspect-[4/3] object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
               </div>
-            </.link>
+            </div>
           </div>
 
           <%!-- Clear Lake --%>
-          <div>
-            <.link
-              navigate={~p"/bookings/clear-lake"}
-              class="group relative block overflow-hidden rounded-[3rem] shadow-2xl"
-            >
-              <img
-                src={~p"/images/clear_lake/clear_lake_dock.webp"}
-                alt="Clear Lake Cabin"
-                class="w-full aspect-[3/4] object-cover group-hover:scale-110 transition-transform duration-700"
-              />
-              <div class="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-80">
+          <div class="grid lg:grid-cols-12 gap-12 items-center">
+            <div class="lg:col-span-7">
+              <div class="relative group overflow-hidden rounded-[2.5rem] shadow-2xl">
+                <img
+                  src={~p"/images/clear_lake/clear_lake_dock.webp"}
+                  alt="Clear Lake Cabin"
+                  class="w-full aspect-[4/3] object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
               </div>
-              <div class="absolute bottom-10 left-10">
-                <h3 class="text-3xl font-black text-white">The Waterfront Sanctuary</h3>
-                <p class="text-emerald-300 font-bold uppercase tracking-widest text-xs mt-2">
-                  Clear Lake
-                </p>
+            </div>
+            <div class="lg:col-span-5">
+              <div class="inline-flex items-center px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest mb-6">
+                <.icon name="hero-map-pin" class="w-3 h-3 mr-1" /> Clear Lake, CA
               </div>
-            </.link>
+              <h3 class="text-4xl font-black text-zinc-900 tracking-tight mb-4">
+                The Waterfront Sanctuary
+              </h3>
+              <p class="text-zinc-600 text-lg leading-relaxed mb-6 font-light">
+                Our social heart since 1963. Swim, boat, and unwind at California's largest natural lake. A sun-drenched escape from the city.
+              </p>
+              <ul class="space-y-4 mb-8">
+                <li class="flex items-start gap-3 text-zinc-700 text-sm">
+                  <.icon name="hero-check-circle" class="w-5 h-5 text-teal-500 flex-shrink-0" />
+                  <span>Private dock access for swimming & boating</span>
+                </li>
+                <li class="flex items-start gap-3 text-zinc-700 text-sm">
+                  <.icon name="hero-check-circle" class="w-5 h-5 text-teal-500 flex-shrink-0" />
+                  <span>
+                    Member-only rates: <strong>$50.00 / night</strong>
+                  </span>
+                </li>
+              </ul>
+              <.link
+                navigate={~p"/bookings/clear-lake"}
+                class="inline-flex items-center px-8 py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-emerald-600 transition-all shadow-lg"
+              >
+                Book Clear Lake Stay
+              </.link>
+            </div>
           </div>
         </div>
       </div>
