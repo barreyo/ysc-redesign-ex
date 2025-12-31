@@ -150,7 +150,7 @@ defmodule YscWeb.EventsLive do
 
       <%!-- Memory Gallery - Past Events --%>
       <%= if @past_events_exist do %>
-        <section class="mt-32 pt-16 border-t border-zinc-100">
+        <section class="mt-32 py-16 border-t border-zinc-100">
           <div class="max-w-screen-xl mx-auto px-4">
             <h2 class="text-3xl font-black text-zinc-300 tracking-tighter italic mb-12 group relative inline-block">
               <span class="inline-block transition-all duration-500 ease-in-out group-hover:-translate-y-full group-hover:opacity-0">

@@ -319,14 +319,51 @@ defmodule YscWeb.ClearLakeBookingLive do
         transform: rotate(180deg);
       }
     </style>
+    <!-- Hero Section with Carousel (For logged-in users) -->
+    <section
+      :if={@user}
+      id="hero-section"
+      phx-hook="HeroMode"
+      class="relative w-full overflow-hidden -mt-[88px] pt-[88px]"
+      style="min-height: 40vh;"
+    >
+      <div
+        id="clear-lake-carousel-wrapper"
+        phx-hook="ImageCarouselAutoplay"
+        class="absolute inset-0 h-full w-full z-[2]"
+      >
+        <YscWeb.Components.ImageCarousel.image_carousel
+          id="about-the-clear-lake-cabin-carousel-logged-in"
+          images={[
+            %{
+              src: ~p"/images/clear_lake/clear_lake_main.webp",
+              alt: "Clear Lake Cabin Exterior"
+            },
+            %{src: ~p"/images/clear_lake/clear_lake_dock.webp", alt: "Clear Lake Dock"},
+            %{src: ~p"/images/clear_lake/clear_lake_dock_2.webp", alt: "Clear Lake Dock"},
+            %{src: ~p"/images/clear_lake/clear_lake_sweep.webp", alt: "Clear Lake"},
+            %{src: ~p"/images/clear_lake/clear_lake_cabin.webp", alt: "Clear Lake Cabin"}
+          ]}
+          class="h-full w-full"
+        />
+        <div class="absolute inset-0 z-[5] bg-black/30 pointer-events-none" aria-hidden="true"></div>
+      </div>
+    </section>
     <!-- Booking Dashboard Section -->
-    <section :if={@user} class="bg-zinc-50 border-b border-zinc-200 py-12">
+    <section :if={@user} class="bg-zinc-50 border-b-2 border-zinc-900 py-12">
       <div class="max-w-screen-xl mx-auto px-4 space-y-10">
         <!-- Dashboard Header -->
-        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-200 pb-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 pb-6">
           <div>
-            <h1 class="text-3xl font-bold text-zinc-900">Member Portal: Clear Lake</h1>
-            <p class="text-zinc-500">Manage your stays and reserve new dates below.</p>
+            <div class="flex items-center gap-3 mb-1">
+              <h1 class="text-3xl font-black text-zinc-900 tracking-tight">Clear Lake Portal</h1>
+              <span class="px-2 py-0.5 bg-teal-100 text-teal-700 text-[10px] font-bold uppercase tracking-widest rounded-full border border-teal-200">
+                Member Access
+              </span>
+            </div>
+            <p class="text-zinc-500 text-sm">
+              Velkommen back! Manage your stay or reserve new dates below.
+            </p>
           </div>
         </div>
         <!-- Active Bookings -->
@@ -489,6 +526,15 @@ defmodule YscWeb.ClearLakeBookingLive do
                             <p class="text-xs text-zinc-500">
                               Exclusive use of the property. Great for large families.
                             </p>
+                            <span
+                              :if={
+                                @selected_booking_mode == :buyout && @buyout_booking_allowed &&
+                                  is_nil(@availability_error)
+                              }
+                              class="inline-block mt-2 px-2 py-0.5 text-[10px] font-bold text-teal-700 bg-teal-100 rounded"
+                            >
+                              Best for family reunions & retreats
+                            </span>
                             <p
                               :if={
                                 @selected_booking_mode == :buyout && @availability_error &&
@@ -671,9 +717,18 @@ defmodule YscWeb.ClearLakeBookingLive do
                           </button>
                         </div>
                       </form>
-                      <p class="mt-4 text-xs text-zinc-500 leading-relaxed italic">
-                        Note: Children 5 and under stay free. Do not include them in the count above.
-                      </p>
+                      <div class="mt-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                        <div class="flex items-start gap-2">
+                          <.icon
+                            name="hero-information-circle"
+                            class="w-4 h-4 text-teal-600 flex-shrink-0 mt-0.5"
+                          />
+                          <p class="text-sm text-teal-800 leading-relaxed">
+                            <strong>Children 5 and under stay free.</strong>
+                            Please do not include them when registering attendees.
+                          </p>
+                        </div>
+                      </div>
                       <p :if={@form_errors[:guests_count]} class="text-red-600 text-sm mt-2">
                         <%= @form_errors[:guests_count] %>
                       </p>
@@ -696,9 +751,10 @@ defmodule YscWeb.ClearLakeBookingLive do
           </div>
           <!-- Right Column: Sticky Reservation Summary -->
           <aside class="sticky top-24">
-            <div class="bg-white rounded-2xl border-2 border-teal-600 shadow-xl p-6">
-              <h3 class="text-xl font-bold text-zinc-900 mb-6">Reservation Details</h3>
-
+            <div class="bg-white rounded-2xl border-2 border-teal-600 shadow-xl overflow-hidden">
+              <div class="bg-teal-600 p-4 text-white text-center">
+                <h3 class="text-lg font-bold">Reservation Summary</h3>
+              </div>
               <div class="p-6 space-y-4">
                 <!-- Dates -->
                 <div :if={@checkin_date && @checkout_date} class="space-y-2">
@@ -743,6 +799,21 @@ defmodule YscWeb.ClearLakeBookingLive do
                       "Full Buyout"
                     end %>
                   </span>
+                </div>
+                <!-- Sunday Morning Parking Tip -->
+                <div
+                  :if={@checkin_date && @checkout_date}
+                  class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg"
+                >
+                  <div class="flex items-start gap-2">
+                    <.icon name="hero-truck" class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div class="flex-1">
+                      <p class="text-xs text-amber-800 leading-relaxed">
+                        <strong>Parking Tip:</strong>
+                        If you plan to leave early Sunday, don't park in the back or you may find yourself blocked in!
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 <!-- Availability Error Alert -->
                 <div
@@ -816,6 +887,13 @@ defmodule YscWeb.ClearLakeBookingLive do
                     </div>
                   </div>
                 </div>
+                <!-- Cancellation Policy -->
+                <p
+                  :if={@checkin_date && @checkout_date}
+                  class="text-[10px] text-zinc-400 text-center leading-tight px-6 pb-4"
+                >
+                  Cancellations are subject to a 3% processing fee.
+                </p>
                 <!-- Empty State -->
                 <div :if={!@checkin_date || !@checkout_date} class="text-center py-8">
                   <p class="text-sm text-zinc-500">
@@ -865,9 +943,19 @@ defmodule YscWeb.ClearLakeBookingLive do
         </div>
       </div>
     </section>
-    <!-- Hero Section with Carousel (Smaller for logged-in users) -->
-    <section :if={@user} class="relative h-[30vh] w-full overflow-hidden">
-      <div id="clear-lake-carousel-wrapper" phx-hook="ImageCarouselAutoplay" class="absolute inset-0">
+    <!-- Hero Section with Carousel (For non-logged-in users) -->
+    <section
+      :if={!@user}
+      id="hero-section"
+      phx-hook="HeroMode"
+      class="relative w-full overflow-hidden -mt-[88px] pt-[88px]"
+      style="min-height: 75vh;"
+    >
+      <div
+        id="clear-lake-carousel-wrapper"
+        phx-hook="ImageCarouselAutoplay"
+        class="absolute inset-0 h-full w-full z-[2]"
+      >
         <YscWeb.Components.ImageCarousel.image_carousel
           id="about-the-clear-lake-cabin-carousel"
           images={[
@@ -880,46 +968,28 @@ defmodule YscWeb.ClearLakeBookingLive do
             %{src: ~p"/images/clear_lake/clear_lake_sweep.webp", alt: "Clear Lake"},
             %{src: ~p"/images/clear_lake/clear_lake_cabin.webp", alt: "Clear Lake Cabin"}
           ]}
-          class="h-full w-full object-cover"
+          class="h-full w-full"
         />
+        <div class="absolute inset-0 z-[5] bg-black/40 pointer-events-none" aria-hidden="true"></div>
       </div>
-    </section>
-    <!-- Hero Section with Carousel (Full size for non-logged-in users) -->
-    <section :if={!@user} class="relative h-[60vh] lg:h-[75vh] w-full overflow-hidden">
-      <div id="clear-lake-carousel-wrapper" phx-hook="ImageCarouselAutoplay" class="absolute inset-0">
-        <YscWeb.Components.ImageCarousel.image_carousel
-          id="about-the-clear-lake-cabin-carousel"
-          images={[
-            %{
-              src: ~p"/images/clear_lake/clear_lake_main.webp",
-              alt: "Clear Lake Cabin Exterior"
-            },
-            %{src: ~p"/images/clear_lake/clear_lake_dock.webp", alt: "Clear Lake Dock"},
-            %{src: ~p"/images/clear_lake/clear_lake_dock_2.webp", alt: "Clear Lake Dock"},
-            %{src: ~p"/images/clear_lake/clear_lake_sweep.webp", alt: "Clear Lake"},
-            %{src: ~p"/images/clear_lake/clear_lake_cabin.webp", alt: "Clear Lake Cabin"}
-          ]}
-          class="h-full w-full object-cover"
-        >
-          <:overlay>
-            <div class="absolute bottom-0 left-0 right-0 z-20 p-8 lg:p-16 max-w-screen-xl mx-auto">
-              <span class="inline-block px-3 py-1 mb-4 text-xs font-bold tracking-widest text-white uppercase bg-teal-600 rounded">
-                Summer Destination
-              </span>
-              <h1 class="text-4xl lg:text-7xl font-bold text-white mb-4 drop-shadow-lg">
-                Clear Lake Cabin
-              </h1>
-              <p class="text-lg lg:text-2xl text-zinc-100 max-w-2xl font-light">
-                Experience California's largest natural lake from our historic, member-run retreat.
-              </p>
-            </div>
-          </:overlay>
-        </YscWeb.Components.ImageCarousel.image_carousel>
+      <!-- Title Text Section - Highest z-index for selectability -->
+      <div class="absolute bottom-0 left-0 right-0 z-[50] px-4 py-16 lg:py-20 pointer-events-none">
+        <div class="max-w-screen-xl mx-auto pointer-events-auto">
+          <span class="inline-block px-2.5 sm:px-3 py-1 mb-3 sm:mb-4 text-xs font-bold tracking-widest text-white uppercase bg-amber-700/80 backdrop-blur-sm rounded">
+            A Legacy for All Seasons
+          </span>
+          <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-3 sm:mb-4 drop-shadow-lg">
+            Clear Lake Heritage Cabin
+          </h1>
+          <p class="text-base sm:text-lg md:text-xl lg:text-2xl text-zinc-100 max-w-2xl font-light">
+            Owned and operated by our community since 1963. A year-round gateway to California's oldest natural lake.
+          </p>
+        </div>
       </div>
     </section>
     <!-- Main Content Grid: 2-column layout -->
     <section class="max-w-screen-xl mx-auto px-4 py-20">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-16">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Left Column: Main Content (2 columns on large screens) -->
         <div class="lg:col-span-2 space-y-20">
           <!-- Life at the Cabin Section -->
@@ -928,11 +998,49 @@ defmodule YscWeb.ClearLakeBookingLive do
             <p class="text-zinc-500 mb-10">Essential details for a perfect lakeside stay.</p>
             <div class="prose prose-lg prose-zinc font-light leading-relaxed text-zinc-600 max-w-none">
               <p>
-                Established in 1963, the Young Scandinavians Club Clear Lake cabin is more than just a rental—it's a shared heritage. Nestled in the heart of Kelseyville, our cabin serves as a sun-drenched sanctuary for members seeking the rustic charm of lakeside living.
+                Purchased by a group of visionary young Scandinavians in 1963, this cabin was built on the spirit of <strong>dugnad</strong>—the Nordic tradition of community work. For over 60 years, every nail driven and every meal shared has been part of a collective effort to maintain a home away from home.
               </p>
               <p>
-                From <strong>May through September</strong>, the cabin buzzes with community spirit. Whether you're here for a themed party weekend or a quiet escape, the cool waters of the lake and the warmth of shared meals define the experience.
+                Nestled in the heart of Kelseyville, our cabin serves as a year-round sanctuary for members seeking the rustic charm of lakeside living. From summer sunrises on the dock to crisp winter mornings by the water, the cabin offers a unique connection to North America's oldest lake.
               </p>
+            </div>
+            <!-- Dugnad Definition Callout -->
+            <div class="mt-8 p-6 bg-zinc-50 rounded-2xl border-dashed border-2 border-zinc-200">
+              <h4 class="text-sm font-black text-zinc-400 uppercase tracking-[0.2em] mb-2">
+                Nordic Tradition
+              </h4>
+              <p class="text-sm text-zinc-600 italic leading-relaxed">
+                <strong>Dugnad [duo-nad]:</strong>
+                A Norwegian term for voluntary community work. Our cabin survives because members contribute their time to fix the dock, clean the kitchen, and maintain the grounds. When you stay here, you aren't just a guest—you're a steward of the legacy.
+              </p>
+            </div>
+            <!-- Seasons Info Box -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12 border-l-4 border-teal-600 pl-6 py-2">
+              <div>
+                <h4 class="font-bold text-zinc-900 mb-2">Summer Highs (May–Sept)</h4>
+                <p class="text-base text-zinc-600 leading-relaxed">
+                  Legendary dock parties, community meals, and boat tie-ups. This is the peak season for sleeping under the stars and lakeside community life.
+                </p>
+              </div>
+              <div>
+                <h4 class="font-bold text-zinc-900 mb-2">Winter Quiet (Oct–April)</h4>
+                <p class="text-base text-zinc-600 leading-relaxed">
+                  The best time for hikers and wine enthusiasts. Enjoy the stillness of the lake and crisp mountain air.
+                </p>
+                <div class="mt-3 p-3 bg-zinc-100 rounded-lg">
+                  <p class="text-sm text-zinc-600 italic">
+                    <strong>Winter Buyouts:</strong>
+                    The cabin is available for full-group rentals. We move beds into the front rooms for a cozy, indoor retreat.
+                  </p>
+                  <a
+                    href="mailto:clearlake@ysc.org?subject=Winter Buyout Inquiry"
+                    class="inline-flex items-center mt-2 text-sm font-bold text-teal-700 hover:underline"
+                  >
+                    Enquire about Winter Buyouts
+                    <.icon name="hero-arrow-right" class="w-4 h-4 ml-1" />
+                  </a>
+                </div>
+              </div>
             </div>
             <!-- CTA Card for Non-Logged-In Users -->
             <div
@@ -1140,6 +1248,20 @@ defmodule YscWeb.ClearLakeBookingLive do
                       If you reach Konocti Harbor Inn, you've gone too far — turn around.
                     </p>
                   </div>
+                  <!-- Parking Strategy Tip -->
+                  <div class="mt-6 p-4 bg-zinc-900 text-white rounded-xl shadow-lg">
+                    <div class="flex items-center gap-3 mb-2">
+                      <.icon name="hero-truck" class="w-5 h-5 text-teal-400" />
+                      <h4 class="font-bold text-base">Parking Strategy</h4>
+                    </div>
+                    <p class="text-sm text-zinc-300 leading-relaxed">
+                      Parking is limited. Please park as close to the next car as possible and choose a spot based on your departure time.
+                    </p>
+                    <p class="text-sm text-zinc-300 leading-relaxed mt-2">
+                      <strong>Pro Tip:</strong>
+                      If you plan to leave early Sunday, don't park in the back or you may find yourself blocked in!
+                    </p>
+                  </div>
                 </div>
               </details>
             </div>
@@ -1156,7 +1278,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 </div>
                 <div>
                   <h4 class="font-bold text-zinc-900 mb-1">Communal Cabin</h4>
-                  <p class="text-sm text-zinc-500 leading-relaxed">
+                  <p class="text-base text-zinc-500 leading-relaxed">
                     A fully-equipped group kitchen, changing rooms, and a dance floor for social evenings.
                   </p>
                 </div>
@@ -1167,9 +1289,15 @@ defmodule YscWeb.ClearLakeBookingLive do
                 </div>
                 <div>
                   <h4 class="font-bold text-zinc-900 mb-1">Lawn Sleeping</h4>
-                  <p class="text-sm text-zinc-500 leading-relaxed">
+                  <p class="text-base text-zinc-500 leading-relaxed">
                     Embrace the lake breeze. We provide mattresses for sleeping under the stars on the main lawn.
                   </p>
+                  <div class="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p class="text-sm text-amber-800">
+                      <strong>⚠️ Sprinkler Alert:</strong>
+                      Monday–Wednesday mornings at 4:00 AM, the lawn sprinklers run automatically. If you're sleeping under the stars or pitching a tent, make sure you're in a designated "dry zone" or have moved inside by then!
+                    </p>
+                  </div>
                 </div>
               </div>
               <div class="flex gap-4">
@@ -1178,7 +1306,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 </div>
                 <div>
                   <h4 class="font-bold text-zinc-900 mb-1">Filtered Water</h4>
-                  <p class="text-sm text-zinc-500 leading-relaxed">
+                  <p class="text-base text-zinc-500 leading-relaxed">
                     Safe, clean tap water is available. No need to bring plastic flats; just bring a reusable bottle.
                   </p>
                 </div>
@@ -1189,251 +1317,174 @@ defmodule YscWeb.ClearLakeBookingLive do
                 </div>
                 <div>
                   <h4 class="font-bold text-zinc-900 mb-1">Private Dock</h4>
-                  <p class="text-sm text-zinc-500 leading-relaxed">
+                  <p class="text-base text-zinc-500 leading-relaxed">
                     Perfect for swimming, mooring your boat, or enjoying a morning coffee over the water.
                   </p>
                 </div>
               </div>
             </div>
           </section>
-          <!-- Club Standards Section -->
-          <section id="club-standards-section" class="bg-white rounded-lg p-10 mb-10 shadow-sm">
-            <h2 class="text-3xl font-bold text-zinc-900 mb-8">Club Standards</h2>
-            <div class="space-y-4">
-              <!-- Boating (Collapsible) -->
-              <details
-                class="group border border-zinc-200 rounded bg-white transition-all"
-                id="boating-section"
-              >
-                <summary class="p-4 cursor-pointer font-bold flex justify-between items-center list-none hover:bg-zinc-50">
-                  <span class="flex items-center gap-3">
-                    <span class="text-xl">🛶</span>
-                    <span>Boating & Water</span>
-                  </span>
-                  <.icon
-                    name="hero-chevron-down"
-                    class="w-4 h-4 text-zinc-500 chevron-icon transition-transform"
-                  />
-                </summary>
-                <div class="px-4 pb-5 text-base text-zinc-700 leading-relaxed border-t border-zinc-50 pt-5 space-y-4">
-                  <p>
-                    Private boats are welcome with no mooring fee. Please notify the Cabin Master in advance.
-                  </p>
-                  <p>
-                    Boat trailers <strong>cannot be parked</strong> on YSC grounds.
-                  </p>
-                  <div class="p-4 bg-rose-50 text-rose-700 rounded-lg text-sm border border-rose-200">
-                    <strong>⚠️ Important:</strong>
-                    Fines of $1,000 apply for Mussel Program non-compliance.
+          <!-- Cabin Facilities Section -->
+          <section id="facilities" class="py-12 border-t border-zinc-100">
+            <h2 class="text-3xl font-bold text-zinc-900 mb-8">Cabin Facilities</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div class="flex flex-col items-center p-6 bg-zinc-50 rounded-2xl text-center">
+                <.icon name="hero-home-modern" class="w-8 h-8 text-teal-600 mb-3" />
+                <h4 class="font-bold text-base text-zinc-900">Full Kitchen</h4>
+                <p class="text-sm text-zinc-500 mt-1">Industrial stove, fridge, and prep space</p>
+              </div>
+              <div class="flex flex-col items-center p-6 bg-zinc-50 rounded-2xl text-center">
+                <.icon name="hero-musical-note" class="w-8 h-8 text-teal-600 mb-3" />
+                <h4 class="font-bold text-base text-zinc-900">Social Hall</h4>
+                <p class="text-sm text-zinc-500 mt-1">Open dance floor and fireplace</p>
+              </div>
+              <div class="flex flex-col items-center p-6 bg-zinc-50 rounded-2xl text-center">
+                <.icon name="hero-user-group" class="w-8 h-8 text-teal-600 mb-3" />
+                <h4 class="font-bold text-base text-zinc-900">Changing Rooms</h4>
+                <p class="text-sm text-zinc-500 mt-1">Men's and Women's facilities</p>
+              </div>
+              <div class="flex flex-col items-center p-6 bg-zinc-50 rounded-2xl text-center">
+                <.icon name="hero-bolt" class="w-8 h-8 text-teal-600 mb-3" />
+                <h4 class="font-bold text-base text-zinc-900">Power & Water</h4>
+                <p class="text-sm text-zinc-500 mt-1">Solar supplemented & filtered well water</p>
+              </div>
+            </div>
+          </section>
+          <!-- Living the Nordic Way Section -->
+          <section id="etiquette" class="bg-zinc-50 rounded-3xl p-8 lg:p-12 mb-4">
+            <div class="max-w-3xl">
+              <h2 class="text-3xl font-bold text-zinc-900 mb-4">Living the Nordic Way</h2>
+              <p class="text-zinc-600 mb-10 leading-relaxed">
+                Since 1963, our cabin has operated on mutual respect and shared effort. To keep the legacy alive, we ask all members to follow these standards.
+              </p>
+
+              <div class="space-y-4">
+                <details class="group bg-white border border-zinc-200 rounded-xl transition-all">
+                  <summary class="p-5 cursor-pointer font-bold flex justify-between items-center list-none hover:text-teal-700">
+                    <span class="flex items-center gap-3">
+                      <span class="text-xl">🤝</span>
+                      <span>Community & Kids</span>
+                    </span>
+                    <.icon
+                      name="hero-chevron-down"
+                      class="w-5 h-5 text-zinc-400 chevron-icon transition-transform"
+                    />
+                  </summary>
+                  <div class="px-5 pb-5 text-base text-zinc-600 space-y-3 border-t border-zinc-50 pt-4">
+                    <p>
+                      <strong>Dugnad (Chore Duty):</strong>
+                      Everyone signs up for a daily task upon arrival. This is how we keep costs low and the cabin clean.
+                    </p>
+                    <p>
+                      <strong>Midnight Silence:</strong>
+                      Quiet hours begin at midnight unless it's a sanctioned party weekend.
+                    </p>
+                    <p>
+                      <strong>Families:</strong>
+                      Most weekends are family-friendly; check specific event descriptions for "Adults Only" gatherings.
+                    </p>
+                    <p>
+                      <strong>Non-Member Guests:</strong>
+                      Guests are welcome on general visits, but all guests must be included in and paid for by the member making the reservation. Certain events may have guest restrictions—check event details for specifics.
+                    </p>
                   </div>
-                </div>
-              </details>
-              <details
-                class="group border border-zinc-200 rounded bg-white transition-all"
-                id="quiet-hours-section"
-              >
-                <summary class="p-4 cursor-pointer font-bold flex justify-between items-center list-none hover:bg-zinc-50">
-                  <span class="flex items-center gap-3">
-                    <span class="text-xl">🌙</span>
-                    <span>Quiet Hours</span>
-                  </span>
-                  <.icon
-                    name="hero-chevron-down"
-                    class="w-4 h-4 text-zinc-500 chevron-icon transition-transform"
-                  />
-                </summary>
-                <div class="px-4 pb-5 text-base text-zinc-700 leading-relaxed border-t border-zinc-50 pt-5 space-y-3">
-                  <p>
-                    <strong>All lights and music must be turned off by midnight.</strong>
-                  </p>
-                  <p>
-                    This rule may be waived for <strong>special party weekends</strong>
-                    — see event details for exceptions.
-                  </p>
-                </div>
-              </details>
-              <details
-                class="group border border-zinc-200 rounded bg-white transition-all"
-                id="responsibilities-section"
-              >
-                <summary class="p-4 cursor-pointer font-bold flex justify-between items-center list-none hover:bg-zinc-50">
-                  <span class="flex items-center gap-3">
-                    <span class="text-xl">🧹</span>
-                    <span>General Responsibilities</span>
-                  </span>
-                  <.icon
-                    name="hero-chevron-down"
-                    class="w-4 h-4 text-zinc-500 chevron-icon transition-transform"
-                  />
-                </summary>
-                <div class="px-4 pb-5 text-base text-zinc-700 leading-relaxed border-t border-zinc-50 pt-5 space-y-3">
-                  <p>Everyone helps make each stay a success!</p>
-                  <ul class="space-y-2">
-                    <li>• Upon arrival, all guests must <strong>sign up for a chore</strong>.</li>
-                    <li>
-                      • Clear Lake events rely on <strong>every member contributing</strong>.
-                    </li>
-                  </ul>
-                </div>
-              </details>
-              <details
-                class="group border border-zinc-200 rounded bg-white transition-all"
-                id="code-of-conduct-section"
-              >
-                <summary class="p-4 cursor-pointer font-bold flex justify-between items-center list-none hover:bg-zinc-50">
+                </details>
+
+                <details class="group bg-white border border-zinc-200 rounded-xl transition-all">
+                  <summary class="p-5 cursor-pointer font-bold flex justify-between items-center list-none hover:text-teal-700">
+                    <span class="flex items-center gap-3">
+                      <span class="text-xl">⚓</span>
+                      <span>The Grounds & Water</span>
+                    </span>
+                    <.icon
+                      name="hero-chevron-down"
+                      class="w-5 h-5 text-zinc-400 chevron-icon transition-transform"
+                    />
+                  </summary>
+                  <div class="px-5 pb-5 text-sm text-zinc-600 space-y-4 border-t border-zinc-50 pt-4">
+                    <p>
+                      <strong>Strictly No Pets:</strong>
+                      To protect local wildlife and maintain cleanliness, pets are not permitted anywhere on property.
+                    </p>
+                    <p>
+                      <strong>Boating:</strong>
+                      Mooring at our private dock is free for members. Please notify the Cabin Master in advance.
+                      <em>Note: trailers must be parked off-site.</em>
+                    </p>
+                    <div class="p-4 bg-rose-50 border border-rose-100 rounded-lg text-rose-800 text-xs">
+                      <strong>⚠️ Quagga Mussel Warning:</strong>
+                      Mandatory inspection is required. Violations result in a $1,000 fine from Lake County.
+                    </div>
+                  </div>
+                </details>
+
+                <.link
+                  navigate={~p"/code-of-conduct"}
+                  target="_blank"
+                  class="flex items-center justify-between p-5 bg-white border border-zinc-200 rounded-xl font-bold hover:bg-zinc-100 transition-colors"
+                >
                   <span class="flex items-center gap-3">
                     <span class="text-xl">📜</span>
                     <span>Code of Conduct</span>
                   </span>
-                  <.icon
-                    name="hero-chevron-down"
-                    class="w-4 h-4 text-zinc-500 chevron-icon transition-transform"
-                  />
-                </summary>
-                <div class="px-4 pb-5 text-base text-zinc-700 leading-relaxed border-t border-zinc-50 pt-5 space-y-4">
-                  <p>
-                    Everyone attending YSC events or visiting club properties should enjoy a <strong>safe, welcoming, and inclusive environment</strong>.
-                  </p>
-                  <p>
-                    Any behavior that is discriminatory, harassing, or threatening is <strong>strictly prohibited</strong>.
-                  </p>
-                  <p>
-                    The <strong>Cabin Master</strong>
-                    or <strong>event host</strong>
-                    may determine if conduct violates this policy.
-                  </p>
-                  <div class="space-y-2">
-                    <a
-                      href="https://ysc.org/non-discrimination-code-of-conduct/"
-                      target="_blank"
-                      class="block text-teal-600 hover:text-teal-700 underline text-sm"
-                    >
-                      View the YSC Code of Conduct →
-                    </a>
-                    <a
-                      href="https://ysc.org/conduct-violation-report-form/"
-                      target="_blank"
-                      class="block text-teal-600 hover:text-teal-700 underline text-sm"
-                    >
-                      Report a Conduct Violation →
-                    </a>
-                  </div>
-                </div>
-              </details>
-              <details
-                class="group border border-zinc-200 rounded bg-white transition-all"
-                id="children-section"
-              >
-                <summary class="p-4 cursor-pointer font-bold flex justify-between items-center list-none hover:bg-zinc-50">
-                  <span class="flex items-center gap-3">
-                    <span class="text-xl">👨‍👩‍👧</span>
-                    <span>Children</span>
-                  </span>
-                  <.icon
-                    name="hero-chevron-down"
-                    class="w-4 h-4 text-zinc-500 chevron-icon transition-transform"
-                  />
-                </summary>
-                <div class="px-4 pb-5 text-base text-zinc-700 leading-relaxed border-t border-zinc-50 pt-5 space-y-3">
-                  <p>
-                    Clear Lake is <strong>family-friendly</strong>
-                    and ideal for children on most weekends.
-                  </p>
-                  <p>
-                    However, <strong>some party weekends may not be suitable</strong>
-                    for kids — refer to event descriptions for guidance.
-                  </p>
-                </div>
-              </details>
-              <details
-                class="group border border-zinc-200 rounded bg-white transition-all"
-                id="pets-section"
-              >
-                <summary class="p-4 cursor-pointer font-bold flex justify-between items-center list-none hover:bg-zinc-50">
-                  <span class="flex items-center gap-3">
-                    <span class="text-xl">🐾</span>
-                    <span>Pets</span>
-                  </span>
-                  <.icon
-                    name="hero-chevron-down"
-                    class="w-4 h-4 text-zinc-500 chevron-icon transition-transform"
-                  />
-                </summary>
-                <div class="px-4 pb-5 text-base text-zinc-700 leading-relaxed border-t border-zinc-50 pt-5">
-                  <p>
-                    Dogs and other pets are <strong>not allowed</strong>
-                    anywhere on YSC properties, including the <strong>Clear Lake campground</strong>.
-                  </p>
-                </div>
-              </details>
-              <details
-                class="group border border-zinc-200 rounded bg-white transition-all"
-                id="guests-section"
-              >
-                <summary class="p-4 cursor-pointer font-bold flex justify-between items-center list-none hover:bg-zinc-50">
-                  <span class="flex items-center gap-3">
-                    <span class="text-xl">🧍‍♂️</span>
-                    <span>Non-Member Guests</span>
-                  </span>
-                  <.icon
-                    name="hero-chevron-down"
-                    class="w-4 h-4 text-zinc-500 chevron-icon transition-transform"
-                  />
-                </summary>
-                <div class="px-4 pb-5 text-base text-zinc-700 leading-relaxed border-t border-zinc-50 pt-5 space-y-3">
-                  <p>Guests are welcome on general visits, but:</p>
-                  <ul class="space-y-2">
-                    <li>
-                      • All guests must be <strong>included in and paid for</strong>
-                      by the member making the reservation.
-                    </li>
-                    <li>
-                      • Certain events may have <strong>guest restrictions</strong>
-                      — check event details for specifics.
-                    </li>
-                  </ul>
-                </div>
-              </details>
-              <!-- Cabin Facilities - Icon Grid -->
-              <div id="facilities-section" class="mt-6">
-                <h3 class="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-3">
-                  <.icon name="hero-home-modern" class="w-6 h-6 text-teal-600" /> Cabin Facilities
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div class="bg-zinc-50 border border-zinc-200 rounded-lg p-5 text-center hover:bg-zinc-100 transition-colors">
-                    <.icon name="hero-squares-2x2" class="w-8 h-8 text-teal-600 mx-auto mb-3" />
-                    <h4 class="font-semibold text-zinc-900 mb-1">Large Kitchen</h4>
-                    <p class="text-xs text-zinc-600">Fully equipped for group meals</p>
-                  </div>
-                  <div class="bg-zinc-50 border border-zinc-200 rounded-lg p-5 text-center hover:bg-zinc-100 transition-colors">
-                    <.icon name="hero-user-group" class="w-8 h-8 text-teal-600 mx-auto mb-3" />
-                    <h4 class="font-semibold text-zinc-900 mb-1">Bathrooms</h4>
-                    <p class="text-xs text-zinc-600">Men's & women's changing rooms</p>
-                  </div>
-                  <div class="bg-zinc-50 border border-zinc-200 rounded-lg p-5 text-center hover:bg-zinc-100 transition-colors">
-                    <.icon name="hero-musical-note" class="w-8 h-8 text-teal-600 mx-auto mb-3" />
-                    <h4 class="font-semibold text-zinc-900 mb-1">Living Room</h4>
-                    <p class="text-xs text-zinc-600">Dance floor for gatherings</p>
-                  </div>
-                </div>
+                  <.icon name="hero-arrow-top-right-on-square" class="w-5 h-5 text-zinc-400" />
+                </.link>
               </div>
-              <details
-                class="group border border-zinc-200 rounded bg-white transition-all"
-                id="nearby-section"
-              >
-                <summary class="p-4 cursor-pointer font-bold flex justify-between items-center list-none hover:bg-zinc-50">
-                  <span class="flex items-center gap-3">
-                    <span class="text-xl">🌄</span>
-                    <span>Things to Do Nearby</span>
-                  </span>
-                  <.icon
-                    name="hero-chevron-down"
-                    class="w-4 h-4 text-zinc-500 chevron-icon transition-transform"
-                  />
-                </summary>
-                <div class="px-4 pb-5 text-base text-zinc-700 leading-relaxed border-t border-zinc-50 pt-5 space-y-4">
-                  <p>
-                    While the cabin offers plenty of on-site fun, consider exploring these local attractions:
+            </div>
+          </section>
+          <!-- Things to Do Nearby Section -->
+          <section id="nearby-section" class="mb-20">
+            <details class="group border border-zinc-200 rounded bg-white transition-all">
+              <summary class="p-4 cursor-pointer font-bold flex justify-between items-center list-none hover:bg-zinc-50">
+                <span class="flex items-center gap-3">
+                  <span class="text-xl">🌄</span>
+                  <span>Things to Do Nearby</span>
+                </span>
+                <.icon
+                  name="hero-chevron-down"
+                  class="w-4 h-4 text-zinc-500 chevron-icon transition-transform"
+                />
+              </summary>
+              <div class="px-4 pb-5 text-base text-zinc-700 leading-relaxed border-t border-zinc-50 pt-5 space-y-6">
+                <div class="space-y-3">
+                  <h4 class="font-bold text-zinc-900">North America's Oldest Lake</h4>
+                  <p class="text-base text-zinc-600">
+                    Estimated to be 2.5 million years old, Clear Lake is a biological treasure. In the winter, it becomes a peaceful mirror for the migratory birds and the snow-capped peak of Mt. Konocti.
+                  </p>
+                </div>
+                <div class="space-y-3">
+                  <h4 class="font-bold text-zinc-900">The Winter Migration</h4>
+                  <p class="text-base text-zinc-600">
+                    Clear Lake is a premier birding destination. In the colder months, the lake is home to thousands of wintering grebes and majestic Bald Eagles. It's a photographer's paradise when the summer crowds have cleared.
+                  </p>
+                </div>
+                <div class="space-y-3">
+                  <h4 class="font-bold text-zinc-900">The Wine of the 'Red Hills'</h4>
+                  <p class="text-base text-zinc-600">
+                    When it's too cold for the lake, it's perfect for the cellar. The Kelseyville area is the heart of the Red Hills AVA. Visit high-altitude tasting rooms like Chacewater or Laujor to taste some of California's best volcanic-soil Cabernets.
+                  </p>
+                </div>
+                <div class="space-y-3">
+                  <h4 class="font-bold text-zinc-900">Mt. Konocti in the Mist</h4>
+                  <p class="text-base text-zinc-600">
+                    Hiking the dormant volcano is actually more pleasant in the spring and fall than the summer heat. The trails offer 360-degree views of the lake and, on clear winter days, glimpses of the snow-capped Sierras.
+                  </p>
+                </div>
+                <div class="space-y-3">
+                  <h4 class="font-bold text-zinc-900">Kelseyville Charm</h4>
+                  <p class="text-base text-zinc-600">
+                    A 10-minute drive takes you to the historic town of Kelseyville—famous for its pear orchards, local breweries, and small-town hospitality that feels like a step back in time.
+                  </p>
+                </div>
+                <div class="p-4 bg-zinc-50 border border-zinc-200 rounded-lg">
+                  <p class="text-base text-zinc-700">
+                    <strong>Planning Tip:</strong>
+                    The nearest store is 5 miles (8km) away. We recommend stopping in Kelseyville for ice and necessities before you arrive.
+                  </p>
+                </div>
+                <div class="pt-4 border-t border-zinc-100">
+                  <p class="text-base font-medium text-zinc-700 mb-3">
+                    Explore more local attractions:
                   </p>
                   <ul class="space-y-2">
                     <li>
@@ -1475,7 +1526,51 @@ defmodule YscWeb.ClearLakeBookingLive do
                     </li>
                   </ul>
                 </div>
-              </details>
+              </div>
+            </details>
+          </section>
+          <!-- Legacy Timeline Section -->
+          <section id="legacy-timeline" class="py-16 border-t border-zinc-100">
+            <div class="max-w-3xl">
+              <h2 class="text-3xl font-bold text-zinc-900 mb-8 leading-tight">A 60-Year Legacy</h2>
+              <div class="space-y-8 relative">
+                <div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-zinc-100"></div>
+
+                <div class="relative pl-10">
+                  <div class="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-white border-4 border-teal-600">
+                  </div>
+                  <h4 class="font-bold text-zinc-900">1963: The Vision</h4>
+                  <p class="text-base text-zinc-500 leading-relaxed">
+                    The Young Scandinavians Club acquires the property, establishing a permanent summer retreat for the Nordic community in California.
+                  </p>
+                </div>
+
+                <div class="relative pl-10">
+                  <div class="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-white border-4 border-teal-600">
+                  </div>
+                  <h4 class="font-bold text-zinc-900">1970s - 90s: Built by Hand</h4>
+                  <p class="text-base text-zinc-500 leading-relaxed">
+                    Generations of members spent their weekends on "Dugnad" (work parties), building the kitchen, the social hall, and the iconic private dock.
+                  </p>
+                </div>
+
+                <div class="relative pl-10">
+                  <div class="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-white border-4 border-teal-600">
+                  </div>
+                  <h4 class="font-bold text-zinc-900">Today: Your Turn</h4>
+                  <p class="text-base text-zinc-500 leading-relaxed">
+                    As a member-run treasure, the cabin remains a place where we share meals, chores, and the best sunset views on the lake.
+                  </p>
+                </div>
+                <div :if={@user} class="relative pl-10">
+                  <div class="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-teal-600 border-4 border-white shadow-sm">
+                  </div>
+                  <h4 class="font-bold text-zinc-900">Your Chapter</h4>
+                  <p class="text-base text-zinc-500 leading-relaxed">
+                    By booking a stay, you are participating in the ongoing story of the YSC. Your fees go directly toward the preservation of the cabin and the Dock Revival Project.
+                  </p>
+                </div>
+              </div>
             </div>
           </section>
         </div>
@@ -1488,21 +1583,21 @@ defmodule YscWeb.ClearLakeBookingLive do
                 <h3 class="font-bold text-zinc-900">Quick Logistics</h3>
               </div>
               <div class="p-6 space-y-4">
-                <div class="flex justify-between text-sm">
+                <div class="flex justify-between text-base">
                   <span class="text-zinc-500">Check-in</span>
                   <span class="font-bold">3:00 PM</span>
                 </div>
-                <div class="flex justify-between text-sm">
+                <div class="flex justify-between text-base">
                   <span class="text-zinc-500">Check-out</span>
                   <span class="font-bold">11:00 AM</span>
                 </div>
-                <div class="flex justify-between text-sm border-t border-zinc-50 pt-4">
+                <div class="flex justify-between text-base border-t border-zinc-50 pt-4">
                   <span class="text-zinc-500">Capacity</span>
                   <span class="font-bold"><%= @max_guests %> Guests</span>
                 </div>
-                <div class="flex justify-between text-sm">
+                <div class="flex justify-between text-base">
                   <span class="text-zinc-500">Pets</span>
-                  <span class="font-bold text-rose-600">No Dogs Allowed</span>
+                  <span class="font-bold text-rose-600">No Pets Allowed</span>
                 </div>
               </div>
             </div>
@@ -1511,30 +1606,122 @@ defmodule YscWeb.ClearLakeBookingLive do
               <h3 class="text-lg font-bold mb-6 flex items-center gap-2">
                 <.icon name="hero-shopping-bag" class="w-6 h-6" /> Essential Packing
               </h3>
-              <ul class="space-y-4 text-sm text-teal-100">
+              <ul class="space-y-4 text-base text-teal-100">
                 <li class="flex gap-3">
-                  <span class="text-teal-400">✓</span>
+                  <span class="text-teal-400 font-bold">✓</span>
                   <span><strong>Bedding:</strong> Sleeping bag & pillow</span>
                 </li>
                 <li class="flex gap-3">
-                  <span class="text-teal-400">✓</span>
-                  <span><strong>Swim Gear:</strong> Towels & sun protection</span>
+                  <span class="text-teal-400 font-bold">✓</span>
+                  <span>
+                    <strong>Footwear:</strong>
+                    Flip-flops for the dock, and <strong>dancing shoes</strong>
+                    for the hall
+                  </span>
                 </li>
                 <li class="flex gap-3">
-                  <span class="text-teal-400">✓</span>
-                  <span><strong>Cooler:</strong> Ice is 5 miles away, bring plenty</span>
+                  <span class="text-teal-400 font-bold">✓</span>
+                  <span><strong>Rest:</strong> Earplugs (recommended for communal sleeping)</span>
+                </li>
+                <li class="flex gap-3">
+                  <span class="text-teal-400 font-bold">✓</span>
+                  <span>
+                    <strong>Hydration:</strong> Reusable bottle (tap water is safe & filtered)
+                  </span>
+                </li>
+                <li class="flex gap-3">
+                  <span class="text-teal-400 font-bold">✓</span>
+                  <span>
+                    <strong>Cooler:</strong> Ice is 5 miles away; bring plenty for your beverages
+                  </span>
                 </li>
                 <li class="flex gap-3 border-t border-white/10 pt-4">
                   <span class="text-teal-400">!</span>
-                  <span class="italic">
+                  <span class="italic text-sm">
                     Chore duty is required for all guests. Check the kitchen board upon arrival.
                   </span>
                 </li>
               </ul>
             </div>
+            <!-- Lake Lore Card - Dark Background -->
+            <div class="bg-zinc-900 rounded-2xl p-8 text-white shadow-xl shadow-zinc-900/20">
+              <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <.icon name="hero-information-circle" class="w-6 h-6 text-teal-400" /> Lake Lore
+              </h3>
+              <div class="space-y-4 text-base text-zinc-300">
+                <p>
+                  <strong class="text-white">2.5 Million Years:</strong>
+                  Clear Lake is the oldest lake in North America, offering a unique ecosystem for bird watching and fishing year-round.
+                </p>
+                <p>
+                  <strong class="text-white">The "Dugnad" Spirit:</strong>
+                  Everything you see was built or maintained by members. We don't just stay here; we steward it.
+                </p>
+              </div>
+            </div>
+            <!-- Winter Travel Tip Card -->
+            <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6 shadow-sm">
+              <h3 class="text-lg font-bold mb-3 flex items-center gap-2 text-amber-900">
+                <span class="text-xl">🍂</span> Winter Travel Tip
+              </h3>
+              <p class="text-base text-amber-800 leading-relaxed">
+                The lake air gets chilly! We recommend bringing an extra wool blanket and a pair of indoor slippers (a true Scandinavian tradition) to keep cozy in the Social Hall after dark.
+              </p>
+            </div>
           </div>
         </aside>
       </div>
+      <!-- Stewards of the Lake Section -->
+      <section class="bg-amber-50 rounded-3xl p-8 lg:p-12 border border-amber-100 mb-20 mt-10">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
+          <div class="lg:col-span-2">
+            <h2 class="text-3xl font-bold text-zinc-900 mb-4">The Dock Revival Project</h2>
+            <p class="text-zinc-700 mb-6 leading-relaxed">
+              The heart of the cabin is its dock. In 2023, after brutal winter storms, our members rallied together to rebuild our private mooring. We are currently raising $45,000 to ensure this landmark outlasts the next 20 years.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              <div class="p-4 bg-white border border-amber-200 rounded-xl shadow-sm">
+                <p class="text-base font-bold text-amber-900">$150 — Legacy Tier</p>
+                <p class="text-sm text-zinc-600">
+                  Your name inscribed on a tile on the cabin fireplace mantle for eternity.
+                </p>
+              </div>
+              <div class="p-4 bg-white border border-amber-200 rounded-xl shadow-sm">
+                <p class="text-base font-bold text-amber-900">$100 — Captain's Tier</p>
+                <p class="text-sm text-zinc-600">
+                  Includes a $15 coupon for any Clear Lake summer event.
+                </p>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-6">
+              <a
+                href="#donate"
+                class="bg-amber-600 text-white px-8 py-3 rounded-xl font-black hover:bg-amber-700 transition shadow-lg shadow-amber-200"
+              >
+                Donate Now
+              </a>
+              <div class="text-base text-amber-800 italic flex items-center">
+                <.icon name="hero-heart" class="w-5 h-5 mr-2" />
+                The club matches all member donations!
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-amber-200">
+              <h4 class="font-bold text-zinc-900 mb-3 text-base uppercase tracking-wider">
+                Honorary Stewards
+              </h4>
+              <p class="text-sm text-zinc-500 leading-relaxed">
+                Special thanks to <strong>Allen Hinkelman, Solveig Barnes, and Dave Conroy</strong>
+                for taking the lead in 2019 to turn this dream into a reality.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
       <!-- Footer -->
       <div class="mt-12 pt-8 border-t border-zinc-100 text-center">
         <p class="text-sm text-zinc-600 italic">

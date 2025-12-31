@@ -212,6 +212,22 @@ body {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
+#site-header.hero-mode #avatar-menu-link {
+  color: white;
+}
+
+#site-header.hero-mode #avatar-menu-link:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+#site-header.hero-mode #avatar-menu-link .text-zinc-800 {
+  color: white !important;
+}
+
+#site-header.hero-mode #avatar-menu-link .text-zinc-500 {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
 /* MOBILE SLIDE-IN MENU */
 
 .mobile-menu-panel {

@@ -1,30 +1,42 @@
-<div class="py-8 lg:py-10 max-w-screen-xl mx-auto px-4">
-  <%!-- Hero Section --%>
-  <div
-    id="history-hero"
-    class="mb-16 prose prose-zinc prose-a:text-blue-600 w-full max-w-screen-xl"
-  >
-    <div class="not-prose mb-8 text-center mx-auto">
-      <div class="inline-block px-8 py-4 bg-zinc-50 border-2 border-zinc-200 rounded-2xl">
-        <p class="text-6xl font-bold text-zinc-900 mb-2">Est. 1950</p>
-        <p class="text-lg text-zinc-600">
-          <%= Date.utc_today().year - 1950 %> Years of Scandinavian Community
-        </p>
-      </div>
+<div class="pb-10 max-w-screen-xl mx-auto px-4">
+  <%!-- Anniversary Hero Section --%>
+  <div id="history-hero" class="mb-20 text-center relative overflow-hidden py-12">
+    <%!-- Background texture effect --%>
+    <div class="absolute inset-0 bg-gradient-to-b from-zinc-50 via-blue-50/30 to-transparent opacity-50">
+    </div>
+    <div
+      class="absolute inset-0 opacity-30"
+      style="background-image: url('data:image/svg+xml,%3Csvg width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg fill=%22none%22 fill-rule=%22evenodd%22%3E%3Cg fill=%22%239C92AC%22 fill-opacity=%220.03%22%3E%3Cpath d=%22M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')"
+    >
     </div>
 
-    <div class="max-w-screen-md mx-auto">
-      <h1>YSC History</h1>
-
-      <blockquote class="border-l-4 border-blue-600 pl-6 italic text-zinc-700 my-8">
-        <p class="text-lg leading-relaxed">
-          Established in 1950 by five friends—<strong>Arnold Rolkert</strong>, <strong>Gunnar Engen</strong>, <strong>Carlo Hojsgaard</strong>, <strong>Peter Larsen Bernard</strong>, and <strong>Ulla Lindberg</strong>—the YSC has blossomed into a thriving community for Scandinavian and Scandinavian-American individuals and families.
-        </p>
-      </blockquote>
-
-      <p>
-        Imagine a place where you can connect with others who share your passion for Scandinavian traditions, enjoy cozy cabin getaways, and create lifelong memories. That's the Young Scandinavians Club (YSC)! Whether you're drawn to our cultural celebrations, our scenic cabin retreats at Clear Lake and Lake Tahoe, or simply the joy of connecting with friendly faces, the YSC welcomes you with open arms.
+    <div class="relative">
+      <div class="relative inline-block mb-6">
+        <div class="absolute -inset-4 bg-blue-600/5 rounded-full blur-3xl"></div>
+        <h1 class="relative text-7xl md:text-9xl font-black text-zinc-900 tracking-tighter mb-4">
+          75
+          <span class="text-3xl md:text-5xl align-top mt-4 inline-block text-blue-600">
+            Years
+          </span>
+        </h1>
+      </div>
+      <p class="text-zinc-500 uppercase tracking-[0.3em] font-bold text-sm mb-8">
+        Established 1950 • San Francisco
       </p>
+
+      <div class="max-w-2xl mx-auto border-t border-zinc-200 pt-10 px-4">
+        <h2 class="text-3xl md:text-4xl font-bold text-zinc-900 mb-6">
+          A Legacy of Friendship: The YSC Story
+        </h2>
+        <p class="text-xl text-zinc-600 leading-relaxed font-light mb-6">
+          What started as five friends in a post-war city has blossomed into a multi-generational community. Today, we steward two historic properties and a legacy of Scandinavian culture in California.
+        </p>
+        <blockquote class="border-l-4 border-blue-600 pl-6 italic text-zinc-700 my-8 text-left max-w-xl mx-auto">
+          <p class="text-lg leading-relaxed">
+            Established in 1950 by five friends—<strong>Arnold Rolkert</strong>, <strong>Gunnar Engen</strong>, <strong>Carlo Hojsgaard</strong>, <strong>Peter Larsen Bernard</strong>, and <strong>Ulla Lindberg</strong>—the YSC has blossomed into a thriving community for Scandinavian and Scandinavian-American individuals and families.
+          </p>
+        </blockquote>
+      </div>
     </div>
   </div>
 
@@ -89,227 +101,368 @@
 
   <%!-- Key Events Timeline --%>
   <div class="mb-16">
-    <div class="prose prose-zinc prose-a:text-blue-600 mb-12 scroll-mt-24">
+    <div class="prose prose-zinc prose-a:text-blue-600 mb-8 scroll-mt-24">
       <h2 id="key-events">Key Events</h2>
     </div>
 
+    <%!-- Reading Time & Filters --%>
+    <div class="not-prose mb-12 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-zinc-200">
+      <div class="flex items-center gap-2 text-sm text-zinc-500">
+        <.icon name="hero-clock" class="w-4 h-4" />
+        <span>~12 min read</span>
+      </div>
+      <div id="timeline-filters" phx-hook="TimelineFilter" class="flex flex-wrap gap-2">
+        <button
+          data-filter="all"
+          class="px-4 py-2 rounded-full text-sm font-semibold bg-blue-600 text-white transition-colors"
+        >
+          All Events
+        </button>
+        <button
+          data-filter="founding"
+          class="px-4 py-2 rounded-full text-sm font-semibold bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
+        >
+          Founding
+        </button>
+        <button
+          data-filter="club leadership"
+          class="px-4 py-2 rounded-full text-sm font-semibold bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
+        >
+          Leadership
+        </button>
+        <button
+          data-filter="real estate"
+          class="px-4 py-2 rounded-full text-sm font-semibold bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
+        >
+          Real Estate
+        </button>
+        <button
+          data-filter="cabin life"
+          class="px-4 py-2 rounded-full text-sm font-semibold bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
+        >
+          Cabin Life
+        </button>
+        <button
+          data-filter="anniversary"
+          class="px-4 py-2 rounded-full text-sm font-semibold bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
+        >
+          Anniversaries
+        </button>
+      </div>
+    </div>
+
     <div class="not-prose relative">
-      <%!-- Vertical Timeline Line --%>
-      <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-0.5 h-full bg-zinc-200">
+      <%!-- Gradient Timeline Line --%>
+      <div class="absolute left-4 lg:left-1/4 w-0.5 h-full bg-gradient-to-b from-blue-600 via-blue-400 to-zinc-200 hidden lg:block">
       </div>
 
       <%!-- Timeline Items --%>
       <div class="space-y-12 lg:space-y-16 pl-8 lg:pl-0">
-        <%!-- 1950 - YSC Founded --%>
-        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
-            <div class="bg-white border-l-4 border-blue-600 rounded-r-xl p-6 shadow-sm hover:shadow-md transition-all">
-              <div class="flex items-center gap-3 mb-3 justify-end">
-                <span class="text-2xl font-black text-zinc-300">1950</span>
-                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-wider">
-                  Club Leadership
-                </span>
-                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
-                  Founding
-                </span>
+        <%!-- 1950 - YSC Founded - Founder's Corner Feature Card --%>
+        <div
+          data-timeline-item
+          data-tags="founding, club leadership"
+          class="relative flex flex-col lg:flex-row lg:items-start gap-8 group mb-20"
+        >
+          <div class="lg:w-1/4 pt-2">
+            <span class="text-4xl font-black text-zinc-200 group-hover:text-blue-600 transition-colors duration-500">
+              1950
+            </span>
+          </div>
+
+          <div class="lg:w-3/4 pb-16">
+            <div class="bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-3xl p-8 shadow-xl group-hover:shadow-2xl group-hover:-translate-y-1 transition-all duration-300">
+              <div class="flex flex-col lg:flex-row gap-8">
+                <%!-- Left: Text Content --%>
+                <div class="lg:w-1/2">
+                  <div class="flex items-center gap-3 mb-4">
+                    <.icon name="hero-sparkles" class="w-6 h-6 text-blue-200" />
+                    <span class="px-3 py-1 bg-white/20 backdrop-blur-sm text-white text-[10px] font-black uppercase rounded-full tracking-widest border border-white/30">
+                      Founder's Corner
+                    </span>
+                    <span class="px-3 py-1 bg-white/20 backdrop-blur-sm text-white text-[10px] font-black uppercase rounded-full tracking-widest border border-white/30">
+                      Founding
+                    </span>
+                  </div>
+                  <h3 class="text-3xl font-bold text-white mb-4">
+                    The Beginning: Five Friends, One Vision
+                  </h3>
+                  <blockquote class="border-l-4 border-blue-200 pl-6 italic text-blue-50 leading-relaxed mb-6 text-lg">
+                    <p>
+                      "On August 19, 1950, Arnold Rolkert gathered a group of friends together including Gunnar Engen, Carlo Hojsgaard, Peter Larsen Bernard, and Ulla Lindberg to form what they called The Young Scandinavians Club of San Francisco."
+                    </p>
+                  </blockquote>
+                  <p class="text-blue-50 leading-relaxed">
+                    Thirty members attended the club's first general meeting the following January, and Arnold became its first president. This moment marked the birth of a community that would span generations and create countless memories.
+                  </p>
+                </div>
+
+                <%!-- Right: Collage of Three Founder Photos --%>
+                <div class="lg:w-1/2 flex flex-col gap-3">
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="overflow-hidden rounded-xl aspect-square bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+                      <div class="text-center">
+                        <.icon name="hero-user" class="w-12 h-12 text-white/40 mx-auto mb-2" />
+                        <p class="text-xs text-blue-100 italic">Founder photo</p>
+                      </div>
+                    </div>
+                    <div class="overflow-hidden rounded-xl aspect-square bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+                      <div class="text-center">
+                        <.icon name="hero-user" class="w-12 h-12 text-white/40 mx-auto mb-2" />
+                        <p class="text-xs text-blue-100 italic">Founder photo</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="overflow-hidden rounded-xl aspect-[2/1] bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+                    <div class="text-center">
+                      <.icon name="hero-user-group" class="w-16 h-16 text-white/40 mx-auto mb-2" />
+                      <p class="text-xs text-blue-100 italic">Founders group photo</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <h3 class="text-xl font-bold text-zinc-900 mb-2">YSC Founded</h3>
-              <p class="text-zinc-600 leading-relaxed">
-                On August 19, 1950, Arnold Rolkert gathered a group of friends together including Gunnar Engen, Carlo Hojsgaard, Peter Larsen Bernard, and Ulla Lindberg to form what they called The Young Scandinavians Club of San Francisco. Thirty members attended the club's first general meeting the following January, and Arnold became its first president.
-              </p>
             </div>
           </div>
-          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
-          </div>
-          <div class="lg:w-1/2 lg:pl-8">
-            <%!-- Placeholder for founder photo --%>
-            <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-xl aspect-video flex items-center justify-center">
-              <p class="text-sm text-zinc-400 italic">Founder photo placeholder</p>
-            </div>
+          <div class="absolute left-4 lg:left-[calc(25%+0.0625rem)] lg:-translate-x-1/2 w-6 h-6 bg-blue-600 rounded-full border-4 border-white shadow-xl z-10">
           </div>
         </div>
 
         <%!-- 1960 - Incorporated --%>
-        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
-            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-full uppercase tracking-wider">
+        <div
+          data-timeline-item
+          data-tags="organization, anniversary"
+          class="relative flex flex-col lg:flex-row lg:items-start gap-8 group"
+        >
+          <div class="lg:w-1/4 pt-2">
+            <span class="text-4xl font-black text-zinc-200 group-hover:text-blue-600 transition-colors duration-500">
+              1960
+            </span>
+          </div>
+
+          <div class="lg:w-3/4 pb-16">
+            <div class="bg-white border border-zinc-100 rounded-3xl p-8 shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+              <div class="flex flex-wrap gap-2 mb-4">
+                <.icon name="hero-document-check" class="w-5 h-5 text-purple-600" />
+                <span class="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-black uppercase rounded-full tracking-widest">
                   Organization
                 </span>
+                <span class="px-3 py-1 bg-yellow-50 text-yellow-600 text-[10px] font-black uppercase rounded-full tracking-widest">
+                  Anniversary
+                </span>
               </div>
-              <time class="block text-sm font-semibold text-zinc-500 mb-2">1960</time>
-              <h3 class="text-lg font-semibold text-zinc-900 mb-2">Incorporated as non-profit</h3>
-              <p class="text-base text-zinc-600 leading-relaxed">
+              <h3 class="text-2xl font-bold text-zinc-900 mb-3">Incorporated as Non-Profit</h3>
+              <p class="text-zinc-600 leading-relaxed mb-6">
                 YSC incorporated as a nonprofit organization; 10th anniversary banquet at Canterbury Hotel (anniversaries celebrated every 5 years since); first ski cabin rented at Lake Tahoe.
               </p>
+
+              <div class="overflow-hidden rounded-2xl aspect-[16/6] bg-zinc-50 border border-zinc-100 flex items-center justify-center italic text-zinc-400 text-sm">
+                10th Anniversary photo placeholder
+              </div>
             </div>
           </div>
-          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
-          </div>
-          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1">
-            <%!-- Placeholder for 10th anniversary photo --%>
-            <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-xl aspect-video flex items-center justify-center">
-              <p class="text-sm text-zinc-400 italic">10th Anniversary photo placeholder</p>
-            </div>
+          <div class="absolute left-4 lg:left-[calc(25%+0.0625rem)] lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
           </div>
         </div>
 
         <%!-- 1961 - Lisa for President --%>
-        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div class="lg:w-1/2 lg:pr-8 lg:text-right ml-0 lg:ml-0">
-            <div class="bg-white border-l-4 border-blue-600 rounded-r-xl p-6 shadow-sm hover:shadow-md transition-all">
-              <div class="flex items-center gap-3 mb-3 justify-end">
-                <span class="text-2xl font-black text-zinc-300">1961</span>
-                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-wider">
+        <div
+          data-timeline-item
+          data-tags="club leadership"
+          class="relative flex flex-col lg:flex-row lg:items-start gap-8 group"
+        >
+          <div class="lg:w-1/4 pt-2">
+            <span class="text-4xl font-black text-zinc-200 group-hover:text-blue-600 transition-colors duration-500">
+              1961
+            </span>
+          </div>
+
+          <div class="lg:w-3/4 pb-16">
+            <div class="bg-white border border-zinc-100 rounded-3xl p-8 shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+              <div class="flex flex-wrap gap-2 mb-4">
+                <.icon name="hero-user-circle" class="w-5 h-5 text-blue-600" />
+                <span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black uppercase rounded-full tracking-widest">
                   Club Leadership
                 </span>
               </div>
-              <h3 class="text-xl font-bold text-zinc-900 mb-2">Lisa for President</h3>
-              <p class="text-zinc-600 leading-relaxed">
+              <h3 class="text-2xl font-bold text-zinc-900 mb-3">Lisa for President</h3>
+              <p class="text-zinc-600 leading-relaxed mb-6">
                 Lisa Gille (now Wiborg) begins four-year reign as president. She later serves another year. Started renting current Clear Lake cabin.
               </p>
+
+              <div class="overflow-hidden rounded-2xl aspect-[16/6] bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 flex items-center justify-center">
+                <.icon name="hero-user-group" class="w-24 h-24 text-blue-300" />
+              </div>
             </div>
           </div>
-          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
-          </div>
-          <div class="lg:w-1/2 lg:pl-8">
-            <%!-- Stylized icon for empty slot --%>
-            <div class="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl aspect-video flex items-center justify-center">
-              <.icon name="hero-user-group" class="w-24 h-24 text-blue-300" />
-            </div>
+          <div class="absolute left-4 lg:left-[calc(25%+0.0625rem)] lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
           </div>
         </div>
 
         <%!-- 1963 - Purchased Clear Lake --%>
-        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
-            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-full uppercase tracking-wider">
+        <div
+          data-timeline-item
+          data-tags="real estate, cabin life"
+          class="relative flex flex-col lg:flex-row lg:items-start gap-8 group"
+        >
+          <div class="lg:w-1/4 pt-2">
+            <span class="text-4xl font-black text-zinc-200 group-hover:text-blue-600 transition-colors duration-500">
+              1963
+            </span>
+          </div>
+
+          <div class="lg:w-3/4 pb-16">
+            <div class="bg-white border border-zinc-100 rounded-3xl p-8 shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+              <div class="flex flex-wrap gap-2 mb-4">
+                <.icon name="hero-home" class="w-5 h-5 text-orange-600" />
+                <span class="px-3 py-1 bg-orange-50 text-orange-600 text-[10px] font-black uppercase rounded-full tracking-widest">
                   Real Estate
                 </span>
-                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                <span class="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black uppercase rounded-full tracking-widest">
                   Cabin Life
                 </span>
               </div>
-              <time class="block text-sm font-semibold text-zinc-500 mb-2">1963</time>
-              <h3 class="text-lg font-semibold text-zinc-900 mb-2">
-                Purchased Clear Lake property
-              </h3>
-              <p class="text-base text-zinc-600 leading-relaxed mb-4">
-                Clear Lake property acquired for $28,000.00 – $10,000.00 down and $200.00/month for 10 years. 40 members take group flight to Scandinavia.
+              <h3 class="text-2xl font-bold text-zinc-900 mb-3">The Clear Lake Acquisition</h3>
+              <p class="text-zinc-600 leading-relaxed mb-6">
+                Purchased for $28,000 with a $10,000 down payment, this move established our first permanent home. That same year, 40 members took a legendary group flight back to Scandinavia.
               </p>
-              <%!-- Mini Gallery for Clear Lake --%>
-              <div class="grid grid-cols-2 gap-2 mt-4">
-                <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-lg aspect-square flex items-center justify-center">
-                  <p class="text-xs text-zinc-400 italic">Clear Lake photo</p>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div class="overflow-hidden rounded-2xl aspect-square bg-zinc-50 border border-zinc-100 flex items-center justify-center italic text-zinc-400 text-xs">
+                  Clear Lake photo
                 </div>
-                <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-lg aspect-square flex items-center justify-center">
-                  <p class="text-xs text-zinc-400 italic">Clear Lake photo</p>
+                <div class="overflow-hidden rounded-2xl aspect-square bg-zinc-50 border border-zinc-100 flex items-center justify-center italic text-zinc-400 text-xs">
+                  Clear Lake photo
                 </div>
               </div>
             </div>
           </div>
-          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          <div class="absolute left-4 lg:left-[calc(25%+0.0625rem)] lg:-translate-x-1/2 w-8 h-8 bg-blue-600 rounded-full border-4 border-white shadow-[0_0_20px_rgba(37,99,235,0.4)] z-10 flex items-center justify-center ring-4 ring-blue-100">
+            <.icon name="hero-home" class="w-3 h-3 text-white" />
           </div>
-          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
         </div>
 
         <%!-- 1964 - Cabin Manager on Board --%>
-        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
-            <div class="bg-white border-l-4 border-blue-600 rounded-r-xl p-6 shadow-sm hover:shadow-md transition-all">
-              <div class="flex items-center gap-3 mb-3 justify-end">
-                <span class="text-2xl font-black text-zinc-300">1964</span>
-                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-wider">
+        <div
+          data-timeline-item
+          data-tags="club leadership"
+          class="relative flex flex-col lg:flex-row lg:items-start gap-8 group"
+        >
+          <div class="lg:w-1/4 pt-2">
+            <span class="text-4xl font-black text-zinc-200 group-hover:text-blue-600 transition-colors duration-500">
+              1964
+            </span>
+          </div>
+          <div class="lg:w-3/4 pb-16">
+            <div class="bg-white border border-zinc-100 rounded-3xl p-8 shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+              <div class="flex flex-wrap gap-2 mb-4">
+                <.icon name="hero-users" class="w-5 h-5 text-blue-600" />
+                <span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black uppercase rounded-full tracking-widest">
                   Club Leadership
                 </span>
               </div>
-              <h3 class="text-xl font-bold text-zinc-900 mb-2">
-                Cabin Manager and Activities Director on the board
+              <h3 class="text-2xl font-bold text-zinc-900 mb-3">
+                Cabin Manager and Activities Director on the Board
               </h3>
               <p class="text-zinc-600 leading-relaxed">
                 Cabin Manager and Activities Director positions elevated to Executive Committee status.
               </p>
             </div>
           </div>
-          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
-          </div>
-          <div class="lg:w-1/2 lg:pl-8">
-            <%!-- Stylized icon for empty slot --%>
-            <div class="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl aspect-video flex items-center justify-center">
-              <.icon name="hero-users" class="w-24 h-24 text-blue-300" />
-            </div>
+          <div class="absolute left-4 lg:left-[calc(25%+0.0625rem)] lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
           </div>
         </div>
 
         <%!-- 1966 - Improvements to Clear Lake --%>
-        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
-            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+        <div
+          data-timeline-item
+          data-tags="cabin life"
+          class="relative flex flex-col lg:flex-row lg:items-start gap-8 group"
+        >
+          <div class="lg:w-1/4 pt-2">
+            <span class="text-4xl font-black text-zinc-200 group-hover:text-blue-600 transition-colors duration-500">
+              1966
+            </span>
+          </div>
+          <div class="lg:w-3/4 pb-16">
+            <div class="bg-white border border-zinc-100 rounded-3xl p-8 shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+              <div class="flex flex-wrap gap-2 mb-4">
+                <.icon name="hero-wrench-screwdriver" class="w-5 h-5 text-green-600" />
+                <span class="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black uppercase rounded-full tracking-widest">
                   Cabin Life
                 </span>
               </div>
-              <time class="block text-sm font-semibold text-zinc-500 mb-2">1966</time>
-              <h3 class="text-lg font-semibold text-zinc-900 mb-2">Improvements to Clear Lake</h3>
-              <p class="text-base text-zinc-600 leading-relaxed">
+              <h3 class="text-2xl font-bold text-zinc-900 mb-3">Improvements to Clear Lake</h3>
+              <p class="text-zinc-600 leading-relaxed">
                 Members make major improvements to Clear Lake property, including septic tank, parking area, and leach field.
               </p>
             </div>
           </div>
-          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          <div class="absolute left-4 lg:left-[calc(25%+0.0625rem)] lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
           </div>
-          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
         </div>
 
         <%!-- 1967 - Clear Lake bathroom construction --%>
-        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
-            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-              <div class="flex items-center gap-2 mb-2 justify-end">
-                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+        <div
+          data-timeline-item
+          data-tags="cabin life"
+          class="relative flex flex-col lg:flex-row lg:items-start gap-8 group"
+        >
+          <div class="lg:w-1/4 pt-2">
+            <span class="text-4xl font-black text-zinc-200 group-hover:text-blue-600 transition-colors duration-500">
+              1967
+            </span>
+          </div>
+          <div class="lg:w-3/4 pb-16">
+            <div class="bg-white border border-zinc-100 rounded-3xl p-8 shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+              <div class="flex flex-wrap gap-2 mb-4">
+                <.icon name="hero-home-modern" class="w-5 h-5 text-green-600" />
+                <span class="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black uppercase rounded-full tracking-widest">
                   Cabin Life
                 </span>
               </div>
-              <time class="block text-sm font-semibold text-zinc-500 mb-2">1967</time>
-              <h3 class="text-lg font-semibold text-zinc-900 mb-2">
-                Clear Lake bathroom construction
+              <h3 class="text-2xl font-bold text-zinc-900 mb-3">
+                Clear Lake Bathroom Construction
               </h3>
-              <p class="text-base text-zinc-600 leading-relaxed">
+              <p class="text-zinc-600 leading-relaxed">
                 New bathrooms constructed at Clear Lake cabin.
               </p>
             </div>
           </div>
-          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          <div class="absolute left-4 lg:left-[calc(25%+0.0625rem)] lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
           </div>
-          <div class="lg:w-1/2 lg:pl-8"></div>
         </div>
 
         <%!-- 1974 - Clear Lake paid off --%>
-        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
-            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-full uppercase tracking-wider">
+        <div
+          data-timeline-item
+          data-tags="real estate, cabin life"
+          class="relative flex flex-col lg:flex-row lg:items-start gap-8 group"
+        >
+          <div class="lg:w-1/4 pt-2">
+            <span class="text-4xl font-black text-zinc-200 group-hover:text-blue-600 transition-colors duration-500">
+              1974
+            </span>
+          </div>
+          <div class="lg:w-3/4 pb-16">
+            <div class="bg-white border border-zinc-100 rounded-3xl p-8 shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+              <div class="flex flex-wrap gap-2 mb-4">
+                <.icon name="hero-check-circle" class="w-5 h-5 text-orange-600" />
+                <span class="px-3 py-1 bg-orange-50 text-orange-600 text-[10px] font-black uppercase rounded-full tracking-widest">
                   Real Estate
                 </span>
-                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                <span class="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black uppercase rounded-full tracking-widest">
                   Cabin Life
                 </span>
               </div>
-              <time class="block text-sm font-semibold text-zinc-500 mb-2">1974</time>
-              <h3 class="text-lg font-semibold text-zinc-900 mb-2">Clear Lake paid off</h3>
-              <p class="text-base text-zinc-600 leading-relaxed">
+              <h3 class="text-2xl font-bold text-zinc-900 mb-3">Clear Lake Paid Off</h3>
+              <p class="text-zinc-600 leading-relaxed">
                 Clear Lake loan paid off. The cabin and it's 3/4 acre lot is ours.
               </p>
             </div>
           </div>
-          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          <div class="absolute left-4 lg:left-[calc(25%+0.0625rem)] lg:-translate-x-1/2 w-8 h-8 bg-blue-600 rounded-full border-4 border-white shadow-[0_0_20px_rgba(37,99,235,0.4)] z-10 flex items-center justify-center ring-4 ring-blue-100">
+            <.icon name="hero-check-circle" class="w-3 h-3 text-white" />
           </div>
-          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
         </div>
 
         <%!-- 1976 - New pier --%>
@@ -428,36 +581,44 @@
         </div>
 
         <%!-- 1993 - Tahoe Cabin purchase --%>
-        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div class="lg:w-1/2 lg:pl-8 lg:order-2">
-            <div class="bg-white border-l-4 border-orange-600 rounded-r-xl p-6 shadow-sm hover:shadow-md transition-all">
-              <div class="flex items-center gap-3 mb-3">
-                <span class="text-2xl font-black text-zinc-300">1993</span>
-                <span class="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-full uppercase tracking-wider">
-                  #RealEstate
+        <div
+          data-timeline-item
+          data-tags="real estate, cabin life"
+          class="relative flex flex-col lg:flex-row lg:items-start gap-8 group"
+        >
+          <div class="lg:w-1/4 pt-2">
+            <span class="text-4xl font-black text-zinc-200 group-hover:text-blue-600 transition-colors duration-500">
+              1993
+            </span>
+          </div>
+          <div class="lg:w-3/4 pb-16">
+            <div class="bg-white border border-zinc-100 rounded-3xl p-8 shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+              <div class="flex flex-wrap gap-2 mb-4">
+                <.icon name="hero-home" class="w-5 h-5 text-orange-600" />
+                <span class="px-3 py-1 bg-orange-50 text-orange-600 text-[10px] font-black uppercase rounded-full tracking-widest">
+                  Real Estate
                 </span>
-                <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-wider">
-                  #CabinLife
+                <span class="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black uppercase rounded-full tracking-widest">
+                  Cabin Life
                 </span>
               </div>
-              <h3 class="text-xl font-bold text-zinc-900 mb-2">Tahoe Cabin purchase</h3>
-              <p class="text-zinc-600 leading-relaxed mb-4">
+              <h3 class="text-2xl font-bold text-zinc-900 mb-3">Tahoe Cabin Purchase</h3>
+              <p class="text-zinc-600 leading-relaxed mb-6">
                 Tahoe cabin purchased for $190,000.00, marking a major milestone in the club's growth.
               </p>
-              <%!-- Mini Gallery for Tahoe --%>
-              <div class="grid grid-cols-2 gap-2 mt-4">
-                <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-lg aspect-square flex items-center justify-center">
-                  <p class="text-xs text-zinc-400 italic">Tahoe photo</p>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="overflow-hidden rounded-2xl aspect-square bg-zinc-50 border border-zinc-100 flex items-center justify-center italic text-zinc-400 text-xs">
+                  Tahoe photo
                 </div>
-                <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-lg aspect-square flex items-center justify-center">
-                  <p class="text-xs text-zinc-400 italic">Tahoe photo</p>
+                <div class="overflow-hidden rounded-2xl aspect-square bg-zinc-50 border border-zinc-100 flex items-center justify-center italic text-zinc-400 text-xs">
+                  Tahoe photo
                 </div>
               </div>
             </div>
           </div>
-          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          <div class="absolute left-4 lg:left-[calc(25%+0.0625rem)] lg:-translate-x-1/2 w-8 h-8 bg-blue-600 rounded-full border-4 border-white shadow-[0_0_20px_rgba(37,99,235,0.4)] z-10 flex items-center justify-center ring-4 ring-blue-100">
+            <.icon name="hero-home" class="w-3 h-3 text-white" />
           </div>
-          <div class="lg:w-1/2 lg:pr-8 lg:text-right lg:order-1"></div>
         </div>
 
         <%!-- 1996-1999 - New Clear Lake ambitions --%>
@@ -505,28 +666,35 @@
         </div>
 
         <%!-- 2000 - YSC 50th Anniversary --%>
-        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
-            <div class="bg-white border border-zinc-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-              <div class="flex items-center gap-2 mb-2 justify-end">
-                <span class="text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full uppercase tracking-wider">
+        <div
+          data-timeline-item
+          data-tags="anniversary"
+          class="relative flex flex-col lg:flex-row lg:items-start gap-8 group"
+        >
+          <div class="lg:w-1/4 pt-2">
+            <span class="text-4xl font-black text-zinc-200 group-hover:text-blue-600 transition-colors duration-500">
+              2000
+            </span>
+          </div>
+          <div class="lg:w-3/4 pb-16">
+            <div class="bg-white border border-zinc-100 rounded-3xl p-8 shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+              <div class="flex flex-wrap gap-2 mb-4">
+                <.icon name="hero-sparkles" class="w-5 h-5 text-yellow-600" />
+                <span class="px-3 py-1 bg-yellow-50 text-yellow-600 text-[10px] font-black uppercase rounded-full tracking-widest">
                   Anniversary
                 </span>
               </div>
-              <time class="block text-sm font-semibold text-zinc-500 mb-2">2000</time>
-              <h3 class="text-lg font-semibold text-zinc-900 mb-2">YSC 50th Anniversary</h3>
-              <p class="text-base text-zinc-600 leading-relaxed mb-4">
+              <h3 class="text-2xl font-bold text-zinc-900 mb-3">YSC 50th Anniversary</h3>
+              <p class="text-zinc-600 leading-relaxed mb-6">
                 YSC celebrates it's 50th anniversary with a grand party at the Sir Francis Drake Hotel. Guest of honor: Arnold Rolkert – the first president, flies in from Sweden and delivers this speech.
               </p>
-              <%!-- Placeholder for 50th anniversary photo --%>
-              <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-xl aspect-video flex items-center justify-center">
-                <p class="text-sm text-zinc-400 italic">50th Anniversary photo placeholder</p>
+              <div class="overflow-hidden rounded-2xl aspect-[16/9] bg-zinc-50 border border-zinc-100 flex items-center justify-center italic text-zinc-400 text-sm">
+                50th Anniversary photo placeholder
               </div>
             </div>
           </div>
-          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          <div class="absolute left-4 lg:left-[calc(25%+0.0625rem)] lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
           </div>
-          <div class="lg:w-1/2 lg:pl-8"></div>
         </div>
 
         <%!-- 2003 - New ski boat --%>
@@ -684,28 +852,35 @@
         </div>
 
         <%!-- 2025 - 75 Year Anniversary --%>
-        <div class="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
-          <div class="lg:w-1/2 lg:pr-8 lg:text-right">
-            <div class="bg-white border-2 border-blue-200 rounded-xl p-6 hover:shadow-md transition-shadow bg-blue-50/30">
-              <div class="flex items-center gap-2 mb-2 justify-end">
-                <span class="text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full uppercase tracking-wider">
+        <div
+          data-timeline-item
+          data-tags="anniversary"
+          class="relative flex flex-col lg:flex-row lg:items-start gap-8 group"
+        >
+          <div class="lg:w-1/4 pt-2">
+            <span class="text-4xl font-black text-zinc-200 group-hover:text-blue-600 transition-colors duration-500">
+              2025
+            </span>
+          </div>
+          <div class="lg:w-3/4 pb-16">
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-3xl p-8 shadow-sm group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+              <div class="flex flex-wrap gap-2 mb-4">
+                <.icon name="hero-sparkles" class="w-5 h-5 text-yellow-600" />
+                <span class="px-3 py-1 bg-yellow-50 text-yellow-600 text-[10px] font-black uppercase rounded-full tracking-widest">
                   Anniversary
                 </span>
               </div>
-              <time class="block text-sm font-semibold text-zinc-500 mb-2">2025</time>
-              <h3 class="text-lg font-semibold text-zinc-900 mb-2">75 Year Anniversary</h3>
-              <p class="text-base text-zinc-600 leading-relaxed mb-4">
+              <h3 class="text-2xl font-bold text-zinc-900 mb-3">75 Year Anniversary</h3>
+              <p class="text-zinc-600 leading-relaxed mb-6">
                 The YSC celebrates its 75th Anniversary with a grand party at the Swedish American Hall in San Francisco.
               </p>
-              <%!-- Placeholder for 75th anniversary photo --%>
-              <div class="bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-xl aspect-video flex items-center justify-center">
-                <p class="text-sm text-zinc-400 italic">75th Anniversary photo placeholder</p>
+              <div class="overflow-hidden rounded-2xl aspect-[16/9] bg-white/50 border border-blue-200 flex items-center justify-center italic text-zinc-500 text-sm">
+                75th Anniversary photo placeholder
               </div>
             </div>
           </div>
-          <div class="absolute left-4 lg:left-1/2 lg:transform lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
+          <div class="absolute left-4 lg:left-[calc(25%+0.0625rem)] lg:-translate-x-1/2 w-4 h-4 bg-blue-600 rounded-full border-4 border-white shadow-lg z-10">
           </div>
-          <div class="lg:w-1/2 lg:pl-8"></div>
         </div>
       </div>
     </div>
@@ -742,11 +917,19 @@
               is_longest_serving = String.contains?(president, "Peter Nordström")
               is_youngest = String.contains?(president, "Andrew Vik")
 
+              # Legacy badges for major milestones
+              is_clear_lake_purchase =
+                String.contains?(president, "Lisa") && String.contains?(years, "1961")
+
+              is_tahoe_purchase = String.contains?(years, "1993")
+
               badge_text =
                 cond do
                   is_founder -> "Founder"
                   is_longest_serving -> "Longest Serving"
                   is_youngest -> "Youngest"
+                  is_clear_lake_purchase -> "Purchased Clear Lake"
+                  is_tahoe_purchase -> "Purchased Tahoe"
                   true -> nil
                 end
 
@@ -755,10 +938,22 @@
                   is_founder -> "bg-amber-100 text-amber-800 border-amber-300"
                   is_longest_serving -> "bg-purple-100 text-purple-800 border-purple-300"
                   is_youngest -> "bg-green-100 text-green-800 border-green-300"
+                  is_clear_lake_purchase -> "bg-orange-100 text-orange-800 border-orange-300"
+                  is_tahoe_purchase -> "bg-orange-100 text-orange-800 border-orange-300"
                   true -> ""
                 end
 
               is_tbd = String.contains?(president, "TBD") || String.contains?(years, "present")
+
+              # Determine if card should be grayscale (1950s-1980s)
+              decade_start =
+                years
+                |> String.split("-")
+                |> List.first()
+                |> String.to_integer()
+
+              is_historical = decade_start < 1990
+              is_founding_era = decade_start >= 1950 && decade_start < 1980
 
               card_bg =
                 cond do
@@ -769,6 +964,12 @@
                   true -> "bg-zinc-50"
                 end
 
+              texture_bg =
+                if is_founding_era,
+                  do:
+                    "bg-[url('data:image/svg+xml,%3Csvg width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg fill=%22none%22 fill-rule=%22evenodd%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.02%22%3E%3Cpath d=%22M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]",
+                  else: ""
+
               card_border =
                 cond do
                   is_tbd -> "border-2 border-dashed border-blue-300"
@@ -778,9 +979,11 @@
                   true -> "border border-zinc-100"
                 end %>
               <div class={[
-                "p-4 rounded-lg flex flex-col items-center text-center hover:shadow-md transition-shadow",
+                "p-4 rounded-lg flex flex-col items-center text-center transition-all duration-300 relative",
                 card_bg,
-                card_border
+                texture_bg,
+                card_border,
+                if(is_historical, do: "grayscale hover:grayscale-0", else: "")
               ]}>
                 <span class="text-xs font-bold text-blue-600 uppercase mb-2"><%= years %></span>
                 <h4 class="font-bold text-zinc-900 text-sm mb-1 leading-tight">
@@ -813,24 +1016,33 @@
 
   <%!-- Legacy CTA --%>
   <div class="not-prose">
-    <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-3xl p-12 text-center">
-      <h3 class="text-3xl font-bold text-zinc-900 mb-4">Be Part of Our Next 75 Years</h3>
-      <p class="text-lg text-zinc-700 mb-8 leading-relaxed">
-        Join the YSC today and become part of a vibrant community that celebrates Scandinavian heritage, creates lasting memories, and builds lifelong friendships.
-      </p>
-      <div class="flex flex-col sm:flex-row gap-4 justify-center">
-        <.link
-          navigate={~p"/users/register"}
-          class="inline-flex items-center justify-center px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Join YSC
-        </.link>
-        <.link
-          navigate={~p"/contact"}
-          class="inline-flex items-center justify-center px-8 py-3 bg-white text-blue-600 font-semibold rounded-lg border-2 border-blue-600 hover:bg-blue-50 transition-colors"
-        >
-          Learn More
-        </.link>
+    <div class="bg-zinc-900 rounded-[3rem] p-12 lg:p-20 text-center relative overflow-hidden">
+      <div class="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none select-none">
+        <span class="text-[20rem] font-black text-white">75</span>
+      </div>
+
+      <div class="relative z-10">
+        <h3 class="text-4xl md:text-5xl font-black text-white mb-6 tracking-tight">
+          Write the Next Chapter.
+        </h3>
+        <p class="text-xl text-zinc-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+          Our history isn't just about the past—it's about the families and friends who will steward these cabins for the next 75 years.
+          <strong class="text-white"> Will you be one of them?</strong>
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <.link
+            navigate={~p"/users/register"}
+            class="px-10 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all hover:scale-105 shadow-xl shadow-blue-600/20"
+          >
+            Become a Member
+          </.link>
+          <.link
+            navigate={~p"/contact"}
+            class="px-10 py-4 bg-white/10 text-white font-bold rounded-2xl border border-white/20 hover:bg-white/20 transition-all backdrop-blur-md"
+          >
+            Ask a Question
+          </.link>
+        </div>
       </div>
     </div>
   </div>

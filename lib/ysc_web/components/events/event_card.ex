@@ -17,6 +17,7 @@ defmodule YscWeb.Components.Events.EventCard do
   attr :class, :string, default: nil
   attr :sold_out, :boolean, default: false
   attr :selling_fast, :boolean, default: false
+  attr :variant, :string, default: "default", doc: "Card variant: 'default' or 'dark'"
 
   def event_card(assigns) do
     assigns =
@@ -28,7 +29,11 @@ defmodule YscWeb.Components.Events.EventCard do
 
     ~H"""
     <div class={[
-      "group flex flex-col bg-white rounded-xl border border-zinc-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden",
+      "group flex flex-col rounded-xl border shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden",
+      if(@variant == "dark",
+        do: "bg-zinc-800 border-zinc-700",
+        else: "bg-white border-zinc-100"
+      ),
       @event.state == :cancelled && "opacity-70",
       @class
     ]}>
@@ -66,7 +71,11 @@ defmodule YscWeb.Components.Events.EventCard do
           </div>
           <div class="absolute bottom-4 right-4 z-[2]">
             <span class={[
-              "bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl text-zinc-900 text-base font-black shadow-sm ring-1 ring-black/5",
+              "backdrop-blur-md px-4 py-2 rounded-xl text-base font-black shadow-sm ring-1",
+              if(@variant == "dark",
+                do: "bg-zinc-900/90 text-white ring-white/10",
+                else: "bg-white/90 text-zinc-900 ring-black/5"
+              ),
               @sold_out && "line-through opacity-60"
             ]}>
               <%= @event.pricing_info.display_text %>
@@ -77,29 +86,53 @@ defmodule YscWeb.Components.Events.EventCard do
 
       <div class="p-8 flex flex-col flex-1">
         <div class="flex items-center gap-2 mb-4">
-          <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-[0.2em]">
+          <span class={[
+            "text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-[0.2em]",
+            if(@variant == "dark",
+              do: "text-blue-400 bg-blue-400/10",
+              else: "text-blue-600 bg-blue-50"
+            )
+          ]}>
             <%= format_event_date(@event) %>
           </span>
           <span
             :if={@event.start_time && @event.start_time != ""}
-            class="text-[10px] font-bold text-zinc-300 uppercase tracking-widest"
+            class={[
+              "text-[10px] font-bold uppercase tracking-widest",
+              if(@variant == "dark", do: "text-zinc-400", else: "text-zinc-300")
+            ]}
           >
             <%= format_start_time(@event.start_time) %>
           </span>
         </div>
         <.link navigate={~p"/events/#{@event.id}"} class="block">
-          <h3 class="text-2xl font-black text-zinc-900 tracking-tighter leading-tight mb-4 group-hover:text-blue-600 transition-colors">
+          <h3 class={[
+            "text-2xl font-black tracking-tighter leading-tight mb-4 group-hover:text-blue-600 transition-colors",
+            if(@variant == "dark", do: "text-white", else: "text-zinc-900")
+          ]}>
             <%= @event.title %>
           </h3>
         </.link>
-        <p :if={@event.description} class="text-zinc-500 text-base leading-relaxed mb-6 line-clamp-2">
+        <p
+          :if={@event.description}
+          class={[
+            "text-base leading-relaxed mb-6 line-clamp-2",
+            if(@variant == "dark", do: "text-zinc-300", else: "text-zinc-500")
+          ]}
+        >
           <%= @event.description %>
         </p>
 
-        <div class="mt-auto pt-6 border-t border-zinc-50 flex items-center justify-between">
+        <div class={[
+          "mt-auto pt-6 border-t flex items-center justify-between",
+          if(@variant == "dark", do: "border-zinc-700", else: "border-zinc-50")
+        ]}>
           <span
             :if={@event.location_name}
-            class="text-sm font-bold text-zinc-400 flex items-center gap-1.5"
+            class={[
+              "text-sm font-bold flex items-center gap-1.5",
+              if(@variant == "dark", do: "text-zinc-400", else: "text-zinc-400")
+            ]}
           >
             <.icon name="hero-map-pin" class="w-5 h-5" />
             <%= @event.location_name %>
@@ -107,7 +140,10 @@ defmodule YscWeb.Components.Events.EventCard do
           <span :if={!@event.location_name}></span>
           <.icon
             name="hero-arrow-right"
-            class="w-5 h-5 text-zinc-200 group-hover:text-blue-600 group-hover:translate-x-1 transition-all"
+            class={[
+              "w-5 h-5 group-hover:text-blue-600 group-hover:translate-x-1 transition-all",
+              if(@variant == "dark", do: "text-zinc-500", else: "text-zinc-200")
+            ]}
           />
         </div>
       </div>

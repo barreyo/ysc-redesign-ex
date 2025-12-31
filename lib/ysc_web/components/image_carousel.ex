@@ -42,6 +42,7 @@ defmodule YscWeb.Components.ImageCarousel do
       assigns
       |> assign(:image_count, length(assigns.images))
       |> assign(:has_overlay, assigns.overlay != [])
+      |> assign(:has_height_class, String.contains?(assigns.class || "", "h-"))
 
     ~H"""
     <div class={["image-carousel-container", @class]}>
@@ -55,11 +56,26 @@ defmodule YscWeb.Components.ImageCarousel do
         .image-carousel-container .carousel-wrapper {
           position: relative;
           width: 100%;
-          aspect-ratio: 16 / 9;
           overflow: hidden;
-          border-radius: 0.5rem;
           background: #f3f4f6;
         }
+
+        /* Only apply aspect-ratio and border-radius if no height class is provided */
+        <%= if not @has_height_class do %>
+        .image-carousel-container .carousel-wrapper {
+          aspect-ratio: 16 / 9;
+          border-radius: 0.5rem;
+        }
+        <% end %>
+
+        /* When height class is provided, use height: 100% to fill parent and remove border-radius */
+        <%= if @has_height_class do %>
+        .image-carousel-container.h-full .carousel-wrapper,
+        .image-carousel-container[class*="h-"] .carousel-wrapper {
+          height: 100%;
+          border-radius: 0;
+        }
+        <% end %>
 
         /* Slides container */
         .image-carousel-container .carousel-slides {

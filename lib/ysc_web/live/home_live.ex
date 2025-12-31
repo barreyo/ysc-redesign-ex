@@ -82,12 +82,11 @@ defmodule YscWeb.HomeLive do
           </span>
         </div>
 
-        <h1 class="text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-white drop-shadow-2xl pb-2">
-          <span class="block font-light text-3xl md:text-4xl lg:text-5xl mb-2 text-white/90">
-            Welcome to the
+        <h1 class="text-6xl md:text-8xl font-black text-white drop-shadow-2xl">
+          <span class="block font-serif italic text-2xl md:text-4xl mb-4 text-white/80 font-light tracking-tight">
+            Celebrating 75 Years of
           </span>
-          <span class="block">Young Scandinavians</span>
-          <span class="block mt-1">Club</span>
+          Young Scandinavians Club
         </h1>
 
         <p class="mt-8 text-lg md:text-xl lg:text-2xl max-w-2xl mx-auto text-white/85 font-light leading-relaxed drop-shadow-md">
@@ -109,7 +108,7 @@ defmodule YscWeb.HomeLive do
             navigate={~p"/events"}
             class="px-8 py-4 text-base font-bold text-white border-2 border-white/80 rounded-lg hover:bg-white hover:text-zinc-900 transition-all duration-300 backdrop-blur-sm"
           >
-            View Events
+            Explore Our Events
           </.link>
         </div>
 
@@ -121,7 +120,7 @@ defmodule YscWeb.HomeLive do
           <div class="w-px h-12 bg-white/30"></div>
           <div class="text-center">
             <div class="text-3xl font-bold text-white">2</div>
-            <div class="text-sm uppercase tracking-wide">Cabins</div>
+            <div class="text-sm uppercase tracking-wide">Historic Retreats</div>
           </div>
           <div class="w-px h-12 bg-white/30"></div>
           <div class="text-center">
@@ -132,16 +131,18 @@ defmodule YscWeb.HomeLive do
       </.hero>
     </div>
 
-    <%!-- About Section --%>
-    <section :if={@current_user == nil} class="py-16 lg:py-24 bg-white">
+    <%!-- Community Narrative Section --%>
+    <section :if={@current_user == nil} class="py-16 lg:py-32 bg-white overflow-hidden">
       <div class="max-w-screen-xl mx-auto px-4">
-        <div class="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          <div>
-            <span class="text-blue-600 font-semibold text-sm uppercase tracking-wider">About Us</span>
-            <h2 class="mt-3 text-3xl lg:text-4xl font-bold text-zinc-900 leading-tight">
-              A Community Rooted in Scandinavian Heritage
+        <div class="grid lg:grid-cols-12 gap-12 lg:gap-20 items-center">
+          <div class="lg:col-span-5">
+            <span class="text-blue-600 font-black text-xs uppercase tracking-[0.3em]">
+              Velkommen back
+            </span>
+            <h2 class="mt-6 text-4xl lg:text-6xl font-black text-zinc-900 tracking-tighter leading-[0.95]">
+              A home for Nordic spirits in the Bay.
             </h2>
-            <p class="mt-6 text-lg text-zinc-600 leading-relaxed">
+            <p class="mt-8 text-lg text-zinc-600 leading-relaxed">
               The Young Scandinavians Club (YSC) is a vibrant community for Scandinavians and Scandinavian-Americans of all ages in the San Francisco Bay Area. We host a wide range of events across Northern California, offering members access to our scenic cabins in Clear Lake and Lake Tahoe.
             </p>
             <div class="mt-6 flex items-center gap-3">
@@ -171,23 +172,35 @@ defmodule YscWeb.HomeLive do
               </.link>
             </div>
           </div>
-          <div class="relative">
-            <img
-              src={~p"/images/ysc_75th.jpg"}
-              alt="YSC 75th Anniversary"
-              class="w-full rounded-2xl shadow-2xl"
-            />
+
+          <div class="lg:col-span-7 relative">
+            <div class="relative z-10 rounded-3xl overflow-hidden shadow-2xl transform lg:rotate-2">
+              <img
+                src={~p"/images/ysc_75th.jpg"}
+                alt="YSC 75th Anniversary"
+                class="w-full h-96 object-cover"
+                loading="lazy"
+              />
+            </div>
+            <div class="hidden lg:block absolute -bottom-12 -left-20 z-20 w-64 h-64 rounded-3xl overflow-hidden shadow-2xl border-8 border-white transform -rotate-6">
+              <img
+                src={~p"/images/ysc_group_photo.jpg"}
+                alt="YSC Group Photo"
+                class="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <%!-- Community Highlight Section --%>
+    <%!-- Nordic Living Bento Grid Section --%>
     <section :if={@current_user == nil} class="py-16 lg:py-24 bg-zinc-50">
       <div class="max-w-screen-xl mx-auto px-4">
         <div class="text-center max-w-3xl mx-auto mb-12">
           <span class="text-blue-600 font-semibold text-sm uppercase tracking-wider">
-            Our Community
+            Nordic Living
           </span>
           <h2 class="mt-3 text-3xl lg:text-4xl font-bold text-zinc-900">
             Don't Let the Name Fool You – YSC is for Everyone!
@@ -197,146 +210,188 @@ defmodule YscWeb.HomeLive do
           </p>
         </div>
 
-        <div class="grid md:grid-cols-3 gap-6">
-          <div class="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
-            <img
-              src={~p"/images/ysc_bonfire_2024.jpg"}
-              alt="YSC Bonfire 2024"
-              class="w-full aspect-[4/3] object-cover"
-            />
-            <div class="p-6">
-              <h3 class="text-xl font-bold text-zinc-900">Events Year-Round</h3>
-              <p class="mt-2 text-zinc-600">
-                From casual happy hours to formal dinners and holiday celebrations.
-              </p>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 lg:gap-6">
+          <%!-- Large featured cabin image --%>
+          <div class="md:col-span-2 md:row-span-2 bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group">
+            <div class="relative h-full min-h-[400px]">
+              <img
+                src={~p"/images/clear_lake_midsummer.jpg"}
+                alt="Midsummer at Clear Lake"
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-zinc-900/80 via-zinc-900/40 to-transparent flex flex-col justify-end p-6">
+                <h3 class="text-2xl font-bold text-white mb-2">All Ages Welcome</h3>
+                <p class="text-zinc-200">
+                  Whether chasing toddlers at Midsummer or sharing stories by the fireplace, everyone is welcome.
+                </p>
+              </div>
             </div>
           </div>
-          <div class="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
-            <img
-              src={~p"/images/clear_lake_midsummer.jpg"}
-              alt="Midsummer at Clear Lake"
-              class="w-full aspect-[4/3] object-cover"
-            />
-            <div class="p-6">
-              <h3 class="text-xl font-bold text-zinc-900">All Ages Welcome</h3>
-              <p class="mt-2 text-zinc-600">
-                Whether chasing toddlers at Midsummer or sharing stories by the fireplace everyone is welcome.
-              </p>
+
+          <%!-- Events card --%>
+          <div class="md:col-span-2 bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group">
+            <div class="relative aspect-[16/9]">
+              <img
+                src={~p"/images/ysc_bonfire_2024.jpg"}
+                alt="YSC Bonfire 2024"
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-zinc-900/80 via-zinc-900/40 to-transparent flex flex-col justify-end p-6">
+                <h3 class="text-xl font-bold text-white mb-2">Events Year-Round</h3>
+                <p class="text-sm text-zinc-200">
+                  From casual happy hours to formal dinners and holiday celebrations.
+                </p>
+              </div>
             </div>
           </div>
-          <div class="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
-            <img
-              src={~p"/images/flags.jpg"}
-              alt="Nordic country flags"
-              class="w-full aspect-[4/3] object-cover"
-            />
-            <div class="p-6">
-              <h3 class="text-xl font-bold text-zinc-900">Cultural Connection</h3>
-              <p class="mt-2 text-zinc-600">
-                Lectures, film screenings, and traditions to stay connected to your roots.
-              </p>
+
+          <%!-- Cultural connection card --%>
+          <div class="md:col-span-1 bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group">
+            <div class="relative aspect-square">
+              <img
+                src={~p"/images/flags.jpg"}
+                alt="Nordic country flags"
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-zinc-900/80 via-zinc-900/40 to-transparent flex flex-col justify-end p-4">
+                <h3 class="text-lg font-bold text-white mb-1">Cultural Connection</h3>
+                <p class="text-xs text-zinc-200">
+                  Stay connected to your roots through traditions like Midsummer, Nordic film screenings, and our annual heritage banquets.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Community stats card --%>
+          <div class="md:col-span-1 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-6 flex flex-col justify-center items-center text-center shadow-lg">
+            <div class="text-4xl font-black text-white mb-2">500+</div>
+            <div class="text-sm text-blue-100 uppercase tracking-widest font-bold">
+              Active Members
+            </div>
+            <div class="mt-4 pt-4 border-t border-blue-400/30 w-full">
+              <div class="text-2xl font-black text-white mb-1">
+                <%= Date.utc_today().year - 1950 %>+
+              </div>
+              <div class="text-xs text-blue-100 uppercase tracking-widest">Years of Community</div>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <%!-- Cabins Section --%>
+    <%!-- Property Portfolio Section --%>
     <section :if={@current_user == nil} class="py-16 lg:py-24 bg-white">
       <div class="max-w-screen-xl mx-auto px-4">
         <div class="text-center max-w-3xl mx-auto mb-16">
           <span class="text-blue-600 font-semibold text-sm uppercase tracking-wider">
             Our Properties
           </span>
-          <h2 class="mt-3 text-3xl lg:text-4xl font-bold text-zinc-900">
-            Two Beautiful Cabin Retreats
+          <h2 class="mt-3 text-3xl lg:text-5xl font-black text-zinc-900 tracking-tight">
+            Two Iconic Retreats
           </h2>
-          <p class="mt-4 text-lg text-zinc-600">
-            Your YSC membership unlocks access to our scenic cabins for unforgettable getaways.
-          </p>
         </div>
 
-        <%!-- Lake Tahoe --%>
-        <div class="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center mb-20">
-          <div class="order-2 lg:order-1">
-            <div class="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
-              <.icon name="hero-map-pin" class="w-4 h-4 mr-1" /> Lake Tahoe, CA
-            </div>
-            <h3 class="text-2xl lg:text-3xl font-bold text-zinc-900">Tahoe Cabin</h3>
-            <p class="mt-4 text-lg text-zinc-600 leading-relaxed">
-              Ski in winter, hike in summer, and relax year-round at our beautiful Lake Tahoe retreat. The cabin offers stunning mountain views and is perfectly positioned for all your alpine adventures. Adult rates only <strong>$45.00 / night per person</strong>.
-            </p>
-            <ul class="mt-6 space-y-3">
-              <li class="flex items-center text-zinc-700">
-                <.icon name="hero-check-circle" class="w-5 h-5 text-emerald-500 mr-3" />
-                Year-round access for members
-              </li>
-              <li class="flex items-center text-zinc-700">
-                <.icon name="hero-check-circle" class="w-5 h-5 text-emerald-500 mr-3" />
-                Minutes from world-class ski resorts
-              </li>
-              <li class="flex items-center text-zinc-700">
-                <.icon name="hero-check-circle" class="w-5 h-5 text-emerald-500 mr-3" />
-                Hiking trails at your doorstep
-              </li>
-            </ul>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <%!-- Lake Tahoe --%>
+          <div class="md:mt-20">
             <.link
               navigate={~p"/bookings/tahoe"}
-              class="mt-8 inline-flex items-center text-blue-600 font-semibold hover:text-blue-700 transition"
+              class="group relative block overflow-hidden rounded-[3rem] shadow-2xl"
             >
-              Learn more about Tahoe Cabin <.icon name="hero-arrow-right" class="ml-2 w-5 h-5" />
+              <img
+                src={~p"/images/tahoe/tahoe_cabin_main.webp"}
+                alt="Lake Tahoe Cabin"
+                class="w-full aspect-[3/4] object-cover group-hover:scale-110 transition-transform duration-700"
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-80">
+              </div>
+              <div class="absolute bottom-10 left-10">
+                <h3 class="text-3xl font-black text-white">The Alpine Retreat</h3>
+                <p class="text-blue-300 font-bold uppercase tracking-widest text-xs mt-2">
+                  Lake Tahoe
+                </p>
+              </div>
             </.link>
           </div>
-          <div class="order-1 lg:order-2">
-            <img
-              src={~p"/images/tahoe/tahoe_cabin_main.webp"}
-              alt="Lake Tahoe Cabin"
-              class="rounded-2xl shadow-2xl w-full aspect-[4/3] object-cover"
-            />
-          </div>
-        </div>
 
-        <%!-- Clear Lake --%>
-        <div class="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          <%!-- Clear Lake --%>
           <div>
-            <img
-              src={~p"/images/clear_lake/clear_lake_dock.webp"}
-              alt="Clear Lake Cabin"
-              class="rounded-2xl shadow-2xl w-full aspect-[4/3] object-cover"
-            />
-          </div>
-          <div>
-            <div class="inline-flex items-center px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium mb-4">
-              <.icon name="hero-map-pin" class="w-4 h-4 mr-1" /> Clear Lake, CA
-            </div>
-            <h3 class="text-2xl lg:text-3xl font-bold text-zinc-900">Clear Lake Cabin</h3>
-            <p class="mt-4 text-lg text-zinc-600 leading-relaxed">
-              Swim, boat, and unwind at our peaceful lakeside cabin. Clear Lake offers the perfect escape for water lovers and those seeking tranquility away from the city. Rates start at <strong>$50.00 / night</strong>.
-            </p>
-            <ul class="mt-6 space-y-3">
-              <li class="flex items-center text-zinc-700">
-                <.icon name="hero-check-circle" class="w-5 h-5 text-emerald-500 mr-3" />
-                Direct lake access with private dock
-              </li>
-              <li class="flex items-center text-zinc-700">
-                <.icon name="hero-check-circle" class="w-5 h-5 text-emerald-500 mr-3" />
-                Perfect for swimming and boating
-              </li>
-              <li class="flex items-center text-zinc-700">
-                <.icon name="hero-check-circle" class="w-5 h-5 text-emerald-500 mr-3" />
-                Peaceful lakeside relaxation
-              </li>
-            </ul>
             <.link
               navigate={~p"/bookings/clear-lake"}
-              class="mt-8 inline-flex items-center text-blue-600 font-semibold hover:text-blue-700 transition"
+              class="group relative block overflow-hidden rounded-[3rem] shadow-2xl"
             >
-              Learn more about Clear Lake Cabin <.icon name="hero-arrow-right" class="ml-2 w-5 h-5" />
+              <img
+                src={~p"/images/clear_lake/clear_lake_dock.webp"}
+                alt="Clear Lake Cabin"
+                class="w-full aspect-[3/4] object-cover group-hover:scale-110 transition-transform duration-700"
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-80">
+              </div>
+              <div class="absolute bottom-10 left-10">
+                <h3 class="text-3xl font-black text-white">The Waterfront Sanctuary</h3>
+                <p class="text-emerald-300 font-bold uppercase tracking-widest text-xs mt-2">
+                  Clear Lake
+                </p>
+              </div>
             </.link>
           </div>
         </div>
       </div>
     </section>
+
+    <%!-- Happening Now Bar --%>
+    <div
+      :if={@current_user == nil && (length(@upcoming_events) > 0 || length(@latest_news) > 0)}
+      class="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-4 border-b border-blue-500/20"
+    >
+      <div class="max-w-screen-xl mx-auto px-4">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-3 flex-wrap">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span class="text-sm font-black uppercase tracking-widest">Happening Now</span>
+            </div>
+            <%= if length(@upcoming_events) > 0 do %>
+              <span class="h-4 w-px bg-white/30"></span>
+              <.link
+                navigate={~p"/events/#{List.first(@upcoming_events).id}"}
+                class="text-sm font-bold hover:text-blue-100 transition-colors line-clamp-1"
+              >
+                <%= List.first(@upcoming_events).title %> →
+              </.link>
+            <% else %>
+              <%= if length(@latest_news) > 0 do %>
+                <span class="h-4 w-px bg-white/30"></span>
+                <.link
+                  navigate={~p"/posts/#{List.first(@latest_news).url_name}"}
+                  class="text-sm font-bold hover:text-blue-100 transition-colors line-clamp-1"
+                >
+                  <%= List.first(@latest_news).title %> →
+                </.link>
+              <% end %>
+            <% end %>
+          </div>
+          <div class="flex items-center gap-4">
+            <%= if length(@upcoming_events) > 0 do %>
+              <.link
+                navigate={~p"/events"}
+                class="text-xs font-bold uppercase tracking-widest hover:text-blue-100 transition-colors"
+              >
+                View Events
+              </.link>
+            <% end %>
+            <%= if length(@latest_news) > 0 do %>
+              <.link
+                navigate={~p"/news"}
+                class="text-xs font-bold uppercase tracking-widest hover:text-blue-100 transition-colors"
+              >
+                View News
+              </.link>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <%!-- Upcoming Events Section --%>
     <section
@@ -363,71 +418,12 @@ defmodule YscWeb.HomeLive do
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <%= for event <- @upcoming_events do %>
-            <div class={[
-              "flex flex-col rounded",
-              event.state == :cancelled && "opacity-70"
-            ]}>
-              <.link
-                navigate={~p"/events/#{event.id}"}
-                class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
-              >
-                <.live_component
-                  id={"home-event-cover-#{event.id}"}
-                  module={YscWeb.Components.Image}
-                  image_id={event.image_id}
-                  image={Map.get(event, :image)}
-                />
-              </.link>
-
-              <div class="flex flex-col py-3 px-2 space-y-2">
-                <div>
-                  <.event_badge
-                    event={event}
-                    sold_out={event_sold_out?(event)}
-                    selling_fast={Map.get(event, :selling_fast, false)}
-                  />
-                </div>
-
-                <.link
-                  navigate={~p"/events/#{event.id}"}
-                  class="text-2xl md:text-xl leading-6 font-semibold text-white text-pretty"
-                >
-                  <%= event.title %>
-                </.link>
-
-                <div class="space-y-0.5">
-                  <p class="font-semibold text-sm text-zinc-200">
-                    <%= Timex.format!(event.start_date, "{WDshort}, {Mshort} {D}") %><span :if={
-                      event.start_time != nil && event.start_time != ""
-                    }>
-                    • <%= format_start_time(event.start_time) %>
-                  </span>
-                  </p>
-
-                  <p
-                    :if={event.location_name != nil && event.location_name != ""}
-                    class="text-zinc-300 text-sm"
-                  >
-                    <%= event.location_name %>
-                  </p>
-                </div>
-
-                <p class="text-sm text-pretty text-zinc-400 py-1"><%= event.description %></p>
-
-                <div :if={event.state != :cancelled} class="flex flex-row space-x-2 pt-2 items-center">
-                  <p class={[
-                    "text-sm font-semibold",
-                    if event_sold_out?(event) do
-                      "text-zinc-300 line-through"
-                    else
-                      "text-zinc-200"
-                    end
-                  ]}>
-                    <%= event.pricing_info.display_text %>
-                  </p>
-                </div>
-              </div>
-            </div>
+            <.event_card
+              event={event}
+              sold_out={event_sold_out?(event)}
+              selling_fast={Map.get(event, :selling_fast, false)}
+              variant="dark"
+            />
           <% end %>
         </div>
       </div>
@@ -455,55 +451,8 @@ defmodule YscWeb.HomeLive do
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <%= for post <- @latest_news do %>
-            <div id={"post-#{post.id}"} class="flex flex-col rounded">
-              <.link
-                navigate={~p"/posts/#{post.url_name}"}
-                class="w-full hover:opacity-80 transition duration-200 transition-opacity ease-in-out"
-              >
-                <div class="relative aspect-video">
-                  <canvas
-                    id={"blur-hash-image-#{post.id}"}
-                    src={get_blur_hash(post.featured_image)}
-                    class="absolute inset-0 z-0 rounded-lg w-full h-full object-cover"
-                    phx-hook="BlurHashCanvas"
-                  >
-                  </canvas>
-
-                  <img
-                    src={featured_image_url(post.featured_image)}
-                    id={"image-#{post.id}"}
-                    loading="lazy"
-                    phx-hook="BlurHashImage"
-                    class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover"
-                    alt={
-                      if post.featured_image,
-                        do:
-                          post.featured_image.alt_text || post.featured_image.title || post.title ||
-                            "News article image",
-                        else: "News article image"
-                    }
-                  />
-                </div>
-              </.link>
-
-              <div class="flex flex-col py-3 px-2 space-y-2">
-                <div class="space-y-0.5">
-                  <p class="font-semibold text-sm text-zinc-600">
-                    <%= Timex.format!(post.published_on, "{WDshort}, {Mshort} {D}") %>
-                  </p>
-                </div>
-
-                <.link
-                  navigate={~p"/posts/#{post.url_name}"}
-                  class="text-2xl md:text-xl leading-6 font-semibold text-zinc-900 text-pretty"
-                >
-                  <%= post.title %>
-                </.link>
-
-                <p class="text-sm text-pretty text-zinc-600 py-1 line-clamp-3">
-                  <%= preview_text_plain(post) %>
-                </p>
-              </div>
+            <div id={"post-#{post.id}"}>
+              <.news_card post={post} />
             </div>
           <% end %>
         </div>
@@ -587,11 +536,23 @@ defmodule YscWeb.HomeLive do
             navigate={~p"/users/register"}
             class="inline-flex items-center px-8 py-4 text-lg font-bold text-blue-600 bg-white rounded-lg hover:bg-blue-50 transition duration-300 shadow-lg hover:shadow-xl"
           >
-            Start Your Application <.icon name="hero-arrow-right" class="ml-2 w-5 h-5" />
+            Check Eligibility & Apply <.icon name="hero-arrow-right" class="ml-2 w-5 h-5" />
           </.link>
         </div>
       </div>
     </section>
+
+    <%!-- Heritage Pride Footer --%>
+    <div
+      :if={@current_user == nil}
+      class="flex justify-center gap-6 py-10 opacity-30 grayscale hover:grayscale-0 transition-all"
+    >
+      <.flag country="fi-dk" class="h-8 w-12 rounded-sm" />
+      <.flag country="fi-fi" class="h-8 w-12 rounded-sm" />
+      <.flag country="fi-is" class="h-8 w-12 rounded-sm" />
+      <.flag country="fi-no" class="h-8 w-12 rounded-sm" />
+      <.flag country="fi-se" class="h-8 w-12 rounded-sm" />
+    </div>
 
     <%!-- Newsletter Section --%>
     <section :if={@current_user == nil} class="py-16 lg:py-24">
@@ -653,7 +614,9 @@ defmodule YscWeb.HomeLive do
                 Member Dashboard
               </p>
               <h1 class="text-4xl lg:text-5xl font-black text-zinc-900 tracking-tight">
-                Hej, <%= String.capitalize(@current_user.first_name) %>
+                <%= greeting_for_country(@current_user.most_connected_country) %>, <%= String.capitalize(
+                  @current_user.first_name
+                ) %>
               </h1>
             </div>
             <div class="hidden md:flex items-center gap-4">
@@ -775,7 +738,7 @@ defmodule YscWeb.HomeLive do
                   <.link
                     navigate={~p"/bookings/#{booking.id}/receipt"}
                     class={[
-                      "relative bg-white rounded-lg overflow-hidden flex flex-col md:flex-row transition-all duration-300 group hover:-translate-y-1 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-zinc-100",
+                      "relative bg-white rounded-lg overflow-hidden flex flex-col md:flex-row transition-all duration-300 group hover:-translate-y-1 shadow-sm hover:shadow-lg border border-zinc-100",
                       if is_active do
                         if booking.property == :tahoe do
                           "ring-1 ring-blue-500/10"
@@ -1604,4 +1567,17 @@ defmodule YscWeb.HomeLive do
   defp thumbnail_image_url(nil), do: "/images/ysc_logo.png"
   defp thumbnail_image_url(%Image{thumbnail_path: nil} = image), do: image.raw_image_path
   defp thumbnail_image_url(%Image{thumbnail_path: thumbnail_path}), do: thumbnail_path
+
+  defp greeting_for_country(nil), do: "Hej"
+  defp greeting_for_country("Sweden"), do: "Hej"
+  defp greeting_for_country("SE"), do: "Hej"
+  defp greeting_for_country("Norway"), do: "Hallo"
+  defp greeting_for_country("NO"), do: "Hallo"
+  defp greeting_for_country("Finland"), do: "Hei"
+  defp greeting_for_country("FI"), do: "Hei"
+  defp greeting_for_country("Denmark"), do: "Hej"
+  defp greeting_for_country("DK"), do: "Hej"
+  defp greeting_for_country("Iceland"), do: "Halló"
+  defp greeting_for_country("IS"), do: "Halló"
+  defp greeting_for_country(_), do: "Hej"
 end

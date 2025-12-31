@@ -118,6 +118,9 @@ defmodule Ysc.Accounts.FamilyInvites do
               # Copy billing address from primary user
               copy_billing_address_from_primary(updated_user, invite.primary_user_id)
 
+              # Copy most_connected_country from primary user if not already set
+              copy_most_connected_country_from_primary(updated_user, invite.primary_user_id)
+
               # Create UserEvent to track family addition
               %UserEvent{}
               |> UserEvent.new_user_event_changeset(%{
@@ -415,6 +418,20 @@ defmodule Ysc.Accounts.FamilyInvites do
       _ ->
         # Primary user doesn't have a billing address, skip
         {:ok, nil}
+    end
+  end
+
+  defp copy_most_connected_country_from_primary(sub_account, primary_user_id) do
+    primary_user = Ysc.Accounts.get_user!(primary_user_id)
+
+    # Only copy if primary user has a most_connected_country and sub-account doesn't
+    if not is_nil(primary_user.most_connected_country) and
+         is_nil(sub_account.most_connected_country) do
+      sub_account
+      |> Ecto.Changeset.change(most_connected_country: primary_user.most_connected_country)
+      |> Repo.update!()
+    else
+      sub_account
     end
   end
 end

@@ -1965,9 +1965,18 @@ defmodule YscWeb.CoreComponents do
   attr :class, :string, default: nil
   attr :sold_out, :boolean, default: false
   attr :selling_fast, :boolean, default: false
+  attr :variant, :string, default: "default"
 
   def event_card(assigns) do
     YscWeb.Components.Events.EventCard.event_card(assigns)
+  end
+
+  attr :post, :any, required: true
+  attr :class, :string, default: nil
+  attr :variant, :string, default: "default"
+
+  def news_card(assigns) do
+    YscWeb.Components.News.NewsCard.news_card(assigns)
   end
 
   # Helper function to calculate days until event starts

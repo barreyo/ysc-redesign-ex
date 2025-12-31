@@ -21,8 +21,20 @@ defmodule YscWeb.FamilyInviteAcceptanceLive do
          |> redirect(to: ~p"/")}
 
       true ->
-        # Pre-fill email from invite, but allow editing
+        # Pre-fill email and most_connected_country from invite/primary user, but allow editing
         initial_params = %{"email" => invite.email}
+
+        # Pre-fill most_connected_country from primary user if available
+        initial_params =
+          if invite.primary_user && invite.primary_user.most_connected_country do
+            Map.put(
+              initial_params,
+              "most_connected_country",
+              invite.primary_user.most_connected_country
+            )
+          else
+            initial_params
+          end
 
         form =
           to_form(
