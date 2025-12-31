@@ -45,6 +45,11 @@
       <strong>Submitted:</strong> <%= @submitted_at %>
     </mj-text>
     <mj-spacer height="16px"></mj-spacer>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="16px" background-color="<%= if @anonymous, do: "#fff3cd", else: "#e7f3ff" %>" border-radius="4px" border="2px solid <%= if @anonymous, do: "#ffc107", else: "#1976d2" %>" color="<%= if @anonymous, do: "#856404", else: "#004085" %>">
+      <strong>🔒 Anonymity Request:</strong> <%= if @anonymous, do: "YES - The reporter has requested to remain anonymous to the parties involved.", else: "NO - The reporter has not requested anonymity." %><br/><br/>
+      <strong>Important:</strong> <%= if @anonymous, do: "While the reporter's identity is visible to the board for follow-up purposes, their name and contact information must NOT be shared with the parties involved in the incident. This is a critical confidentiality requirement.", else: "The reporter has not requested anonymity, but all reports should still be handled with discretion and confidentiality." %>
+    </mj-text>
+    <mj-spacer height="16px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">
       <strong>Violation Summary:</strong>
     </mj-text>

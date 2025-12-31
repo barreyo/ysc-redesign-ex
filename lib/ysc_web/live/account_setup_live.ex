@@ -254,7 +254,7 @@ defmodule YscWeb.AccountSetupLive do
               Your account has been successfully set up and you're now logged in.
             </p>
             <.link
-              href={~p"/"}
+              navigate={~p"/"}
               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
             >
               Continue to Dashboard

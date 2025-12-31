@@ -127,7 +127,7 @@ defmodule YscWeb.HomeLive do
           <div class="w-px h-12 bg-white/30"></div>
           <div class="text-center">
             <div class="text-3xl font-bold text-white">2</div>
-            <div class="text-sm uppercase tracking-wide">Historic Retreats</div>
+            <div class="text-sm uppercase tracking-wide">Properties</div>
           </div>
           <div class="w-px h-12 bg-white/30"></div>
           <div class="text-center">

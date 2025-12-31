@@ -36,18 +36,18 @@ defmodule YscWeb.UserLoginLive do
               </p>
               <div class="flex flex-col sm:flex-row gap-2">
                 <.link
-                  href={~p"/users/reset-password"}
+                  navigate={~p"/users/reset-password"}
                   class="font-semibold text-amber-900 hover:text-amber-950 underline"
                 >
                   Reset your password
                 </.link>
                 <span class="hidden sm:inline">•</span>
-                <a
+                <.link
                   href="mailto:info@ysc.org"
                   class="font-semibold text-amber-900 hover:text-amber-950 underline"
                 >
                   Contact us for help
-                </a>
+                </.link>
               </div>
             </div>
           </div>

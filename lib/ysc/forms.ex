@@ -82,7 +82,8 @@ defmodule Ysc.Forms do
       confirmation_variables = %{
         first_name: report.first_name,
         last_name: report.last_name,
-        summary: report.summary
+        summary: report.summary,
+        anonymous: report.anonymous
       }
 
       confirmation_idempotency_key = "conduct_violation_confirmation_#{report.id}"
@@ -123,6 +124,7 @@ defmodule Ysc.Forms do
         email: report.email,
         phone: report.phone,
         summary: report.summary,
+        anonymous: report.anonymous,
         report_id: report.id,
         submitted_at: format_datetime_for_email(report.inserted_at)
       }

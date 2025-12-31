@@ -49,10 +49,10 @@ defmodule YscWeb.AdminSearchComponent do
               Events
             </div>
             <div class="space-y-1">
-              <a
+              <.link
                 :for={event <- @results.events}
                 data-result-item
-                href={~p"/admin/events/#{event.id}/edit"}
+                navigate={~p"/admin/events/#{event.id}/edit"}
                 class="block px-3 py-2 text-sm text-zinc-800 hover:bg-zinc-50 rounded"
               >
                 <div class="font-medium"><%= event.title %></div>
@@ -62,7 +62,7 @@ defmodule YscWeb.AdminSearchComponent do
                     else: "No organizer" %>
                   <span :if={event.reference_id} class="ml-2">• <%= event.reference_id %></span>
                 </div>
-              </a>
+              </.link>
             </div>
           </div>
           <!-- Posts -->
@@ -71,10 +71,10 @@ defmodule YscWeb.AdminSearchComponent do
               Posts
             </div>
             <div class="space-y-1">
-              <a
+              <.link
                 :for={post <- @results.posts}
                 data-result-item
-                href={~p"/admin/posts/#{post.id}"}
+                navigate={~p"/admin/posts/#{post.id}"}
                 class="block px-3 py-2 text-sm text-zinc-800 hover:bg-zinc-50 rounded"
               >
                 <div class="font-medium"><%= post.title %></div>
@@ -83,7 +83,7 @@ defmodule YscWeb.AdminSearchComponent do
                     do: "#{post.author.first_name} #{post.author.last_name}",
                     else: "No author" %>
                 </div>
-              </a>
+              </.link>
             </div>
           </div>
           <!-- Tickets -->
@@ -92,10 +92,10 @@ defmodule YscWeb.AdminSearchComponent do
               Tickets
             </div>
             <div class="space-y-1">
-              <a
+              <.link
                 :for={ticket <- @results.tickets}
                 data-result-item
-                href={~p"/admin/events/#{ticket.event_id}/tickets"}
+                navigate={~p"/admin/events/#{ticket.event_id}/tickets"}
                 class="block px-3 py-2 text-sm text-zinc-800 hover:bg-zinc-50 rounded"
               >
                 <div class="font-medium">
@@ -107,7 +107,7 @@ defmodule YscWeb.AdminSearchComponent do
                     • <%= ticket.user.first_name %> <%= ticket.user.last_name %>
                   </span>
                 </div>
-              </a>
+              </.link>
             </div>
           </div>
           <!-- Users -->
@@ -116,17 +116,17 @@ defmodule YscWeb.AdminSearchComponent do
               Users
             </div>
             <div class="space-y-1">
-              <a
+              <.link
                 :for={user <- @results.users}
                 data-result-item
-                href={~p"/admin/users/#{user.id}/details"}
+                navigate={~p"/admin/users/#{user.id}/details"}
                 class="block px-3 py-2 text-sm text-zinc-800 hover:bg-zinc-50 rounded"
               >
                 <div class="font-medium">
                   <%= user.first_name %> <%= user.last_name %>
                 </div>
                 <div class="text-xs text-zinc-500"><%= user.email %></div>
-              </a>
+              </.link>
             </div>
           </div>
           <!-- Bookings -->
@@ -135,10 +135,10 @@ defmodule YscWeb.AdminSearchComponent do
               Bookings
             </div>
             <div class="space-y-1">
-              <a
+              <.link
                 :for={booking <- @results.bookings}
                 data-result-item
-                href={~p"/admin/bookings/#{booking.id}"}
+                navigate={~p"/admin/bookings/#{booking.id}"}
                 class="block px-3 py-2 text-sm text-zinc-800 hover:bg-zinc-50 rounded"
               >
                 <div class="font-medium">
@@ -157,7 +157,7 @@ defmodule YscWeb.AdminSearchComponent do
                     ) %>
                   </span>
                 </div>
-              </a>
+              </.link>
             </div>
           </div>
         </div>

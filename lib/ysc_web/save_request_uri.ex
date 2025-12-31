@@ -14,6 +14,10 @@ defmodule YscWeb.SaveRequestUri do
          &save_request_path/3
        )}
 
-  defp save_request_path(_params, url, socket),
-    do: {:cont, Phoenix.Component.assign(socket, :current_uri, URI.parse(url))}
+  defp save_request_path(_params, url, socket) do
+    parsed_uri = URI.parse(url)
+    path = parsed_uri.path || ""
+    socket = Phoenix.Component.assign(socket, :current_uri, parsed_uri)
+    {:cont, Phoenix.Component.assign(socket, :request_path, path)}
+  end
 end

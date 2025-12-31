@@ -1501,7 +1501,7 @@ defmodule YscWeb.EventDetailsLive do
               Want to bookmark this confirmation?
             </p>
             <.link
-              href={~p"/orders/#{@ticket_order.id}/confirmation"}
+              navigate={~p"/orders/#{@ticket_order.id}/confirmation"}
               class="text-blue-600 hover:text-blue-500 text-sm font-medium"
             >
               View Full Order Confirmation →

@@ -21,8 +21,8 @@ defmodule YscWeb.UserConfirmationInstructionsLive do
       </.simple_form>
 
       <p class="text-center mt-4">
-        <.link href={~p"/users/register"}>Register</.link>
-        | <.link href={~p"/users/log-in"}>Sign in</.link>
+        <.link navigate={~p"/users/register"}>Register</.link>
+        | <.link navigate={~p"/users/log-in"}>Sign in</.link>
       </p>
     </div>
     """

@@ -365,7 +365,7 @@ defmodule YscWeb.AdminPostEditorLive do
 
         <div class="text-sm text-zinc-500 leading-6 py-1 flex flex-row align-baseline items-end">
           <span>
-            <.link href={~p"/posts/#{@post.url_name}"} target="_blank">
+            <.link navigate={~p"/posts/#{@post.url_name}"} target="_blank">
               <.icon name="hero-arrow-top-right-on-square" class=" text-zinc-800 w-4 h-4 -mt-1 mr-2" />
             </.link>
           </span>

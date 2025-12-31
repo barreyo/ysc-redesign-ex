@@ -8,7 +8,7 @@ defmodule YscWeb.UserForgotPasswordLive do
     ~H"""
     <div class="mx-auto max-w-sm py-10">
       <.link
-        href={~p"/"}
+        navigate={~p"/"}
         class="flex items-center text-center justify-center py-10 hover:opacity-80 transition duration-200 ease-in-out"
       >
         <.ysc_logo class="h-28" />

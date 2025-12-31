@@ -20,6 +20,7 @@ defmodule Ysc.Forms.ConductViolationReport do
     field :phone, :string
 
     field :summary, :string
+    field :anonymous, :boolean, default: false
 
     field :status, ViolationFormStatus
 
@@ -37,6 +38,7 @@ defmodule Ysc.Forms.ConductViolationReport do
       :last_name,
       :phone,
       :summary,
+      :anonymous,
       :status,
       :user_id
     ])

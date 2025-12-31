@@ -3,16 +3,22 @@ defmodule YscWeb.Layouts do
 
   embed_templates "layouts/*"
 
-  def fullscreen?(conn) do
-    current_path = Path.join(["/" | conn.path_info])
-
-    String.starts_with?(current_path, [
+  def fullscreen?(conn_or_path) when is_binary(conn_or_path) do
+    String.starts_with?(conn_or_path, [
       "/users/log-in",
       "/users/register",
       "/users/reset-password",
       "/users/settings/confirm-email",
       "/users/log-in/auto",
-      "/account/setup"
+      "/account/setup",
+      "/report-conduct-violation"
     ])
   end
+
+  def fullscreen?(%Plug.Conn{} = conn) do
+    current_path = Path.join(["/" | conn.path_info])
+    fullscreen?(current_path)
+  end
+
+  def fullscreen?(_), do: false
 end

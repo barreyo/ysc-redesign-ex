@@ -119,7 +119,7 @@ defmodule YscWeb.CoreComponents do
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
       role="alert"
       class={[
-        "fixed top-2 right-2 w-80 sm:w-96 z-50 rounded-lg p-3 ring-1",
+        "fixed top-2 right-2 w-80 sm:w-96 z-[110] rounded-lg p-3 ring-1",
         @kind == :info && "bg-emerald-50 text-emerald-800 ring-emerald-500 fill-cyan-900",
         @kind == :error && "bg-rose-50 text-rose-900 shadow-md ring-rose-500 fill-rose-900"
       ]}
@@ -358,7 +358,7 @@ defmodule YscWeb.CoreComponents do
 
     ~H"""
     <div phx-feedback-for={@name}>
-      <label class="flex items-center gap-4 text-sm leading-6 text-zinc-600">
+      <label class="flex items-start gap-3 text-sm leading-6 text-zinc-600 cursor-pointer py-1">
         <input type="hidden" name={@name} value="false" />
         <input
           type="checkbox"
@@ -366,10 +366,10 @@ defmodule YscWeb.CoreComponents do
           name={@name}
           value="true"
           checked={@checked}
-          class="rounded border-zinc-300 text-zinc-900 focus:ring-0"
+          class="mt-0.5 rounded border-zinc-300 text-zinc-900 focus:ring-0 w-5 h-5 flex-shrink-0"
           {@rest}
         />
-        <%= @label %>
+        <span class="flex-1"><%= @label %></span>
       </label>
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
