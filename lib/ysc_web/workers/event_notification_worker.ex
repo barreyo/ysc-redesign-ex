@@ -31,7 +31,18 @@ defmodule YscWeb.Workers.EventNotificationWorker do
       event ->
         # Only send if event is still published
         if event.state == "published" or event.state == :published do
-          send_event_notifications(event)
+          # Only send if event date is in the future (not retroactive)
+          if event_in_future?(event) do
+            send_event_notifications(event)
+          else
+            Logger.info("Event is retroactive (past date), skipping notifications",
+              event_id: event_id,
+              start_date: event.start_date,
+              start_time: event.start_time
+            )
+
+            :ok
+          end
         else
           Logger.info("Event is no longer published, skipping notifications",
             event_id: event_id,
@@ -197,7 +208,18 @@ defmodule YscWeb.Workers.EventNotificationWorker do
         event ->
           # Only send if event is still published
           if event.state == "published" or event.state == :published do
-            send_event_notifications(event)
+            # Only send if event date is in the future (not retroactive)
+            if event_in_future?(event) do
+              send_event_notifications(event)
+            else
+              Logger.info("Event is retroactive (past date), skipping immediate notification",
+                event_id: event_id,
+                start_date: event.start_date,
+                start_time: event.start_time
+              )
+
+              :ok
+            end
           else
             Logger.info("Event is not published, skipping immediate notification",
               event_id: event_id,
@@ -209,4 +231,37 @@ defmodule YscWeb.Workers.EventNotificationWorker do
       end
     end
   end
+
+  # Check if the event's start datetime is in the future
+  defp event_in_future?(event) do
+    start_datetime = combine_date_time(event.start_date, event.start_time)
+
+    case start_datetime do
+      nil ->
+        # If we can't determine the start datetime, don't send notifications
+        false
+
+      datetime ->
+        # Compare with current time to see if event is in the future
+        DateTime.compare(datetime, DateTime.utc_now()) == :gt
+    end
+  end
+
+  # Combine date and time into a DateTime, similar to Event.combine_date_time/2
+  defp combine_date_time(nil, _), do: nil
+  defp combine_date_time(_, nil), do: nil
+
+  defp combine_date_time(%DateTime{} = date, %Time{} = time) do
+    naive_date = DateTime.to_naive(date)
+    date_part = NaiveDateTime.to_date(naive_date)
+    naive_datetime = NaiveDateTime.new!(date_part, time)
+    DateTime.from_naive!(naive_datetime, "Etc/UTC")
+  end
+
+  defp combine_date_time(date, time) when not is_nil(date) and not is_nil(time) do
+    NaiveDateTime.new!(date, time)
+    |> DateTime.from_naive!("Etc/UTC")
+  end
+
+  defp combine_date_time(_, _), do: nil
 end
