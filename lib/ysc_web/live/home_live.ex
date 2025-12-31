@@ -445,64 +445,187 @@ defmodule YscWeb.HomeLive do
     <%!-- Upcoming Events Section --%>
     <section
       :if={@current_user == nil && length(@upcoming_events) > 0}
-      class="py-16 lg:py-24 bg-zinc-900"
+      class="py-20 lg:py-32 bg-zinc-900 relative overflow-hidden"
     >
-      <div class="max-w-screen-xl mx-auto px-4">
-        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-12">
+      <div class="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none">
+      </div>
+
+      <div class="max-w-screen-xl mx-auto px-4 relative z-10">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
           <div>
-            <span class="text-blue-400 font-semibold text-sm uppercase tracking-wider">
-              What's Happening
+            <span class="text-blue-400 font-black text-xs uppercase tracking-[0.3em]">
+              The Social Calendar
             </span>
-            <h2 class="mt-3 text-3xl lg:text-4xl font-bold text-white">
+            <h2 class="mt-4 text-4xl lg:text-6xl font-black text-white tracking-tighter leading-none">
               Upcoming Events
             </h2>
           </div>
           <.link
             navigate={~p"/events"}
-            class="mt-4 sm:mt-0 inline-flex items-center text-blue-400 font-semibold hover:text-blue-300 transition"
+            class="group flex items-center gap-2 text-white font-bold hover:text-blue-400 transition-all"
           >
-            View all events <.icon name="hero-arrow-right" class="ml-2 w-5 h-5" />
+            View full calendar
+            <.icon
+              name="hero-arrow-right"
+              class="w-5 h-5 group-hover:translate-x-1 transition-transform"
+            />
           </.link>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="flex flex-wrap justify-center gap-8">
           <%= for event <- @upcoming_events do %>
-            <.event_card
-              event={event}
-              sold_out={event_sold_out?(event)}
-              selling_fast={Map.get(event, :selling_fast, false)}
-              variant="dark"
-            />
+            <div class="group flex flex-col bg-white/5 backdrop-blur-sm rounded-[2.5rem] border border-white/10 hover:border-blue-500/50 transition-all duration-500 overflow-hidden shadow-2xl w-full md:max-w-[calc(50%-2rem)] lg:max-w-[calc(33.333%-2rem)]">
+              <.link
+                navigate={~p"/events/#{event.id}"}
+                class="block relative aspect-[16/11] overflow-hidden"
+              >
+                <canvas
+                  id={"blur-hash-event-#{event.id}"}
+                  src={get_blur_hash(event.image)}
+                  class="absolute inset-0 z-0 w-full h-full object-cover"
+                  phx-hook="BlurHashCanvas"
+                >
+                </canvas>
+                <img
+                  src={event_image_url(event.image)}
+                  id={"image-event-#{event.id}"}
+                  phx-hook="BlurHashImage"
+                  class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover w-full h-full group-hover:scale-110 transition-transform duration-700 opacity-80 group-hover:opacity-100"
+                  loading="lazy"
+                  alt={
+                    if event.image,
+                      do: event.image.alt_text || event.image.title || event.title || "Event image",
+                      else: "Event image"
+                  }
+                />
+                <div class="absolute top-6 left-6 flex gap-2 z-[2] flex-wrap">
+                  <%= if Timex.diff(Timex.now(), event.inserted_at, :days) <= 7 do %>
+                    <span class="px-3 py-1 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">
+                      New
+                    </span>
+                  <% end %>
+                  <%= if event_sold_out?(event) do %>
+                    <span class="px-3 py-1 bg-zinc-100 text-zinc-600 text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">
+                      Sold Out
+                    </span>
+                  <% end %>
+                </div>
+                <div class="absolute bottom-4 right-4 z-[2]">
+                  <span class="bg-zinc-900/80 backdrop-blur-md px-4 py-2 rounded-xl text-white text-xs font-black ring-1 ring-white/10">
+                    <%= event.pricing_info.display_text %>
+                  </span>
+                </div>
+                <div class="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-60">
+                </div>
+              </.link>
+
+              <div class="p-8 flex flex-col flex-1">
+                <div class="flex items-center gap-3 mb-4">
+                  <span class="text-blue-400 font-black text-xs tracking-widest uppercase">
+                    <%= Timex.format!(event.start_date, "{Mshort} {D}") %>
+                  </span>
+                  <span class="w-1 h-1 bg-white/20 rounded-full"></span>
+                  <%= if event.start_time && event.start_time != "" do %>
+                    <span class="text-zinc-400 text-xs font-bold uppercase tracking-widest text-[10px]">
+                      <%= format_event_time(event.start_time) %>
+                    </span>
+                  <% end %>
+                </div>
+                <.link navigate={~p"/events/#{event.id}"} class="block">
+                  <h3 class="text-2xl font-black text-white tracking-tight group-hover:text-blue-400 transition-colors leading-tight">
+                    <%= event.title %>
+                  </h3>
+                </.link>
+                <%= if event.description do %>
+                  <p class="text-zinc-400 mt-4 line-clamp-2 text-sm leading-relaxed">
+                    <%= event.description %>
+                  </p>
+                <% end %>
+
+                <div class="mt-auto pt-8 flex justify-between items-center border-t border-white/5">
+                  <%= if event.location_name do %>
+                    <span class="text-[11px] font-bold text-zinc-500 flex items-center gap-2">
+                      <.icon name="hero-map-pin" class="w-4 h-4 text-blue-500" />
+                      <%= event.location_name %>
+                    </span>
+                  <% else %>
+                    <span></span>
+                  <% end %>
+                  <.icon
+                    name="hero-arrow-right"
+                    class="w-5 h-5 text-zinc-600 group-hover:text-blue-400 group-hover:translate-x-1 transition-all"
+                  />
+                </div>
+              </div>
+            </div>
           <% end %>
         </div>
       </div>
     </section>
 
     <%!-- Latest News Section --%>
-    <section :if={@current_user == nil && length(@latest_news) > 0} class="py-16 lg:py-24 bg-zinc-50">
+    <section :if={@current_user == nil && length(@latest_news) > 0} class="py-24 lg:py-32 bg-zinc-50">
       <div class="max-w-screen-xl mx-auto px-4">
-        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-12">
-          <div>
-            <span class="text-blue-600 font-semibold text-sm uppercase tracking-wider">
-              Latest News
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-20 border-b border-zinc-200 pb-10">
+          <div class="max-w-2xl">
+            <span class="text-blue-600 font-black text-xs uppercase tracking-[0.3em]">
+              Nordic Post
             </span>
-            <h2 class="mt-3 text-3xl lg:text-4xl font-bold text-zinc-900">
-              Stay Informed
+            <h2 class="mt-4 text-4xl lg:text-6xl font-black text-zinc-900 tracking-tighter">
+              Stay Informed.
             </h2>
           </div>
-          <.link
-            navigate={~p"/news"}
-            class="mt-4 sm:mt-0 inline-flex items-center text-blue-600 font-semibold hover:text-blue-700 transition"
-          >
-            View all news <.icon name="hero-arrow-right" class="ml-2 w-5 h-5" />
-          </.link>
+          <p class="text-zinc-500 text-lg font-light lg:max-w-xs">
+            Member updates, seasonal news, and club stories.
+          </p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <%= for post <- @latest_news do %>
-            <div id={"post-#{post.id}"}>
-              <.news_card post={post} />
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+          <%= for {post, index} <- Enum.with_index(@latest_news) do %>
+            <.link
+              navigate={~p"/posts/#{post.url_name}"}
+              class={[
+                "group cursor-pointer",
+                if(index == 1, do: "md:mt-16", else: "")
+              ]}
+            >
+              <div class="relative overflow-hidden rounded-[2rem] mb-8 aspect-square shadow-sm group-hover:shadow-2xl transition-all duration-500">
+                <canvas
+                  id={"blur-hash-news-#{post.id}"}
+                  src={get_blur_hash(post.featured_image)}
+                  class="absolute inset-0 z-0 w-full h-full object-cover"
+                  phx-hook="BlurHashCanvas"
+                >
+                </canvas>
+                <img
+                  src={featured_image_url_for_news(post.featured_image)}
+                  id={"image-news-#{post.id}"}
+                  phx-hook="BlurHashImage"
+                  class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
+                  loading="lazy"
+                  alt={
+                    if post.featured_image,
+                      do:
+                        post.featured_image.alt_text || post.featured_image.title || post.title ||
+                          "News article image",
+                      else: "News article image"
+                  }
+                />
+              </div>
+              <time class="text-[10px] font-black text-teal-600 uppercase tracking-widest">
+                <%= Timex.format!(post.published_on, "{Mshort} {D}") %> · <%= reading_time_for_news(
+                  post
+                ) %> min read
+              </time>
+              <h3 class="text-2xl font-black text-zinc-900 tracking-tighter mt-3 group-hover:text-blue-600 transition-colors">
+                <%= post.title %>
+              </h3>
+              <%= if post.preview_text || post.rendered_body do %>
+                <p class="text-zinc-500 mt-3 text-sm leading-relaxed line-clamp-2">
+                  <%= preview_text_for_news(post) %>
+                </p>
+              <% end %>
+            </.link>
           <% end %>
         </div>
       </div>
@@ -1600,6 +1723,64 @@ defmodule YscWeb.HomeLive do
   defp get_blur_hash(nil), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
   defp get_blur_hash(%Image{blur_hash: nil}), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
   defp get_blur_hash(%Image{blur_hash: blur_hash}), do: blur_hash
+
+  defp format_event_time(%Time{} = time) do
+    Timex.format!(time, "{h12}:{m} {AM}")
+  end
+
+  defp format_event_time(start_time) when is_binary(start_time) do
+    try do
+      # Parse database time format (HH:MM:SS)
+      [h, m, _s] = String.split(start_time, ":")
+      hour = String.to_integer(h)
+      minute = String.to_integer(m)
+      time = Time.new!(hour, minute, 0)
+      Timex.format!(time, "{h12}:{m} {AM}")
+    rescue
+      _ -> start_time
+    end
+  end
+
+  defp format_event_time(_), do: ""
+
+  defp event_image_url(nil), do: "/images/ysc_logo.png"
+
+  defp event_image_url(%Image{optimized_image_path: nil} = image),
+    do: image.raw_image_path || "/images/ysc_logo.png"
+
+  defp event_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
+  defp event_image_url(_), do: "/images/ysc_logo.png"
+
+  defp featured_image_url_for_news(nil), do: "/images/ysc_logo.png"
+
+  defp featured_image_url_for_news(%Image{optimized_image_path: nil} = image),
+    do: image.raw_image_path || "/images/ysc_logo.png"
+
+  defp featured_image_url_for_news(%Image{optimized_image_path: optimized_path}),
+    do: optimized_path
+
+  defp featured_image_url_for_news(_), do: "/images/ysc_logo.png"
+
+  defp reading_time_for_news(%Post{rendered_body: nil}), do: 1
+
+  defp reading_time_for_news(%Post{rendered_body: rendered_body}) do
+    word_count = String.split(rendered_body, ~r/\s+/, trim: true) |> length()
+    # Average reading speed is 200 words per minute
+    ceil(word_count / 200) |> max(1)
+  end
+
+  defp preview_text_for_news(%Post{preview_text: nil} = post) do
+    if post.raw_body do
+      post.raw_body
+      |> Scrubber.scrub(YscWeb.Scrubber.StripEverythingExceptText)
+      |> String.slice(0, 150)
+      |> Kernel.<>("...")
+    else
+      ""
+    end
+  end
+
+  defp preview_text_for_news(%Post{preview_text: preview_text}), do: preview_text
 
   defp thumbnail_image_url(nil), do: "/images/ysc_logo.png"
   defp thumbnail_image_url(%Image{thumbnail_path: nil} = image), do: image.raw_image_path
