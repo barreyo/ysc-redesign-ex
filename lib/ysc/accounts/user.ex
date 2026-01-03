@@ -80,6 +80,7 @@ defmodule Ysc.Accounts.User do
     has_many :auth_events, Ysc.Accounts.AuthEvent
     has_many :expense_reports, Ysc.ExpenseReports.ExpenseReport, foreign_key: :user_id
     has_many :bank_accounts, Ysc.ExpenseReports.BankAccount, foreign_key: :user_id
+    has_many :user_notes, Ysc.Accounts.UserNote, foreign_key: :user_id
 
     field :display_name, :string, virtual: true
     field :payment_id, :string, virtual: true

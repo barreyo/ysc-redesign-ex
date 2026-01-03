@@ -11,7 +11,7 @@ defmodule Ysc.Accounts do
   alias Ysc.Accounts.SignupApplication
   alias Ysc.Repo
 
-  alias Ysc.Accounts.{Address, User, UserToken, UserNotifier, AuthService}
+  alias Ysc.Accounts.{Address, User, UserToken, UserNotifier, AuthService, UserNote}
 
   ## Database getters
 
@@ -1738,6 +1738,49 @@ defmodule Ysc.Accounts do
     else
       {:error, :unauthorized}
     end
+  end
+
+  ## User Notes
+
+  @doc """
+  Creates a new note for a user.
+
+  ## Examples
+
+      iex> create_user_note(user, %{note: "User contacted support"}, admin_user)
+      {:ok, %UserNote{}}
+
+      iex> create_user_note(user, %{note: ""}, admin_user)
+      {:error, %Ecto.Changeset{}}
+  """
+  def create_user_note(user, attrs, created_by_user) do
+    attrs =
+      attrs
+      |> Map.put("user_id", user.id)
+      |> Map.put("created_by_user_id", created_by_user.id)
+
+    %UserNote{}
+    |> UserNote.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Lists all notes for a user, ordered by most recent first.
+
+  Preloads the `created_by` association to show which admin created each note.
+
+  ## Examples
+
+      iex> list_user_notes(user_id)
+      [%UserNote{...}, ...]
+  """
+  def list_user_notes(user_id) do
+    from(n in UserNote,
+      where: n.user_id == ^user_id,
+      order_by: [desc: n.inserted_at],
+      preload: [:created_by]
+    )
+    |> Repo.all()
   end
 
   # Helper function to check if we're in dev/sandbox mode

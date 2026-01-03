@@ -153,6 +153,19 @@ defmodule YscWeb.AdminUserDetailsLive do
                   Family
                 </.link>
               </li>
+              <li class="me-2">
+                <.link
+                  navigate={~p"/admin/users/#{@user_id}/details/logs"}
+                  class={[
+                    "inline-block p-4 border-b-2 rounded-t-lg",
+                    @live_action == :logs && "text-blue-600 border-blue-600 active",
+                    @live_action != :logs &&
+                      "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
+                  ]}
+                >
+                  Notes
+                </.link>
+              </li>
             </ul>
           </div>
         </div>
@@ -1300,6 +1313,97 @@ defmodule YscWeb.AdminUserDetailsLive do
             </div>
           </div>
         </div>
+
+        <div :if={@live_action == :logs} class="max-w-full py-8 px-2">
+          <div class="space-y-6">
+            <h2 class="text-xl font-semibold text-zinc-800 mb-4">User Notes</h2>
+
+            <div class="bg-white border border-zinc-200 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-zinc-800 mb-4">Add Note</h3>
+              <.simple_form
+                for={@note_form}
+                phx-change="validate_note"
+                phx-submit="create_note"
+                id="note-form"
+              >
+                <.input
+                  field={@note_form[:category]}
+                  type="select"
+                  label="Category"
+                  options={[General: "general", Violation: "violation"]}
+                />
+                <.input
+                  field={@note_form[:note]}
+                  type="textarea"
+                  label="Note"
+                  placeholder="Enter a note about this user..."
+                  rows="4"
+                />
+                <div class="flex flex-row justify-end w-full pt-4">
+                  <.button phx-disable-with="Adding..." type="submit">
+                    <.icon name="hero-plus" class="w-5 h-5 mb-0.5 me-1" /> Add Note
+                  </.button>
+                </div>
+              </.simple_form>
+            </div>
+
+            <div class="bg-white border border-zinc-200 rounded-lg p-6">
+              <h3 class="text-lg font-semibold text-zinc-800 mb-4">Timeline</h3>
+              <div :if={length(@user_notes) == 0} class="text-center py-12">
+                <p class="text-zinc-500">No notes yet. Add a note above to get started.</p>
+              </div>
+              <div :if={length(@user_notes) > 0} class="relative">
+                <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-zinc-200"></div>
+                <div class="space-y-6">
+                  <%= for note <- @user_notes do %>
+                    <div class="relative flex gap-4">
+                      <div class="flex-shrink-0">
+                        <div class="w-8 h-8 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center relative z-10">
+                          <.icon name="hero-document-text" class="w-4 h-4 text-blue-600" />
+                        </div>
+                      </div>
+                      <div class="flex-1 pb-6">
+                        <div class="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
+                          <div class="flex items-start justify-between mb-2">
+                            <div class="flex-1">
+                              <div class="flex items-center gap-2 mb-1">
+                                <p class="text-sm font-semibold text-zinc-900">
+                                  <%= if note.created_by do %>
+                                    <%= "#{note.created_by.first_name} #{note.created_by.last_name}" %>
+                                  <% else %>
+                                    Unknown Admin
+                                  <% end %>
+                                </p>
+                                <.badge type={
+                                  if note.category == :violation, do: "red", else: "default"
+                                }>
+                                  <%= String.capitalize("#{note.category}") %>
+                                </.badge>
+                              </div>
+                              <p class="text-xs text-zinc-500 mt-0.5">
+                                <%= if note.created_by do %>
+                                  <%= note.created_by.email %>
+                                <% end %>
+                              </p>
+                            </div>
+                            <div class="text-xs text-zinc-500">
+                              <%= format_datetime_for_display(note.inserted_at) %>
+                            </div>
+                          </div>
+                          <div class="mt-3">
+                            <p class="text-sm text-zinc-800 whitespace-pre-wrap">
+                              <%= note.note %>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </.side_menu>
     """
@@ -1407,6 +1511,8 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:primary_user, nil)
      |> assign(:sub_accounts, [])
      |> assign(:family_members, [])
+     |> assign(:user_notes, [])
+     |> assign(:note_form, to_form(note_changeset(%{category: "general"}), as: "note"))
      |> assign(form: user_form)}
   end
 
@@ -1429,6 +1535,9 @@ defmodule YscWeb.AdminUserDetailsLive do
 
         :family ->
           load_family_data(socket, user_id)
+
+        :logs ->
+          load_user_notes(socket, user_id)
 
         _ ->
           socket
@@ -1764,6 +1873,32 @@ defmodule YscWeb.AdminUserDetailsLive do
     end
   end
 
+  def handle_event("validate_note", %{"note" => note_params}, socket) do
+    changeset = note_params |> note_changeset()
+
+    {:noreply, assign(socket, note_form: to_form(changeset, as: "note"))}
+  end
+
+  def handle_event("create_note", %{"note" => note_params}, socket) do
+    current_user = socket.assigns[:current_user]
+    selected_user = socket.assigns[:selected_user]
+
+    case Accounts.create_user_note(selected_user, note_params, current_user) do
+      {:ok, _note} ->
+        {:noreply,
+         socket
+         |> assign(:note_form, to_form(note_changeset(%{category: "general"}), as: "note"))
+         |> assign(:user_notes, Accounts.list_user_notes(selected_user.id))
+         |> put_flash(:info, "Note added successfully")}
+
+      {:error, changeset} ->
+        {:noreply,
+         socket
+         |> assign(:note_form, to_form(changeset, as: "note"))
+         |> put_flash(:error, "Failed to add note: #{format_changeset_errors(changeset)}")}
+    end
+  end
+
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     form = to_form(changeset, as: "user")
 
@@ -1871,6 +2006,11 @@ defmodule YscWeb.AdminUserDetailsLive do
     |> assign(:primary_user, primary_user)
     |> assign(:sub_accounts, sub_accounts)
     |> assign(:family_members, family_members)
+  end
+
+  defp load_user_notes(socket, user_id) do
+    user_notes = Accounts.list_user_notes(user_id)
+    assign(socket, :user_notes, user_notes)
   end
 
   defp format_phone_number(phone_number) do
@@ -2041,5 +2181,28 @@ defmodule YscWeb.AdminUserDetailsLive do
   defp form_has_changes?(original_data, current_form) do
     current_data = extract_form_data(current_form)
     current_data != original_data
+  end
+
+  defp note_changeset(params) do
+    types = %{note: :string, category: :string}
+
+    {%{}, types}
+    |> Ecto.Changeset.cast(params, [:note, :category])
+    |> Ecto.Changeset.validate_required([:note, :category])
+    |> Ecto.Changeset.validate_length(:note, min: 1, max: 5000)
+    |> Ecto.Changeset.validate_inclusion(:category, ["general", "violation"])
+  end
+
+  defp format_changeset_errors(changeset) do
+    changeset
+    |> Ecto.Changeset.traverse_errors(fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {key, value}, acc ->
+        String.replace(acc, "%{#{key}}", to_string(value))
+      end)
+    end)
+    |> Enum.map(fn {field, messages} ->
+      "#{field}: #{Enum.join(messages, ", ")}"
+    end)
+    |> Enum.join("; ")
   end
 end
