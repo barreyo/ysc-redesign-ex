@@ -1,5 +1,13 @@
 defmodule YscWeb.AdminUserDetailsLive do
-  use YscWeb, :live_view
+  use Phoenix.LiveView,
+    layout: {YscWeb.Layouts, :admin_app}
+
+  import YscWeb.CoreComponents
+
+  use Phoenix.VerifiedRoutes,
+    endpoint: YscWeb.Endpoint,
+    router: YscWeb.Router,
+    statics: YscWeb.static_paths()
 
   alias Ysc.Accounts
   alias Ysc.Bookings

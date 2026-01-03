@@ -28,6 +28,11 @@ defmodule YscWeb.OrderConfirmationLive do
             Events.get_event!(ticket_order.event_id)
             |> Repo.preload(:cover_image)
 
+          # Preload ticket registrations (TicketDetail) for tickets that require registration
+          ticket_order =
+            ticket_order
+            |> Repo.preload(tickets: [:ticket_tier, :registration])
+
           # Get refund information if order has refunds
           refund_data = get_refund_data_for_order(ticket_order)
 
@@ -204,54 +209,80 @@ defmodule YscWeb.OrderConfirmationLive do
               <div class="space-y-3">
                 <%= for ticket <- @ticket_order.tickets do %>
                   <% is_refunded = ticket.status == :cancelled %>
+                  <% requires_registration = ticket.ticket_tier.requires_registration == true %>
+                  <% ticket_detail = ticket.registration %>
                   <div class={[
-                    "flex justify-between items-center p-4 rounded-lg border",
+                    "p-4 rounded-lg border",
                     if(is_refunded,
                       do: "bg-red-50 border-red-200 opacity-60",
                       else: "bg-zinc-50 border-zinc-200"
                     )
                   ]}>
-                    <div class="flex-1">
-                      <div class="flex items-center gap-2">
+                    <div class="flex justify-between items-start mb-3">
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                          <p class={[
+                            "font-semibold",
+                            if(is_refunded, do: "text-zinc-500 line-through", else: "text-zinc-900")
+                          ]}>
+                            <%= ticket.ticket_tier.name %>
+                          </p>
+                          <%= if is_refunded do %>
+                            <span class="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">
+                              Refunded
+                            </span>
+                          <% end %>
+                        </div>
                         <p class={[
-                          "font-semibold",
-                          if(is_refunded, do: "text-zinc-500 line-through", else: "text-zinc-900")
+                          "text-sm font-mono",
+                          if(is_refunded, do: "text-zinc-400", else: "text-zinc-500")
                         ]}>
-                          <%= ticket.ticket_tier.name %>
+                          Ticket #<%= ticket.reference_id %>
                         </p>
-                        <%= if is_refunded do %>
-                          <span class="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">
-                            Refunded
-                          </span>
-                        <% end %>
                       </div>
-                      <p class={[
-                        "text-sm font-mono",
-                        if(is_refunded, do: "text-zinc-400", else: "text-zinc-500")
-                      ]}>
-                        Ticket #<%= ticket.reference_id %>
-                      </p>
+                      <div class="text-right">
+                        <p class={[
+                          "font-bold text-lg",
+                          if(is_refunded,
+                            do: "text-zinc-400 line-through",
+                            else: "text-zinc-900"
+                          )
+                        ]}>
+                          <%= cond do %>
+                            <% ticket.ticket_tier.type == "donation" || ticket.ticket_tier.type == :donation -> %>
+                              <%= get_donation_amount_for_ticket(ticket, @ticket_order) %>
+                            <% ticket.ticket_tier.price == nil -> %>
+                              Free
+                            <% Money.zero?(ticket.ticket_tier.price) -> %>
+                              Free
+                            <% true -> %>
+                              <%= MoneyHelper.format_money!(ticket.ticket_tier.price) %>
+                          <% end %>
+                        </p>
+                      </div>
                     </div>
-                    <div class="text-right">
-                      <p class={[
-                        "font-bold text-lg",
-                        if(is_refunded,
-                          do: "text-zinc-400 line-through",
-                          else: "text-zinc-900"
-                        )
-                      ]}>
-                        <%= cond do %>
-                          <% ticket.ticket_tier.type == "donation" || ticket.ticket_tier.type == :donation -> %>
-                            <%= get_donation_amount_for_ticket(ticket, @ticket_order) %>
-                          <% ticket.ticket_tier.price == nil -> %>
-                            Free
-                          <% Money.zero?(ticket.ticket_tier.price) -> %>
-                            Free
-                          <% true -> %>
-                            <%= MoneyHelper.format_money!(ticket.ticket_tier.price) %>
-                        <% end %>
-                      </p>
-                    </div>
+                    <%= if requires_registration && ticket_detail do %>
+                      <div class="mt-3 pt-3 border-t border-zinc-300">
+                        <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+                          Registration Details
+                        </p>
+                        <div class="space-y-1 text-sm">
+                          <p class="text-zinc-700">
+                            <span class="font-medium">Name:</span>
+                            <%= ticket_detail.first_name %> <%= ticket_detail.last_name %>
+                          </p>
+                          <p class="text-zinc-700">
+                            <span class="font-medium">Email:</span>
+                            <a
+                              href={"mailto:#{ticket_detail.email}"}
+                              class="text-blue-600 hover:text-blue-500 underline"
+                            >
+                              <%= ticket_detail.email %>
+                            </a>
+                          </p>
+                        </div>
+                      </div>
+                    <% end %>
                   </div>
                 <% end %>
               </div>

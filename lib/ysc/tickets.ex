@@ -415,23 +415,63 @@ defmodule Ysc.Tickets do
         end
 
         # Update ticket order status
-        {:ok, updated_order} =
-          ticket_order
-          |> TicketOrder.status_changeset(%{
-            status: :expired,
-            cancelled_at: DateTime.utc_now(),
-            cancellation_reason: "Payment timeout"
-          })
-          |> Repo.update()
+        updated_order =
+          case ticket_order
+               |> TicketOrder.status_changeset(%{
+                 status: :expired,
+                 cancelled_at: DateTime.utc_now(),
+                 cancellation_reason: "Payment timeout"
+               })
+               |> Repo.update() do
+            {:ok, order} ->
+              order
+
+            {:error, changeset} ->
+              Logger.error("Failed to update ticket order status",
+                ticket_order_id: ticket_order.id,
+                errors: inspect(changeset.errors)
+              )
+
+              # Raise to rollback transaction
+              Repo.rollback({:error, :failed_to_update_order})
+          end
 
         # Cancel all associated tickets
         tickets = Repo.all(from t in Ticket, where: t.ticket_order_id == ^ticket_order.id)
 
-        Enum.each(tickets, fn ticket ->
-          ticket
-          |> Ticket.changeset(%{status: :expired})
-          |> Repo.update()
-        end)
+        # Update each ticket and collect any errors
+        ticket_update_results =
+          Enum.map(tickets, fn ticket ->
+            case ticket
+                 |> Ticket.status_changeset(%{status: :expired})
+                 |> Repo.update() do
+              {:ok, updated_ticket} ->
+                {:ok, updated_ticket}
+
+              {:error, changeset} ->
+                Logger.error("Failed to expire ticket",
+                  ticket_id: ticket.id,
+                  ticket_order_id: ticket_order.id,
+                  errors: inspect(changeset.errors)
+                )
+
+                {:error, ticket.id, changeset}
+            end
+          end)
+
+        # Check if any ticket updates failed
+        failed_updates = Enum.filter(ticket_update_results, &match?({:error, _, _}, &1))
+
+        if Enum.any?(failed_updates) do
+          Logger.error("Failed to expire some tickets",
+            ticket_order_id: ticket_order.id,
+            failed_count: length(failed_updates),
+            total_count: length(tickets)
+          )
+
+          # Rollback transaction if any ticket update failed
+          Repo.rollback({:error, :failed_to_expire_tickets})
+        end
 
         updated_order
       end)

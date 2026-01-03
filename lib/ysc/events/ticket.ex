@@ -34,6 +34,8 @@ defmodule Ysc.Events.Ticket do
 
     field :expires_at, :utc_datetime
 
+    has_one :registration, Ysc.Events.TicketDetail, foreign_key: :ticket_id
+
     timestamps()
   end
 
@@ -62,6 +64,17 @@ defmodule Ysc.Events.Ticket do
     |> validate_event_not_in_past()
     |> put_reference_id()
     |> unique_constraint(:reference_id)
+  end
+
+  @doc """
+  Changeset for updating ticket status only.
+  Skips validations that shouldn't apply when changing status (e.g., expiring tickets).
+  This is used for administrative status changes where business validations don't apply.
+  """
+  def status_changeset(ticket, attrs) do
+    ticket
+    |> cast(attrs, [:status])
+    |> validate_inclusion(:status, [:pending, :confirmed, :expired, :cancelled])
   end
 
   defp put_reference_id(changeset) do

@@ -786,7 +786,8 @@ defmodule Ysc.Events do
 
   @doc """
   Get all tickets for an event for CSV export.
-  Includes ticket_tier, user, and ticket_detail preloads.
+  Includes ticket_tier, user (purchaser), and ticket_detail (attendee registration) preloads.
+  Both purchaser and attendee information are maintained for export.
   """
   def list_tickets_for_export(event_id) do
     tickets =
@@ -798,7 +799,7 @@ defmodule Ysc.Events do
       |> order_by([t], asc: t.inserted_at)
       |> Repo.all()
 
-    # Load ticket details for each ticket (only if there are tickets)
+    # Load ticket details (attendee registration) for each ticket (only if there are tickets)
     ticket_details_map =
       if Enum.empty?(tickets) do
         %{}
@@ -813,10 +814,14 @@ defmodule Ysc.Events do
         |> Map.new()
       end
 
-    # Attach ticket details to tickets
+    # Attach ticket details to tickets while maintaining user (purchaser) information
     Enum.map(tickets, fn ticket ->
       ticket_detail = Map.get(ticket_details_map, ticket.id)
-      Map.put(ticket, :ticket_detail, ticket_detail)
+      # Ensure both user (purchaser) and ticket_detail (attendee) are available
+      ticket
+      |> Map.put(:ticket_detail, ticket_detail)
+
+      # User is already preloaded, so it's already available
     end)
   end
 
@@ -945,6 +950,120 @@ defmodule Ysc.Events do
   def get_ticket_detail_for_ticket(ticket_id) do
     Repo.get_by(TicketDetail, ticket_id: ticket_id)
   end
+
+  # Registration Management Functions
+
+  @doc """
+  Create a registration (ticket detail) for a ticket.
+
+  ## Parameters
+  - `attrs`: Map containing `ticket_id`, `first_name`, `last_name`, and `email`
+
+  ## Returns
+  - `{:ok, registration}` on success
+  - `{:error, changeset}` on failure
+  """
+  def create_registration(attrs \\ %{}) do
+    %TicketDetail{}
+    |> TicketDetail.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Update an existing registration.
+
+  ## Parameters
+  - `registration`: The TicketDetail struct to update
+  - `attrs`: Map containing fields to update (`first_name`, `last_name`, `email`)
+
+  ## Returns
+  - `{:ok, registration}` on success
+  - `{:error, changeset}` on failure
+  """
+  def update_registration(%TicketDetail{} = registration, attrs) do
+    registration
+    |> TicketDetail.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Get registration for a ticket.
+
+  This is an alias for `get_ticket_detail_for_ticket/1` for clarity.
+
+  ## Parameters
+  - `ticket_id`: The ID of the ticket
+
+  ## Returns
+  - `%TicketDetail{}` if found
+  - `nil` if not found
+  """
+  def get_registration_for_ticket(ticket_id) do
+    get_ticket_detail_for_ticket(ticket_id)
+  end
+
+  @doc """
+  Delete a registration.
+
+  ## Parameters
+  - `registration`: The TicketDetail struct to delete
+
+  ## Returns
+  - `{:ok, registration}` on success
+  - `{:error, changeset}` on failure
+  """
+  def delete_registration(%TicketDetail{} = registration) do
+    Repo.delete(registration)
+  end
+
+  @doc """
+  Check if registration is required for a ticket based on its ticket tier.
+
+  ## Parameters
+  - `ticket`: The Ticket struct or ticket_id
+
+  ## Returns
+  - `true` if registration is required
+  - `false` otherwise
+
+  ## Examples
+
+      iex> registration_required?(ticket)
+      true
+
+      iex> registration_required?(ticket_id)
+      false
+  """
+  def registration_required?(%Ticket{} = ticket) do
+    # Handle case where ticket_tier is not preloaded
+    ticket_tier =
+      case ticket.ticket_tier do
+        %Ecto.Association.NotLoaded{} ->
+          if ticket.ticket_tier_id do
+            get_ticket_tier(ticket.ticket_tier_id)
+          else
+            nil
+          end
+
+        tier ->
+          tier
+      end
+
+    case ticket_tier do
+      %TicketTier{requires_registration: true} -> true
+      %TicketTier{requires_registration: false} -> false
+      _ -> false
+    end
+  end
+
+  def registration_required?(ticket_id) when is_binary(ticket_id) do
+    case Repo.get(Ticket, ticket_id) do
+      nil -> false
+      ticket -> registration_required?(ticket)
+    end
+  end
+
+  def registration_required?(_), do: false
 
   defp broadcast(event) do
     Phoenix.PubSub.broadcast(Ysc.PubSub, topic(), {__MODULE__, event})

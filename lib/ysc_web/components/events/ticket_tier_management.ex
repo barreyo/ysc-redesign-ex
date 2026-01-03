@@ -360,8 +360,14 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
   defp build_csv_rows(tickets) do
     Enum.map(tickets, fn ticket ->
-      # If ticket tier requires registration, use ticket_detail data, otherwise use user data
-      {first_name, last_name, email} =
+      # Purchaser information (user who bought the ticket)
+      purchaser_first_name = ticket.user.first_name || ""
+      purchaser_last_name = ticket.user.last_name || ""
+      purchaser_email = ticket.user.email || ""
+      phone = ticket.user.phone_number || ""
+
+      # Attendee information (from ticket_detail if registration was required)
+      {attendee_first_name, attendee_last_name, attendee_email} =
         if ticket.ticket_tier && ticket.ticket_tier.requires_registration &&
              ticket.ticket_detail do
           {
@@ -370,23 +376,29 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
             ticket.ticket_detail.email || ""
           }
         else
-          {
-            ticket.user.first_name || "",
-            ticket.user.last_name || "",
-            ticket.user.email || ""
-          }
+          # If no registration required, attendee is the same as purchaser
+          {purchaser_first_name, purchaser_last_name, purchaser_email}
         end
 
-      phone = ticket.user.phone_number || ""
-
-      %{
+      # Build CSV row with both purchaser and attendee information
+      base_row = %{
         "Ticket Reference" => ticket.reference_id || "",
         "Ticket Tier" => (ticket.ticket_tier && ticket.ticket_tier.name) || "",
-        "First Name" => first_name,
-        "Last Name" => last_name,
-        "Email" => email,
-        "Phone" => phone
+        "Purchaser First Name" => purchaser_first_name,
+        "Purchaser Last Name" => purchaser_last_name,
+        "Purchaser Email" => purchaser_email,
+        "Purchaser Phone" => phone,
+        "Attendee First Name" => attendee_first_name,
+        "Attendee Last Name" => attendee_last_name,
+        "Attendee Email" => attendee_email
       }
+
+      # If ticket details exist, add a note that registration was provided
+      if ticket.ticket_detail do
+        Map.put(base_row, "Registration Provided", "Yes")
+      else
+        Map.put(base_row, "Registration Provided", "No")
+      end
     end)
   end
 

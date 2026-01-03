@@ -2,7 +2,17 @@ defmodule YscWeb.AdminSettingsLive do
   alias Ysc.Settings
   alias Ysc.Repo
   alias Oban.Job
-  use YscWeb, :live_view
+
+  use Phoenix.LiveView,
+    layout: {YscWeb.Layouts, :admin_app}
+
+  import YscWeb.CoreComponents
+
+  use Phoenix.VerifiedRoutes,
+    endpoint: YscWeb.Endpoint,
+    router: YscWeb.Router,
+    statics: YscWeb.static_paths()
+
   import Ecto.Query
 
   def render(assigns) do

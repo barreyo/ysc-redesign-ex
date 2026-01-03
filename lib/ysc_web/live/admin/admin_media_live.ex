@@ -1,5 +1,15 @@
 defmodule YscWeb.AdminMediaLive do
-  use YscWeb, :live_view
+  use Phoenix.LiveView,
+    layout: {YscWeb.Layouts, :admin_app}
+
+  import YscWeb.CoreComponents
+  alias Phoenix.LiveView.JS
+
+  use Phoenix.VerifiedRoutes,
+    endpoint: YscWeb.Endpoint,
+    router: YscWeb.Router,
+    statics: YscWeb.static_paths()
+
   import Ecto.Query, only: [from: 2]
   alias Ysc.Repo
   alias Ysc.Media

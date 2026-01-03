@@ -17,7 +17,10 @@ defmodule YscWeb.EventDetailsLive do
       <div class="max-w-screen-xl mx-auto px-4 pt-8">
         <div class="relative mb-24 lg:mb-32">
           <%!-- Image with rounded corners and gradient overlay --%>
-          <div class="rounded-2xl overflow-hidden relative">
+          <div class={[
+            "rounded-2xl overflow-hidden relative",
+            if(@event.state == :cancelled, do: "opacity-50 grayscale")
+          ]}>
             <.live_component
               id={"event-cover-#{@event.id}"}
               module={YscWeb.Components.Image}
@@ -28,15 +31,33 @@ defmodule YscWeb.EventDetailsLive do
             <%!-- Gradient overlay for better text readability --%>
             <div class="absolute inset-0 bg-gradient-to-t from-zinc-900/90 via-zinc-900/40 to-transparent pointer-events-none">
             </div>
+            <%!-- Additional red overlay for cancelled events --%>
+            <%= if @event.state == :cancelled do %>
+              <div class="absolute inset-0 bg-red-900/30 pointer-events-none"></div>
+            <% end %>
           </div>
 
           <%!-- Floating Card with Title/Date/Location - Overlaps bottom of image --%>
           <div class="absolute bottom-0 left-0 right-0 transform translate-y-1/2 px-4 lg:px-8 z-10">
-            <div class="bg-white rounded-xl shadow-2xl border border-zinc-100 p-6 lg:p-10">
+            <div class={[
+              "bg-white rounded-xl shadow-2xl border p-6 lg:p-10",
+              if(@event.state == :cancelled,
+                do: "border-red-300",
+                else: "border-zinc-100"
+              )
+            ]}>
               <div class="space-y-4">
-                <p :if={@event.state == :cancelled} class="font-semibold text-red-600">
-                  // This event has been cancelled //
-                </p>
+                <%= if @event.state == :cancelled do %>
+                  <div class="mb-4 p-4 bg-red-600 text-white rounded-lg shadow-lg">
+                    <div class="flex items-center justify-center gap-3">
+                      <.icon name="hero-x-circle-solid" class="w-5 h-5" />
+                      <p class="font-black text-base uppercase tracking-widest">
+                        This Event Has Been Cancelled
+                      </p>
+                      <.icon name="hero-x-circle-solid" class="w-5 h-5" />
+                    </div>
+                  </div>
+                <% end %>
 
                 <div :if={@event.state != :cancelled && event_at_capacity?(@event)}>
                   <.badge type="red">SOLD OUT</.badge>
@@ -79,14 +100,16 @@ defmodule YscWeb.EventDetailsLive do
       </div>
 
       <%!-- Main Content Grid --%>
-      <div class="max-w-screen-xl mx-auto px-4 pt-8 pb-12 lg:py-16">
+      <div class={[
+        "max-w-screen-xl mx-auto px-4 pt-8 pb-12 lg:py-16",
+        if(@event.state == :cancelled, do: "opacity-50 pointer-events-none")
+      ]}>
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <%!-- Left Column: Event Details (8/12 width on desktop) --%>
           <div class="lg:col-span-8 space-y-16">
             <%!-- User's Existing Tickets - Member Pass Style --%>
             <div :if={@current_user != nil && length(@user_tickets) > 0} class="mb-12 space-y-6">
               <%= for {order_id, order_tickets} <- group_tickets_by_order(@user_tickets) do %>
-                <% tiers_by_name = group_tickets_by_tier(order_tickets) %>
                 <% first_ticket = List.first(order_tickets) %>
                 <% ticket_order = first_ticket.ticket_order %>
                 <% order_label =
@@ -105,49 +128,153 @@ defmodule YscWeb.EventDetailsLive do
                       nil
                     end
                   end %>
-                <div class="bg-zinc-900 rounded-xl p-10 text-white shadow-2xl relative overflow-hidden border border-white/5">
+                <%!-- Load all tickets for this order (including cancelled/refunded) --%>
+                <% all_order_tickets = get_all_tickets_for_order(order_id) %>
+                <% confirmed_tickets = Enum.filter(all_order_tickets, &(&1.status == :confirmed)) %>
+                <% refunded_tickets = Enum.filter(all_order_tickets, &(&1.status == :cancelled)) %>
+                <% all_refunded = length(confirmed_tickets) == 0 && length(refunded_tickets) > 0 %>
+                <% partial_refund = length(confirmed_tickets) > 0 && length(refunded_tickets) > 0 %>
+                <%!-- Group all tickets by tier (original counts) and confirmed tickets by tier (new counts) --%>
+                <% all_tiers_by_name = group_tickets_by_tier(all_order_tickets) %>
+                <% confirmed_tiers_by_name =
+                  if length(confirmed_tickets) > 0,
+                    do: group_tickets_by_tier(confirmed_tickets),
+                    else: [] %>
+                <div class={[
+                  "rounded-xl p-10 shadow-2xl relative overflow-hidden border",
+                  if(all_refunded,
+                    do: "bg-red-900/90 border-red-800/50",
+                    else: "bg-zinc-900 border-white/5"
+                  )
+                ]}>
                   <div class="relative z-10">
                     <%!-- Order Label Badge --%>
                     <div class="flex items-center justify-between mb-6">
                       <div class="flex items-center gap-2">
-                        <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/30">
+                        <span class={[
+                          "px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border",
+                          if(all_refunded,
+                            do: "bg-red-500/20 text-red-400 border-red-500/30",
+                            else: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                          )
+                        ]}>
                           <%= order_label %>
                         </span>
                         <%= if purchase_date do %>
-                          <span class="text-[10px] text-zinc-500 uppercase tracking-widest">
+                          <span class={[
+                            "text-[10px] uppercase tracking-widest",
+                            if(all_refunded, do: "text-red-300/70", else: "text-zinc-500")
+                          ]}>
                             • <%= purchase_date %>
                           </span>
+                        <% end %>
+                        <%= if all_refunded do %>
+                          <span class="px-3 py-1 bg-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest rounded-lg border border-red-500/30">
+                            Fully Refunded
+                          </span>
+                        <% else %>
+                          <%= if partial_refund do %>
+                            <span class="px-3 py-1 bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase tracking-widest rounded-lg border border-amber-500/30">
+                              Partially Refunded
+                            </span>
+                          <% end %>
                         <% end %>
                       </div>
                     </div>
 
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-8">
                       <div class="flex items-center gap-5">
-                        <div class="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center ring-1 ring-emerald-500/50">
-                          <.icon name="hero-check-badge-solid" class="w-8 h-8 text-emerald-500" />
+                        <div class={[
+                          "w-14 h-14 rounded-2xl flex items-center justify-center ring-1",
+                          if(all_refunded,
+                            do: "bg-red-500/10 ring-red-500/50",
+                            else: "bg-emerald-500/10 ring-emerald-500/50"
+                          )
+                        ]}>
+                          <.icon
+                            name={
+                              if(all_refunded,
+                                do: "hero-x-circle-solid",
+                                else: "hero-check-badge-solid"
+                              )
+                            }
+                            class={[
+                              "w-8 h-8",
+                              if(all_refunded, do: "text-red-500", else: "text-emerald-500")
+                            ]}
+                          />
                         </div>
                         <div>
-                          <h3 class="text-2xl font-black tracking-tight leading-none">
-                            Your Tickets
-                          </h3>
-                          <div class="mt-2 space-y-1">
-                            <%= for {tier_name, tickets} <- tiers_by_name do %>
-                              <p class="text-xs text-zinc-500 uppercase tracking-widest font-bold">
-                                <%= length(tickets) %>x <%= tier_name %>
-                              </p>
+                          <h3 class={[
+                            "text-2xl font-black tracking-tight leading-none",
+                            if(all_refunded, do: "text-red-100", else: "text-white")
+                          ]}>
+                            <%= if all_refunded do %>
+                              Order Refunded
+                            <% else %>
+                              Your Tickets
                             <% end %>
-                          </div>
+                          </h3>
+                          <%= if all_refunded do %>
+                            <p class="text-sm text-red-200/80 mt-2">
+                              All tickets in this order have been refunded and returned to stock.
+                            </p>
+                          <% else %>
+                            <div class="mt-2 space-y-1">
+                              <%= if partial_refund do %>
+                                <p class="text-xs text-amber-300/90 uppercase tracking-widest font-bold mb-2">
+                                  <%= length(confirmed_tickets) %> of <%= length(all_order_tickets) %> tickets confirmed
+                                </p>
+                              <% end %>
+                              <%= for {tier_name, confirmed_tier_tickets} <- confirmed_tiers_by_name do %>
+                                <% original_count =
+                                  case Enum.find(all_tiers_by_name, fn {name, _} ->
+                                         name == tier_name
+                                       end) do
+                                    {_, original_tickets} -> length(original_tickets)
+                                    nil -> length(confirmed_tier_tickets)
+                                  end %>
+                                <% new_count = length(confirmed_tier_tickets) %>
+                                <% has_refunded_tickets = original_count > new_count %>
+                                <p class={[
+                                  "text-xs uppercase tracking-widest font-bold",
+                                  if(all_refunded, do: "text-red-300/70", else: "text-zinc-500")
+                                ]}>
+                                  <%= if partial_refund && has_refunded_tickets do %>
+                                    <span class="line-through opacity-60">
+                                      <%= original_count %>x
+                                    </span>
+                                    <span class="ml-1">
+                                      <%= new_count %>x <%= tier_name %>
+                                    </span>
+                                  <% else %>
+                                    <%= new_count %>x <%= tier_name %>
+                                  <% end %>
+                                </p>
+                              <% end %>
+                            </div>
+                          <% end %>
                         </div>
                       </div>
                       <.link
                         navigate={~p"/orders/#{order_id}/confirmation"}
-                        class="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded text-xs font-black uppercase tracking-widest transition-all"
+                        class={[
+                          "px-6 py-3 backdrop-blur-md rounded text-xs font-black uppercase tracking-widest transition-all",
+                          if(all_refunded,
+                            do:
+                              "bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30",
+                            else: "bg-white/10 hover:bg-white/20 text-white"
+                          )
+                        ]}
                       >
                         View Order
                       </.link>
                     </div>
                   </div>
-                  <div class="absolute -right-12 -top-12 w-40 h-40 bg-emerald-500/10 blur-[80px] rounded-full">
+                  <div class={[
+                    "absolute -right-12 -top-12 w-40 h-40 blur-[80px] rounded-full",
+                    if(all_refunded, do: "bg-red-500/10", else: "bg-emerald-500/10")
+                  ]}>
                   </div>
                 </div>
               <% end %>
@@ -607,7 +734,13 @@ defmodule YscWeb.EventDetailsLive do
             </div>
 
             <%!-- Mobile: Fixed bottom bar --%>
-            <div :if={@event.state != :cancelled} class="lg:hidden fixed bottom-0 left-0 right-0 z-50">
+            <div
+              :if={@event.state != :cancelled}
+              class={[
+                "lg:hidden fixed bottom-0 left-0 right-0 z-50",
+                if(@event.state == :cancelled, do: "opacity-50 pointer-events-none")
+              ]}
+            >
               <div class="h-8 bg-gradient-to-t from-white to-transparent"></div>
 
               <div class="bg-white/95 backdrop-blur-md border-t border-zinc-100 px-6 py-5 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
@@ -1155,12 +1288,181 @@ defmodule YscWeb.EventDetailsLive do
               <h2 class="text-2xl font-semibold">Complete Your Purchase</h2>
               <p class="text-zinc-600 mt-2">Order: <%= @ticket_order.reference_id %></p>
             </div>
+
+            <%!-- Registration Section - Show if tickets require registration --%>
+            <% tickets_requiring_registration =
+              get_tickets_requiring_registration(@ticket_order.tickets || []) %>
+            <%= if Enum.any?(tickets_requiring_registration) do %>
+              <div class="space-y-4 border-b border-zinc-200 pb-6">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h3 class="font-semibold text-lg">Ticket Registration</h3>
+                    <p class="text-sm text-zinc-600">
+                      Please provide details for each ticket that requires registration.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    phx-click="test-registration-event"
+                    class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded"
+                  >
+                    Test Event
+                  </button>
+                </div>
+
+                <%= for ticket <- tickets_requiring_registration do %>
+                  <% tickets_for_me = @tickets_for_me || %{} %>
+                  <% is_for_me = Map.get(tickets_for_me, ticket.id, false) %>
+                  <% ticket_id_str = to_string(ticket.id)
+
+                  form_data =
+                    if is_for_me do
+                      # Auto-fill with current user's details
+                      %{
+                        first_name: @current_user.first_name || "",
+                        last_name: @current_user.last_name || "",
+                        email: @current_user.email || ""
+                      }
+                    else
+                      # Use form data from @ticket_details_form (in-memory state only)
+                      # Don't query database on every render - form data is managed in memory
+                      case Map.get(@ticket_details_form, ticket_id_str) ||
+                             Map.get(@ticket_details_form, ticket.id) do
+                        nil ->
+                          # No form data yet, use empty values
+                          %{
+                            first_name: "",
+                            last_name: "",
+                            email: ""
+                          }
+
+                        form_map ->
+                          # Use form data, but ensure all fields exist (fill missing ones with empty string)
+                          %{
+                            first_name:
+                              Map.get(form_map, :first_name) || Map.get(form_map, "first_name") || "",
+                            last_name:
+                              Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || "",
+                            email: Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+                          }
+                      end
+                    end %>
+                  <div class="border border-zinc-200 rounded-lg p-4 space-y-4">
+                    <div class="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 class="text-base font-semibold text-zinc-900">
+                          Ticket #<%= ticket.reference_id %>
+                        </h4>
+                        <p class="text-sm text-zinc-600">
+                          <%= ticket.ticket_tier.name %>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="mb-4">
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id={"ticket_#{ticket.id}_for_me_checkbox"}
+                          name={"ticket_#{ticket.id}_for_me"}
+                          value="true"
+                          checked={is_for_me}
+                          phx-click="toggle-ticket-for-me"
+                          phx-value-ticket-id={ticket.id}
+                          class="w-4 h-4 text-blue-600 border-zinc-300 rounded focus:ring-blue-500"
+                        />
+                        <span class="text-sm font-medium text-zinc-700">
+                          This ticket is for me
+                        </span>
+                      </label>
+                    </div>
+
+                    <form phx-change="update-registration-field" phx-debounce="500">
+                      <div
+                        id={"ticket_#{ticket.id}_registration_fields"}
+                        class={[!is_for_me && "block", is_for_me && "hidden"]}
+                      >
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          <div>
+                            <label
+                              for={"ticket_#{ticket.id}_first_name"}
+                              class="block text-sm font-medium text-zinc-700"
+                            >
+                              First Name
+                            </label>
+                            <input
+                              type="text"
+                              id={"ticket_#{ticket.id}_first_name"}
+                              name={"ticket_#{ticket.id}_first_name"}
+                              value={form_data.first_name}
+                              required={!is_for_me}
+                              disabled={is_for_me}
+                              phx-value-ticket-id={ticket.id}
+                              phx-value-field="first_name"
+                              class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
+                            />
+                          </div>
+                          <div>
+                            <label
+                              for={"ticket_#{ticket.id}_last_name"}
+                              class="block text-sm font-medium text-zinc-700"
+                            >
+                              Last Name
+                            </label>
+                            <input
+                              type="text"
+                              id={"ticket_#{ticket.id}_last_name"}
+                              name={"ticket_#{ticket.id}_last_name"}
+                              value={form_data.last_name}
+                              required={!is_for_me}
+                              disabled={is_for_me}
+                              phx-value-ticket-id={ticket.id}
+                              phx-value-field="last_name"
+                              class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label
+                            for={"ticket_#{ticket.id}_email"}
+                            class="block text-sm font-medium text-zinc-700"
+                          >
+                            Email
+                          </label>
+                          <input
+                            type="email"
+                            id={"ticket_#{ticket.id}_email"}
+                            name={"ticket_#{ticket.id}_email"}
+                            value={form_data.email}
+                            required={!is_for_me}
+                            disabled={is_for_me}
+                            phx-value-ticket-id={ticket.id}
+                            phx-value-field="email"
+                            class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
+                          />
+                        </div>
+                      </div>
+                    </form>
+                    <div class={[is_for_me && "block", !is_for_me && "hidden"]}>
+                      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p class="text-sm text-blue-800">
+                          <strong><%= form_data.first_name %> <%= form_data.last_name %></strong>
+                          <br />
+                          <span class="text-blue-600"><%= form_data.email %></span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
             <!-- Stripe Elements Payment Form -->
             <div class="space-y-4">
               <h3 class="font-semibold text-lg">Payment Information</h3>
               <div
                 id="payment-element"
                 phx-hook="StripeElements"
+                phx-update="ignore"
                 data-publicKey={@public_key}
                 data-public-key={@public_key}
                 data-client-secret={@payment_intent.client_secret}
@@ -1268,8 +1570,28 @@ defmodule YscWeb.EventDetailsLive do
 
         <form phx-submit="submit-registration" class="space-y-6">
           <%= for ticket <- @tickets_requiring_registration do %>
-            <% ticket_detail =
-              Map.get(@ticket_details_form, ticket.id, %{first_name: "", last_name: "", email: ""}) %>
+            <% ticket_id_str = to_string(ticket.id)
+            ticket_detail = Ysc.Events.get_registration_for_ticket(ticket.id)
+
+            ticket_detail_data =
+              Map.get(@ticket_details_form, ticket_id_str, %{}) ||
+                Map.get(@ticket_details_form, ticket.id, %{first_name: "", last_name: "", email: ""})
+
+            form_values = %{
+              first_name:
+                Map.get(
+                  ticket_detail_data,
+                  :first_name,
+                  (ticket_detail && ticket_detail.first_name) || ""
+                ),
+              last_name:
+                Map.get(
+                  ticket_detail_data,
+                  :last_name,
+                  (ticket_detail && ticket_detail.last_name) || ""
+                ),
+              email: Map.get(ticket_detail_data, :email, (ticket_detail && ticket_detail.email) || "")
+            } %>
             <div class="border border-zinc-200 rounded-lg p-6 space-y-4">
               <div class="flex items-center justify-between mb-4">
                 <div>
@@ -1288,8 +1610,12 @@ defmodule YscWeb.EventDetailsLive do
                     type="text"
                     label="First Name"
                     name={"ticket_#{ticket.id}_first_name"}
-                    value={ticket_detail.first_name}
+                    value={form_values.first_name}
                     required
+                    phx-change="update-registration-field"
+                    phx-debounce="500"
+                    phx-value-ticket-id={ticket.id}
+                    phx-value-field="first_name"
                   />
                 </div>
                 <div>
@@ -1297,8 +1623,12 @@ defmodule YscWeb.EventDetailsLive do
                     type="text"
                     label="Last Name"
                     name={"ticket_#{ticket.id}_last_name"}
-                    value={ticket_detail.last_name}
+                    value={form_values.last_name}
                     required
+                    phx-change="update-registration-field"
+                    phx-debounce="500"
+                    phx-value-ticket-id={ticket.id}
+                    phx-value-field="last_name"
                   />
                 </div>
               </div>
@@ -1307,8 +1637,12 @@ defmodule YscWeb.EventDetailsLive do
                   type="email"
                   label="Email"
                   name={"ticket_#{ticket.id}_email"}
-                  value={ticket_detail.email}
+                  value={form_values.email}
                   required
+                  phx-change="update-registration-field"
+                  phx-debounce="500"
+                  phx-value-ticket-id={ticket.id}
+                  phx-value-field="email"
                 />
               </div>
             </div>
@@ -1339,9 +1673,9 @@ defmodule YscWeb.EventDetailsLive do
       id="free-ticket-confirmation-modal"
       show
       on_cancel={JS.push("close-free-ticket-confirmation")}
-      max_width="max-w-2xl"
+      max_width="max-w-4xl"
     >
-      <div class="flex flex-col items-center justify-center py-12 space-y-6">
+      <div class="flex flex-col space-y-6">
         <div class="text-center">
           <div class="text-green-500 mb-4">
             <.icon name="hero-ticket" class="w-16 h-16 mx-auto" />
@@ -1352,7 +1686,7 @@ defmodule YscWeb.EventDetailsLive do
           </p>
         </div>
         <!-- Order Summary -->
-        <div class="w-full max-w-md bg-zinc-50 rounded-lg p-6">
+        <div class="w-full bg-zinc-50 rounded-lg p-6">
           <h3 class="text-lg font-semibold text-zinc-900 mb-4">Order Summary</h3>
           <div class="space-y-3">
             <%= for {tier_id, quantity} <- @selected_tickets do %>
@@ -1373,22 +1707,174 @@ defmodule YscWeb.EventDetailsLive do
             </div>
           </div>
         </div>
-        <!-- Action Buttons -->
-        <div class="w-full px-8">
-          <div class="flex justify-end space-x-4">
-            <.button
-              class="flex-1 bg-zinc-200 text-zinc-800 hover:bg-zinc-300"
-              phx-click="close-free-ticket-confirmation"
-            >
-              Cancel
-            </.button>
-            <.button
-              phx-click="confirm-free-tickets"
-              class="px-6 py-2 flex-1 bg-green-600 hover:bg-green-700"
-            >
-              Confirm Free Tickets
-            </.button>
+
+        <%!-- Registration Section - Show if tickets require registration --%>
+        <% tickets_requiring_registration =
+          get_tickets_requiring_registration(@ticket_order.tickets || []) %>
+        <%= if Enum.any?(tickets_requiring_registration) do %>
+          <div class="space-y-4 border-t border-zinc-200 pt-6">
+            <h3 class="font-semibold text-lg">Ticket Registration</h3>
+            <p class="text-sm text-zinc-600">
+              Please provide details for each ticket that requires registration.
+            </p>
+
+            <%= for ticket <- tickets_requiring_registration do %>
+              <% tickets_for_me = @tickets_for_me || %{} %>
+              <% is_for_me = Map.get(tickets_for_me, ticket.id, false) %>
+              <% ticket_id_str = to_string(ticket.id)
+
+              form_data =
+                if is_for_me do
+                  # Auto-fill with current user's details
+                  %{
+                    first_name: @current_user.first_name || "",
+                    last_name: @current_user.last_name || "",
+                    email: @current_user.email || ""
+                  }
+                else
+                  # Use form data from @ticket_details_form (in-memory state only)
+                  # Don't query database on every render - form data is managed in memory
+                  case Map.get(@ticket_details_form, ticket_id_str) ||
+                         Map.get(@ticket_details_form, ticket.id) do
+                    nil ->
+                      # No form data yet, use empty values
+                      %{
+                        first_name: "",
+                        last_name: "",
+                        email: ""
+                      }
+
+                    form_map ->
+                      # Use form data, but ensure all fields exist (fill missing ones with empty string)
+                      %{
+                        first_name:
+                          Map.get(form_map, :first_name) || Map.get(form_map, "first_name") || "",
+                        last_name:
+                          Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || "",
+                        email: Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+                      }
+                  end
+                end %>
+              <div class="border border-zinc-200 rounded-lg p-4 space-y-4">
+                <div class="flex items-center justify-between mb-2">
+                  <div>
+                    <h4 class="text-base font-semibold text-zinc-900">
+                      Ticket #<%= ticket.reference_id %>
+                    </h4>
+                    <p class="text-sm text-zinc-600">
+                      <%= ticket.ticket_tier.name %>
+                    </p>
+                  </div>
+                </div>
+
+                <div class="mb-4">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id={"ticket_#{ticket.id}_for_me_checkbox"}
+                      name={"ticket_#{ticket.id}_for_me"}
+                      value="true"
+                      checked={is_for_me}
+                      phx-click="toggle-ticket-for-me"
+                      phx-value-ticket-id={ticket.id}
+                      class="w-4 h-4 text-blue-600 border-zinc-300 rounded focus:ring-blue-500"
+                    />
+                    <span class="text-sm font-medium text-zinc-700">
+                      This ticket is for me
+                    </span>
+                  </label>
+                </div>
+
+                <form phx-change="update-registration-field" phx-debounce="500">
+                  <div
+                    id={"ticket_#{ticket.id}_registration_fields"}
+                    class={[!is_for_me && "block", is_for_me && "hidden"]}
+                  >
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div>
+                        <label
+                          for={"ticket_#{ticket.id}_first_name"}
+                          class="block text-sm font-medium text-zinc-700"
+                        >
+                          First Name
+                        </label>
+                        <input
+                          type="text"
+                          id={"ticket_#{ticket.id}_first_name"}
+                          name={"ticket_#{ticket.id}_first_name"}
+                          value={form_data.first_name}
+                          required={!is_for_me}
+                          disabled={is_for_me}
+                          phx-value-ticket-id={ticket.id}
+                          phx-value-field="first_name"
+                          class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
+                        />
+                      </div>
+                      <div>
+                        <label
+                          for={"ticket_#{ticket.id}_last_name"}
+                          class="block text-sm font-medium text-zinc-700"
+                        >
+                          Last Name
+                        </label>
+                        <input
+                          type="text"
+                          id={"ticket_#{ticket.id}_last_name"}
+                          name={"ticket_#{ticket.id}_last_name"}
+                          value={form_data.last_name}
+                          required={!is_for_me}
+                          disabled={is_for_me}
+                          phx-value-ticket-id={ticket.id}
+                          phx-value-field="last_name"
+                          class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label
+                        for={"ticket_#{ticket.id}_email"}
+                        class="block text-sm font-medium text-zinc-700"
+                      >
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id={"ticket_#{ticket.id}_email"}
+                        name={"ticket_#{ticket.id}_email"}
+                        value={form_data.email}
+                        required={!is_for_me}
+                        disabled={is_for_me}
+                        phx-value-ticket-id={ticket.id}
+                        phx-value-field="email"
+                        class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
+                      />
+                    </div>
+                  </div>
+                </form>
+                <div class={[is_for_me && "block", !is_for_me && "hidden"]}>
+                  <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p class="text-sm text-blue-800">
+                      <strong><%= form_data.first_name %> <%= form_data.last_name %></strong>
+                      <br />
+                      <span class="text-blue-600"><%= form_data.email %></span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            <% end %>
           </div>
+        <% end %>
+        <!-- Action Buttons -->
+        <div class="flex space-x-4 pt-4">
+          <.button
+            class="flex-1 bg-zinc-200 text-zinc-800 hover:bg-zinc-300"
+            phx-click="close-free-ticket-confirmation"
+          >
+            Cancel
+          </.button>
+          <.button phx-click="confirm-free-tickets" class="flex-1 bg-green-600 hover:bg-green-700">
+            Confirm Free Tickets
+          </.button>
         </div>
       </div>
     </.modal>
@@ -1578,6 +2064,7 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:checkout_expired, false)
          |> assign(:show_registration_modal, false)
          |> assign(:ticket_details_form, %{})
+         |> assign(:tickets_for_me, %{})
          |> assign(:load_radar, true)
          |> assign(:load_stripe, true)
          |> assign(:load_calendar, true)}
@@ -1589,14 +2076,39 @@ defmodule YscWeb.EventDetailsLive do
     # Parse query parameters from URI
     query_params = parse_query_params(uri)
 
-    # Check for resume_order query parameter
-    resume_order_id = query_params["resume_order"] || query_params[:resume_order]
+    # Check for checkout state in URL: checkout=payment|free&order_id=xxx
+    checkout_step = query_params["checkout"] || query_params[:checkout]
+
+    order_id =
+      query_params["order_id"] || query_params[:order_id] || query_params["resume_order"] ||
+        query_params[:resume_order]
 
     socket =
-      if resume_order_id && socket.assigns.current_user do
-        restore_checkout_state(socket, resume_order_id, socket.assigns.event.id)
-      else
-        socket
+      cond do
+        # If we have checkout step and order_id, restore that state
+        checkout_step && order_id && socket.assigns.current_user ->
+          restore_checkout_state_from_url(
+            socket,
+            order_id,
+            checkout_step,
+            socket.assigns.event.id
+          )
+
+        # Legacy: resume_order parameter (for backwards compatibility)
+        order_id && socket.assigns.current_user ->
+          restore_checkout_state(socket, order_id, socket.assigns.event.id)
+
+        # If we're on the tickets route, show ticket modal
+        socket.assigns.live_action == :tickets ->
+          socket
+          |> assign(:show_ticket_modal, true)
+
+        # Otherwise, clear any checkout state
+        true ->
+          socket
+          |> assign(:show_ticket_modal, false)
+          |> assign(:show_payment_modal, false)
+          |> assign(:show_free_ticket_confirmation, false)
       end
 
     {:noreply, socket}
@@ -1613,8 +2125,39 @@ defmodule YscWeb.EventDetailsLive do
 
   defp parse_query_params(_), do: %{}
 
-  # Restore checkout state from a pending order
+  # Restore checkout state from URL parameters
+  defp restore_checkout_state_from_url(socket, order_id, checkout_step, event_id) do
+    case Ysc.Tickets.get_ticket_order(order_id) do
+      nil ->
+        socket
+        |> put_flash(:error, "Order not found")
+        |> push_patch(to: ~p"/events/#{event_id}")
+
+      ticket_order ->
+        # Verify the order belongs to the current user and event
+        if ticket_order.user_id == socket.assigns.current_user.id &&
+             ticket_order.event_id == event_id &&
+             ticket_order.status == :pending do
+          # Check if order has expired
+          if DateTime.compare(DateTime.utc_now(), ticket_order.expires_at) == :gt do
+            socket
+            |> put_flash(:error, "This order has expired. Please create a new order.")
+            |> push_patch(to: ~p"/events/#{event_id}")
+          else
+            # Restore the ticket order and payment intent based on checkout step
+            restore_payment_state_from_url(socket, ticket_order, checkout_step)
+          end
+        else
+          socket
+          |> put_flash(:error, "Cannot resume this order")
+          |> push_patch(to: ~p"/events/#{event_id}")
+        end
+    end
+  end
+
+  # Restore checkout state from a pending order (legacy support)
   defp restore_checkout_state(socket, order_id, event_id) do
+    # Determine checkout step based on order amount
     case Ysc.Tickets.get_ticket_order(order_id) do
       nil ->
         socket
@@ -1630,8 +2173,9 @@ defmodule YscWeb.EventDetailsLive do
             socket
             |> put_flash(:error, "This order has expired. Please create a new order.")
           else
-            # Restore the ticket order and payment intent
-            restore_payment_state(socket, ticket_order)
+            # Determine checkout step and restore
+            checkout_step = if Money.zero?(ticket_order.total_amount), do: "free", else: "payment"
+            restore_payment_state_from_url(socket, ticket_order, checkout_step)
           end
         else
           socket
@@ -1640,8 +2184,8 @@ defmodule YscWeb.EventDetailsLive do
     end
   end
 
-  # Restore payment state (payment intent or free ticket confirmation)
-  defp restore_payment_state(socket, ticket_order) do
+  # Restore payment state from URL (payment intent or free ticket confirmation)
+  defp restore_payment_state_from_url(socket, ticket_order, checkout_step) do
     # Reload ticket order with tickets and tiers
     ticket_order = Ysc.Tickets.get_ticket_order(ticket_order.id)
 
@@ -1652,29 +2196,42 @@ defmodule YscWeb.EventDetailsLive do
     tickets_requiring_registration =
       get_tickets_requiring_registration(ticket_order.tickets)
 
+    # Initialize ticket details form with existing registrations or empty values
+    ticket_details_form =
+      tickets_requiring_registration
+      |> Enum.reduce(%{}, fn ticket, acc ->
+        ticket_detail = Ysc.Events.get_registration_for_ticket(ticket.id)
+        ticket_id_str = to_string(ticket.id)
+
+        Map.put(acc, ticket_id_str, %{
+          first_name: if(ticket_detail, do: ticket_detail.first_name, else: ""),
+          last_name: if(ticket_detail, do: ticket_detail.last_name, else: ""),
+          email: if(ticket_detail, do: ticket_detail.email, else: "")
+        })
+      end)
+
+    # Initialize tickets_for_me map (all false by default)
+    tickets_for_me =
+      tickets_requiring_registration
+      |> Enum.reduce(%{}, fn ticket, acc ->
+        Map.put(acc, ticket.id, false)
+      end)
+
     socket = socket |> assign(:selected_tickets, selected_tickets)
 
-    if Enum.any?(tickets_requiring_registration) do
-      # Show registration modal first
-      socket
-      |> assign(:show_ticket_modal, false)
-      |> assign(:show_registration_modal, true)
-      |> assign(:ticket_order, ticket_order)
-      |> assign(:tickets_requiring_registration, tickets_requiring_registration)
-      |> assign(
-        :ticket_details_form,
-        initialize_ticket_details_form(tickets_requiring_registration)
-      )
-    else
-      # No registration required, proceed directly to payment/free confirmation
-      if Money.zero?(ticket_order.total_amount) do
-        # For free tickets, show confirmation modal
+    case checkout_step do
+      "free" ->
+        # For free tickets, show confirmation modal with registration
         socket
         |> assign(:show_ticket_modal, false)
         |> assign(:show_free_ticket_confirmation, true)
         |> assign(:ticket_order, ticket_order)
-      else
-        # For paid tickets, retrieve or create payment intent
+        |> assign(:tickets_requiring_registration, tickets_requiring_registration)
+        |> assign(:ticket_details_form, ticket_details_form)
+        |> assign(:tickets_for_me, tickets_for_me)
+
+      "payment" ->
+        # For paid tickets, retrieve or create payment intent and show payment modal with registration
         case retrieve_or_create_payment_intent(ticket_order, socket.assigns.current_user) do
           {:ok, payment_intent} ->
             socket
@@ -1683,12 +2240,20 @@ defmodule YscWeb.EventDetailsLive do
             |> assign(:checkout_expired, false)
             |> assign(:payment_intent, payment_intent)
             |> assign(:ticket_order, ticket_order)
+            |> assign(:tickets_requiring_registration, tickets_requiring_registration)
+            |> assign(:ticket_details_form, ticket_details_form)
+            |> assign(:tickets_for_me, tickets_for_me)
 
           {:error, reason} ->
             socket
             |> put_flash(:error, "Failed to restore payment: #{reason}")
+            |> push_patch(to: ~p"/events/#{socket.assigns.event.id}")
         end
-      end
+
+      _ ->
+        # Unknown checkout step, clear state
+        socket
+        |> push_patch(to: ~p"/events/#{socket.assigns.event.id}")
     end
   end
 
@@ -2112,7 +2677,11 @@ defmodule YscWeb.EventDetailsLive do
      |> assign(:show_payment_modal, false)
      |> assign(:checkout_expired, false)
      |> assign(:payment_intent, nil)
-     |> assign(:ticket_order, nil)}
+     |> assign(:ticket_order, nil)
+     |> assign(:tickets_requiring_registration, [])
+     |> assign(:ticket_details_form, %{})
+     |> assign(:tickets_for_me, %{})
+     |> push_patch(to: ~p"/events/#{socket.assigns.event.id}")}
   end
 
   @impl true
@@ -2197,38 +2766,174 @@ defmodule YscWeb.EventDetailsLive do
     {:noreply,
      socket
      |> assign(:show_free_ticket_confirmation, false)
-     |> assign(:ticket_order, nil)}
+     |> assign(:ticket_order, nil)
+     |> assign(:tickets_requiring_registration, [])
+     |> assign(:ticket_details_form, %{})
+     |> assign(:tickets_for_me, %{})
+     |> push_patch(to: ~p"/events/#{socket.assigns.event.id}")}
   end
 
   @impl true
   def handle_event("confirm-free-tickets", _params, socket) do
-    # Process the free ticket order directly without payment
-    case Ysc.Tickets.process_free_ticket_order(socket.assigns.ticket_order) do
-      {:ok, updated_order} ->
-        # Get the completed order with tickets for the completion screen
-        order_with_tickets = Ysc.Tickets.get_ticket_order(updated_order.id)
+    # Save registration details if any tickets require registration
+    tickets_requiring_registration = socket.assigns.tickets_requiring_registration || []
 
-        # Update user tickets for this event
-        updated_user_tickets =
-          Ysc.Tickets.list_user_tickets_for_event(
-            socket.assigns.current_user.id,
-            socket.assigns.event.id
-          )
+    if Enum.any?(tickets_requiring_registration) do
+      # Extract registration data from form or use user's details if "for me" is checked
+      tickets_for_me = socket.assigns.tickets_for_me || %{}
+
+      ticket_details_list =
+        tickets_requiring_registration
+        |> Enum.map(fn ticket ->
+          is_for_me = Map.get(tickets_for_me, ticket.id, false)
+
+          if is_for_me do
+            # Use current user's details (use actual values, not empty strings)
+            %{
+              ticket_id: ticket.id,
+              first_name: socket.assigns.current_user.first_name,
+              last_name: socket.assigns.current_user.last_name,
+              email: socket.assigns.current_user.email
+            }
+          else
+            # Use form data - ensure we convert ticket.id to string for consistent key lookup
+            ticket_id_str = to_string(ticket.id)
+
+            form_data =
+              Map.get(socket.assigns.ticket_details_form, ticket_id_str, %{}) ||
+                Map.get(socket.assigns.ticket_details_form, ticket.id, %{})
+
+            %{
+              ticket_id: ticket.id,
+              first_name: get_form_value(form_data, :first_name) || "",
+              last_name: get_form_value(form_data, :last_name) || "",
+              email: get_form_value(form_data, :email) || ""
+            }
+          end
+        end)
+
+      # Validate that all fields are filled
+      # For tickets marked as "for me", validate against user's account fields
+      all_valid =
+        tickets_requiring_registration
+        |> Enum.with_index()
+        |> Enum.all?(fn {ticket, index} ->
+          detail = Enum.at(ticket_details_list, index)
+          is_for_me = Map.get(tickets_for_me, ticket.id, false)
+
+          if is_for_me do
+            # For "for me" tickets, validate user's account has required fields
+            # Check the user's fields directly, not the detail map (which may have nil values)
+            user = socket.assigns.current_user
+
+            user.first_name != nil &&
+              user.first_name != "" &&
+              user.last_name != nil &&
+              user.last_name != "" &&
+              user.email != nil &&
+              user.email != ""
+          else
+            # For form-filled tickets, validate form fields
+            # Check that fields are not nil, not empty string, and not just whitespace
+            first_name = detail.first_name || ""
+            last_name = detail.last_name || ""
+            email = detail.email || ""
+
+            first_name_valid = first_name != "" && String.trim(first_name) != ""
+            last_name_valid = last_name != "" && String.trim(last_name) != ""
+            email_valid = email != "" && String.trim(email) != ""
+
+            first_name_valid && last_name_valid && email_valid
+          end
+        end)
+
+      if all_valid do
+        # Save ticket details
+        case Ysc.Events.create_ticket_details(ticket_details_list) do
+          {:ok, _ticket_details} ->
+            # Continue with free ticket processing
+            process_free_tickets(socket)
+
+          {:error, _reason} ->
+            {:noreply,
+             socket
+             |> put_flash(
+               :error,
+               "Failed to save registration details. Please try again."
+             )}
+        end
+      else
+        # Debug: Log what's failing
+        require Logger
+
+        failing_tickets =
+          tickets_requiring_registration
+          |> Enum.with_index()
+          |> Enum.filter(fn {ticket, index} ->
+            detail = Enum.at(ticket_details_list, index)
+            is_for_me = Map.get(tickets_for_me, ticket.id, false)
+
+            if is_for_me do
+              user = socket.assigns.current_user
+
+              !(user.first_name != nil &&
+                  user.first_name != "" &&
+                  user.last_name != nil &&
+                  user.last_name != "" &&
+                  user.email != nil &&
+                  user.email != "")
+            else
+              first_name = detail.first_name || ""
+              last_name = detail.last_name || ""
+              email = detail.email || ""
+
+              !(first_name != "" && String.trim(first_name) != "" &&
+                  last_name != "" && String.trim(last_name) != "" &&
+                  email != "" && String.trim(email) != "")
+            end
+          end)
+
+        failing_details =
+          failing_tickets
+          |> Enum.map(fn {ticket, index} ->
+            detail = Enum.at(ticket_details_list, index)
+            is_for_me = Map.get(tickets_for_me, ticket.id, false)
+            ticket_id_str = to_string(ticket.id)
+
+            form_data =
+              Map.get(socket.assigns.ticket_details_form, ticket_id_str, %{}) ||
+                Map.get(socket.assigns.ticket_details_form, ticket.id, %{})
+
+            %{
+              ticket_id: ticket.id,
+              is_for_me: is_for_me,
+              detail: detail,
+              form_data: form_data,
+              user: if(is_for_me, do: socket.assigns.current_user, else: nil)
+            }
+          end)
+
+        failing_info =
+          failing_details
+          |> Enum.map(fn f ->
+            "Ticket #{f.ticket_id}: is_for_me=#{f.is_for_me}, detail=#{inspect(f.detail)}, form_data=#{inspect(f.form_data)}"
+          end)
+          |> Enum.join("; ")
+
+        Logger.warning(
+          "Registration validation failed. Failing tickets: #{failing_info}. All form_data: #{inspect(socket.assigns.ticket_details_form)}. Tickets_for_me: #{inspect(tickets_for_me)}"
+        )
 
         {:noreply,
          socket
-         |> assign(:show_free_ticket_confirmation, false)
-         |> assign(:show_order_completion, true)
-         |> assign(:ticket_order, order_with_tickets)
-         |> assign(:user_tickets, updated_user_tickets)
-         |> assign(:selected_tickets, %{})
-         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation?confetti=true")}
-
-      {:error, reason} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Failed to confirm free tickets: #{reason}")
-         |> assign(:show_free_ticket_confirmation, false)}
+         |> put_flash(
+           :error,
+           "Please fill in all required registration fields before confirming."
+         )}
+      end
+    else
+      # No registration required, proceed with free ticket processing
+      process_free_tickets(socket)
     end
   end
 
@@ -2237,42 +2942,171 @@ defmodule YscWeb.EventDetailsLive do
     {:noreply,
      socket
      |> assign(:show_order_completion, false)
-     |> assign(:ticket_order, nil)}
+     |> assign(:ticket_order, nil)
+     |> push_patch(to: ~p"/events/#{socket.assigns.event.id}")}
   end
 
   @impl true
   def handle_event("payment-success", %{"payment_intent_id" => payment_intent_id}, socket) do
-    # Process the successful payment
-    case Ysc.Tickets.StripeService.process_successful_payment(payment_intent_id) do
-      {:ok, completed_order} ->
-        # Get the completed order with tickets for the completion screen
-        order_with_tickets = Ysc.Tickets.get_ticket_order(completed_order.id)
+    # Save registration details if any tickets require registration
+    tickets_requiring_registration = socket.assigns.tickets_requiring_registration || []
 
-        # Update user tickets for this event
-        updated_user_tickets =
-          Ysc.Tickets.list_user_tickets_for_event(
-            socket.assigns.current_user.id,
-            socket.assigns.event.id
-          )
+    if Enum.any?(tickets_requiring_registration) do
+      # Extract registration data from form or use user's details if "for me" is checked
+      tickets_for_me = socket.assigns.tickets_for_me || %{}
 
-        {:noreply,
-         socket
-         |> assign(:show_payment_modal, false)
-         |> assign(:show_order_completion, true)
-         |> assign(:ticket_order, order_with_tickets)
-         |> assign(:user_tickets, updated_user_tickets)
-         |> assign(:payment_intent, nil)
-         |> assign(:selected_tickets, %{})
-         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation?confetti=true")}
+      ticket_details_list =
+        tickets_requiring_registration
+        |> Enum.map(fn ticket ->
+          is_for_me = Map.get(tickets_for_me, ticket.id, false)
 
-      {:error, _reason} ->
+          if is_for_me do
+            # Use current user's details (use actual values, not empty strings)
+            %{
+              ticket_id: ticket.id,
+              first_name: socket.assigns.current_user.first_name,
+              last_name: socket.assigns.current_user.last_name,
+              email: socket.assigns.current_user.email
+            }
+          else
+            # Use form data - ensure we convert ticket.id to string for consistent key lookup
+            ticket_id_str = to_string(ticket.id)
+
+            form_data =
+              Map.get(socket.assigns.ticket_details_form, ticket_id_str, %{}) ||
+                Map.get(socket.assigns.ticket_details_form, ticket.id, %{})
+
+            %{
+              ticket_id: ticket.id,
+              first_name: get_form_value(form_data, :first_name) || "",
+              last_name: get_form_value(form_data, :last_name) || "",
+              email: get_form_value(form_data, :email) || ""
+            }
+          end
+        end)
+
+      # Validate that all fields are filled
+      # For tickets marked as "for me", validate against user's account fields
+      all_valid =
+        tickets_requiring_registration
+        |> Enum.with_index()
+        |> Enum.all?(fn {ticket, index} ->
+          detail = Enum.at(ticket_details_list, index)
+          is_for_me = Map.get(tickets_for_me, ticket.id, false)
+
+          if is_for_me do
+            # For "for me" tickets, validate user's account has required fields
+            # Check the user's fields directly, not the detail map (which may have nil values)
+            user = socket.assigns.current_user
+
+            user.first_name != nil &&
+              user.first_name != "" &&
+              user.last_name != nil &&
+              user.last_name != "" &&
+              user.email != nil &&
+              user.email != ""
+          else
+            # For form-filled tickets, validate form fields
+            # Check that fields are not nil, not empty string, and not just whitespace
+            first_name = detail.first_name || ""
+            last_name = detail.last_name || ""
+            email = detail.email || ""
+
+            first_name_valid = first_name != "" && String.trim(first_name) != ""
+            last_name_valid = last_name != "" && String.trim(last_name) != ""
+            email_valid = email != "" && String.trim(email) != ""
+
+            first_name_valid && last_name_valid && email_valid
+          end
+        end)
+
+      if all_valid do
+        # Save ticket details
+        case Ysc.Events.create_ticket_details(ticket_details_list) do
+          {:ok, _ticket_details} ->
+            # Continue with payment processing
+            process_payment_success(socket, payment_intent_id)
+
+          {:error, _reason} ->
+            {:noreply,
+             socket
+             |> put_flash(
+               :error,
+               "Failed to save registration details. Please try again."
+             )}
+        end
+      else
+        # Debug: Log what's failing
+        require Logger
+
+        failing_tickets =
+          tickets_requiring_registration
+          |> Enum.with_index()
+          |> Enum.filter(fn {ticket, index} ->
+            detail = Enum.at(ticket_details_list, index)
+            is_for_me = Map.get(tickets_for_me, ticket.id, false)
+
+            if is_for_me do
+              user = socket.assigns.current_user
+
+              !(user.first_name != nil &&
+                  user.first_name != "" &&
+                  user.last_name != nil &&
+                  user.last_name != "" &&
+                  user.email != nil &&
+                  user.email != "")
+            else
+              first_name = detail.first_name || ""
+              last_name = detail.last_name || ""
+              email = detail.email || ""
+
+              !(first_name != "" && String.trim(first_name) != "" &&
+                  last_name != "" && String.trim(last_name) != "" &&
+                  email != "" && String.trim(email) != "")
+            end
+          end)
+
+        failing_details =
+          failing_tickets
+          |> Enum.map(fn {ticket, index} ->
+            detail = Enum.at(ticket_details_list, index)
+            is_for_me = Map.get(tickets_for_me, ticket.id, false)
+            ticket_id_str = to_string(ticket.id)
+
+            form_data =
+              Map.get(socket.assigns.ticket_details_form, ticket_id_str, %{}) ||
+                Map.get(socket.assigns.ticket_details_form, ticket.id, %{})
+
+            %{
+              ticket_id: ticket.id,
+              is_for_me: is_for_me,
+              detail: detail,
+              form_data: form_data,
+              user: if(is_for_me, do: socket.assigns.current_user, else: nil)
+            }
+          end)
+
+        failing_info =
+          failing_details
+          |> Enum.map(fn f ->
+            "Ticket #{f.ticket_id}: is_for_me=#{f.is_for_me}, detail=#{inspect(f.detail)}, form_data=#{inspect(f.form_data)}"
+          end)
+          |> Enum.join("; ")
+
+        Logger.warning(
+          "Registration validation failed for payment. Failing tickets: #{failing_info}. All form_data: #{inspect(socket.assigns.ticket_details_form)}. Tickets_for_me: #{inspect(tickets_for_me)}"
+        )
+
         {:noreply,
          socket
          |> put_flash(
            :error,
-           "Payment processed but there was an issue confirming your tickets. Please contact support."
-         )
-         |> assign(:show_payment_modal, false)}
+           "Please fill in all required registration fields before completing payment."
+         )}
+      end
+    else
+      # No registration required, proceed with payment
+      process_payment_success(socket, payment_intent_id)
     end
   end
 
@@ -2293,7 +3127,11 @@ defmodule YscWeb.EventDetailsLive do
      |> assign(:show_payment_modal, false)
      |> assign(:payment_intent, nil)
      |> assign(:ticket_order, nil)
-     |> assign(:selected_tickets, %{})}
+     |> assign(:selected_tickets, %{})
+     |> assign(:tickets_requiring_registration, [])
+     |> assign(:ticket_details_form, %{})
+     |> assign(:tickets_for_me, %{})
+     |> push_patch(to: ~p"/events/#{socket.assigns.event.id}")}
   end
 
   @impl true
@@ -2306,34 +3144,124 @@ defmodule YscWeb.EventDetailsLive do
      |> assign(:payment_intent, nil)
      |> assign(:ticket_order, nil)
      |> assign(:selected_tickets, %{})
-     |> assign(:show_ticket_modal, true)}
+     |> assign(:tickets_requiring_registration, [])
+     |> assign(:ticket_details_form, %{})
+     |> assign(:tickets_for_me, %{})
+     |> assign(:show_ticket_modal, true)
+     |> push_patch(to: ~p"/events/#{socket.assigns.event.id}/tickets")}
   end
 
   @impl true
-  def handle_event("increase-ticket-quantity", %{"tier-id" => tier_id}, socket) do
-    ticket_tier = get_ticket_tier_by_id(socket.assigns.event.id, tier_id)
-
-    # Only handle quantity changes for non-donation tiers
-    if ticket_tier.type == "donation" || ticket_tier.type == :donation do
-      {:noreply, socket}
-    else
-      current_quantity = get_ticket_quantity(socket.assigns.selected_tickets, tier_id)
-
-      # Check if we can increase the quantity before proceeding
-      if can_increase_quantity?(
-           ticket_tier,
-           current_quantity,
-           socket.assigns.selected_tickets,
-           socket.assigns.event
-         ) do
-        new_quantity = current_quantity + 1
-        # Preserve all existing selected_tickets, only update this tier's quantity
-        updated_tickets = Map.put(socket.assigns.selected_tickets, tier_id, new_quantity)
-        {:noreply, assign(socket, :selected_tickets, updated_tickets)}
-      else
-        # Don't increase if we've reached the limit
-        {:noreply, socket}
+  def handle_event("toggle-ticket-for-me", %{"ticket-id" => ticket_id}, socket) do
+    # Toggle the "for me" state for this ticket
+    # Normalize ticket_id - try to find the actual ticket to get its ID format
+    ticket_id_normalized =
+      socket.assigns.tickets_requiring_registration
+      |> Enum.find(fn ticket -> to_string(ticket.id) == to_string(ticket_id) end)
+      |> case do
+        %{id: id} -> id
+        nil -> ticket_id
       end
+
+    tickets_for_me = socket.assigns.tickets_for_me || %{}
+    ticket_details_form = socket.assigns.ticket_details_form || %{}
+    ticket_id_str = to_string(ticket_id_normalized)
+
+    # Check both string and original ID format
+    current_state =
+      Map.get(tickets_for_me, ticket_id_normalized, false) ||
+        Map.get(tickets_for_me, ticket_id_str, false)
+
+    new_state = !current_state
+
+    # Store in tickets_for_me using the original ticket.id format for consistency
+    updated_tickets_for_me = Map.put(tickets_for_me, ticket_id_normalized, new_state)
+
+    # If checked, auto-fill with user's details
+    updated_form =
+      if new_state do
+        # Auto-fill with current user's details
+        Map.put(ticket_details_form, ticket_id_str, %{
+          first_name: socket.assigns.current_user.first_name || "",
+          last_name: socket.assigns.current_user.last_name || "",
+          email: socket.assigns.current_user.email || ""
+        })
+      else
+        # Clear the form data when unchecked
+        Map.put(ticket_details_form, ticket_id_str, %{
+          first_name: "",
+          last_name: "",
+          email: ""
+        })
+      end
+
+    {:noreply,
+     socket
+     |> assign(:tickets_for_me, updated_tickets_for_me)
+     |> assign(:ticket_details_form, updated_form)}
+  end
+
+  @impl true
+  def handle_event("test-registration-event", _params, socket) do
+    require Logger
+    Logger.info("TEST: Registration event fired successfully!")
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("update-registration-field", params, socket) do
+    require Logger
+
+    # LiveView sends ALL form fields when phx-change fires on a form
+    # Extract all ticket fields from params and update them all at once
+    # Find all input names that match our pattern: "ticket_{id}_{field}"
+    ticket_fields =
+      params
+      |> Enum.filter(fn {key, _value} ->
+        String.starts_with?(key, "ticket_") &&
+          (String.ends_with?(key, "_first_name") ||
+             String.ends_with?(key, "_last_name") ||
+             String.ends_with?(key, "_email"))
+      end)
+      |> Enum.reduce(%{}, fn {name, val}, acc ->
+        # Parse "ticket_{id}_{field}" pattern
+        case Regex.run(~r/^ticket_(.+?)_(first_name|last_name|email)$/, name) do
+          [_, ticket_id_str, field_str] ->
+            # Group by ticket_id
+            ticket_data = Map.get(acc, ticket_id_str, %{})
+            field_atom = String.to_atom(field_str)
+            ticket_data = Map.put(ticket_data, field_atom, val || "")
+            Map.put(acc, ticket_id_str, ticket_data)
+
+          _ ->
+            acc
+        end
+      end)
+
+    Logger.debug(
+      "update-registration-field: ticket_fields=#{inspect(ticket_fields)}, params_keys=#{inspect(Map.keys(params))}"
+    )
+
+    if map_size(ticket_fields) > 0 do
+      # Update the ticket_details_form assign with all fields for all tickets
+      updated_form =
+        ticket_fields
+        |> Enum.reduce(socket.assigns.ticket_details_form, fn {ticket_id_str, fields}, acc ->
+          # Merge with existing form data to preserve other fields
+          existing_data = Map.get(acc, ticket_id_str, %{})
+          merged_data = Map.merge(existing_data, fields)
+          Map.put(acc, ticket_id_str, merged_data)
+        end)
+
+      Logger.debug("Stored form data: #{inspect(updated_form)}")
+
+      {:noreply, assign(socket, :ticket_details_form, updated_form)}
+    else
+      Logger.warning(
+        "update-registration-field: No ticket fields found in params: #{inspect(Map.keys(params))}"
+      )
+
+      {:noreply, socket}
     end
   end
 
@@ -2410,6 +3338,34 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   @impl true
+  def handle_event("increase-ticket-quantity", %{"tier-id" => tier_id}, socket) do
+    ticket_tier = get_ticket_tier_by_id(socket.assigns.event.id, tier_id)
+
+    # Only handle quantity changes for non-donation tiers
+    if ticket_tier.type == "donation" || ticket_tier.type == :donation do
+      {:noreply, socket}
+    else
+      current_quantity = get_ticket_quantity(socket.assigns.selected_tickets, tier_id)
+
+      # Check if we can increase the quantity before proceeding
+      if can_increase_quantity?(
+           ticket_tier,
+           current_quantity,
+           socket.assigns.selected_tickets,
+           socket.assigns.event
+         ) do
+        new_quantity = current_quantity + 1
+        # Preserve all existing selected_tickets, only update this tier's quantity
+        updated_tickets = Map.put(socket.assigns.selected_tickets, tier_id, new_quantity)
+        {:noreply, assign(socket, :selected_tickets, updated_tickets)}
+      else
+        # Don't increase if we've reached the limit
+        {:noreply, socket}
+      end
+    end
+  end
+
+  @impl true
   def handle_event("proceed-to-checkout", _params, socket) do
     user_id = socket.assigns.current_user.id
     event_id = socket.assigns.event.id
@@ -2420,26 +3376,8 @@ defmodule YscWeb.EventDetailsLive do
         # Reload the ticket order with tickets and their tiers
         ticket_order_with_tickets = Ysc.Tickets.get_ticket_order(ticket_order.id)
 
-        # Check if any tickets require registration
-        tickets_requiring_registration =
-          get_tickets_requiring_registration(ticket_order_with_tickets.tickets)
-
-        if Enum.any?(tickets_requiring_registration) do
-          # Show registration modal first
-          {:noreply,
-           socket
-           |> assign(:show_ticket_modal, false)
-           |> assign(:show_registration_modal, true)
-           |> assign(:ticket_order, ticket_order_with_tickets)
-           |> assign(:tickets_requiring_registration, tickets_requiring_registration)
-           |> assign(
-             :ticket_details_form,
-             initialize_ticket_details_form(tickets_requiring_registration)
-           )}
-        else
-          # No registration required, proceed directly to payment/free confirmation
-          proceed_to_payment_or_free(socket, ticket_order_with_tickets)
-        end
+        # Proceed directly to payment/free confirmation with registration integrated
+        proceed_to_payment_or_free(socket, ticket_order_with_tickets)
 
       {:error, :overbooked} ->
         {:noreply,
@@ -2703,6 +3641,83 @@ defmodule YscWeb.EventDetailsLive do
       qty ->
         available = qty - sold_count
         max(0, available)
+    end
+  end
+
+  # Helper function to process free tickets
+  defp process_free_tickets(socket) do
+    # Process the free ticket order directly without payment
+    case Ysc.Tickets.process_free_ticket_order(socket.assigns.ticket_order) do
+      {:ok, updated_order} ->
+        # Get the completed order with tickets for the completion screen
+        order_with_tickets = Ysc.Tickets.get_ticket_order(updated_order.id)
+
+        # Update user tickets for this event
+        updated_user_tickets =
+          Ysc.Tickets.list_user_tickets_for_event(
+            socket.assigns.current_user.id,
+            socket.assigns.event.id
+          )
+
+        {:noreply,
+         socket
+         |> assign(:show_free_ticket_confirmation, false)
+         |> assign(:show_order_completion, true)
+         |> assign(:ticket_order, order_with_tickets)
+         |> assign(:user_tickets, updated_user_tickets)
+         |> assign(:selected_tickets, %{})
+         |> assign(:tickets_requiring_registration, [])
+         |> assign(:ticket_details_form, %{})
+         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation?confetti=true")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to confirm free tickets: #{reason}")
+         |> assign(:show_free_ticket_confirmation, false)}
+    end
+  end
+
+  # Helper function to get form value from either atom or string key
+  defp get_form_value(form_data, field) when is_atom(field) do
+    form_data[field] || form_data[to_string(field)]
+  end
+
+  # Helper function to process payment success
+  defp process_payment_success(socket, payment_intent_id) do
+    # Process the successful payment
+    case Ysc.Tickets.StripeService.process_successful_payment(payment_intent_id) do
+      {:ok, completed_order} ->
+        # Get the completed order with tickets for the completion screen
+        order_with_tickets = Ysc.Tickets.get_ticket_order(completed_order.id)
+
+        # Update user tickets for this event
+        updated_user_tickets =
+          Ysc.Tickets.list_user_tickets_for_event(
+            socket.assigns.current_user.id,
+            socket.assigns.event.id
+          )
+
+        {:noreply,
+         socket
+         |> assign(:show_payment_modal, false)
+         |> assign(:show_order_completion, true)
+         |> assign(:ticket_order, order_with_tickets)
+         |> assign(:user_tickets, updated_user_tickets)
+         |> assign(:payment_intent, nil)
+         |> assign(:selected_tickets, %{})
+         |> assign(:tickets_requiring_registration, [])
+         |> assign(:ticket_details_form, %{})
+         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation?confetti=true")}
+
+      {:error, _reason} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Payment processed but there was an issue confirming your tickets. Please contact support."
+         )
+         |> assign(:show_payment_modal, false)}
     end
   end
 
@@ -2995,6 +4010,17 @@ defmodule YscWeb.EventDetailsLive do
     )
   end
 
+  # Get all tickets for an order (including cancelled/refunded tickets)
+  defp get_all_tickets_for_order(order_id) do
+    import Ecto.Query
+    alias Ysc.Events.Ticket
+
+    Ticket
+    |> where([t], t.ticket_order_id == ^order_id)
+    |> preload([:ticket_tier, :ticket_order])
+    |> Repo.all()
+  end
+
   defp format_donation_amount(selected_tickets, tier_id) do
     case Map.get(selected_tickets, tier_id) do
       nil ->
@@ -3056,48 +4082,81 @@ defmodule YscWeb.EventDetailsLive do
     end)
   end
 
-  # Initialize ticket details form with empty values for each ticket
-  defp initialize_ticket_details_form(tickets) do
-    tickets
-    |> Enum.reduce(%{}, fn ticket, acc ->
-      Map.put(acc, ticket.id, %{
-        first_name: "",
-        last_name: "",
-        email: ""
-      })
-    end)
-  end
-
   # Proceed to payment or free ticket confirmation after registration (if needed)
   defp proceed_to_payment_or_free(socket, ticket_order) do
+    # Reload ticket order with tickets and their tiers
+    ticket_order_with_tickets = Ysc.Tickets.get_ticket_order(ticket_order.id)
+
+    # Check if any tickets require registration
+    tickets_requiring_registration =
+      get_tickets_requiring_registration(ticket_order_with_tickets.tickets)
+
+    # Initialize ticket details form with existing registrations or empty values
+    ticket_details_form =
+      tickets_requiring_registration
+      |> Enum.reduce(%{}, fn ticket, acc ->
+        ticket_detail = Ysc.Events.get_registration_for_ticket(ticket.id)
+        ticket_id_str = to_string(ticket.id)
+
+        Map.put(acc, ticket_id_str, %{
+          first_name: if(ticket_detail, do: ticket_detail.first_name, else: ""),
+          last_name: if(ticket_detail, do: ticket_detail.last_name, else: ""),
+          email: if(ticket_detail, do: ticket_detail.email, else: "")
+        })
+      end)
+
+    # Initialize tickets_for_me map (all false by default)
+    tickets_for_me =
+      tickets_requiring_registration
+      |> Enum.reduce(%{}, fn ticket, acc ->
+        Map.put(acc, ticket.id, false)
+      end)
+
     # Check if this is a free order (zero amount)
-    if Money.zero?(ticket_order.total_amount) do
+    if Money.zero?(ticket_order_with_tickets.total_amount) do
       # For free tickets, show confirmation modal instead of payment form
+      # Update URL to reflect checkout state
       {:noreply,
        socket
        |> assign(:show_ticket_modal, false)
        |> assign(:show_free_ticket_confirmation, true)
-       |> assign(:ticket_order, ticket_order)}
+       |> assign(:ticket_order, ticket_order_with_tickets)
+       |> assign(:tickets_requiring_registration, tickets_requiring_registration)
+       |> assign(:ticket_details_form, ticket_details_form)
+       |> assign(:tickets_for_me, tickets_for_me)
+       |> push_patch(
+         to:
+           ~p"/events/#{socket.assigns.event.id}?checkout=free&order_id=#{ticket_order_with_tickets.id}"
+       )}
     else
       # For paid tickets, create Stripe payment intent
-      case Ysc.Tickets.StripeService.create_payment_intent(ticket_order,
+      case Ysc.Tickets.StripeService.create_payment_intent(ticket_order_with_tickets,
              customer_id: socket.assigns.current_user.stripe_id
            ) do
         {:ok, payment_intent} ->
           # Show payment form with Stripe Elements
+          # Update URL to reflect checkout state
           {:noreply,
            socket
            |> assign(:show_ticket_modal, false)
            |> assign(:show_payment_modal, true)
            |> assign(:checkout_expired, false)
            |> assign(:payment_intent, payment_intent)
-           |> assign(:ticket_order, ticket_order)}
+           |> assign(:ticket_order, ticket_order_with_tickets)
+           |> assign(:tickets_requiring_registration, tickets_requiring_registration)
+           |> assign(:ticket_details_form, ticket_details_form)
+           |> assign(:tickets_for_me, tickets_for_me)
+           |> push_patch(
+             to:
+               ~p"/events/#{socket.assigns.event.id}?checkout=payment&order_id=#{ticket_order_with_tickets.id}"
+           )}
 
         {:error, reason} ->
           {:noreply,
            socket
            |> put_flash(:error, "Failed to create payment: #{reason}")
-           |> assign(:show_ticket_modal, false)}
+           |> assign(:show_ticket_modal, false)
+           |> push_patch(to: ~p"/events/#{socket.assigns.event.id}")}
       end
     end
   end
