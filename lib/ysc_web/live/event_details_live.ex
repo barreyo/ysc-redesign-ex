@@ -657,12 +657,12 @@ defmodule YscWeb.EventDetailsLive do
                         /> You need to be signed in and have an active membership to purchase tickets
                       </div>
                       <.button
-                        class="w-full py-4 bg-zinc-900 text-white font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-blue-600 transition-all shadow-xl shadow-zinc-200 active:scale-95"
+                        class="w-full py-4 uppercase tracking-widest"
                         phx-click={
                           JS.navigate(~p"/users/log-in?redirect_to=#{~p"/events/#{@event.id}"}")
                         }
                       >
-                        Sign In to Continue
+                        <.icon name="hero-ticket" class="w-5 h-5 me-2 -mt-0.5" />Sign In to Continue
                       </.button>
                     </div>
 
@@ -804,7 +804,7 @@ defmodule YscWeb.EventDetailsLive do
                           JS.navigate(~p"/users/log-in?redirect_to=#{~p"/events/#{@event.id}"}")
                         }
                       >
-                        <.icon name="hero-ticket" class="w-5 h-5 me-2 -mt-0.5" />Sign In
+                        <.icon name="hero-ticket" class="w-5 h-5 me-2 -mt-0.5" />Sign In to Continue
                       </.button>
                     <% else %>
                       <%= if has_ticket_tiers?(@event.id) do %>

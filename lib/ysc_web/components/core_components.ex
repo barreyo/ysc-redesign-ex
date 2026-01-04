@@ -1657,7 +1657,7 @@ defmodule YscWeb.CoreComponents do
     <%!-- Mobile: Slide-in menu overlay --%>
     <div
       id={"#{@toggle_id}-overlay"}
-      class="mobile-menu-overlay fixed inset-0 bg-black/50 z-[100] hidden lg:hidden"
+      class="mobile-menu-overlay fixed inset-0 bg-black/50 z-[9998] hidden lg:hidden"
       phx-click={hide_mobile_menu(@toggle_id)}
       aria-hidden="true"
     />
@@ -1665,7 +1665,7 @@ defmodule YscWeb.CoreComponents do
     <%!-- Mobile: Slide-in menu panel --%>
     <div
       id={@toggle_id}
-      class="mobile-menu-panel fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-white z-[101] transform -translate-x-full transition-transform duration-300 ease-in-out lg:hidden overflow-y-auto shadow-2xl"
+      class="mobile-menu-panel fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-white z-[9999] transform -translate-x-full transition-transform duration-300 ease-in-out lg:hidden overflow-y-auto shadow-2xl"
     >
       <%!-- Menu header with logo and close button --%>
       <div class="flex items-center justify-between p-4 border-b border-zinc-200">

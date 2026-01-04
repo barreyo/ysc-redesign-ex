@@ -970,8 +970,8 @@ defmodule YscWeb.ClearLakeBookingLive do
         />
         <div class="absolute inset-0 z-[5] bg-black/40 pointer-events-none" aria-hidden="true"></div>
       </div>
-      <!-- Title Text Section - Highest z-index for selectability -->
-      <div class="absolute bottom-0 left-0 right-0 z-[50] px-4 py-16 lg:py-20 pointer-events-none">
+      <!-- Title Text Section - z-index lowered to ensure mobile menu appears above -->
+      <div class="absolute bottom-0 left-0 right-0 z-[10] px-4 py-16 lg:py-20 pointer-events-none">
         <div class="max-w-screen-xl mx-auto pointer-events-auto">
           <span class="inline-block px-2.5 sm:px-3 py-1 mb-3 sm:mb-4 text-xs font-bold tracking-widest text-white uppercase bg-amber-700/80 backdrop-blur-sm rounded">
             A Legacy for All Seasons
