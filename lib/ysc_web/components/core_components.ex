@@ -108,6 +108,7 @@ defmodule YscWeb.CoreComponents do
   attr :title, :string, default: nil
   attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
   attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
+  attr :class, :string, default: nil
 
   slot :inner_block, doc: "the optional inner block that renders the flash message"
 
@@ -120,6 +121,7 @@ defmodule YscWeb.CoreComponents do
       role="alert"
       class={[
         "fixed top-2 right-2 w-80 sm:w-96 z-[110] rounded-lg p-3 ring-1",
+        @class,
         @kind == :info && "bg-emerald-50 text-emerald-800 ring-emerald-500 fill-cyan-900",
         @kind == :error && "bg-rose-50 text-rose-900 shadow-md ring-rose-500 fill-rose-900"
       ]}
@@ -157,6 +159,7 @@ defmodule YscWeb.CoreComponents do
       title="We can't find the internet"
       phx-disconnected={show(".phx-client-error #client-error")}
       phx-connected={hide("#client-error")}
+      class="delay-700"
       hidden
     >
       Attempting to reconnect <.icon name="hero-arrow-path" class="w-3 h-3 ml-1 animate-spin" />
