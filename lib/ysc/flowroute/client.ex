@@ -12,6 +12,9 @@ defmodule Ysc.Flowroute.Client do
   - `FLOWROUTE_SECRET_KEY` - Your FlowRoute API secret key (password)
   - `FLOWROUTE_FROM_NUMBER` - Your FlowRoute phone number (11-digit format, e.g., 12061231234)
 
+  Optional environment variables:
+  - `FLOWROUTE_FORCE_ENABLE` - Set to `"true"` or `"1"` to force SMS sending on even in dev/test environments
+
   ## Usage
 
       alias Ysc.Flowroute.Client
@@ -28,6 +31,9 @@ defmodule Ysc.Flowroute.Client do
   - No actual API requests are sent
   - A fake successful response is returned
   - This prevents accidental SMS sends during development
+
+  You can force SMS sending on in lower environments by setting `FLOWROUTE_FORCE_ENABLE=true`
+  or `FLOWROUTE_FORCE_ENABLE=1`. This is useful for testing actual SMS delivery.
 
   ## SMS Limitations
 
@@ -382,8 +388,18 @@ defmodule Ysc.Flowroute.Client do
   end
 
   defp noop_environment? do
-    env = get_environment()
-    String.downcase(env) in ["dev", "test", "sandbox", "development"]
+    # Check if SMS sending is forced on via environment variable
+    case System.get_env("FLOWROUTE_FORCE_ENABLE") do
+      "true" ->
+        false
+
+      "1" ->
+        false
+
+      _ ->
+        env = get_environment()
+        String.downcase(env) in ["dev", "test", "sandbox", "development"]
+    end
   end
 
   defp get_environment do
