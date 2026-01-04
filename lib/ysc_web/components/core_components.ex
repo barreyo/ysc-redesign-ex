@@ -78,7 +78,7 @@ defmodule YscWeb.CoreComponents do
                 <button
                   phx-click={JS.exec("data-cancel", to: "##{@id}")}
                   type="button"
-                  class="flex-none rounded hover:bg-zinc-100 p-1 -m-3 opacity-20 hover:opacity-40"
+                  class="flex-none rounded hover:bg-zinc-100 p-1 -m-3 opacity-50 hover:opacity-70"
                   aria-label={gettext("close")}
                 >
                   <.icon name="hero-x-mark-solid" class="w-6 h-6" />

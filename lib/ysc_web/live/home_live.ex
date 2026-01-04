@@ -334,7 +334,7 @@ defmodule YscWeb.HomeLive do
                 navigate={~p"/bookings/tahoe"}
                 class="inline-flex items-center px-8 py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-blue-600 transition-all shadow-lg"
               >
-                Book Tahoe Stay
+                Learn More About Tahoe
               </.link>
             </div>
             <div class="lg:col-span-7 order-1 lg:order-2">
@@ -387,7 +387,7 @@ defmodule YscWeb.HomeLive do
                 navigate={~p"/bookings/clear-lake"}
                 class="inline-flex items-center px-8 py-3 bg-zinc-900 text-white rounded-xl font-bold hover:bg-emerald-600 transition-all shadow-lg"
               >
-                Book Clear Lake Stay
+                Learn More About Clear Lake
               </.link>
             </div>
           </div>
@@ -461,10 +461,10 @@ defmodule YscWeb.HomeLive do
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
           <div>
             <span class="text-blue-400 font-black text-xs uppercase tracking-[0.3em]">
-              The social calendar
+              Upcoming Events
             </span>
             <h2 class="mt-4 text-4xl lg:text-6xl font-black text-white tracking-tighter leading-none">
-              Upcoming Events
+              The Pulse of the Club.
             </h2>
           </div>
           <.link
@@ -629,7 +629,7 @@ defmodule YscWeb.HomeLive do
               </h3>
               <%= if post.preview_text || post.rendered_body do %>
                 <p class="text-zinc-500 mt-4 text-sm leading-relaxed line-clamp-2 italic">
-                  "<%= preview_text_for_news(post) %>"
+                  <%= preview_text_for_news(post) %>
                 </p>
               <% end %>
             </.link>

@@ -574,6 +574,83 @@ Enum.each(0..n_deleted_users, fn n ->
   end
 end)
 
+# Seed random user notes
+alias Ysc.Accounts
+
+# Get some users to add notes to (mix of different states)
+users_for_notes =
+  Repo.all(
+    from u in User,
+      where: u.email != "admin@ysc.org",
+      limit: 15
+  )
+
+if length(users_for_notes) > 0 and admin_user do
+  general_notes = [
+    "User contacted support about membership renewal",
+    "Attended the annual summer event in 2024",
+    "Very active member, participates in most events",
+    "Requested information about family membership benefits",
+    "Interested in volunteering for upcoming events",
+    "Moved to a new address, updated billing information",
+    "Attended cabin booking orientation session",
+    "Participated in the Nordic cooking workshop",
+    "Referred a friend who joined the club",
+    "Asked about event ticket pricing",
+    "Very engaged in Discord community discussions",
+    "Attended multiple social gatherings this year",
+    "Helped organize the winter holiday event",
+    "Requested information about Scandinavian language classes",
+    "Active participant in book club meetings"
+  ]
+
+  violation_notes = [
+    "Reported for inappropriate behavior at social event",
+    "Violated cabin booking cancellation policy",
+    "Failed to follow event attendance guidelines",
+    "Reported for disruptive behavior in online community",
+    "Did not comply with membership code of conduct",
+    "Violated payment terms for event registration",
+    "Reported for inappropriate language in group chat",
+    "Failed to respect other members' privacy",
+    "Violated event photography policy",
+    "Reported for not following cabin checkout procedures"
+  ]
+
+  # Add 2-4 random notes to each user
+  Enum.each(users_for_notes, fn user ->
+    # 2-4 notes per user
+    num_notes = 2 + :rand.uniform(3)
+
+    Enum.each(1..num_notes, fn _ ->
+      # 70% chance of general note, 30% chance of violation
+      is_violation = :rand.uniform(10) <= 3
+      category = if is_violation, do: "violation", else: "general"
+      notes_pool = if is_violation, do: violation_notes, else: general_notes
+      note_text = notes_pool |> Enum.shuffle() |> hd()
+
+      # Add some variation to make notes more unique
+      variations = [
+        "",
+        " Follow-up needed.",
+        " Resolved.",
+        " No action required.",
+        " Will monitor."
+      ]
+
+      final_note = note_text <> (variations |> Enum.shuffle() |> hd())
+
+      case Accounts.create_user_note(user, %{note: final_note, category: category}, admin_user) do
+        {:ok, _note} -> :ok
+        # Silently skip if there's an error
+        {:error, _error} -> :ok
+      end
+    end)
+  end)
+
+  IO.puts("✓ Added random notes to #{length(users_for_notes)} users")
+end
+
 # Seed Posts and Events with Images
 import Ecto.Query
 alias Ysc.Posts

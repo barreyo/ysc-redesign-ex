@@ -859,7 +859,7 @@ defmodule YscWeb.EventDetailsLive do
           </div>
 
           <div class="space-y-4 h-full lg:overflow-y-auto lg:max-h-[600px] lg:px-4">
-            <%= for ticket_tier <- get_ticket_tiers(@event.id) do %>
+            <%= for ticket_tier <- @ticket_tiers do %>
               <% is_donation = ticket_tier.type == "donation" || ticket_tier.type == :donation %>
               <% available = get_available_quantity(ticket_tier) %>
               <% is_event_at_capacity = event_at_capacity?(@event) %>
@@ -1005,6 +1005,7 @@ defmodule YscWeb.EventDetailsLive do
                       <button
                         phx-click="decrease-ticket-quantity"
                         phx-value-tier-id={ticket_tier.id}
+                        phx-debounce="150"
                         class={[
                           "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
                           if(
@@ -1032,34 +1033,28 @@ defmodule YscWeb.EventDetailsLive do
                       ]}>
                         <%= get_ticket_quantity(@selected_tickets, ticket_tier.id) %>
                       </span>
+                      <% current_qty = get_ticket_quantity(@selected_tickets, ticket_tier.id) %>
+                      <% can_increase =
+                        can_increase_quantity_cached?(
+                          ticket_tier,
+                          current_qty,
+                          @selected_tickets,
+                          @event,
+                          @availability_data
+                        ) %>
                       <button
                         phx-click="increase-ticket-quantity"
                         phx-value-tier-id={ticket_tier.id}
+                        phx-debounce="150"
                         class={[
                           "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-200 font-semibold",
-                          if(
-                            is_sold_out or is_sale_ended or is_pre_sale or
-                              !can_increase_quantity?(
-                                ticket_tier,
-                                get_ticket_quantity(@selected_tickets, ticket_tier.id),
-                                @selected_tickets,
-                                @event
-                              )
-                          ) do
+                          if(is_sold_out or is_sale_ended or is_pre_sale or !can_increase) do
                             "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
                           else
                             "border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white"
                           end
                         ]}
-                        disabled={
-                          is_sold_out or is_sale_ended or is_pre_sale or
-                            !can_increase_quantity?(
-                              ticket_tier,
-                              get_ticket_quantity(@selected_tickets, ticket_tier.id),
-                              @selected_tickets,
-                              @event
-                            )
-                        }
+                        disabled={is_sold_out or is_sale_ended or is_pre_sale or !can_increase}
                       >
                         <.icon name="hero-plus" class="w-5 h-5" />
                       </button>
@@ -1149,7 +1144,7 @@ defmodule YscWeb.EventDetailsLive do
             <div class="bg-zinc-50 rounded-lg p-6 space-y-4 flex flex-col justify-between">
               <%= if has_any_tickets_selected?(@selected_tickets) do %>
                 <%= for {tier_id, amount_or_quantity} <- @selected_tickets, amount_or_quantity > 0 do %>
-                  <% ticket_tier = get_ticket_tier_by_id(@event.id, tier_id) %>
+                  <% ticket_tier = Enum.find(@ticket_tiers, &(&1.id == tier_id)) %>
                   <div class="flex justify-between text-base">
                     <span>
                       <%= ticket_tier.name %>
@@ -1263,27 +1258,27 @@ defmodule YscWeb.EventDetailsLive do
         </div>
       <% else %>
         <!-- Normal Payment Flow -->
+        <!-- Sticky Timer Banner at Top -->
+        <div class="sticky top-0 z-10 bg-blue-50 border-b border-blue-200 -mx-6 -mt-2 px-6 pt-3 pb-3 mb-6">
+          <div class="flex items-center justify-center space-x-2">
+            <.icon name="hero-clock" class="w-5 h-5 text-blue-600" />
+            <span class="text-sm font-medium text-blue-800">
+              Time remaining to complete purchase:
+            </span>
+            <div
+              id="checkout-timer"
+              class="font-bold text-blue-900"
+              phx-hook="CheckoutTimer"
+              data-expires-at={@ticket_order.expires_at}
+            >
+              <!-- Timer will be populated by JavaScript -->
+            </div>
+          </div>
+        </div>
+
         <div class="flex flex-col lg:flex-row gap-8 min-h-[600px]">
           <!-- Left Panel: Payment Details -->
           <div class="lg:w-2/3 space-y-6">
-            <!-- Timer Section -->
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div class="flex items-center justify-center space-x-2">
-                <.icon name="hero-clock" class="w-5 h-5 text-blue-600" />
-                <span class="text-sm font-medium text-blue-800">
-                  Time remaining to complete purchase:
-                </span>
-                <div
-                  id="checkout-timer"
-                  class="font-bold text-blue-900"
-                  phx-hook="CheckoutTimer"
-                  data-expires-at={@ticket_order.expires_at}
-                >
-                  <!-- Timer will be populated by JavaScript -->
-                </div>
-              </div>
-            </div>
-
             <div class="text-center">
               <h2 class="text-2xl font-semibold">Complete Your Purchase</h2>
               <p class="text-zinc-600 mt-2">Order: <%= @ticket_order.reference_id %></p>
@@ -1296,154 +1291,356 @@ defmodule YscWeb.EventDetailsLive do
               <div class="space-y-4 border-b border-zinc-200 pb-6">
                 <div class="flex items-center justify-between">
                   <div>
-                    <h3 class="font-semibold text-lg">Ticket Registration</h3>
-                    <p class="text-sm text-zinc-600">
+                    <% all_registrations_complete_for_step1 =
+                      if Enum.any?(tickets_requiring_registration) do
+                        tickets_requiring_registration
+                        |> Enum.all?(fn ticket ->
+                          tickets_for_me = @tickets_for_me || %{}
+
+                          is_for_me =
+                            Map.get(tickets_for_me, ticket.id, false) ||
+                              Map.get(tickets_for_me, to_string(ticket.id), false)
+
+                          selected_family_members = @selected_family_members || %{}
+
+                          selected_family_member_id =
+                            Map.get(selected_family_members, ticket.id) ||
+                              Map.get(selected_family_members, to_string(ticket.id))
+
+                          family_members = @family_members || []
+
+                          selected_family_member =
+                            if selected_family_member_id,
+                              do:
+                                Enum.find(family_members, fn u ->
+                                  u.id == selected_family_member_id ||
+                                    to_string(u.id) == to_string(selected_family_member_id)
+                                end),
+                              else: nil
+
+                          has_selected_family_member = not is_nil(selected_family_member)
+                          ticket_id_str = to_string(ticket.id)
+
+                          cond do
+                            is_for_me ->
+                              @current_user.first_name && @current_user.first_name != "" &&
+                                (@current_user.last_name && @current_user.last_name != "") &&
+                                (@current_user.email && @current_user.email != "")
+
+                            has_selected_family_member ->
+                              selected_family_member.first_name &&
+                                selected_family_member.first_name != "" &&
+                                (selected_family_member.last_name &&
+                                   selected_family_member.last_name != "") &&
+                                (selected_family_member.email && selected_family_member.email != "")
+
+                            true ->
+                              form_map =
+                                Map.get(@ticket_details_form, ticket_id_str) ||
+                                  Map.get(@ticket_details_form, ticket.id) || %{}
+
+                              first_name =
+                                Map.get(form_map, :first_name) || Map.get(form_map, "first_name") ||
+                                  ""
+
+                              last_name =
+                                Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || ""
+
+                              email = Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+
+                              first_name != "" && last_name != "" && email != "" &&
+                                String.contains?(email, "@")
+                          end
+                        end)
+                      else
+                        true
+                      end %>
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class={[
+                        "flex items-center justify-center w-6 h-6 rounded-full text-sm font-semibold",
+                        if(all_registrations_complete_for_step1,
+                          do: "bg-green-600 text-white",
+                          else: "bg-blue-600 text-white"
+                        )
+                      ]}>
+                        <%= if all_registrations_complete_for_step1 do %>
+                          <.icon name="hero-check" class="w-4 h-4" />
+                        <% else %>
+                          1
+                        <% end %>
+                      </span>
+                      <h3 class="font-semibold text-lg">Who's going?</h3>
+                    </div>
+                    <p class="text-sm text-zinc-600 ml-8">
                       Please provide details for each ticket that requires registration.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    phx-click="test-registration-event"
-                    class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded"
-                  >
-                    Test Event
-                  </button>
                 </div>
 
-                <%= for ticket <- tickets_requiring_registration do %>
+                <%= for {ticket, index} <- Enum.with_index(tickets_requiring_registration) do %>
                   <% tickets_for_me = @tickets_for_me || %{} %>
-                  <% is_for_me = Map.get(tickets_for_me, ticket.id, false) %>
+                  <% is_for_me =
+                    Map.get(tickets_for_me, ticket.id, false) ||
+                      Map.get(tickets_for_me, to_string(ticket.id), false) %>
+
+                  <%!-- Check if "Me" is already selected for any other ticket --%>
+                  <% me_already_selected_for_other_ticket =
+                    tickets_requiring_registration
+                    |> Enum.any?(fn other_ticket ->
+                      other_ticket.id != ticket.id &&
+                        (Map.get(tickets_for_me, other_ticket.id, false) ||
+                           Map.get(tickets_for_me, to_string(other_ticket.id), false))
+                    end) %>
+
+                  <% selected_family_members = @selected_family_members || %{} %>
+                  <% selected_family_member_id =
+                    Map.get(selected_family_members, ticket.id) ||
+                      Map.get(selected_family_members, to_string(ticket.id)) %>
+                  <% family_members = @family_members || [] %>
+                  <% selected_family_member =
+                    if selected_family_member_id,
+                      do:
+                        Enum.find(family_members, fn u ->
+                          u.id == selected_family_member_id ||
+                            to_string(u.id) == to_string(selected_family_member_id)
+                        end),
+                      else: nil %>
+                  <% has_selected_family_member = not is_nil(selected_family_member) %>
                   <% ticket_id_str = to_string(ticket.id)
 
-                  form_data =
-                    if is_for_me do
-                      # Auto-fill with current user's details
-                      %{
-                        first_name: @current_user.first_name || "",
-                        last_name: @current_user.last_name || "",
-                        email: @current_user.email || ""
-                      }
-                    else
-                      # Use form data from @ticket_details_form (in-memory state only)
-                      # Don't query database on every render - form data is managed in memory
-                      case Map.get(@ticket_details_form, ticket_id_str) ||
-                             Map.get(@ticket_details_form, ticket.id) do
-                        nil ->
-                          # No form data yet, use empty values
-                          %{
-                            first_name: "",
-                            last_name: "",
-                            email: ""
-                          }
+                  # Check if this ticket registration is complete
+                  is_registration_complete =
+                    cond do
+                      is_for_me ->
+                        # "Me" is selected - check if user has required fields
+                        @current_user.first_name && @current_user.first_name != "" &&
+                          (@current_user.last_name && @current_user.last_name != "") &&
+                          (@current_user.email && @current_user.email != "")
 
-                        form_map ->
-                          # Use form data, but ensure all fields exist (fill missing ones with empty string)
-                          %{
-                            first_name:
-                              Map.get(form_map, :first_name) || Map.get(form_map, "first_name") || "",
-                            last_name:
-                              Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || "",
-                            email: Map.get(form_map, :email) || Map.get(form_map, "email") || ""
-                          }
-                      end
+                      has_selected_family_member ->
+                        # Family member is selected - check if they have required fields
+                        selected_family_member.first_name && selected_family_member.first_name != "" &&
+                          (selected_family_member.last_name && selected_family_member.last_name != "") &&
+                          (selected_family_member.email && selected_family_member.email != "")
+
+                      true ->
+                        # Manual entry - check if all fields are filled
+                        form_map =
+                          Map.get(@ticket_details_form, ticket_id_str) ||
+                            Map.get(@ticket_details_form, ticket.id) || %{}
+
+                        first_name =
+                          Map.get(form_map, :first_name) || Map.get(form_map, "first_name") || ""
+
+                        last_name =
+                          Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || ""
+
+                        email = Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+
+                        first_name != "" && last_name != "" && email != "" &&
+                          String.contains?(email, "@")
+                    end
+
+                  form_data =
+                    cond do
+                      is_for_me ->
+                        # Auto-fill with current user's details
+                        %{
+                          first_name: @current_user.first_name || "",
+                          last_name: @current_user.last_name || "",
+                          email: @current_user.email || ""
+                        }
+
+                      has_selected_family_member ->
+                        # Use selected family member's details
+                        %{
+                          first_name: selected_family_member.first_name || "",
+                          last_name: selected_family_member.last_name || "",
+                          email: selected_family_member.email || ""
+                        }
+
+                      true ->
+                        # Use form data from @ticket_details_form (in-memory state only)
+                        # Don't query database on every render - form data is managed in memory
+                        case Map.get(@ticket_details_form, ticket_id_str) ||
+                               Map.get(@ticket_details_form, ticket.id) do
+                          nil ->
+                            # No form data yet, use empty values
+                            %{
+                              first_name: "",
+                              last_name: "",
+                              email: ""
+                            }
+
+                          form_map ->
+                            # Use form data, but ensure all fields exist (fill missing ones with empty string)
+                            %{
+                              first_name:
+                                Map.get(form_map, :first_name) || Map.get(form_map, "first_name") ||
+                                  "",
+                              last_name:
+                                Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || "",
+                              email: Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+                            }
+                        end
                     end %>
-                  <div class="border border-zinc-200 rounded-lg p-4 space-y-4">
-                    <div class="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 class="text-base font-semibold text-zinc-900">
-                          Ticket #<%= ticket.reference_id %>
-                        </h4>
-                        <p class="text-sm text-zinc-600">
-                          <%= ticket.ticket_tier.name %>
-                        </p>
+                  <div class={[
+                    "rounded-lg p-4 space-y-4 transition-all duration-200",
+                    if(is_registration_complete,
+                      do: "border-2 border-green-500 bg-green-50/30",
+                      else: "border border-zinc-200"
+                    )
+                  ]}>
+                    <div class="flex items-center justify-between mb-4">
+                      <div class="flex items-center gap-3">
+                        <div>
+                          <h4 class="text-base font-semibold text-zinc-900">
+                            Ticket <%= index + 1 %> of <%= length(tickets_requiring_registration) %>
+                          </h4>
+                          <p class="text-xs text-zinc-600">
+                            <%= ticket.ticket_tier.name %>
+                          </p>
+                        </div>
+                        <%= if is_registration_complete do %>
+                          <div class="flex-shrink-0">
+                            <.icon name="hero-check-circle" class="w-6 h-6 text-green-600" />
+                          </div>
+                        <% end %>
                       </div>
                     </div>
 
-                    <div class="mb-4">
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          id={"ticket_#{ticket.id}_for_me_checkbox"}
-                          name={"ticket_#{ticket.id}_for_me"}
-                          value="true"
-                          checked={is_for_me}
-                          phx-click="toggle-ticket-for-me"
-                          phx-value-ticket-id={ticket.id}
-                          class="w-4 h-4 text-blue-600 border-zinc-300 rounded focus:ring-blue-500"
-                        />
-                        <span class="text-sm font-medium text-zinc-700">
-                          This ticket is for me
-                        </span>
-                      </label>
-                    </div>
+                    <% other_family_members =
+                      Enum.reject(family_members, fn member -> member.id == @current_user.id end) %>
 
+                    <%!-- Streamlined Dropdown for "Who is this ticket for?" --%>
+                    <form phx-change="select-ticket-attendee" phx-debounce="100">
+                      <input type="hidden" name="ticket_id" value={to_string(ticket.id)} />
+                      <div class="mb-4">
+                        <label
+                          for={"ticket_#{ticket.id}_attendee_select"}
+                          class="block text-sm font-medium text-zinc-700 mb-2"
+                        >
+                          Who is this ticket for?
+                        </label>
+                        <select
+                          id={"ticket_#{ticket.id}_attendee_select"}
+                          name={"ticket_#{ticket.id}_attendee_select"}
+                          value={
+                            cond do
+                              is_for_me -> "me"
+                              has_selected_family_member -> "family_#{selected_family_member.id}"
+                              true -> "other"
+                            end
+                          }
+                          class="block w-full rounded-md border-zinc-300 py-2.5 pl-3 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                        >
+                          <option
+                            value="me"
+                            disabled={me_already_selected_for_other_ticket && !is_for_me}
+                          >
+                            Me (<%= @current_user.first_name || @current_user.email %>)
+                            <%= if me_already_selected_for_other_ticket && !is_for_me do %>
+                              (Already selected for another ticket)
+                            <% end %>
+                          </option>
+                          <%= if length(other_family_members) > 0 do %>
+                            <optgroup label="Family Members">
+                              <%= for family_member <- other_family_members do %>
+                                <option value={"family_#{family_member.id}"}>
+                                  <%= family_member.first_name %> <%= family_member.last_name %>
+                                </option>
+                              <% end %>
+                            </optgroup>
+                          <% end %>
+                          <option value="other" selected={!is_for_me && !has_selected_family_member}>
+                            Someone else (Enter details)
+                          </option>
+                        </select>
+                      </div>
+                    </form>
+
+                    <%!-- Manual Entry Form (shown when "Someone else" is selected) --%>
                     <form phx-change="update-registration-field" phx-debounce="500">
                       <div
                         id={"ticket_#{ticket.id}_registration_fields"}
-                        class={[!is_for_me && "block", is_for_me && "hidden"]}
+                        class={[
+                          !is_for_me && !has_selected_family_member && "block",
+                          (is_for_me || has_selected_family_member) && "hidden"
+                        ]}
                       >
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                          <div>
-                            <label
-                              for={"ticket_#{ticket.id}_first_name"}
-                              class="block text-sm font-medium text-zinc-700"
-                            >
-                              First Name
-                            </label>
-                            <input
-                              type="text"
-                              id={"ticket_#{ticket.id}_first_name"}
-                              name={"ticket_#{ticket.id}_first_name"}
-                              value={form_data.first_name}
-                              required={!is_for_me}
-                              disabled={is_for_me}
-                              phx-value-ticket-id={ticket.id}
-                              phx-value-field="first_name"
-                              class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
-                            />
+                        <div class="space-y-4">
+                          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div>
+                              <label
+                                for={"ticket_#{ticket.id}_first_name"}
+                                class="block text-sm font-medium text-zinc-700"
+                              >
+                                First Name
+                              </label>
+                              <input
+                                type="text"
+                                id={"ticket_#{ticket.id}_first_name"}
+                                name={"ticket_#{ticket.id}_first_name"}
+                                value={form_data.first_name}
+                                required={!is_for_me && !has_selected_family_member}
+                                disabled={is_for_me || has_selected_family_member}
+                                phx-value-ticket-id={ticket.id}
+                                phx-value-field="first_name"
+                                enterkeyhint="next"
+                                class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
+                              />
+                            </div>
+                            <div>
+                              <label
+                                for={"ticket_#{ticket.id}_last_name"}
+                                class="block text-sm font-medium text-zinc-700"
+                              >
+                                Last Name
+                              </label>
+                              <input
+                                type="text"
+                                id={"ticket_#{ticket.id}_last_name"}
+                                name={"ticket_#{ticket.id}_last_name"}
+                                value={form_data.last_name}
+                                required={!is_for_me && !has_selected_family_member}
+                                disabled={is_for_me || has_selected_family_member}
+                                phx-value-ticket-id={ticket.id}
+                                phx-value-field="last_name"
+                                enterkeyhint="next"
+                                class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
+                              />
+                            </div>
                           </div>
                           <div>
                             <label
-                              for={"ticket_#{ticket.id}_last_name"}
+                              for={"ticket_#{ticket.id}_email"}
                               class="block text-sm font-medium text-zinc-700"
                             >
-                              Last Name
+                              Email
                             </label>
                             <input
-                              type="text"
-                              id={"ticket_#{ticket.id}_last_name"}
-                              name={"ticket_#{ticket.id}_last_name"}
-                              value={form_data.last_name}
-                              required={!is_for_me}
-                              disabled={is_for_me}
+                              type="email"
+                              id={"ticket_#{ticket.id}_email"}
+                              name={"ticket_#{ticket.id}_email"}
+                              value={form_data.email}
+                              required={!is_for_me && !has_selected_family_member}
+                              disabled={is_for_me || has_selected_family_member}
+                              autocomplete="email"
+                              enterkeyhint="done"
                               phx-value-ticket-id={ticket.id}
-                              phx-value-field="last_name"
+                              phx-value-field="email"
                               class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
                             />
                           </div>
-                        </div>
-                        <div>
-                          <label
-                            for={"ticket_#{ticket.id}_email"}
-                            class="block text-sm font-medium text-zinc-700"
-                          >
-                            Email
-                          </label>
-                          <input
-                            type="email"
-                            id={"ticket_#{ticket.id}_email"}
-                            name={"ticket_#{ticket.id}_email"}
-                            value={form_data.email}
-                            required={!is_for_me}
-                            disabled={is_for_me}
-                            phx-value-ticket-id={ticket.id}
-                            phx-value-field="email"
-                            class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
-                          />
                         </div>
                       </div>
                     </form>
-                    <div class={[is_for_me && "block", !is_for_me && "hidden"]}>
+
+                    <%!-- Summary Display (shown when "Me" or "Family Member" is selected) --%>
+                    <div class={[
+                      (is_for_me || has_selected_family_member) && "block",
+                      !is_for_me && !has_selected_family_member && "hidden"
+                    ]}>
                       <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <p class="text-sm text-blue-800">
                           <strong><%= form_data.first_name %> <%= form_data.last_name %></strong>
@@ -1457,8 +1654,90 @@ defmodule YscWeb.EventDetailsLive do
               </div>
             <% end %>
             <!-- Stripe Elements Payment Form -->
-            <div class="space-y-4">
-              <h3 class="font-semibold text-lg">Payment Information</h3>
+            <% all_registrations_complete =
+              if Enum.any?(tickets_requiring_registration) do
+                tickets_requiring_registration
+                |> Enum.all?(fn ticket ->
+                  tickets_for_me = @tickets_for_me || %{}
+
+                  is_for_me =
+                    Map.get(tickets_for_me, ticket.id, false) ||
+                      Map.get(tickets_for_me, to_string(ticket.id), false)
+
+                  selected_family_members = @selected_family_members || %{}
+
+                  selected_family_member_id =
+                    Map.get(selected_family_members, ticket.id) ||
+                      Map.get(selected_family_members, to_string(ticket.id))
+
+                  family_members = @family_members || []
+
+                  selected_family_member =
+                    if selected_family_member_id,
+                      do:
+                        Enum.find(family_members, fn u ->
+                          u.id == selected_family_member_id ||
+                            to_string(u.id) == to_string(selected_family_member_id)
+                        end),
+                      else: nil
+
+                  has_selected_family_member = not is_nil(selected_family_member)
+                  ticket_id_str = to_string(ticket.id)
+
+                  cond do
+                    is_for_me ->
+                      @current_user.first_name && @current_user.first_name != "" &&
+                        (@current_user.last_name && @current_user.last_name != "") &&
+                        (@current_user.email && @current_user.email != "")
+
+                    has_selected_family_member ->
+                      selected_family_member.first_name && selected_family_member.first_name != "" &&
+                        (selected_family_member.last_name && selected_family_member.last_name != "") &&
+                        (selected_family_member.email && selected_family_member.email != "")
+
+                    true ->
+                      form_map =
+                        Map.get(@ticket_details_form, ticket_id_str) ||
+                          Map.get(@ticket_details_form, ticket.id) || %{}
+
+                      first_name =
+                        Map.get(form_map, :first_name) || Map.get(form_map, "first_name") || ""
+
+                      last_name =
+                        Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || ""
+
+                      email = Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+
+                      first_name != "" && last_name != "" && email != "" &&
+                        String.contains?(email, "@")
+                  end
+                end)
+              else
+                true
+              end %>
+            <div class={[
+              "space-y-4 transition-opacity duration-300",
+              if(all_registrations_complete,
+                do: "opacity-100",
+                else: "opacity-40 pointer-events-none"
+              )
+            ]}>
+              <div class="flex items-center gap-2 mb-2">
+                <span class={[
+                  "flex items-center justify-center w-6 h-6 rounded-full text-sm font-semibold",
+                  if(all_registrations_complete,
+                    do: "bg-green-600 text-white",
+                    else: "bg-blue-600 text-white"
+                  )
+                ]}>
+                  <%= if all_registrations_complete do %>
+                    <.icon name="hero-check" class="w-4 h-4" />
+                  <% else %>
+                    2
+                  <% end %>
+                </span>
+                <h3 class="font-semibold text-lg">Payment Information</h3>
+              </div>
               <div
                 id="payment-element"
                 phx-hook="StripeElements"
@@ -1472,23 +1751,40 @@ defmodule YscWeb.EventDetailsLive do
               </div>
               <div id="payment-message" class="hidden text-sm"></div>
             </div>
-
-            <div class="flex space-x-4">
-              <.button class="flex-1" id="submit-payment">
-                Pay <%= calculate_total_price(@selected_tickets, @event.id) %>
-              </.button>
-              <.button
-                class="flex-1 bg-zinc-200 text-zinc-800 hover:bg-zinc-300"
-                phx-click="close-payment-modal"
-              >
-                Cancel
-              </.button>
+            <!-- Checkout Zone: Payment Action Area -->
+            <div class="mt-8 bg-zinc-50 -mx-6 px-6 py-6 border-t-4 border-blue-600 shadow-lg">
+              <div class="max-w-md mx-auto space-y-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-zinc-600">Amount due:</span>
+                  <span class="text-2xl font-bold text-zinc-900">
+                    <%= calculate_total_price(@selected_tickets, @event.id) %>
+                  </span>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3">
+                  <.button
+                    class="sm:flex-[2] w-full sm:w-auto py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-md active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    id="submit-payment"
+                    disabled={!all_registrations_complete}
+                  >
+                    Confirm and Pay <%= calculate_total_price(@selected_tickets, @event.id) %>
+                  </.button>
+                  <.button
+                    class="sm:flex-1 w-full sm:w-auto bg-transparent text-zinc-500 hover:text-zinc-700 py-4 rounded-lg font-medium transition-colors"
+                    phx-click="close-payment-modal"
+                  >
+                    Cancel
+                  </.button>
+                </div>
+                <p class="text-center text-xs text-zinc-400 flex items-center justify-center gap-1">
+                  <.icon name="hero-lock-closed" class="w-3 h-3" /> Encrypted SSL Secure Payment
+                </p>
+              </div>
             </div>
           </div>
-          <!-- Right Panel: Order Summary -->
-          <div class="lg:w-1/3 space-y-4 justify-between flex flex-col">
+          <!-- Right Panel: Order Summary (Sticky on large screens) -->
+          <div class="lg:w-1/3 space-y-4 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
             <div class="space-y-4">
-              <div class="w-full hidden lg:block">
+              <div class="w-full hidden lg:block max-h-32 overflow-hidden rounded-lg">
                 <.live_component
                   id={"event-checkout-#{@event.id}"}
                   module={YscWeb.Components.Image}
@@ -1504,7 +1800,7 @@ defmodule YscWeb.EventDetailsLive do
               <div class="bg-zinc-50 rounded-lg p-6 space-y-4">
                 <%= if has_any_tickets_selected?(@selected_tickets) do %>
                   <%= for {tier_id, amount_or_quantity} <- @selected_tickets, amount_or_quantity > 0 do %>
-                    <% ticket_tier = get_ticket_tier_by_id(@event.id, tier_id) %>
+                    <% ticket_tier = Enum.find(@ticket_tiers, &(&1.id == tier_id)) %>
                     <div class="flex justify-between text-base">
                       <span>
                         <%= ticket_tier.name %>
@@ -1685,26 +1981,21 @@ defmodule YscWeb.EventDetailsLive do
             You've selected free tickets for this event. No payment is required.
           </p>
         </div>
-        <!-- Order Summary -->
-        <div class="w-full bg-zinc-50 rounded-lg p-6">
-          <h3 class="text-lg font-semibold text-zinc-900 mb-4">Order Summary</h3>
-          <div class="space-y-3">
+
+        <%!-- Compact Order Summary (receipt-style) --%>
+        <div class="w-full bg-zinc-50 rounded-lg p-4 border border-zinc-200">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-zinc-700 uppercase tracking-wide">Order Summary</h3>
+            <p class="text-sm font-bold text-green-600">Free</p>
+          </div>
+          <div class="space-y-2 text-sm">
             <%= for {tier_id, quantity} <- @selected_tickets do %>
               <% tier = Enum.find(@event.ticket_tiers, &(&1.id == tier_id)) %>
-              <div class="flex justify-between items-center">
-                <div>
-                  <p class="font-medium text-zinc-900"><%= tier.name %></p>
-                  <p class="text-sm text-zinc-500">Quantity: <%= quantity %></p>
-                </div>
-                <p class="font-semibold text-zinc-900">Free</p>
+              <div class="flex justify-between items-center text-zinc-600">
+                <span><%= tier.name %> × <%= quantity %></span>
+                <span class="text-zinc-500">Free</span>
               </div>
             <% end %>
-          </div>
-          <div class="border-t pt-3 mt-4">
-            <div class="flex justify-between items-center">
-              <p class="text-lg font-semibold text-zinc-900">Total</p>
-              <p class="text-lg font-bold text-green-600">Free</p>
-            </div>
           </div>
         </div>
 
@@ -1712,146 +2003,225 @@ defmodule YscWeb.EventDetailsLive do
         <% tickets_requiring_registration =
           get_tickets_requiring_registration(@ticket_order.tickets || []) %>
         <%= if Enum.any?(tickets_requiring_registration) do %>
-          <div class="space-y-4 border-t border-zinc-200 pt-6">
-            <h3 class="font-semibold text-lg">Ticket Registration</h3>
-            <p class="text-sm text-zinc-600">
+          <div class="space-y-3 border-t border-zinc-200 pt-6">
+            <h3 class="font-semibold text-lg mb-1">Ticket Registration</h3>
+            <p class="text-sm text-zinc-600 mb-4">
               Please provide details for each ticket that requires registration.
             </p>
 
-            <%= for ticket <- tickets_requiring_registration do %>
+            <%= for {ticket, index} <- Enum.with_index(tickets_requiring_registration) do %>
+              <% _total_tickets = length(tickets_requiring_registration) %>
               <% tickets_for_me = @tickets_for_me || %{} %>
-              <% is_for_me = Map.get(tickets_for_me, ticket.id, false) %>
+              <% is_for_me =
+                Map.get(tickets_for_me, ticket.id, false) ||
+                  Map.get(tickets_for_me, to_string(ticket.id), false) %>
+
+              <%!-- Check if "Me" is already selected for any other ticket --%>
+              <% me_already_selected_for_other_ticket =
+                tickets_requiring_registration
+                |> Enum.any?(fn other_ticket ->
+                  other_ticket.id != ticket.id &&
+                    (Map.get(tickets_for_me, other_ticket.id, false) ||
+                       Map.get(tickets_for_me, to_string(other_ticket.id), false))
+                end) %>
+
+              <% selected_family_members = @selected_family_members || %{} %>
+              <% selected_family_member_id =
+                Map.get(selected_family_members, ticket.id) ||
+                  Map.get(selected_family_members, to_string(ticket.id)) %>
+              <% family_members = @family_members || [] %>
+              <% selected_family_member =
+                if selected_family_member_id,
+                  do:
+                    Enum.find(family_members, fn u ->
+                      u.id == selected_family_member_id ||
+                        to_string(u.id) == to_string(selected_family_member_id)
+                    end),
+                  else: nil %>
+              <% has_selected_family_member = not is_nil(selected_family_member) %>
               <% ticket_id_str = to_string(ticket.id)
 
               form_data =
-                if is_for_me do
-                  # Auto-fill with current user's details
-                  %{
-                    first_name: @current_user.first_name || "",
-                    last_name: @current_user.last_name || "",
-                    email: @current_user.email || ""
-                  }
-                else
-                  # Use form data from @ticket_details_form (in-memory state only)
-                  # Don't query database on every render - form data is managed in memory
-                  case Map.get(@ticket_details_form, ticket_id_str) ||
-                         Map.get(@ticket_details_form, ticket.id) do
-                    nil ->
-                      # No form data yet, use empty values
-                      %{
-                        first_name: "",
-                        last_name: "",
-                        email: ""
-                      }
+                cond do
+                  is_for_me ->
+                    # Auto-fill with current user's details
+                    %{
+                      first_name: @current_user.first_name || "",
+                      last_name: @current_user.last_name || "",
+                      email: @current_user.email || ""
+                    }
 
-                    form_map ->
-                      # Use form data, but ensure all fields exist (fill missing ones with empty string)
-                      %{
-                        first_name:
-                          Map.get(form_map, :first_name) || Map.get(form_map, "first_name") || "",
-                        last_name:
-                          Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || "",
-                        email: Map.get(form_map, :email) || Map.get(form_map, "email") || ""
-                      }
-                  end
+                  has_selected_family_member ->
+                    # Use selected family member's details
+                    %{
+                      first_name: selected_family_member.first_name || "",
+                      last_name: selected_family_member.last_name || "",
+                      email: selected_family_member.email || ""
+                    }
+
+                  true ->
+                    # Use form data from @ticket_details_form (in-memory state only)
+                    # Don't query database on every render - form data is managed in memory
+                    case Map.get(@ticket_details_form, ticket_id_str) ||
+                           Map.get(@ticket_details_form, ticket.id) do
+                      nil ->
+                        # No form data yet, use empty values
+                        %{
+                          first_name: "",
+                          last_name: "",
+                          email: ""
+                        }
+
+                      form_map ->
+                        # Use form data, but ensure all fields exist (fill missing ones with empty string)
+                        %{
+                          first_name:
+                            Map.get(form_map, :first_name) || Map.get(form_map, "first_name") || "",
+                          last_name:
+                            Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || "",
+                          email: Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+                        }
+                    end
                 end %>
+
               <div class="border border-zinc-200 rounded-lg p-4 space-y-4">
                 <div class="flex items-center justify-between mb-2">
                   <div>
-                    <h4 class="text-base font-semibold text-zinc-900">
-                      Ticket #<%= ticket.reference_id %>
+                    <h4 class="text-sm font-semibold text-zinc-900">
+                      Ticket <%= index + 1 %> of <%= length(tickets_requiring_registration) %>
                     </h4>
-                    <p class="text-sm text-zinc-600">
+                    <p class="text-xs text-zinc-600">
                       <%= ticket.ticket_tier.name %>
                     </p>
                   </div>
                 </div>
 
-                <div class="mb-4">
-                  <label class="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      id={"ticket_#{ticket.id}_for_me_checkbox"}
-                      name={"ticket_#{ticket.id}_for_me"}
-                      value="true"
-                      checked={is_for_me}
-                      phx-click="toggle-ticket-for-me"
-                      phx-value-ticket-id={ticket.id}
-                      class="w-4 h-4 text-blue-600 border-zinc-300 rounded focus:ring-blue-500"
-                    />
-                    <span class="text-sm font-medium text-zinc-700">
-                      This ticket is for me
-                    </span>
-                  </label>
-                </div>
+                <% other_family_members =
+                  Enum.reject(family_members, fn member -> member.id == @current_user.id end) %>
 
+                <%!-- Streamlined Dropdown for "Who is this ticket for?" --%>
+                <form phx-change="select-ticket-attendee" phx-debounce="100">
+                  <input type="hidden" name="ticket_id" value={to_string(ticket.id)} />
+                  <div class="mb-4">
+                    <label
+                      for={"ticket_#{ticket.id}_attendee_select"}
+                      class="block text-sm font-medium text-zinc-700 mb-2"
+                    >
+                      Who is this ticket for?
+                    </label>
+                    <select
+                      id={"ticket_#{ticket.id}_attendee_select"}
+                      name={"ticket_#{ticket.id}_attendee_select"}
+                      value={
+                        cond do
+                          is_for_me -> "me"
+                          has_selected_family_member -> "family_#{selected_family_member.id}"
+                          true -> "other"
+                        end
+                      }
+                      class="block w-full rounded-md border-zinc-300 py-2.5 pl-3 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                    >
+                      <option value="me" disabled={me_already_selected_for_other_ticket && !is_for_me}>
+                        Me (<%= @current_user.first_name || @current_user.email %>)
+                        <%= if me_already_selected_for_other_ticket && !is_for_me do %>
+                          (Already selected for another ticket)
+                        <% end %>
+                      </option>
+                      <%= if length(other_family_members) > 0 do %>
+                        <optgroup label="Family Members">
+                          <%= for family_member <- other_family_members do %>
+                            <option value={"family_#{family_member.id}"}>
+                              <%= family_member.first_name %> <%= family_member.last_name %>
+                            </option>
+                          <% end %>
+                        </optgroup>
+                      <% end %>
+                      <option value="other" selected={!is_for_me && !has_selected_family_member}>
+                        Someone else (Enter details)
+                      </option>
+                    </select>
+                  </div>
+                </form>
+
+                <%!-- Manual Entry Form (shown when "Someone else" is selected) --%>
                 <form phx-change="update-registration-field" phx-debounce="500">
                   <div
                     id={"ticket_#{ticket.id}_registration_fields"}
-                    class={[!is_for_me && "block", is_for_me && "hidden"]}
+                    class={[
+                      !is_for_me && !has_selected_family_member && "block",
+                      (is_for_me || has_selected_family_member) && "hidden"
+                    ]}
                   >
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <div>
-                        <label
-                          for={"ticket_#{ticket.id}_first_name"}
-                          class="block text-sm font-medium text-zinc-700"
-                        >
-                          First Name
-                        </label>
-                        <input
-                          type="text"
-                          id={"ticket_#{ticket.id}_first_name"}
-                          name={"ticket_#{ticket.id}_first_name"}
-                          value={form_data.first_name}
-                          required={!is_for_me}
-                          disabled={is_for_me}
-                          phx-value-ticket-id={ticket.id}
-                          phx-value-field="first_name"
-                          class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
-                        />
+                    <div class="space-y-4">
+                      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div>
+                          <label
+                            for={"ticket_#{ticket.id}_first_name"}
+                            class="block text-sm font-medium text-zinc-700"
+                          >
+                            First Name
+                          </label>
+                          <input
+                            type="text"
+                            id={"ticket_#{ticket.id}_first_name"}
+                            name={"ticket_#{ticket.id}_first_name"}
+                            value={form_data.first_name}
+                            required={!is_for_me && !has_selected_family_member}
+                            disabled={is_for_me || has_selected_family_member}
+                            phx-value-ticket-id={ticket.id}
+                            phx-value-field="first_name"
+                            class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            for={"ticket_#{ticket.id}_last_name"}
+                            class="block text-sm font-medium text-zinc-700"
+                          >
+                            Last Name
+                          </label>
+                          <input
+                            type="text"
+                            id={"ticket_#{ticket.id}_last_name"}
+                            name={"ticket_#{ticket.id}_last_name"}
+                            value={form_data.last_name}
+                            required={!is_for_me && !has_selected_family_member}
+                            disabled={is_for_me || has_selected_family_member}
+                            phx-value-ticket-id={ticket.id}
+                            phx-value-field="last_name"
+                            class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
+                          />
+                        </div>
                       </div>
                       <div>
                         <label
-                          for={"ticket_#{ticket.id}_last_name"}
+                          for={"ticket_#{ticket.id}_email"}
                           class="block text-sm font-medium text-zinc-700"
                         >
-                          Last Name
+                          Email
                         </label>
                         <input
-                          type="text"
-                          id={"ticket_#{ticket.id}_last_name"}
-                          name={"ticket_#{ticket.id}_last_name"}
-                          value={form_data.last_name}
-                          required={!is_for_me}
-                          disabled={is_for_me}
+                          type="email"
+                          id={"ticket_#{ticket.id}_email"}
+                          name={"ticket_#{ticket.id}_email"}
+                          value={form_data.email}
+                          required={!is_for_me && !has_selected_family_member}
+                          disabled={is_for_me || has_selected_family_member}
+                          autocomplete="email"
                           phx-value-ticket-id={ticket.id}
-                          phx-value-field="last_name"
+                          phx-value-field="email"
                           class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
                         />
                       </div>
-                    </div>
-                    <div>
-                      <label
-                        for={"ticket_#{ticket.id}_email"}
-                        class="block text-sm font-medium text-zinc-700"
-                      >
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        id={"ticket_#{ticket.id}_email"}
-                        name={"ticket_#{ticket.id}_email"}
-                        value={form_data.email}
-                        required={!is_for_me}
-                        disabled={is_for_me}
-                        phx-value-ticket-id={ticket.id}
-                        phx-value-field="email"
-                        class="mt-2 block w-full rounded text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 border-zinc-300 focus:border-zinc-400"
-                      />
                     </div>
                   </div>
                 </form>
-                <div class={[is_for_me && "block", !is_for_me && "hidden"]}>
+
+                <%!-- Summary Display (shown when "Me" or "Family Member" is selected) --%>
+                <div class={[
+                  (is_for_me || has_selected_family_member) && "block",
+                  !is_for_me && !has_selected_family_member && "hidden"
+                ]}>
                   <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p class="text-sm text-blue-800">
                       <strong><%= form_data.first_name %> <%= form_data.last_name %></strong>
@@ -2046,6 +2416,16 @@ defmodule YscWeb.EventDetailsLive do
         # Check if we're on the tickets route (live_action == :tickets)
         show_ticket_modal = socket.assigns.live_action == :tickets
 
+        # Cache ticket tiers to avoid querying on every render
+        ticket_tiers = get_ticket_tiers(event_id)
+
+        # Cache availability data
+        availability_data =
+          case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
+            {:ok, availability} -> availability
+            {:error, _} -> nil
+          end
+
         {:ok,
          socket
          |> assign(:page_title, event.title)
@@ -2065,6 +2445,9 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:show_registration_modal, false)
          |> assign(:ticket_details_form, %{})
          |> assign(:tickets_for_me, %{})
+         |> assign(:selected_family_members, %{})
+         |> assign(:ticket_tiers, ticket_tiers)
+         |> assign(:availability_data, availability_data)
          |> assign(:load_radar, true)
          |> assign(:load_stripe, true)
          |> assign(:load_calendar, true)}
@@ -2127,29 +2510,90 @@ defmodule YscWeb.EventDetailsLive do
 
   # Restore checkout state from URL parameters
   defp restore_checkout_state_from_url(socket, order_id, checkout_step, event_id) do
+    require Logger
+
+    Logger.debug("restore_checkout_state_from_url: Starting restore",
+      order_id: order_id,
+      checkout_step: checkout_step,
+      event_id: event_id,
+      current_user_id: socket.assigns.current_user.id
+    )
+
     case Ysc.Tickets.get_ticket_order(order_id) do
       nil ->
+        Logger.warning("restore_checkout_state_from_url: Order not found", order_id: order_id)
+
         socket
         |> put_flash(:error, "Order not found")
         |> push_patch(to: ~p"/events/#{event_id}")
 
       ticket_order ->
+        Logger.debug(
+          "restore_checkout_state_from_url: Order found - order_id=#{ticket_order.id}, order_user_id=#{ticket_order.user_id}, order_event_id=#{ticket_order.event_id}, order_status=#{inspect(ticket_order.status)}, order_expires_at=#{inspect(ticket_order.expires_at)}, current_user_id=#{socket.assigns.current_user.id}, expected_event_id=#{event_id}"
+        )
+
         # Verify the order belongs to the current user and event
-        if ticket_order.user_id == socket.assigns.current_user.id &&
-             ticket_order.event_id == event_id &&
-             ticket_order.status == :pending do
+        user_matches = ticket_order.user_id == socket.assigns.current_user.id
+        event_matches = ticket_order.event_id == event_id
+        status_pending = ticket_order.status == :pending
+
+        Logger.debug(
+          "restore_checkout_state_from_url: Validation checks - user_matches=#{user_matches}, event_matches=#{event_matches}, status_pending=#{status_pending}, order_status=#{inspect(ticket_order.status)}, all_valid=#{user_matches && event_matches && status_pending}"
+        )
+
+        if user_matches && event_matches && status_pending do
           # Check if order has expired
-          if DateTime.compare(DateTime.utc_now(), ticket_order.expires_at) == :gt do
+          now = DateTime.utc_now()
+          is_expired = DateTime.compare(now, ticket_order.expires_at) == :gt
+
+          Logger.debug("restore_checkout_state_from_url: Expiration check",
+            now: now,
+            expires_at: ticket_order.expires_at,
+            is_expired: is_expired
+          )
+
+          if is_expired do
+            Logger.warning("restore_checkout_state_from_url: Order expired",
+              order_id: ticket_order.id,
+              expires_at: ticket_order.expires_at,
+              now: now
+            )
+
             socket
             |> put_flash(:error, "This order has expired. Please create a new order.")
             |> push_patch(to: ~p"/events/#{event_id}")
           else
+            Logger.debug("restore_checkout_state_from_url: All checks passed, restoring state",
+              order_id: ticket_order.id,
+              checkout_step: checkout_step
+            )
+
             # Restore the ticket order and payment intent based on checkout step
             restore_payment_state_from_url(socket, ticket_order, checkout_step)
           end
         else
+          Logger.error(
+            "restore_checkout_state_from_url: Validation failed - order_id=#{ticket_order.id}, user_matches=#{user_matches}, event_matches=#{event_matches}, status_pending=#{status_pending}, order_user_id=#{ticket_order.user_id}, current_user_id=#{socket.assigns.current_user.id}, order_event_id=#{ticket_order.event_id}, expected_event_id=#{event_id}, order_status=#{inspect(ticket_order.status)}"
+          )
+
+          # Provide a more specific error message based on the order status
+          error_message =
+            case ticket_order.status do
+              :cancelled ->
+                "This order was cancelled. Please select your tickets again to create a new order."
+
+              :completed ->
+                "This order has already been completed. Please check your tickets."
+
+              :expired ->
+                "This order has expired. Please select your tickets again to create a new order."
+
+              _ ->
+                "Cannot resume this order. Please select your tickets again."
+            end
+
           socket
-          |> put_flash(:error, "Cannot resume this order")
+          |> put_flash(:error, error_message)
           |> push_patch(to: ~p"/events/#{event_id}")
         end
     end
@@ -2157,37 +2601,111 @@ defmodule YscWeb.EventDetailsLive do
 
   # Restore checkout state from a pending order (legacy support)
   defp restore_checkout_state(socket, order_id, event_id) do
+    require Logger
+
+    Logger.debug("restore_checkout_state: Starting restore (legacy)",
+      order_id: order_id,
+      event_id: event_id,
+      current_user_id: socket.assigns.current_user.id
+    )
+
     # Determine checkout step based on order amount
     case Ysc.Tickets.get_ticket_order(order_id) do
       nil ->
+        Logger.warning("restore_checkout_state: Order not found", order_id: order_id)
+
         socket
         |> put_flash(:error, "Order not found")
 
       ticket_order ->
+        Logger.debug(
+          "restore_checkout_state: Order found - order_id=#{ticket_order.id}, order_user_id=#{ticket_order.user_id}, order_event_id=#{ticket_order.event_id}, order_status=#{inspect(ticket_order.status)}, order_total_amount=#{inspect(ticket_order.total_amount)}, current_user_id=#{socket.assigns.current_user.id}, expected_event_id=#{event_id}"
+        )
+
         # Verify the order belongs to the current user and event
-        if ticket_order.user_id == socket.assigns.current_user.id &&
-             ticket_order.event_id == event_id &&
-             ticket_order.status == :pending do
+        user_matches = ticket_order.user_id == socket.assigns.current_user.id
+        event_matches = ticket_order.event_id == event_id
+        status_pending = ticket_order.status == :pending
+
+        Logger.debug(
+          "restore_checkout_state: Validation checks - user_matches=#{user_matches}, event_matches=#{event_matches}, status_pending=#{status_pending}, all_valid=#{user_matches && event_matches && status_pending}"
+        )
+
+        if user_matches && event_matches && status_pending do
           # Check if order has expired
-          if DateTime.compare(DateTime.utc_now(), ticket_order.expires_at) == :gt do
+          now = DateTime.utc_now()
+          is_expired = DateTime.compare(now, ticket_order.expires_at) == :gt
+
+          Logger.debug("restore_checkout_state: Expiration check",
+            now: now,
+            expires_at: ticket_order.expires_at,
+            is_expired: is_expired
+          )
+
+          if is_expired do
+            Logger.warning("restore_checkout_state: Order expired",
+              order_id: ticket_order.id,
+              expires_at: ticket_order.expires_at,
+              now: now
+            )
+
             socket
             |> put_flash(:error, "This order has expired. Please create a new order.")
           else
-            # Determine checkout step and restore
             checkout_step = if Money.zero?(ticket_order.total_amount), do: "free", else: "payment"
+
+            Logger.debug("restore_checkout_state: All checks passed, restoring state",
+              order_id: ticket_order.id,
+              checkout_step: checkout_step
+            )
+
+            # Determine checkout step and restore
             restore_payment_state_from_url(socket, ticket_order, checkout_step)
           end
         else
+          Logger.error(
+            "restore_checkout_state: Validation failed - order_id=#{ticket_order.id}, user_matches=#{user_matches}, event_matches=#{event_matches}, status_pending=#{status_pending}, order_user_id=#{ticket_order.user_id}, current_user_id=#{socket.assigns.current_user.id}, order_event_id=#{ticket_order.event_id}, expected_event_id=#{event_id}, order_status=#{inspect(ticket_order.status)}"
+          )
+
+          # Provide a more specific error message based on the order status
+          error_message =
+            case ticket_order.status do
+              :cancelled ->
+                "This order was cancelled. Please select your tickets again to create a new order."
+
+              :completed ->
+                "This order has already been completed. Please check your tickets."
+
+              :expired ->
+                "This order has expired. Please select your tickets again to create a new order."
+
+              _ ->
+                "Cannot resume this order. Please select your tickets again."
+            end
+
           socket
-          |> put_flash(:error, "Cannot resume this order")
+          |> put_flash(:error, error_message)
         end
     end
   end
 
   # Restore payment state from URL (payment intent or free ticket confirmation)
   defp restore_payment_state_from_url(socket, ticket_order, checkout_step) do
+    require Logger
+
+    Logger.debug("restore_payment_state_from_url: Starting restore",
+      order_id: ticket_order.id,
+      checkout_step: checkout_step
+    )
+
     # Reload ticket order with tickets and tiers
     ticket_order = Ysc.Tickets.get_ticket_order(ticket_order.id)
+
+    Logger.debug("restore_payment_state_from_url: Ticket order reloaded",
+      order_id: ticket_order.id,
+      tickets_count: length(ticket_order.tickets || []),
+      total_amount: ticket_order.total_amount
+    )
 
     # Reconstruct selected_tickets map from the ticket order
     selected_tickets = build_selected_tickets_from_order(ticket_order)
@@ -2196,26 +2714,71 @@ defmodule YscWeb.EventDetailsLive do
     tickets_requiring_registration =
       get_tickets_requiring_registration(ticket_order.tickets)
 
+    # Load family members for the current user
+    family_members = Ysc.Accounts.get_family_group(socket.assigns.current_user)
+
     # Initialize ticket details form with existing registrations or empty values
+    # Pre-fill first ticket with user details if it's defaulted to "for me"
+    # For non-first tickets, leave form data empty (they default to "Someone else")
     ticket_details_form =
       tickets_requiring_registration
-      |> Enum.reduce(%{}, fn ticket, acc ->
+      |> Enum.with_index()
+      |> Enum.reduce(%{}, fn {ticket, index}, acc ->
         ticket_detail = Ysc.Events.get_registration_for_ticket(ticket.id)
         ticket_id_str = to_string(ticket.id)
 
-        Map.put(acc, ticket_id_str, %{
-          first_name: if(ticket_detail, do: ticket_detail.first_name, else: ""),
-          last_name: if(ticket_detail, do: ticket_detail.last_name, else: ""),
-          email: if(ticket_detail, do: ticket_detail.email, else: "")
-        })
+        # If this is the first ticket and it's defaulted to "for me", pre-fill with user details
+        # For non-first tickets (index > 0), always use empty values (they default to "Someone else")
+        form_data =
+          if index == 0 && is_nil(ticket_detail) do
+            %{
+              first_name: socket.assigns.current_user.first_name || "",
+              last_name: socket.assigns.current_user.last_name || "",
+              email: socket.assigns.current_user.email || ""
+            }
+          else
+            # For non-first tickets or tickets with existing details, use empty or existing values
+            %{
+              first_name: if(ticket_detail, do: ticket_detail.first_name, else: ""),
+              last_name: if(ticket_detail, do: ticket_detail.last_name, else: ""),
+              email: if(ticket_detail, do: ticket_detail.email, else: "")
+            }
+          end
+
+        Map.put(acc, ticket_id_str, form_data)
       end)
 
-    # Initialize tickets_for_me map (all false by default)
+    # Initialize tickets_for_me map
+    # Smart default: First ticket defaults to "for me" for better UX
     tickets_for_me =
       tickets_requiring_registration
-      |> Enum.reduce(%{}, fn ticket, acc ->
-        Map.put(acc, ticket.id, false)
+      |> Enum.with_index()
+      |> Enum.reduce(%{}, fn {ticket, index}, acc ->
+        # Default first ticket (index 0) to "for me"
+        # Use string key for consistency with handler
+        Map.put(acc, to_string(ticket.id), index == 0)
       end)
+
+    # Initialize selected_family_members map (tracks which family member is selected for each ticket)
+    selected_family_members =
+      tickets_requiring_registration
+      |> Enum.reduce(%{}, fn ticket, acc ->
+        # Use string key for consistency with handler
+        Map.put(acc, to_string(ticket.id), nil)
+      end)
+
+    # Initialize active_ticket_index for progressive disclosure (first ticket is active by default)
+    active_ticket_index =
+      if length(tickets_requiring_registration) > 0, do: 0, else: nil
+
+    # Cache ticket tiers and availability data (needed for payment modal order summary)
+    ticket_tiers = get_ticket_tiers(ticket_order.event_id)
+
+    availability_data =
+      case Ysc.Tickets.BookingLocker.check_availability_with_lock(ticket_order.event_id) do
+        {:ok, availability} -> availability
+        {:error, _} -> nil
+      end
 
     socket = socket |> assign(:selected_tickets, selected_tickets)
 
@@ -2229,11 +2792,31 @@ defmodule YscWeb.EventDetailsLive do
         |> assign(:tickets_requiring_registration, tickets_requiring_registration)
         |> assign(:ticket_details_form, ticket_details_form)
         |> assign(:tickets_for_me, tickets_for_me)
+        |> assign(:selected_family_members, selected_family_members)
+        |> assign(:family_members, family_members)
+        |> assign(:active_ticket_index, active_ticket_index)
+        |> assign(:ticket_tiers, ticket_tiers)
+        |> assign(:availability_data, availability_data)
 
       "payment" ->
         # For paid tickets, retrieve or create payment intent and show payment modal with registration
+        require Logger
+
+        Logger.debug("restore_payment_state_from_url: Retrieving/creating payment intent",
+          order_id: ticket_order.id,
+          payment_intent_id: ticket_order.payment_intent_id,
+          user_stripe_id: socket.assigns.current_user.stripe_id
+        )
+
         case retrieve_or_create_payment_intent(ticket_order, socket.assigns.current_user) do
           {:ok, payment_intent} ->
+            Logger.debug(
+              "restore_payment_state_from_url: Payment intent retrieved/created successfully",
+              order_id: ticket_order.id,
+              payment_intent_id: payment_intent.id,
+              payment_intent_status: payment_intent.status
+            )
+
             socket
             |> assign(:show_ticket_modal, false)
             |> assign(:show_payment_modal, true)
@@ -2243,8 +2826,18 @@ defmodule YscWeb.EventDetailsLive do
             |> assign(:tickets_requiring_registration, tickets_requiring_registration)
             |> assign(:ticket_details_form, ticket_details_form)
             |> assign(:tickets_for_me, tickets_for_me)
+            |> assign(:selected_family_members, selected_family_members)
+            |> assign(:family_members, family_members)
+            |> assign(:ticket_tiers, ticket_tiers)
+            |> assign(:availability_data, availability_data)
 
           {:error, reason} ->
+            Logger.error(
+              "restore_payment_state_from_url: Failed to retrieve/create payment intent",
+              order_id: ticket_order.id,
+              error: reason
+            )
+
             socket
             |> put_flash(:error, "Failed to restore payment: #{reason}")
             |> push_patch(to: ~p"/events/#{socket.assigns.event.id}")
@@ -2600,10 +3193,21 @@ defmodule YscWeb.EventDetailsLive do
       event = Repo.get(Event, event_id) |> Repo.preload(:ticket_tiers)
       event_with_pricing = add_pricing_info(event)
 
+      # Refresh cached ticket tiers and availability data
+      ticket_tiers = get_ticket_tiers(event_id)
+
+      availability_data =
+        case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
+          {:ok, availability} -> availability
+          {:error, _} -> socket.assigns.availability_data
+        end
+
       # Trigger animation on all tier availability elements
       {:noreply,
        socket
        |> assign(:event, event_with_pricing)
+       |> assign(:ticket_tiers, ticket_tiers)
+       |> assign(:availability_data, availability_data)
        |> push_event("animate-availability-update", %{})}
     else
       {:noreply, socket}
@@ -2785,7 +3389,10 @@ defmodule YscWeb.EventDetailsLive do
       ticket_details_list =
         tickets_requiring_registration
         |> Enum.map(fn ticket ->
-          is_for_me = Map.get(tickets_for_me, ticket.id, false)
+          # Check both string and atom keys for tickets_for_me
+          is_for_me =
+            Map.get(tickets_for_me, ticket.id, false) ||
+              Map.get(tickets_for_me, to_string(ticket.id), false)
 
           if is_for_me do
             # Use current user's details (use actual values, not empty strings)
@@ -2819,7 +3426,10 @@ defmodule YscWeb.EventDetailsLive do
         |> Enum.with_index()
         |> Enum.all?(fn {ticket, index} ->
           detail = Enum.at(ticket_details_list, index)
-          is_for_me = Map.get(tickets_for_me, ticket.id, false)
+          # Check both string and atom keys for tickets_for_me
+          is_for_me =
+            Map.get(tickets_for_me, ticket.id, false) ||
+              Map.get(tickets_for_me, to_string(ticket.id), false)
 
           if is_for_me do
             # For "for me" tickets, validate user's account has required fields
@@ -3195,17 +3805,239 @@ defmodule YscWeb.EventDetailsLive do
         })
       end
 
+    # Clear selected family member when "for me" is toggled
+    selected_family_members = socket.assigns.selected_family_members || %{}
+
+    updated_selected_family_members =
+      if new_state do
+        # Clear family member selection when "for me" is checked
+        Map.put(selected_family_members, ticket_id_normalized, nil)
+      else
+        selected_family_members
+      end
+
     {:noreply,
      socket
      |> assign(:tickets_for_me, updated_tickets_for_me)
-     |> assign(:ticket_details_form, updated_form)}
+     |> assign(:ticket_details_form, updated_form)
+     |> assign(:selected_family_members, updated_selected_family_members)}
   end
 
   @impl true
-  def handle_event("test-registration-event", _params, socket) do
+  def handle_event("select-family-member", params, socket) do
+    # Extract ticket_id from phx-value-ticket-id
+    ticket_id = params["ticket-id"] || params["ticket_id"]
+
+    # Get the selected user ID from the select value
+    # The select name is "ticket_#{ticket_id}_family_member", so we need to extract it from params
+    select_name = "ticket_#{ticket_id}_family_member"
+    user_id = params[select_name] || params["user-id"]
+
+    if ticket_id && user_id && user_id != "" do
+      # Find the selected family member
+      family_members = socket.assigns.family_members || []
+
+      selected_user =
+        Enum.find(family_members, fn user -> to_string(user.id) == to_string(user_id) end)
+
+      if selected_user do
+        # Normalize ticket_id
+        ticket_id_normalized =
+          socket.assigns.tickets_requiring_registration
+          |> Enum.find(fn ticket -> to_string(ticket.id) == to_string(ticket_id) end)
+          |> case do
+            %{id: id} -> id
+            nil -> ticket_id
+          end
+
+        ticket_details_form = socket.assigns.ticket_details_form || %{}
+        ticket_id_str = to_string(ticket_id_normalized)
+
+        # Auto-fill with selected family member's details
+        updated_form =
+          Map.put(ticket_details_form, ticket_id_str, %{
+            first_name: selected_user.first_name || "",
+            last_name: selected_user.last_name || "",
+            email: selected_user.email || ""
+          })
+
+        # Uncheck "for me" if it was checked (since we're selecting a different family member)
+        tickets_for_me = socket.assigns.tickets_for_me || %{}
+        updated_tickets_for_me = Map.put(tickets_for_me, ticket_id_normalized, false)
+
+        # Track the selected family member for this ticket
+        selected_family_members = socket.assigns.selected_family_members || %{}
+
+        updated_selected_family_members =
+          Map.put(selected_family_members, ticket_id_normalized, selected_user.id)
+
+        {:noreply,
+         socket
+         |> assign(:ticket_details_form, updated_form)
+         |> assign(:tickets_for_me, updated_tickets_for_me)
+         |> assign(:selected_family_members, updated_selected_family_members)}
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("select-ticket-attendee", params, socket) do
     require Logger
-    Logger.info("TEST: Registration event fired successfully!")
-    {:noreply, socket}
+
+    # Get ticket_id from the hidden field
+    ticket_id = params["ticket_id"]
+
+    # Get the selected value directly from the select field
+    # The select field name is "ticket_#{ticket_id}_attendee_select"
+    selected_value =
+      if ticket_id do
+        select_field_name = "ticket_#{ticket_id}_attendee_select"
+        params[select_field_name]
+      else
+        nil
+      end
+
+    if ticket_id && selected_value do
+      # Normalize ticket_id - find the actual ticket to get its ID
+      ticket_id_normalized =
+        socket.assigns.tickets_requiring_registration
+        |> Enum.find(fn ticket -> to_string(ticket.id) == to_string(ticket_id) end)
+        |> case do
+          %{id: id} -> id
+          nil -> ticket_id
+        end
+
+      ticket_id_str = to_string(ticket_id_normalized)
+      ticket_details_form = socket.assigns.ticket_details_form || %{}
+      tickets_for_me = socket.assigns.tickets_for_me || %{}
+      selected_family_members = socket.assigns.selected_family_members || %{}
+      family_members = socket.assigns.family_members || []
+
+      {updated_tickets_for_me, updated_selected_family_members, updated_form} =
+        cond do
+          selected_value == "me" ->
+            # Check if "Me" is already selected for another ticket
+            me_already_selected =
+              socket.assigns.tickets_requiring_registration
+              |> Enum.any?(fn other_ticket ->
+                other_ticket_id_str = to_string(other_ticket.id)
+
+                other_ticket_id_str != ticket_id_str &&
+                  (Map.get(tickets_for_me, other_ticket.id, false) ||
+                     Map.get(tickets_for_me, other_ticket_id_str, false))
+              end)
+
+            if me_already_selected do
+              # "Me" is already selected for another ticket, don't allow this selection
+              Logger.warning(
+                "select-ticket-attendee: Attempted to select 'Me' for ticket #{ticket_id_str}, but 'Me' is already selected for another ticket"
+              )
+
+              # Return unchanged state
+              {tickets_for_me, selected_family_members, ticket_details_form}
+            else
+              # Select "Me" - first unset "Me" for any other tickets
+              updated_tickets_for_me =
+                socket.assigns.tickets_requiring_registration
+                |> Enum.reduce(tickets_for_me, fn other_ticket, acc ->
+                  other_ticket_id_str = to_string(other_ticket.id)
+                  # Unset "Me" for all other tickets
+                  if other_ticket_id_str != ticket_id_str do
+                    Map.put(acc, other_ticket_id_str, false)
+                  else
+                    acc
+                  end
+                end)
+                |> Map.put(ticket_id_str, true)
+
+              # Clear selected family members for all tickets (since we're selecting "Me")
+              updated_selected_family_members =
+                socket.assigns.tickets_requiring_registration
+                |> Enum.reduce(selected_family_members, fn other_ticket, acc ->
+                  other_ticket_id_str = to_string(other_ticket.id)
+                  Map.put(acc, other_ticket_id_str, nil)
+                end)
+
+              form_data = %{
+                first_name: socket.assigns.current_user.first_name || "",
+                last_name: socket.assigns.current_user.last_name || "",
+                email: socket.assigns.current_user.email || ""
+              }
+
+              {
+                updated_tickets_for_me,
+                updated_selected_family_members,
+                Map.put(ticket_details_form, ticket_id_str, form_data)
+              }
+            end
+
+          selected_value == "other" ->
+            # Select "Someone else" - clear selections and form data
+            {
+              Map.put(tickets_for_me, ticket_id_str, false),
+              Map.put(selected_family_members, ticket_id_str, nil),
+              # Clear form data for this ticket so fields show as empty
+              Map.put(ticket_details_form, ticket_id_str, %{
+                first_name: "",
+                last_name: "",
+                email: ""
+              })
+            }
+
+          is_binary(selected_value) and String.starts_with?(selected_value, "family_") ->
+            # Select a family member
+            user_id_str = String.replace(selected_value, "family_", "")
+
+            selected_user =
+              Enum.find(family_members, fn u -> to_string(u.id) == user_id_str end)
+
+            if selected_user do
+              form_data = %{
+                first_name: selected_user.first_name || "",
+                last_name: selected_user.last_name || "",
+                email: selected_user.email || ""
+              }
+
+              {
+                Map.put(tickets_for_me, ticket_id_str, false),
+                Map.put(selected_family_members, ticket_id_str, selected_user.id),
+                Map.put(ticket_details_form, ticket_id_str, form_data)
+              }
+            else
+              {tickets_for_me, selected_family_members, ticket_details_form}
+            end
+
+          true ->
+            {tickets_for_me, selected_family_members, ticket_details_form}
+        end
+
+      {:noreply,
+       socket
+       |> assign(:ticket_details_form, updated_form)
+       |> assign(:tickets_for_me, updated_tickets_for_me)
+       |> assign(:selected_family_members, updated_selected_family_members)}
+    else
+      Logger.warning(
+        "select-ticket-attendee: Missing ticket_id or selected_value. ticket_id=#{inspect(ticket_id)}, selected_value=#{inspect(selected_value)}, all_params=#{inspect(params)}"
+      )
+
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("expand-ticket-registration", %{"ticket-index" => ticket_index_str}, socket) do
+    ticket_index = String.to_integer(ticket_index_str)
+    current_active = socket.assigns.active_ticket_index || 0
+
+    # Toggle: if clicking the same ticket, collapse it; otherwise expand the new one
+    new_active_index = if current_active == ticket_index, do: nil, else: ticket_index
+
+    {:noreply, assign(socket, :active_ticket_index, new_active_index)}
   end
 
   @impl true
@@ -3238,10 +4070,6 @@ defmodule YscWeb.EventDetailsLive do
         end
       end)
 
-    Logger.debug(
-      "update-registration-field: ticket_fields=#{inspect(ticket_fields)}, params_keys=#{inspect(Map.keys(params))}"
-    )
-
     if map_size(ticket_fields) > 0 do
       # Update the ticket_details_form assign with all fields for all tickets
       updated_form =
@@ -3253,14 +4081,8 @@ defmodule YscWeb.EventDetailsLive do
           Map.put(acc, ticket_id_str, merged_data)
         end)
 
-      Logger.debug("Stored form data: #{inspect(updated_form)}")
-
       {:noreply, assign(socket, :ticket_details_form, updated_form)}
     else
-      Logger.warning(
-        "update-registration-field: No ticket fields found in params: #{inspect(Map.keys(params))}"
-      )
-
       {:noreply, socket}
     end
   end
@@ -3339,21 +4161,26 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_event("increase-ticket-quantity", %{"tier-id" => tier_id}, socket) do
-    ticket_tier = get_ticket_tier_by_id(socket.assigns.event.id, tier_id)
+    # Use cached ticket tiers instead of querying
+    ticket_tier =
+      socket.assigns.ticket_tiers
+      |> Enum.find(&(&1.id == tier_id))
 
     # Only handle quantity changes for non-donation tiers
-    if ticket_tier.type == "donation" || ticket_tier.type == :donation do
+    if ticket_tier && (ticket_tier.type == "donation" || ticket_tier.type == :donation) do
       {:noreply, socket}
     else
       current_quantity = get_ticket_quantity(socket.assigns.selected_tickets, tier_id)
 
-      # Check if we can increase the quantity before proceeding
-      if can_increase_quantity?(
-           ticket_tier,
-           current_quantity,
-           socket.assigns.selected_tickets,
-           socket.assigns.event
-         ) do
+      # Use cached availability data for faster checks
+      if ticket_tier &&
+           can_increase_quantity_cached?(
+             ticket_tier,
+             current_quantity,
+             socket.assigns.selected_tickets,
+             socket.assigns.event,
+             socket.assigns.availability_data
+           ) do
         new_quantity = current_quantity + 1
         # Preserve all existing selected_tickets, only update this tier's quantity
         updated_tickets = Map.put(socket.assigns.selected_tickets, tier_id, new_quantity)
@@ -3838,6 +4665,61 @@ defmodule YscWeb.EventDetailsLive do
     end
   end
 
+  # Optimized version that uses cached availability data
+  defp can_increase_quantity_cached?(
+         ticket_tier,
+         current_quantity,
+         selected_tickets,
+         event,
+         availability_data
+       ) do
+    # Can't increase if not on sale
+    if !tier_on_sale?(ticket_tier) do
+      false
+    else
+      # Donations don't count toward capacity
+      if ticket_tier.type == "donation" || ticket_tier.type == :donation do
+        true
+      else
+        # Use cached availability data if available, otherwise fall back to query
+        case availability_data do
+          nil ->
+            # Fallback to query if cache is not available
+            can_increase_quantity?(ticket_tier, current_quantity, selected_tickets, event)
+
+          availability ->
+            tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
+            event_capacity = availability.event_capacity
+
+            # Check tier availability first
+            tier_available =
+              cond do
+                tier_info == nil -> false
+                tier_info.available == :unlimited -> true
+                true -> current_quantity < tier_info.available
+              end
+
+            # Check event global capacity
+            event_available =
+              case event_capacity.available do
+                :unlimited ->
+                  true
+
+                available ->
+                  # Calculate total selected tickets (excluding donations)
+                  # Use optimized version if ticket_tiers are available in assigns
+                  total_selected = calculate_total_selected_tickets(selected_tickets, event.id)
+                  # Check if adding one more ticket would exceed capacity
+                  total_selected + 1 <= available
+              end
+
+            tier_available && event_available
+        end
+      end
+    end
+  end
+
+  # Original version kept for fallback
   defp can_increase_quantity?(ticket_tier, current_quantity, selected_tickets, event) do
     # Can't increase if not on sale
     if !tier_on_sale?(ticket_tier) do
@@ -3882,6 +4764,7 @@ defmodule YscWeb.EventDetailsLive do
     end
   end
 
+  # Original version kept for compatibility
   defp calculate_total_selected_tickets(selected_tickets, event_id) do
     selected_tickets
     |> Enum.reduce(0, fn {tier_id, quantity}, acc ->
@@ -4091,26 +4974,62 @@ defmodule YscWeb.EventDetailsLive do
     tickets_requiring_registration =
       get_tickets_requiring_registration(ticket_order_with_tickets.tickets)
 
+    # Load family members for the current user
+    family_members = Ysc.Accounts.get_family_group(socket.assigns.current_user)
+
     # Initialize ticket details form with existing registrations or empty values
+    # Pre-fill first ticket with user details if it's defaulted to "for me"
+    # For non-first tickets, leave form data empty (they default to "Someone else")
     ticket_details_form =
       tickets_requiring_registration
-      |> Enum.reduce(%{}, fn ticket, acc ->
+      |> Enum.with_index()
+      |> Enum.reduce(%{}, fn {ticket, index}, acc ->
         ticket_detail = Ysc.Events.get_registration_for_ticket(ticket.id)
         ticket_id_str = to_string(ticket.id)
 
-        Map.put(acc, ticket_id_str, %{
-          first_name: if(ticket_detail, do: ticket_detail.first_name, else: ""),
-          last_name: if(ticket_detail, do: ticket_detail.last_name, else: ""),
-          email: if(ticket_detail, do: ticket_detail.email, else: "")
-        })
+        # If this is the first ticket and it's defaulted to "for me", pre-fill with user details
+        # For non-first tickets (index > 0), always use empty values (they default to "Someone else")
+        form_data =
+          if index == 0 && is_nil(ticket_detail) do
+            %{
+              first_name: socket.assigns.current_user.first_name || "",
+              last_name: socket.assigns.current_user.last_name || "",
+              email: socket.assigns.current_user.email || ""
+            }
+          else
+            # For non-first tickets or tickets with existing details, use empty or existing values
+            %{
+              first_name: if(ticket_detail, do: ticket_detail.first_name, else: ""),
+              last_name: if(ticket_detail, do: ticket_detail.last_name, else: ""),
+              email: if(ticket_detail, do: ticket_detail.email, else: "")
+            }
+          end
+
+        Map.put(acc, ticket_id_str, form_data)
       end)
 
-    # Initialize tickets_for_me map (all false by default)
+    # Initialize tickets_for_me map
+    # Smart default: First ticket defaults to "for me" for better UX
     tickets_for_me =
       tickets_requiring_registration
-      |> Enum.reduce(%{}, fn ticket, acc ->
-        Map.put(acc, ticket.id, false)
+      |> Enum.with_index()
+      |> Enum.reduce(%{}, fn {ticket, index}, acc ->
+        # Default first ticket (index 0) to "for me"
+        # Use string key for consistency with handler
+        Map.put(acc, to_string(ticket.id), index == 0)
       end)
+
+    # Initialize selected_family_members map (tracks which family member is selected for each ticket)
+    selected_family_members =
+      tickets_requiring_registration
+      |> Enum.reduce(%{}, fn ticket, acc ->
+        # Use string key for consistency with handler
+        Map.put(acc, to_string(ticket.id), nil)
+      end)
+
+    # Initialize active_ticket_index for progressive disclosure (first ticket is active by default)
+    active_ticket_index =
+      if length(tickets_requiring_registration) > 0, do: 0, else: nil
 
     # Check if this is a free order (zero amount)
     if Money.zero?(ticket_order_with_tickets.total_amount) do
@@ -4124,6 +5043,8 @@ defmodule YscWeb.EventDetailsLive do
        |> assign(:tickets_requiring_registration, tickets_requiring_registration)
        |> assign(:ticket_details_form, ticket_details_form)
        |> assign(:tickets_for_me, tickets_for_me)
+       |> assign(:selected_family_members, selected_family_members)
+       |> assign(:family_members, family_members)
        |> push_patch(
          to:
            ~p"/events/#{socket.assigns.event.id}?checkout=free&order_id=#{ticket_order_with_tickets.id}"
@@ -4146,6 +5067,9 @@ defmodule YscWeb.EventDetailsLive do
            |> assign(:tickets_requiring_registration, tickets_requiring_registration)
            |> assign(:ticket_details_form, ticket_details_form)
            |> assign(:tickets_for_me, tickets_for_me)
+           |> assign(:selected_family_members, selected_family_members)
+           |> assign(:family_members, family_members)
+           |> assign(:active_ticket_index, active_ticket_index)
            |> push_patch(
              to:
                ~p"/events/#{socket.assigns.event.id}?checkout=payment&order_id=#{ticket_order_with_tickets.id}"
