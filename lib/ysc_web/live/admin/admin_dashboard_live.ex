@@ -95,8 +95,14 @@ defmodule YscWeb.AdminDashboardLive do
                 <p class="text-3xl font-black text-emerald-600">
                   <%= format_money(@current_month_revenue) %>
                 </p>
-                <span class="text-[10px] font-bold text-emerald-600 flex items-center">
-                  <.icon name="hero-arrow-trending-up" class="w-3 h-3 mr-1" />
+                <span class={[
+                  "text-[10px] font-bold flex items-center",
+                  get_revenue_change_color_class(@revenue_change_direction)
+                ]}>
+                  <.icon
+                    name={get_revenue_change_icon(@revenue_change_direction)}
+                    class="w-3 h-3 mr-1"
+                  />
                   <%= @revenue_change_text %>
                 </span>
               </div>
@@ -406,7 +412,8 @@ defmodule YscWeb.AdminDashboardLive do
     events_with_tickets = Events.get_upcoming_events_with_ticket_tier_counts()
     pending_users = Accounts.get_pending_approval_users()
 
-    {current_revenue, revenue_change_text, last_month_revenue, last_year_month_revenue} =
+    {current_revenue, revenue_change_text, revenue_change_direction, last_month_revenue,
+     last_year_month_revenue} =
       calculate_revenue_stats()
 
     next_event_date = get_next_event_date(events_with_tickets)
@@ -430,6 +437,7 @@ defmodule YscWeb.AdminDashboardLive do
      |> assign(:pending_reviews_count, length(pending_users))
      |> assign(:current_month_revenue, current_revenue)
      |> assign(:revenue_change_text, revenue_change_text)
+     |> assign(:revenue_change_direction, revenue_change_direction)
      |> assign(:last_month_revenue, last_month_revenue)
      |> assign(:last_year_month_revenue, last_year_month_revenue)
      |> assign(:next_event_date, next_event_date)
@@ -695,6 +703,24 @@ defmodule YscWeb.AdminDashboardLive do
     end
   end
 
+  defp get_revenue_change_color_class(direction) do
+    case direction do
+      :up -> "text-emerald-600"
+      :down -> "text-orange-600"
+      :stable -> "text-zinc-600"
+      _ -> "text-zinc-600"
+    end
+  end
+
+  defp get_revenue_change_icon(direction) do
+    case direction do
+      :up -> "hero-arrow-trending-up"
+      :down -> "hero-arrow-trending-down"
+      :stable -> "hero-minus"
+      _ -> "hero-minus"
+    end
+  end
+
   defp calculate_progress_percentage(tier) do
     if tier.quantity && tier.quantity > 0 do
       min(100, round(tier.sold_tickets_count / tier.quantity * 100))
@@ -730,7 +756,7 @@ defmodule YscWeb.AdminDashboardLive do
     prev_revenue = get_month_revenue(prev_month_start, month_start)
     last_year_revenue = get_month_revenue(last_year_month_start, last_year_month_end)
 
-    revenue_change_text =
+    {revenue_change_text, revenue_change_direction} =
       if Decimal.gt?(prev_revenue.amount, Decimal.new(0)) do
         current_amount = Decimal.to_float(current_revenue.amount)
         prev_amount = Decimal.to_float(prev_revenue.amount)
@@ -739,16 +765,20 @@ defmodule YscWeb.AdminDashboardLive do
 
         month_name = Timex.format!(prev_month_start, "{Mshort}")
 
-        if change_percent >= 0 do
-          "+#{change_percent}% from #{month_name}"
-        else
-          "#{change_percent}% from #{month_name}"
-        end
+        {text, direction} =
+          cond do
+            change_percent > 0 -> {"+#{change_percent}% from #{month_name}", :up}
+            change_percent < 0 -> {"#{change_percent}% from #{month_name}", :down}
+            true -> {"0% from #{month_name}", :stable}
+          end
+
+        {text, direction}
       else
-        "First month"
+        {"First month", :stable}
       end
 
-    {current_revenue, revenue_change_text, prev_revenue, last_year_revenue}
+    {current_revenue, revenue_change_text, revenue_change_direction, prev_revenue,
+     last_year_revenue}
   end
 
   defp get_month_revenue(start_date, end_date) do
