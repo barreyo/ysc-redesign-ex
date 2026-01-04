@@ -59,7 +59,7 @@ defmodule YscWeb.EventDetailsLive do
                   </div>
                 <% end %>
 
-                <div :if={@event.state != :cancelled && event_at_capacity?(@event)}>
+                <div :if={@event.state != :cancelled && @event_at_capacity}>
                   <.badge type="red">SOLD OUT</.badge>
                 </div>
 
@@ -72,7 +72,7 @@ defmodule YscWeb.EventDetailsLive do
                   <p class="text-xs font-black text-blue-600 uppercase tracking-[0.2em]">
                     <%= format_start_date(@event.start_date) %>
                   </p>
-                  <%= if event_selling_fast?(@event) do %>
+                  <%= if @event_selling_fast do %>
                     <span class="h-3 w-px bg-zinc-200"></span>
                     <span class="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded uppercase tracking-widest">
                       High Demand
@@ -128,8 +128,8 @@ defmodule YscWeb.EventDetailsLive do
                       nil
                     end
                   end %>
-                <%!-- Load all tickets for this order (including cancelled/refunded) --%>
-                <% all_order_tickets = get_all_tickets_for_order(order_id) %>
+                <%!-- Load all tickets for this order (including cancelled/refunded) from preloaded data --%>
+                <% all_order_tickets = Map.get(@all_tickets_by_order, order_id, []) %>
                 <% confirmed_tickets = Enum.filter(all_order_tickets, &(&1.status == :confirmed)) %>
                 <% refunded_tickets = Enum.filter(all_order_tickets, &(&1.status == :cancelled)) %>
                 <% all_refunded = length(confirmed_tickets) == 0 && length(refunded_tickets) > 0 %>
@@ -558,7 +558,7 @@ defmodule YscWeb.EventDetailsLive do
                     </p>
                     <p class={[
                       "text-4xl font-black text-zinc-900 tracking-tighter",
-                      if event_at_capacity?(@event) do
+                      if @event_at_capacity do
                         "line-through"
                       else
                         ""
@@ -584,9 +584,9 @@ defmodule YscWeb.EventDetailsLive do
                   </div>
 
                   <div class="p-8 space-y-6 shadow-[inset_0_10px_20px_-15px_rgba(0,0,0,0.05)]">
-                    <%= if event_selling_fast?(@event) && !event_at_capacity?(@event) do %>
-                      <% available_capacity = get_event_available_capacity(@event.id) %>
-                      <% sold_percentage = get_event_sold_percentage(@event) %>
+                    <%= if @event_selling_fast && !@event_at_capacity do %>
+                      <% available_capacity = @available_capacity %>
+                      <% sold_percentage = @sold_percentage %>
                       <div class="p-4 bg-orange-50 rounded-xl border border-orange-100 space-y-3">
                         <div class="flex items-center gap-3">
                           <div class="flex-shrink-0 w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
@@ -627,14 +627,13 @@ defmodule YscWeb.EventDetailsLive do
                     <% end %>
 
                     <div class="space-y-3">
-                      <%= if has_ticket_tiers?(@event.id) do %>
-                        <% available_capacity = get_event_available_capacity(@event.id) %>
+                      <%= if @has_ticket_tiers do %>
                         <div
-                          :if={available_capacity != :unlimited && !event_at_capacity?(@event)}
+                          :if={@available_capacity != :unlimited && !@event_at_capacity}
                           class="flex items-center gap-3 text-sm text-zinc-600 font-medium"
                         >
                           <.icon name="hero-users" class="w-4 h-4 text-blue-500" />
-                          <%= available_capacity %> Spots Available
+                          <%= @available_capacity %> Spots Available
                         </div>
                         <div
                           :if={@active_membership?}
@@ -646,10 +645,7 @@ defmodule YscWeb.EventDetailsLive do
                       <% end %>
                     </div>
 
-                    <div
-                      :if={@current_user == nil && has_ticket_tiers?(@event.id)}
-                      class="w-full space-y-4"
-                    >
+                    <div :if={@current_user == nil && @has_ticket_tiers} class="w-full space-y-4">
                       <div class="text-sm text-orange-700 px-3 py-2 bg-orange-50 rounded-lg border border-orange-200 text-center">
                         <.icon
                           name="hero-exclamation-circle"
@@ -667,9 +663,7 @@ defmodule YscWeb.EventDetailsLive do
                     </div>
 
                     <div
-                      :if={
-                        @current_user != nil && !@active_membership? && has_ticket_tiers?(@event.id)
-                      }
+                      :if={@current_user != nil && !@active_membership? && @has_ticket_tiers}
                       class="w-full"
                     >
                       <div class="text-sm text-orange-700 px-3 py-2 bg-orange-50 rounded-lg border border-orange-200 text-center">
@@ -680,8 +674,8 @@ defmodule YscWeb.EventDetailsLive do
                       </div>
                     </div>
 
-                    <%= if has_ticket_tiers?(@event.id) do %>
-                      <%= if event_at_capacity?(@event) do %>
+                    <%= if @has_ticket_tiers do %>
+                      <%= if @event_at_capacity do %>
                         <div class="w-full">
                           <.tooltip tooltip_text="This event is sold out">
                             <.button
@@ -759,7 +753,7 @@ defmodule YscWeb.EventDetailsLive do
                       <div class="flex items-center gap-2 mb-0.5">
                         <p class={[
                           "font-black text-2xl text-zinc-900 tracking-tighter leading-none",
-                          if event_at_capacity?(@event) do
+                          if @event_at_capacity do
                             "line-through"
                           else
                             ""
@@ -767,7 +761,7 @@ defmodule YscWeb.EventDetailsLive do
                         ]}>
                           <%= @event.pricing_info.display_text %>
                         </p>
-                        <%= if event_selling_fast?(@event) && !event_at_capacity?(@event) do %>
+                        <%= if @event_selling_fast && !@event_at_capacity do %>
                           <span class="text-[9px] font-black text-orange-600 uppercase tracking-widest bg-orange-50 px-1.5 py-0.5 rounded">
                             Going Fast
                           </span>
@@ -797,7 +791,7 @@ defmodule YscWeb.EventDetailsLive do
                   <%= if event_in_past?(@event) do %>
                     <!-- No action button for past events -->
                   <% else %>
-                    <%= if @current_user == nil && has_ticket_tiers?(@event.id) do %>
+                    <%= if @current_user == nil && @has_ticket_tiers do %>
                       <.button
                         class="flex-shrink-0 px-8 py-3.5 uppercase tracking-widest"
                         phx-click={
@@ -807,8 +801,8 @@ defmodule YscWeb.EventDetailsLive do
                         <.icon name="hero-ticket" class="w-5 h-5 me-2 -mt-0.5" />Sign In to Continue
                       </.button>
                     <% else %>
-                      <%= if has_ticket_tiers?(@event.id) do %>
-                        <%= if event_at_capacity?(@event) do %>
+                      <%= if @has_ticket_tiers do %>
+                        <%= if @event_at_capacity do %>
                           <div class="text-red-700 font-black text-sm text-center">
                             Sold Out
                           </div>
@@ -862,7 +856,7 @@ defmodule YscWeb.EventDetailsLive do
             <%= for ticket_tier <- @ticket_tiers do %>
               <% is_donation = ticket_tier.type == "donation" || ticket_tier.type == :donation %>
               <% available = get_available_quantity(ticket_tier) %>
-              <% is_event_at_capacity = event_at_capacity?(@event) %>
+              <% is_event_at_capacity = @event_at_capacity %>
               <% is_sold_out = if is_donation, do: false, else: available == 0 || is_event_at_capacity %>
               <% is_on_sale = if is_donation, do: true, else: tier_on_sale?(ticket_tier) %>
               <% is_sale_ended = if is_donation, do: false, else: tier_sale_ended?(ticket_tier) %>
@@ -1040,7 +1034,8 @@ defmodule YscWeb.EventDetailsLive do
                           current_qty,
                           @selected_tickets,
                           @event,
-                          @availability_data
+                          @availability_data,
+                          @ticket_tiers
                         ) %>
                       <button
                         phx-click="increase-ticket-quantity"
@@ -1097,13 +1092,13 @@ defmodule YscWeb.EventDetailsLive do
                   </p>
                 </div>
 
-                <% available_capacity = get_event_available_capacity(@event.id) %>
+                <% available_capacity = @available_capacity %>
                 <div
                   :if={
                     !is_donation && !is_sold_out && !is_pre_sale && !is_sale_ended &&
                       @event.max_attendees &&
                       available_capacity != :unlimited &&
-                      calculate_total_selected_tickets(@selected_tickets, @event.id) >=
+                      calculate_total_selected_tickets(@selected_tickets, @event.id, @ticket_tiers) >=
                         available_capacity
                   }
                   class="mt-2"
@@ -1154,7 +1149,7 @@ defmodule YscWeb.EventDetailsLive do
                     </span>
                     <span class={[
                       "font-medium",
-                      if event_at_capacity?(@event) do
+                      if @event_at_capacity do
                         "line-through"
                       else
                         ""
@@ -1194,13 +1189,13 @@ defmodule YscWeb.EventDetailsLive do
                 <div class="flex justify-between font-semibold text-lg">
                   <span>Total:</span>
                   <span class={[
-                    if event_at_capacity?(@event) do
+                    if @event_at_capacity do
                       "line-through"
                     else
                       ""
                     end
                   ]}>
-                    <%= calculate_total_price(@selected_tickets, @event.id) %>
+                    <%= calculate_total_price(@selected_tickets, @event.id, @ticket_tiers) %>
                   </span>
                 </div>
               </div>
@@ -1757,7 +1752,7 @@ defmodule YscWeb.EventDetailsLive do
                 <div class="flex items-center justify-between mb-2">
                   <span class="text-zinc-600">Amount due:</span>
                   <span class="text-2xl font-bold text-zinc-900">
-                    <%= calculate_total_price(@selected_tickets, @event.id) %>
+                    <%= calculate_total_price(@selected_tickets, @event.id, @ticket_tiers) %>
                   </span>
                 </div>
                 <div class="flex flex-col sm:flex-row gap-3">
@@ -1766,7 +1761,11 @@ defmodule YscWeb.EventDetailsLive do
                     id="submit-payment"
                     disabled={!all_registrations_complete}
                   >
-                    Confirm and Pay <%= calculate_total_price(@selected_tickets, @event.id) %>
+                    Confirm and Pay <%= calculate_total_price(
+                      @selected_tickets,
+                      @event.id,
+                      @ticket_tiers
+                    ) %>
                   </.button>
                   <.button
                     class="sm:flex-1 w-full sm:w-auto bg-transparent text-zinc-500 hover:text-zinc-700 py-4 rounded-lg font-medium transition-colors"
@@ -1839,7 +1838,9 @@ defmodule YscWeb.EventDetailsLive do
                 <div class="border-t border-zinc-200 pt-4">
                   <div class="flex justify-between font-semibold text-lg">
                     <span>Total:</span>
-                    <span><%= calculate_total_price(@selected_tickets, @event.id) %></span>
+                    <span>
+                      <%= calculate_total_price(@selected_tickets, @event.id, @ticket_tiers) %>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -2402,29 +2403,66 @@ defmodule YscWeb.EventDetailsLive do
 
         agendas = Agendas.list_agendas_for_event(event_id)
 
-        # Add pricing info to the event using the same logic as events list
-        event_with_pricing = add_pricing_info(event)
+        # Load ticket tiers once with sold counts (reuse for all calculations)
+        ticket_tiers_with_counts = Events.list_ticket_tiers_for_event(event_id)
+        ticket_tiers = get_ticket_tiers_from_list(ticket_tiers_with_counts)
 
-        # Get user's tickets for this event if user is signed in
-        user_tickets =
-          if socket.assigns.current_user do
-            Ysc.Tickets.list_user_tickets_for_event(socket.assigns.current_user.id, event_id)
-          else
-            []
-          end
-
-        # Check if we're on the tickets route (live_action == :tickets)
-        show_ticket_modal = socket.assigns.live_action == :tickets
-
-        # Cache ticket tiers to avoid querying on every render
-        ticket_tiers = get_ticket_tiers(event_id)
-
-        # Cache availability data
+        # Cache availability data (used for real-time availability checks)
         availability_data =
           case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
             {:ok, availability} -> availability
             {:error, _} -> nil
           end
+
+        # Pre-compute all expensive values once to avoid duplicate queries during render
+        event_at_capacity =
+          compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
+
+        event_selling_fast = Events.event_selling_fast?(event_id)
+        available_capacity = get_available_capacity_from_data(availability_data)
+        sold_percentage = compute_sold_percentage(event, availability_data)
+        has_ticket_tiers = length(ticket_tiers_with_counts) > 0
+
+        # Add pricing info to the event using cached ticket tiers
+        event_with_pricing = add_pricing_info_from_tiers(event, ticket_tiers_with_counts)
+
+        # Get user's tickets for this event if user is signed in
+        {user_tickets, all_tickets_by_order} =
+          if socket.assigns.current_user do
+            # Load confirmed tickets for display
+            confirmed_tickets =
+              Ysc.Tickets.list_user_tickets_for_event(socket.assigns.current_user.id, event_id)
+
+            # Get all unique order IDs from confirmed tickets
+            order_ids =
+              confirmed_tickets
+              |> Enum.filter(&(&1.ticket_order_id != nil))
+              |> Enum.map(& &1.ticket_order_id)
+              |> Enum.uniq()
+
+            # Preload ALL tickets (including cancelled/refunded) for all orders in one query
+            # This eliminates N+1 queries in render
+            all_tickets_by_order =
+              if Enum.empty?(order_ids) do
+                %{}
+              else
+                import Ecto.Query
+                alias Ysc.Events.Ticket
+
+                Ticket
+                |> where([t], t.ticket_order_id in ^order_ids)
+                |> preload([:ticket_tier, :ticket_order])
+                |> Repo.all()
+                |> Enum.group_by(& &1.ticket_order_id)
+              end
+
+            {confirmed_tickets, all_tickets_by_order}
+          else
+            {[], %{}}
+          end
+
+        # Check if we're on the tickets route (live_action == :tickets)
+        show_ticket_modal = socket.assigns.live_action == :tickets
 
         {:ok,
          socket
@@ -2433,6 +2471,7 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:agendas, agendas)
          |> assign(:active_agenda, default_active_agenda(agendas))
          |> assign(:user_tickets, user_tickets)
+         |> assign(:all_tickets_by_order, all_tickets_by_order)
          |> assign(:show_ticket_modal, show_ticket_modal)
          |> assign(:show_payment_modal, false)
          |> assign(:show_free_ticket_confirmation, false)
@@ -2448,6 +2487,11 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:selected_family_members, %{})
          |> assign(:ticket_tiers, ticket_tiers)
          |> assign(:availability_data, availability_data)
+         |> assign(:event_at_capacity, event_at_capacity)
+         |> assign(:event_selling_fast, event_selling_fast)
+         |> assign(:available_capacity, available_capacity)
+         |> assign(:sold_percentage, sold_percentage)
+         |> assign(:has_ticket_tiers, has_ticket_tiers)
          |> assign(:load_radar, true)
          |> assign(:load_stripe, true)
          |> assign(:load_calendar, true)}
@@ -2771,8 +2815,8 @@ defmodule YscWeb.EventDetailsLive do
     active_ticket_index =
       if length(tickets_requiring_registration) > 0, do: 0, else: nil
 
-    # Cache ticket tiers and availability data (needed for payment modal order summary)
-    ticket_tiers = get_ticket_tiers(ticket_order.event_id)
+    # Use cached ticket tiers from assigns instead of querying again
+    ticket_tiers = socket.assigns.ticket_tiers
 
     availability_data =
       case Ysc.Tickets.BookingLocker.check_availability_with_lock(ticket_order.event_id) do
@@ -3188,19 +3232,29 @@ defmodule YscWeb.EventDetailsLive do
     # Handle ticket availability updates - refresh the event to get updated availability counts
     # Only process if this is for the current event
     if socket.assigns.event.id == event_id do
-      # Reload the event and recalculate pricing info with fresh ticket tier data
-      # This will trigger a re-render with updated availability counts
-      event = Repo.get(Event, event_id) |> Repo.preload(:ticket_tiers)
-      event_with_pricing = add_pricing_info(event)
+      # Reload ticket tiers with fresh sold counts
+      ticket_tiers_with_counts = Events.list_ticket_tiers_for_event(event_id)
+      ticket_tiers = get_ticket_tiers_from_list(ticket_tiers_with_counts)
 
-      # Refresh cached ticket tiers and availability data
-      ticket_tiers = get_ticket_tiers(event_id)
-
+      # Refresh cached availability data
       availability_data =
         case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
           {:ok, availability} -> availability
           {:error, _} -> socket.assigns.availability_data
         end
+
+      # Recompute cached values with fresh data
+      event = socket.assigns.event
+
+      event_at_capacity =
+        compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
+
+      event_selling_fast = Events.event_selling_fast?(event_id)
+      available_capacity = get_available_capacity_from_data(availability_data)
+      sold_percentage = compute_sold_percentage(event, availability_data)
+
+      # Update event with fresh pricing info
+      event_with_pricing = add_pricing_info_from_tiers(event, ticket_tiers_with_counts)
 
       # Trigger animation on all tier availability elements
       {:noreply,
@@ -3208,6 +3262,10 @@ defmodule YscWeb.EventDetailsLive do
        |> assign(:event, event_with_pricing)
        |> assign(:ticket_tiers, ticket_tiers)
        |> assign(:availability_data, availability_data)
+       |> assign(:event_at_capacity, event_at_capacity)
+       |> assign(:event_selling_fast, event_selling_fast)
+       |> assign(:available_capacity, available_capacity)
+       |> assign(:sold_percentage, sold_percentage)
        |> push_event("animate-availability-update", %{})}
     else
       {:noreply, socket}
@@ -4179,7 +4237,8 @@ defmodule YscWeb.EventDetailsLive do
              current_quantity,
              socket.assigns.selected_tickets,
              socket.assigns.event,
-             socket.assigns.availability_data
+             socket.assigns.availability_data,
+             socket.assigns.ticket_tiers
            ) do
         new_quantity = current_quantity + 1
         # Preserve all existing selected_tickets, only update this tier's quantity
@@ -4237,6 +4296,48 @@ defmodule YscWeb.EventDetailsLive do
         {:noreply,
          socket
          |> put_flash(:error, "This event is no longer available for ticket purchase.")
+         |> assign(:show_ticket_modal, false)}
+
+      {:error, :membership_required} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "An active membership is required to purchase tickets. Please ensure your membership is active and try again."
+         )
+         |> assign(:show_ticket_modal, false)}
+
+      {:error, changeset} when is_struct(changeset, Ecto.Changeset) ->
+        # Handle changeset errors (e.g., membership validation in ticket changeset)
+        error_message =
+          case changeset.errors do
+            [user_id: {"active membership required to purchase tickets", _}] ->
+              "An active membership is required to purchase tickets. Please ensure your membership is active and try again."
+
+            _ ->
+              "There was an error processing your ticket order. Please try again."
+          end
+
+        {:noreply,
+         socket
+         |> put_flash(:error, error_message)
+         |> assign(:show_ticket_modal, false)}
+
+      {:error, reason} ->
+        require Logger
+
+        Logger.error("Unexpected error creating ticket order",
+          user_id: user_id,
+          event_id: event_id,
+          reason: reason
+        )
+
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "There was an unexpected error processing your ticket order. Please try again."
+         )
          |> assign(:show_ticket_modal, false)}
 
       {:error, :membership_required} ->
@@ -4364,6 +4465,134 @@ defmodule YscWeb.EventDetailsLive do
     Map.put(event, :pricing_info, pricing_info)
   end
 
+  # Optimized version that uses pre-loaded ticket tiers
+  defp add_pricing_info_from_tiers(event, ticket_tiers) do
+    pricing_info = calculate_event_pricing(ticket_tiers)
+    Map.put(event, :pricing_info, pricing_info)
+  end
+
+  # Get ticket tiers from pre-loaded list (sorted)
+  defp get_ticket_tiers_from_list(ticket_tiers) do
+    ticket_tiers
+    |> Enum.sort_by(fn tier ->
+      # Sort by status: available tiers first, then pre-sale tiers, then sold-out/ended tiers
+      available = get_available_quantity(tier)
+      on_sale = tier_on_sale?(tier)
+      sale_ended = tier_sale_ended?(tier)
+
+      cond do
+        # Available tiers
+        on_sale and available > 0 -> {0, tier.inserted_at}
+        # Pre-sale tiers
+        not on_sale and not sale_ended -> {1, tier.inserted_at}
+        # Sale-ended tiers
+        sale_ended -> {2, tier.inserted_at}
+        # Sold-out tiers
+        on_sale and available == 0 -> {3, tier.inserted_at}
+        # Fallback
+        true -> {4, tier.inserted_at}
+      end
+    end)
+  end
+
+  # Pre-compute event at capacity using cached data
+  defp compute_event_at_capacity(event, ticket_tiers, availability_data) do
+    # Filter out donation tiers - donations don't count toward "sold out" status
+    non_donation_tiers =
+      Enum.filter(ticket_tiers, fn tier ->
+        tier_type = Map.get(tier, :type) || Map.get(tier, "type")
+        tier_type != "donation" && tier_type != :donation
+      end)
+
+    # If there are no non-donation tiers, event is not sold out
+    if Enum.empty?(non_donation_tiers) do
+      false
+    else
+      # Filter out pre-sale tiers (tiers that haven't started selling yet)
+      # We want to check tiers that are on sale OR have ended their sale
+      relevant_tiers =
+        Enum.filter(non_donation_tiers, fn tier ->
+          tier_on_sale?(tier) || tier_sale_ended?(tier)
+        end)
+
+      # If there are no relevant tiers (all are pre-sale), check event capacity
+      if Enum.empty?(relevant_tiers) do
+        # Check event capacity if max_attendees is set
+        case event.max_attendees do
+          nil ->
+            false
+
+          max_attendees ->
+            # Use availability_data if available, otherwise fall back to query
+            total_sold =
+              if availability_data do
+                availability_data.event_capacity.current_attendees
+              else
+                Events.count_total_tickets_sold_for_event(event.id)
+              end
+
+            total_sold >= max_attendees
+        end
+      else
+        # Check if all relevant non-donation tiers are sold out
+        all_tiers_sold_out =
+          Enum.all?(relevant_tiers, fn tier ->
+            available = get_available_quantity(tier)
+            available == 0
+          end)
+
+        # Also check event capacity if max_attendees is set
+        event_at_capacity =
+          case event.max_attendees do
+            nil ->
+              false
+
+            max_attendees ->
+              # Use availability_data if available, otherwise fall back to query
+              total_sold =
+                if availability_data do
+                  availability_data.event_capacity.current_attendees
+                else
+                  Events.count_total_tickets_sold_for_event(event.id)
+                end
+
+              total_sold >= max_attendees
+          end
+
+        all_tiers_sold_out || event_at_capacity
+      end
+    end
+  end
+
+  # Get available capacity from cached availability data
+  defp get_available_capacity_from_data(nil), do: :unlimited
+
+  defp get_available_capacity_from_data(availability_data) do
+    availability_data.event_capacity.available
+  end
+
+  # Compute sold percentage from cached data
+  defp compute_sold_percentage(event, availability_data) do
+    if event.max_attendees != nil && event.max_attendees > 0 do
+      if availability_data do
+        event_capacity = availability_data.event_capacity
+        max_attendees = event_capacity.max_attendees
+
+        if max_attendees != nil && max_attendees > 0 do
+          current_attendees = event_capacity.current_attendees
+          percentage = round(current_attendees / max_attendees * 100)
+          min(percentage, 100)
+        else
+          nil
+        end
+      else
+        nil
+      end
+    else
+      nil
+    end
+  end
+
   # Calculate pricing display information for an event
   defp calculate_event_pricing([]) do
     %{display_text: "FREE", has_free_tiers: true, lowest_price: nil}
@@ -4418,32 +4647,9 @@ defmodule YscWeb.EventDetailsLive do
   defp format_price(_), do: "$0.00"
 
   # Helper functions for ticket modal
-  defp get_ticket_tiers(event_id) do
-    Events.list_ticket_tiers_for_event(event_id)
-    |> Enum.sort_by(fn tier ->
-      # Sort by status: available tiers first, then pre-sale tiers, then sold-out/ended tiers
-      available = get_available_quantity(tier)
-      on_sale = tier_on_sale?(tier)
-      sale_ended = tier_sale_ended?(tier)
 
-      cond do
-        # Available tiers
-        on_sale and available > 0 -> {0, tier.inserted_at}
-        # Pre-sale tiers
-        not on_sale and not sale_ended -> {1, tier.inserted_at}
-        # Sale-ended tiers
-        sale_ended -> {2, tier.inserted_at}
-        # Sold-out tiers
-        on_sale and available == 0 -> {3, tier.inserted_at}
-        # Fallback
-        true -> {4, tier.inserted_at}
-      end
-    end)
-  end
-
-  defp get_ticket_tier_by_id(event_id, tier_id) do
-    get_ticket_tiers(event_id)
-    |> Enum.find(&(&1.id == tier_id))
+  defp get_ticket_tier_by_id(_event_id, tier_id, ticket_tiers) do
+    Enum.find(ticket_tiers, &(&1.id == tier_id))
   end
 
   defp get_ticket_quantity(selected_tickets, tier_id) do
@@ -4548,63 +4754,6 @@ defmodule YscWeb.EventDetailsLive do
     end
   end
 
-  defp event_at_capacity?(event) do
-    # Get all ticket tiers for the event
-    ticket_tiers = Events.list_ticket_tiers_for_event(event.id)
-
-    # Filter out donation tiers - donations don't count toward "sold out" status
-    non_donation_tiers =
-      Enum.filter(ticket_tiers, fn tier ->
-        tier_type = Map.get(tier, :type) || Map.get(tier, "type")
-        tier_type != "donation" && tier_type != :donation
-      end)
-
-    # If there are no non-donation tiers, event is not sold out
-    if Enum.empty?(non_donation_tiers) do
-      false
-    else
-      # Filter out pre-sale tiers (tiers that haven't started selling yet)
-      # We want to check tiers that are on sale OR have ended their sale
-      relevant_tiers =
-        Enum.filter(non_donation_tiers, fn tier ->
-          tier_on_sale?(tier) || tier_sale_ended?(tier)
-        end)
-
-      # If there are no relevant tiers (all are pre-sale), check event capacity
-      if Enum.empty?(relevant_tiers) do
-        # Check event capacity if max_attendees is set
-        case event.max_attendees do
-          nil ->
-            false
-
-          max_attendees ->
-            total_sold = Events.count_total_tickets_sold_for_event(event.id)
-            total_sold >= max_attendees
-        end
-      else
-        # Check if all relevant non-donation tiers are sold out
-        all_tiers_sold_out =
-          Enum.all?(relevant_tiers, fn tier ->
-            available = get_available_quantity(tier)
-            available == 0
-          end)
-
-        # Also check event capacity if max_attendees is set
-        event_at_capacity =
-          case event.max_attendees do
-            nil ->
-              false
-
-            max_attendees ->
-              total_sold = Events.count_total_tickets_sold_for_event(event.id)
-              total_sold >= max_attendees
-          end
-
-        all_tiers_sold_out || event_at_capacity
-      end
-    end
-  end
-
   defp tier_on_sale?(ticket_tier) do
     now = DateTime.utc_now()
 
@@ -4671,7 +4820,8 @@ defmodule YscWeb.EventDetailsLive do
          current_quantity,
          selected_tickets,
          event,
-         availability_data
+         availability_data,
+         ticket_tiers
        ) do
     # Can't increase if not on sale
     if !tier_on_sale?(ticket_tier) do
@@ -4685,7 +4835,13 @@ defmodule YscWeb.EventDetailsLive do
         case availability_data do
           nil ->
             # Fallback to query if cache is not available
-            can_increase_quantity?(ticket_tier, current_quantity, selected_tickets, event)
+            can_increase_quantity?(
+              ticket_tier,
+              current_quantity,
+              selected_tickets,
+              event,
+              ticket_tiers
+            )
 
           availability ->
             tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
@@ -4707,8 +4863,14 @@ defmodule YscWeb.EventDetailsLive do
 
                 available ->
                   # Calculate total selected tickets (excluding donations)
-                  # Use optimized version if ticket_tiers are available in assigns
-                  total_selected = calculate_total_selected_tickets(selected_tickets, event.id)
+                  # Use cached ticket_tiers
+                  total_selected =
+                    calculate_total_selected_tickets(
+                      selected_tickets,
+                      event.id,
+                      ticket_tiers
+                    )
+
                   # Check if adding one more ticket would exceed capacity
                   total_selected + 1 <= available
               end
@@ -4720,7 +4882,13 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   # Original version kept for fallback
-  defp can_increase_quantity?(ticket_tier, current_quantity, selected_tickets, event) do
+  defp can_increase_quantity?(
+         ticket_tier,
+         current_quantity,
+         selected_tickets,
+         event,
+         ticket_tiers
+       ) do
     # Can't increase if not on sale
     if !tier_on_sale?(ticket_tier) do
       false
@@ -4750,7 +4918,13 @@ defmodule YscWeb.EventDetailsLive do
 
                 available ->
                   # Calculate total selected tickets (excluding donations)
-                  total_selected = calculate_total_selected_tickets(selected_tickets, event.id)
+                  total_selected =
+                    calculate_total_selected_tickets(
+                      selected_tickets,
+                      event.id,
+                      ticket_tiers
+                    )
+
                   # Check if adding one more ticket would exceed capacity
                   total_selected + 1 <= available
               end
@@ -4764,12 +4938,12 @@ defmodule YscWeb.EventDetailsLive do
     end
   end
 
-  # Original version kept for compatibility
-  defp calculate_total_selected_tickets(selected_tickets, event_id) do
+  # Original version kept for compatibility - now uses cached ticket_tiers
+  defp calculate_total_selected_tickets(selected_tickets, event_id, ticket_tiers) do
     selected_tickets
     |> Enum.reduce(0, fn {tier_id, quantity}, acc ->
       # Only count non-donation tiers towards event capacity
-      ticket_tier = get_ticket_tier_by_id(event_id, tier_id)
+      ticket_tier = get_ticket_tier_by_id(event_id, tier_id, ticket_tiers)
 
       if ticket_tier && (ticket_tier.type != "donation" && ticket_tier.type != :donation) do
         acc + quantity
@@ -4779,23 +4953,9 @@ defmodule YscWeb.EventDetailsLive do
     end)
   end
 
-  defp get_event_available_capacity(event_id) do
-    case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
-      {:ok, availability} ->
-        availability.event_capacity.available
-
-      {:error, _} ->
-        :unlimited
-    end
-  end
-
   defp has_any_tickets_selected?(selected_tickets) do
     selected_tickets
     |> Enum.any?(fn {_tier_id, quantity} -> quantity > 0 end)
-  end
-
-  defp has_ticket_tiers?(event_id) do
-    get_ticket_tiers(event_id) |> length() > 0
   end
 
   defp event_in_past?(event) do
@@ -4824,11 +4984,11 @@ defmodule YscWeb.EventDetailsLive do
     DateTime.compare(now, event_datetime) == :gt
   end
 
-  defp calculate_total_price(selected_tickets, event_id) do
+  defp calculate_total_price(selected_tickets, event_id, ticket_tiers) do
     total =
       selected_tickets
       |> Enum.reduce(Money.new(0, :USD), fn {tier_id, amount_or_quantity}, acc ->
-        ticket_tier = get_ticket_tier_by_id(event_id, tier_id)
+        ticket_tier = get_ticket_tier_by_id(event_id, tier_id, ticket_tiers)
 
         case ticket_tier.type do
           "free" ->
@@ -4891,17 +5051,6 @@ defmodule YscWeb.EventDetailsLive do
       end,
       {:desc, DateTime}
     )
-  end
-
-  # Get all tickets for an order (including cancelled/refunded tickets)
-  defp get_all_tickets_for_order(order_id) do
-    import Ecto.Query
-    alias Ysc.Events.Ticket
-
-    Ticket
-    |> where([t], t.ticket_order_id == ^order_id)
-    |> preload([:ticket_tier, :ticket_order])
-    |> Repo.all()
   end
 
   defp format_donation_amount(selected_tickets, tier_id) do
@@ -5155,35 +5304,6 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   # Check if event is "selling fast" (based on recent ticket sales)
-  # Uses the same logic as Events.event_selling_fast?/1:
-  # An event is "selling fast" if it has sold 10 or more non-donation tickets in the last 3 days
-  defp event_selling_fast?(event) do
-    Events.event_selling_fast?(event.id)
-  end
-
-  # Calculate the percentage of tickets sold for an event
-  defp get_event_sold_percentage(event) do
-    if event.max_attendees != nil && event.max_attendees > 0 do
-      case Ysc.Tickets.BookingLocker.check_availability_with_lock(event.id) do
-        {:ok, availability} ->
-          event_capacity = availability.event_capacity
-          max_attendees = event_capacity.max_attendees
-
-          if max_attendees != nil && max_attendees > 0 do
-            current_attendees = event_capacity.current_attendees
-            percentage = round(current_attendees / max_attendees * 100)
-            min(percentage, 100)
-          else
-            nil
-          end
-
-        {:error, _} ->
-          nil
-      end
-    else
-      nil
-    end
-  end
 
   # Check if event is currently "live" (happening now in PST)
   defp event_live?(event) do

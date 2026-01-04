@@ -92,16 +92,30 @@ defmodule Ysc.Events.Ticket do
   end
 
   # Validate that the user has an active membership
+  # For sub-accounts, checks the primary user's membership.
   defp validate_active_membership(changeset) do
     user_id = get_field(changeset, :user_id)
 
     if user_id do
-      case Ysc.Repo.get(Ysc.Accounts.User, user_id) do
+      # Preload primary_user and subscriptions associations to avoid N+1 queries for sub-accounts
+      user = Ysc.Repo.get(Ysc.Accounts.User, user_id)
+
+      case user do
         nil ->
           changeset
 
         user ->
-          # Check if user has an active membership
+          # Preload user's subscriptions and primary_user (with their subscriptions if sub-account)
+          user =
+            if Accounts.is_sub_account?(user) do
+              # For sub-accounts, also preload primary user with their subscriptions
+              Ysc.Repo.preload(user, [:subscriptions, primary_user: :subscriptions])
+            else
+              # For primary users, just preload their subscriptions
+              Ysc.Repo.preload(user, [:subscriptions])
+            end
+
+          # Check if user has an active membership (handles inherited memberships for sub-accounts)
           active_membership = get_active_membership(user)
 
           if active_membership == nil do
@@ -120,18 +134,49 @@ defmodule Ysc.Events.Ticket do
   end
 
   # Helper function to get the most expensive active membership (same logic as user_auth.ex)
+  # For sub-accounts, checks the primary user's membership.
   defp get_active_membership(user) do
+    # If user is a sub-account, check primary user's membership
+    user_to_check =
+      if Accounts.is_sub_account?(user) do
+        # Use preloaded primary_user if available, otherwise fetch it
+        case user.primary_user do
+          %Ecto.Association.NotLoaded{} ->
+            Accounts.get_primary_user(user) || user
+
+          primary_user when not is_nil(primary_user) ->
+            primary_user
+
+          _ ->
+            Accounts.get_primary_user(user) || user
+        end
+      else
+        user
+      end
+
     # Check for lifetime membership first (highest priority)
-    if Accounts.has_lifetime_membership?(user) do
+    if Accounts.has_lifetime_membership?(user_to_check) do
       # Return a special struct representing lifetime membership
       %{
         type: :lifetime,
-        awarded_at: user.lifetime_membership_awarded_at,
-        user_id: user.id
+        awarded_at: user_to_check.lifetime_membership_awarded_at,
+        user_id: user_to_check.id
       }
     else
-      # Get all subscriptions for the user
-      subscriptions = Ysc.Customers.subscriptions(user)
+      # Use preloaded subscriptions if available, otherwise fetch them
+      subscriptions =
+        case user_to_check.subscriptions do
+          %Ecto.Association.NotLoaded{} ->
+            # Fallback: fetch subscriptions if not preloaded
+            Ysc.Customers.subscriptions(user_to_check)
+
+          subscriptions when is_list(subscriptions) ->
+            # Subscriptions are already preloaded
+            subscriptions
+
+          _ ->
+            []
+        end
 
       # Filter for active subscriptions only
       active_subscriptions =
