@@ -156,6 +156,11 @@ deploy-sandbox:  ## Deploy the sandbox application to Fly.io
 	@echo "$(BOLD)Version: $(VERSION_LONG)$(RESET)"
 	@fly deploy --dockerfile $(DOCKER_DIR)/Dockerfile -a ysc-sandbox -c etc/fly/fly-sandbox.toml --image-label $(VERSION_LONG)
 
+.PHONY: shell-sandbox
+shell-sandbox:  ## Open an IEx shell in the sandbox environment on Fly.io
+	@echo "$(BOLD)Opening IEx console in sandbox environment...$(RESET)"
+	@fly ssh console -a ysc-sandbox -C "/app/bin/ysc remote"
+
 ##
 # ~~~ Make Helpers ~~~
 ##

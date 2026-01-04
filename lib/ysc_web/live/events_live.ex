@@ -26,90 +26,85 @@ defmodule YscWeb.EventsLive do
         <div id="hero-event" class="group">
           <.link
             navigate={~p"/events/#{@hero_event.id}"}
-            class="block hover:opacity-95 transition-opacity duration-300"
+            class="block overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl transition-all duration-300 hover:shadow-2xl sm:border-0 sm:bg-transparent sm:shadow-none"
           >
-            <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden shadow-2xl">
-              <canvas
-                id={"blur-hash-hero-#{@hero_event.id}"}
-                src={get_blur_hash(@hero_event.image)}
-                class="absolute inset-0 z-0 w-full h-full object-cover"
-                phx-hook="BlurHashCanvas"
-              >
-              </canvas>
-              <img
-                src={event_image_url(@hero_event.image)}
-                id={"image-hero-#{@hero_event.id}"}
-                phx-hook="BlurHashImage"
-                class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover w-full h-full group-hover:scale-105 transition-transform duration-700"
-                loading="eager"
-                alt={
-                  if @hero_event.image,
-                    do:
-                      @hero_event.image.alt_text || @hero_event.image.title || @hero_event.title ||
-                        "Event image",
-                    else: "Event image"
-                }
-              />
+            <div class="relative flex flex-col sm:block sm:aspect-[16/10] sm:rounded-xl sm:overflow-hidden sm:shadow-2xl">
+              <%!-- Image container --%>
+              <div class="relative aspect-[16/9] w-full overflow-hidden sm:absolute sm:inset-0 sm:aspect-auto sm:h-full">
+                <canvas
+                  id={"blur-hash-hero-#{@hero_event.id}"}
+                  src={get_blur_hash(@hero_event.image)}
+                  class="absolute inset-0 z-0 w-full h-full object-cover"
+                  phx-hook="BlurHashCanvas"
+                >
+                </canvas>
+                <img
+                  src={event_image_url(@hero_event.image)}
+                  id={"image-hero-#{@hero_event.id}"}
+                  phx-hook="BlurHashImage"
+                  class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover w-full h-full group-hover:scale-105 transition-transform duration-700"
+                  loading="eager"
+                  alt={
+                    if @hero_event.image,
+                      do:
+                        @hero_event.image.alt_text || @hero_event.image.title || @hero_event.title ||
+                          "Event image",
+                      else: "Event image"
+                  }
+                />
 
-              <%!-- Overlay gradient for text readability --%>
-              <div class="absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900/90 via-zinc-900/50 to-transparent">
+                <%!-- Overlay gradient for text readability (hidden on mobile, shown on sm+) --%>
+                <div class="hidden sm:block absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent">
+                </div>
               </div>
 
-              <%!-- Content overlay --%>
-              <div class="absolute inset-0 z-[3] flex flex-col justify-end p-4 sm:p-6 md:p-8 lg:p-12">
+              <%!-- Content (stacked on mobile, overlaid on sm+) --%>
+              <div class="relative z-[3] flex flex-col p-5 sm:absolute sm:inset-0 sm:justify-end sm:p-8 lg:p-12 transition-all duration-500">
                 <div class="max-w-3xl">
-                  <div class="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3 md:mb-4 flex-wrap">
-                    <span class="px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-500/90 backdrop-blur-md border border-blue-400 text-white text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-lg shadow-sm">
-                      <.icon
-                        name="hero-calendar-solid"
-                        class="w-3 h-3 sm:w-3.5 sm:h-3.5 inline me-0.5 sm:me-1"
-                      />Happening Soon
+                  <div class="flex flex-wrap items-center gap-2 mb-4">
+                    <span class="px-2.5 py-1 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm sm:bg-blue-500/90 sm:backdrop-blur-md sm:border sm:border-blue-400">
+                      <.icon name="hero-calendar-solid" class="w-3 h-3 inline me-1" />Happening Soon
                     </span>
                     <%= for badge <- get_hero_event_badges(@hero_event) do %>
                       <span class={[
-                        "px-2 sm:px-3 py-1 sm:py-1.5 backdrop-blur-md border rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest shadow-sm",
-                        badge_class(badge)
+                        "px-2.5 py-1 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm",
+                        badge_class_mobile(badge),
+                        badge_class_desktop_responsive(badge)
                       ]}>
-                        <.icon
-                          :if={badge.icon}
-                          name={badge.icon}
-                          class="w-3 h-3 sm:w-3.5 sm:h-3.5 inline me-0.5 sm:me-1"
-                        />
+                        <.icon :if={badge.icon} name={badge.icon} class="w-3 h-3 inline me-1" />
                         <%= badge.text %>
                       </span>
                     <% end %>
                   </div>
 
-                  <div class="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 md:mb-4 text-white/90 flex-wrap">
-                    <span class="text-xs sm:text-sm md:text-base font-black text-white uppercase tracking-[0.2em]">
+                  <h2 class="text-3xl font-black leading-tight tracking-tighter text-zinc-900 sm:text-zinc-50 sm:text-4xl lg:text-5xl xl:text-6xl mb-3 transition-colors duration-300">
+                    <%= @hero_event.title %>
+                  </h2>
+
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 text-zinc-500 sm:text-white/80">
+                    <span class="text-xs sm:text-sm font-black uppercase tracking-[0.1em]">
                       <%= format_event_date_time(@hero_event) %>
                     </span>
-                    <span :if={@hero_event.location_name} class="h-3 sm:h-4 w-px bg-white/40"></span>
+                    <span :if={@hero_event.location_name} class="h-3 w-px bg-zinc-300 sm:bg-white/40">
+                    </span>
                     <span
                       :if={@hero_event.location_name}
-                      class="text-xs sm:text-sm md:text-base font-bold text-white/80 uppercase tracking-widest"
+                      class="text-xs sm:text-sm font-bold uppercase tracking-widest flex items-center gap-1"
                     >
-                      <.icon
-                        name="hero-map-pin"
-                        class="w-3.5 h-3.5 sm:w-4 sm:h-4 inline me-0.5 sm:me-1"
-                      />
+                      <.icon name="hero-map-pin" class="w-4 h-4" />
                       <%= @hero_event.location_name %>
                     </span>
                   </div>
 
-                  <h2 class="font-black text-zinc-50 text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl leading-tight tracking-tighter mb-2 sm:mb-3 md:mb-4 group-hover:text-white transition-colors">
-                    <%= @hero_event.title %>
-                  </h2>
-
                   <p
                     :if={@hero_event.description}
-                    class="text-zinc-200 text-sm sm:text-base md:text-lg leading-relaxed line-clamp-2 sm:line-clamp-3 mb-3 sm:mb-4 md:mb-6"
+                    class="text-zinc-600 sm:text-zinc-200 text-sm sm:text-base lg:text-lg leading-relaxed line-clamp-2 mb-6 max-w-2xl"
                   >
                     <%= @hero_event.description %>
                   </p>
 
-                  <div class="flex items-center gap-2 sm:gap-3 pt-2 sm:pt-3 md:pt-4 border-t border-white/20">
-                    <span class="bg-white/90 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-zinc-900 text-sm sm:text-base font-black shadow-sm ring-1 ring-black/5">
+                  <div class="flex items-center pt-4 border-t border-zinc-100 sm:border-white/20">
+                    <span class="rounded-xl bg-zinc-900 px-4 py-1.5 text-xs sm:text-sm font-black text-white sm:bg-white sm:text-zinc-900 shadow-sm">
                       <%= @hero_event.pricing_info.display_text %>
                     </span>
                   </div>
@@ -419,7 +414,36 @@ defmodule YscWeb.EventsLive do
     end
   end
 
-  defp badge_class(%{class: class}), do: class
+  # Mobile badge classes (solid colors, no backdrop blur)
+  defp badge_class_mobile(badge) do
+    text = Map.get(badge, :text, "")
+
+    cond do
+      text == "Cancelled" -> "bg-red-600"
+      text == "Sold Out" -> "bg-red-600"
+      text == "Just Added" -> "bg-blue-600"
+      String.contains?(text, "left") -> "bg-sky-600"
+      text == "Going Fast!" -> "bg-amber-600"
+      true -> "bg-zinc-600"
+    end
+  end
+
+  # Desktop badge classes (transparent with backdrop blur, scoped to sm: breakpoint)
+  defp badge_class_desktop_responsive(badge) do
+    text = Map.get(badge, :text, "")
+
+    base_classes =
+      cond do
+        text == "Cancelled" -> "sm:bg-red-500/90 sm:border-red-400"
+        text == "Sold Out" -> "sm:bg-red-500/90 sm:border-red-400"
+        text == "Just Added" -> "sm:bg-blue-500/90 sm:border-blue-400"
+        String.contains?(text, "left") -> "sm:bg-sky-500/90 sm:border-sky-400"
+        text == "Going Fast!" -> "sm:bg-amber-500/90 sm:border-amber-400"
+        true -> "sm:bg-zinc-500/90 sm:border-zinc-400"
+      end
+
+    base_classes <> " sm:backdrop-blur-md sm:shadow-sm"
+  end
 
   defp days_until_event_start(event) when is_map(event) do
     start_date = Map.get(event, :start_date)

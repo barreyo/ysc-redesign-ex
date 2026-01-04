@@ -36,80 +36,80 @@ defmodule YscWeb.NewsLive do
         <div id="featured" class="group">
           <.link
             navigate={~p"/posts/#{@featured.url_name}"}
-            class="block hover:opacity-95 transition-opacity duration-300"
+            class="block overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl transition-all duration-300 hover:shadow-2xl sm:border-0 sm:bg-transparent sm:shadow-none"
           >
-            <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden shadow-2xl">
-              <canvas
-                id={"blur-hash-image-#{@featured.id}"}
-                src={get_blur_hash(@featured.featured_image)}
-                class="absolute inset-0 z-0 w-full h-full object-cover"
-                phx-hook="BlurHashCanvas"
-              >
-              </canvas>
-              <img
-                src={featured_image_url(@featured.featured_image)}
-                id={"image-#{@featured.id}"}
-                phx-hook="BlurHashImage"
-                class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover w-full h-full group-hover:scale-105 transition-transform duration-700"
-                loading="eager"
-                alt={
-                  if @featured.featured_image,
-                    do:
-                      @featured.featured_image.alt_text || @featured.featured_image.title ||
-                        @featured.title || "Featured news image",
-                    else: "Featured news image"
-                }
-              />
+            <div class="relative flex flex-col sm:block sm:aspect-[16/10] sm:rounded-xl sm:overflow-hidden sm:shadow-2xl">
+              <%!-- Image container --%>
+              <div class="relative aspect-[16/9] w-full overflow-hidden sm:absolute sm:inset-0 sm:aspect-auto sm:h-full">
+                <canvas
+                  id={"blur-hash-image-#{@featured.id}"}
+                  src={get_blur_hash(@featured.featured_image)}
+                  class="absolute inset-0 z-0 w-full h-full object-cover"
+                  phx-hook="BlurHashCanvas"
+                >
+                </canvas>
+                <img
+                  src={featured_image_url(@featured.featured_image)}
+                  id={"image-#{@featured.id}"}
+                  phx-hook="BlurHashImage"
+                  class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover w-full h-full group-hover:scale-105 transition-transform duration-700"
+                  loading="eager"
+                  alt={
+                    if @featured.featured_image,
+                      do:
+                        @featured.featured_image.alt_text || @featured.featured_image.title ||
+                          @featured.title || "Featured news image",
+                      else: "Featured news image"
+                  }
+                />
 
-              <%!-- Overlay gradient for text readability --%>
-              <div class="absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900/90 via-zinc-900/50 to-transparent">
+                <%!-- Overlay gradient for text readability (hidden on mobile, shown on sm+) --%>
+                <div class="hidden sm:block absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent">
+                </div>
               </div>
 
-              <%!-- Content overlay --%>
-              <div class="absolute inset-0 z-[3] flex flex-col justify-end p-4 sm:p-6 md:p-8 lg:p-12">
+              <%!-- Content (stacked on mobile, overlaid on sm+) --%>
+              <div class="relative z-[3] flex flex-col p-5 sm:absolute sm:inset-0 sm:justify-end sm:p-8 lg:p-12 transition-all duration-500">
                 <div class="max-w-3xl">
-                  <div class="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3 md:mb-4">
-                    <span class="px-2 sm:px-3 py-0.5 sm:py-1 bg-amber-50/90 backdrop-blur-md border border-amber-200 text-amber-700 text-[8px] sm:text-[9px] font-black uppercase tracking-widest rounded-lg shadow-sm">
-                      <.icon
-                        name="hero-star-solid"
-                        class="w-2.5 h-2.5 sm:w-3 sm:h-3 inline me-0.5 sm:me-1"
-                      />Pinned News
+                  <div class="flex items-center gap-2 mb-4">
+                    <span class="px-2.5 py-1 bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm sm:bg-amber-50/90 sm:backdrop-blur-md sm:border sm:border-amber-200 sm:text-amber-700">
+                      <.icon name="hero-star-solid" class="w-3 h-3 inline me-1" />Pinned News
                     </span>
                   </div>
 
-                  <div class="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 md:mb-4 text-white/90 flex-wrap">
-                    <span class="text-[9px] sm:text-[10px] font-black text-white uppercase tracking-[0.2em]">
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 text-zinc-500 sm:text-white/80">
+                    <span class="text-xs sm:text-sm font-black uppercase tracking-[0.1em]">
                       <%= Timex.format!(@featured.published_on, "{Mshort} {D}, {YYYY}") %>
                     </span>
-                    <span class="h-2.5 sm:h-3 w-px bg-white/40"></span>
-                    <span class="text-[9px] sm:text-[10px] font-bold text-white/80 uppercase tracking-widest">
+                    <span class="h-3 w-px bg-zinc-300 sm:bg-white/40"></span>
+                    <span class="text-xs sm:text-sm font-bold uppercase tracking-widest">
                       <%= reading_time(@featured) %> min read
                     </span>
                   </div>
 
-                  <h2 class="font-black text-zinc-50 text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl leading-tight tracking-tighter mb-2 sm:mb-3 md:mb-4 group-hover:text-white transition-colors">
+                  <h2 class="text-3xl font-black leading-tight tracking-tighter text-zinc-900 sm:text-zinc-50 sm:text-4xl lg:text-5xl xl:text-6xl mb-3 transition-colors duration-300">
                     <%= @featured.title %>
                   </h2>
 
-                  <article class="text-zinc-200 text-sm sm:text-base md:text-lg leading-relaxed line-clamp-2 sm:line-clamp-3 mb-3 sm:mb-4 md:mb-6">
+                  <article class="text-zinc-600 sm:text-zinc-200 text-sm sm:text-base lg:text-lg leading-relaxed line-clamp-2 mb-6 max-w-2xl">
                     <%= raw(preview_text(@featured)) %>
                   </article>
 
-                  <div class="flex items-center gap-2 sm:gap-3 pt-2 sm:pt-3 md:pt-4 border-t border-white/20">
+                  <div class="flex items-center gap-3 pt-4 border-t border-zinc-100 sm:border-white/20">
                     <.user_avatar_image
                       email={@featured.author.email}
                       user_id={@featured.author.id}
                       country={@featured.author.most_connected_country}
-                      class="w-8 h-8 sm:w-10 sm:h-10 rounded-full ring-2 ring-white/30"
+                      class="w-8 h-8 sm:w-10 sm:h-10 rounded-full ring-2 ring-zinc-200 sm:ring-white/30"
                     />
                     <div>
-                      <p class="text-xs sm:text-sm font-black text-white leading-tight">
+                      <p class="text-xs sm:text-sm font-black text-zinc-900 sm:text-white leading-tight">
                         <%= String.capitalize(@featured.author.first_name || "") %>
                         <%= String.capitalize(@featured.author.last_name || "") %>
                       </p>
                       <p
                         :if={@featured.author.board_position}
-                        class="text-[10px] sm:text-xs text-white/80 font-medium mt-0.5"
+                        class="text-[10px] sm:text-xs text-zinc-500 sm:text-white/80 font-medium mt-0.5"
                       >
                         YSC <%= format_board_position(@featured.author.board_position) %>
                       </p>
