@@ -28,7 +28,7 @@ defmodule YscWeb.AdminDashboardLive do
             <h1 class="text-3xl font-black text-zinc-900 tracking-tight">Overview</h1>
             <p class="text-xs text-zinc-500 font-medium mt-1 flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              System Live: <%= Timex.format!(DateTime.utc_now(), "{Mshort} {D}, {YYYY}") %>
+              Build: <%= @build_version %>
             </p>
           </div>
           <div class="w-full md:w-96">
@@ -427,9 +427,12 @@ defmodule YscWeb.AdminDashboardLive do
 
     {active_guests_count, active_guests_sample} = get_active_guests()
 
+    build_version = get_build_version()
+
     {:ok,
      socket
      |> assign(:active_page, :dashboard)
+     |> assign(:build_version, build_version)
      |> assign(:page_title, "Dashboard")
      |> assign(:latest_comments, latest_comments)
      |> assign(:events_with_tickets, events_with_tickets)
@@ -1010,5 +1013,23 @@ defmodule YscWeb.AdminDashboardLive do
     sample_users = Enum.take(unique_users, 3)
 
     {length(unique_users), sample_users}
+  end
+
+  defp get_build_version do
+    case System.cmd(
+           "git",
+           ["describe", "--first-parent", "--abbrev=10", "--long", "--tags", "--dirty"],
+           stderr_to_stdout: true,
+           cd: File.cwd!()
+         ) do
+      {version, 0} ->
+        version
+        |> String.trim()
+        |> String.replace("\n", "")
+
+      _ ->
+        # Fallback to application version if git command fails
+        Application.spec(:ysc, :vsn) |> to_string()
+    end
   end
 end
