@@ -53,20 +53,25 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     # Base sources
     default_src = "'self'"
 
-    # Script sources - allow self, nonce, and external CDNs
-    # Cloudflare Turnstile
+    # Script sources - use strict-dynamic with nonce for maximum security
+    # 'strict-dynamic' allows scripts loaded by nonce-approved scripts to execute
+    # The allowlist entries are ignored by browsers supporting strict-dynamic but
+    # kept for backward compatibility with older browsers
+    # 'unsafe-inline' is ignored when nonce is present but kept for older browsers
+    # Allowlist for older browsers (ignored when strict-dynamic is present)
     script_src =
       ([
          "'self'",
          "'nonce-#{nonce}'",
+         "'strict-dynamic'",
+         "'unsafe-inline'",
          "https://js.stripe.com",
          "https://js.radar.com",
-         "https://cdn.jsdelivr.net",
          "https://unpkg.com",
          "https://challenges.cloudflare.com"
        ] ++
          if(is_dev,
-           do: ["'unsafe-inline'"],
+           do: [],
            else: []
          ))
       |> Enum.join(" ")
@@ -98,7 +103,6 @@ defmodule YscWeb.Plugs.SecurityHeaders do
           "https://localhost:*",
           "https://js.stripe.com",
           "https://challenges.cloudflare.com",
-          "https://cdn.jsdelivr.net",
           "https://api.radar.io"
         ]
       else
@@ -107,7 +111,6 @@ defmodule YscWeb.Plugs.SecurityHeaders do
           "wss:",
           "https://js.stripe.com",
           "https://challenges.cloudflare.com",
-          "https://cdn.jsdelivr.net",
           "https://api.radar.io"
         ]
       end

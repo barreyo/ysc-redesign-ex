@@ -9,8 +9,9 @@
     <.live_title suffix=" · The Young Scandinavians Club">
       <%= assigns[:page_title] || "YSC" %>
     </.live_title>
-    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-    <link href="https://js.radar.com/v4.4.8/radar.css" rel="stylesheet" />
+    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} nonce={@csp_nonce} />
+    <link href="https://js.radar.com/v4.4.8/radar.css" rel="stylesheet" nonce={@csp_nonce} />
+    <%!-- Trusted Types Policy - must run before any scripts that use innerHTML --%>
     <script
       defer
       phx-track-static
@@ -19,26 +20,23 @@
       nonce={@csp_nonce}
     >
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2" defer nonce={@csp_nonce}>
-    </script>
-    <script
-      src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"
-      defer
-      nonce={@csp_nonce}
-    >
-    </script>
     <script src="https://js.radar.com/v4.4.8/radar.min.js" defer nonce={@csp_nonce}>
     </script>
     <script src="https://js.stripe.com/v3/" defer nonce={@csp_nonce}>
     </script>
-    <link rel="stylesheet" href="https://unpkg.com/glightbox/dist/css/glightbox.min.css" defer />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/glightbox/dist/css/glightbox.min.css"
+      nonce={@csp_nonce}
+      defer
+    />
     <script src="https://unpkg.com/glightbox/dist/js/glightbox.min.js" defer nonce={@csp_nonce}>
     </script>
     <script nonce={@csp_nonce}>
       window.stripePublishableKey = "<%= Application.get_env(:stripity_stripe, :public_key) %>";
       window.radarPublicKey = "<%= Application.get_env(:ysc, :radar)[:public_key] %>";
     </script>
-    <Turnstile.script />
+    <Turnstile.script nonce={@csp_nonce} />
   </head>
   <body class="antialiased bg-white">
     <div id="content-wrapper" class="flex flex-col min-h-screen">

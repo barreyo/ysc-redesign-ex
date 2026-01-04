@@ -7,7 +7,7 @@
     <.live_title suffix=" · YSC.org Admin">
       <%= assigns[:page_title] || "YSC Admin" %>
     </.live_title>
-    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} nonce={@csp_nonce} />
     <script
       defer
       phx-track-static
@@ -17,7 +17,7 @@
     >
     </script>
 
-    <link href="https://js.radar.com/v4.4.8/radar.css" rel="stylesheet" />
+    <link href="https://js.radar.com/v4.4.8/radar.css" rel="stylesheet" nonce={@csp_nonce} />
     <script src="https://js.radar.com/v4.4.8/radar.min.js" nonce={@csp_nonce}>
     </script>
     <script nonce={@csp_nonce}>

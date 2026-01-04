@@ -21,6 +21,7 @@ import "phoenix_html";
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 import topbar from "../vendor/topbar";
+import "../vendor/add-to-calendar-button@2.js";
 import LivePhone from "./live_phone";
 import StickyNavbar from "./sticky_navbar";
 import Uploaders from "./uploaders";
