@@ -6,18 +6,27 @@
     true -> ""
   end %>
 <% is_fullscreen = fullscreen?(current_path) %>
+<% is_hero_mode = hero_mode?(current_path, @current_user) %>
 
 <div id="app-container" class="w-full flex flex-col min-h-screen">
   <.flash_group flash={@flash} />
 
-  <header :if={!is_fullscreen} id="site-header" class="relative transition-all duration-300">
+  <header
+    :if={!is_fullscreen}
+    id="site-header"
+    class={[
+      "relative transition-all duration-300",
+      is_hero_mode && "hero-mode"
+    ]}
+  >
     <nav
       id="rootNavbar"
       class={[
         "top-0 z-[100] w-full start-0 transition-colors duration-300",
-        (@current_user == nil && current_path == "/" &&
-           "bg-transparent border-transparent text-white") ||
-          "bg-white border-b border-zinc-100"
+        if(is_hero_mode,
+          do: "bg-transparent border-transparent text-white",
+          else: "bg-white border-b border-zinc-100"
+        )
       ]}
     >
       <div class="flex flex-row items-center justify-between max-w-screen-xl mx-auto py-4 lg:py-0 px-4">

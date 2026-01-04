@@ -323,7 +323,6 @@ defmodule YscWeb.ClearLakeBookingLive do
     <section
       :if={@user}
       id="hero-section"
-      phx-hook="HeroMode"
       class="relative w-full overflow-hidden -mt-[88px] pt-[88px]"
       style="min-height: 40vh;"
     >
@@ -947,7 +946,6 @@ defmodule YscWeb.ClearLakeBookingLive do
     <section
       :if={!@user}
       id="hero-section"
-      phx-hook="HeroMode"
       class="relative w-full overflow-hidden -mt-[88px] pt-[88px]"
       style="min-height: 75vh;"
     >

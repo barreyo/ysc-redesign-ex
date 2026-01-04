@@ -2836,7 +2836,6 @@ defmodule YscWeb.CoreComponents do
     ~H"""
     <section
       id="hero-section"
-      phx-hook="HeroMode"
       class={[
         "relative w-full flex items-center justify-center overflow-hidden -mt-[88px] pt-[88px]",
         !@video && "bg-cover bg-center bg-no-repeat",
