@@ -333,12 +333,20 @@ defmodule YscWeb.UserRegistrationLive do
       |> Map.put("browser_timezone", socket.assigns[:browser_timezone])
 
     # Filter out empty family members (those without first_name, last_name, or birth_date)
+    # Handle both map and list formats - Phoenix forms can return maps with numeric string keys
+    family_members_list =
+      case user_params["family_members"] do
+        nil -> []
+        %{} = map -> Map.values(map)
+        list when is_list(list) -> list
+      end
+
     filtered_family_members =
-      (user_params["family_members"] || [])
+      family_members_list
       |> Enum.filter(fn fm ->
-        first_name = fm["first_name"] || ""
-        last_name = fm["last_name"] || ""
-        birth_date = fm["birth_date"] || ""
+        first_name = Map.get(fm, "first_name", "") || ""
+        last_name = Map.get(fm, "last_name", "") || ""
+        birth_date = Map.get(fm, "birth_date", "") || ""
 
         String.trim(first_name) != "" &&
           String.trim(last_name) != "" &&
