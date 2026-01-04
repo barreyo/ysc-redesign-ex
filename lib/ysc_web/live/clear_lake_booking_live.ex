@@ -977,7 +977,7 @@ defmodule YscWeb.ClearLakeBookingLive do
             A Legacy for All Seasons
           </span>
           <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-3 sm:mb-4 drop-shadow-lg">
-            Clear Lake Heritage Cabin
+            YSC Clear Lake Cabin
           </h1>
           <p class="text-base sm:text-lg md:text-xl lg:text-2xl text-zinc-100 max-w-2xl font-light">
             Owned and operated by our community since 1963. A year-round gateway to California's oldest natural lake.
