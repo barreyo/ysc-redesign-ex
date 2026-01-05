@@ -717,16 +717,41 @@ defmodule Ysc.ExpenseReports do
   Returns the S3 path (key) for the uploaded file.
 
   Uses backend credentials configured via ExAws (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY).
+
+  ## Parameters
+  - `path` - The temporary file path from the upload
+  - `opts` - Optional keyword list with:
+    - `:original_filename` - The original filename from the client (preserves file extension)
   """
-  def upload_receipt_to_s3(path) do
+  def upload_receipt_to_s3(path, opts \\ []) do
     require Logger
-    file_name = Path.basename(path)
+    original_filename = Keyword.get(opts, :original_filename)
+
+    # Use original filename if provided to preserve extension, otherwise use basename of temp file
+    file_name =
+      if original_filename do
+        # Sanitize the filename but preserve the extension
+        sanitized =
+          original_filename
+          |> String.replace(~r/[^a-zA-Z0-9._-]/, "_")
+          |> String.replace(~r/_+/, "_")
+
+        sanitized
+      else
+        Path.basename(path)
+      end
+
     # Generate a unique key with timestamp to avoid collisions
     timestamp = System.system_time(:second)
     unique_key = "receipts/#{timestamp}_#{file_name}"
     bucket_name = S3Config.expense_reports_bucket_name()
 
-    Logger.debug("Uploading receipt to S3", path: path, bucket: bucket_name, key: unique_key)
+    Logger.debug("Uploading receipt to S3",
+      path: path,
+      bucket: bucket_name,
+      key: unique_key,
+      original_filename: original_filename
+    )
 
     result =
       path

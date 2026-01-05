@@ -385,10 +385,15 @@ defmodule YscWeb.ExpenseReportLive do
     if entry do
       # Consume only this specific entry
       # The callback must return {:ok, value} or {:postpone, value}
+      # Preserve the original filename to maintain file extension
+      original_filename = entry.client_name
+
       result =
         consume_uploaded_entry(socket, entry, fn %{path: path} ->
           try do
-            s3_path = ExpenseReports.upload_receipt_to_s3(path)
+            s3_path =
+              ExpenseReports.upload_receipt_to_s3(path, original_filename: original_filename)
+
             # upload_receipt_to_s3 returns a string directly, not a tuple
             {:ok, s3_path}
           rescue
@@ -471,10 +476,15 @@ defmodule YscWeb.ExpenseReportLive do
     if entry do
       # Consume only this specific entry
       # The callback must return {:ok, value} or {:postpone, value}
+      # Preserve the original filename to maintain file extension
+      original_filename = entry.client_name
+
       result =
         consume_uploaded_entry(socket, entry, fn %{path: path} ->
           try do
-            s3_path = ExpenseReports.upload_receipt_to_s3(path)
+            s3_path =
+              ExpenseReports.upload_receipt_to_s3(path, original_filename: original_filename)
+
             # upload_receipt_to_s3 returns a string directly, not a tuple
             {:ok, s3_path}
           rescue
