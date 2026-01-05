@@ -625,6 +625,7 @@ defmodule Ysc.Events do
 
   @doc """
   Get upcoming events with ticket tier counts for admin dashboard.
+  Optimized to batch load ticket tiers in a single query.
   """
   def get_upcoming_events_with_ticket_tier_counts() do
     now = DateTime.utc_now()
@@ -637,8 +638,56 @@ defmodule Ysc.Events do
           order_by: [asc: e.start_date]
       )
 
+    # Batch load all ticket tiers for all events in a single query
+    event_ids = Enum.map(events, & &1.id)
+
+    tiers_by_event_id =
+      if Enum.empty?(event_ids) do
+        %{}
+      else
+        from(tt in TicketTier,
+          where: tt.event_id in ^event_ids,
+          left_join: t in Ticket,
+          on: t.ticket_tier_id == tt.id and t.status == :confirmed,
+          group_by: [
+            tt.id,
+            tt.name,
+            tt.description,
+            tt.type,
+            tt.price,
+            tt.quantity,
+            tt.requires_registration,
+            tt.start_date,
+            tt.end_date,
+            tt.event_id,
+            tt.lock_version,
+            tt.inserted_at,
+            tt.updated_at
+          ],
+          select: %{
+            id: tt.id,
+            name: tt.name,
+            description: tt.description,
+            type: tt.type,
+            price: tt.price,
+            quantity: tt.quantity,
+            requires_registration: tt.requires_registration,
+            start_date: tt.start_date,
+            end_date: tt.end_date,
+            event_id: tt.event_id,
+            lock_version: tt.lock_version,
+            inserted_at: tt.inserted_at,
+            updated_at: tt.updated_at,
+            sold_tickets_count: count(t.id)
+          },
+          order_by: [asc: tt.inserted_at]
+        )
+        |> Repo.all()
+        |> Enum.group_by(& &1.event_id)
+      end
+
     Enum.map(events, fn event ->
-      tiers = list_ticket_tiers_for_event(event.id)
+      tiers = Map.get(tiers_by_event_id, event.id, [])
       %{event: event, ticket_tiers: tiers}
     end)
   end

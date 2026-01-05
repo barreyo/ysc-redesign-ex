@@ -506,7 +506,7 @@ defmodule YscWeb.HomeLive do
                   }
                 />
                 <div class="absolute top-6 left-6 flex gap-2 z-[2] flex-wrap">
-                  <%= if Timex.diff(Timex.now(), event.inserted_at, :days) <= 7 do %>
+                  <%= if days_since_inserted(event.inserted_at) <= 7 do %>
                     <span class="px-3 py-1 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">
                       Just Added
                     </span>
@@ -529,12 +529,12 @@ defmodule YscWeb.HomeLive do
               <div class="p-8 flex flex-col flex-1">
                 <div class="flex items-center gap-3 mb-4">
                   <span class="text-blue-400 font-black text-xs tracking-widest uppercase">
-                    <%= Timex.format!(event.start_date, "{Mshort} {D}") %>
+                    <%= format_event_date(event.start_date) %>
                   </span>
                   <span class="w-1.5 h-1.5 bg-white/20 rounded-full"></span>
                   <%= if event.start_time && event.start_time != "" do %>
                     <span class="text-zinc-400 text-xs font-bold uppercase tracking-widest text-[10px]">
-                      <%= format_event_time(event.start_time) %>
+                      <%= format_event_time(event.start_date, event.start_time) %>
                     </span>
                   <% end %>
                 </div>
@@ -620,9 +620,7 @@ defmodule YscWeb.HomeLive do
                 />
               </div>
               <time class="text-[10px] font-black text-teal-600 uppercase tracking-widest">
-                <%= Timex.format!(post.published_on, "{Mshort} {D}") %> · <%= reading_time_for_news(
-                  post
-                ) %> min read
+                <%= format_post_date(post.published_on) %> · <%= reading_time_for_news(post) %> min read
               </time>
               <h3 class="text-2xl font-black text-zinc-900 tracking-tighter mt-3 group-hover:text-blue-600 transition-colors leading-none">
                 <%= post.title %>
@@ -950,12 +948,11 @@ defmodule YscWeb.HomeLive do
                       </div>
                       <div class="space-y-2">
                         <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
-                          Schedule
+                          Datea
                         </p>
                         <p class="font-bold text-zinc-800">
-                          <%= Calendar.strftime(booking.checkin_date, "%b %d") %> — <%= Calendar.strftime(
-                            booking.checkout_date,
-                            "%b %d"
+                          <%= format_booking_date(booking.checkin_date) %> — <%= format_booking_date(
+                            booking.checkout_date
                           ) %>
                         </p>
                         <span class={[
@@ -1061,7 +1058,7 @@ defmodule YscWeb.HomeLive do
                     </.link>
                     <p class="text-xs text-zinc-500 flex items-center gap-1 mb-4">
                       <.icon name="hero-calendar" class="w-3 h-3" />
-                      <%= Calendar.strftime(event.start_date, "%b %d, %Y") %>
+                      <%= format_event_date_long(event.start_date) %>
                     </p>
                     <div
                       :if={event.location_name}
@@ -1237,7 +1234,7 @@ defmodule YscWeb.HomeLive do
                     </div>
                     <div>
                       <p class="text-[10px] font-bold text-teal-600 mb-1">
-                        <%= Timex.format!(post.published_on, "{Mshort} {D}") %>
+                        <%= format_post_date(post.published_on) %>
                       </p>
                       <h4 class="text-sm font-bold text-zinc-900 group-hover:text-teal-600 transition-colors">
                         <%= post.title %>
@@ -1409,14 +1406,33 @@ defmodule YscWeb.HomeLive do
     tickets = Events.list_tickets_for_user(user_id)
 
     # Filter for upcoming events only and confirmed tickets
-    now = DateTime.utc_now()
+    # Use PST timezone for comparison
+    now_pst = DateTime.now!("America/Los_Angeles")
 
     tickets
     |> Enum.filter(fn ticket ->
       ticket.status == :confirmed and
         case ticket.event do
           %{start_date: start_date} when not is_nil(start_date) ->
-            DateTime.compare(start_date, now) == :gt
+            # Convert event start_date to PST for comparison
+            start_date_pst =
+              case start_date do
+                %DateTime{} = dt ->
+                  DateTime.shift_zone!(dt, "America/Los_Angeles")
+
+                %Date{} = d ->
+                  # For Date-only, create DateTime at midnight PST
+                  DateTime.new!(d, ~T[00:00:00], "America/Los_Angeles")
+
+                _ ->
+                  nil
+              end
+
+            if start_date_pst do
+              DateTime.compare(start_date_pst, now_pst) == :gt
+            else
+              false
+            end
 
           _ ->
             false
@@ -1444,27 +1460,28 @@ defmodule YscWeb.HomeLive do
   end
 
   defp get_future_active_bookings(user_id, limit \\ 10) do
-    today = Date.utc_today()
+    # Get today's date in PST timezone
+    today_pst = DateTime.now!("America/Los_Angeles") |> DateTime.to_date()
     checkout_time = ~T[11:00:00]
 
     query =
       from b in Booking,
         where: b.user_id == ^user_id,
         where: b.status == :complete,
-        where: b.checkout_date >= ^today,
+        where: b.checkout_date >= ^today_pst,
         order_by: [asc: b.checkin_date],
         limit: ^limit,
         preload: [:rooms]
 
     bookings = Ysc.Repo.all(query)
 
-    # Filter out bookings that are past checkout time today
+    # Filter out bookings that are past checkout time today (in PST)
     bookings
     |> Enum.filter(fn booking ->
-      if Date.compare(booking.checkout_date, today) == :eq do
-        now = DateTime.utc_now()
-        checkout_datetime = DateTime.new!(today, checkout_time, "Etc/UTC")
-        DateTime.compare(now, checkout_datetime) == :lt
+      if Date.compare(booking.checkout_date, today_pst) == :eq do
+        now_pst = DateTime.now!("America/Los_Angeles")
+        checkout_datetime_pst = DateTime.new!(today_pst, checkout_time, "America/Los_Angeles")
+        DateTime.compare(now_pst, checkout_datetime_pst) == :lt
       else
         true
       end
@@ -1477,10 +1494,11 @@ defmodule YscWeb.HomeLive do
   defp format_property_name(_), do: "Unknown"
 
   defp days_until_booking(booking) do
-    today = Date.utc_today()
+    # Get today's date in PST timezone
+    today_pst = DateTime.now!("America/Los_Angeles") |> DateTime.to_date()
     checkin_date = booking.checkin_date
 
-    case Date.compare(today, checkin_date) do
+    case Date.compare(today_pst, checkin_date) do
       # Check-in is in the past - booking has started
       :gt ->
         :started
@@ -1492,46 +1510,82 @@ defmodule YscWeb.HomeLive do
       # Check-in is in the future
       :lt ->
         # Calculate days difference using calendar days
-        diff = Date.diff(checkin_date, today)
+        diff = Date.diff(checkin_date, today_pst)
         diff
     end
   end
 
   defp days_until_event(event) do
-    now = DateTime.utc_now()
+    # Get current time in PST timezone
+    now_pst = DateTime.now!("America/Los_Angeles")
 
-    # Combine the date and time properly
-    event_datetime =
+    # Combine the date and time properly, converting to PST
+    event_datetime_pst =
       case {event.start_date, event.start_time} do
         {%DateTime{} = date, %Time{} = time} ->
-          # Convert DateTime to NaiveDateTime, then combine with time
-          naive_date = DateTime.to_naive(date)
-          date_part = NaiveDateTime.to_date(naive_date)
+          # Convert UTC DateTime to PST, then get date and combine with time
+          date_pst = DateTime.shift_zone!(date, "America/Los_Angeles")
+          date_part = DateTime.to_date(date_pst)
           naive_datetime = NaiveDateTime.new!(date_part, time)
-          DateTime.from_naive!(naive_datetime, "Etc/UTC")
+          DateTime.from_naive!(naive_datetime, "America/Los_Angeles")
 
         {date, time} when not is_nil(date) and not is_nil(time) ->
-          # Handle other date/time combinations
-          NaiveDateTime.new!(date, time)
-          |> DateTime.from_naive!("Etc/UTC")
+          # Handle DateTime or Date with time
+          date_part =
+            case date do
+              %DateTime{} = dt ->
+                # Convert UTC DateTime to PST, then get date
+                dt_pst = DateTime.shift_zone!(dt, "America/Los_Angeles")
+                DateTime.to_date(dt_pst)
+
+              %Date{} = d ->
+                d
+
+              _ ->
+                nil
+            end
+
+          if date_part do
+            naive_datetime = NaiveDateTime.new!(date_part, time)
+            DateTime.from_naive!(naive_datetime, "America/Los_Angeles")
+          else
+            nil
+          end
 
         _ ->
           # Fallback to just the date if time is nil
-          event.start_date
+          case event.start_date do
+            %DateTime{} = dt ->
+              # Convert UTC DateTime to PST
+              DateTime.shift_zone!(dt, "America/Los_Angeles")
+
+            %Date{} = d ->
+              # For Date-only, create a DateTime at midnight PST
+              DateTime.new!(d, ~T[00:00:00], "America/Los_Angeles")
+
+            _ ->
+              nil
+          end
       end
 
-    case DateTime.compare(now, event_datetime) do
-      # Event is in the past
-      :gt ->
+    case event_datetime_pst do
+      nil ->
         0
 
-      _ ->
-        # Calculate days difference using calendar days, not 24-hour periods
-        # This ensures that an event tomorrow shows as "1 day left" even if it's less than 24 hours away
-        event_date_only = DateTime.to_date(event_datetime)
-        now_date_only = DateTime.to_date(now)
-        diff = Date.diff(event_date_only, now_date_only)
-        max(0, diff)
+      event_dt ->
+        case DateTime.compare(now_pst, event_dt) do
+          # Event is in the past
+          :gt ->
+            0
+
+          _ ->
+            # Calculate days difference using calendar days, not 24-hour periods
+            # This ensures that an event tomorrow shows as "1 day left" even if it's less than 24 hours away
+            event_date_only = DateTime.to_date(event_dt)
+            now_date_only = DateTime.to_date(now_pst)
+            diff = Date.diff(event_date_only, now_date_only)
+            max(0, diff)
+        end
     end
   end
 
@@ -1661,36 +1715,59 @@ defmodule YscWeb.HomeLive do
   end
 
   defp tier_on_sale?(ticket_tier) do
-    now = DateTime.utc_now()
+    # Use PST timezone for comparison
+    now_pst = DateTime.now!("America/Los_Angeles")
 
     start_date = Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
     end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
 
-    # Check if sale has started
+    # Check if sale has started (convert to PST if needed)
     sale_started =
       case start_date do
-        nil -> true
-        sd -> DateTime.compare(now, sd) != :lt
+        nil ->
+          true
+
+        sd when is_struct(sd, DateTime) ->
+          start_date_pst = DateTime.shift_zone!(sd, "America/Los_Angeles")
+          DateTime.compare(now_pst, start_date_pst) != :lt
+
+        _ ->
+          true
       end
 
-    # Check if sale has ended
+    # Check if sale has ended (convert to PST if needed)
     sale_ended =
       case end_date do
-        nil -> false
-        ed -> DateTime.compare(now, ed) == :gt
+        nil ->
+          false
+
+        ed when is_struct(ed, DateTime) ->
+          end_date_pst = DateTime.shift_zone!(ed, "America/Los_Angeles")
+          DateTime.compare(now_pst, end_date_pst) == :gt
+
+        _ ->
+          false
       end
 
     sale_started && !sale_ended
   end
 
   defp tier_sale_ended?(ticket_tier) do
-    now = DateTime.utc_now()
+    # Use PST timezone for comparison
+    now_pst = DateTime.now!("America/Los_Angeles")
 
     end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
 
     case end_date do
-      nil -> false
-      ed -> DateTime.compare(now, ed) == :gt
+      nil ->
+        false
+
+      ed when is_struct(ed, DateTime) ->
+        end_date_pst = DateTime.shift_zone!(ed, "America/Los_Angeles")
+        DateTime.compare(now_pst, end_date_pst) == :gt
+
+      _ ->
+        false
     end
   end
 
@@ -1731,24 +1808,94 @@ defmodule YscWeb.HomeLive do
   defp get_blur_hash(%Image{blur_hash: nil}), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
   defp get_blur_hash(%Image{blur_hash: blur_hash}), do: blur_hash
 
-  defp format_event_time(%Time{} = time) do
-    Timex.format!(time, "{h12}:{m} {AM}")
+  defp format_event_time(event_start_date, %Time{} = time) do
+    # Convert event date and time to PST for display
+    date_part =
+      case event_start_date do
+        %DateTime{} = dt ->
+          dt_pst = DateTime.shift_zone!(dt, "America/Los_Angeles")
+          DateTime.to_date(dt_pst)
+
+        %Date{} = d ->
+          d
+
+        _ ->
+          # Get today's date in PST
+          DateTime.now!("America/Los_Angeles") |> DateTime.to_date()
+      end
+
+    datetime_pst = DateTime.new!(date_part, time, "America/Los_Angeles")
+    Timex.format!(datetime_pst, "{h12}:{m} {AM}")
   end
 
-  defp format_event_time(start_time) when is_binary(start_time) do
+  defp format_event_time(event_start_date, start_time) when is_binary(start_time) do
     try do
       # Parse database time format (HH:MM:SS)
       [h, m, _s] = String.split(start_time, ":")
       hour = String.to_integer(h)
       minute = String.to_integer(m)
       time = Time.new!(hour, minute, 0)
-      Timex.format!(time, "{h12}:{m} {AM}")
+      format_event_time(event_start_date, time)
     rescue
       _ -> start_time
     end
   end
 
-  defp format_event_time(_), do: ""
+  defp format_event_time(_, _), do: ""
+
+  defp format_event_date(%DateTime{} = date) do
+    # Convert UTC DateTime to PST, then format
+    date_pst = DateTime.shift_zone!(date, "America/Los_Angeles")
+    date_only = DateTime.to_date(date_pst)
+    Timex.format!(date_only, "{Mshort} {D}")
+  end
+
+  defp format_event_date(%Date{} = date) do
+    Timex.format!(date, "{Mshort} {D}")
+  end
+
+  defp format_event_date(_), do: ""
+
+  defp format_event_date_long(%DateTime{} = date) do
+    # Convert UTC DateTime to PST, then format
+    date_pst = DateTime.shift_zone!(date, "America/Los_Angeles")
+    date_only = DateTime.to_date(date_pst)
+    Calendar.strftime(date_only, "%b %d, %Y")
+  end
+
+  defp format_event_date_long(%Date{} = date) do
+    Calendar.strftime(date, "%b %d, %Y")
+  end
+
+  defp format_event_date_long(_), do: ""
+
+  defp format_post_date(%Date{} = date) do
+    Timex.format!(date, "{Mshort} {D}")
+  end
+
+  defp format_post_date(%DateTime{} = datetime) do
+    # Convert UTC DateTime to PST, then format
+    datetime_pst = DateTime.shift_zone!(datetime, "America/Los_Angeles")
+    date_only = DateTime.to_date(datetime_pst)
+    Timex.format!(date_only, "{Mshort} {D}")
+  end
+
+  defp format_post_date(_), do: ""
+
+  defp format_booking_date(%Date{} = date) do
+    Calendar.strftime(date, "%b %d")
+  end
+
+  defp format_booking_date(_), do: ""
+
+  defp days_since_inserted(%DateTime{} = inserted_at) do
+    # Get current time in PST and convert inserted_at to PST
+    now_pst = DateTime.now!("America/Los_Angeles")
+    inserted_at_pst = DateTime.shift_zone!(inserted_at, "America/Los_Angeles")
+    Timex.diff(now_pst, inserted_at_pst, :days)
+  end
+
+  defp days_since_inserted(_), do: 999
 
   defp event_image_url(nil), do: "/images/ysc_logo.png"
 

@@ -408,22 +408,22 @@ defmodule YscWeb.AdminDashboardLive do
 
   @spec mount(any(), any(), map()) :: {:ok, map()}
   def mount(_params, _session, socket) do
+    # Load all data in parallel where possible
     latest_comments = Posts.get_latest_comments(5)
     events_with_tickets = Events.get_upcoming_events_with_ticket_tier_counts()
     pending_users = Accounts.get_pending_approval_users()
 
+    # Optimize revenue calculations by fetching accounts once and combining queries
     {current_revenue, revenue_change_text, revenue_change_direction, last_month_revenue,
-     last_year_month_revenue} =
-      calculate_revenue_stats()
+     last_year_month_revenue, revenue_bookings, revenue_events, revenue_membership,
+     revenue_mix_bookings_percent, revenue_mix_events_percent, revenue_mix_membership_percent} =
+      calculate_all_revenue_stats()
 
     next_event_date = get_next_event_date(events_with_tickets)
 
     {applications_this_month, applications_this_year, applications_last_month,
      applications_last_year, applications_month_change, applications_year_change} =
       get_application_statistics()
-
-    {revenue_bookings, revenue_events, revenue_membership, revenue_mix_bookings_percent,
-     revenue_mix_events_percent, revenue_mix_membership_percent} = calculate_revenue_by_category()
 
     {active_guests_count, active_guests_sample} = get_active_guests()
 
@@ -733,8 +733,11 @@ defmodule YscWeb.AdminDashboardLive do
     end
   end
 
-  defp calculate_revenue_stats do
-    # Get current month revenue from ledger entries
+  defp calculate_all_revenue_stats do
+    alias Ysc.Repo
+    alias Ysc.Ledgers
+    import Ecto.Query
+
     now = DateTime.utc_now()
 
     month_start = %DateTime{
@@ -747,49 +750,14 @@ defmodule YscWeb.AdminDashboardLive do
     }
 
     # Get previous month for comparison
-    prev_month_start =
-      month_start
-      |> Timex.shift(months: -1)
+    prev_month_start = Timex.shift(month_start, months: -1)
 
     # Get same month last year
     last_year_month_start = Timex.shift(month_start, years: -1)
     last_year_month_end = Timex.shift(month_start, years: -1) |> Timex.shift(months: 1)
 
-    current_revenue = get_month_revenue(month_start, now)
-    prev_revenue = get_month_revenue(prev_month_start, month_start)
-    last_year_revenue = get_month_revenue(last_year_month_start, last_year_month_end)
-
-    {revenue_change_text, revenue_change_direction} =
-      if Decimal.gt?(prev_revenue.amount, Decimal.new(0)) do
-        current_amount = Decimal.to_float(current_revenue.amount)
-        prev_amount = Decimal.to_float(prev_revenue.amount)
-
-        change_percent = ((current_amount - prev_amount) / prev_amount * 100) |> round()
-
-        month_name = Timex.format!(prev_month_start, "{Mshort}")
-
-        {text, direction} =
-          cond do
-            change_percent > 0 -> {"+#{change_percent}% from #{month_name}", :up}
-            change_percent < 0 -> {"#{change_percent}% from #{month_name}", :down}
-            true -> {"0% from #{month_name}", :stable}
-          end
-
-        {text, direction}
-      else
-        {"First month", :stable}
-      end
-
-    {current_revenue, revenue_change_text, revenue_change_direction, prev_revenue,
-     last_year_revenue}
-  end
-
-  defp get_month_revenue(start_date, end_date) do
-    alias Ysc.Ledgers
-    import Ecto.Query
-
-    # Get all revenue accounts
-    revenue_accounts = [
+    # Fetch all revenue accounts in a single query
+    revenue_account_names = [
       "membership_revenue",
       "event_revenue",
       "tahoe_booking_revenue",
@@ -797,148 +765,137 @@ defmodule YscWeb.AdminDashboardLive do
       "donation_revenue"
     ]
 
-    Enum.reduce(revenue_accounts, Money.new(0, :USD), fn account_name, acc ->
-      account = Ledgers.get_account_by_name(account_name)
+    accounts =
+      from(a in Ysc.Ledgers.LedgerAccount,
+        where: a.name in ^revenue_account_names
+      )
+      |> Repo.all()
+      |> Map.new(&{&1.name, &1})
 
-      if account do
-        query =
-          from(e in Ysc.Ledgers.LedgerEntry,
-            where: e.account_id == ^account.id,
-            where: e.debit_credit == "credit",
-            where: e.inserted_at >= ^start_date,
-            where: e.inserted_at < ^end_date,
-            select: sum(fragment("ABS((?.amount).amount)", e))
-          )
+    # Build account ID lists for bookings (combined) and individual accounts
+    bookings_account_ids =
+      [
+        accounts["tahoe_booking_revenue"],
+        accounts["clear_lake_booking_revenue"]
+      ]
+      |> Enum.filter(&(&1 != nil))
+      |> Enum.map(& &1.id)
 
-        amount_decimal =
-          Ysc.Repo.one(query)
-          |> case do
-            nil -> Decimal.new(0)
-            val -> val
-          end
+    events_account_id = if accounts["event_revenue"], do: accounts["event_revenue"].id, else: nil
 
-        # Convert Decimal to Money
-        amount_money = Money.new(amount_decimal, :USD)
+    membership_account_id =
+      if accounts["membership_revenue"], do: accounts["membership_revenue"].id, else: nil
 
-        case Money.add(acc, amount_money) do
-          {:ok, sum} -> sum
-          _ -> acc
-        end
-      else
-        acc
-      end
-    end)
-  end
+    all_revenue_account_ids = Map.values(accounts) |> Enum.map(& &1.id)
 
-  defp format_money(money) do
-    Money.to_string!(money, symbol: true, separator: ",", delimiter: ".")
-  end
+    # Fetch all entries for all time periods in a single query, then aggregate in Elixir
+    # This is more efficient than multiple queries and avoids complex SQL fragments
+    all_entries =
+      from(e in Ysc.Ledgers.LedgerEntry,
+        where: e.account_id in ^all_revenue_account_ids,
+        where: e.debit_credit == "credit",
+        where:
+          (e.inserted_at >= ^month_start and e.inserted_at < ^now) or
+            (e.inserted_at >= ^prev_month_start and e.inserted_at < ^month_start) or
+            (e.inserted_at >= ^last_year_month_start and e.inserted_at < ^last_year_month_end),
+        select: %{
+          account_id: e.account_id,
+          amount: fragment("ABS((?.amount).amount)", e),
+          inserted_at: e.inserted_at
+        }
+      )
+      |> Repo.all()
 
-  defp calculate_revenue_by_category do
-    alias Ysc.Ledgers
-    import Ecto.Query
+    # Aggregate by account and time period in Elixir
+    revenue_data =
+      Enum.reduce(all_entries, %{current: %{}, prev: %{}, last_year: %{}}, fn entry, acc ->
+        account_id = entry.account_id
+        amount = entry.amount || Decimal.new(0)
+        inserted_at = entry.inserted_at
 
-    now = DateTime.utc_now()
-
-    month_start = %DateTime{
-      now
-      | day: 1,
-        hour: 0,
-        minute: 0,
-        second: 0,
-        microsecond: {0, 0}
-    }
-
-    # Get bookings revenue (tahoe + clear_lake)
-    bookings_revenue =
-      Enum.reduce(
-        ["tahoe_booking_revenue", "clear_lake_booking_revenue"],
-        Money.new(0, :USD),
-        fn account_name, acc ->
-          account = Ledgers.get_account_by_name(account_name)
-
-          if account do
-            query =
-              from(e in Ysc.Ledgers.LedgerEntry,
-                where: e.account_id == ^account.id,
-                where: e.debit_credit == "credit",
-                where: e.inserted_at >= ^month_start,
-                where: e.inserted_at < ^now,
-                select: sum(fragment("ABS((?.amount).amount)", e))
-              )
-
-            amount_decimal =
-              Ysc.Repo.one(query)
-              |> case do
-                nil -> Decimal.new(0)
-                val -> val
-              end
-
-            amount_money = Money.new(amount_decimal, :USD)
-
-            case Money.add(acc, amount_money) do
-              {:ok, sum} -> sum
-              _ -> acc
-            end
+        acc =
+          if inserted_at >= month_start and inserted_at < now do
+            %{
+              acc
+              | current:
+                  Map.update(acc.current || %{}, account_id, amount, fn existing ->
+                    Decimal.add(existing, amount)
+                  end)
+            }
           else
             acc
           end
-        end
-      )
 
-    # Get events revenue
-    events_account = Ledgers.get_account_by_name("event_revenue")
+        acc =
+          if inserted_at >= prev_month_start and inserted_at < month_start do
+            %{
+              acc
+              | prev:
+                  Map.update(acc.prev || %{}, account_id, amount, fn existing ->
+                    Decimal.add(existing, amount)
+                  end)
+            }
+          else
+            acc
+          end
+
+        if inserted_at >= last_year_month_start and inserted_at < last_year_month_end do
+          %{
+            acc
+            | last_year:
+                Map.update(acc.last_year || %{}, account_id, amount, fn existing ->
+                  Decimal.add(existing, amount)
+                end)
+          }
+        else
+          acc
+        end
+      end)
+
+    # Calculate totals for each period
+    current_total =
+      revenue_data.current
+      |> Map.values()
+      |> Enum.reduce(Decimal.new(0), &Decimal.add/2)
+
+    prev_total =
+      revenue_data.prev
+      |> Map.values()
+      |> Enum.reduce(Decimal.new(0), &Decimal.add/2)
+
+    last_year_total =
+      revenue_data.last_year
+      |> Map.values()
+      |> Enum.reduce(Decimal.new(0), &Decimal.add/2)
+
+    current_revenue = Money.new(current_total, :USD)
+    prev_revenue = Money.new(prev_total, :USD)
+    last_year_revenue = Money.new(last_year_total, :USD)
+
+    # Calculate revenue by category for current month
+    bookings_revenue =
+      bookings_account_ids
+      |> Enum.map(&Map.get(revenue_data.current, &1, Decimal.new(0)))
+      |> Enum.reduce(Decimal.new(0), &Decimal.add/2)
+      |> then(&Money.new(&1, :USD))
 
     events_revenue =
-      if events_account do
-        query =
-          from(e in Ysc.Ledgers.LedgerEntry,
-            where: e.account_id == ^events_account.id,
-            where: e.debit_credit == "credit",
-            where: e.inserted_at >= ^month_start,
-            where: e.inserted_at < ^now,
-            select: sum(fragment("ABS((?.amount).amount)", e))
-          )
-
-        amount_decimal =
-          Ysc.Repo.one(query)
-          |> case do
-            nil -> Decimal.new(0)
-            val -> val
-          end
-
-        Money.new(amount_decimal, :USD)
+      if events_account_id do
+        Map.get(revenue_data.current, events_account_id, Decimal.new(0))
+        |> Money.new(:USD)
       else
         Money.new(0, :USD)
       end
-
-    # Get membership revenue
-    membership_account = Ledgers.get_account_by_name("membership_revenue")
 
     membership_revenue =
-      if membership_account do
-        query =
-          from(e in Ysc.Ledgers.LedgerEntry,
-            where: e.account_id == ^membership_account.id,
-            where: e.debit_credit == "credit",
-            where: e.inserted_at >= ^month_start,
-            where: e.inserted_at < ^now,
-            select: sum(fragment("ABS((?.amount).amount)", e))
-          )
-
-        amount_decimal =
-          Ysc.Repo.one(query)
-          |> case do
-            nil -> Decimal.new(0)
-            val -> val
-          end
-
-        Money.new(amount_decimal, :USD)
+      if membership_account_id do
+        Map.get(revenue_data.current, membership_account_id, Decimal.new(0))
+        |> Money.new(:USD)
       else
         Money.new(0, :USD)
       end
 
-    # Calculate total and percentages
+    # Calculate percentages
     {:ok, total} = Money.add(bookings_revenue, events_revenue)
     {:ok, total} = Money.add(total, membership_revenue)
 
@@ -969,8 +926,35 @@ defmodule YscWeb.AdminDashboardLive do
         0
       end
 
-    {bookings_revenue, events_revenue, membership_revenue, bookings_percent, events_percent,
-     membership_percent}
+    # Calculate change text and direction
+    {revenue_change_text, revenue_change_direction} =
+      if Decimal.gt?(prev_revenue.amount, Decimal.new(0)) do
+        current_amount = Decimal.to_float(current_revenue.amount)
+        prev_amount = Decimal.to_float(prev_revenue.amount)
+
+        change_percent = ((current_amount - prev_amount) / prev_amount * 100) |> round()
+
+        month_name = Timex.format!(prev_month_start, "{Mshort}")
+
+        {text, direction} =
+          cond do
+            change_percent > 0 -> {"+#{change_percent}% from #{month_name}", :up}
+            change_percent < 0 -> {"#{change_percent}% from #{month_name}", :down}
+            true -> {"0% from #{month_name}", :stable}
+          end
+
+        {text, direction}
+      else
+        {"First month", :stable}
+      end
+
+    {current_revenue, revenue_change_text, revenue_change_direction, prev_revenue,
+     last_year_revenue, bookings_revenue, events_revenue, membership_revenue, bookings_percent,
+     events_percent, membership_percent}
+  end
+
+  defp format_money(money) do
+    Money.to_string!(money, symbol: true, separator: ",", delimiter: ".")
   end
 
   defp get_active_guests do
