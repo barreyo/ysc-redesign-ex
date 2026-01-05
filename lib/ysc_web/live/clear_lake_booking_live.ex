@@ -577,83 +577,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                     </p>
                   </div>
                 </section>
-                <!-- Section 2: Select Your Dates -->
-                <section class="bg-white rounded border border-zinc-200 overflow-hidden shadow-sm">
-                  <div class="p-6 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
-                    <h2 class="text-lg font-bold text-zinc-900 flex items-center gap-2">
-                      <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                        2
-                      </span>
-                      Select Your Dates
-                    </h2>
-                    <button
-                      :if={@checkin_date || @checkout_date}
-                      type="button"
-                      phx-click="reset-dates"
-                      class="text-xs font-semibold text-teal-600 hover:text-teal-800 transition-colors"
-                    >
-                      Reset Dates
-                    </button>
-                  </div>
-                  <div class="p-6">
-                    <div class="mb-4">
-                      <p class="text-sm font-medium text-zinc-800 mb-2">
-                        <span :if={@selected_booking_mode == :day}>
-                          The calendar shows how many spots are available for each day (up to 12 guests per day).
-                        </span>
-                        <span :if={@selected_booking_mode == :buyout}>
-                          The calendar shows which dates are available for exclusive full cabin rental.
-                        </span>
-                      </p>
-                      <p class="text-xs text-zinc-600">
-                        Click on a date to start your selection, then click another date to complete your range.
-                      </p>
-                    </div>
-                    <.live_component
-                      module={YscWeb.Components.AvailabilityCalendar}
-                      id="clear-lake-availability-calendar"
-                      checkin_date={@checkin_date}
-                      checkout_date={@checkout_date}
-                      selected_booking_mode={@selected_booking_mode}
-                      min={@today}
-                      max={@max_booking_date}
-                      property={:clear_lake}
-                      today={@today}
-                      guests_count={@guests_count}
-                    />
-                    <!-- Error Messages -->
-                    <div class="mt-4 space-y-1">
-                      <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm">
-                        <%= @form_errors[:checkin_date] %>
-                      </p>
-                      <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm">
-                        <%= @form_errors[:checkout_date] %>
-                      </p>
-                      <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
-                        <%= @date_validation_errors[:weekend] %>
-                      </p>
-                      <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
-                        <%= @date_validation_errors[:max_nights] %>
-                      </p>
-                      <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm">
-                        <%= @date_validation_errors[:active_booking] %>
-                      </p>
-                      <p
-                        :if={@date_validation_errors[:advance_booking_limit]}
-                        class="text-red-600 text-sm"
-                      >
-                        <%= @date_validation_errors[:advance_booking_limit] %>
-                      </p>
-                      <p
-                        :if={@date_validation_errors[:season_date_range]}
-                        class="text-red-600 text-sm"
-                      >
-                        <%= @date_validation_errors[:season_date_range] %>
-                      </p>
-                    </div>
-                  </div>
-                </section>
-                <!-- Section 3: Number of Guests -->
+                <!-- Section 2: Number of Guests -->
                 <section
                   :if={@selected_booking_mode == :day}
                   class="bg-white rounded border border-zinc-200 overflow-hidden shadow-sm"
@@ -661,7 +585,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                   <div class="p-6 border-b border-zinc-100 bg-zinc-50">
                     <h2 class="text-lg font-bold text-zinc-900 flex items-center gap-2">
                       <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                        3
+                        2
                       </span>
                       Number of Guests
                     </h2>
@@ -730,6 +654,90 @@ defmodule YscWeb.ClearLakeBookingLive do
                       </div>
                       <p :if={@form_errors[:guests_count]} class="text-red-600 text-sm mt-2">
                         <%= @form_errors[:guests_count] %>
+                      </p>
+                    </div>
+                  </div>
+                </section>
+                <!-- Section 3: Select Your Dates (Step 2 for buyout, Step 3 for day) -->
+                <section class="bg-white rounded border border-zinc-200 overflow-hidden shadow-sm">
+                  <div class="p-6 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
+                    <h2 class="text-lg font-bold text-zinc-900 flex items-center gap-2">
+                      <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                        <%= if @selected_booking_mode == :buyout, do: "2", else: "3" %>
+                      </span>
+                      Select Your Dates
+                    </h2>
+                    <button
+                      :if={@checkin_date || @checkout_date}
+                      type="button"
+                      phx-click="reset-dates"
+                      class="text-xs font-semibold text-teal-600 hover:text-teal-800 transition-colors"
+                    >
+                      Reset Dates
+                    </button>
+                  </div>
+                  <div class="p-6">
+                    <div class="mb-4">
+                      <p class="text-sm font-medium text-zinc-800 mb-2">
+                        <span :if={@selected_booking_mode == :day}>
+                          The calendar shows how many spots are available for each day (up to 12 guests per day).
+                          <span
+                            :if={@guests_count && @guests_count > 0}
+                            class="font-semibold text-teal-700"
+                          >
+                            Dates with fewer than <%= @guests_count %> spot<%= if @guests_count == 1,
+                              do: "",
+                              else: "s" %> available are disabled.
+                          </span>
+                        </span>
+                        <span :if={@selected_booking_mode == :buyout}>
+                          The calendar shows which dates are available for exclusive full cabin rental.
+                        </span>
+                      </p>
+                      <p class="text-xs text-zinc-600">
+                        Click on a date to start your selection, then click another date to complete your range.
+                      </p>
+                    </div>
+                    <.live_component
+                      module={YscWeb.Components.AvailabilityCalendar}
+                      id="clear-lake-availability-calendar"
+                      checkin_date={@checkin_date}
+                      checkout_date={@checkout_date}
+                      selected_booking_mode={@selected_booking_mode}
+                      min={@today}
+                      max={@max_booking_date}
+                      property={:clear_lake}
+                      today={@today}
+                      guests_count={@guests_count}
+                    />
+                    <!-- Error Messages -->
+                    <div class="mt-4 space-y-1">
+                      <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm">
+                        <%= @form_errors[:checkin_date] %>
+                      </p>
+                      <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm">
+                        <%= @form_errors[:checkout_date] %>
+                      </p>
+                      <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
+                        <%= @date_validation_errors[:weekend] %>
+                      </p>
+                      <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
+                        <%= @date_validation_errors[:max_nights] %>
+                      </p>
+                      <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm">
+                        <%= @date_validation_errors[:active_booking] %>
+                      </p>
+                      <p
+                        :if={@date_validation_errors[:advance_booking_limit]}
+                        class="text-red-600 text-sm"
+                      >
+                        <%= @date_validation_errors[:advance_booking_limit] %>
+                      </p>
+                      <p
+                        :if={@date_validation_errors[:season_date_range]}
+                        class="text-red-600 text-sm"
+                      >
+                        <%= @date_validation_errors[:season_date_range] %>
                       </p>
                     </div>
                   </div>
