@@ -25,6 +25,22 @@ config :ysc, :flowroute,
   secret_key: System.get_env("FLOWROUTE_SECRET_KEY"),
   from_number: System.get_env("FLOWROUTE_FROM_NUMBER")
 
+# ## Email Address Configuration
+#
+# Configure email addresses for outgoing emails and contact information.
+# These can be set via environment variables at runtime for all environments.
+# All values are optional and will fall back to defaults from config.exs if not set.
+config :ysc, :emails,
+  from_email: System.get_env("EMAIL_FROM") || "info@ysc.org",
+  from_name: System.get_env("EMAIL_FROM_NAME") || "YSC",
+  contact_email: System.get_env("EMAIL_CONTACT") || "info@ysc.org",
+  admin_email: System.get_env("EMAIL_ADMIN") || "admin@ysc.org",
+  membership_email: System.get_env("EMAIL_MEMBERSHIP") || "membership@ysc.org",
+  board_email: System.get_env("EMAIL_BOARD") || "board@ysc.org",
+  volunteer_email: System.get_env("EMAIL_VOLUNTEER") || "volunteer@ysc.org",
+  tahoe_email: System.get_env("EMAIL_TAHOE") || "tahoe@ysc.org",
+  clear_lake_email: System.get_env("EMAIL_CLEAR_LAKE") || "cl@ysc.org"
+
 # ## Using releases
 #
 # If you use `mix release`, you need to explicitly enable the server

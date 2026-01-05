@@ -4342,12 +4342,6 @@ defmodule YscWeb.EventDetailsLive do
            "There was an unexpected error processing your ticket order. Please try again."
          )
          |> assign(:show_ticket_modal, false)}
-
-      {:error, _changeset} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Failed to create ticket order. Please try again.")
-         |> assign(:show_ticket_modal, false)}
     end
   end
 

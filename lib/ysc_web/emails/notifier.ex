@@ -7,11 +7,11 @@ defmodule YscWeb.Emails.Notifier do
   import Swoosh.Email
 
   defp from_email do
-    Application.get_env(:ysc, :emails)[:from_email] || "info@ysc.org"
+    Ysc.EmailConfig.from_email()
   end
 
   defp from_name do
-    Application.get_env(:ysc, :emails)[:from_name] || "YSC"
+    Ysc.EmailConfig.from_name()
   end
 
   @template_mappings %{

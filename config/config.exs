@@ -128,16 +128,18 @@ config :ysc, :radar,
   public_key:
     System.get_env("RADAR_PUBLIC_KEY", "prj_test_pk_5bcfd56661bb7fc596d70d5f21f0e2c6049b0966")
 
+# Email configuration defaults for dev/test environments
+# Production runtime configuration is in config/runtime.exs
 config :ysc, :emails,
-  from_email: System.get_env("EMAIL_FROM", "info@ysc.org"),
-  from_name: System.get_env("EMAIL_FROM_NAME", "YSC"),
-  contact_email: System.get_env("EMAIL_CONTACT", "info@ysc.org"),
-  admin_email: System.get_env("EMAIL_ADMIN", "admin@ysc.org"),
-  membership_email: System.get_env("EMAIL_MEMBERSHIP", "membership@ysc.org"),
-  board_email: System.get_env("EMAIL_BOARD", "board@ysc.org"),
-  volunteer_email: System.get_env("EMAIL_VOLUNTEER", "volunteer@ysc.org"),
-  tahoe_email: System.get_env("EMAIL_TAHOE", "tahoe@ysc.org"),
-  clear_lake_email: System.get_env("EMAIL_CLEAR_LAKE", "cl@ysc.org")
+  from_email: "info@ysc.org",
+  from_name: "YSC",
+  contact_email: "info@ysc.org",
+  admin_email: "admin@ysc.org",
+  membership_email: "membership@ysc.org",
+  board_email: "board@ysc.org",
+  volunteer_email: "volunteer@ysc.org",
+  tahoe_email: "tahoe@ysc.org",
+  clear_lake_email: "cl@ysc.org"
 
 # Removed Bling configuration - using internal subscription management
 
