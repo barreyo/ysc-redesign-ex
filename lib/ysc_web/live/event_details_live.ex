@@ -15,7 +15,7 @@ defmodule YscWeb.EventDetailsLive do
     <div class="min-h-screen">
       <%!-- Split-Header: Event Cover Image with Floating Card --%>
       <div class="max-w-screen-xl mx-auto px-4 pt-8">
-        <div class="relative mb-24 lg:mb-32">
+        <div class="relative mb-4 lg:mb-24">
           <%!-- Image with rounded corners and gradient overlay --%>
           <div class={[
             "rounded-2xl overflow-hidden relative",
@@ -38,9 +38,12 @@ defmodule YscWeb.EventDetailsLive do
           </div>
 
           <%!-- Floating Card with Title/Date/Location - Overlaps bottom of image --%>
-          <div class="absolute bottom-0 left-0 right-0 transform translate-y-1/2 px-4 lg:px-8 z-10">
+          <div class={[
+            "relative -mt-16 mx-4 z-10 transition-all duration-500 ease-in-out",
+            "lg:absolute lg:bottom-0 lg:left-0 lg:right-0 lg:translate-y-1/2 lg:mx-0 lg:px-8 lg:mt-0"
+          ]}>
             <div class={[
-              "bg-white rounded-xl shadow-2xl border p-6 lg:p-10",
+              "bg-white rounded-xl shadow-2xl border p-6 lg:p-10 transform transition-transform duration-500",
               if(@event.state == :cancelled,
                 do: "border-red-300",
                 else: "border-zinc-100"
@@ -82,14 +85,14 @@ defmodule YscWeb.EventDetailsLive do
 
                 <h1
                   :if={@event.title != nil && @event.title != ""}
-                  class="text-3xl md:text-4xl lg:text-5xl font-black text-zinc-900 tracking-tighter leading-tight"
+                  class="text-2xl md:text-4xl lg:text-5xl font-black text-zinc-900 tracking-tighter leading-tight transition-all"
                 >
                   <%= @event.title %>
                 </h1>
 
                 <p
                   :if={@event.description != nil && @event.description != ""}
-                  class="text-lg text-zinc-600 font-light leading-relaxed"
+                  class="hidden sm:block text-lg text-zinc-600 font-light leading-relaxed"
                 >
                   <%= @event.description %>
                 </p>
@@ -4338,12 +4341,6 @@ defmodule YscWeb.EventDetailsLive do
            :error,
            "There was an unexpected error processing your ticket order. Please try again."
          )
-         |> assign(:show_ticket_modal, false)}
-
-      {:error, :membership_required} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "An active membership is required to purchase tickets.")
          |> assign(:show_ticket_modal, false)}
 
       {:error, _changeset} ->
