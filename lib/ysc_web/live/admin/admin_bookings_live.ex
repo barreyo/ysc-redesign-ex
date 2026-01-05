@@ -2758,13 +2758,21 @@ defmodule YscWeb.AdminBookingsLive do
     # This prevents stale live_action values from blocking modal opens
     socket = assign(socket, :live_action, socket.assigns.live_action || :index)
 
+    # Track if dates or property changed to avoid unnecessary calendar updates
+    old_start_date = socket.assigns[:calendar_start_date]
+    old_end_date = socket.assigns[:calendar_end_date]
+    old_property = socket.assigns[:selected_property]
+
     # Update calendar date range first if provided in params, to preserve it when updating property
-    socket =
+    {socket, dates_changed} =
       cond do
         params["from_date"] && params["to_date"] ->
           try do
             calendar_start = Date.from_iso8601!(params["from_date"])
             calendar_end = Date.from_iso8601!(params["to_date"])
+
+            dates_changed =
+              old_start_date != calendar_start || old_end_date != calendar_end
 
             form_data = %{
               "from_date" => Date.to_string(calendar_start),
@@ -2776,33 +2784,42 @@ defmodule YscWeb.AdminBookingsLive do
               |> Ecto.Changeset.cast(form_data, [:from_date, :to_date])
               |> to_form(as: "calendar_range")
 
-            socket
-            |> assign(:calendar_start_date, calendar_start)
-            |> assign(:calendar_end_date, calendar_end)
-            |> assign(:calendar_range_form, changeset)
+            socket =
+              socket
+              |> assign(:calendar_start_date, calendar_start)
+              |> assign(:calendar_end_date, calendar_end)
+              |> assign(:calendar_range_form, changeset)
+
+            {socket, dates_changed}
           rescue
             _error ->
               # Fallback to existing dates or default
               if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
-                socket
+                {socket, false}
               else
                 {start_date, end_date} = default_date_range()
 
-                socket
-                |> assign(:calendar_start_date, start_date)
-                |> assign(:calendar_end_date, end_date)
+                socket =
+                  socket
+                  |> assign(:calendar_start_date, start_date)
+                  |> assign(:calendar_end_date, end_date)
+
+                {socket, true}
               end
           end
 
         socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] ->
-          socket
+          {socket, false}
 
         true ->
           {start_date, end_date} = default_date_range()
 
-          socket
-          |> assign(:calendar_start_date, start_date)
-          |> assign(:calendar_end_date, end_date)
+          socket =
+            socket
+            |> assign(:calendar_start_date, start_date)
+            |> assign(:calendar_end_date, end_date)
+
+          {socket, true}
       end
 
     # Update section if provided in params
@@ -2821,26 +2838,29 @@ defmodule YscWeb.AdminBookingsLive do
       end
 
     # Update selected_property if provided in params
-    socket =
+    {socket, property_changed} =
       if params["property"] do
         property_atom = String.to_existing_atom(params["property"])
+        property_changed = old_property != property_atom
 
-        socket
-        |> assign(:selected_property, property_atom)
-        |> assign_filtered_data(
-          property_atom,
-          socket.assigns.seasons,
-          socket.assigns.pricing_rules,
-          socket.assigns.refund_policies
-        )
+        socket =
+          socket
+          |> assign(:selected_property, property_atom)
+          |> assign_filtered_data(
+            property_atom,
+            socket.assigns.seasons,
+            socket.assigns.pricing_rules,
+            socket.assigns.refund_policies
+          )
+
+        {socket, property_changed}
       else
-        socket
+        {socket, false}
       end
 
-    # Update calendar view only for index action (not for modals)
-    # This ensures the calendar is generated with the correct dates and property
+    # Update calendar view only if dates or property changed (avoid duplicate queries on initial mount)
     socket =
-      if socket.assigns.live_action == :index do
+      if (dates_changed || property_changed) && socket.assigns.live_action == :index do
         update_calendar_view(socket, socket.assigns.selected_property)
       else
         socket
@@ -2859,18 +2879,19 @@ defmodule YscWeb.AdminBookingsLive do
       if socket.assigns[:current_section] == :pending_refunds do
         load_pending_refunds(socket)
       else
-        # Still load count for the badge (filtered by selected property)
+        # Still load count for the badge (filtered by selected property at DB level)
         selected_property = socket.assigns.selected_property
 
         pending_refunds_count =
-          Bookings.list_pending_refunds()
-          |> Enum.filter(fn pr ->
-            # Booking is preloaded by list_pending_refunds, but ensure it exists
-            pr.booking && pr.booking.property == selected_property
-          end)
-          |> length()
+          from(pr in Ysc.Bookings.PendingRefund,
+            join: b in assoc(pr, :booking),
+            where: pr.status == :pending,
+            where: b.property == ^selected_property,
+            select: count(pr.id)
+          )
+          |> Repo.one()
 
-        assign(socket, :pending_refunds_count, pending_refunds_count)
+        assign(socket, :pending_refunds_count, pending_refunds_count || 0)
       end
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
@@ -5282,6 +5303,8 @@ defmodule YscWeb.AdminBookingsLive do
     bookings_in_range = Bookings.list_bookings(property, start_date, end_date)
 
     # Filter out canceled and refunded bookings (only show active bookings on calendar)
+    # Note: This filtering in memory is acceptable since we're already loading a filtered set
+    # and need to process bookings anyway to separate room vs buyout bookings
     active_bookings =
       Enum.filter(bookings_in_range, fn booking ->
         booking.status != :canceled && booking.status != :refunded
@@ -5439,15 +5462,16 @@ defmodule YscWeb.AdminBookingsLive do
   defp load_pending_refunds(socket) do
     selected_property = socket.assigns.selected_property
 
+    # Query pending refunds with property filter at DB level and preload all associations in one query
     pending_refunds =
-      Bookings.list_pending_refunds()
-      |> Enum.map(fn pr ->
-        pr
-        |> Repo.preload(booking: [:user, rooms: :room_category], payment: :user)
-      end)
-      |> Enum.filter(fn pr ->
-        pr.booking && pr.booking.property == selected_property
-      end)
+      from(pr in Ysc.Bookings.PendingRefund,
+        join: b in assoc(pr, :booking),
+        where: pr.status == :pending,
+        where: b.property == ^selected_property,
+        order_by: [asc: pr.inserted_at],
+        preload: [booking: [:user, rooms: :room_category], payment: :user]
+      )
+      |> Repo.all()
 
     socket
     |> assign(:pending_refunds, pending_refunds)

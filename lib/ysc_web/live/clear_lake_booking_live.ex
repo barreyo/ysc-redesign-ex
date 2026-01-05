@@ -738,9 +738,9 @@ defmodule YscWeb.ClearLakeBookingLive do
                 <div :if={@price_error} class="bg-red-50 border border-red-200 rounded-lg p-4">
                   <div class="flex items-start">
                     <div class="flex-shrink-0">
-                      <.icon name="hero-exclamation-circle" class="h-5 w-5 text-red-600" />
+                      <.icon name="hero-exclamation-circle" class="h-5 w-5 text-red-600 -mt-1" />
                     </div>
-                    <div class="ml-3">
+                    <div class="ms-3">
                       <p class="text-sm text-red-800"><%= @price_error %></p>
                     </div>
                   </div>
@@ -2052,19 +2052,36 @@ defmodule YscWeb.ClearLakeBookingLive do
          |> push_navigate(to: ~p"/bookings/checkout/#{booking.id}")}
 
       {:error, :insufficient_capacity} ->
+        # Re-validate to get specific error message about which dates are unavailable
+        availability_error =
+          if socket.assigns.selected_booking_mode == :day &&
+               socket.assigns.checkin_date &&
+               socket.assigns.checkout_date do
+            validate_guests_against_availability(
+              socket.assigns.checkin_date,
+              socket.assigns.checkout_date,
+              socket.assigns.guests_count,
+              socket.assigns
+            )
+          else
+            "Sorry, there is not enough capacity for your requested dates and number of guests."
+          end
+
         {:noreply,
          socket
          |> put_flash(
            :error,
-           "Sorry, there is not enough capacity for your requested dates and number of guests."
+           availability_error ||
+             "Sorry, there is not enough capacity for your requested dates and number of guests."
          )
          |> assign(
            form_errors: %{
              general:
-               "Sorry, there is not enough capacity for your requested dates and number of guests."
+               availability_error ||
+                 "Sorry, there is not enough capacity for your requested dates and number of guests."
            },
            calculated_price: socket.assigns.calculated_price,
-           availability_error: "Not enough capacity available"
+           availability_error: availability_error || "Not enough capacity available"
          )}
 
       {:error, :property_unavailable} ->
@@ -2720,74 +2737,63 @@ defmodule YscWeb.ClearLakeBookingLive do
     # Check each date in the range, but exclude checkout_date
     # Since checkout is at 11 AM and check-in is at 3 PM, the checkout_date
     # is not an occupied night and should not be validated
+    # Use Date.range directly without converting to list for better performance
     date_range =
       if Date.compare(checkout_date, checkin_date) == :gt do
         # Exclude checkout_date - only validate nights that will be stayed
-        Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+        Date.range(checkin_date, Date.add(checkout_date, -1))
       else
         # Edge case: same day check-in/check-out (shouldn't happen, but handle gracefully)
-        []
+        # Return empty range
+        Date.range(checkin_date, checkin_date)
       end
 
-    unavailable_dates =
-      date_range
-      |> Enum.filter(fn date ->
+    # Use Enum.any? to short-circuit on first unavailable date
+    unavailable_date =
+      Enum.find_value(date_range, fn date ->
         day_availability = Map.get(availability, date)
 
         if day_availability do
           # Check if there are enough spots available
           if day_availability.is_blacked_out do
-            true
+            date
           else
             if assigns[:selected_booking_mode] == :day do
               # For day bookings, check if there are enough spots
-              day_availability.spots_available < guests_count
+              if day_availability.spots_available < guests_count, do: date, else: nil
             else
               # For buyout, check if buyout is possible
-              not day_availability.can_book_buyout
+              if not day_availability.can_book_buyout, do: date, else: nil
             end
           end
         else
           # Date not in availability map - assume unavailable
-          true
+          date
         end
       end)
 
-    if Enum.empty?(unavailable_dates) do
-      nil
-    else
-      # Build error message
-      if length(unavailable_dates) == 1 do
-        date_str = unavailable_dates |> List.first() |> Date.to_string()
-        day_availability = Map.get(availability, List.first(unavailable_dates))
+    if unavailable_date do
+      # Build error message for the first unavailable date found
+      date_str = Date.to_string(unavailable_date)
+      day_availability = Map.get(availability, unavailable_date)
 
-        cond do
-          day_availability && day_availability.is_blacked_out ->
-            "The date #{date_str} is blacked out and cannot be booked."
+      cond do
+        day_availability && day_availability.is_blacked_out ->
+          "The date #{date_str} is blacked out and cannot be booked."
 
-          day_availability && assigns[:selected_booking_mode] == :day ->
-            spots = day_availability.spots_available
+        day_availability && assigns[:selected_booking_mode] == :day ->
+          spots = day_availability.spots_available
 
-            "The date #{date_str} only has #{spots} spot#{if spots == 1, do: "", else: "s"} available, but you're trying to book #{guests_count} guest#{if guests_count == 1, do: "", else: "s"}."
+          "The date #{date_str} only has #{spots} spot#{if spots == 1, do: "", else: "s"} available, but you're trying to book #{guests_count} guest#{if guests_count == 1, do: "", else: "s"}."
 
-          day_availability && assigns[:selected_booking_mode] == :buyout ->
-            "The date #{date_str} cannot be booked as a buyout (there are existing day bookings)."
+        day_availability && assigns[:selected_booking_mode] == :buyout ->
+          "The date #{date_str} cannot be booked as a buyout (there are existing day bookings or another buyout)."
 
-          true ->
-            "The date #{date_str} is unavailable for your selected number of guests."
-        end
-      else
-        dates_str =
-          unavailable_dates
-          |> Enum.map(&Date.to_string/1)
-          |> Enum.join(", ")
-
-        if assigns[:selected_booking_mode] == :buyout do
-          "The following dates in your selection cannot be booked as a buyout because there are existing day bookings: #{dates_str}. Please select different dates or switch to A La Carte booking mode."
-        else
-          "The following dates in your selection are unavailable: #{dates_str}. Please adjust your dates or number of guests."
-        end
+        true ->
+          "The date #{date_str} is unavailable for your selected number of guests."
       end
+    else
+      nil
     end
   end
 

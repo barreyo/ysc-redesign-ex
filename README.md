@@ -157,7 +157,11 @@ make deploy-sandbox
 Or manually:
 
 ```bash
-fly deploy --dockerfile etc/docker/Dockerfile -a ysc-sandbox -c etc/fly/fly-sandbox.toml
+# Get the version from git
+VERSION=$(git describe --first-parent --abbrev=10 --long --tags --dirty)
+
+# Deploy with BUILD_VERSION build arg
+fly deploy --dockerfile etc/docker/Dockerfile -a ysc-sandbox -c etc/fly/fly-sandbox.toml --build-arg BUILD_VERSION=$VERSION
 ```
 
 **Note:** The sandbox environment automatically shuts down after 10 minutes of inactivity to save resources. It will automatically start when accessed.

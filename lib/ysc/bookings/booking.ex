@@ -157,8 +157,15 @@ defmodule Ysc.Bookings.Booking do
   end
 
   defp validate_booking_rules(changeset, opts) do
+    # Ensure opts is a keyword list
+    opts = if Keyword.keyword?(opts), do: opts, else: Keyword.new(opts)
+
     user = opts[:user] || (get_field(changeset, :user_id) && get_user_from_changeset(changeset))
-    Ysc.Bookings.BookingValidator.validate(changeset, user: user)
+
+    # Merge opts with user, preserving skip_validation if present
+    validator_opts = Keyword.merge(opts, user: user)
+
+    Ysc.Bookings.BookingValidator.validate(changeset, validator_opts)
   end
 
   defp get_user_from_changeset(changeset) do

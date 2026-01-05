@@ -877,10 +877,16 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     end
   end
 
-  defp render_clear_lake_spots_html(_day, info, _assigns) do
+  defp render_clear_lake_spots_html(day, info, assigns) do
     spots_available = info.spots_available
     max_spots = 12
     spots_taken = max_spots - spots_available
+
+    # Check if this date is selected (has blue background)
+    is_selected =
+      selected_start?(day, assigns.checkin_date) ||
+        selected_end?(day, assigns.checkout_date) ||
+        selected_range?(day, assigns.checkin_date, assigns.checkout_date)
 
     visual_state =
       cond do
@@ -896,18 +902,24 @@ defmodule YscWeb.Components.AvailabilityCalendar do
           if i <= spots_taken do
             if visual_state == :full, do: "bg-red-500", else: "bg-amber-400"
           else
-            "bg-teal-200"
+            # For selected dates, use lighter dots for better contrast
+            if is_selected, do: "bg-white/80", else: "bg-teal-200"
           end
 
         "<div class=\"w-1 h-1 rounded-full #{dot_class}\"></div>"
       end
       |> Enum.join("")
 
+    # Use white/light text for selected dates, otherwise use the visual state colors
     text_class =
-      case visual_state do
-        :full -> "text-red-600"
-        :high_occupancy -> "text-amber-600"
-        _ -> "text-zinc-600"
+      if is_selected do
+        "text-white"
+      else
+        case visual_state do
+          :full -> "text-red-600"
+          :high_occupancy -> "text-amber-600"
+          _ -> "text-zinc-600"
+        end
       end
 
     spots_text = if spots_available != 1, do: "spots", else: "spot"

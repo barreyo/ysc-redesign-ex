@@ -900,12 +900,20 @@ defmodule YscWeb.HomeLive do
                 </div>
                 <h3 class="text-lg font-black text-zinc-900 mb-2">No upcoming bookings</h3>
                 <p class="text-zinc-500 text-sm mb-6">Plan your next cabin getaway</p>
-                <.link
-                  navigate={~p"/bookings/tahoe"}
-                  class="inline-flex items-center px-6 py-3 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-bold rounded transition-colors"
-                >
-                  Book Now
-                </.link>
+                <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                  <.link
+                    navigate={~p"/bookings/tahoe"}
+                    class="inline-flex items-center justify-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded transition-colors"
+                  >
+                    Book Lake Tahoe
+                  </.link>
+                  <.link
+                    navigate={~p"/bookings/clear-lake"}
+                    class="inline-flex items-center justify-center px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded transition-colors"
+                  >
+                    Book Clear Lake
+                  </.link>
+                </div>
               </div>
 
               <div :if={!Enum.empty?(@future_bookings)} class="space-y-4">
@@ -1379,20 +1387,21 @@ defmodule YscWeb.HomeLive do
         end
 
       plan_id when not is_nil(plan_id) ->
-        plan_name =
+        # Extract membership type name (e.g., "Single" or "Family" from :single_membership or :family_membership)
+        membership_type =
           plan_id
           |> Atom.to_string()
           |> String.split("_")
-          |> Enum.map(&String.capitalize/1)
-          |> Enum.join(" ")
+          |> List.first()
+          |> String.capitalize()
 
         if is_sub_account do
-          "You have access to a #{plan_name} membership through #{if primary_user, do: "#{primary_user.first_name} #{primary_user.last_name}", else: "the primary account"}. Your membership benefits are shared from the primary account."
+          "You have access to a #{membership_type} membership through #{if primary_user, do: "#{primary_user.first_name} #{primary_user.last_name}", else: "the primary account"}. Your membership benefits are shared from the primary account."
         else
           if renewal_date do
-            "You have an active #{plan_name} membership. Your membership will renew on #{Timex.format!(renewal_date, "{Mshort} {D}, {YYYY}")}."
+            "You have an active #{membership_type} membership. Your membership will renew on #{Timex.format!(renewal_date, "{Mshort} {D}, {YYYY}")}."
           else
-            "You have an active #{plan_name} membership."
+            "You have an active #{membership_type} membership."
           end
         end
 
@@ -1494,18 +1503,30 @@ defmodule YscWeb.HomeLive do
   defp format_property_name(_), do: "Unknown"
 
   defp days_until_booking(booking) do
-    # Get today's date in PST timezone
-    today_pst = DateTime.now!("America/Los_Angeles") |> DateTime.to_date()
+    # Get current time in PST timezone
+    now_pst = DateTime.now!("America/Los_Angeles")
+    today_pst = DateTime.to_date(now_pst)
     checkin_date = booking.checkin_date
 
+    # Create check-in datetime at 15:00 (3:00 PM) PST on the check-in date
+    checkin_datetime_pst =
+      checkin_date
+      |> DateTime.new!(~T[15:00:00], "America/Los_Angeles")
+
     case Date.compare(today_pst, checkin_date) do
-      # Check-in is in the past - booking has started
+      # Check-in date is in the past - booking has started
       :gt ->
         :started
 
-      # Check-in is today
+      # Check-in is today - need to check if it's before or after 15:00
       :eq ->
-        0
+        if DateTime.compare(now_pst, checkin_datetime_pst) == :lt do
+          # Before 15:00 on check-in date
+          0
+        else
+          # After 15:00 on check-in date - booking has started
+          :started
+        end
 
       # Check-in is in the future
       :lt ->

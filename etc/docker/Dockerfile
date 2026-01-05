@@ -17,6 +17,9 @@ RUN apk add --no-cache \
 ENV MIX_ENV=prod \
     NODE_ENV=production
 
+# Build version argument (can be overridden at build time)
+ARG BUILD_VERSION
+
 # Prepare build directory
 RUN mkdir -p /app
 WORKDIR /app
@@ -57,8 +60,11 @@ RUN if [ -f priv/static/site.webmanifest.orig ]; then \
       rm priv/static/site.webmanifest.orig; \
     fi || true
 
-# Compile the application
-RUN mix do compile --warnings-as-errors + release
+# Compile the application with BUILD_VERSION set
+# BUILD_VERSION is embedded at compile time in Ysc.BuildVersion module
+# If BUILD_VERSION arg is not provided, calculate it from git
+RUN BUILD_VERSION=${BUILD_VERSION:-$(git describe --first-parent --abbrev=10 --long --tags --dirty 2>/dev/null || echo "unknown")} \
+    mix do compile --warnings-as-errors + release
 
 # ===============================================
 # Stage 2: Create the final production image

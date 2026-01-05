@@ -2332,10 +2332,53 @@ defmodule Ysc.Ledgers do
     # First get all accounts
     accounts = Repo.all(LedgerAccount)
 
-    # Then calculate balances for each account within the date range
-    # Note: get_account_balance already normalizes based on normal_balance
+    # Batch fetch all ledger entries for all accounts in one query
+    account_ids = Enum.map(accounts, & &1.id)
+
+    entries_by_account =
+      from(e in LedgerEntry,
+        join: p in Payment,
+        on: e.payment_id == p.id,
+        where: e.account_id in ^account_ids,
+        where: p.payment_date >= ^start_date,
+        where: p.payment_date <= ^end_date,
+        select: {e.account_id, e.amount, e.debit_credit}
+      )
+      |> Repo.all()
+      |> Enum.group_by(fn {account_id, _amount, _debit_credit} -> account_id end)
+
+    # Calculate balance for each account using the pre-fetched entries
     Enum.map(accounts, fn account ->
-      balance = get_account_balance(account.id, start_date, end_date)
+      entries = Map.get(entries_by_account, account.id, [])
+
+      balance =
+        Enum.reduce(entries, Money.new(0, :USD), fn {_account_id, entry_amount, debit_credit},
+                                                    acc ->
+          normal_balance_str = to_string(account.normal_balance)
+          debit_credit_str = to_string(debit_credit)
+
+          increases_balance? =
+            case {normal_balance_str, debit_credit_str} do
+              {"debit", "debit"} -> true
+              {"debit", "credit"} -> false
+              {"credit", "debit"} -> false
+              {"credit", "credit"} -> true
+              _ -> false
+            end
+
+          if increases_balance? do
+            case Money.add(acc, entry_amount) do
+              {:ok, result} -> result
+              {:error, _reason} -> acc
+            end
+          else
+            case Money.sub(acc, entry_amount) do
+              {:ok, result} -> result
+              {:error, _reason} -> acc
+            end
+          end
+        end)
+
       %{account: account, balance: balance}
     end)
   end
@@ -2503,6 +2546,161 @@ defmodule Ysc.Ledgers do
         end
 
       Map.put(payment, :payment_type_info, payment_type_info)
+    end
+  end
+
+  @doc """
+  Adds payment type information to a list of payments in batch (optimized).
+  This function preloads all necessary associations in batch to avoid N+1 queries.
+  """
+  def add_payment_type_info_batch(payments) when is_list(payments) do
+    if Enum.empty?(payments) do
+      []
+    else
+      payment_ids = Enum.map(payments, & &1.id)
+
+      # Batch fetch all payouts
+      payouts =
+        from(p in Payout,
+          where: p.payment_id in ^payment_ids
+        )
+        |> Repo.all()
+        |> Map.new(&{&1.payment_id, &1})
+
+      # Batch fetch all revenue entries with accounts preloaded
+      revenue_entries =
+        from(e in LedgerEntry,
+          join: a in LedgerAccount,
+          on: e.account_id == a.id,
+          where: e.payment_id in ^payment_ids,
+          where: a.account_type == ^"revenue",
+          where: e.debit_credit == ^"credit",
+          preload: [:account]
+        )
+        |> Repo.all()
+        |> Map.new(&{&1.payment_id, &1})
+
+      # Extract unique entity IDs for batch fetching
+      event_ids =
+        revenue_entries
+        |> Enum.filter(fn {_payment_id, entry} -> entry.related_entity_type == :event end)
+        |> Enum.map(fn {_payment_id, entry} -> entry.related_entity_id end)
+        |> Enum.uniq()
+        |> Enum.filter(& &1)
+
+      subscription_ids =
+        revenue_entries
+        |> Enum.filter(fn {_payment_id, entry} -> entry.related_entity_type == :membership end)
+        |> Enum.map(fn {_payment_id, entry} -> entry.related_entity_id end)
+        |> Enum.uniq()
+        |> Enum.filter(& &1)
+
+      # Batch fetch events
+      events =
+        if Enum.empty?(event_ids) do
+          %{}
+        else
+          from(e in Ysc.Events.Event,
+            where: e.id in ^event_ids
+          )
+          |> Repo.all()
+          |> Map.new(&{&1.id, &1})
+        end
+
+      # Batch fetch subscriptions
+      subscriptions =
+        if Enum.empty?(subscription_ids) do
+          %{}
+        else
+          from(s in Ysc.Subscriptions.Subscription,
+            where: s.id in ^subscription_ids
+          )
+          |> Repo.all()
+          |> Map.new(&{&1.id, &1})
+        end
+
+      # Batch fetch subscription items for all subscriptions
+      subscription_items_map =
+        if Enum.empty?(subscription_ids) do
+          %{}
+        else
+          from(si in Ysc.Subscriptions.SubscriptionItem,
+            where: si.subscription_id in ^subscription_ids
+          )
+          |> Repo.all()
+          |> Enum.group_by(& &1.subscription_id)
+        end
+
+      # Attach subscription items to subscriptions using struct update
+      subscriptions =
+        Enum.map(subscriptions, fn {id, subscription} ->
+          items = Map.get(subscription_items_map, id, [])
+          {id, %{subscription | subscription_items: items}}
+        end)
+        |> Map.new()
+
+      # Process each payment with preloaded data
+      Enum.map(payments, fn payment ->
+        payout = Map.get(payouts, payment.id)
+
+        if payout do
+          payment_type_info = %{
+            type: "Payout",
+            details: "Stripe payout: #{payout.stripe_payout_id}"
+          }
+
+          Map.put(payment, :payment_type_info, payment_type_info)
+        else
+          revenue_entry = Map.get(revenue_entries, payment.id)
+
+          payment_type_info =
+            case revenue_entry do
+              nil ->
+                %{type: "Unknown", details: "No revenue entry found"}
+
+              entry ->
+                case entry.related_entity_type do
+                  :membership ->
+                    subscription = Map.get(subscriptions, entry.related_entity_id)
+                    details = get_membership_details_from_subscription(subscription)
+                    %{type: "Membership", details: details}
+
+                  :event ->
+                    event = Map.get(events, entry.related_entity_id)
+                    details = if event, do: event.title, else: "Unknown Event"
+                    %{type: "Event", details: details}
+
+                  :booking ->
+                    details = get_booking_details(entry.related_entity_id, entry.account.name)
+                    %{type: "Booking", details: details}
+
+                  :donation ->
+                    %{type: "Donation", details: "General donation"}
+
+                  :administration ->
+                    %{type: "Administration", details: "System transaction"}
+
+                  _ ->
+                    %{type: "Unknown", details: "Unknown entity type"}
+                end
+            end
+
+          Map.put(payment, :payment_type_info, payment_type_info)
+        end
+      end)
+    end
+  end
+
+  # Helper to get membership details from a preloaded subscription
+  defp get_membership_details_from_subscription(nil), do: "Unknown membership"
+
+  defp get_membership_details_from_subscription(subscription) do
+    case subscription.subscription_items do
+      [] ->
+        "Membership"
+
+      [item | _] ->
+        get_membership_plan_by_price_id(item.stripe_price_id)
     end
   end
 

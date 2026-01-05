@@ -913,7 +913,7 @@ defmodule YscWeb.AdminMoneyLive do
         offset: ^offset
       )
       |> Repo.all()
-      |> Enum.map(&Ledgers.add_payment_type_info/1)
+      |> Ledgers.add_payment_type_info_batch()
 
     socket
     |> assign(:recent_payments, recent_payments)

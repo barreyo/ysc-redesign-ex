@@ -247,7 +247,9 @@ defmodule Ysc.Stripe.WebhookHandler do
               changeset_errors: inspect(changeset.errors)
             )
 
-            {:error, changeset}
+            # Return :error instead of {:error, changeset} as Stripe webhook plug expects
+            # {:ok, term}, :ok, {:error, reason}, or :error
+            :error
         end
       else
         # User already has stripe_id set

@@ -774,6 +774,73 @@ defmodule Ysc.Events do
   end
 
   @doc """
+  Count the number of tickets sold for an event excluding donation tiers.
+  """
+  def count_tickets_sold_excluding_donations(event_id) do
+    Ticket
+    |> join(:inner, [t], tt in TicketTier, on: t.ticket_tier_id == tt.id)
+    |> where([t, tt], t.event_id == ^event_id and t.status == :confirmed)
+    |> where([t, tt], tt.type != :donation)
+    |> where([t, tt], tt.type != "donation")
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  Get a list of unique users who purchased tickets for an event (excluding donation tiers).
+  Returns users ordered by first ticket purchase date.
+  """
+  def list_unique_attendees_for_event(event_id) do
+    import Ecto.Query
+    alias Ysc.Accounts.User
+
+    # First, get distinct user IDs with their first ticket purchase date
+    user_ids_with_dates =
+      Ticket
+      |> join(:inner, [t], tt in TicketTier, on: t.ticket_tier_id == tt.id)
+      |> where([t, tt], t.event_id == ^event_id and t.status == :confirmed)
+      |> where([t, tt], tt.type != :donation)
+      |> where([t, tt], tt.type != "donation")
+      |> group_by([t], t.user_id)
+      |> select([t], %{user_id: t.user_id, first_purchase: min(t.inserted_at)})
+      |> order_by([t], asc: min(t.inserted_at))
+      |> Repo.all()
+
+    # Extract user IDs
+    user_ids = Enum.map(user_ids_with_dates, & &1.user_id)
+
+    # Fetch users in the same order
+    if Enum.empty?(user_ids) do
+      []
+    else
+      # Create a map for ordering
+      order_map = user_ids |> Enum.with_index() |> Map.new()
+
+      from(u in User,
+        where: u.id in ^user_ids
+      )
+      |> Repo.all()
+      |> Enum.sort_by(fn user -> Map.get(order_map, user.id, 999_999) end)
+    end
+  end
+
+  @doc """
+  Get a map of user_id => ticket_count for an event (excluding donation tiers).
+  Returns a map where keys are user IDs and values are the number of tickets purchased.
+  """
+  def get_ticket_counts_per_user(event_id) do
+    Ticket
+    |> join(:inner, [t], tt in TicketTier, on: t.ticket_tier_id == tt.id)
+    |> where([t, tt], t.event_id == ^event_id and t.status == :confirmed)
+    |> where([t, tt], tt.type != :donation)
+    |> where([t, tt], tt.type != "donation")
+    |> group_by([t], t.user_id)
+    |> select([t], %{user_id: t.user_id, ticket_count: count(t.id)})
+    |> Repo.all()
+    |> Enum.map(fn %{user_id: user_id, ticket_count: count} -> {user_id, count} end)
+    |> Map.new()
+  end
+
+  @doc """
   Check if an event is selling fast based on recent ticket sales.
 
   An event is considered "selling fast" if it has sold 10 or more tickets

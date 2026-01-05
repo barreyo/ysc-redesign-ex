@@ -645,6 +645,60 @@ defmodule YscWeb.EventDetailsLive do
                           <.icon name="hero-check-badge" class="w-4 h-4 text-blue-500" />
                           Member Exclusive
                         </div>
+                        <%= if @active_membership? && @attendees_count != nil && @attendees_count >= 5 && @attendees_list != nil && length(@attendees_list) > 0 do %>
+                          <% attendees_to_show = Enum.take(@attendees_list, 5) %>
+                          <% remaining_count = length(@attendees_list) - length(attendees_to_show) %>
+                          <% names_to_show = Enum.take(@attendees_list, 3) %>
+                          <% names_remaining = length(@attendees_list) - length(names_to_show) %>
+                          <button
+                            phx-click="show-attendees-modal"
+                            class="flex items-center gap-3 text-sm text-zinc-600 font-medium hover:text-zinc-900 transition-colors cursor-pointer w-full text-left"
+                          >
+                            <%!-- Stack of profile pictures (max 5) --%>
+                            <div class="flex -space-x-2 flex-shrink-0">
+                              <%= for {attendee, index} <- Enum.with_index(attendees_to_show) do %>
+                                <div class={[
+                                  "relative w-8 h-8 rounded-full border-2 border-white overflow-hidden",
+                                  if(index > 0, do: "-ml-2")
+                                ]}>
+                                  <.user_avatar_image
+                                    email={attendee.email || ""}
+                                    user_id={to_string(attendee.id)}
+                                    country={attendee.most_connected_country || "SE"}
+                                    class="w-full h-full object-cover"
+                                  />
+                                </div>
+                              <% end %>
+                              <%= if remaining_count > 0 do %>
+                                <div class="relative w-8 h-8 rounded-full border-2 border-white bg-zinc-100 flex items-center justify-center -ml-2">
+                                  <span class="text-xs font-semibold text-zinc-600">
+                                    +<%= remaining_count %>
+                                  </span>
+                                </div>
+                              <% end %>
+                            </div>
+                            <span class="flex-1 min-w-0">
+                              <%= names_to_show
+                              |> Enum.map(fn attendee ->
+                                attendee_name =
+                                  "#{attendee.first_name || ""} #{attendee.last_name || ""}"
+                                  |> String.trim()
+
+                                if attendee_name != "",
+                                  do: attendee_name,
+                                  else: attendee.email || "Someone"
+                              end)
+                              |> Enum.join(", ") %>
+                              <%= if names_remaining > 0 do %>
+                                +<%= names_remaining %> <%= if names_remaining == 1,
+                                  do: "more is",
+                                  else: "more are" %> going
+                              <% else %>
+                                <%= if length(@attendees_list) == 1, do: "is", else: "are" %> going
+                              <% end %>
+                            </span>
+                          </button>
+                        <% end %>
                       <% end %>
                     </div>
 
@@ -696,7 +750,7 @@ defmodule YscWeb.EventDetailsLive do
                           class="w-full py-4 uppercase tracking-widest"
                           phx-click="open-ticket-modal"
                         >
-                          <.icon name="hero-ticket" class="me-2 -mt-0.5" />Claim Your Spot
+                          <.icon name="hero-ticket" class="me-2 -mt-0.5" />Get Tickets
                         </.button>
                       <% end %>
                     <% else %>
@@ -2370,6 +2424,79 @@ defmodule YscWeb.EventDetailsLive do
         </div>
       </div>
     </.modal>
+    <!-- Attendees Modal -->
+    <.modal
+      :if={@show_attendees_modal}
+      id="attendees-modal"
+      show
+      on_cancel={JS.push("close-attendees-modal")}
+      max_width="max-w-2xl"
+    >
+      <div class="flex flex-col space-y-6">
+        <div class="text-center">
+          <h2 class="text-2xl font-semibold text-zinc-900 mb-2">Who's Going</h2>
+          <p class="text-zinc-600">
+            <%= if @attendees_count do %>
+              <%= @attendees_count %> <%= if @attendees_count == 1, do: "person", else: "people" %> <%= if @attendees_count ==
+                                                                                                             1,
+                                                                                                           do:
+                                                                                                             "is",
+                                                                                                           else:
+                                                                                                             "are" %> attending this event
+            <% else %>
+              People attending this event
+            <% end %>
+          </p>
+        </div>
+
+        <div class="space-y-3 max-h-[60vh] overflow-y-auto">
+          <%= if @attendees_list && length(@attendees_list) > 0 do %>
+            <%= for attendee <- @attendees_list do %>
+              <% attendee_name =
+                "#{attendee.first_name || ""} #{attendee.last_name || ""}" |> String.trim() %>
+              <% display_name =
+                if attendee_name != "", do: attendee_name, else: attendee.email || "Unknown" %>
+              <% initial = String.first(display_name) |> String.upcase() %>
+              <% ticket_count = Map.get(@ticket_counts_per_user, attendee.id, 0) %>
+              <div class="flex items-center gap-3 p-3 bg-zinc-50 rounded-lg border border-zinc-200">
+                <div class="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <span class="text-blue-600 font-semibold text-sm">
+                    <%= initial %>
+                  </span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-zinc-900">
+                    <%= display_name %>
+                    <span class="text-zinc-500 font-normal">
+                      (<%= ticket_count %> <%= if ticket_count == 1, do: "ticket", else: "tickets" %>)
+                    </span>
+                  </p>
+                  <p
+                    :if={attendee.email && attendee_name != ""}
+                    class="text-sm text-zinc-500 truncate"
+                  >
+                    <%= attendee.email %>
+                  </p>
+                </div>
+              </div>
+            <% end %>
+          <% else %>
+            <div class="text-center py-8">
+              <p class="text-zinc-500">No attendees found.</p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="flex justify-end pt-4">
+          <.button
+            class="bg-zinc-200 text-zinc-800 hover:bg-zinc-300"
+            phx-click="close-attendees-modal"
+          >
+            Close
+          </.button>
+        </div>
+      </div>
+    </.modal>
     """
   end
 
@@ -2467,6 +2594,32 @@ defmodule YscWeb.EventDetailsLive do
         # Check if we're on the tickets route (live_action == :tickets)
         show_ticket_modal = socket.assigns.live_action == :tickets
 
+        # Load attendees list if user has active membership and event has 5+ tickets sold
+        {attendees_count, attendees_list, ticket_counts_per_user} =
+          if socket.assigns.active_membership? do
+            ticket_count = Events.count_tickets_sold_excluding_donations(event_id)
+
+            if ticket_count >= 5 do
+              attendees = Events.list_unique_attendees_for_event(event_id)
+              # Filter out the current user from the attendees list
+              filtered_attendees =
+                if socket.assigns.current_user do
+                  Enum.reject(attendees, fn attendee ->
+                    attendee.id == socket.assigns.current_user.id
+                  end)
+                else
+                  attendees
+                end
+
+              ticket_counts = Events.get_ticket_counts_per_user(event_id)
+              {ticket_count, filtered_attendees, ticket_counts}
+            else
+              {nil, nil, %{}}
+            end
+          else
+            {nil, nil, %{}}
+          end
+
         {:ok,
          socket
          |> assign(:page_title, event.title)
@@ -2495,6 +2648,10 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:available_capacity, available_capacity)
          |> assign(:sold_percentage, sold_percentage)
          |> assign(:has_ticket_tiers, has_ticket_tiers)
+         |> assign(:attendees_count, attendees_count)
+         |> assign(:attendees_list, attendees_list)
+         |> assign(:ticket_counts_per_user, ticket_counts_per_user)
+         |> assign(:show_attendees_modal, false)
          |> assign(:load_radar, true)
          |> assign(:load_stripe, true)
          |> assign(:load_calendar, true)}
@@ -3259,6 +3416,32 @@ defmodule YscWeb.EventDetailsLive do
       # Update event with fresh pricing info
       event_with_pricing = add_pricing_info_from_tiers(event, ticket_tiers_with_counts)
 
+      # Refresh attendees list if user has active membership
+      {attendees_count, attendees_list, ticket_counts_per_user} =
+        if socket.assigns.active_membership? do
+          ticket_count = Events.count_tickets_sold_excluding_donations(event_id)
+
+          if ticket_count >= 5 do
+            attendees = Events.list_unique_attendees_for_event(event_id)
+            # Filter out the current user from the attendees list
+            filtered_attendees =
+              if socket.assigns.current_user do
+                Enum.reject(attendees, fn attendee ->
+                  attendee.id == socket.assigns.current_user.id
+                end)
+              else
+                attendees
+              end
+
+            ticket_counts = Events.get_ticket_counts_per_user(event_id)
+            {ticket_count, filtered_attendees, ticket_counts}
+          else
+            {nil, nil, %{}}
+          end
+        else
+          {nil, nil, %{}}
+        end
+
       # Trigger animation on all tier availability elements
       {:noreply,
        socket
@@ -3269,6 +3452,9 @@ defmodule YscWeb.EventDetailsLive do
        |> assign(:event_selling_fast, event_selling_fast)
        |> assign(:available_capacity, available_capacity)
        |> assign(:sold_percentage, sold_percentage)
+       |> assign(:attendees_count, attendees_count)
+       |> assign(:attendees_list, attendees_list)
+       |> assign(:ticket_counts_per_user, ticket_counts_per_user)
        |> push_event("animate-availability-update", %{})}
     else
       {:noreply, socket}
@@ -3615,6 +3801,16 @@ defmodule YscWeb.EventDetailsLive do
      |> assign(:show_order_completion, false)
      |> assign(:ticket_order, nil)
      |> push_patch(to: ~p"/events/#{socket.assigns.event.id}")}
+  end
+
+  @impl true
+  def handle_event("show-attendees-modal", _params, socket) do
+    {:noreply, assign(socket, :show_attendees_modal, true)}
+  end
+
+  @impl true
+  def handle_event("close-attendees-modal", _params, socket) do
+    {:noreply, assign(socket, :show_attendees_modal, false)}
   end
 
   @impl true

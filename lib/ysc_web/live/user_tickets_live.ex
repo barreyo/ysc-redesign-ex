@@ -238,13 +238,15 @@ defmodule YscWeb.UserTicketsLive do
 
     now = DateTime.utc_now()
 
-    # Get all ticket orders and filter for upcoming events only
+    # Get all ticket orders and filter for upcoming events only (excluding cancelled orders)
     all_ticket_orders = Tickets.list_user_ticket_orders(socket.assigns.current_user.id)
 
     upcoming_ticket_orders =
       all_ticket_orders
       |> Enum.filter(fn ticket_order ->
-        ticket_order.event && DateTime.compare(ticket_order.event.start_date, now) == :gt
+        ticket_order.status != :cancelled &&
+          ticket_order.event &&
+          DateTime.compare(ticket_order.event.start_date, now) == :gt
       end)
 
     past_items = get_past_items(socket.assigns.current_user.id)
@@ -265,8 +267,17 @@ defmodule YscWeb.UserTicketsLive do
       ticket_order ->
         case Tickets.cancel_ticket_order(ticket_order, "User cancelled") do
           {:ok, _cancelled_order} ->
-            # Refresh the ticket orders list
-            ticket_orders = Tickets.list_user_ticket_orders(socket.assigns.current_user.id)
+            # Refresh the ticket orders list (excluding cancelled orders)
+            now = DateTime.utc_now()
+            all_ticket_orders = Tickets.list_user_ticket_orders(socket.assigns.current_user.id)
+
+            ticket_orders =
+              all_ticket_orders
+              |> Enum.filter(fn to ->
+                to.status != :cancelled &&
+                  to.event &&
+                  DateTime.compare(to.event.start_date, now) == :gt
+              end)
 
             {:noreply,
              socket

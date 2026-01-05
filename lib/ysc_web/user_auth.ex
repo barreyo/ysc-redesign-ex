@@ -462,9 +462,9 @@ defmodule YscWeb.UserAuth do
   def get_membership_renewal_date(_), do: nil
 
   @doc """
-  Gets a formatted display name for the membership plan.
+  Gets a formatted display name for the membership.
 
-  Returns a human-readable string like "Lifetime Plan", "Single Plan", "Family Plan", etc.
+  Returns a human-readable string like "Lifetime Membership", "Single Membership", "Family Membership", etc.
 
   ## Examples
 
@@ -472,13 +472,13 @@ defmodule YscWeb.UserAuth do
       "No Membership"
 
       iex> get_membership_plan_display_name(%{type: :lifetime})
-      "Lifetime Plan"
+      "Lifetime Membership"
 
       iex> get_membership_plan_display_name(%Ysc.Subscriptions.Subscription{...})
-      "Family Plan"
+      "Family Membership"
   """
   def get_membership_plan_display_name(nil), do: "No Membership"
-  def get_membership_plan_display_name(%{type: :lifetime}), do: "Lifetime Plan"
+  def get_membership_plan_display_name(%{type: :lifetime}), do: "Lifetime Membership"
 
   def get_membership_plan_display_name(%Ysc.Subscriptions.Subscription{} = subscription) do
     case get_membership_plan_type(subscription) do
@@ -491,7 +491,7 @@ defmodule YscWeb.UserAuth do
         |> String.split("_")
         |> Enum.map(&String.capitalize/1)
         |> Enum.join(" ")
-        |> then(&"#{&1} Plan")
+        |> then(&"#{&1} Membership")
     end
   end
 
@@ -501,7 +501,7 @@ defmodule YscWeb.UserAuth do
     |> String.split("_")
     |> Enum.map(&String.capitalize/1)
     |> Enum.join(" ")
-    |> then(&"#{&1} Plan")
+    |> then(&"#{&1} Membership")
   end
 
   def get_membership_plan_display_name(_), do: "Active Membership"

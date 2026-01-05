@@ -9,8 +9,9 @@ defmodule YscWeb.AdminDashboardLive do
     router: YscWeb.Router,
     statics: YscWeb.static_paths()
 
-  alias Ysc.{Posts, Events, Accounts, Bookings}
+  alias Ysc.{Posts, Events, Accounts, Bookings, BuildVersion}
 
+  @impl true
   def render(assigns) do
     ~H"""
     <.side_menu
@@ -38,14 +39,14 @@ defmodule YscWeb.AdminDashboardLive do
         <!-- Tiered Stats Row -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           <!-- Applications Card -->
-          <div class="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex flex-col justify-between">
+          <div class="bg-white p-6 rounded-lg shadow-sm border border-zinc-100 flex flex-col justify-between">
             <div>
               <p class="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-3">
                 Applications
               </p>
               <div class="flex items-baseline gap-2">
                 <p class="text-3xl font-black text-zinc-900"><%= @pending_reviews_count %></p>
-                <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg italic">
+                <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded italic">
                   Pending
                 </span>
               </div>
@@ -86,7 +87,7 @@ defmodule YscWeb.AdminDashboardLive do
             </div>
           </div>
           <!-- Total Revenue Card -->
-          <div class="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex flex-col justify-between">
+          <div class="bg-white p-6 rounded-lg shadow-sm border border-zinc-100 flex flex-col justify-between">
             <div>
               <p class="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-3">
                 Total Revenue (<%= Timex.format!(DateTime.utc_now(), "{Mshort}") %>)
@@ -125,7 +126,7 @@ defmodule YscWeb.AdminDashboardLive do
             </div>
           </div>
           <!-- Revenue Mix Card -->
-          <div class="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex flex-col justify-between">
+          <div class="bg-white p-6 rounded-lg shadow-sm border border-zinc-100 flex flex-col justify-between">
             <div>
               <p class="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-3">
                 Revenue Mix
@@ -179,7 +180,7 @@ defmodule YscWeb.AdminDashboardLive do
             </div>
           </div>
           <!-- Active Now Card -->
-          <div class="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex flex-col justify-between">
+          <div class="bg-white p-6 rounded-lg shadow-sm border border-zinc-100 flex flex-col justify-between">
             <div>
               <p class="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-3">
                 Active Now
@@ -221,7 +222,7 @@ defmodule YscWeb.AdminDashboardLive do
                 </div>
                 <span
                   :if={@pending_reviews_count > 0}
-                  class="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-full uppercase ring-1 ring-amber-200"
+                  class="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded uppercase ring-1 ring-amber-200"
                 >
                   <%= @pending_reviews_count %> PENDING
                 </span>
@@ -254,7 +255,7 @@ defmodule YscWeb.AdminDashboardLive do
                       email={user.email}
                       user_id={user.id}
                       country={user.most_connected_country}
-                      class="w-14 h-14 rounded-xl object-cover ring-2 ring-zinc-50 shadow-sm"
+                      class="w-14 h-14 rounded object-cover ring-2 ring-zinc-50 shadow-sm"
                     />
                   </div>
 
@@ -281,12 +282,9 @@ defmodule YscWeb.AdminDashboardLive do
                         <%= get_membership_type_display(user) %>
                       </p>
                     </div>
-                    <.link
-                      navigate={build_review_url(user.id)}
-                      class={get_review_button_classes(user) <> " group-hover:scale-105 active:scale-95"}
-                    >
+                    <.button phx-click="navigate-to-review" phx-value-user-id={user.id}>
                       <%= get_review_button_text(user) %>
-                    </.link>
+                    </.button>
                   </div>
                 </div>
               </div>
@@ -406,6 +404,7 @@ defmodule YscWeb.AdminDashboardLive do
     """
   end
 
+  @impl true
   @spec mount(any(), any(), map()) :: {:ok, map()}
   def mount(_params, _session, socket) do
     # Load all data in parallel where possible
@@ -625,21 +624,6 @@ defmodule YscWeb.AdminDashboardLive do
     end
   end
 
-  defp get_review_button_classes(user) do
-    if user.registration_form && user.registration_form.completed do
-      submitted_at = user.registration_form.completed
-      hours_ago = DateTime.diff(DateTime.utc_now(), submitted_at, :hour)
-
-      if hours_ago > 48 do
-        "px-6 py-2.5 bg-zinc-900 text-white text-xs font-black rounded-xl hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
-      else
-        "px-6 py-2.5 bg-white border border-zinc-200 text-zinc-900 text-xs font-bold rounded-xl hover:bg-zinc-50 transition"
-      end
-    else
-      "px-6 py-2.5 bg-white border border-zinc-200 text-zinc-900 text-xs font-bold rounded-xl hover:bg-zinc-50 transition"
-    end
-  end
-
   defp get_status_badge_classes(user) do
     if user.registration_form && user.registration_form.completed do
       submitted_at = user.registration_form.completed
@@ -647,19 +631,19 @@ defmodule YscWeb.AdminDashboardLive do
 
       cond do
         hours_ago < 24 ->
-          "text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded uppercase tracking-widest"
+          "text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 uppercase tracking-widest"
 
         hours_ago >= 24 && hours_ago <= 48 ->
-          "text-[9px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded uppercase tracking-widest"
+          "text-[9px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 uppercase tracking-widest"
 
         hours_ago > 48 ->
-          "text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded uppercase tracking-widest"
+          "text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 uppercase tracking-widest"
 
         true ->
-          "text-[9px] font-black text-zinc-600 bg-zinc-50 px-1.5 py-0.5 rounded uppercase tracking-widest"
+          "text-[9px] font-black text-zinc-600 bg-zinc-50 px-1.5 py-0.5 uppercase tracking-widest"
       end
     else
-      "text-[9px] font-black text-zinc-600 bg-zinc-50 px-1.5 py-0.5 rounded uppercase tracking-widest"
+      "text-[9px] font-black text-zinc-600 bg-zinc-50 px-1.5 py-0.5 uppercase tracking-widest"
     end
   end
 
@@ -697,9 +681,9 @@ defmodule YscWeb.AdminDashboardLive do
   defp get_membership_type_display(user) do
     if user.registration_form && user.registration_form.membership_type do
       case user.registration_form.membership_type do
-        :family -> "Family Plan"
+        :family -> "Family"
         :single -> "Single"
-        _ -> "Unknown"
+        _ -> "N/A"
       end
     else
       "N/A"
@@ -735,7 +719,6 @@ defmodule YscWeb.AdminDashboardLive do
 
   defp calculate_all_revenue_stats do
     alias Ysc.Repo
-    alias Ysc.Ledgers
     import Ecto.Query
 
     now = DateTime.utc_now()
@@ -814,7 +797,8 @@ defmodule YscWeb.AdminDashboardLive do
         inserted_at = entry.inserted_at
 
         acc =
-          if inserted_at >= month_start and inserted_at < now do
+          if DateTime.compare(inserted_at, month_start) != :lt and
+               DateTime.compare(inserted_at, now) == :lt do
             %{
               acc
               | current:
@@ -827,7 +811,8 @@ defmodule YscWeb.AdminDashboardLive do
           end
 
         acc =
-          if inserted_at >= prev_month_start and inserted_at < month_start do
+          if DateTime.compare(inserted_at, prev_month_start) != :lt and
+               DateTime.compare(inserted_at, month_start) == :lt do
             %{
               acc
               | prev:
@@ -839,7 +824,8 @@ defmodule YscWeb.AdminDashboardLive do
             acc
           end
 
-        if inserted_at >= last_year_month_start and inserted_at < last_year_month_end do
+        if DateTime.compare(inserted_at, last_year_month_start) != :lt and
+             DateTime.compare(inserted_at, last_year_month_end) == :lt do
           %{
             acc
             | last_year:
@@ -1000,20 +986,11 @@ defmodule YscWeb.AdminDashboardLive do
   end
 
   defp get_build_version do
-    case System.cmd(
-           "git",
-           ["describe", "--first-parent", "--abbrev=10", "--long", "--tags", "--dirty"],
-           stderr_to_stdout: true,
-           cd: File.cwd!()
-         ) do
-      {version, 0} ->
-        version
-        |> String.trim()
-        |> String.replace("\n", "")
+    BuildVersion.version()
+  end
 
-      _ ->
-        # Fallback to application version if git command fails
-        Application.spec(:ysc, :vsn) |> to_string()
-    end
+  @impl true
+  def handle_event("navigate-to-review", %{"user-id" => user_id}, socket) do
+    {:noreply, push_navigate(socket, to: build_review_url(user_id))}
   end
 end

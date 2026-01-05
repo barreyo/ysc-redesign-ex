@@ -1312,19 +1312,18 @@ defmodule Ysc.Bookings do
         query
       end
 
-    policies = Repo.all(query)
+    # Preload rules with ordering in a single query to avoid N+1
+    policies =
+      query
+      |> Repo.all()
+      |> Repo.preload(
+        rules:
+          from(r in RefundPolicyRule,
+            order_by: [desc: r.days_before_checkin, asc: r.priority]
+          )
+      )
 
-    # Load rules for each policy, ordered by days_before_checkin descending
-    Enum.map(policies, fn policy ->
-      rules =
-        from(r in RefundPolicyRule,
-          where: r.refund_policy_id == ^policy.id
-        )
-        |> RefundPolicyRule.ordered_by_days()
-        |> Repo.all()
-
-      %{policy | rules: rules}
-    end)
+    policies
   end
 
   @doc """
@@ -1924,7 +1923,8 @@ defmodule Ysc.Bookings do
     # We need to expand the query to include bookings that checkout on start_date or checkin on end_date
     # to properly detect changeover days
     # Only preload what we need - we don't need user data for availability calculation
-    # Filter out canceled and hold bookings - only count complete bookings for availability
+    # Only count :complete bookings here - :hold bookings are tracked via capacity_held in PropertyInventory
+    # This prevents double-counting since capacity_held is the source of truth for held capacity
     # Expand the date range by 1 day on each side to capture all relevant checkouts and checkins
     expanded_start = Date.add(start_date, -1)
     expanded_end = Date.add(end_date, 1)
@@ -1939,12 +1939,16 @@ defmodule Ysc.Bookings do
     blackouts = get_overlapping_blackouts(:clear_lake, start_date, end_date)
 
     # Create a set of blacked out dates
+    # Use MapSet.union to efficiently combine date ranges without creating intermediate lists
     blacked_out_dates =
       blackouts
-      |> Enum.flat_map(fn blackout ->
-        Date.range(blackout.start_date, blackout.end_date) |> Enum.to_list()
+      |> Enum.reduce(MapSet.new(), fn blackout, acc ->
+        blackout_dates =
+          Date.range(blackout.start_date, blackout.end_date)
+          |> Enum.reduce(MapSet.new(), fn date, set -> MapSet.put(set, date) end)
+
+        MapSet.union(acc, blackout_dates)
       end)
-      |> MapSet.new()
 
     # Initialize availability map
     availability =
@@ -1961,89 +1965,73 @@ defmodule Ysc.Bookings do
     availability =
       bookings
       |> Enum.reduce(availability, fn booking, acc ->
-        # Debug: Print booking info
-        IO.puts("""
-        [DEBUG] Processing booking:
-          - checkin_date: #{Date.to_string(booking.checkin_date)}
-          - checkout_date: #{Date.to_string(booking.checkout_date)}
-          - booking_mode: #{booking.booking_mode}
-          - status: #{booking.status}
-        """)
-
         # Track checkout and checkin dates for changeover day detection
         # Only track if the date is in the availability map (within the displayed range)
         acc =
           if Map.has_key?(acc, booking.checkout_date) do
-            IO.puts("[DEBUG] Tracking checkout on #{Date.to_string(booking.checkout_date)}")
-
             Map.update!(acc, booking.checkout_date, fn info ->
               %{info | has_checkout: true}
             end)
           else
-            IO.puts(
-              "[DEBUG] Checkout date #{Date.to_string(booking.checkout_date)} not in availability map"
-            )
-
             acc
           end
 
         acc =
           if Map.has_key?(acc, booking.checkin_date) do
-            IO.puts("[DEBUG] Tracking checkin on #{Date.to_string(booking.checkin_date)}")
-
             Map.update!(acc, booking.checkin_date, fn info ->
               %{info | has_checkin: true}
             end)
           else
-            IO.puts(
-              "[DEBUG] Checkin date #{Date.to_string(booking.checkin_date)} not in availability map"
-            )
-
             acc
           end
 
         # Only count dates from checkin_date to checkout_date - 1
         # The checkout_date itself is not occupied since guests leave at 11 AM
-        booking_date_range =
-          if Date.compare(booking.checkout_date, booking.checkin_date) == :gt do
-            # Exclude checkout_date - only count nights actually stayed
+        # Use Date.range directly without converting to list for better performance
+        if Date.compare(booking.checkout_date, booking.checkin_date) == :gt do
+          # Exclude checkout_date - only count nights actually stayed
+          booking_date_range =
             Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
-            |> Enum.to_list()
-          else
-            # Edge case: same day check-in/check-out (shouldn't happen, but handle gracefully)
-            []
-          end
 
-        booking_date_range
-        |> Enum.reduce(acc, fn date, date_acc ->
-          if Map.has_key?(date_acc, date) do
-            case booking.booking_mode do
-              :day ->
-                current_count = date_acc[date].day_bookings_count
+          booking_date_range
+          |> Enum.reduce(acc, fn date, date_acc ->
+            if Map.has_key?(date_acc, date) do
+              case booking.booking_mode do
+                :day ->
+                  # Only count :complete bookings here
+                  # :hold bookings are tracked separately via capacity_held in PropertyInventory
+                  current_count = date_acc[date].day_bookings_count
 
-                Map.put(date_acc, date, %{
-                  date_acc[date]
-                  | day_bookings_count: current_count + booking.guests_count
-                })
+                  Map.put(date_acc, date, %{
+                    date_acc[date]
+                    | day_bookings_count: current_count + booking.guests_count
+                  })
 
-              :buyout ->
-                Map.put(date_acc, date, %{date_acc[date] | has_buyout: true})
+                :buyout ->
+                  # Only count :complete buyout bookings here
+                  # :hold buyout bookings are tracked via buyout_held in PropertyInventory
+                  Map.put(date_acc, date, %{date_acc[date] | has_buyout: true})
 
-              _ ->
-                date_acc
+                _ ->
+                  date_acc
+              end
+            else
+              date_acc
             end
-          else
-            date_acc
-          end
-        end)
+          end)
+        else
+          # Edge case: same day check-in/check-out (shouldn't happen, but handle gracefully)
+          acc
+        end
       end)
 
-    # Get capacity_held from PropertyInventory for each date to account for hold bookings
-    held_capacity_by_date =
+    # Get capacity_held and buyout_held from PropertyInventory for each date to account for hold bookings
+    # This ensures we account for :hold bookings that haven't been confirmed yet
+    held_inventory_by_date =
       from(pi in PropertyInventory,
         where: pi.property == :clear_lake,
         where: pi.day >= ^start_date and pi.day <= ^end_date,
-        select: {pi.day, pi.capacity_held}
+        select: {pi.day, %{capacity_held: pi.capacity_held, buyout_held: pi.buyout_held}}
       )
       |> Repo.all()
       |> Map.new()
@@ -2052,34 +2040,35 @@ defmodule Ysc.Bookings do
     availability
     |> Enum.map(fn {date, info} ->
       is_blacked_out = MapSet.member?(blacked_out_dates, date)
-      # Account for both confirmed bookings and held capacity
-      capacity_held = Map.get(held_capacity_by_date, date, 0)
+      # Account for both confirmed bookings and held capacity from PropertyInventory
+      # This ensures we count :hold bookings that may not be in the bookings query
+      held_inventory =
+        Map.get(held_inventory_by_date, date, %{capacity_held: 0, buyout_held: false})
+
+      capacity_held = held_inventory.capacity_held
+      buyout_held = held_inventory.buyout_held
+
+      # Total occupied includes both confirmed bookings and held capacity
       total_occupied = info.day_bookings_count + capacity_held
       spots_available = max(0, 12 - total_occupied)
-      can_book_day = not is_blacked_out and spots_available > 0 and not info.has_buyout
+
+      # Day bookings can be made if:
+      # - Not blacked out
+      # - Spots available
+      # - No buyout (confirmed or held)
+      can_book_day =
+        not is_blacked_out and spots_available > 0 and not info.has_buyout and not buyout_held
 
       # Buyout can only be booked if:
       # - Not blacked out
-      # - No buyout already on that day
+      # - No buyout already on that day (confirmed or held)
       # - No day bookings (shared/per person) on that day (day_bookings_count must be 0)
+      # - No held capacity (capacity_held > 0 means there are :hold day bookings)
       can_book_buyout =
-        not is_blacked_out and not info.has_buyout and info.day_bookings_count == 0
+        not is_blacked_out and not info.has_buyout and not buyout_held and
+          info.day_bookings_count == 0 and capacity_held == 0
 
       is_changeover = info.has_checkout && info.has_checkin
-
-      # Debug printing for changeover days
-      if is_changeover do
-        IO.puts("""
-        [DEBUG] Changeover day detected: #{Date.to_string(date)}
-          - has_checkout: #{info.has_checkout}
-          - has_checkin: #{info.has_checkin}
-          - has_buyout: #{info.has_buyout}
-          - day_bookings_count: #{info.day_bookings_count}
-          - can_book_day: #{can_book_day}
-          - can_book_buyout: #{can_book_buyout}
-          - is_blacked_out: #{is_blacked_out}
-        """)
-      end
 
       {
         date,
