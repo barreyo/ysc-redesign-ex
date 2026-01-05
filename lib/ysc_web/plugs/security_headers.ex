@@ -59,15 +59,16 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     # kept for backward compatibility with older browsers
     # 'unsafe-inline' is ignored when nonce is present but kept for older browsers
     # Allowlist for older browsers (ignored when strict-dynamic is present)
+    # Allow inline scripts for older browsers that don't support strict-dynamic or nonce
     script_src =
       ([
          "'self'",
          "'nonce-#{nonce}'",
          "'strict-dynamic'",
          "'unsafe-inline'",
-         "https://js.stripe.com",
-         "https://js.radar.com",
-         "https://unpkg.com",
+         "https://js.stripe.com/v3/",
+         "https://js.radar.com/v4.4.8/radar.min.js",
+         "https://unpkg.com/glightbox/dist/js/glightbox.min.js",
          "https://challenges.cloudflare.com"
        ] ++
          if(is_dev,
@@ -85,14 +86,14 @@ defmodule YscWeb.Plugs.SecurityHeaders do
         "'self'",
         # Required for inline style attributes and <style> tags
         "'unsafe-inline'",
-        "https://js.radar.com",
-        "https://unpkg.com"
+        "https://js.radar.com/v4.4.8/radar.css",
+        "https://unpkg.com/glightbox/dist/css/glightbox.min.css"
       ]
       |> Enum.join(" ")
 
     # Connect sources - allow WebSockets for LiveView
     # In dev, allow both ws: and wss:, in prod only wss:
-    # Also allow jsdelivr for source maps, Radar API, and S3 storage for uploads
+    # Also allow Stripe, Cloudflare Turnstile, Radar API, and S3 storage for uploads
     base_connect_sources =
       if is_dev do
         [
