@@ -10,7 +10,7 @@ defmodule Ysc.Flowroute.Client do
   The following environment variables are required:
   - `FLOWROUTE_ACCESS_KEY` - Your FlowRoute API access key (username)
   - `FLOWROUTE_SECRET_KEY` - Your FlowRoute API secret key (password)
-  - `FLOWROUTE_FROM_NUMBER` - Your FlowRoute phone number (11-digit format, e.g., 12061231234)
+  - `FLOWROUTE_FROM_NUMBER` - Your FlowRoute phone number (international format with `+` prefix, e.g., "+12061231234", or 11-digit North American format, e.g., "12061231234")
 
   Optional environment variables:
   - `FLOWROUTE_FORCE_ENABLE` - Set to `"true"` or `"1"` to force SMS sending on even in dev/test environments
@@ -53,7 +53,7 @@ defmodule Ysc.Flowroute.Client do
 
   ## Parameters
 
-    - `to` (required) - Recipient phone number in 11-digit North American format (e.g., "12065551234")
+    - `to` (required) - Recipient phone number in international format with `+` prefix (e.g., "+12065551234") or 11-digit North American format (e.g., "12065551234")
     - `body` (required) - Message content
     - `from` (optional) - Sender phone number. Defaults to configured `FLOWROUTE_FROM_NUMBER`
     - `is_mms` (optional) - Whether this is an MMS message (default: false)
@@ -71,15 +71,15 @@ defmodule Ysc.Flowroute.Client do
       # Send SMS with default from number
       {:ok, %{id: "mdr2-39cadeace66e11e7aff806cd7f24ba2d"}} =
         Client.send_sms(
-          to: "12065551234",
+          to: "+12065551234",
           body: "Hello from YSC!"
         )
 
       # Send SMS with custom from number
       {:ok, %{id: "mdr2-..."}} =
         Client.send_sms(
-          to: "12065551234",
-          from: "12061231234",
+          to: "+12065551234",
+          from: "+12061231234",
           body: "Hello from YSC!"
         )
   """
@@ -88,21 +88,21 @@ defmodule Ysc.Flowroute.Client do
     # In noop environments (dev, test, sandbox), skip from_number config requirement
     # but still validate phone format and body to catch bugs early
     if noop_environment?() do
-      with {:ok, to} <- Keyword.fetch(opts, :to),
+      with {:ok, to_raw} <- Keyword.fetch(opts, :to),
            {:ok, body} <- Keyword.fetch(opts, :body),
-           :ok <- validate_phone_number(to),
+           {:ok, to} <- normalize_phone_number(to_raw),
            :ok <- validate_body(body) do
         # Use provided from number, configured from number, or a default fake number for noop mode
-        from =
+        from_raw =
           Keyword.get(opts, :from) ||
             case get_from_number(opts) do
               {:ok, number} -> number
-              _ -> "12061231234"
+              _ -> "+12061231234"
             end
 
-        # Validate from number format but don't require it to be configured
-        case validate_phone_number(from) do
-          :ok ->
+        # Normalize and validate from number format but don't require it to be configured
+        case normalize_phone_number(from_raw) do
+          {:ok, from} ->
             handle_noop_response(to, from, body, opts)
 
           {:error, reason} ->
@@ -117,11 +117,11 @@ defmodule Ysc.Flowroute.Client do
       end
     else
       # In production, validate everything including from_number configuration
-      with {:ok, to} <- Keyword.fetch(opts, :to),
+      with {:ok, to_raw} <- Keyword.fetch(opts, :to),
            {:ok, body} <- Keyword.fetch(opts, :body),
-           {:ok, from} <- get_from_number(opts),
-           :ok <- validate_phone_number(to),
-           :ok <- validate_phone_number(from),
+           {:ok, from_raw} <- get_from_number(opts),
+           {:ok, to} <- normalize_phone_number(to_raw),
+           {:ok, from} <- normalize_phone_number(from_raw),
            :ok <- validate_body(body) do
         is_mms = Keyword.get(opts, :is_mms, false)
         media_urls = Keyword.get(opts, :media_urls, [])
@@ -341,16 +341,34 @@ defmodule Ysc.Flowroute.Client do
     end
   end
 
-  defp validate_phone_number(number) when is_binary(number) do
-    # Validate 11-digit North American format (e.g., 12065551234)
-    if Regex.match?(~r/^1\d{10}$/, number) do
-      :ok
-    else
-      {:error, :invalid_phone_number_format}
+  defp normalize_phone_number(number) when is_binary(number) do
+    # Remove any whitespace
+    number = String.trim(number)
+
+    cond do
+      # Already in international format with +
+      String.starts_with?(number, "+") ->
+        # Validate it has at least a country code (minimum 2 digits after +)
+        if Regex.match?(~r/^\+\d{2,}$/, number) do
+          {:ok, number}
+        else
+          {:error, :invalid_phone_number_format}
+        end
+
+      # 11-digit North American format (e.g., 12065551234) - add +
+      Regex.match?(~r/^1\d{10}$/, number) ->
+        {:ok, "+#{number}"}
+
+      # 10-digit North American format (e.g., 2065551234) - add +1
+      Regex.match?(~r/^\d{10}$/, number) ->
+        {:ok, "+1#{number}"}
+
+      true ->
+        {:error, :invalid_phone_number_format}
     end
   end
 
-  defp validate_phone_number(_), do: {:error, :invalid_phone_number_format}
+  defp normalize_phone_number(_), do: {:error, :invalid_phone_number_format}
 
   defp validate_body(body) when is_binary(body) do
     if String.length(body) > 0 do
