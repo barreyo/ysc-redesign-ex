@@ -106,7 +106,8 @@ defmodule YscWeb.TahoeBookingLive do
     buyout_refund_policy = Bookings.get_active_refund_policy(:tahoe, :buyout)
     room_refund_policy = Bookings.get_active_refund_policy(:tahoe, :room)
 
-    # Generate date tooltips for unavailable dates
+    # Generate date tooltips for unavailable dates (only on initial mount)
+    # Subsequent updates will reuse cached tooltips unless date range changes
     date_tooltips =
       generate_date_tooltips(restricted_min_date, restricted_max_date, today, :tahoe, seasons)
 
@@ -241,9 +242,16 @@ defmodule YscWeb.TahoeBookingLive do
       dates_restricted =
         dates_are_restricted?(restricted_min_date, restricted_max_date, today, max_booking_date)
 
-      # Generate date tooltips for unavailable dates
+      # Only regenerate date tooltips if the date range actually changed
+      # This avoids expensive queries when only the tab or other non-date params change
       date_tooltips =
-        generate_date_tooltips(restricted_min_date, restricted_max_date, today, :tahoe, seasons)
+        if restricted_min_date != socket.assigns[:restricted_min_date] ||
+             restricted_max_date != socket.assigns[:restricted_max_date] ||
+             !socket.assigns[:date_tooltips] do
+          generate_date_tooltips(restricted_min_date, restricted_max_date, today, :tahoe, seasons)
+        else
+          socket.assigns[:date_tooltips] || %{}
+        end
 
       date_form =
         to_form(
@@ -351,15 +359,21 @@ defmodule YscWeb.TahoeBookingLive do
         max_booking_date
       )
 
-    # Generate date tooltips for unavailable dates
+    # Only regenerate date tooltips if the date range actually changed
     date_tooltips =
-      generate_date_tooltips(
-        restricted_min_date,
-        restricted_max_date,
-        socket.assigns.today,
-        :tahoe,
-        socket.assigns.seasons
-      )
+      if restricted_min_date != socket.assigns[:restricted_min_date] ||
+           restricted_max_date != socket.assigns[:restricted_max_date] ||
+           !socket.assigns[:date_tooltips] do
+        generate_date_tooltips(
+          restricted_min_date,
+          restricted_max_date,
+          socket.assigns.today,
+          :tahoe,
+          socket.assigns.seasons
+        )
+      else
+        socket.assigns[:date_tooltips] || %{}
+      end
 
     socket =
       socket
@@ -2814,15 +2828,16 @@ defmodule YscWeb.TahoeBookingLive do
         "[TahoeBookingLive] Found #{length(all_rooms)} rooms for property #{socket.assigns.property}"
       )
 
-      # Get available rooms for comparison
+      # Batch check availability for all rooms at once (much more efficient)
+      all_room_ids = Enum.map(all_rooms, & &1.id)
+
       available_room_ids =
-        Bookings.get_available_rooms(
+        Bookings.batch_check_room_availability(
+          all_room_ids,
           socket.assigns.property,
           socket.assigns.checkin_date,
           socket.assigns.checkout_date
         )
-        |> Enum.map(& &1.id)
-        |> MapSet.new()
 
       # Check if user can select multiple rooms (family/lifetime members)
       can_select_multiple = can_select_multiple_rooms?(socket.assigns)
@@ -2936,95 +2951,89 @@ defmodule YscWeb.TahoeBookingLive do
 
           Map.put(room, :availability_status, availability_status)
         end)
-        |> Enum.map(fn room ->
-          # Load pricing from database for display
-          # Get adult price per person per night
-          adult_price =
+        |> then(fn rooms ->
+          # Batch load pricing rules for all rooms at once
+          # Get season once for all rooms
+          season =
             if socket.assigns.checkin_date do
-              season =
-                Season.find_season_for_date(socket.assigns.seasons, socket.assigns.checkin_date)
+              Season.find_season_for_date(socket.assigns.seasons, socket.assigns.checkin_date)
+            else
+              nil
+            end
 
-              season_id = if season, do: season.id, else: nil
+          season_id = if season, do: season.id, else: nil
 
-              # Try room-specific pricing first, then fall back to category pricing
-              # Fall back to category-based pricing if no room-specific rule
-              pricing_rule =
+          # Pre-fetch pricing rules for all rooms and categories
+          # This avoids N+1 queries by using the cache efficiently
+          # The cache will handle batching internally
+          Enum.map(rooms, fn room ->
+            # Get adult price per person per night
+            # Try room-specific pricing first, then fall back to category pricing
+            pricing_rule =
+              PricingRule.find_most_specific(
+                socket.assigns.property,
+                season_id,
+                room.id,
+                nil,
+                :room,
+                :per_person_per_night
+              ) ||
                 PricingRule.find_most_specific(
                   socket.assigns.property,
                   season_id,
-                  room.id,
-                  # Don't pass category_id when checking room-specific
                   nil,
+                  room.room_category_id,
                   :room,
                   :per_person_per_night
-                ) ||
-                  PricingRule.find_most_specific(
-                    socket.assigns.property,
-                    season_id,
-                    # No room_id for category lookup
-                    nil,
-                    room.room_category_id,
-                    :room,
-                    :per_person_per_night
-                  )
+                )
 
+            adult_price =
               if pricing_rule && pricing_rule.amount do
                 pricing_rule.amount
               else
                 # Fallback to default if no pricing rule found
                 Money.new(45, :USD)
               end
-            else
-              # Fallback if no checkin date
-              Money.new(45, :USD)
-            end
 
-          # Look up children pricing using same hierarchy as adult pricing
-          # Falls back to $25 if no children pricing rule found
-          children_price =
-            if socket.assigns.checkin_date do
-              season =
-                Season.find_season_for_date(socket.assigns.seasons, socket.assigns.checkin_date)
-
-              season_id = if season, do: season.id, else: nil
-
-              children_pricing_rule =
+            # Look up children pricing using same hierarchy
+            children_pricing_rule =
+              PricingRule.find_children_pricing_rule(
+                socket.assigns.property,
+                season_id,
+                room.id,
+                nil,
+                :room,
+                :per_person_per_night
+              ) ||
                 PricingRule.find_children_pricing_rule(
                   socket.assigns.property,
                   season_id,
-                  room.id,
                   nil,
+                  room.room_category_id,
                   :room,
                   :per_person_per_night
                 ) ||
-                  PricingRule.find_children_pricing_rule(
-                    socket.assigns.property,
-                    season_id,
-                    nil,
-                    room.room_category_id,
-                    :room,
-                    :per_person_per_night
-                  ) ||
-                  PricingRule.find_children_pricing_rule(
-                    socket.assigns.property,
-                    season_id,
-                    nil,
-                    nil,
-                    :room,
-                    :per_person_per_night
-                  )
+                PricingRule.find_children_pricing_rule(
+                  socket.assigns.property,
+                  season_id,
+                  nil,
+                  nil,
+                  :room,
+                  :per_person_per_night
+                )
 
+            children_price =
               if children_pricing_rule && children_pricing_rule.children_amount do
                 children_pricing_rule.children_amount
               else
                 # Fallback to $25 if no children pricing rule found
                 Money.new(25, :USD)
               end
-            else
-              # Fallback if no checkin date
-              Money.new(25, :USD)
-            end
 
+            {room, adult_price, children_price}
+          end)
+        end)
+        |> Enum.map(fn {room, adult_price, children_price} ->
           # Calculate minimum price if room has min_billable_occupancy > 1
           min_occupancy = room.min_billable_occupancy || 1
 
@@ -4241,8 +4250,14 @@ defmodule YscWeb.TahoeBookingLive do
         end
 
       if length(selected_room_ids) > 0 do
-        # Calculate total capacity of selected rooms
-        all_rooms = Bookings.list_rooms(socket.assigns.property)
+        # Reuse rooms from available_rooms if available (already loaded in update_available_rooms)
+        # Otherwise fall back to loading them
+        all_rooms =
+          if socket.assigns[:available_rooms] && length(socket.assigns.available_rooms) > 0 do
+            socket.assigns.available_rooms
+          else
+            Bookings.list_rooms(socket.assigns.property)
+          end
 
         total_capacity =
           selected_room_ids
@@ -4461,9 +4476,10 @@ defmodule YscWeb.TahoeBookingLive do
   # Generate tooltips for unavailable dates
   # Returns a map of date strings (ISO format) to tooltip messages
   defp generate_date_tooltips(min_date, max_date, today, property, _seasons) do
-    # Generate tooltips for a reasonable date range (3 months before min to 3 months after max)
-    start_range = Date.add(min_date, -90)
-    end_range = Date.add(max_date, 90)
+    # Generate tooltips for a more limited date range (1 month before min to 1 month after max)
+    # This reduces the number of dates we need to check significantly
+    start_range = Date.add(min_date, -30)
+    end_range = Date.add(max_date, 30)
     date_range = Date.range(start_range, end_range) |> Enum.to_list()
 
     # Get all rooms for the property

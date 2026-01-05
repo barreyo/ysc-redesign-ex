@@ -813,6 +813,124 @@ defmodule Ysc.Bookings do
   end
 
   @doc """
+  Batch checks availability for multiple rooms at once.
+
+  Returns a MapSet of room IDs that are available for the given dates.
+  This is much more efficient than calling room_available? for each room individually.
+
+  ## Parameters
+  - `room_ids`: List of room IDs to check
+  - `property`: The property
+  - `checkin_date`: Check-in date
+  - `checkout_date`: Check-out date
+
+  ## Returns
+  - `MapSet` of available room IDs
+  """
+  def batch_check_room_availability(room_ids, property, checkin_date, checkout_date) do
+    if Enum.empty?(room_ids) do
+      MapSet.new()
+    else
+      # Get all active rooms (Room.id is ULID type, so Ecto handles conversion automatically)
+      active_room_ids =
+        from(r in Room,
+          where: r.id in ^room_ids,
+          where: r.property == ^property,
+          where: r.is_active == true,
+          select: r.id
+        )
+        |> Repo.all()
+        |> MapSet.new()
+
+      # Convert room_ids to binary format for comparison with booking_rooms.room_id (which is binary)
+      room_ids_binary =
+        room_ids
+        |> Enum.map(fn room_id ->
+          case Ecto.ULID.dump(room_id) do
+            {:ok, binary} -> binary
+            _ -> room_id
+          end
+        end)
+
+      # Check for overlapping bookings for all rooms at once
+      # booking_rooms.room_id is stored as binary UUID, so we use the binary format
+      # Use fragment with ANY to properly handle the binary array
+      booked_room_ids_binary =
+        from(b in Booking,
+          join: br in "booking_rooms",
+          on: br.booking_id == b.id,
+          where:
+            fragment(
+              "? = ANY(?)",
+              br.room_id,
+              ^room_ids_binary
+            ),
+          where:
+            fragment(
+              "(? < ? AND ? > ?)",
+              b.checkin_date,
+              ^checkout_date,
+              b.checkout_date,
+              ^checkin_date
+            ),
+          where: b.status in [:hold, :complete],
+          select: br.room_id,
+          distinct: true
+        )
+        |> Repo.all()
+        |> MapSet.new()
+
+      # Convert active_room_ids to binary for comparison with booked_room_ids_binary
+      active_room_ids_binary =
+        active_room_ids
+        |> Enum.map(fn room_id ->
+          case Ecto.ULID.dump(room_id) do
+            {:ok, binary} -> binary
+            _ -> room_id
+          end
+        end)
+        |> MapSet.new()
+
+      # Available rooms = active rooms (binary) - booked rooms (binary)
+      available_room_ids_binary =
+        MapSet.difference(active_room_ids_binary, booked_room_ids_binary)
+
+      # Convert back to ULID strings by matching with original room_ids
+      # We can do this by finding which room_ids (when converted to binary) match the available binary IDs
+      available_room_ids =
+        room_ids
+        |> Enum.filter(fn room_id ->
+          case Ecto.ULID.dump(room_id) do
+            {:ok, binary} -> MapSet.member?(available_room_ids_binary, binary)
+            _ -> false
+          end
+        end)
+        |> MapSet.new()
+
+      # Check for property buyout (if buyout exists, no rooms are available)
+      has_buyout =
+        Repo.exists?(
+          from(pi in PropertyInventory,
+            where: pi.property == ^property,
+            where: pi.day >= ^checkin_date and pi.day < ^checkout_date,
+            where: pi.buyout_held == true or pi.buyout_booked == true
+          )
+        )
+
+      # Check for blackouts
+      has_blackout = has_blackout?(property, checkin_date, checkout_date)
+
+      if has_buyout or has_blackout do
+        # If buyout or blackout exists, no rooms are available
+        MapSet.new()
+      else
+        # available_room_ids was already calculated above
+        available_room_ids
+      end
+    end
+  end
+
+  @doc """
   Calculates the total price for a booking.
 
   ## Parameters
