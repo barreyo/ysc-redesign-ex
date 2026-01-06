@@ -298,11 +298,26 @@ const StripeElements = {
         }
 
         try {
-            // Get booking ID from data attribute for redirect URL
+            // Get booking ID or ticket order ID from data attributes for redirect URL
             const bookingId = this.el.dataset.bookingId;
-            const returnUrl = bookingId ?
-                `${window.location.origin}/bookings/${bookingId}/receipt` :
-                `${window.location.origin}/payment/success`;
+            const ticketOrderId = this.el.dataset.ticketOrderId;
+
+            // Build return URL based on what we have
+            let returnUrl;
+            if (bookingId) {
+                returnUrl = `${window.location.origin}/bookings/${bookingId}/receipt?confetti=true`;
+            } else if (ticketOrderId) {
+                // For ticket orders, use payment success page which will redirect to order confirmation
+                returnUrl = `${window.location.origin}/payment/success`;
+            } else {
+                returnUrl = `${window.location.origin}/payment/success`;
+            }
+
+            // Notify LiveView that a redirect might be about to happen
+            // This prevents the order from being cancelled when the connection is lost
+            if (ticketOrderId || bookingId) {
+                this.pushEvent('payment-redirect-started', {});
+            }
 
             const { error } = await this.stripe.confirmPayment({
                 elements: this.elements,

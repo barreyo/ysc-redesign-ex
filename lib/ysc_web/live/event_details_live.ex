@@ -1791,6 +1791,7 @@ defmodule YscWeb.EventDetailsLive do
                 data-public-key={@public_key}
                 data-client-secret={@payment_intent.client_secret}
                 data-clientSecret={@payment_intent.client_secret}
+                data-ticket-order-id={@ticket_order.id}
               >
                 <!-- Stripe Elements will be mounted here -->
               </div>
@@ -2647,7 +2648,8 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:show_attendees_modal, false)
          |> assign(:load_radar, true)
          |> assign(:load_stripe, true)
-         |> assign(:load_calendar, true)}
+         |> assign(:load_calendar, true)
+         |> assign(:payment_redirect_in_progress, false)}
     end
   end
 
@@ -3027,6 +3029,7 @@ defmodule YscWeb.EventDetailsLive do
             |> assign(:family_members, family_members)
             |> assign(:ticket_tiers, ticket_tiers)
             |> assign(:availability_data, availability_data)
+            |> assign(:payment_redirect_in_progress, false)
 
           {:error, reason} ->
             Logger.error(
@@ -3457,7 +3460,10 @@ defmodule YscWeb.EventDetailsLive do
   @impl true
   def terminate(_reason, socket) do
     # Cancel any pending ticket order when the LiveView terminates
-    if socket.assigns.ticket_order && socket.assigns.show_payment_modal do
+    # BUT don't cancel if a payment redirect is in progress (e.g., Amazon Pay, CashApp)
+    # The payment success page will handle the redirect back
+    if socket.assigns.ticket_order && socket.assigns.show_payment_modal &&
+         !socket.assigns[:payment_redirect_in_progress] do
       Ysc.Tickets.cancel_ticket_order(socket.assigns.ticket_order, "User left checkout")
     end
   end
@@ -3525,6 +3531,7 @@ defmodule YscWeb.EventDetailsLive do
      |> assign(:tickets_requiring_registration, [])
      |> assign(:ticket_details_form, %{})
      |> assign(:tickets_for_me, %{})
+     |> assign(:payment_redirect_in_progress, false)
      |> push_patch(to: ~p"/events/#{socket.assigns.event.id}")}
   end
 
@@ -3804,6 +3811,13 @@ defmodule YscWeb.EventDetailsLive do
   @impl true
   def handle_event("close-attendees-modal", _params, socket) do
     {:noreply, assign(socket, :show_attendees_modal, false)}
+  end
+
+  @impl true
+  def handle_event("payment-redirect-started", _params, socket) do
+    # Track that a payment redirect is in progress (e.g., Amazon Pay, CashApp)
+    # This prevents the order from being cancelled when the LiveView connection is lost
+    {:noreply, assign(socket, :payment_redirect_in_progress, true)}
   end
 
   @impl true
@@ -5399,6 +5413,7 @@ defmodule YscWeb.EventDetailsLive do
            |> assign(:selected_family_members, selected_family_members)
            |> assign(:family_members, family_members)
            |> assign(:active_ticket_index, active_ticket_index)
+           |> assign(:payment_redirect_in_progress, false)
            |> push_patch(
              to:
                ~p"/events/#{socket.assigns.event.id}?checkout=payment&order_id=#{ticket_order_with_tickets.id}"
