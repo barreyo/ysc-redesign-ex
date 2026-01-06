@@ -234,6 +234,7 @@ defmodule YscWeb.Router do
       live "/users/confirm/:token", UserConfirmationLive, :edit
       live "/users/confirm", UserConfirmationInstructionsLive, :new
       live "/family-invite/:token/accept", FamilyInviteAcceptanceLive, :index
+      live "/payment/success", PaymentSuccessLive, :index
     end
   end
 

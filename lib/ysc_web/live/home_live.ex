@@ -956,7 +956,7 @@ defmodule YscWeb.HomeLive do
                       </div>
                       <div class="space-y-2">
                         <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
-                          Datea
+                          Dates
                         </p>
                         <p class="font-bold text-zinc-800">
                           <%= format_booking_date(booking.checkin_date) %> — <%= format_booking_date(
