@@ -117,6 +117,31 @@ defmodule Ysc.Events do
   end
 
   @doc """
+  Count the number of upcoming events without loading all event data.
+  """
+  def count_upcoming_events do
+    from(e in Event,
+      where: e.start_date > ^DateTime.utc_now(),
+      where: e.state in [:published, :cancelled]
+    )
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  Check if there are more past events beyond a given limit without loading full event data.
+  Uses a simple count query to avoid loading associations.
+  """
+  def has_more_past_events?(limit) do
+    # Count events and check if there are more than the limit
+    from(e in Event,
+      where: e.start_date <= ^DateTime.utc_now(),
+      where: e.state in [:published, :cancelled],
+      select: count(e.id)
+    )
+    |> Repo.one() > limit
+  end
+
+  @doc """
   Fetch events with upcoming start dates, optionally limited.
   Optimized to batch load ticket tiers and ticket counts to avoid N+1 queries.
   """

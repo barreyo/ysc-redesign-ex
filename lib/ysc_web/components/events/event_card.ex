@@ -29,7 +29,7 @@ defmodule YscWeb.Components.Events.EventCard do
 
     ~H"""
     <div class={[
-      "group flex flex-col rounded-xl border shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden relative",
+      "group flex flex-col rounded-xl border shadow-sm hover:shadow-2xl ring-offset-0 hover:ring-2 hover:ring-blue-500/20 transition-all duration-300 overflow-hidden relative",
       if(@variant == "dark",
         do: "bg-zinc-800 border-zinc-700",
         else: "bg-white border-zinc-100"
@@ -94,7 +94,7 @@ defmodule YscWeb.Components.Events.EventCard do
             :if={@event.start_time && @event.start_time != ""}
             class={[
               "text-xs font-bold uppercase tracking-widest",
-              if(@variant == "dark", do: "text-zinc-500", else: "text-zinc-500")
+              if(@variant == "dark", do: "text-zinc-500", else: "text-zinc-600")
             ]}
           >
             <%= format_start_time(@event.start_time) %>
@@ -127,7 +127,7 @@ defmodule YscWeb.Components.Events.EventCard do
               :if={@event.location_name}
               class={[
                 "text-sm font-bold flex items-center gap-1.5",
-                if(@variant == "dark", do: "text-zinc-500", else: "text-zinc-500")
+                if(@variant == "dark", do: "text-zinc-500", else: "text-zinc-600")
               ]}
             >
               <.icon name="hero-map-pin" class="w-5 h-5" />

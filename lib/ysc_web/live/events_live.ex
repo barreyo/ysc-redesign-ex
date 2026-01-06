@@ -3,158 +3,74 @@ defmodule YscWeb.EventsLive do
 
   alias Ysc.Events
   alias Ysc.Media.Image
-  alias Ysc.Tickets
 
   @impl true
   def render(assigns) do
     ~H"""
     <div class="py-6 md:py-12">
       <%!-- The "Masthead" Header --%>
-      <div class="max-w-screen-xl mx-auto px-4 mb-16">
-        <div class="text-center py-12 border-y border-zinc-200">
-          <p class="text-xs font-black text-blue-400 uppercase tracking-[0.2em] mb-4">
+      <div class="max-w-screen-xl mx-auto px-4 mb-8 md:mb-16">
+        <div class="text-center py-8 md:py-12 border-y border-zinc-200">
+          <p class="text-xs font-black text-blue-400 uppercase tracking-[0.2em] mb-3 md:mb-4">
             Events
           </p>
-          <h1 class="text-5xl md:text-7xl font-black text-zinc-900">
-            What's Next
+          <h1 class="text-4xl md:text-7xl font-black text-zinc-900">
+            <%= if @total_upcoming_count == 0, do: "The Calendar", else: "What's Next" %>
           </h1>
         </div>
       </div>
 
-      <%!-- Cinema Hero Layout - Next Event --%>
-      <div :if={@hero_event != nil} class="max-w-screen-xl mx-auto px-4 mb-20">
-        <div id="hero-event" class="group">
-          <.link
-            navigate={~p"/events/#{@hero_event.id}"}
-            class="block overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl transition-all duration-300 hover:shadow-2xl sm:border-0 sm:bg-transparent sm:shadow-none"
-          >
-            <div class="relative flex flex-col sm:block sm:aspect-[16/10] sm:rounded-xl sm:overflow-hidden sm:shadow-2xl">
-              <%!-- Image container --%>
-              <div class={[
-                "relative aspect-[16/9] w-full overflow-hidden sm:absolute sm:inset-0 sm:aspect-auto sm:h-full",
-                if(
-                  (Map.get(@hero_event, :state) || Map.get(@hero_event, "state")) in [
-                    :cancelled,
-                    "cancelled"
-                  ],
-                  do: "grayscale"
-                )
-              ]}>
-                <canvas
-                  id={"blur-hash-hero-#{@hero_event.id}"}
-                  src={get_blur_hash(@hero_event.image)}
-                  class="absolute inset-0 z-0 w-full h-full object-cover"
-                  phx-hook="BlurHashCanvas"
-                >
-                </canvas>
-                <img
-                  src={event_image_url(@hero_event.image)}
-                  id={"image-hero-#{@hero_event.id}"}
-                  phx-hook="BlurHashImage"
-                  class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out object-cover w-full h-full group-hover:scale-105 transition-transform duration-700"
-                  loading="eager"
-                  alt={
-                    if @hero_event.image,
-                      do:
-                        @hero_event.image.alt_text || @hero_event.image.title || @hero_event.title ||
-                          "Event image",
-                      else: "Event image"
-                  }
-                />
-
-                <%!-- Overlay gradient for text readability (hidden on mobile, shown on sm+) --%>
-                <div class="hidden sm:block absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900/80 via-zinc-900/40 to-transparent">
-                </div>
-              </div>
-
-              <%!-- Content (stacked on mobile, overlaid on sm+) --%>
-              <div class="relative z-[3] flex flex-col p-5 sm:absolute sm:inset-0 sm:justify-end sm:p-8 lg:p-12 transition-all duration-500">
-                <div class="max-w-3xl">
-                  <div class="flex flex-wrap items-center gap-2 mb-4 grayscale-0">
-                    <span class="px-2.5 py-1 bg-slate-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm sm:bg-slate-500/90 sm:backdrop-blur-md sm:border sm:border-slate-400 animate-badge-shine-slate">
-                      <.icon name="hero-calendar-solid" class="w-3 h-3 inline me-1 relative z-10" />Happening Soon
-                    </span>
-                    <%= for badge <- get_hero_event_badges(@hero_event) do %>
-                      <span class={[
-                        "px-2.5 py-1 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm",
-                        badge_class_mobile(badge),
-                        badge_class_desktop_responsive(badge),
-                        if(badge.text == "Going Fast!", do: "animate-badge-shine-emerald", else: "")
-                      ]}>
-                        <.icon
-                          :if={badge.icon}
-                          name={badge.icon}
-                          class="w-3 h-3 inline me-1 relative z-10"
-                        />
-                        <span class="relative z-10"><%= badge.text %></span>
-                      </span>
-                    <% end %>
-                  </div>
-
-                  <h2 class="text-3xl font-black leading-tight tracking-tighter text-zinc-900 sm:text-zinc-50 sm:text-4xl lg:text-5xl xl:text-6xl mb-3 transition-colors duration-300 sm:drop-shadow-md">
-                    <%= @hero_event.title %>
-                  </h2>
-
-                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 text-zinc-500 sm:text-white/80">
-                    <span class="text-xs sm:text-sm font-black uppercase tracking-[0.1em]">
-                      <%= format_event_date_time(@hero_event) %>
-                    </span>
-                    <span :if={@hero_event.location_name} class="h-3 w-px bg-zinc-300 sm:bg-white/40">
-                    </span>
-                    <span
-                      :if={@hero_event.location_name}
-                      class="text-xs sm:text-sm font-bold uppercase tracking-widest flex items-center gap-1"
-                    >
-                      <.icon name="hero-map-pin" class="w-4 h-4" />
-                      <%= @hero_event.location_name %>
-                    </span>
-                  </div>
-
-                  <p
-                    :if={@hero_event.description}
-                    class="text-zinc-600 sm:text-zinc-200 text-sm sm:text-base lg:text-lg leading-relaxed line-clamp-2 mb-6 max-w-2xl sm:drop-shadow-md"
-                  >
-                    <%= @hero_event.description %>
-                  </p>
-
-                  <div class="flex items-center gap-4 pt-4 border-t border-zinc-100 sm:border-white/20">
-                    <span class="text-xs sm:text-sm font-black text-zinc-900 sm:text-white">
-                      <%= @hero_event.pricing_info.display_text %>
-                    </span>
-                    <span class="hidden sm:inline-flex items-center gap-1 text-sm font-bold text-white/90 hover:text-white transition-colors">
-                      View Details <.icon name="hero-arrow-right" class="w-4 h-4" />
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </.link>
-        </div>
-      </div>
-
-      <%!-- Main Content Grid with Sidebar --%>
-      <div class="max-w-screen-xl mx-auto px-4 py-12">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+      <%!-- Hero and Event List (handled by component) --%>
+      <div class="max-w-screen-xl mx-auto px-4">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
           <%!-- Events Grid --%>
-          <div class="lg:col-span-9">
+          <div class="lg:col-span-9 min-h-[50vh] lg:min-h-[70vh] flex flex-col">
             <.live_component
-              id="event_list"
+              id="upcoming_events"
               module={YscWeb.EventsListLive}
-              exclude_event_id={if @hero_event, do: @hero_event.id, else: nil}
+              show_hero={true}
+              upcoming={true}
             />
           </div>
 
           <%!-- Sidebar --%>
-          <aside class="lg:col-span-3">
-            <div class="sticky top-24 space-y-8">
-              <div class="p-8 bg-zinc-50 rounded-xl border border-zinc-100">
-                <h4 class="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-6">
-                  Upcoming Events
-                </h4>
-                <p class="text-sm text-zinc-600 leading-relaxed">
-                  Explore our curated calendar of events. From social gatherings to cultural celebrations, there's always something happening at YSC.
-                </p>
-              </div>
+          <aside class="lg:col-span-3 space-y-4 md:space-y-8">
+            <div class="p-6 md:p-8 bg-zinc-50 rounded-xl border border-zinc-100">
+              <h4 class="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4 md:mb-6">
+                Upcoming Events
+              </h4>
+              <p class="text-sm text-zinc-600 leading-relaxed">
+                Explore our curated calendar of events. From social gatherings to cultural celebrations, there's always something happening at YSC.
+              </p>
+            </div>
+            <%!-- Get Involved - Always shown to encourage event hosting --%>
+            <div class="p-6 md:p-8 bg-gradient-to-br from-blue-50/50 to-slate-50/50 rounded-xl border-2 border-blue-200 backdrop-blur-sm lg:scale-105 shadow-md">
+              <h4 class="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-3 md:mb-4">
+                Get Involved
+              </h4>
+              <p class="text-sm text-zinc-700 leading-relaxed mb-4">
+                Have an idea for an event? We'd love to help you host it! Reach out through our contact page.
+              </p>
+              <.link
+                navigate={~p"/contact"}
+                class="inline-flex items-center text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                Contact Us <.icon name="hero-arrow-right" class="w-4 h-4 ml-1" />
+              </.link>
+            </div>
+            <div class="p-6 md:p-8 bg-white rounded-xl border border-zinc-100 shadow-sm">
+              <h4 class="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-3 md:mb-4">
+                Stay Connected
+              </h4>
+              <p class="text-sm text-zinc-600 leading-relaxed mb-4">
+                Join our community to see what members are planning informally.
+              </p>
+              <.link
+                navigate={~p"/news"}
+                class="inline-flex items-center text-sm font-bold text-zinc-900 hover:text-blue-600 transition-colors"
+              >
+                Read Club News <.icon name="hero-arrow-right" class="w-4 h-4 ml-1" />
+              </.link>
             </div>
           </aside>
         </div>
@@ -162,9 +78,9 @@ defmodule YscWeb.EventsLive do
 
       <%!-- Memory Gallery - Past Events --%>
       <%= if @past_events_exist do %>
-        <section class="mt-32 py-16 border-t border-zinc-100">
+        <section class="mt-20 md:mt-32 py-12 md:py-16 border-t border-zinc-100">
           <div class="max-w-screen-xl mx-auto px-4">
-            <h2 class="text-3xl font-black text-zinc-500 tracking-tighter italic mb-12 group relative inline-block">
+            <h2 class="text-3xl font-black text-zinc-800 tracking-tighter italic mb-12 group relative inline-block">
               <span class="inline-block transition-all duration-500 ease-in-out group-hover:-translate-y-full group-hover:opacity-0">
                 <%= random_past_events_title() %>
               </span>
@@ -216,16 +132,12 @@ defmodule YscWeb.EventsLive do
               </div>
             </div>
 
-            <%= if @past_events_limit < 50 do %>
-              <% has_more_events =
-                Events.list_past_events(@past_events_limit + 1) |> length() > @past_events_limit %>
-              <%= if has_more_events do %>
-                <div class="text-center mt-12">
-                  <.button phx-click="show_more_past_events" class="px-8 py-3">
-                    Show More Past Events
-                  </.button>
-                </div>
-              <% end %>
+            <%= if @past_events_limit < 50 && @has_more_past_events do %>
+              <div class="text-center mt-12">
+                <.button phx-click="show_more_past_events" class="px-8 py-3">
+                  Show More Past Events
+                </.button>
+              </div>
             <% end %>
           </div>
         </section>
@@ -240,27 +152,37 @@ defmodule YscWeb.EventsLive do
       Events.subscribe()
     end
 
-    # Get the next upcoming event for hero
-    upcoming_events = Events.list_upcoming_events(1)
-    hero_event = List.first(upcoming_events)
+    # Get total count of upcoming events using efficient count query
+    total_upcoming_count = Events.count_upcoming_events()
 
-    # Check if there are any past events
+    # Load past events and check existence from the same query
     past_events_limit = 10
-    past_events_exist = Events.list_past_events(1) |> Enum.any?()
-    past_events = if past_events_exist, do: Events.list_past_events(past_events_limit), else: []
+    past_events = Events.list_past_events(past_events_limit)
+    past_events_exist = Enum.any?(past_events)
+
+    # Check if there are more past events available (only if we got exactly limit results)
+    has_more_past_events =
+      if length(past_events) == past_events_limit do
+        Events.has_more_past_events?(past_events_limit)
+      else
+        false
+      end
 
     {:ok,
      socket
      |> assign(:page_title, "Events")
-     |> assign(:hero_event, hero_event)
+     |> assign(:total_upcoming_count, total_upcoming_count)
      |> assign(:past_events_exist, past_events_exist)
      |> assign(:past_events_limit, past_events_limit)
+     |> assign(:has_more_past_events, has_more_past_events)
      |> stream(:past_events, past_events, reset: true)}
   end
 
   @impl true
   def handle_info({Ysc.Events, %_event{event: _} = base_event}, socket) do
-    send_update(YscWeb.EventsListLive, id: "event_list", event: base_event)
+    # Pass event to component - component handles hero logic internally
+    send_update(YscWeb.EventsListLive, id: "upcoming_events", event: base_event)
+
     {:noreply, socket}
   end
 
@@ -276,7 +198,7 @@ defmodule YscWeb.EventsLive do
 
       event ->
         event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
-        send_update(YscWeb.EventsListLive, id: "event_list", event: event_updated)
+        send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
         {:noreply, socket}
     end
   end
@@ -292,7 +214,7 @@ defmodule YscWeb.EventsLive do
 
       event ->
         event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
-        send_update(YscWeb.EventsListLive, id: "event_list", event: event_updated)
+        send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
         {:noreply, socket}
     end
   end
@@ -308,7 +230,7 @@ defmodule YscWeb.EventsLive do
 
       event ->
         event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
-        send_update(YscWeb.EventsListLive, id: "event_list", event: event_updated)
+        send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
         {:noreply, socket}
     end
   end
@@ -319,10 +241,18 @@ defmodule YscWeb.EventsLive do
     # Increase by 10, max 50
     new_limit = min(current_limit + 10, 50)
     past_events = Events.list_past_events(new_limit)
+    # Check if there are more events beyond the new limit
+    has_more_past_events =
+      if length(past_events) == new_limit && new_limit < 50 do
+        Events.has_more_past_events?(new_limit)
+      else
+        false
+      end
 
     {:noreply,
      socket
      |> assign(:past_events_limit, new_limit)
+     |> assign(:has_more_past_events, has_more_past_events)
      |> stream(:past_events, past_events, reset: true)}
   end
 
@@ -334,278 +264,6 @@ defmodule YscWeb.EventsLive do
   defp event_image_url(nil), do: "/images/ysc_logo.png"
   defp event_image_url(%Image{optimized_image_path: nil} = image), do: image.raw_image_path
   defp event_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
-
-  defp format_event_date_time(event) do
-    date_str = Timex.format!(event.start_date, "{Mshort} {D}")
-
-    time_str =
-      if event.start_time && event.start_time != "" do
-        " • #{format_start_time(event.start_time)}"
-      else
-        ""
-      end
-
-    "#{date_str}#{time_str}"
-  end
-
-  defp format_start_time(time) when is_binary(time) do
-    format_start_time(Timex.parse!(time, "{h12}:{m} {AM}"))
-  end
-
-  defp format_start_time(time) do
-    Timex.format!(time, "{h12}:{m} {AM}")
-  end
-
-  defp get_hero_event_badges(event) do
-    state = Map.get(event, :state) || Map.get(event, "state")
-    sold_out = event_sold_out?(event)
-    selling_fast = Map.get(event, :selling_fast, false)
-
-    # If cancelled, only show "Cancelled" badge
-    if state == :cancelled or state == "cancelled" do
-      [%{text: "Cancelled", class: "bg-red-500/90 border-red-400 text-white", icon: nil}]
-    else
-      # If sold out (and not cancelled), only show "Sold Out" badge
-      if sold_out do
-        [%{text: "Sold Out", class: "bg-red-500/90 border-red-400 text-white", icon: nil}]
-      else
-        # Show active badges
-        get_active_hero_badges(event, selling_fast)
-      end
-    end
-  end
-
-  defp get_active_hero_badges(event, selling_fast) do
-    # Check if published_at exists (no badges for unpublished events)
-    published_at = Map.get(event, :published_at) || Map.get(event, "published_at")
-
-    if published_at != nil do
-      badges = []
-
-      # Add "Just Added" badge if applicable (within 48 hours of publishing)
-      just_added_badge =
-        if DateTime.diff(DateTime.utc_now(), published_at, :hour) <= 48 do
-          [
-            %{
-              text: "Just Added",
-              class: "bg-slate-500/90 border-slate-400 text-white",
-              icon: nil
-            }
-          ]
-        else
-          []
-        end
-
-      badges = badges ++ just_added_badge
-
-      # Add "Days Left" badge if applicable (1-3 days remaining)
-      days_left = days_until_event_start(event)
-
-      days_left_badge =
-        if days_left != nil and days_left >= 1 and days_left <= 3 do
-          text = "#{days_left} #{if days_left == 1, do: "day", else: "days"} left"
-          [%{text: text, class: "bg-sky-500/90 border-sky-400 text-white", icon: nil}]
-        else
-          []
-        end
-
-      badges = badges ++ days_left_badge
-
-      # Add "Selling Fast!" badge if applicable
-      selling_fast_badge =
-        if selling_fast do
-          [
-            %{
-              text: "Going Fast!",
-              class: "bg-emerald-600/90 border-emerald-500 text-white",
-              icon: "hero-bolt-solid"
-            }
-          ]
-        else
-          []
-        end
-
-      badges ++ selling_fast_badge
-    else
-      []
-    end
-  end
-
-  # Mobile badge classes (solid colors, no backdrop blur)
-  defp badge_class_mobile(badge) do
-    text = Map.get(badge, :text, "")
-
-    cond do
-      text == "Cancelled" -> "bg-red-600"
-      text == "Sold Out" -> "bg-red-600"
-      text == "Just Added" -> "bg-slate-600"
-      String.contains?(text, "left") -> "bg-sky-600"
-      text == "Going Fast!" -> "bg-emerald-600"
-      true -> "bg-zinc-600"
-    end
-  end
-
-  # Desktop badge classes (transparent with backdrop blur, scoped to sm: breakpoint)
-  defp badge_class_desktop_responsive(badge) do
-    text = Map.get(badge, :text, "")
-
-    base_classes =
-      cond do
-        text == "Cancelled" -> "sm:bg-red-500/90 sm:border-red-400"
-        text == "Sold Out" -> "sm:bg-red-500/90 sm:border-red-400"
-        text == "Just Added" -> "sm:bg-slate-500/90 sm:border-slate-400"
-        String.contains?(text, "left") -> "sm:bg-sky-500/90 sm:border-sky-400"
-        text == "Going Fast!" -> "sm:bg-emerald-600/90 sm:border-emerald-500"
-        true -> "sm:bg-zinc-500/90 sm:border-zinc-400"
-      end
-
-    base_classes <> " sm:backdrop-blur-md sm:shadow-sm"
-  end
-
-  defp days_until_event_start(event) when is_map(event) do
-    start_date = Map.get(event, :start_date)
-
-    if start_date == nil do
-      nil
-    else
-      now = DateTime.utc_now()
-
-      # If event is in the past, return nil
-      if DateTime.compare(now, start_date) == :gt do
-        nil
-      else
-        # Calculate days difference using calendar days
-        event_date_only = DateTime.to_date(start_date)
-        now_date_only = DateTime.to_date(now)
-        diff = Date.diff(event_date_only, now_date_only)
-        max(0, diff)
-      end
-    end
-  end
-
-  defp event_sold_out?(event) do
-    # Get event ID (handle both structs and maps)
-    event_id = Map.get(event, :id) || Map.get(event, "id")
-
-    # Use preloaded ticket_tiers if available (from batch loading), otherwise fetch
-    ticket_tiers =
-      case Map.get(event, :ticket_tiers) do
-        nil -> Events.list_ticket_tiers_for_event(event_id)
-        tiers -> tiers
-      end
-
-    # Filter out donation tiers - donations don't count toward "sold out" status
-    non_donation_tiers =
-      Enum.filter(ticket_tiers, fn tier ->
-        tier_type = Map.get(tier, :type) || Map.get(tier, "type")
-        tier_type != "donation" && tier_type != :donation
-      end)
-
-    # If there are no non-donation tiers, event is not sold out
-    if Enum.empty?(non_donation_tiers) do
-      false
-    else
-      # Filter out pre-sale tiers (tiers that haven't started selling yet)
-      # We want to check tiers that are on sale OR have ended their sale
-      relevant_tiers =
-        Enum.filter(non_donation_tiers, fn tier ->
-          # Include tiers that are on sale OR have ended their sale
-          # Exclude tiers that haven't started their sale yet (pre-sale)
-          tier_on_sale?(tier) || tier_sale_ended?(tier)
-        end)
-
-      # If there are no relevant tiers (all are pre-sale), event is not sold out
-      if Enum.empty?(relevant_tiers) do
-        false
-      else
-        # Check if all relevant non-donation tiers are sold out
-        # A tier is sold out if available == 0 (unlimited tiers never count as sold out)
-        all_tiers_sold_out =
-          Enum.all?(relevant_tiers, fn tier ->
-            available = get_available_quantity(tier)
-            available == 0
-          end)
-
-        # Also check event capacity if max_attendees is set
-        # (Note: This includes all tickets including donations, but if capacity is reached,
-        #  all regular tickets are effectively sold out even if some tiers show availability)
-        event_at_capacity =
-          case Map.get(event, :max_attendees) || Map.get(event, "max_attendees") do
-            nil ->
-              false
-
-            _ ->
-              # Use preloaded ticket_count if available, otherwise query
-              case Map.get(event, :ticket_count) do
-                nil ->
-                  Tickets.event_at_capacity?(event)
-
-                ticket_count ->
-                  max_attendees =
-                    Map.get(event, :max_attendees) || Map.get(event, "max_attendees")
-
-                  ticket_count >= max_attendees
-              end
-          end
-
-        all_tiers_sold_out || event_at_capacity
-      end
-    end
-  end
-
-  defp tier_on_sale?(ticket_tier) do
-    now = DateTime.utc_now()
-
-    start_date = Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
-    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
-
-    # Check if sale has started
-    sale_started =
-      case start_date do
-        nil -> true
-        sd -> DateTime.compare(now, sd) != :lt
-      end
-
-    # Check if sale has ended
-    sale_ended =
-      case end_date do
-        nil -> false
-        ed -> DateTime.compare(now, ed) == :gt
-      end
-
-    sale_started && !sale_ended
-  end
-
-  defp tier_sale_ended?(ticket_tier) do
-    now = DateTime.utc_now()
-
-    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
-
-    case end_date do
-      nil -> false
-      ed -> DateTime.compare(now, ed) == :gt
-    end
-  end
-
-  defp get_available_quantity(ticket_tier) do
-    quantity = Map.get(ticket_tier, :quantity) || Map.get(ticket_tier, "quantity")
-
-    sold_count =
-      Map.get(ticket_tier, :sold_tickets_count) || Map.get(ticket_tier, "sold_tickets_count") || 0
-
-    case quantity do
-      # Unlimited
-      nil ->
-        :unlimited
-
-      0 ->
-        :unlimited
-
-      qty ->
-        available = qty - sold_count
-        max(0, available)
-    end
-  end
 
   defp random_past_events_title do
     ["Hvad var", "Det Som Varit", "Hva var", "Mikä oli", "Hvað var"]
