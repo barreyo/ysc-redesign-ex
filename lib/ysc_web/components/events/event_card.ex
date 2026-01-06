@@ -29,16 +29,18 @@ defmodule YscWeb.Components.Events.EventCard do
 
     ~H"""
     <div class={[
-      "group flex flex-col rounded-xl border shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden",
+      "group flex flex-col rounded-xl border shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden relative",
       if(@variant == "dark",
         do: "bg-zinc-800 border-zinc-700",
         else: "bg-white border-zinc-100"
       ),
-      @event.state == :cancelled && "opacity-70",
       @class
     ]}>
-      <.link navigate={~p"/events/#{@event.id}"} class="block">
-        <div class="relative aspect-video overflow-hidden">
+      <.link navigate={~p"/events/#{@event.id}"} class="block relative">
+        <div class={[
+          "relative aspect-video overflow-hidden",
+          @event.state == :cancelled && "grayscale"
+        ]}>
           <canvas
             id={"blur-hash-card-#{@event.id}"}
             src={get_blur_hash(@event.image)}
@@ -58,39 +60,32 @@ defmodule YscWeb.Components.Events.EventCard do
                 else: "Event image"
             }
           />
-          <div class="absolute top-4 left-4 flex gap-2 z-[2] flex-wrap">
-            <%= for badge <- @badges do %>
-              <span class={[
-                "px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest shadow-lg",
-                badge_class(badge)
-              ]}>
-                <.icon :if={badge.icon} name={badge.icon} class="w-3.5 h-3.5 inline me-0.5" />
-                <%= badge.text %>
-              </span>
-            <% end %>
-          </div>
-          <div class="absolute bottom-4 right-4 z-[2]">
+        </div>
+        <div class="absolute top-4 left-4 flex gap-2 z-[2] flex-wrap pointer-events-none">
+          <%= for badge <- @badges do %>
             <span class={[
-              "backdrop-blur-md px-4 py-2 rounded-xl text-base font-black shadow-sm ring-1",
-              if(@variant == "dark",
-                do: "bg-zinc-900/90 text-white ring-white/10",
-                else: "bg-white/90 text-zinc-900 ring-black/5"
-              ),
-              @sold_out && "line-through opacity-60"
+              "px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest shadow-lg pointer-events-auto",
+              badge_class(badge),
+              if(badge.text == "Going Fast!", do: "animate-badge-shine-emerald", else: "")
             ]}>
-              <%= @event.pricing_info.display_text %>
+              <.icon
+                :if={badge.icon}
+                name={badge.icon}
+                class="w-3.5 h-3.5 inline me-0.5 relative z-10"
+              />
+              <span class="relative z-10"><%= badge.text %></span>
             </span>
-          </div>
+          <% end %>
         </div>
       </.link>
 
       <div class="p-8 flex flex-col flex-1">
         <div class="flex items-center gap-2 mb-4">
           <span class={[
-            "text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-[0.2em]",
+            "text-xs font-black px-2.5 py-1 rounded uppercase tracking-[0.2em]",
             if(@variant == "dark",
-              do: "text-blue-400 bg-blue-400/10",
-              else: "text-blue-600 bg-blue-50"
+              do: "text-zinc-300 bg-zinc-800",
+              else: "text-zinc-900 bg-zinc-100"
             )
           ]}>
             <%= format_event_date(@event) %>
@@ -98,8 +93,8 @@ defmodule YscWeb.Components.Events.EventCard do
           <span
             :if={@event.start_time && @event.start_time != ""}
             class={[
-              "text-[10px] font-bold uppercase tracking-widest",
-              if(@variant == "dark", do: "text-zinc-400", else: "text-zinc-300")
+              "text-xs font-bold uppercase tracking-widest",
+              if(@variant == "dark", do: "text-zinc-500", else: "text-zinc-500")
             ]}
           >
             <%= format_start_time(@event.start_time) %>
@@ -107,7 +102,7 @@ defmodule YscWeb.Components.Events.EventCard do
         </div>
         <.link navigate={~p"/events/#{@event.id}"} class="block">
           <h3 class={[
-            "text-2xl font-black tracking-tighter leading-tight mb-4 group-hover:text-blue-600 transition-colors",
+            "text-2xl font-black tracking-tighter leading-tight mb-4 group-hover:text-blue-600 transition-colors line-clamp-2 min-h-[4rem]",
             if(@variant == "dark", do: "text-white", else: "text-zinc-900")
           ]}>
             <%= @event.title %>
@@ -127,21 +122,32 @@ defmodule YscWeb.Components.Events.EventCard do
           "mt-auto pt-6 border-t flex items-center justify-between",
           if(@variant == "dark", do: "border-zinc-700", else: "border-zinc-50")
         ]}>
-          <span
-            :if={@event.location_name}
-            class={[
-              "text-sm font-bold flex items-center gap-1.5",
-              if(@variant == "dark", do: "text-zinc-400", else: "text-zinc-400")
-            ]}
-          >
-            <.icon name="hero-map-pin" class="w-5 h-5" />
-            <%= @event.location_name %>
-          </span>
-          <span :if={!@event.location_name}></span>
+          <div class="flex items-center gap-4 flex-1">
+            <span
+              :if={@event.location_name}
+              class={[
+                "text-sm font-bold flex items-center gap-1.5",
+                if(@variant == "dark", do: "text-zinc-500", else: "text-zinc-500")
+              ]}
+            >
+              <.icon name="hero-map-pin" class="w-5 h-5" />
+              <%= @event.location_name %>
+            </span>
+            <span class={[
+              "backdrop-blur-md px-4 py-2 rounded-xl text-sm font-black shadow-sm ring-1",
+              if(@variant == "dark",
+                do: "bg-zinc-900/90 text-white ring-white/10",
+                else: "bg-white/90 text-zinc-900 ring-black/5"
+              ),
+              @sold_out && "line-through opacity-60"
+            ]}>
+              <%= @event.pricing_info.display_text %>
+            </span>
+          </div>
           <.icon
             name="hero-arrow-right"
             class={[
-              "w-5 h-5 group-hover:text-blue-600 group-hover:translate-x-1 transition-all",
+              "w-5 h-5 group-hover:text-blue-600 group-hover:translate-x-1 transition-all flex-shrink-0",
               if(@variant == "dark", do: "text-zinc-500", else: "text-zinc-200")
             ]}
           />
@@ -203,7 +209,7 @@ defmodule YscWeb.Components.Events.EventCard do
       # Add "Just Added" badge if applicable (within 48 hours of publishing)
       just_added_badge =
         if DateTime.diff(DateTime.utc_now(), published_at, :hour) <= 48 do
-          [%{text: "Just Added", class: "bg-blue-500 text-white", icon: nil}]
+          [%{text: "Just Added", class: "bg-slate-500 text-white", icon: nil}]
         else
           []
         end
@@ -226,7 +232,7 @@ defmodule YscWeb.Components.Events.EventCard do
       # Add "Selling Fast!" badge if applicable
       selling_fast_badge =
         if selling_fast do
-          [%{text: "Going Fast!", class: "bg-amber-500 text-white", icon: "hero-bolt-solid"}]
+          [%{text: "Going Fast!", class: "bg-emerald-600 text-white", icon: "hero-bolt-solid"}]
         else
           []
         end

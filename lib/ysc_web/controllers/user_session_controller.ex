@@ -74,8 +74,14 @@ defmodule YscWeb.UserSessionController do
     end
   end
 
-  defp create(conn, %{"user" => user_params}, info) do
+  defp create(conn, %{"user" => user_params} = params, info) do
     %{"email" => email, "password" => password} = user_params
+
+    # Get redirect_to from form params (passed as hidden field from LiveView)
+    # Also check session as fallback for backwards compatibility
+    redirect_to =
+      params["redirect_to"] ||
+        get_session(conn, :user_return_to)
 
     if user = Accounts.get_user_by_email_and_password(email, password) do
       # Check if user's email is verified - if not, redirect to account setup
@@ -90,10 +96,19 @@ defmodule YscWeb.UserSessionController do
           AuthService.log_login_success(user, conn, user_params)
 
           # Reset failed sign-in attempts on successful sign-in
+          # Validate redirect_to is internal before using it
+          validated_redirect =
+            if redirect_to && YscWeb.UserAuth.valid_internal_redirect?(redirect_to) do
+              redirect_to
+            else
+              nil
+            end
+
           conn
           |> put_flash(:info, info)
           |> delete_session(:failed_login_attempts)
-          |> UserAuth.log_in_user(user, user_params)
+          |> delete_session(:user_return_to)
+          |> UserAuth.log_in_user(user, user_params, validated_redirect)
         else
           # Log failed sign-in attempt due to account state
           AuthService.log_login_failure(email, conn, "account_state_restriction", user_params)

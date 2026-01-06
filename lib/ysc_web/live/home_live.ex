@@ -507,7 +507,7 @@ defmodule YscWeb.HomeLive do
                 />
                 <div class="absolute top-6 left-6 flex gap-2 z-[2] flex-wrap">
                   <%= if days_since_inserted(event.inserted_at) <= 7 do %>
-                    <span class="px-3 py-1 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">
+                    <span class="px-3 py-1 bg-slate-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">
                       Just Added
                     </span>
                   <% end %>
@@ -1410,7 +1410,7 @@ defmodule YscWeb.HomeLive do
     end
   end
 
-  defp get_upcoming_tickets(user_id, limit \\ 10) do
+  defp get_upcoming_tickets(user_id, event_limit \\ 10) do
     # Get all confirmed tickets for the user
     tickets = Events.list_tickets_for_user(user_id)
 
@@ -1418,43 +1418,120 @@ defmodule YscWeb.HomeLive do
     # Use PST timezone for comparison
     now_pst = DateTime.now!("America/Los_Angeles")
 
-    tickets
-    |> Enum.filter(fn ticket ->
-      ticket.status == :confirmed and
-        case ticket.event do
-          %{start_date: start_date} when not is_nil(start_date) ->
-            # Convert event start_date to PST for comparison
-            start_date_pst =
-              case start_date do
-                %DateTime{} = dt ->
-                  DateTime.shift_zone!(dt, "America/Los_Angeles")
+    upcoming_tickets =
+      tickets
+      |> Enum.filter(fn ticket ->
+        ticket.status == :confirmed and
+          case ticket.event do
+            %{start_date: start_date} when not is_nil(start_date) ->
+              # Convert event start_date to PST for comparison
+              start_date_pst =
+                case start_date do
+                  %DateTime{} = dt ->
+                    DateTime.shift_zone!(dt, "America/Los_Angeles")
 
-                %Date{} = d ->
-                  # For Date-only, create DateTime at midnight PST
-                  DateTime.new!(d, ~T[00:00:00], "America/Los_Angeles")
+                  %Date{} = d ->
+                    # For Date-only, create DateTime at midnight PST
+                    DateTime.new!(d, ~T[00:00:00], "America/Los_Angeles")
 
-                _ ->
-                  nil
+                  _ ->
+                    nil
+                end
+
+              if start_date_pst do
+                DateTime.compare(start_date_pst, now_pst) == :gt
+              else
+                false
               end
 
-            if start_date_pst do
-              DateTime.compare(start_date_pst, now_pst) == :gt
-            else
+            _ ->
               false
-            end
+          end
+      end)
 
-          _ ->
-            false
-        end
+    # Group by event FIRST to ensure we show all events with tickets
+    # Then limit by number of unique events, not number of tickets
+    upcoming_tickets
+    |> Enum.group_by(& &1.event.id)
+    |> Enum.map(fn {_event_id, event_tickets} ->
+      # Get the event from the first ticket (all tickets in group have same event)
+      event = List.first(event_tickets).event
+      # Get combined datetime for proper sorting (date + time)
+      event_datetime = get_event_datetime_for_sorting(event)
+      {event_datetime, event_tickets}
     end)
-    |> Enum.sort_by(fn ticket -> ticket.event.start_date end, :asc)
-    |> Enum.take(limit)
+    |> Enum.sort_by(fn {event_datetime, _tickets} -> event_datetime end, {:asc, DateTime})
+    |> Enum.take(event_limit)
+    |> Enum.flat_map(fn {_event_datetime, event_tickets} -> event_tickets end)
   end
 
   defp group_tickets_by_tier(tickets) do
     tickets
     |> Enum.group_by(& &1.ticket_tier.name)
     |> Enum.sort_by(fn {_tier_name, tickets} -> length(tickets) end, :desc)
+  end
+
+  # Helper function to get event datetime for sorting (combines date and time)
+  # Returns a DateTime in PST timezone that can be used for sorting
+  defp get_event_datetime_for_sorting(event) do
+    case {event.start_date, event.start_time} do
+      {%DateTime{} = date, %Time{} = time} ->
+        # Convert UTC DateTime to PST, then get date and combine with time
+        date_pst = DateTime.shift_zone!(date, "America/Los_Angeles")
+        date_part = DateTime.to_date(date_pst)
+        naive_datetime = NaiveDateTime.new!(date_part, time)
+        DateTime.from_naive!(naive_datetime, "America/Los_Angeles")
+
+      {date, time} when not is_nil(date) and not is_nil(time) ->
+        # Handle DateTime or Date with time
+        date_part =
+          case date do
+            %DateTime{} = dt ->
+              # Convert UTC DateTime to PST, then get date
+              dt_pst = DateTime.shift_zone!(dt, "America/Los_Angeles")
+              DateTime.to_date(dt_pst)
+
+            %Date{} = d ->
+              d
+
+            _ ->
+              nil
+          end
+
+        if date_part do
+          naive_datetime = NaiveDateTime.new!(date_part, time)
+          DateTime.from_naive!(naive_datetime, "America/Los_Angeles")
+        else
+          # Fallback: use start_date only at midnight
+          case event.start_date do
+            %DateTime{} = dt ->
+              DateTime.shift_zone!(dt, "America/Los_Angeles")
+
+            %Date{} = d ->
+              DateTime.new!(d, ~T[00:00:00], "America/Los_Angeles")
+
+            _ ->
+              # Ultimate fallback: use current time
+              DateTime.now!("America/Los_Angeles")
+          end
+        end
+
+      _ ->
+        # Fallback to just the date if time is nil
+        case event.start_date do
+          %DateTime{} = dt ->
+            # Convert UTC DateTime to PST
+            DateTime.shift_zone!(dt, "America/Los_Angeles")
+
+          %Date{} = d ->
+            # For Date-only, create a DateTime at midnight PST
+            DateTime.new!(d, ~T[00:00:00], "America/Los_Angeles")
+
+          _ ->
+            # Ultimate fallback: use current time
+            DateTime.now!("America/Los_Angeles")
+        end
+    end
   end
 
   defp group_tickets_by_event_and_tier(tickets) do
@@ -1465,7 +1542,12 @@ defmodule YscWeb.HomeLive do
       grouped_tiers = group_tickets_by_tier(event_tickets)
       {event, grouped_tiers}
     end)
-    |> Enum.sort_by(fn {event, _tiers} -> event.start_date end, :asc)
+    |> Enum.sort_by(
+      fn {event, _tiers} ->
+        get_event_datetime_for_sorting(event)
+      end,
+      {:asc, DateTime}
+    )
   end
 
   defp get_future_active_bookings(user_id, limit \\ 10) do

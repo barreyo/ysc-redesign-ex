@@ -100,7 +100,16 @@ defmodule YscWeb.Components.DateRangePicker do
               class={[
                 "relative overflow-visible",
                 if(
-                  date_disabled?(day, @min, @range_start, @state, @max, @property, @today) &&
+                  date_disabled?(
+                    day,
+                    @min,
+                    @range_start,
+                    @state,
+                    @max,
+                    @property,
+                    @today,
+                    @allow_saturdays
+                  ) &&
                     get_date_tooltip(day, @date_tooltips),
                   do: "group",
                   else: ""
@@ -112,13 +121,42 @@ defmodule YscWeb.Components.DateRangePicker do
                 phx-target={@myself}
                 phx-click="pick-date"
                 phx-value-date={Calendar.strftime(day, "%Y-%m-%d") <> "T00:00:00Z"}
-                disabled={date_disabled?(day, @min, @range_start, @state, @max, @property, @today)}
+                disabled={
+                  date_disabled?(
+                    day,
+                    @min,
+                    @range_start,
+                    @state,
+                    @max,
+                    @property,
+                    @today,
+                    @allow_saturdays
+                  )
+                }
                 class={[
                   "calendar-day overflow-hidden py-1.5 h-10 rounded w-auto focus:z-10 w-full transition duration-300",
                   today?(day) && "font-bold border border-zinc-400 rounded",
-                  date_disabled?(day, @min, @range_start, @state, @max, @property, @today) &&
+                  date_disabled?(
+                    day,
+                    @min,
+                    @range_start,
+                    @state,
+                    @max,
+                    @property,
+                    @today,
+                    @allow_saturdays
+                  ) &&
                     "text-zinc-300 cursor-not-allowed opacity-50",
-                  !date_disabled?(day, @min, @range_start, @state, @max, @property, @today) &&
+                  !date_disabled?(
+                    day,
+                    @min,
+                    @range_start,
+                    @state,
+                    @max,
+                    @property,
+                    @today,
+                    @allow_saturdays
+                  ) &&
                     !before_min_date?(day, @min) &&
                     "hover:bg-blue-300 hover:border hover:border-blue-500",
                   other_month?(day, @current.date) && "text-zinc-500",
@@ -135,7 +173,16 @@ defmodule YscWeb.Components.DateRangePicker do
               </button>
               <span
                 :if={
-                  date_disabled?(day, @min, @range_start, @state, @max, @property, @today) &&
+                  date_disabled?(
+                    day,
+                    @min,
+                    @range_start,
+                    @state,
+                    @max,
+                    @property,
+                    @today,
+                    @allow_saturdays
+                  ) &&
                     get_date_tooltip(day, @date_tooltips)
                 }
                 role="tooltip"
@@ -215,6 +262,7 @@ defmodule YscWeb.Components.DateRangePicker do
       |> assign(:property, assigns[:property])
       |> assign(:today, assigns[:today] || Date.utc_today())
       |> assign(:date_tooltips, assigns[:date_tooltips] || %{})
+      |> assign(:allow_saturdays, assigns[:allow_saturdays] || false)
       # Only reset state if we don't have a range yet, otherwise preserve it
       |> assign(
         :state,
@@ -344,7 +392,8 @@ defmodule YscWeb.Components.DateRangePicker do
                  socket.assigns.state,
                  socket.assigns[:max],
                  socket.assigns[:property],
-                 socket.assigns[:today]
+                 socket.assigns[:today],
+                 socket.assigns[:allow_saturdays] || false
                ) do
               date
             else
@@ -526,7 +575,7 @@ defmodule YscWeb.Components.DateRangePicker do
   end
 
   # Check if a date should be disabled based on booking rules
-  defp date_disabled?(day, min, range_start, state, max, property, today) do
+  defp date_disabled?(day, min, range_start, state, max, property, today, allow_saturdays) do
     # Always disable dates before minimum
     if Date.compare(day, min) == :lt do
       true
@@ -543,20 +592,20 @@ defmodule YscWeb.Components.DateRangePicker do
             true
           else
             # Continue with other checks
-            check_other_rules(day, range_start, state)
+            check_other_rules(day, range_start, state, allow_saturdays)
           end
         else
           # Continue with other checks
-          check_other_rules(day, range_start, state)
+          check_other_rules(day, range_start, state, allow_saturdays)
         end
       end
     end
   end
 
   # Check other date rules (Saturday, range validation, etc.)
-  defp check_other_rules(day, range_start, state) do
-    # Cannot check in on Saturday (day 6)
-    if Date.day_of_week(day) == 6 do
+  defp check_other_rules(day, range_start, state, allow_saturdays) do
+    # Cannot check in on Saturday (day 6) unless allow_saturdays is true
+    if Date.day_of_week(day) == 6 && !allow_saturdays do
       true
     else
       # When selecting end date (state is :set_end), validate against start date
@@ -568,8 +617,8 @@ defmodule YscWeb.Components.DateRangePicker do
           # Disable if:
           # 1. More than 4 nights
           # 2. Less than 1 night (end date before or same as start)
-          # 3. Ends on Saturday (can never end on Saturday)
-          # 4. If range includes Saturday, must end on Sunday or later
+          # 3. Ends on Saturday (can never end on Saturday) unless allow_saturdays is true
+          # 4. If range includes Saturday, must end on Sunday or later (unless allow_saturdays is true)
           cond do
             nights > 4 ->
               true
@@ -577,22 +626,26 @@ defmodule YscWeb.Components.DateRangePicker do
             nights < 1 ->
               true
 
-            # Cannot end on Saturday
-            Date.day_of_week(day) == 6 ->
+            # Cannot end on Saturday unless allow_saturdays is true
+            Date.day_of_week(day) == 6 && !allow_saturdays ->
               true
 
             true ->
-              # Check if range includes Saturday - if so, must also include Sunday
-              date_range = Date.range(start_date, day) |> Enum.to_list()
-              day_of_weeks = Enum.map(date_range, &Date.day_of_week/1)
-              has_saturday = 6 in day_of_weeks
-              has_sunday = 7 in day_of_weeks
-
-              if has_saturday && not has_sunday do
-                # Range includes Saturday but not Sunday - invalid
-                true
-              else
+              # Check if range includes Saturday - if so, must also include Sunday (unless allow_saturdays is true)
+              if allow_saturdays do
                 false
+              else
+                date_range = Date.range(start_date, day) |> Enum.to_list()
+                day_of_weeks = Enum.map(date_range, &Date.day_of_week/1)
+                has_saturday = 6 in day_of_weeks
+                has_sunday = 7 in day_of_weeks
+
+                if has_saturday && not has_sunday do
+                  # Range includes Saturday but not Sunday - invalid
+                  true
+                else
+                  false
+                end
               end
           end
 
@@ -631,8 +684,10 @@ defmodule YscWeb.Components.DateRangePicker do
 
   # Check other date selection rules (Saturday, range validation, etc.)
   defp check_other_selection_rules(socket, date_day) do
-    # Cannot check in on Saturday (day 6)
-    if Date.day_of_week(date_day) == 6 do
+    allow_saturdays = Map.get(socket.assigns, :allow_saturdays, false)
+
+    # Cannot check in on Saturday (day 6) unless allow_saturdays is true
+    if Date.day_of_week(date_day) == 6 && !allow_saturdays do
       false
     else
       case socket.assigns.state do
@@ -644,21 +699,25 @@ defmodule YscWeb.Components.DateRangePicker do
           if nights < 1 or nights > 4 do
             false
           else
-            # Cannot end on Saturday (day 6)
-            if Date.day_of_week(date_day) == 6 do
+            # Cannot end on Saturday (day 6) unless allow_saturdays is true
+            if Date.day_of_week(date_day) == 6 && !allow_saturdays do
               false
             else
-              # If range includes Saturday, must also include Sunday
-              date_range = Date.range(start_date, date_day) |> Enum.to_list()
-              day_of_weeks = Enum.map(date_range, &Date.day_of_week/1)
-              has_saturday = 6 in day_of_weeks
-              has_sunday = 7 in day_of_weeks
-
-              if has_saturday && not has_sunday do
-                # Range includes Saturday but not Sunday - invalid
-                false
-              else
+              # If range includes Saturday, must also include Sunday (unless allow_saturdays is true)
+              if allow_saturdays do
                 true
+              else
+                date_range = Date.range(start_date, date_day) |> Enum.to_list()
+                day_of_weeks = Enum.map(date_range, &Date.day_of_week/1)
+                has_saturday = 6 in day_of_weeks
+                has_sunday = 7 in day_of_weeks
+
+                if has_saturday && not has_sunday do
+                  # Range includes Saturday but not Sunday - invalid
+                  false
+                else
+                  true
+                end
               end
             end
           end

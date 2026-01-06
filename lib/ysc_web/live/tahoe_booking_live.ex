@@ -150,7 +150,12 @@ defmodule YscWeb.TahoeBookingLive do
         buyout_refund_policy: buyout_refund_policy,
         room_refund_policy: room_refund_policy,
         date_tooltips: date_tooltips,
-        load_radar: true
+        load_radar: true,
+        terms_agreed: false,
+        info_tab: :about,
+        show_confirm_modal: false,
+        linens_confirmed: false,
+        chores_confirmed: false
       )
 
     # If dates are present and user can book, initialize validation and room availability
@@ -409,97 +414,1519 @@ defmodule YscWeb.TahoeBookingLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="py-8 lg:py-10">
-      <div class="max-w-screen-xl mx-auto flex flex-col px-4 space-y-6">
-        <div class="prose prose-zinc">
-          <h1>Lake Tahoe Cabin</h1>
-          <p>
-            Select your dates and room(s) to make a reservation at our Lake Tahoe cabin.
+    <style>
+      details summary::-webkit-details-marker {
+        display: none;
+      }
+      details summary .chevron-icon {
+        transition: transform 0.2s ease-in-out;
+      }
+      details[open] summary .chevron-icon {
+        transform: rotate(180deg);
+      }
+    </style>
+    <!-- Hero Section with Carousel (For logged-in users) -->
+    <section
+      :if={@user}
+      id="hero-section"
+      class="relative w-full overflow-hidden -mt-[88px] pt-[88px] min-h-[30vh]"
+    >
+      <div
+        id="tahoe-carousel-wrapper"
+        phx-hook="ImageCarouselAutoplay"
+        class="absolute inset-0 h-full w-full z-[2]"
+      >
+        <YscWeb.Components.ImageCarousel.image_carousel
+          id="about-the-tahoe-cabin-carousel-logged-in"
+          images={[
+            %{
+              src: ~p"/images/tahoe/tahoe_cabin_main.webp",
+              alt: "Tahoe Cabin Exterior"
+            },
+            %{src: ~p"/images/tahoe/tahoe_room_1.webp", alt: "Tahoe Cabin Room 1"},
+            %{src: ~p"/images/tahoe/tahoe_room_2.webp", alt: "Tahoe Cabin Room 2"},
+            %{src: ~p"/images/tahoe/tahoe_room_4.webp", alt: "Tahoe Cabin Room 4"},
+            %{src: ~p"/images/tahoe/tahoe_room_5.webp", alt: "Tahoe Cabin Room 5"},
+            %{src: ~p"/images/tahoe/tahoe_room_6.webp", alt: "Tahoe Cabin Room 6"},
+            %{src: ~p"/images/tahoe/tahoe_room_7.webp", alt: "Tahoe Cabin Room 7"}
+          ]}
+          class="h-full w-full"
+        />
+        <div class="absolute inset-0 z-[5] bg-black/30 pointer-events-none" aria-hidden="true"></div>
+      </div>
+    </section>
+    <!-- Hero Section with Carousel (For non-logged-in users) -->
+    <section
+      :if={!@user}
+      id="hero-section"
+      class="relative w-full overflow-hidden -mt-[88px] pt-[88px] min-h-[75vh]"
+    >
+      <div
+        id="tahoe-carousel-wrapper"
+        phx-hook="ImageCarouselAutoplay"
+        class="absolute inset-0 h-full w-full z-[2]"
+      >
+        <YscWeb.Components.ImageCarousel.image_carousel
+          id="about-the-tahoe-cabin-carousel"
+          images={[
+            %{
+              src: ~p"/images/tahoe/tahoe_cabin_main.webp",
+              alt: "Tahoe Cabin Exterior"
+            },
+            %{src: ~p"/images/tahoe/tahoe_room_1.webp", alt: "Tahoe Cabin Room 1"},
+            %{src: ~p"/images/tahoe/tahoe_room_2.webp", alt: "Tahoe Cabin Room 2"},
+            %{src: ~p"/images/tahoe/tahoe_room_4.webp", alt: "Tahoe Cabin Room 4"},
+            %{src: ~p"/images/tahoe/tahoe_room_5.webp", alt: "Tahoe Cabin Room 5"},
+            %{src: ~p"/images/tahoe/tahoe_room_6.webp", alt: "Tahoe Cabin Room 6"},
+            %{src: ~p"/images/tahoe/tahoe_room_7.webp", alt: "Tahoe Cabin Room 7"}
+          ]}
+          class="h-full w-full"
+        />
+        <div class="absolute inset-0 z-[5] bg-black/40 pointer-events-none" aria-hidden="true"></div>
+      </div>
+      <!-- Title Text Section -->
+      <div class="absolute bottom-0 left-0 right-0 z-[10] px-4 py-16 lg:py-20 pointer-events-none">
+        <div class="max-w-screen-xl mx-auto pointer-events-auto">
+          <span class="inline-block px-2.5 sm:px-3 py-1 mb-3 sm:mb-4 text-xs font-bold tracking-widest text-white uppercase bg-blue-700/80 backdrop-blur-sm rounded">
+            A Year-Round Retreat
+          </span>
+          <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-3 sm:mb-4 drop-shadow-lg">
+            YSC Lake Tahoe Cabin
+          </h1>
+          <p class="text-base sm:text-lg md:text-xl lg:text-2xl text-zinc-100 max-w-2xl font-light">
+            Owned and operated by our community since 1993. A beautiful cabin on the west shore of Lake Tahoe.
           </p>
         </div>
-        <!-- Active Bookings List -->
-        <div :if={@user && length(@active_bookings) > 0} class="mb-6">
-          <div class="flex items-start">
-            <div class="flex-1">
-              <h3 class="text-lg font-semibold text-zinc-900 mb-3">
-                <%= if Accounts.is_sub_account?(@user) || Accounts.is_primary_user?(@user) do %>
-                  Family Active Bookings
-                <% else %>
-                  Your Active Bookings
-                <% end %>
-              </h3>
-              <div class="space-y-3">
-                <%= for booking <- @active_bookings do %>
-                  <div class="bg-white rounded p-3 border border-zinc-200">
-                    <div class="flex items-start justify-between">
-                      <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-1 pb-1">
-                          <.badge>
-                            <%= booking.reference_id %>
-                          </.badge>
-                          <%= if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do %>
-                            <span class="text-sm text-zinc-600 font-medium">
-                              <%= Enum.map_join(booking.rooms, ", ", fn room -> room.name end) %>
-                            </span>
-                          <% else %>
-                            <span class="text-sm text-zinc-600 font-medium">Buyout</span>
-                          <% end %>
-                        </div>
-                        <%= if Ecto.assoc_loaded?(booking.user) && booking.user && booking.user.id != @user.id do %>
-                          <div class="text-xs text-zinc-500 mb-1">
-                            Booked by <%= booking.user.first_name %> <%= booking.user.last_name %>
-                          </div>
-                        <% end %>
-                        <div class="text-sm text-zinc-600">
-                          <div class="flex items-center gap-4">
-                            <span>
-                              <span class="font-medium">Check-in:</span> <%= format_date(
-                                booking.checkin_date
-                              ) %>
-                            </span>
-                            <span>
-                              <span class="font-medium">Check-out:</span> <%= format_date(
-                                booking.checkout_date
-                              ) %>
-                            </span>
-                          </div>
-                          <div class="mt-1">
-                            <%= booking.guests_count %> <%= if booking.guests_count == 1,
-                              do: "guest",
-                              else: "guests" %>
-                            <%= if booking.children_count > 0 do %>
-                              , <%= booking.children_count %> <%= if booking.children_count == 1,
-                                do: "child",
-                                else: "children" %>
-                            <% end %>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="ml-4 flex flex-col items-end gap-2">
-                        <%= if Date.compare(booking.checkout_date, Date.utc_today()) == :eq do %>
-                          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                            Checking out today
-                          </span>
-                        <% else %>
-                          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Active
-                          </span>
-                        <% end %>
-                        <.link
-                          navigate={~p"/bookings/#{booking.id}/receipt"}
-                          class="text-blue-600 hover:text-blue-800 text-xs font-medium"
-                        >
-                          View Details →
-                        </.link>
-                      </div>
-                    </div>
-                  </div>
-                <% end %>
+      </div>
+    </section>
+    <!-- Booking Dashboard Section -->
+    <section :if={@user} class="py-12">
+      <div class="max-w-screen-xl mx-auto px-4 space-y-10">
+        <!-- Dashboard Header -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 pb-6">
+          <div>
+            <div class="flex items-center gap-3 mb-1">
+              <h1 class="text-3xl font-black text-zinc-900 tracking-tight">Lake Tahoe Cabin</h1>
+              <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-widest rounded-full border border-blue-200">
+                Member Access
+              </span>
+            </div>
+            <!-- Essential Alerts Bar (High-Contrast) -->
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 bg-zinc-900 text-white p-4 rounded-xl shadow-xl">
+              <div class="flex items-center gap-3">
+                <span class="text-xl flex-shrink-0">🧺</span>
+                <div>
+                  <p class="text-[10px] font-black text-blue-400 uppercase">Mandatory</p>
+                  <p class="text-xs font-bold leading-tight">BRING YOUR OWN LINENS</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-xl flex-shrink-0">🚫</span>
+                <div>
+                  <p class="text-[10px] font-black text-zinc-400 uppercase">Enforced</p>
+                  <p class="text-xs font-bold leading-tight">NO PETS / NO SMOKING</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-xl flex-shrink-0">❄️</span>
+                <div>
+                  <p class="text-[10px] font-black text-amber-400 uppercase">Safety</p>
+                  <p class="text-xs font-bold leading-tight">WINTER 4WD / CHAINS REQ.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-xl flex-shrink-0">🧹</span>
+                <div>
+                  <p class="text-[10px] font-black text-zinc-400 uppercase">Community</p>
+                  <p class="text-xs font-bold leading-tight">NOT A HOTEL: DO CHORES</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <!-- Booking Eligibility Banner -->
+        <!-- Active Bookings -->
+        <div :if={length(@active_bookings) > 0} class="space-y-4">
+          <h3 class="text-sm font-bold text-zinc-400 uppercase tracking-widest">
+            <%= if Accounts.is_sub_account?(@user) || Accounts.is_primary_user?(@user) do %>
+              Family Active Bookings
+            <% else %>
+              Your Active Bookings
+            <% end %>
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <%= for booking <- @active_bookings do %>
+              <div class="bg-white border-2 border-blue-100 rounded-xl p-5 shadow-sm">
+                <div class="flex justify-between items-start mb-3">
+                  <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                    <%= booking.reference_id %>
+                  </span>
+                  <%= if Date.compare(booking.checkout_date, Date.utc_today()) == :eq do %>
+                    <span class="text-xs font-bold text-amber-600 italic">Today!</span>
+                  <% else %>
+                    <span class="text-xs font-bold text-blue-600 italic">Active</span>
+                  <% end %>
+                </div>
+                <p class="font-bold text-zinc-900 text-lg leading-none">
+                  <%= Calendar.strftime(booking.checkin_date, "%b %d") %> — <%= Calendar.strftime(
+                    booking.checkout_date,
+                    "%b %d"
+                  ) %>
+                </p>
+                <p class="text-sm text-zinc-500 mt-1">
+                  <%= booking.guests_count %> <%= if booking.guests_count == 1,
+                    do: "Guest",
+                    else: "Guests" %> • <%= if booking.booking_mode == :buyout do
+                    "Full Buyout"
+                  else
+                    if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do
+                      Enum.map_join(booking.rooms, ", ", fn room -> room.name end)
+                    else
+                      "Rooms"
+                    end
+                  end %>
+                </p>
+                <.link
+                  navigate={~p"/bookings/#{booking.id}/receipt"}
+                  class="inline-block mt-4 text-sm font-semibold text-blue-600 hover:underline"
+                >
+                  View Booking →
+                </.link>
+              </div>
+            <% end %>
+          </div>
+        </div>
+        <!-- Booking Form -->
+        <div :if={@can_book} class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          <!-- Left Column: Selection Area (2 columns on large screens) -->
+          <div class="lg:col-span-2 space-y-8">
+            <!-- Booking Eligibility Banner -->
+            <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded p-4">
+              <div class="flex items-start">
+                <div class="flex-shrink-0">
+                  <.icon name="hero-exclamation-triangle-solid" class="h-5 w-5 text-amber-600" />
+                </div>
+                <div class="ms-2 flex-1">
+                  <h3 :if={@booking_error_title} class="text-sm font-semibold text-amber-900">
+                    <%= @booking_error_title %>
+                  </h3>
+                  <div class="mt-2 text-sm text-amber-800">
+                    <p><%= raw(@booking_disabled_reason) %></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div :if={!@can_book} class="relative opacity-60 pointer-events-none"></div>
+            <!-- Booking Rules & Policies (Above Stay Details) -->
+            <div class="space-y-3 mb-6">
+              <!-- Weekend Rule Alert (Reactive - shows when Saturday selected without Sunday) -->
+              <div
+                :if={
+                  @checkin_date &&
+                    Date.day_of_week(@checkin_date) == 6 &&
+                    (!@checkout_date || Date.day_of_week(@checkout_date) != 7)
+                }
+                class="p-3 bg-red-50 border border-red-200 rounded-lg"
+              >
+                <div class="flex items-start gap-2">
+                  <.icon
+                    name="hero-exclamation-triangle-solid"
+                    class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"
+                  />
+                  <div class="flex-1">
+                    <p class="text-sm font-semibold text-red-900">⚠️ Action Required</p>
+                    <p class="text-xs text-red-800">
+                      You've selected Saturday. Please select Sunday as your checkout date to complete your booking.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <!-- Winter Policy Notice -->
+              <div :if={@checkin_date} class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p class="text-xs text-blue-900">
+                  <strong>Winter Policy:</strong>
+                  <%= if @checkin_date do
+                    month = @checkin_date.month
+
+                    if month >= 12 or month <= 4 do
+                      "December–April: Individual rooms only. Full buyouts available May–Nov."
+                    else
+                      "May–November: Full buyouts available. Individual rooms also available."
+                    end
+                  end %>
+                </p>
+              </div>
+              <!-- Pricing & Membership Info -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p class="text-xs font-semibold text-blue-900 mb-2">Pricing Breakdown:</p>
+                  <div class="text-xs text-blue-800 space-y-0.5">
+                    <p>Adults: <strong>$45</strong> per night</p>
+                    <p>Children (5-17): <strong>$25</strong> per night</p>
+                    <p>Under 5: <strong>Free</strong></p>
+                  </div>
+                </div>
+                <div class="p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
+                  <p class="text-xs font-semibold text-zinc-900 mb-2">Membership Limits:</p>
+                  <div class="text-xs text-zinc-700 space-y-0.5">
+                    <p>Single: <strong>1 Room</strong> per booking</p>
+                    <p>Family/Lifetime: <strong>2 Rooms</strong> per booking</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Section 1: Stay Details -->
+            <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
+              <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                  1
+                </span>
+                Stay Details
+              </h2>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Date Selection -->
+                <div>
+                  <.date_range_picker
+                    label="Check-in & Check-out Dates"
+                    id="booking_date_range"
+                    form={@date_form}
+                    start_date_field={@date_form[:checkin_date]}
+                    end_date_field={@date_form[:checkout_date]}
+                    min={@restricted_min_date}
+                    max={@restricted_max_date}
+                    disabled={!@can_book}
+                    date_tooltips={@date_tooltips}
+                    property={@property}
+                    today={@today}
+                  />
+                </div>
+                <!-- Guests and Children Selection (Dropdown) -->
+                <div class="py-1">
+                  <div id="guests-label" class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Guests
+                  </div>
+                  <div class="relative">
+                    <!-- Dropdown Trigger -->
+                    <button
+                      type="button"
+                      id="guests-dropdown-button"
+                      phx-click="toggle-guests-dropdown"
+                      disabled={!@can_book}
+                      aria-labelledby="guests-label"
+                      aria-expanded={@guests_dropdown_open}
+                      aria-haspopup="true"
+                      class="w-full px-3 py-2 border border-zinc-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span class="text-zinc-900">
+                        <%= format_guests_display(@guests_count, @children_count) %>
+                      </span>
+                      <.icon
+                        name="hero-chevron-down"
+                        class={[
+                          "w-5 h-5 text-zinc-500 transition-transform duration-200 ease-in-out",
+                          if(@guests_dropdown_open, do: "rotate-180", else: "")
+                        ]}
+                      />
+                    </button>
+                    <!-- Dropdown Panel -->
+                    <div
+                      :if={@guests_dropdown_open}
+                      phx-click-away="close-guests-dropdown"
+                      class="absolute z-10 w-full mt-1 bg-white border border-zinc-300 rounded shadow-lg p-4"
+                    >
+                      <div class="space-y-4">
+                        <!-- Adults Counter -->
+                        <div>
+                          <div
+                            id="adults-label"
+                            class="block text-sm font-semibold text-zinc-700 mb-2"
+                          >
+                            Number of Adults
+                          </div>
+                          <div
+                            class="flex items-center space-x-3"
+                            role="group"
+                            aria-labelledby="adults-label"
+                          >
+                            <button
+                              type="button"
+                              id="decrease-guests-button"
+                              phx-click="decrease-guests"
+                              disabled={@guests_count <= 1}
+                              aria-label="Decrease number of adults"
+                              class={[
+                                "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
+                                if(@guests_count <= 1,
+                                  do: "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
+                                  else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                                )
+                              ]}
+                            >
+                              <.icon name="hero-minus" class="w-5 h-5" />
+                            </button>
+                            <span
+                              id="guests-count-display"
+                              class="w-12 text-center font-medium text-lg text-zinc-900"
+                              aria-live="polite"
+                            >
+                              <%= @guests_count %>
+                            </span>
+                            <button
+                              type="button"
+                              id="increase-guests-button"
+                              phx-click="increase-guests"
+                              aria-label="Increase number of adults"
+                              class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
+                            >
+                              <.icon name="hero-plus" class="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                        <!-- Children Counter -->
+                        <div>
+                          <div
+                            id="children-label"
+                            class="block text-sm font-semibold text-zinc-700 mb-2"
+                          >
+                            Number of Children (ages 5-17)
+                          </div>
+                          <div
+                            class="flex items-center space-x-3"
+                            role="group"
+                            aria-labelledby="children-label"
+                          >
+                            <button
+                              type="button"
+                              id="decrease-children-button"
+                              phx-click="decrease-children"
+                              disabled={@children_count <= 0}
+                              aria-label="Decrease number of children"
+                              class={[
+                                "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
+                                if(@children_count <= 0,
+                                  do: "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
+                                  else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                                )
+                              ]}
+                            >
+                              <.icon name="hero-minus" class="w-5 h-5" />
+                            </button>
+                            <span
+                              id="children-count-display"
+                              class="w-12 text-center font-medium text-lg text-zinc-900"
+                              aria-live="polite"
+                            >
+                              <%= @children_count %>
+                            </span>
+                            <button
+                              type="button"
+                              id="increase-children-button"
+                              phx-click="increase-children"
+                              aria-label="Increase number of children"
+                              class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
+                            >
+                              <.icon name="hero-plus" class="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                        <p class="text-sm text-zinc-600 pt-2 border-t border-zinc-200">
+                          Children 5-17 years: $25/night. Children under 5 stay for free.
+                        </p>
+                        <!-- Done Button -->
+                        <div class="pt-2">
+                          <button
+                            type="button"
+                            phx-click="close-guests-dropdown"
+                            class="w-full px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded transition-colors duration-200"
+                          >
+                            Done
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Error Messages -->
+              <div class="mt-4 space-y-1">
+                <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm">
+                  <%= @form_errors[:checkin_date] %>
+                </p>
+                <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm">
+                  <%= @form_errors[:checkout_date] %>
+                </p>
+                <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
+                  <%= @date_validation_errors[:weekend] %>
+                </p>
+                <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
+                  <%= @date_validation_errors[:max_nights] %>
+                </p>
+                <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm">
+                  <%= @date_validation_errors[:active_booking] %>
+                </p>
+                <p :if={@date_validation_errors[:advance_booking_limit]} class="text-red-600 text-sm">
+                  <%= @date_validation_errors[:advance_booking_limit] %>
+                </p>
+                <p :if={@date_validation_errors[:season_booking_mode]} class="text-red-600 text-sm">
+                  <%= @date_validation_errors[:season_booking_mode] %>
+                </p>
+                <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm">
+                  <%= @date_validation_errors[:season_date_range] %>
+                </p>
+                <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm">
+                  <%= @date_validation_errors[:availability] %>
+                </p>
+              </div>
+            </section>
+            <!-- Booking Mode Selection -->
+            <div :if={@checkin_date}>
+              <fieldset>
+                <legend class="block text-sm font-semibold text-zinc-700 mb-2">
+                  Booking Type
+                </legend>
+                <form phx-change="booking-mode-changed">
+                  <div class="flex gap-4" role="radiogroup">
+                    <label class="flex items-center">
+                      <input
+                        type="radio"
+                        id="booking-mode-room"
+                        name="booking_mode"
+                        value="room"
+                        checked={@selected_booking_mode == :room}
+                        class="mr-2"
+                      />
+                      <span>Individual Room(s)</span>
+                    </label>
+                    <label class={[
+                      "flex items-center",
+                      if(not can_select_booking_mode?(@seasons, @checkin_date),
+                        do: "opacity-50 cursor-not-allowed",
+                        else: ""
+                      )
+                    ]}>
+                      <input
+                        type="radio"
+                        id="booking-mode-buyout"
+                        name="booking_mode"
+                        value="buyout"
+                        checked={@selected_booking_mode == :buyout}
+                        disabled={not can_select_booking_mode?(@seasons, @checkin_date)}
+                        class={[
+                          "mr-2",
+                          if(not can_select_booking_mode?(@seasons, @checkin_date),
+                            do: "cursor-not-allowed opacity-50",
+                            else: ""
+                          )
+                        ]}
+                        onclick={
+                          if(not can_select_booking_mode?(@seasons, @checkin_date),
+                            do: "return false;",
+                            else: ""
+                          )
+                        }
+                      />
+                      <span class={
+                        if(not can_select_booking_mode?(@seasons, @checkin_date),
+                          do: "text-zinc-400",
+                          else: ""
+                        )
+                      }>
+                        Full Buyout
+                      </span>
+                    </label>
+                  </div>
+                </form>
+              </fieldset>
+              <p
+                :if={not can_select_booking_mode?(@seasons, @checkin_date)}
+                class="text-sm text-zinc-500 mt-2 ml-6"
+              >
+                Full buyout is not available for the selected dates.
+              </p>
+            </div>
+            <!-- Restricted Date Range Message -->
+            <div
+              :if={@dates_restricted && @membership_type in [:family, :lifetime]}
+              class="p-3 bg-blue-50 border border-blue-200 rounded"
+            >
+              <div class="flex items-start">
+                <div class="flex-shrink-0">
+                  <.icon name="hero-information-circle" class="h-5 w-5 text-blue-600" />
+                </div>
+                <div class="ms-2 flex-1">
+                  <p class="text-sm text-blue-800">
+                    <strong>Second Room Booking:</strong>
+                    Since you already have one room reserved, your second room booking must be within the same time period. The date range is restricted to ensure both bookings overlap and stay within the 4-night maximum.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <!-- Section 2: Choose Your Rooms -->
+            <section :if={@selected_booking_mode == :room && @checkin_date && @checkout_date}>
+              <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                  2
+                </span>
+                Choose Your Rooms
+                <%= if can_select_multiple_rooms?(assigns) && length(@selected_room_ids) > 0 do %>
+                  <span class="text-sm font-normal text-zinc-500">
+                    (<%= length(@selected_room_ids) %>/<%= max_rooms_for_user(assigns) %>)
+                  </span>
+                <% end %>
+              </h2>
+              <!-- Family Membership Notice -->
+              <div
+                :if={
+                  can_select_multiple_rooms?(assigns) &&
+                    length(@selected_room_ids) < max_rooms_for_user(assigns) &&
+                    (parse_guests_count(@guests_count) || 1) > 1
+                }
+                class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded"
+              >
+                <div class="flex items-start gap-2">
+                  <.icon
+                    name="hero-light-bulb-solid"
+                    class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"
+                  />
+                  <p class="text-sm text-blue-900 font-medium">
+                    <strong>Family Membership Benefit:</strong>
+                    You can book up to <%= max_rooms_for_user(assigns) %> rooms in the same reservation.
+                  </p>
+                </div>
+              </div>
+              <fieldset>
+                <div
+                  class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch"
+                  role={if can_select_multiple_rooms?(assigns), do: "group", else: "radiogroup"}
+                >
+                  <%= for room <- @available_rooms do %>
+                    <% {availability, reason} = room.availability_status || {:available, nil} %>
+                    <% is_unavailable = availability == :unavailable %>
+                    <% max_rooms_reached =
+                      can_select_multiple_rooms?(assigns) &&
+                        length(@selected_room_ids) >= max_rooms_for_user(assigns) %>
+                    <% room_already_selected =
+                      (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) ||
+                        (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id) %>
+                    <% guests_count = parse_guests_count(@guests_count) || 1 %>
+                    <% children_count = parse_children_count(@children_count) || 0 %>
+                    <% total_people = guests_count + children_count %>
+                    <% only_one_person_selected = total_people == 1 %>
+                    <% cannot_add_second_room =
+                      can_select_multiple_rooms?(assigns) && only_one_person_selected &&
+                        length(@selected_room_ids) > 0 && !room_already_selected %>
+                    <% is_disabled =
+                      (is_unavailable && !room_already_selected) ||
+                        (max_rooms_reached && !room_already_selected) ||
+                        cannot_add_second_room %>
+                    <div class={[
+                      "border-2 rounded overflow-hidden flex flex-col h-full transition-all",
+                      if(is_disabled,
+                        do: "border-zinc-200 bg-zinc-50 cursor-not-allowed opacity-60",
+                        else:
+                          if(
+                            (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) ||
+                              (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id),
+                            do: "border-blue-500 bg-blue-50 shadow-lg",
+                            else:
+                              "border-zinc-300 hover:border-blue-400 hover:shadow-lg cursor-pointer"
+                          )
+                      )
+                    ]}>
+                      <label :if={!is_disabled} class="block cursor-pointer flex flex-col h-full">
+                        <input
+                          type={if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"}
+                          id={"room-#{room.id}"}
+                          name={
+                            if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"
+                          }
+                          value={room.id}
+                          checked={
+                            if can_select_multiple_rooms?(assigns) do
+                              room.id in @selected_room_ids
+                            else
+                              @selected_room_id == room.id
+                            end
+                          }
+                          aria-label={"Select #{room.name}"}
+                          phx-click="room-changed"
+                          phx-value-room-id={room.id}
+                          class="sr-only"
+                        />
+                        <!-- Room Image with Alert Overlay -->
+                        <div class="w-full h-32 bg-zinc-200 relative overflow-hidden">
+                          <!-- Availability Badge -->
+                          <div
+                            :if={!is_unavailable}
+                            class="absolute top-2 right-2 z-10 px-2 py-1 bg-green-500 text-white text-xs font-bold rounded shadow-lg"
+                          >
+                            Available
+                          </div>
+                          <!-- Alert Overlay on Image -->
+                          <div
+                            :if={is_unavailable && reason}
+                            class="absolute top-0 left-0 right-0 bg-gradient-to-r from-amber-50 to-amber-100 border-b border-amber-200 p-2 z-10"
+                          >
+                            <div class="flex items-start gap-2">
+                              <.icon
+                                name="hero-exclamation-triangle-solid"
+                                class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"
+                              />
+                              <div class="flex-1">
+                                <p class="text-xs font-semibold text-amber-900 mb-1">
+                                  Not Available
+                                </p>
+                                <p class="text-xs text-amber-800"><%= reason %></p>
+                              </div>
+                            </div>
+                          </div>
+                          <%= if room.image && room.image.id do %>
+                            <!-- Render image with blur hash -->
+                            <canvas
+                              id={"blur-hash-room-#{room.id}"}
+                              src={get_room_blur_hash(room.image)}
+                              class="absolute inset-0 z-0 w-full h-full object-cover"
+                              phx-hook="BlurHashCanvas"
+                            >
+                            </canvas>
+                            <img
+                              src={get_room_image_url(room.image)}
+                              id={"image-room-#{room.id}"}
+                              loading="lazy"
+                              phx-hook="BlurHashImage"
+                              class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
+                              alt={room.image.alt_text || room.image.title || "#{room.name} image"}
+                            />
+                          <% else %>
+                            <!-- Placeholder when no image -->
+                            <div class="absolute inset-0 flex items-center justify-center">
+                              <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
+                                <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
+                              </div>
+                            </div>
+                          <% end %>
+                        </div>
+                        <!-- Room Content -->
+                        <div class="p-4 flex-1 flex flex-col">
+                          <div class="flex items-start justify-between mb-2">
+                            <div class="flex-1">
+                              <div class="font-bold text-zinc-900 text-base mb-1">
+                                <%= room.name %>
+                              </div>
+                              <div class="text-xs text-zinc-600 line-clamp-2">
+                                <%= room.description %>
+                              </div>
+                            </div>
+                            <div class="ml-3 flex-shrink-0">
+                              <div class={
+                                if (can_select_multiple_rooms?(assigns) &&
+                                      room.id in @selected_room_ids) or
+                                     (!can_select_multiple_rooms?(assigns) &&
+                                        @selected_room_id == room.id) do
+                                  "w-6 h-6 rounded-full border-2 flex items-center justify-center bg-blue-600 border-blue-600 shadow-md"
+                                else
+                                  "w-6 h-6 rounded-full border-2 flex items-center justify-center border-zinc-300 bg-white"
+                                end
+                              }>
+                                <svg
+                                  :if={
+                                    (can_select_multiple_rooms?(assigns) &&
+                                       room.id in @selected_room_ids) or
+                                      (!can_select_multiple_rooms?(assigns) &&
+                                         @selected_room_id == room.id)
+                                  }
+                                  class="w-4 h-4 text-white"
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path
+                                    fill-rule="evenodd"
+                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                    clip-rule="evenodd"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="flex items-center gap-2 mb-2 flex-wrap">
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded border border-blue-200">
+                              Max <%= room.capacity_max %> Guests
+                            </span>
+                            <span
+                              :if={room.min_billable_occupancy > 1}
+                              class="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded border border-amber-200"
+                            >
+                              Min <%= room.min_billable_occupancy %> Guests
+                            </span>
+                          </div>
+                          <!-- Room Features: Compact Badges -->
+                          <div
+                            :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
+                            class="mb-2 flex items-center gap-2 flex-wrap"
+                          >
+                            <span
+                              :if={room.single_beds > 0}
+                              class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
+                              title="Twin beds"
+                            >
+                              <%= raw(bed_icon_svg(:single, "w-3 h-3 text-zinc-600")) %>
+                              <span><%= room.single_beds %></span>
+                            </span>
+                            <span
+                              :if={room.queen_beds > 0}
+                              class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
+                              title="Queen beds"
+                            >
+                              <%= raw(bed_icon_svg(:queen, "w-3 h-3 text-zinc-600")) %>
+                              <span><%= room.queen_beds %></span>
+                            </span>
+                            <span
+                              :if={room.king_beds > 0}
+                              class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
+                              title="King beds"
+                            >
+                              <%= raw(bed_icon_svg(:king, "w-3 h-3 text-zinc-600")) %>
+                              <span><%= room.king_beds %></span>
+                            </span>
+                          </div>
+                          <div class="border-t border-zinc-200 pt-2 mt-auto">
+                            <div class="text-sm text-zinc-900 font-bold">
+                              <div :if={room.minimum_price}>
+                                <%= MoneyHelper.format_money!(room.minimum_price) %> min
+                                <span class="text-xs text-zinc-500 font-normal ml-1">
+                                  (<%= room.min_billable_occupancy %> guest)
+                                </span>
+                              </div>
+                              <div :if={!room.minimum_price}>
+                                <%= MoneyHelper.format_money!(
+                                  room.adult_price_per_night || Money.new(45, :USD)
+                                ) %>/adult
+                              </div>
+                            </div>
+                            <div class="text-xs text-zinc-500">
+                              <%= MoneyHelper.format_money!(
+                                room.children_price_per_night || Money.new(25, :USD)
+                              ) %>/child
+                            </div>
+                          </div>
+                        </div>
+                      </label>
+                      <div
+                        :if={is_disabled}
+                        class="block cursor-not-allowed flex flex-col h-full relative"
+                      >
+                        <input
+                          type={if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"}
+                          name={
+                            if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"
+                          }
+                          value={room.id}
+                          checked={false}
+                          disabled={true}
+                          class="sr-only"
+                          readonly
+                        />
+                        <!-- Room Image with Alert Overlay -->
+                        <div class="w-full h-32 bg-zinc-200 relative overflow-hidden">
+                          <!-- Availability Badge -->
+                          <div
+                            :if={!is_unavailable}
+                            class="absolute top-2 right-2 z-10 px-2 py-1 bg-green-500 text-white text-xs font-bold rounded shadow-lg"
+                          >
+                            Available
+                          </div>
+                          <!-- Alert Overlay on Image -->
+                          <div
+                            :if={is_unavailable && reason}
+                            class="absolute top-0 left-0 right-0 bg-gradient-to-r from-amber-50 to-amber-100 border-b border-amber-200 p-2 z-10"
+                          >
+                            <div class="flex items-start gap-2">
+                              <.icon
+                                name="hero-exclamation-triangle-solid"
+                                class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"
+                              />
+                              <div class="flex-1">
+                                <p class="text-xs font-semibold text-amber-900 mb-1">
+                                  Not Available
+                                </p>
+                                <p class="text-xs text-amber-800"><%= reason %></p>
+                              </div>
+                            </div>
+                          </div>
+                          <%= if room.image && room.image.id do %>
+                            <!-- Render image with blur hash -->
+                            <canvas
+                              id={"blur-hash-room-disabled-#{room.id}"}
+                              src={get_room_blur_hash(room.image)}
+                              class="absolute inset-0 z-0 w-full h-full object-cover"
+                              phx-hook="BlurHashCanvas"
+                            >
+                            </canvas>
+                            <img
+                              src={get_room_image_url(room.image)}
+                              id={"image-room-disabled-#{room.id}"}
+                              loading="lazy"
+                              phx-hook="BlurHashImage"
+                              class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
+                              alt={room.image.alt_text || room.image.title || "#{room.name} image"}
+                            />
+                          <% else %>
+                            <!-- Placeholder when no image -->
+                            <div class="absolute inset-0 flex items-center justify-center">
+                              <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
+                                <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
+                              </div>
+                            </div>
+                          <% end %>
+                        </div>
+                        <!-- Room Content (Disabled) -->
+                        <div class="p-4 flex-1 flex flex-col opacity-60">
+                          <div class="flex items-start justify-between mb-2">
+                            <div class="flex-1">
+                              <div class="font-bold text-zinc-900 text-base mb-1">
+                                <%= room.name %>
+                              </div>
+                              <div class="text-xs text-zinc-600 line-clamp-2">
+                                <%= room.description %>
+                              </div>
+                            </div>
+                            <div class="ml-3 flex-shrink-0">
+                              <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center border-zinc-300 bg-white">
+                              </div>
+                            </div>
+                          </div>
+                          <div class="flex items-center gap-2 mb-2 flex-wrap">
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded border border-blue-200">
+                              Max <%= room.capacity_max %> Guests
+                            </span>
+                            <span
+                              :if={room.min_billable_occupancy > 1}
+                              class="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded border border-amber-200"
+                            >
+                              Min <%= room.min_billable_occupancy %> Guests
+                            </span>
+                          </div>
+                          <!-- Room Features: Compact Badges -->
+                          <div
+                            :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
+                            class="mb-2 flex items-center gap-2 flex-wrap"
+                          >
+                            <span
+                              :if={room.single_beds > 0}
+                              class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
+                              title="Twin beds"
+                            >
+                              <%= raw(bed_icon_svg(:single, "w-3 h-3 text-zinc-600")) %>
+                              <span><%= room.single_beds %></span>
+                            </span>
+                            <span
+                              :if={room.queen_beds > 0}
+                              class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
+                              title="Queen beds"
+                            >
+                              <%= raw(bed_icon_svg(:queen, "w-3 h-3 text-zinc-600")) %>
+                              <span><%= room.queen_beds %></span>
+                            </span>
+                            <span
+                              :if={room.king_beds > 0}
+                              class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
+                              title="King beds"
+                            >
+                              <%= raw(bed_icon_svg(:king, "w-3 h-3 text-zinc-600")) %>
+                              <span><%= room.king_beds %></span>
+                            </span>
+                          </div>
+                          <div class="border-t border-zinc-200 pt-2 mt-auto">
+                            <div class="text-sm text-zinc-900 font-bold">
+                              <div :if={room.minimum_price}>
+                                <%= MoneyHelper.format_money!(room.minimum_price) %> min
+                                <span class="text-xs text-zinc-500 font-normal ml-1">
+                                  (<%= room.min_billable_occupancy %> guest)
+                                </span>
+                              </div>
+                              <div :if={!room.minimum_price}>
+                                <%= MoneyHelper.format_money!(
+                                  room.adult_price_per_night || Money.new(45, :USD)
+                                ) %>/adult
+                              </div>
+                            </div>
+                            <div class="text-xs text-zinc-500">
+                              <%= MoneyHelper.format_money!(
+                                room.children_price_per_night || Money.new(25, :USD)
+                              ) %>/child
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              </fieldset>
+              <p :if={@form_errors[:room_id]} class="text-red-600 text-sm mt-1">
+                <%= @form_errors[:room_id] %>
+              </p>
+              <p
+                :if={
+                  can_select_multiple_rooms?(assigns) &&
+                    length(@selected_room_ids) > 0 &&
+                    (parse_guests_count(@guests_count) || 1) +
+                      (parse_children_count(@children_count) || 0) == 1
+                }
+                class="text-amber-600 text-sm mt-2"
+              >
+                <.icon
+                  name="hero-exclamation-triangle-solid"
+                  class="w-4 h-4 text-amber-600 inline-block me-1"
+                />
+                Cannot book multiple rooms with only 1 person. Please select more people to book additional rooms.
+              </p>
+            </section>
+            <!-- Buyout Selection (for buyout bookings) -->
+            <section :if={@selected_booking_mode == :buyout && @checkin_date && @checkout_date}>
+              <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                  2
+                </span>
+                Full Cabin Buyout
+              </h2>
+              <div class={[
+                "border-2 rounded p-8 text-center",
+                if(@date_validation_errors[:availability],
+                  do: "border-red-200 bg-red-50",
+                  else: "border-blue-100 bg-blue-50"
+                )
+              ]}>
+                <div class={[
+                  "inline-flex items-center justify-center w-16 h-16 rounded-full mb-4",
+                  if(@date_validation_errors[:availability],
+                    do: "bg-red-100 text-red-600",
+                    else: "bg-blue-100 text-blue-600"
+                  )
+                ]}>
+                  <.icon
+                    name={
+                      if @date_validation_errors[:availability],
+                        do: "hero-exclamation-circle",
+                        else: "hero-home-modern"
+                    }
+                    class="w-8 h-8"
+                  />
+                </div>
+                <h3 class={[
+                  "text-2xl font-bold mb-2",
+                  if(@date_validation_errors[:availability],
+                    do: "text-red-900",
+                    else: "text-blue-900"
+                  )
+                ]}>
+                  <%= if @date_validation_errors[:availability],
+                    do: "Buyout Unavailable",
+                    else: "Full Cabin Buyout" %>
+                </h3>
+                <p class={[
+                  "mb-4 max-w-md mx-auto text-base",
+                  if(@date_validation_errors[:availability],
+                    do: "text-red-800",
+                    else: "text-blue-800"
+                  )
+                ]}>
+                  <%= if @date_validation_errors[:availability] do %>
+                    <%= @date_validation_errors[:availability] %>
+                  <% else %>
+                    You are reserving the entire Tahoe cabin for your group.
+                    This includes exclusive use of all 7 bedrooms, 3 bathrooms, and the sauna.
+                  <% end %>
+                </p>
+                <div
+                  :if={!@date_validation_errors[:availability]}
+                  class="flex flex-wrap justify-center gap-3 text-sm font-medium text-blue-700"
+                >
+                  <span class="bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm">
+                    Up to 17 Guests
+                  </span>
+                  <span class="bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm">
+                    Exclusive Access
+                  </span>
+                  <span class="bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm">
+                    Fixed Nightly Rate
+                  </span>
+                </div>
+              </div>
+            </section>
+          </div>
+          <!-- Right Column: Sticky Reservation Summary (1 column on large screens) -->
+          <aside class="lg:sticky lg:top-24">
+            <div class="bg-white rounded-2xl border-2 border-blue-600 shadow-xl overflow-hidden">
+              <div class="bg-blue-600 p-4 text-white text-center">
+                <h3 class="text-lg font-bold">Reservation Summary</h3>
+              </div>
+
+              <div class="p-6 space-y-4">
+                <!-- Dates -->
+                <div :if={@checkin_date && @checkout_date} class="space-y-3">
+                  <div class="flex justify-between items-start text-sm">
+                    <span class="text-zinc-500 font-medium">Check-in</span>
+                    <span class="font-semibold text-zinc-900 text-right">
+                      <%= Calendar.strftime(@checkin_date, "%b %d, %Y") %>
+                    </span>
+                  </div>
+                  <div class="flex justify-between items-start text-sm">
+                    <span class="text-zinc-500 font-medium">Check-out</span>
+                    <span class="font-semibold text-zinc-900 text-right">
+                      <%= Calendar.strftime(@checkout_date, "%b %d, %Y") %>
+                    </span>
+                  </div>
+                  <div class="flex justify-between items-start text-sm">
+                    <span class="text-zinc-500 font-medium">Nights</span>
+                    <span class="font-semibold text-zinc-900">
+                      <%= Date.diff(@checkout_date, @checkin_date) %> <%= if Date.diff(
+                                                                               @checkout_date,
+                                                                               @checkin_date
+                                                                             ) == 1,
+                                                                             do: "night",
+                                                                             else: "nights" %>
+                    </span>
+                  </div>
+                </div>
+                <!-- Guests -->
+                <div :if={@guests_count || @children_count} class="flex justify-between text-sm">
+                  <span class="text-zinc-500 font-medium">Guests</span>
+                  <span class="font-semibold text-zinc-900">
+                    <%= format_guests_display(@guests_count, @children_count) %>
+                  </span>
+                </div>
+                <!-- Family Membership Notice in Summary Card -->
+                <div
+                  :if={
+                    @selected_booking_mode == :room &&
+                      can_select_multiple_rooms?(assigns) &&
+                      length(@selected_room_ids) < max_rooms_for_user(assigns) &&
+                      (parse_guests_count(@guests_count) || 1) > 1
+                  }
+                  class="p-2 bg-blue-50 border border-blue-200 rounded"
+                >
+                  <div class="flex items-start gap-2">
+                    <.icon
+                      name="hero-light-bulb-solid"
+                      class="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5"
+                    />
+                    <p class="text-xs text-blue-900 leading-tight">
+                      <strong>Family Membership:</strong>
+                      You can book up to <%= max_rooms_for_user(assigns) %> rooms.
+                    </p>
+                  </div>
+                </div>
+                <!-- Rule Compliance Checklist (Smart Summary) -->
+                <div
+                  :if={
+                    @selected_booking_mode == :room &&
+                      length(@selected_room_ids) > 0 &&
+                      @checkin_date &&
+                      @checkout_date
+                  }
+                  class="mt-4"
+                >
+                  <p class="text-xs font-bold text-zinc-400 uppercase mb-2">Rule Compliance</p>
+                  <div class="space-y-2">
+                    <%= for room_id <- @selected_room_ids do %>
+                      <% room = Enum.find(@available_rooms, &(&1.id == room_id)) %>
+                      <%= if room do %>
+                        <% guests_count = parse_guests_count(@guests_count) || 1 %>
+                        <% children_count = parse_children_count(@children_count) || 0 %>
+                        <% total_people = guests_count + children_count %>
+                        <% min_required = room.min_billable_occupancy || 1 %>
+                        <div
+                          :if={total_people < min_required}
+                          class="p-2 bg-red-50 border border-red-200 rounded"
+                        >
+                          <div class="flex items-start gap-2">
+                            <.icon
+                              name="hero-exclamation-triangle-solid"
+                              class="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5"
+                            />
+                            <div class="flex-1">
+                              <p class="text-xs font-semibold text-red-900">
+                                <%= room.name %> requires minimum of <%= min_required %> guests
+                              </p>
+                              <p class="text-xs text-red-800 mt-0.5">
+                                (<%= MoneyHelper.format_money!(
+                                  case Money.mult(
+                                         room.adult_price_per_night || Money.new(45, :USD),
+                                         min_required
+                                       ) do
+                                    {:ok, total} -> total
+                                    _ -> room.adult_price_per_night || Money.new(45, :USD)
+                                  end
+                                ) %>/night minimum)
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div
+                          :if={total_people >= min_required}
+                          class="p-2 bg-green-50 border border-green-200 rounded flex items-center gap-2"
+                        >
+                          <.icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-green-600 flex-shrink-0"
+                          />
+                          <p class="text-xs text-green-900">
+                            <%= room.name %>: Guest count OK
+                          </p>
+                        </div>
+                      <% end %>
+                    <% end %>
+                  </div>
+                </div>
+
+                <hr class="border-zinc-100" />
+                <!-- Selected Rooms or Buyout -->
+                <div
+                  :if={@selected_booking_mode == :room && length(@selected_room_ids) > 0}
+                  class="space-y-2"
+                >
+                  <p class="text-xs font-bold text-zinc-400 uppercase">Selected Rooms</p>
+                  <%= for room_id <- @selected_room_ids do %>
+                    <% room = Enum.find(@available_rooms, &(&1.id == room_id)) %>
+                    <div :if={room} class="flex justify-between items-center text-sm">
+                      <span class="text-zinc-700"><%= room.name %></span>
+                      <button
+                        phx-click="remove-room"
+                        phx-value-room-id={room_id}
+                        class="text-red-600 hover:text-red-800 text-xs underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  <% end %>
+                </div>
+
+                <div
+                  :if={@selected_booking_mode == :buyout && @checkin_date && @checkout_date}
+                  class="space-y-2"
+                >
+                  <p class="text-xs font-bold text-zinc-400 uppercase">Booking Type</p>
+                  <div class="text-sm text-zinc-700 font-medium">Full Cabin Buyout</div>
+                </div>
+                <!-- Price Breakdown -->
+                <div :if={@calculated_price && @price_breakdown && @checkin_date && @checkout_date}>
+                  <hr class="border-zinc-100" />
+                  <div class="space-y-2">
+                    <!-- Buyout Price -->
+                    <div :if={@selected_booking_mode == :buyout} class="flex justify-between text-sm">
+                      <span class="text-zinc-600">
+                        Full Buyout
+                        <%= if @price_breakdown.nights && @price_breakdown.price_per_night do %>
+                          (<%= MoneyHelper.format_money!(@price_breakdown.price_per_night) %> × <%= @price_breakdown.nights %>)
+                        <% end %>
+                      </span>
+                      <span class="font-semibold text-zinc-900">
+                        <%= MoneyHelper.format_money!(@calculated_price) %>
+                      </span>
+                    </div>
+                    <!-- Room Price Breakdown -->
+                    <div :if={@selected_booking_mode == :room}>
+                      <div
+                        :if={@price_breakdown[:using_minimum_pricing]}
+                        class="mb-2 p-2 bg-amber-50 border border-amber-200 rounded"
+                      >
+                        <div class="flex items-start gap-2">
+                          <.icon
+                            name="hero-information-circle"
+                            class="w-3 h-3 text-amber-600 flex-shrink-0 mt-0.5"
+                          />
+                          <p class="text-[10px] text-amber-800 leading-tight">
+                            Minimum occupancy pricing applied
+                          </p>
+                        </div>
+                      </div>
+                      <div class="flex justify-between text-sm">
+                        <span class="text-zinc-600">
+                          Base Price
+                          <%= if @price_breakdown.nights && @price_breakdown[:adult_price_per_night] do %>
+                            <% adult_count =
+                              @price_breakdown[:billable_people] || @price_breakdown[:guests_count] ||
+                                0 %> (<%= adult_count %> <%= if adult_count == 1,
+                              do: "adult",
+                              else: "adults" %> × <%= @price_breakdown.nights %>)
+                          <% end %>
+                        </span>
+                        <span class="font-semibold text-zinc-900">
+                          <%= if @price_breakdown[:base],
+                            do: MoneyHelper.format_money!(@price_breakdown.base) %>
+                        </span>
+                      </div>
+                      <div
+                        :if={@price_breakdown[:children] && @price_breakdown[:children_per_night]}
+                        class="flex justify-between text-sm"
+                      >
+                        <span class="text-zinc-600">
+                          Children
+                          <%= if @price_breakdown.nights do %>
+                            (<%= @price_breakdown[:children_count] || 0 %> × <%= @price_breakdown.nights %>)
+                          <% end %>
+                        </span>
+                        <span class="font-semibold text-zinc-900">
+                          <%= MoneyHelper.format_money!(@price_breakdown.children) %>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <hr class="border-zinc-200 my-3" />
+
+                  <div class="flex justify-between items-end">
+                    <span class="text-lg font-bold text-zinc-900">Total</span>
+                    <div class="text-right">
+                      <span class="text-2xl font-black text-blue-600">
+                        <%= MoneyHelper.format_money!(@calculated_price) %>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <!-- Error Messages -->
+                <div :if={@price_error || @capacity_error} class="space-y-1">
+                  <p :if={@price_error} class="text-red-600 text-xs">
+                    <%= @price_error %>
+                  </p>
+                  <p :if={@capacity_error} class="text-red-600 text-xs">
+                    <%= @capacity_error %>
+                  </p>
+                </div>
+                <!-- Missing Info List (Smart Sidebar) -->
+                <div
+                  :if={
+                    !can_submit_booking?(
+                      @selected_booking_mode,
+                      @checkin_date,
+                      @checkout_date,
+                      get_selected_rooms_for_submit(assigns),
+                      @capacity_error,
+                      @price_error,
+                      @form_errors,
+                      @date_validation_errors
+                    ) && @can_book
+                  }
+                  class="p-3 bg-amber-50 border border-amber-200 rounded"
+                >
+                  <p class="text-xs font-semibold text-amber-900 mb-2">Missing Information:</p>
+                  <ul class="text-xs text-amber-800 space-y-1 list-disc list-inside">
+                    <li :if={!@checkin_date || !@checkout_date}>
+                      Please select check-in and check-out dates
+                    </li>
+                    <li :if={
+                      @checkin_date &&
+                        @checkout_date &&
+                        @selected_booking_mode == :room &&
+                        length(get_selected_rooms_for_submit(assigns) || []) == 0
+                    }>
+                      Please select at least one room
+                    </li>
+                    <li :if={
+                      @checkin_date &&
+                        @checkout_date &&
+                        @selected_booking_mode == :buyout &&
+                        @date_validation_errors[:availability]
+                    }>
+                      Full buyout unavailable for selected dates
+                    </li>
+                    <li :if={@form_errors && map_size(@form_errors) > 0}>
+                      Please fix form errors above
+                    </li>
+                    <li :if={@date_validation_errors && map_size(@date_validation_errors) > 0}>
+                      Please fix date validation errors
+                    </li>
+                  </ul>
+                </div>
+                <!-- Agreement Checkbox -->
+                <div
+                  :if={
+                    @can_book &&
+                      can_submit_booking?(
+                        @selected_booking_mode,
+                        @checkin_date,
+                        @checkout_date,
+                        get_selected_rooms_for_submit(assigns),
+                        @capacity_error,
+                        @price_error,
+                        @form_errors,
+                        @date_validation_errors
+                      )
+                  }
+                  class="pt-2"
+                >
+                  <label class="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="terms-agreement"
+                      phx-click="toggle-terms-agreement"
+                      class="mt-1"
+                    />
+                    <span class="text-xs text-zinc-600">
+                      I have read the
+                      <button
+                        type="button"
+                        phx-click="show-terms-modal"
+                        class="text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Terms of Stay
+                      </button>
+                      , including Winter Driving & Linen Requirements
+                    </span>
+                  </label>
+                </div>
+                <!-- Submit Button -->
+                <div class="pt-2">
+                  <.button
+                    :if={@can_book}
+                    phx-click="show-confirm-modal"
+                    disabled={
+                      !can_submit_booking?(
+                        @selected_booking_mode,
+                        @checkin_date,
+                        @checkout_date,
+                        get_selected_rooms_for_submit(assigns),
+                        @capacity_error,
+                        @price_error,
+                        @form_errors,
+                        @date_validation_errors
+                      ) || !Map.get(assigns, :terms_agreed, false)
+                    }
+                    class={
+                      if can_submit_booking?(
+                           @selected_booking_mode,
+                           @checkin_date,
+                           @checkout_date,
+                           get_selected_rooms_for_submit(assigns),
+                           @capacity_error,
+                           @price_error,
+                           @form_errors,
+                           @date_validation_errors
+                         ) &&
+                           Map.get(assigns, :terms_agreed, false) do
+                        "w-full text-lg py-4"
+                      else
+                        "w-full bg-zinc-200 text-zinc-600 hover:bg-zinc-300 opacity-50 cursor-not-allowed"
+                      end
+                    }
+                  >
+                    <span class="flex items-center justify-center gap-2">
+                      <.icon name="hero-exclamation-triangle-solid" class="w-5 h-5" />
+                      <span>Confirm Booking</span>
+                      <span class="text-xs">(No linens provided)</span>
+                    </span>
+                  </.button>
+                  <div
+                    :if={!@can_book}
+                    class="w-full bg-zinc-200 text-zinc-600 font-semibold py-4 rounded text-center cursor-not-allowed"
+                  >
+                    Booking Unavailable
+                  </div>
+                  <p
+                    :if={@can_book && @calculated_price}
+                    class="text-center text-xs text-zinc-400 mt-2"
+                  >
+                    You won't be charged yet.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+        <!-- Confirmation Modal (Interstitial) -->
+        <div
+          :if={Map.get(assigns, :show_confirm_modal, false)}
+          class="fixed inset-0 z-50 overflow-y-auto"
+          phx-click="close-confirm-modal"
+          phx-click-away="close-confirm-modal"
+        >
+          <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity bg-zinc-500 bg-opacity-75" aria-hidden="true">
+            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+              &#8203;
+            </span>
+            <div
+              class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
+              phx-click-away="close-confirm-modal"
+            >
+              <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                  <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <.icon name="hero-exclamation-triangle-solid" class="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                    <h3 class="text-lg leading-6 font-medium text-zinc-900 mb-4">
+                      Confirm Your Booking
+                    </h3>
+                    <div class="mt-2 space-y-4">
+                      <p class="text-sm text-zinc-500 mb-4">
+                        Before confirming, please acknowledge the following requirements:
+                      </p>
+                      <label class="flex items-start gap-3 cursor-pointer p-3 bg-red-50 border border-red-200 rounded">
+                        <input
+                          type="checkbox"
+                          phx-click="toggle-linens-confirmation"
+                          checked={Map.get(assigns, :linens_confirmed, false)}
+                          class="mt-1"
+                        />
+                        <div class="flex-1">
+                          <span class="text-sm font-semibold text-red-900">
+                            I understand that no linens or towels are provided and I will bring my own.
+                          </span>
+                        </div>
+                      </label>
+                      <label class="flex items-start gap-3 cursor-pointer p-3 bg-blue-50 border border-blue-200 rounded">
+                        <input
+                          type="checkbox"
+                          phx-click="toggle-chores-confirmation"
+                          checked={Map.get(assigns, :chores_confirmed, false)}
+                          class="mt-1"
+                        />
+                        <div class="flex-1">
+                          <span class="text-sm font-semibold text-blue-900">
+                            I agree to perform the required chores (stripping beds, cleaning the kitchen) before I depart.
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-zinc-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <.button
+                  phx-click="create-booking"
+                  disabled={
+                    !Map.get(assigns, :linens_confirmed, false) ||
+                      !Map.get(assigns, :chores_confirmed, false)
+                  }
+                  class={
+                    [
+                      "w-full sm:ml-3 sm:w-auto px-4 py-2 text-sm font-semibold rounded",
+                      if(
+                        Map.get(assigns, :linens_confirmed, false) &&
+                          Map.get(assigns, :chores_confirmed, false),
+                        do: "bg-blue-600 text-white hover:bg-blue-700",
+                        else: "bg-zinc-300 text-zinc-500 cursor-not-allowed"
+                      )
+                    ]
+                    |> Enum.filter(& &1)
+                    |> Enum.join(" ")
+                  }
+                >
+                  Confirm Booking
+                </.button>
+                <button
+                  type="button"
+                  phx-click="close-confirm-modal"
+                  class="mt-3 w-full sm:mt-0 sm:w-auto px-4 py-2 text-sm font-semibold text-zinc-700 bg-white border border-zinc-300 rounded hover:bg-zinc-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Booking Eligibility Banner (shown when user can't book) -->
         <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded p-4">
           <div class="flex items-start">
             <div class="flex-shrink-0">
@@ -515,1704 +1942,874 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </div>
         </div>
-        <!-- Tabs Navigation -->
-        <div class="border-b border-zinc-200">
-          <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-            <button
-              phx-click="switch-tab"
-              phx-value-tab="booking"
-              disabled={!@can_book}
-              class={[
-                "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
-                if(!@can_book,
-                  do: "border-transparent text-zinc-400 cursor-not-allowed opacity-50",
-                  else:
-                    if(@active_tab == :booking,
-                      do: "border-blue-500 text-blue-600",
-                      else:
-                        "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
-                    )
-                )
-              ]}
-            >
-              Make a Reservation
-            </button>
-            <button
-              phx-click="switch-tab"
-              phx-value-tab="information"
-              class={[
-                "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
-                if(@active_tab == :information,
-                  do: "border-blue-500 text-blue-600",
-                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
-                )
-              ]}
-            >
-              Cabin Information & Rules
-            </button>
-          </nav>
-        </div>
-        <!-- Booking Tab Content -->
-        <div
-          :if={@active_tab == :booking}
-          class={[
-            "min-h-[600px]",
-            if(!@can_book, do: "relative opacity-60", else: "")
-          ]}
-        >
-          <div
-            :if={!@can_book}
-            class="absolute inset-0 bg-white bg-opacity-50 rounded-lg pointer-events-none z-10"
-          >
-          </div>
-          <!-- Two-Column Layout -->
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start pb-24 lg:pb-0">
-            <!-- Left Column: Selection Area (2 columns on large screens) -->
-            <div class="lg:col-span-2 space-y-8">
-              <!-- Section 1: Stay Details -->
-              <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
-                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                  <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                    1
-                  </span>
-                  Stay Details
-                </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <!-- Date Selection -->
-                  <div>
-                    <.date_range_picker
-                      label="Check-in & Check-out Dates"
-                      id="booking_date_range"
-                      form={@date_form}
-                      start_date_field={@date_form[:checkin_date]}
-                      end_date_field={@date_form[:checkout_date]}
-                      min={@restricted_min_date}
-                      max={@restricted_max_date}
-                      disabled={!@can_book}
-                      date_tooltips={@date_tooltips}
-                      property={@property}
-                      today={@today}
-                    />
-                  </div>
-                  <!-- Guests and Children Selection (Dropdown) -->
-                  <div class="py-1">
-                    <div id="guests-label" class="block text-sm font-semibold text-zinc-700 mb-2">
-                      Guests
-                    </div>
-                    <div class="relative">
-                      <!-- Dropdown Trigger -->
-                      <button
-                        type="button"
-                        id="guests-dropdown-button"
-                        phx-click="toggle-guests-dropdown"
-                        disabled={!@can_book}
-                        aria-labelledby="guests-label"
-                        aria-expanded={@guests_dropdown_open}
-                        aria-haspopup="true"
-                        class="w-full px-3 py-2 border border-zinc-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <span class="text-zinc-900">
-                          <%= format_guests_display(@guests_count, @children_count) %>
-                        </span>
-                        <.icon
-                          name="hero-chevron-down"
-                          class={[
-                            "w-5 h-5 text-zinc-500 transition-transform duration-200 ease-in-out",
-                            if(@guests_dropdown_open, do: "rotate-180", else: "")
-                          ]}
-                        />
-                      </button>
-                      <!-- Dropdown Panel -->
-                      <div
-                        :if={@guests_dropdown_open}
-                        phx-click-away="close-guests-dropdown"
-                        class="absolute z-10 w-full mt-1 bg-white border border-zinc-300 rounded shadow-lg p-4"
-                      >
-                        <div class="space-y-4">
-                          <!-- Adults Counter -->
-                          <div>
-                            <div
-                              id="adults-label"
-                              class="block text-sm font-semibold text-zinc-700 mb-2"
-                            >
-                              Number of Adults
-                            </div>
-                            <div
-                              class="flex items-center space-x-3"
-                              role="group"
-                              aria-labelledby="adults-label"
-                            >
-                              <button
-                                type="button"
-                                id="decrease-guests-button"
-                                phx-click="decrease-guests"
-                                disabled={@guests_count <= 1}
-                                aria-label="Decrease number of adults"
-                                class={[
-                                  "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
-                                  if(@guests_count <= 1,
-                                    do:
-                                      "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
-                                    else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
-                                  )
-                                ]}
-                              >
-                                <.icon name="hero-minus" class="w-5 h-5" />
-                              </button>
-                              <span
-                                id="guests-count-display"
-                                class="w-12 text-center font-medium text-lg text-zinc-900"
-                                aria-live="polite"
-                              >
-                                <%= @guests_count %>
-                              </span>
-                              <button
-                                type="button"
-                                id="increase-guests-button"
-                                phx-click="increase-guests"
-                                aria-label="Increase number of adults"
-                                class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
-                              >
-                                <.icon name="hero-plus" class="w-5 h-5" />
-                              </button>
-                            </div>
-                          </div>
-                          <!-- Children Counter -->
-                          <div>
-                            <div
-                              id="children-label"
-                              class="block text-sm font-semibold text-zinc-700 mb-2"
-                            >
-                              Number of Children (ages 5-17)
-                            </div>
-                            <div
-                              class="flex items-center space-x-3"
-                              role="group"
-                              aria-labelledby="children-label"
-                            >
-                              <button
-                                type="button"
-                                id="decrease-children-button"
-                                phx-click="decrease-children"
-                                disabled={@children_count <= 0}
-                                aria-label="Decrease number of children"
-                                class={[
-                                  "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
-                                  if(@children_count <= 0,
-                                    do:
-                                      "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
-                                    else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
-                                  )
-                                ]}
-                              >
-                                <.icon name="hero-minus" class="w-5 h-5" />
-                              </button>
-                              <span
-                                id="children-count-display"
-                                class="w-12 text-center font-medium text-lg text-zinc-900"
-                                aria-live="polite"
-                              >
-                                <%= @children_count %>
-                              </span>
-                              <button
-                                type="button"
-                                id="increase-children-button"
-                                phx-click="increase-children"
-                                aria-label="Increase number of children"
-                                class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
-                              >
-                                <.icon name="hero-plus" class="w-5 h-5" />
-                              </button>
-                            </div>
-                          </div>
-                          <p class="text-sm text-zinc-600 pt-2 border-t border-zinc-200">
-                            Children 5-17 years: $25/night. Children under 5 stay for free.
-                          </p>
-                          <!-- Done Button -->
-                          <div class="pt-2">
-                            <button
-                              type="button"
-                              phx-click="close-guests-dropdown"
-                              class="w-full px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded transition-colors duration-200"
-                            >
-                              Done
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <!-- Error Messages -->
-                <div class="mt-4 space-y-1">
-                  <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm">
-                    <%= @form_errors[:checkin_date] %>
-                  </p>
-                  <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm">
-                    <%= @form_errors[:checkout_date] %>
-                  </p>
-                  <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
-                    <%= @date_validation_errors[:weekend] %>
-                  </p>
-                  <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
-                    <%= @date_validation_errors[:max_nights] %>
-                  </p>
-                  <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm">
-                    <%= @date_validation_errors[:active_booking] %>
-                  </p>
-                  <p
-                    :if={@date_validation_errors[:advance_booking_limit]}
-                    class="text-red-600 text-sm"
-                  >
-                    <%= @date_validation_errors[:advance_booking_limit] %>
-                  </p>
-                  <p :if={@date_validation_errors[:season_booking_mode]} class="text-red-600 text-sm">
-                    <%= @date_validation_errors[:season_booking_mode] %>
-                  </p>
-                  <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm">
-                    <%= @date_validation_errors[:season_date_range] %>
-                  </p>
-                  <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm">
-                    <%= @date_validation_errors[:availability] %>
-                  </p>
-                </div>
-              </section>
-              <!-- Booking Mode Selection -->
-              <div :if={@checkin_date}>
-                <fieldset>
-                  <legend class="block text-sm font-semibold text-zinc-700 mb-2">
-                    Booking Type
-                  </legend>
-                  <form phx-change="booking-mode-changed">
-                    <div class="flex gap-4" role="radiogroup">
-                      <label class="flex items-center">
-                        <input
-                          type="radio"
-                          id="booking-mode-room"
-                          name="booking_mode"
-                          value="room"
-                          checked={@selected_booking_mode == :room}
-                          class="mr-2"
-                        />
-                        <span>Individual Room(s)</span>
-                      </label>
-                      <label class={[
-                        "flex items-center",
-                        if(not can_select_booking_mode?(@seasons, @checkin_date),
-                          do: "opacity-50 cursor-not-allowed",
-                          else: ""
-                        )
-                      ]}>
-                        <input
-                          type="radio"
-                          id="booking-mode-buyout"
-                          name="booking_mode"
-                          value="buyout"
-                          checked={@selected_booking_mode == :buyout}
-                          disabled={not can_select_booking_mode?(@seasons, @checkin_date)}
-                          class={[
-                            "mr-2",
-                            if(not can_select_booking_mode?(@seasons, @checkin_date),
-                              do: "cursor-not-allowed opacity-50",
-                              else: ""
-                            )
-                          ]}
-                          onclick={
-                            if(not can_select_booking_mode?(@seasons, @checkin_date),
-                              do: "return false;",
-                              else: ""
-                            )
-                          }
-                        />
-                        <span class={
-                          if(not can_select_booking_mode?(@seasons, @checkin_date),
-                            do: "text-zinc-400",
-                            else: ""
-                          )
-                        }>
-                          Full Buyout
-                        </span>
-                      </label>
-                    </div>
-                  </form>
-                </fieldset>
-                <p
-                  :if={not can_select_booking_mode?(@seasons, @checkin_date)}
-                  class="text-sm text-zinc-500 mt-2 ml-6"
-                >
-                  Full buyout is not available for the selected dates.
-                </p>
-              </div>
-              <!-- Restricted Date Range Message -->
-              <div
-                :if={@dates_restricted && @membership_type in [:family, :lifetime]}
-                class="p-3 bg-blue-50 border border-blue-200 rounded"
-              >
-                <div class="flex items-start">
-                  <div class="flex-shrink-0">
-                    <.icon name="hero-information-circle" class="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div class="ms-2 flex-1">
-                    <p class="text-sm text-blue-800">
-                      <strong>Second Room Booking:</strong>
-                      Since you already have one room reserved, your second room booking must be within the same time period. The date range is restricted to ensure both bookings overlap and stay within the 4-night maximum.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <!-- Section 2: Choose Your Rooms -->
-              <section :if={@selected_booking_mode == :room && @checkin_date && @checkout_date}>
-                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                  <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                    2
-                  </span>
-                  Choose Your Rooms
-                  <%= if can_select_multiple_rooms?(assigns) && length(@selected_room_ids) > 0 do %>
-                    <span class="text-sm font-normal text-zinc-500">
-                      (<%= length(@selected_room_ids) %>/<%= max_rooms_for_user(assigns) %>)
-                    </span>
-                  <% end %>
-                </h2>
-                <!-- Family Membership Notice -->
-                <div
-                  :if={
-                    can_select_multiple_rooms?(assigns) &&
-                      length(@selected_room_ids) < max_rooms_for_user(assigns) &&
-                      (parse_guests_count(@guests_count) || 1) > 1
-                  }
-                  class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded"
-                >
-                  <div class="flex items-start gap-2">
-                    <.icon
-                      name="hero-light-bulb-solid"
-                      class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"
-                    />
-                    <p class="text-sm text-blue-900 font-medium">
-                      <strong>Family Membership Benefit:</strong>
-                      You can book up to <%= max_rooms_for_user(assigns) %> rooms in the same reservation.
-                    </p>
-                  </div>
-                </div>
-                <fieldset>
-                  <div
-                    class="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch"
-                    role={if can_select_multiple_rooms?(assigns), do: "group", else: "radiogroup"}
-                  >
-                    <%= for room <- @available_rooms do %>
-                      <% {availability, reason} = room.availability_status || {:available, nil} %>
-                      <% is_unavailable = availability == :unavailable %>
-                      <% max_rooms_reached =
-                        can_select_multiple_rooms?(assigns) &&
-                          length(@selected_room_ids) >= max_rooms_for_user(assigns) %>
-                      <% room_already_selected =
-                        (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) ||
-                          (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id) %>
-                      <% guests_count = parse_guests_count(@guests_count) || 1 %>
-                      <% children_count = parse_children_count(@children_count) || 0 %>
-                      <% total_people = guests_count + children_count %>
-                      <% only_one_person_selected = total_people == 1 %>
-                      <% cannot_add_second_room =
-                        can_select_multiple_rooms?(assigns) && only_one_person_selected &&
-                          length(@selected_room_ids) > 0 && !room_already_selected %>
-                      <% is_disabled =
-                        (is_unavailable && !room_already_selected) ||
-                          (max_rooms_reached && !room_already_selected) ||
-                          cannot_add_second_room %>
-                      <div class={[
-                        "border-2 rounded overflow-hidden flex flex-col h-full transition-all",
-                        if(is_disabled,
-                          do: "border-zinc-200 bg-zinc-50 cursor-not-allowed opacity-60",
-                          else:
-                            if(
-                              (can_select_multiple_rooms?(assigns) && room.id in @selected_room_ids) ||
-                                (!can_select_multiple_rooms?(assigns) && @selected_room_id == room.id),
-                              do: "border-blue-500 bg-blue-50 shadow-lg",
-                              else:
-                                "border-zinc-300 hover:border-blue-400 hover:shadow-lg cursor-pointer"
-                            )
-                        )
-                      ]}>
-                        <label :if={!is_disabled} class="block cursor-pointer flex flex-col h-full">
-                          <input
-                            type={
-                              if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"
-                            }
-                            id={"room-#{room.id}"}
-                            name={
-                              if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"
-                            }
-                            value={room.id}
-                            checked={
-                              if can_select_multiple_rooms?(assigns) do
-                                room.id in @selected_room_ids
-                              else
-                                @selected_room_id == room.id
-                              end
-                            }
-                            aria-label={"Select #{room.name}"}
-                            phx-click="room-changed"
-                            phx-value-room-id={room.id}
-                            class="sr-only"
-                          />
-                          <!-- Room Image with Alert Overlay -->
-                          <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
-                            <!-- Alert Overlay on Image -->
-                            <div
-                              :if={is_unavailable && reason}
-                              class="absolute top-0 left-0 right-0 bg-gradient-to-r from-amber-50 to-amber-100 border-b border-amber-200 p-3 z-10"
-                            >
-                              <div class="flex items-start gap-2">
-                                <.icon
-                                  name="hero-exclamation-triangle-solid"
-                                  class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"
-                                />
-                                <div class="flex-1">
-                                  <p class="text-xs font-semibold text-amber-900 mb-1">
-                                    Not Available
-                                  </p>
-                                  <p class="text-xs text-amber-800"><%= reason %></p>
-                                </div>
-                              </div>
-                            </div>
-                            <%= if room.image && room.image.id do %>
-                              <!-- Render image with blur hash -->
-                              <canvas
-                                id={"blur-hash-room-#{room.id}"}
-                                src={get_room_blur_hash(room.image)}
-                                class="absolute inset-0 z-0 w-full h-full object-cover"
-                                phx-hook="BlurHashCanvas"
-                              >
-                              </canvas>
-                              <img
-                                src={get_room_image_url(room.image)}
-                                id={"image-room-#{room.id}"}
-                                loading="lazy"
-                                phx-hook="BlurHashImage"
-                                class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
-                                alt={room.image.alt_text || room.image.title || "#{room.name} image"}
-                              />
-                            <% else %>
-                              <!-- Placeholder when no image -->
-                              <div class="absolute inset-0 flex items-center justify-center">
-                                <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
-                                  <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
-                                </div>
-                              </div>
-                            <% end %>
-                          </div>
-                          <!-- Room Content -->
-                          <div class="p-5 flex-1 flex flex-col">
-                            <div class="flex items-start justify-between mb-3">
-                              <div class="flex-1">
-                                <div class="font-bold text-zinc-900 text-lg mb-1">
-                                  <%= room.name %>
-                                </div>
-                                <div class="text-sm text-zinc-600 leading-relaxed">
-                                  <%= room.description %>
-                                </div>
-                              </div>
-                              <div class="ml-3 flex-shrink-0">
-                                <div class={
-                                  if (can_select_multiple_rooms?(assigns) &&
-                                        room.id in @selected_room_ids) or
-                                       (!can_select_multiple_rooms?(assigns) &&
-                                          @selected_room_id == room.id) do
-                                    "w-6 h-6 rounded-full border-2 flex items-center justify-center bg-blue-600 border-blue-600 shadow-md"
-                                  else
-                                    "w-6 h-6 rounded-full border-2 flex items-center justify-center border-zinc-300 bg-white"
-                                  end
-                                }>
-                                  <svg
-                                    :if={
-                                      (can_select_multiple_rooms?(assigns) &&
-                                         room.id in @selected_room_ids) or
-                                        (!can_select_multiple_rooms?(assigns) &&
-                                           @selected_room_id == room.id)
-                                    }
-                                    class="w-4 h-4 text-white"
-                                    fill="currentColor"
-                                    viewBox="0 0 20 20"
-                                  >
-                                    <path
-                                      fill-rule="evenodd"
-                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                      clip-rule="evenodd"
-                                    />
-                                  </svg>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div class="flex items-center gap-2 text-xs text-zinc-500 mb-3">
-                              <span class="font-medium">Max <%= room.capacity_max %> guests</span>
-                              <span :if={room.min_billable_occupancy > 1}>
-                                • Min <%= room.min_billable_occupancy %> guests
-                              </span>
-                            </div>
-                            <!-- Room Features: Bed Icons (More Prominent) -->
-                            <div
-                              :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
-                              class="mb-4 mt-auto pb-3"
-                            >
-                              <p class="text-xs font-semibold text-zinc-400 uppercase mb-2">
-                                Room Features
-                              </p>
-                              <div class="flex items-center gap-3 flex-wrap">
-                                <span
-                                  :if={room.single_beds > 0}
-                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
-                                >
-                                  <%= raw(bed_icon_svg(:single, "w-5 h-5 text-zinc-600")) %>
-                                  <span class="font-medium"><%= room.single_beds %> Twin</span>
-                                </span>
-                                <span
-                                  :if={room.queen_beds > 0}
-                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
-                                >
-                                  <%= raw(bed_icon_svg(:queen, "w-5 h-5 text-zinc-600")) %>
-                                  <span class="font-medium"><%= room.queen_beds %> Queen</span>
-                                </span>
-                                <span
-                                  :if={room.king_beds > 0}
-                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
-                                >
-                                  <%= raw(bed_icon_svg(:king, "w-5 h-5 text-zinc-600")) %>
-                                  <span class="font-medium"><%= room.king_beds %> King</span>
-                                </span>
-                              </div>
-                            </div>
-
-                            <div class="border-t border-zinc-200 pt-3">
-                              <div class="text-base text-zinc-900 font-bold">
-                                <div :if={room.minimum_price}>
-                                  <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
-                                  <span class="text-xs text-zinc-500 font-normal ml-1">
-                                    (<%= room.min_billable_occupancy %> guest min)
-                                  </span>
-                                </div>
-                                <div :if={!room.minimum_price}>
-                                  <%= MoneyHelper.format_money!(
-                                    room.adult_price_per_night || Money.new(45, :USD)
-                                  ) %> <span class="text-sm font-normal">per adult</span>
-                                </div>
-                              </div>
-                              <div class="text-xs text-zinc-500 mt-1">
-                                <%= MoneyHelper.format_money!(
-                                  room.children_price_per_night || Money.new(25, :USD)
-                                ) %> per child
-                              </div>
-                            </div>
-                          </div>
-                        </label>
-                        <div
-                          :if={is_disabled}
-                          class="block cursor-not-allowed flex flex-col h-full relative"
-                        >
-                          <input
-                            type={
-                              if can_select_multiple_rooms?(assigns), do: "checkbox", else: "radio"
-                            }
-                            name={
-                              if can_select_multiple_rooms?(assigns), do: "room_ids", else: "room_id"
-                            }
-                            value={room.id}
-                            checked={false}
-                            disabled={true}
-                            class="sr-only"
-                            readonly
-                          />
-                          <!-- Room Image with Alert Overlay -->
-                          <div class="w-full h-48 bg-zinc-200 relative overflow-hidden">
-                            <!-- Alert Overlay on Image -->
-                            <div
-                              :if={is_unavailable && reason}
-                              class="absolute top-0 left-0 right-0 bg-gradient-to-r from-amber-50 to-amber-100 border-b border-amber-200 p-3 z-10"
-                            >
-                              <div class="flex items-start gap-2">
-                                <.icon
-                                  name="hero-exclamation-triangle-solid"
-                                  class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"
-                                />
-                                <div class="flex-1">
-                                  <p class="text-xs font-semibold text-amber-900 mb-1">
-                                    Not Available
-                                  </p>
-                                  <p class="text-xs text-amber-800"><%= reason %></p>
-                                </div>
-                              </div>
-                            </div>
-                            <%= if room.image && room.image.id do %>
-                              <!-- Render image with blur hash -->
-                              <canvas
-                                id={"blur-hash-room-disabled-#{room.id}"}
-                                src={get_room_blur_hash(room.image)}
-                                class="absolute inset-0 z-0 w-full h-full object-cover"
-                                phx-hook="BlurHashCanvas"
-                              >
-                              </canvas>
-                              <img
-                                src={get_room_image_url(room.image)}
-                                id={"image-room-disabled-#{room.id}"}
-                                loading="lazy"
-                                phx-hook="BlurHashImage"
-                                class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out w-full h-full object-cover"
-                                alt={room.image.alt_text || room.image.title || "#{room.name} image"}
-                              />
-                            <% else %>
-                              <!-- Placeholder when no image -->
-                              <div class="absolute inset-0 flex items-center justify-center">
-                                <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
-                                  <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
-                                </div>
-                              </div>
-                            <% end %>
-                          </div>
-                          <!-- Room Content -->
-                          <div class="p-5 flex-1 flex flex-col opacity-60">
-                            <div class="flex items-start justify-between mb-3">
-                              <div class="flex-1">
-                                <div class="font-bold text-zinc-900 text-lg mb-1">
-                                  <%= room.name %>
-                                </div>
-                                <div class="text-sm text-zinc-600 leading-relaxed">
-                                  <%= room.description %>
-                                </div>
-                              </div>
-                              <div class="ml-3 flex-shrink-0">
-                                <div class="w-6 h-6 rounded-full border-2 border-zinc-300 bg-white">
-                                </div>
-                              </div>
-                            </div>
-
-                            <div class="flex items-center gap-2 text-xs text-zinc-500 mb-3">
-                              <span class="font-medium">Max <%= room.capacity_max %> guests</span>
-                              <span :if={room.min_billable_occupancy > 1}>
-                                • Min <%= room.min_billable_occupancy %> guests
-                              </span>
-                            </div>
-                            <!-- Room Features: Bed Icons -->
-                            <div
-                              :if={room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0}
-                              class="mb-4 mt-auto pb-3"
-                            >
-                              <p class="text-xs font-semibold text-zinc-400 uppercase mb-2">
-                                Room Features
-                              </p>
-                              <div class="flex items-center gap-3 flex-wrap">
-                                <span
-                                  :if={room.single_beds > 0}
-                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
-                                >
-                                  <%= raw(bed_icon_svg(:single, "w-5 h-5 text-zinc-600")) %>
-                                  <span class="font-medium"><%= room.single_beds %> Twin</span>
-                                </span>
-                                <span
-                                  :if={room.queen_beds > 0}
-                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
-                                >
-                                  <%= raw(bed_icon_svg(:queen, "w-5 h-5 text-zinc-600")) %>
-                                  <span class="font-medium"><%= room.queen_beds %> Queen</span>
-                                </span>
-                                <span
-                                  :if={room.king_beds > 0}
-                                  class="flex items-center gap-1.5 text-sm text-zinc-700"
-                                >
-                                  <%= raw(bed_icon_svg(:king, "w-5 h-5 text-zinc-600")) %>
-                                  <span class="font-medium"><%= room.king_beds %> King</span>
-                                </span>
-                              </div>
-                            </div>
-
-                            <div class="border-t border-zinc-200 pt-3">
-                              <div class="text-base text-zinc-900 font-bold">
-                                <div :if={room.minimum_price}>
-                                  <%= MoneyHelper.format_money!(room.minimum_price) %> minimum
-                                  <span class="text-xs text-zinc-500 font-normal ml-1">
-                                    (<%= room.min_billable_occupancy %> guest min)
-                                  </span>
-                                </div>
-                                <div :if={!room.minimum_price}>
-                                  <%= MoneyHelper.format_money!(
-                                    room.adult_price_per_night || Money.new(45, :USD)
-                                  ) %> <span class="text-sm font-normal">per adult</span>
-                                </div>
-                              </div>
-                              <div class="text-xs text-zinc-500 mt-1">
-                                <%= MoneyHelper.format_money!(
-                                  room.children_price_per_night || Money.new(25, :USD)
-                                ) %> per child
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    <% end %>
-                  </div>
-                </fieldset>
-                <p :if={@form_errors[:room_id]} class="text-red-600 text-sm mt-1">
-                  <%= @form_errors[:room_id] %>
-                </p>
-                <p
-                  :if={
-                    can_select_multiple_rooms?(assigns) &&
-                      length(@selected_room_ids) > 0 &&
-                      (parse_guests_count(@guests_count) || 1) +
-                        (parse_children_count(@children_count) || 0) == 1
-                  }
-                  class="text-amber-600 text-sm mt-2"
-                >
-                  <.icon
-                    name="hero-exclamation-triangle-solid"
-                    class="w-4 h-4 text-amber-600 inline-block me-1"
-                  />
-                  Cannot book multiple rooms with only 1 person. Please select more people to book additional rooms.
-                </p>
-              </section>
-              <!-- Buyout Selection (for buyout bookings) -->
-              <section :if={@selected_booking_mode == :buyout && @checkin_date && @checkout_date}>
-                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                  <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                    2
-                  </span>
-                  Full Cabin Buyout
-                </h2>
-                <div class={[
-                  "border-2 rounded p-8 text-center",
-                  if(@date_validation_errors[:availability],
-                    do: "border-red-200 bg-red-50",
-                    else: "border-indigo-100 bg-indigo-50"
+        <!-- Information Sections (Tab System) -->
+        <div class="mt-12">
+          <!-- Tab Navigation -->
+          <div class="border-b border-zinc-200 mb-6">
+            <nav class="flex gap-4 overflow-x-auto" role="tablist">
+              <button
+                phx-click="switch-info-tab"
+                phx-value-tab="about"
+                class={[
+                  "px-4 py-2 text-sm font-bold border-b-2 transition-all whitespace-nowrap",
+                  if(Map.get(assigns, :info_tab, :about) == :about,
+                    do: "border-blue-600 text-blue-600",
+                    else: "border-transparent text-zinc-500 hover:text-zinc-900"
                   )
-                ]}>
-                  <div class={[
-                    "inline-flex items-center justify-center w-16 h-16 rounded-full mb-4",
-                    if(@date_validation_errors[:availability],
-                      do: "bg-red-100 text-red-600",
-                      else: "bg-indigo-100 text-indigo-600"
-                    )
-                  ]}>
-                    <.icon
-                      name={
-                        if @date_validation_errors[:availability],
-                          do: "hero-exclamation-circle",
-                          else: "hero-home-modern"
-                      }
-                      class="w-8 h-8"
-                    />
-                  </div>
-                  <h3 class={[
-                    "text-2xl font-bold mb-2",
-                    if(@date_validation_errors[:availability],
-                      do: "text-red-900",
-                      else: "text-indigo-900"
-                    )
-                  ]}>
-                    <%= if @date_validation_errors[:availability],
-                      do: "Buyout Unavailable",
-                      else: "Full Cabin Buyout" %>
-                  </h3>
-                  <p class={[
-                    "mb-4 max-w-md mx-auto text-base",
-                    if(@date_validation_errors[:availability],
-                      do: "text-red-800",
-                      else: "text-indigo-800"
-                    )
-                  ]}>
-                    <%= if @date_validation_errors[:availability] do %>
-                      <%= @date_validation_errors[:availability] %>
-                    <% else %>
-                      You are reserving the entire Tahoe cabin for your group.
-                      This includes exclusive use of all 7 bedrooms, 3 bathrooms, and the sauna.
-                    <% end %>
-                  </p>
-                  <div
-                    :if={!@date_validation_errors[:availability]}
-                    class="flex flex-wrap justify-center gap-3 text-sm font-medium text-indigo-700"
-                  >
-                    <span class="bg-white px-4 py-2 rounded-full border border-indigo-200 shadow-sm">
-                      Up to 17 Guests
-                    </span>
-                    <span class="bg-white px-4 py-2 rounded-full border border-indigo-200 shadow-sm">
-                      Exclusive Access
-                    </span>
-                    <span class="bg-white px-4 py-2 rounded-full border border-indigo-200 shadow-sm">
-                      Fixed Nightly Rate
-                    </span>
-                  </div>
-                </div>
-              </section>
-            </div>
-            <!-- Right Column: Sticky Reservation Summary (1 column on large screens) -->
-            <aside class="lg:sticky lg:top-24">
-              <div class="bg-white rounded border-2 border-zinc-200 shadow-xl overflow-hidden">
-                <div class="p-6 border-b border-zinc-100 bg-zinc-50">
-                  <h3 class="text-xl font-bold text-zinc-900">Your Reservation</h3>
-                </div>
-
-                <div class="p-6 space-y-4">
-                  <!-- Dates -->
-                  <div :if={@checkin_date && @checkout_date} class="space-y-3">
-                    <div class="flex justify-between items-start text-sm">
-                      <span class="text-zinc-500 font-medium">Check-in</span>
-                      <span class="font-semibold text-zinc-900 text-right">
-                        <%= Calendar.strftime(@checkin_date, "%b %d, %Y") %>
-                      </span>
-                    </div>
-                    <div class="flex justify-between items-start text-sm">
-                      <span class="text-zinc-500 font-medium">Check-out</span>
-                      <span class="font-semibold text-zinc-900 text-right">
-                        <%= Calendar.strftime(@checkout_date, "%b %d, %Y") %>
-                      </span>
-                    </div>
-                    <div class="flex justify-between items-start text-sm">
-                      <span class="text-zinc-500 font-medium">Nights</span>
-                      <span class="font-semibold text-zinc-900">
-                        <%= Date.diff(@checkout_date, @checkin_date) %> <%= if Date.diff(
-                                                                                 @checkout_date,
-                                                                                 @checkin_date
-                                                                               ) == 1,
-                                                                               do: "night",
-                                                                               else: "nights" %>
-                      </span>
-                    </div>
-                  </div>
-                  <!-- Guests -->
-                  <div :if={@guests_count || @children_count} class="flex justify-between text-sm">
-                    <span class="text-zinc-500 font-medium">Guests</span>
-                    <span class="font-semibold text-zinc-900">
-                      <%= format_guests_display(@guests_count, @children_count) %>
-                    </span>
-                  </div>
-                  <!-- Family Membership Notice in Summary Card -->
-                  <div
-                    :if={
-                      @selected_booking_mode == :room &&
-                        can_select_multiple_rooms?(assigns) &&
-                        length(@selected_room_ids) < max_rooms_for_user(assigns) &&
-                        (parse_guests_count(@guests_count) || 1) > 1
-                    }
-                    class="p-2 bg-blue-50 border border-blue-200 rounded"
-                  >
-                    <div class="flex items-start gap-2">
-                      <.icon
-                        name="hero-light-bulb-solid"
-                        class="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5"
-                      />
-                      <p class="text-xs text-blue-900 leading-tight">
-                        <strong>Family Membership:</strong>
-                        You can book up to <%= max_rooms_for_user(assigns) %> rooms.
-                      </p>
-                    </div>
-                  </div>
-
-                  <hr class="border-zinc-100" />
-                  <!-- Selected Rooms or Buyout -->
-                  <div
-                    :if={@selected_booking_mode == :room && length(@selected_room_ids) > 0}
-                    class="space-y-2"
-                  >
-                    <p class="text-xs font-bold text-zinc-400 uppercase">Selected Rooms</p>
-                    <%= for room_id <- @selected_room_ids do %>
-                      <% room = Enum.find(@available_rooms, &(&1.id == room_id)) %>
-                      <div :if={room} class="flex justify-between items-center text-sm">
-                        <span class="text-zinc-700"><%= room.name %></span>
-                        <button
-                          phx-click="remove-room"
-                          phx-value-room-id={room_id}
-                          class="text-red-600 hover:text-red-800 text-xs underline"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    <% end %>
-                  </div>
-
-                  <div
-                    :if={@selected_booking_mode == :buyout && @checkin_date && @checkout_date}
-                    class="space-y-2"
-                  >
-                    <p class="text-xs font-bold text-zinc-400 uppercase">Booking Type</p>
-                    <div class="text-sm text-zinc-700 font-medium">Full Cabin Buyout</div>
-                  </div>
-                  <!-- Price Breakdown -->
-                  <div :if={@calculated_price && @price_breakdown && @checkin_date && @checkout_date}>
-                    <hr class="border-zinc-100" />
-                    <div class="space-y-2">
-                      <!-- Buyout Price -->
-                      <div
-                        :if={@selected_booking_mode == :buyout}
-                        class="flex justify-between text-sm"
-                      >
-                        <span class="text-zinc-600">
-                          Full Buyout
-                          <%= if @price_breakdown.nights && @price_breakdown.price_per_night do %>
-                            (<%= MoneyHelper.format_money!(@price_breakdown.price_per_night) %> × <%= @price_breakdown.nights %>)
-                          <% end %>
-                        </span>
-                        <span class="font-semibold text-zinc-900">
-                          <%= MoneyHelper.format_money!(@calculated_price) %>
-                        </span>
-                      </div>
-                      <!-- Room Price Breakdown -->
-                      <div :if={@selected_booking_mode == :room}>
-                        <div
-                          :if={@price_breakdown[:using_minimum_pricing]}
-                          class="mb-2 p-2 bg-amber-50 border border-amber-200 rounded"
-                        >
-                          <div class="flex items-start gap-2">
-                            <.icon
-                              name="hero-information-circle"
-                              class="w-3 h-3 text-amber-600 flex-shrink-0 mt-0.5"
-                            />
-                            <p class="text-[10px] text-amber-800 leading-tight">
-                              Minimum occupancy pricing applied
-                            </p>
-                          </div>
-                        </div>
-                        <div class="flex justify-between text-sm">
-                          <span class="text-zinc-600">
-                            Base Price
-                            <%= if @price_breakdown.nights && @price_breakdown[:adult_price_per_night] do %>
-                              <% adult_count =
-                                @price_breakdown[:billable_people] || @price_breakdown[:guests_count] ||
-                                  0 %> (<%= adult_count %> <%= if adult_count == 1,
-                                do: "adult",
-                                else: "adults" %> × <%= @price_breakdown.nights %>)
-                            <% end %>
-                          </span>
-                          <span class="font-semibold text-zinc-900">
-                            <%= if @price_breakdown[:base],
-                              do: MoneyHelper.format_money!(@price_breakdown.base) %>
-                          </span>
-                        </div>
-                        <div
-                          :if={@price_breakdown[:children] && @price_breakdown[:children_per_night]}
-                          class="flex justify-between text-sm"
-                        >
-                          <span class="text-zinc-600">
-                            Children
-                            <%= if @price_breakdown.nights do %>
-                              (<%= @price_breakdown[:children_count] || 0 %> × <%= @price_breakdown.nights %>)
-                            <% end %>
-                          </span>
-                          <span class="font-semibold text-zinc-900">
-                            <%= MoneyHelper.format_money!(@price_breakdown.children) %>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <hr class="border-zinc-200 my-3" />
-
-                    <div class="flex justify-between items-end">
-                      <span class="text-lg font-bold text-zinc-900">Total</span>
-                      <div class="text-right">
-                        <span class="text-2xl font-black text-blue-600">
-                          <%= MoneyHelper.format_money!(@calculated_price) %>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <!-- Error Messages -->
-                  <div :if={@price_error || @capacity_error} class="space-y-1">
-                    <p :if={@price_error} class="text-red-600 text-xs">
-                      <%= @price_error %>
-                    </p>
-                    <p :if={@capacity_error} class="text-red-600 text-xs">
-                      <%= @capacity_error %>
-                    </p>
-                  </div>
-                  <!-- Submit Button -->
-                  <div class="pt-2">
-                    <.button
-                      :if={@can_book}
-                      phx-click="create-booking"
-                      disabled={
-                        !can_submit_booking?(
-                          @selected_booking_mode,
-                          @checkin_date,
-                          @checkout_date,
-                          get_selected_rooms_for_submit(assigns),
-                          @capacity_error,
-                          @price_error,
-                          @form_errors,
-                          @date_validation_errors
-                        )
-                      }
-                      class={
-                        if can_submit_booking?(
-                             @selected_booking_mode,
-                             @checkin_date,
-                             @checkout_date,
-                             get_selected_rooms_for_submit(assigns),
-                             @capacity_error,
-                             @price_error,
-                             @form_errors,
-                             @date_validation_errors
-                           ) do
-                          "w-full text-lg py-4"
-                        else
-                          "w-full bg-zinc-200 text-zinc-600 hover:bg-zinc-300 opacity-50 cursor-not-allowed"
-                        end
-                      }
-                    >
-                      Confirm Booking
-                    </.button>
-                    <div
-                      :if={!@can_book}
-                      class="w-full bg-zinc-200 text-zinc-600 font-semibold py-4 rounded text-center cursor-not-allowed"
-                    >
-                      Booking Unavailable
-                    </div>
-                    <p
-                      :if={@can_book && @calculated_price}
-                      class="text-center text-xs text-zinc-400 mt-2"
-                    >
-                      You won't be charged yet.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <!-- Link to Rules -->
-              <div class="mt-4 p-4 text-center">
-                <.button
-                  phx-click="switch-tab"
-                  phx-value-tab="information"
-                  class="text-sm text-zinc-500 hover:text-blue-600 underline bg-transparent hover:bg-transparent border-0 shadow-none"
-                >
-                  View Cabin Rules & Cancellation Policy
-                </.button>
-              </div>
-            </aside>
-          </div>
-          <!-- Mobile Sticky Footer (only visible on mobile) -->
-          <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-zinc-200 shadow-2xl z-50 p-4">
-            <div class="max-w-screen-xl mx-auto flex items-center justify-between gap-4">
-              <div class="flex-1">
-                <div :if={@calculated_price} class="text-right">
-                  <p class="text-xs text-zinc-500 uppercase">Total</p>
-                  <p class="text-xl font-black text-blue-600">
-                    <%= MoneyHelper.format_money!(@calculated_price) %>
-                  </p>
-                </div>
-                <div :if={!@calculated_price} class="text-sm text-zinc-500">
-                  Select dates and rooms
-                </div>
-              </div>
-              <.button
-                :if={@can_book}
-                phx-click="create-booking"
-                disabled={
-                  !can_submit_booking?(
-                    @selected_booking_mode,
-                    @checkin_date,
-                    @checkout_date,
-                    get_selected_rooms_for_submit(assigns),
-                    @capacity_error,
-                    @price_error,
-                    @form_errors,
-                    @date_validation_errors
-                  )
-                }
-                class={
-                  if can_submit_booking?(
-                       @selected_booking_mode,
-                       @checkin_date,
-                       @checkout_date,
-                       get_selected_rooms_for_submit(assigns),
-                       @capacity_error,
-                       @price_error,
-                       @form_errors,
-                       @date_validation_errors
-                     ) do
-                    "px-6 py-3"
-                  else
-                    "px-6 py-3 bg-zinc-200 text-zinc-600 hover:bg-zinc-300 opacity-50 cursor-not-allowed"
-                  end
-                }
+                ]}
               >
-                Book Now
-              </.button>
-            </div>
+                🏠 House Manual
+              </button>
+              <button
+                phx-click="switch-info-tab"
+                phx-value-tab="preparation"
+                class={[
+                  "px-4 py-2 text-sm font-bold border-b-2 transition-all whitespace-nowrap",
+                  if(Map.get(assigns, :info_tab, :about) == :preparation,
+                    do: "border-blue-600 text-blue-600",
+                    else: "border-transparent text-zinc-500 hover:text-zinc-900"
+                  )
+                ]}
+              >
+                🐻 Safety & Bears
+              </button>
+              <button
+                phx-click="switch-info-tab"
+                phx-value-tab="location"
+                class={[
+                  "px-4 py-2 text-sm font-bold border-b-2 transition-all whitespace-nowrap",
+                  if(Map.get(assigns, :info_tab, :about) == :location,
+                    do: "border-blue-600 text-blue-600",
+                    else: "border-transparent text-zinc-500 hover:text-zinc-900"
+                  )
+                ]}
+              >
+                🚗 Directions
+              </button>
+              <button
+                phx-click="switch-info-tab"
+                phx-value-tab="rules"
+                class={[
+                  "px-4 py-2 text-sm font-bold border-b-2 transition-all whitespace-nowrap",
+                  if(Map.get(assigns, :info_tab, :about) == :rules,
+                    do: "border-blue-600 text-blue-600",
+                    else: "border-transparent text-zinc-500 hover:text-zinc-900"
+                  )
+                ]}
+              >
+                🧾 Detailed Policies
+              </button>
+            </nav>
           </div>
-        </div>
-        <!-- Information Tab Content -->
-        <div
-          :if={@active_tab == :information}
-          class="space-y-8 prose prose-zinc px-4 lg:px-0 mx-auto lg:mx-0"
-        >
-          <style>
-            details summary::-webkit-details-marker {
-              display: none;
-            }
-            details summary .chevron-icon {
-              transition: transform 0.2s ease-in-out;
-            }
-            details[open] summary .chevron-icon {
-              transform: rotate(180deg);
-            }
-          </style>
-          <!-- Welcome Header -->
-          <div class="mb-8 prose prose-zinc">
-            <p>
-              Welcome to the <strong>YSC Tahoe Cabin</strong>
-              — your year-round retreat in the heart of Lake Tahoe!
-            </p>
-            <p>
-              Since <strong>1993</strong>, the YSC has proudly owned this beautiful cabin, located just minutes from Tahoe City, on the
-              <strong>west shore</strong>
-              of <strong>Lake Tahoe</strong>.
-            </p>
-          </div>
-          <!-- Important Notice -->
-          <h2>💡 Please Remember</h2>
-          <p>
-            The Tahoe Cabin is <strong>your cabin — not a hotel.</strong>
-            To ensure everyone enjoys their stay at a reasonable rate, please follow the guidelines below.
-          </p>
-          <!-- About the Cabin -->
-          <div>
-            <h2>🌲 About the Cabin</h2>
-            <p>
-              The Lake Tahoe region offers endless outdoor opportunities:
-            </p>
-            <ul>
-              <li><strong>Winter:</strong> Ski and snowboard at nearby resorts</li>
-              <li><strong>Summer:</strong> Hike, bike, and enjoy the lake</li>
-              <li><strong>Year-Round:</strong> Experience stunning mountain and lake views</li>
-            </ul>
-            <p class="font-semibold">Cabin Features:</p>
-            <ul>
-              <li>7 bedrooms</li>
-              <li>3 bathrooms</li>
-              <li>Traditional Scandinavian sauna</li>
-              <li>Sleeps up to 17 guests</li>
-              <li>Fully equipped kitchen</li>
-              <li>Wood fireplace</li>
-              <li>During summer season the cabin has kayaks available for use</li>
-            </ul>
-            <p>
-              <strong>📍 Location:</strong>
-              South of Tahoe City, near the lake's west shore and just minutes from <strong>Homewood Ski Resort</strong>. Palisades Tahoe (site of the 1960 Winter Olympics) and Alpine Meadows are ~20 minutes away.
-            </p>
-
-            <YscWeb.Components.ImageCarousel.image_carousel
-              id="about-the-tahoe-cabin-carousel"
-              images={[
-                %{src: ~p"/images/tahoe/tahoe_cabin_main.webp", alt: "Tahoe Cabin Exterior"},
-                %{src: ~p"/images/tahoe/tahoe_room_1.webp", alt: "Tahoe Cabin Room 1"},
-                %{src: ~p"/images/tahoe/tahoe_room_2.webp", alt: "Tahoe Cabin Room 2"},
-                %{src: ~p"/images/tahoe/tahoe_room_4.webp", alt: "Tahoe Cabin Room 4"},
-                %{src: ~p"/images/tahoe/tahoe_room_5.webp", alt: "Tahoe Cabin Room 5"},
-                %{src: ~p"/images/tahoe/tahoe_room_6.webp", alt: "Tahoe Cabin Room 6"},
-                %{src: ~p"/images/tahoe/tahoe_room_7.webp", alt: "Tahoe Cabin Room 7"}
-              ]}
-              class="my-8"
-            />
-          </div>
-          <!-- Reservations & Booking (Collapsible) -->
-          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
-            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
-              <span class="flex items-center">
-                <span class="mr-2">🗓️</span>
-                <span>Reservations & Booking</span>
-              </span>
-              <.icon
-                name="hero-chevron-down"
-                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
-              />
-            </summary>
-            <div>
+          <!-- Tab Content -->
+          <div class="space-y-8 prose prose-zinc">
+            <!-- About Tab -->
+            <div :if={Map.get(assigns, :info_tab, :about) == :about}>
+              <!-- Welcome Header -->
+              <div class="mb-8 prose prose-zinc">
+                <p>
+                  Welcome to the <strong>YSC Tahoe Cabin</strong>
+                  — your year-round retreat in the heart of Lake Tahoe!
+                </p>
+                <p>
+                  Since <strong>1993</strong>, the YSC has proudly owned this beautiful cabin, located just minutes from Tahoe City, on the
+                  <strong>west shore</strong>
+                  of <strong>Lake Tahoe</strong>.
+                </p>
+              </div>
+              <!-- Important Notice -->
+              <h2>💡 Please Remember</h2>
+              <p>
+                The Tahoe Cabin is <strong>your cabin — not a hotel.</strong>
+                To ensure everyone enjoys their stay at a reasonable rate, please follow the guidelines below.
+              </p>
+              <!-- About the Cabin -->
               <div>
-                <h3 class="font-semibold text-zinc-900 mb-2">How to Reserve</h3>
+                <h2>🌲 About the Cabin</h2>
+                <p>
+                  The Lake Tahoe region offers endless outdoor opportunities:
+                </p>
                 <ul>
-                  <li>Use the <strong>Reservation Page</strong> to check availability.</li>
-                  <li>View rooms on the <strong>Accommodations Page</strong> before booking.</li>
-                  <li>All bookings must be made <strong>through the website</strong>.</li>
-                  <li>
-                    To cancel, use the <strong>"Cancel My Booking"</strong>
-                    link in your confirmation email.
-                  </li>
-                  <li>See the Cancellation Policy below for details.</li>
+                  <li><strong>Winter:</strong> Ski and snowboard at nearby resorts</li>
+                  <li><strong>Summer:</strong> Hike, bike, and enjoy the lake</li>
+                  <li><strong>Year-Round:</strong> Experience stunning mountain and lake views</li>
                 </ul>
-              </div>
-              <div>
-                <h3>Booking Rules (Quick Reference)</h3>
-                <div class="overflow-x-auto px-4">
-                  <table class="w-full border-collapse">
-                    <thead>
-                      <tr class="border-b border-zinc-300">
-                        <th class="text-left py-2 pr-4 font-semibold text-zinc-900">Rule</th>
-                        <th class="text-left py-2 font-semibold text-zinc-900">Details</th>
-                      </tr>
-                    </thead>
-                    <tbody class="text-zinc-700">
-                      <tr class="border-b border-zinc-200">
-                        <td class="py-2 pr-4 font-semibold">Check-In / Out</td>
-                        <td class="py-2">3:00 PM / 11:00 AM</td>
-                      </tr>
-                      <tr class="border-b border-zinc-200">
-                        <td class="py-2 pr-4 font-semibold">Maximum Stay</td>
-                        <td class="py-2">4 nights per booking</td>
-                      </tr>
-                      <tr class="border-b border-zinc-200">
-                        <td class="py-2 pr-4 font-semibold">Weekend Policy</td>
-                        <td class="py-2">Saturday bookings must include Sunday</td>
-                      </tr>
-                      <tr class="border-b border-zinc-200">
-                        <td class="py-2 pr-4 font-semibold">Active Bookings</td>
-                        <td class="py-2">One active booking per member</td>
-                      </tr>
-                      <tr class="border-b border-zinc-200">
-                        <td class="py-2 pr-4 font-semibold">Winter</td>
-                        <td class="py-2">Individual rooms only</td>
-                      </tr>
-                      <tr class="border-b border-zinc-200">
-                        <td class="py-2 pr-4 font-semibold">Summer</td>
-                        <td class="py-2">Rooms or full cabin allowed</td>
-                      </tr>
-                      <tr class="border-b border-zinc-200">
-                        <td class="py-2 pr-4 font-semibold">Membership Limits</td>
-                        <td class="py-2">Family/Lifetime: 2 rooms<br />Single: 1 room</td>
-                      </tr>
-                      <tr>
-                        <td class="py-2 pr-4 font-semibold">Children Pricing</td>
-                        <td class="py-2">5–17 years: $25/night<br />Under 5: Free</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </details>
-          <!-- Getting There (Collapsible) -->
-          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
-            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
-              <span class="flex items-center">
-                <span class="mr-2">🚗</span>
-                <span>Getting There</span>
-              </span>
-              <.icon
-                name="hero-chevron-down"
-                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
-              />
-            </summary>
-            <div>
-              <div>
-                <p class="font-semibold mb-2">Address:</p>
-                <p class="mb-4">2685 Cedar Lane<br />Homewood, CA 96141</p>
-              </div>
-
-              <div class="flex flex-col items-center not-prose my-6">
-                <.live_component
-                  id="tahoe-cabin-map"
-                  module={YscWeb.Components.MapComponent}
-                  latitude={39.12591794747629}
-                  longitude={-120.16648676079016}
-                  locked={true}
-                  class="my-4"
-                />
-
-                <YscWeb.Components.MapNavigationButtons.map_navigation_buttons
-                  latitude={39.12591794747629}
-                  longitude={-120.16648676079016}
-                  class="w-full"
-                />
-              </div>
-
-              <div>
-                <h3 class="font-semibold text-zinc-900 mb-2">From the Bay Area</h3>
-                <ol class="list-decimal list-inside space-y-2">
-                  <li>Take <strong>I-80 East</strong> toward Reno.</li>
-                  <li>Exit at <strong>Truckee</strong>, onto <strong>Highway 89 South</strong>.</li>
-                  <li>
-                    In <strong>Tahoe City</strong>, turn right at the first light to stay on Hwy 89.
-                  </li>
-                  <li>
-                    After ~3 miles, turn <strong>right onto Timberland Lane</strong>
-                    (look for the Timberland totem pole).
-                  </li>
-                  <li>Turn <strong>left onto Cedar Lane</strong> — the cabin is on your left.</li>
-                </ol>
-              </div>
-              <div>
-                <p class="text-sm text-zinc-600">
-                  <strong>Transportation Notes:</strong>
-                  Public transportation is limited — <strong>driving is recommended.</strong>
-                  <strong>Carpooling</strong>
-                  is encouraged to reduce parking strain and environmental impact.
+                <p class="font-semibold">Cabin Features:</p>
+                <ul>
+                  <li>7 bedrooms</li>
+                  <li>3 bathrooms</li>
+                  <li>Traditional Scandinavian sauna</li>
+                  <li>Sleeps up to 17 guests</li>
+                  <li>Fully equipped kitchen</li>
+                  <li>Wood fireplace</li>
+                  <li>During summer season the cabin has kayaks available for use</li>
+                </ul>
+                <p>
+                  <strong>📍 Location:</strong>
+                  South of Tahoe City, near the lake's west shore and just minutes from <strong>Homewood Ski Resort</strong>. Palisades Tahoe (site of the 1960 Winter Olympics) and Alpine Meadows are ~20 minutes away.
                 </p>
+
+                <YscWeb.Components.ImageCarousel.image_carousel
+                  id="about-the-tahoe-cabin-carousel"
+                  images={[
+                    %{src: ~p"/images/tahoe/tahoe_cabin_main.webp", alt: "Tahoe Cabin Exterior"},
+                    %{src: ~p"/images/tahoe/tahoe_room_1.webp", alt: "Tahoe Cabin Room 1"},
+                    %{src: ~p"/images/tahoe/tahoe_room_2.webp", alt: "Tahoe Cabin Room 2"},
+                    %{src: ~p"/images/tahoe/tahoe_room_4.webp", alt: "Tahoe Cabin Room 4"},
+                    %{src: ~p"/images/tahoe/tahoe_room_5.webp", alt: "Tahoe Cabin Room 5"},
+                    %{src: ~p"/images/tahoe/tahoe_room_6.webp", alt: "Tahoe Cabin Room 6"},
+                    %{src: ~p"/images/tahoe/tahoe_room_7.webp", alt: "Tahoe Cabin Room 7"}
+                  ]}
+                  class="my-8"
+                />
               </div>
-            </div>
-          </details>
-          <!-- Winter Driving & Weather Tips (Collapsible) -->
-          <details class="border border-blue-200 rounded p-4 bg-blue-50">
-            <summary class="cursor-pointer font-semibold text-lg text-blue-900 mb-4 list-none flex items-center justify-between">
-              <span class="flex items-center">
-                <span class="mr-2">❄️</span>
-                <span>Winter Driving & Weather Tips</span>
-              </span>
-              <.icon
-                name="hero-chevron-down"
-                class="w-5 h-5 text-blue-600 chevron-icon flex-shrink-0"
-              />
-            </summary>
-            <div>
-              <ul class="list-disc list-inside space-y-2">
-                <li>
-                  Always carry <strong>snow chains</strong>
-                  or use a <strong>4WD vehicle with snow tires</strong>.
-                </li>
-                <li>Check <strong>road and weather conditions</strong> before traveling.</li>
-              </ul>
-              <div>
-                <p class="font-semibold mb-2">Helpful Resources:</p>
-                <ul class="list-disc list-inside space-y-1">
-                  <li>
-                    <a
-                      href="https://dot.ca.gov/travel/winter-driving-tips"
-                      target="_blank"
-                      class="text-blue-700 hover:text-blue-900 underline"
-                    >
-                      California Winter Driving Tips
-                    </a>
-                  </li>
-                  <li>
-                    Caltrans Road Info:
-                    <a href="tel:8004277623" class="text-blue-700 hover:text-blue-900 underline">
-                      (800) 427-7623
-                    </a>
-                  </li>
-                  <li>
-                    Twitter:
-                    <a
-                      href="https://twitter.com/CHP_Truckee"
-                      target="_blank"
-                      class="text-blue-700 hover:text-blue-900 underline"
-                    >
-                      @CHP_Truckee
-                    </a>
-                    ,
-                    <a
-                      href="https://twitter.com/CaltransDist3"
-                      target="_blank"
-                      class="text-blue-700 hover:text-blue-900 underline"
-                    >
-                      @CaltransDist3
-                    </a>
-                    ,
-                    <a
-                      href="https://twitter.com/NWSReno"
-                      target="_blank"
-                      class="text-blue-700 hover:text-blue-900 underline"
-                    >
-                      @NWSReno
-                    </a>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </details>
-          <!-- Parking & Transportation (Collapsible) -->
-          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
-            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
-              <span class="flex items-center">
-                <span class="mr-2">🚙</span>
-                <span>Parking & Transportation</span>
-              </span>
-              <.icon
-                name="hero-chevron-down"
-                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
-              />
-            </summary>
-            <div>
-              <div>
-                <p class="font-semibold mb-2">Local Services:</p>
-                <ul class="list-disc list-inside space-y-1">
-                  <li>
-                    <strong>Tahoe Bus Transit:</strong>
-                    <a href="tel:5305816365" class="text-blue-600 hover:text-blue-800 underline">
-                      (530) 581-6365
-                    </a>
-                  </li>
-                  <li>
-                    <strong>Tahoe Taxi:</strong>
-                    <a href="tel:5305463181" class="text-blue-600 hover:text-blue-800 underline">
-                      (530) 546-3181
-                    </a>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <p class="font-semibold mb-2">Parking Rules:</p>
-                <ul class="list-disc list-inside space-y-1">
-                  <li>Limited parking — <strong>carpool if possible.</strong></li>
-                  <li>You may need to move vehicles to accommodate others.</li>
-                  <li>
-                    <strong>No street parking Nov 1 – May 1</strong>
-                    (towing enforced for snow removal).
-                  </li>
-                  <li>Do not block driveways or neighbors' access.</li>
-                </ul>
-              </div>
-            </div>
-          </details>
-          <!-- Bear Safety Instructions (Collapsible) -->
-          <details class="border border-red-200 rounded p-4 bg-red-50">
-            <summary class="cursor-pointer font-semibold text-lg text-red-900 mb-4 list-none flex items-center justify-between">
-              <span class="flex items-center">
-                <span class="mr-2">🐻</span>
-                <span>Bear Safety Instructions</span>
-              </span>
-              <.icon name="hero-chevron-down" class="w-5 h-5 text-red-600 chevron-icon flex-shrink-0" />
-            </summary>
-            <div>
-              <p>
-                The cabin's deck is surrounded by <strong>electric bear wire</strong>
-                — it won't harm you but must be handled properly.
-              </p>
-              <div>
-                <h3 class="font-semibold mb-2">To Enter</h3>
-                <ol class="list-decimal list-inside space-y-1">
-                  <li>
-                    Grab the <strong>top black handle</strong>
-                    and disconnect it (disables the circuit).
-                  </li>
-                  <li>Remove the second and third wires.</li>
-                </ol>
-              </div>
-              <div>
-                <h3 class="font-semibold mb-2">When Leaving or at Night</h3>
-                <ol class="list-decimal list-inside space-y-1">
-                  <li>Replace the wires <strong>from bottom to top</strong>.</li>
-                  <li>Connect lowest wire first, then middle, then top (reactivates barrier).</li>
-                </ol>
-              </div>
-              <p class="text-sm">
-                Always secure garbage cans and remove all food waste from outdoor areas.
-              </p>
-            </div>
-          </details>
-          <!-- Cancellation Policy (Collapsible) -->
-          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
-            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
-              <span class="flex items-center">
-                <span class="mr-2">🧾</span>
-                <span>Cancellation Policy</span>
-              </span>
-              <.icon
-                name="hero-chevron-down"
-                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
-              />
-            </summary>
-            <div>
-              <%= if @buyout_refund_policy do %>
+              <!-- Reservations & Booking (Collapsible) -->
+              <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
+                <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+                  <span class="flex items-center">
+                    <span class="mr-2">🗓️</span>
+                    <span>Reservations & Booking</span>
+                  </span>
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+                  />
+                </summary>
                 <div>
-                  <h3 class="font-semibold text-zinc-900 mb-2">
-                    <%= if @buyout_refund_policy.name,
-                      do: @buyout_refund_policy.name,
-                      else: "Full Cabin Bookings" %>
-                  </h3>
-                  <%= if @buyout_refund_policy.description do %>
-                    <p class="text-sm text-zinc-600 mb-2"><%= @buyout_refund_policy.description %></p>
-                  <% end %>
-                  <%= if @buyout_refund_policy.rules && length(@buyout_refund_policy.rules) > 0 do %>
-                    <ul class="list-disc list-inside space-y-1">
-                      <%= for rule <- @buyout_refund_policy.rules do %>
-                        <li>
-                          <%= if rule.description && rule.description != "" do %>
-                            <%= rule.description %>
-                          <% else %>
-                            <%= raw(format_refund_rule(rule)) %>
-                          <% end %>
-                        </li>
-                      <% end %>
+                  <div>
+                    <h3 class="font-semibold text-zinc-900 mb-2">How to Reserve</h3>
+                    <ul>
+                      <li>Use the <strong>Reservation Page</strong> to check availability.</li>
+                      <li>View rooms on the <strong>Accommodations Page</strong> before booking.</li>
+                      <li>All bookings must be made <strong>through the website</strong>.</li>
+                      <li>
+                        To cancel, use the <strong>"Cancel My Booking"</strong>
+                        link in your confirmation email.
+                      </li>
+                      <li>See the Cancellation Policy below for details.</li>
                     </ul>
-                  <% end %>
+                  </div>
+                  <div>
+                    <h3>Booking Rules (Quick Reference)</h3>
+                    <div class="overflow-x-auto px-4">
+                      <table class="w-full border-collapse">
+                        <thead>
+                          <tr class="border-b border-zinc-300">
+                            <th class="text-left py-2 pr-4 font-semibold text-zinc-900">Rule</th>
+                            <th class="text-left py-2 font-semibold text-zinc-900">Details</th>
+                          </tr>
+                        </thead>
+                        <tbody class="text-zinc-700">
+                          <tr class="border-b border-zinc-200">
+                            <td class="py-2 pr-4 font-semibold">Check-In / Out</td>
+                            <td class="py-2">3:00 PM / 11:00 AM</td>
+                          </tr>
+                          <tr class="border-b border-zinc-200">
+                            <td class="py-2 pr-4 font-semibold">Maximum Stay</td>
+                            <td class="py-2">4 nights per booking</td>
+                          </tr>
+                          <tr class="border-b border-zinc-200">
+                            <td class="py-2 pr-4 font-semibold">Weekend Policy</td>
+                            <td class="py-2">Saturday bookings must include Sunday</td>
+                          </tr>
+                          <tr class="border-b border-zinc-200">
+                            <td class="py-2 pr-4 font-semibold">Active Bookings</td>
+                            <td class="py-2">One active booking per member</td>
+                          </tr>
+                          <tr class="border-b border-zinc-200">
+                            <td class="py-2 pr-4 font-semibold">Winter</td>
+                            <td class="py-2">Individual rooms only</td>
+                          </tr>
+                          <tr class="border-b border-zinc-200">
+                            <td class="py-2 pr-4 font-semibold">Summer</td>
+                            <td class="py-2">Rooms or full cabin allowed</td>
+                          </tr>
+                          <tr class="border-b border-zinc-200">
+                            <td class="py-2 pr-4 font-semibold">Membership Limits</td>
+                            <td class="py-2">Family/Lifetime: 2 rooms<br />Single: 1 room</td>
+                          </tr>
+                          <tr>
+                            <td class="py-2 pr-4 font-semibold">Children Pricing</td>
+                            <td class="py-2">5–17 years: $25/night<br />Under 5: Free</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
-              <% end %>
-              <%= if @room_refund_policy do %>
-                <div class={if @buyout_refund_policy, do: "mt-4", else: ""}>
-                  <h3 class="font-semibold text-zinc-900 mb-2">
-                    <%= if @room_refund_policy.name,
-                      do: @room_refund_policy.name,
-                      else: "Individual Rooms" %>
-                  </h3>
-                  <%= if @room_refund_policy.description do %>
-                    <p class="text-sm text-zinc-600 mb-2"><%= @room_refund_policy.description %></p>
-                  <% end %>
-                  <%= if @room_refund_policy.rules && length(@room_refund_policy.rules) > 0 do %>
+              </details>
+            </div>
+            <!-- Rules & Policies Tab -->
+            <div :if={Map.get(assigns, :info_tab, :about) == :rules}>
+              <!-- Cancellation Policy -->
+              <details class="border border-zinc-200 rounded p-4 bg-zinc-50" open>
+                <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+                  <span class="flex items-center">
+                    <span class="mr-2">🚗</span>
+                    <span>Getting There</span>
+                  </span>
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+                  />
+                </summary>
+                <div>
+                  <div>
+                    <p class="font-semibold mb-2">Address:</p>
+                    <p class="mb-4">2685 Cedar Lane<br />Homewood, CA 96141</p>
+                  </div>
+
+                  <div class="flex flex-col items-center not-prose my-6">
+                    <.live_component
+                      id="tahoe-cabin-map"
+                      module={YscWeb.Components.MapComponent}
+                      latitude={39.12591794747629}
+                      longitude={-120.16648676079016}
+                      locked={true}
+                      class="my-4"
+                    />
+
+                    <YscWeb.Components.MapNavigationButtons.map_navigation_buttons
+                      latitude={39.12591794747629}
+                      longitude={-120.16648676079016}
+                      class="w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <h3 class="font-semibold text-zinc-900 mb-2">From the Bay Area</h3>
+                    <ol class="list-decimal list-inside space-y-2">
+                      <li>Take <strong>I-80 East</strong> toward Reno.</li>
+                      <li>
+                        Exit at <strong>Truckee</strong>, onto <strong>Highway 89 South</strong>.
+                      </li>
+                      <li>
+                        In <strong>Tahoe City</strong>, turn right at the first light to stay on Hwy 89.
+                      </li>
+                      <li>
+                        After ~3 miles, turn <strong>right onto Timberland Lane</strong>
+                        (look for the Timberland totem pole).
+                      </li>
+                      <li>Turn <strong>left onto Cedar Lane</strong> — the cabin is on your left.</li>
+                    </ol>
+                  </div>
+                  <div>
+                    <p class="text-sm text-zinc-600">
+                      <strong>Transportation Notes:</strong>
+                      Public transportation is limited — <strong>driving is recommended.</strong>
+                      <strong>Carpooling</strong>
+                      is encouraged to reduce parking strain and environmental impact.
+                    </p>
+                  </div>
+                </div>
+              </details>
+              <!-- Winter Driving & Weather Tips (Collapsible) -->
+              <details class="border border-blue-200 rounded p-4 bg-blue-50">
+                <summary class="cursor-pointer font-semibold text-lg text-blue-900 mb-4 list-none flex items-center justify-between">
+                  <span class="flex items-center">
+                    <span class="mr-2">❄️</span>
+                    <span>Winter Driving & Weather Tips</span>
+                  </span>
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-5 h-5 text-blue-600 chevron-icon flex-shrink-0"
+                  />
+                </summary>
+                <div>
+                  <ul class="list-disc list-inside space-y-2">
+                    <li>
+                      Always carry <strong>snow chains</strong>
+                      or use a <strong>4WD vehicle with snow tires</strong>.
+                    </li>
+                    <li>Check <strong>road and weather conditions</strong> before traveling.</li>
+                  </ul>
+                  <div>
+                    <p class="font-semibold mb-2">Helpful Resources:</p>
                     <ul class="list-disc list-inside space-y-1">
-                      <%= for rule <- @room_refund_policy.rules do %>
-                        <li>
-                          <%= if rule.description && rule.description != "" do %>
-                            <%= rule.description %>
-                          <% else %>
-                            <%= raw(format_refund_rule(rule)) %>
-                          <% end %>
-                        </li>
-                      <% end %>
+                      <li>
+                        <a
+                          href="https://dot.ca.gov/travel/winter-driving-tips"
+                          target="_blank"
+                          class="text-blue-700 hover:text-blue-900 underline"
+                        >
+                          California Winter Driving Tips
+                        </a>
+                      </li>
+                      <li>
+                        Caltrans Road Info:
+                        <a href="tel:8004277623" class="text-blue-700 hover:text-blue-900 underline">
+                          (800) 427-7623
+                        </a>
+                      </li>
+                      <li>
+                        Twitter:
+                        <a
+                          href="https://twitter.com/CHP_Truckee"
+                          target="_blank"
+                          class="text-blue-700 hover:text-blue-900 underline"
+                        >
+                          @CHP_Truckee
+                        </a>
+                        ,
+                        <a
+                          href="https://twitter.com/CaltransDist3"
+                          target="_blank"
+                          class="text-blue-700 hover:text-blue-900 underline"
+                        >
+                          @CaltransDist3
+                        </a>
+                        ,
+                        <a
+                          href="https://twitter.com/NWSReno"
+                          target="_blank"
+                          class="text-blue-700 hover:text-blue-900 underline"
+                        >
+                          @NWSReno
+                        </a>
+                      </li>
                     </ul>
-                  <% end %>
+                  </div>
                 </div>
-              <% end %>
-              <div class="bg-zinc-100 rounded p-3 text-sm mt-4">
-                <p class="mb-2"><strong>Notes:</strong></p>
-                <ul class="list-disc list-inside space-y-1">
-                  <li>Members are responsible for the behavior and payments of their guests.</li>
-                  <li>
-                    <strong>Road closure cancellations</strong>
-                    may be credited for a future stay (contact the Cabin Master).
-                  </li>
-                  <li>
-                    <strong>Cash refunds</strong>
-                    incur a <strong>3% processing fee</strong>
-                    to cover credit card costs.
-                  </li>
-                </ul>
-              </div>
+              </details>
+              <!-- Parking & Transportation (Collapsible) -->
+              <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
+                <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+                  <span class="flex items-center">
+                    <span class="mr-2">🚙</span>
+                    <span>Parking & Transportation</span>
+                  </span>
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+                  />
+                </summary>
+                <div>
+                  <div>
+                    <p class="font-semibold mb-2">Local Services:</p>
+                    <ul class="list-disc list-inside space-y-1">
+                      <li>
+                        <strong>Tahoe Bus Transit:</strong>
+                        <a href="tel:5305816365" class="text-blue-600 hover:text-blue-800 underline">
+                          (530) 581-6365
+                        </a>
+                      </li>
+                      <li>
+                        <strong>Tahoe Taxi:</strong>
+                        <a href="tel:5305463181" class="text-blue-600 hover:text-blue-800 underline">
+                          (530) 546-3181
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p class="font-semibold mb-2">Parking Rules:</p>
+                    <ul class="list-disc list-inside space-y-1">
+                      <li>Limited parking — <strong>carpool if possible.</strong></li>
+                      <li>You may need to move vehicles to accommodate others.</li>
+                      <li>
+                        <strong>No street parking Nov 1 – May 1</strong>
+                        (towing enforced for snow removal).
+                      </li>
+                      <li>Do not block driveways or neighbors' access.</li>
+                    </ul>
+                  </div>
+                </div>
+              </details>
+              <!-- Bear Safety Instructions (Collapsible) -->
+              <details class="border border-red-200 rounded p-4 bg-red-50">
+                <summary class="cursor-pointer font-semibold text-lg text-red-900 mb-4 list-none flex items-center justify-between">
+                  <span class="flex items-center">
+                    <span class="mr-2">🐻</span>
+                    <span>Bear Safety Instructions</span>
+                  </span>
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-5 h-5 text-red-600 chevron-icon flex-shrink-0"
+                  />
+                </summary>
+                <div>
+                  <p class="mb-4">
+                    The cabin's deck is surrounded by <strong>electric bear wire</strong>
+                    — it won't harm you but must be handled properly.
+                  </p>
+                  <!-- Bear Wire Visual Guide: To Enter -->
+                  <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <h3 class="font-semibold text-green-900 mb-3 flex items-center gap-2">
+                      <.icon name="hero-arrow-right-circle" class="w-5 h-5 text-green-600" />
+                      <span>To Enter (Step-by-Step)</span>
+                    </h3>
+                    <ol class="space-y-3">
+                      <li class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                          1
+                        </span>
+                        <div class="flex-1">
+                          <p class="text-sm font-semibold text-green-900">
+                            Grab the top black handle
+                          </p>
+                          <p class="text-xs text-green-800">Disconnect it to disable the circuit</p>
+                        </div>
+                      </li>
+                      <li class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                          2
+                        </span>
+                        <div class="flex-1">
+                          <p class="text-sm font-semibold text-green-900">Remove the second wire</p>
+                        </div>
+                      </li>
+                      <li class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                          3
+                        </span>
+                        <div class="flex-1">
+                          <p class="text-sm font-semibold text-green-900">Remove the third wire</p>
+                          <p class="text-xs text-green-800">You can now enter safely</p>
+                        </div>
+                      </li>
+                    </ol>
+                  </div>
+                  <!-- Bear Wire Visual Guide: When Leaving -->
+                  <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <h3 class="font-semibold text-amber-900 mb-3 flex items-center gap-2">
+                      <.icon name="hero-arrow-left-circle" class="w-5 h-5 text-amber-600" />
+                      <span>When Leaving or at Night (Step-by-Step)</span>
+                    </h3>
+                    <ol class="space-y-3">
+                      <li class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-6 h-6 bg-amber-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                          1
+                        </span>
+                        <div class="flex-1">
+                          <p class="text-sm font-semibold text-amber-900">
+                            Connect the lowest wire first
+                          </p>
+                        </div>
+                      </li>
+                      <li class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-6 h-6 bg-amber-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                          2
+                        </span>
+                        <div class="flex-1">
+                          <p class="text-sm font-semibold text-amber-900">Connect the middle wire</p>
+                        </div>
+                      </li>
+                      <li class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-6 h-6 bg-amber-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                          3
+                        </span>
+                        <div class="flex-1">
+                          <p class="text-sm font-semibold text-amber-900">
+                            Connect the top wire last
+                          </p>
+                          <p class="text-xs text-amber-800">This reactivates the barrier</p>
+                        </div>
+                      </li>
+                    </ol>
+                  </div>
+                  <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+                    <p class="text-sm font-semibold text-red-900 mb-1">⚠️ Important Safety Note</p>
+                    <p class="text-xs text-red-800">
+                      Always secure garbage cans and remove all food waste from outdoor areas.
+                    </p>
+                  </div>
+                </div>
+              </details>
+              <!-- Cancellation Policy (Collapsible) -->
+              <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
+                <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+                  <span class="flex items-center">
+                    <span class="mr-2">🧾</span>
+                    <span>Cancellation Policy</span>
+                  </span>
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+                  />
+                </summary>
+                <div>
+                  <%= if @buyout_refund_policy do %>
+                    <div>
+                      <h3 class="font-semibold text-zinc-900 mb-2">
+                        <%= if @buyout_refund_policy.name,
+                          do: @buyout_refund_policy.name,
+                          else: "Full Cabin Bookings" %>
+                      </h3>
+                      <%= if @buyout_refund_policy.description do %>
+                        <p class="text-sm text-zinc-600 mb-2">
+                          <%= @buyout_refund_policy.description %>
+                        </p>
+                      <% end %>
+                      <%= if @buyout_refund_policy.rules && length(@buyout_refund_policy.rules) > 0 do %>
+                        <ul class="list-disc list-inside space-y-1">
+                          <%= for rule <- @buyout_refund_policy.rules do %>
+                            <li>
+                              <%= if rule.description && rule.description != "" do %>
+                                <%= rule.description %>
+                              <% else %>
+                                <%= raw(format_refund_rule(rule)) %>
+                              <% end %>
+                            </li>
+                          <% end %>
+                        </ul>
+                      <% end %>
+                    </div>
+                  <% end %>
+                  <%= if @room_refund_policy do %>
+                    <div class={if @buyout_refund_policy, do: "mt-4", else: ""}>
+                      <h3 class="font-semibold text-zinc-900 mb-2">
+                        <%= if @room_refund_policy.name,
+                          do: @room_refund_policy.name,
+                          else: "Individual Rooms" %>
+                      </h3>
+                      <%= if @room_refund_policy.description do %>
+                        <p class="text-sm text-zinc-600 mb-2">
+                          <%= @room_refund_policy.description %>
+                        </p>
+                      <% end %>
+                      <%= if @room_refund_policy.rules && length(@room_refund_policy.rules) > 0 do %>
+                        <ul class="list-disc list-inside space-y-1">
+                          <%= for rule <- @room_refund_policy.rules do %>
+                            <li>
+                              <%= if rule.description && rule.description != "" do %>
+                                <%= rule.description %>
+                              <% else %>
+                                <%= raw(format_refund_rule(rule)) %>
+                              <% end %>
+                            </li>
+                          <% end %>
+                        </ul>
+                      <% end %>
+                    </div>
+                  <% end %>
+                  <div class="bg-zinc-100 rounded p-3 text-sm mt-4">
+                    <p class="mb-2"><strong>Notes:</strong></p>
+                    <ul class="list-disc list-inside space-y-1">
+                      <li>Members are responsible for the behavior and payments of their guests.</li>
+                      <li>
+                        <strong>Road closure cancellations</strong>
+                        may be credited for a future stay (contact the Cabin Master).
+                      </li>
+                      <li>
+                        <strong>Cash refunds</strong>
+                        incur a <strong>3% processing fee</strong>
+                        to cover credit card costs.
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </details>
+              <!-- Cabin Rules & Etiquette (Collapsible) -->
+              <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
+                <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+                  <span class="flex items-center">
+                    <span class="mr-2">🧺</span>
+                    <span>Cabin Rules & Etiquette</span>
+                  </span>
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+                  />
+                </summary>
+                <div>
+                  <div>
+                    <h3 class="font-semibold text-zinc-900 mb-2">General Guidelines</h3>
+                    <ul class="list-disc list-inside space-y-1">
+                      <li>Treat the cabin as your own — it's <strong>not a hotel</strong>.</li>
+                      <li>Respect quiet hours (<strong>10:00 PM – 7:00 AM</strong>).</li>
+                      <li>Be considerate — stairs and hallways carry sound easily.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h3 class="font-semibold text-zinc-900 mb-2">Common Areas & Storage</h3>
+                    <ul class="list-disc list-inside space-y-1">
+                      <li>Keep personal items out of shared spaces.</li>
+                      <li>Store <strong>ski boots</strong> in the laundry room racks.</li>
+                      <li>Store other gear in the <strong>outside stairwell</strong>.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h3 class="font-semibold text-zinc-900 mb-2">Pets</h3>
+                    <p>No pets are allowed — <strong>no exceptions.</strong></p>
+                  </div>
+                  <div>
+                    <h3 class="font-semibold text-zinc-900 mb-2">Smoking & Vaping</h3>
+                    <p><strong>Prohibited</strong> indoors and on covered decks.</p>
+                  </div>
+                  <div>
+                    <h3 class="font-semibold text-zinc-900 mb-2">Children</h3>
+                    <p>For safety, children should not play on or near the stairs.</p>
+                  </div>
+                </div>
+              </details>
+              <!-- What to Bring (Collapsible) -->
+              <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
+                <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+                  <span class="flex items-center">
+                    <span class="mr-2">🎒</span>
+                    <span>What to Bring</span>
+                  </span>
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+                  />
+                </summary>
+                <div>
+                  <div class="mb-4 p-3 bg-red-50 border-2 border-red-300 rounded-lg">
+                    <p class="font-bold text-red-900 text-sm mb-1">
+                      ⚠️ Critical: Linens and towels are NOT provided
+                    </p>
+                    <p class="text-xs text-red-800">
+                      You must bring your own bedding and towels for your stay.
+                    </p>
+                  </div>
+                  <p class="font-semibold mb-3">What to Bring Checklist:</p>
+                  <div class="space-y-2">
+                    <label class="flex items-start gap-2 cursor-pointer p-2 hover:bg-zinc-50 rounded">
+                      <input type="checkbox" class="mt-1" checked disabled />
+                      <div class="flex-1">
+                        <span class="text-sm font-semibold text-zinc-900">Bedding</span>
+                        <p class="text-xs text-zinc-600">Sheets, pillowcases, or sleeping bags</p>
+                      </div>
+                    </label>
+                    <label class="flex items-start gap-2 cursor-pointer p-2 hover:bg-zinc-50 rounded">
+                      <input type="checkbox" class="mt-1" checked disabled />
+                      <div class="flex-1">
+                        <span class="text-sm font-semibold text-zinc-900">Towels</span>
+                        <p class="text-xs text-zinc-600">For showers and the sauna</p>
+                      </div>
+                    </label>
+                    <label class="flex items-start gap-2 cursor-pointer p-2 hover:bg-zinc-50 rounded">
+                      <input type="checkbox" class="mt-1" checked disabled />
+                      <div class="flex-1">
+                        <span class="text-sm font-semibold text-zinc-900">Fire-starting</span>
+                        <p class="text-xs text-zinc-600">
+                          Kindling and fire starters (Wood is provided but may be damp)
+                        </p>
+                      </div>
+                    </label>
+                    <label class="flex items-start gap-2 cursor-pointer p-2 hover:bg-zinc-50 rounded">
+                      <input type="checkbox" class="mt-1" checked disabled />
+                      <div class="flex-1">
+                        <span class="text-sm font-semibold text-zinc-900">Food</span>
+                        <p class="text-xs text-zinc-600">
+                          Kitchen is fully equipped; bring all ingredients
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </details>
+              <!-- Rates & Seasonal Rules (Collapsible) -->
+              <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
+                <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+                  <span class="flex items-center">
+                    <span class="mr-2">💰</span>
+                    <span>Rates & Seasonal Rules</span>
+                  </span>
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+                  />
+                </summary>
+                <div>
+                  <div>
+                    <p class="font-semibold mb-2">Per-Person, Per-Night Rates</p>
+                    <ul class="list-disc list-inside space-y-1">
+                      <li>Adults: <strong>$45</strong></li>
+                      <li>Children (5–17): <strong>$25</strong></li>
+                      <li>Children under 5: <strong>Free</strong></li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p class="font-semibold mb-2">Seasonal Availability</p>
+                    <ul class="list-disc list-inside space-y-1">
+                      <li>
+                        <strong>Summer (May 1 – Nov 30):</strong>
+                        Full-cabin or room reservations allowed (up to 17 guests)
+                      </li>
+                      <li><strong>Winter (Dec – Apr):</strong> Individual room bookings only</li>
+                    </ul>
+                  </div>
+                </div>
+              </details>
+              <!-- Cleanliness & Chores (Collapsible) -->
+              <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
+                <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
+                  <span class="flex items-center">
+                    <span class="mr-2">🧹</span>
+                    <span>Cleanliness & Chores</span>
+                  </span>
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
+                  />
+                </summary>
+                <div>
+                  <p>
+                    Keeping the cabin affordable depends on everyone pitching in!
+                  </p>
+                  <div>
+                    <p class="font-semibold mb-2">Guests must:</p>
+                    <ul class="list-disc list-inside space-y-1">
+                      <li>Clean up after themselves</li>
+                      <li>Strip and clean their rooms</li>
+                      <li>Wash, dry, and store any used club bedding</li>
+                      <li>Leave the kitchen spotless and remove all food</li>
+                      <li>Secure bear-proof garbage lids</li>
+                    </ul>
+                  </div>
+                  <div class="bg-zinc-100 rounded p-3 text-sm mt-3">
+                    <p>
+                      <strong>Your cooperation helps keep cabin rates low for all members.</strong>
+                    </p>
+                  </div>
+                </div>
+              </details>
             </div>
-          </details>
-          <!-- Cabin Rules & Etiquette (Collapsible) -->
-          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
-            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
-              <span class="flex items-center">
-                <span class="mr-2">🧺</span>
-                <span>Cabin Rules & Etiquette</span>
-              </span>
-              <.icon
-                name="hero-chevron-down"
-                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
-              />
-            </summary>
-            <div>
-              <div>
-                <h3 class="font-semibold text-zinc-900 mb-2">General Guidelines</h3>
-                <ul class="list-disc list-inside space-y-1">
-                  <li>Treat the cabin as your own — it's <strong>not a hotel</strong>.</li>
-                  <li>Respect quiet hours (<strong>10:00 PM – 7:00 AM</strong>).</li>
-                  <li>Be considerate — stairs and hallways carry sound easily.</li>
-                </ul>
-              </div>
-              <div>
-                <h3 class="font-semibold text-zinc-900 mb-2">Common Areas & Storage</h3>
-                <ul class="list-disc list-inside space-y-1">
-                  <li>Keep personal items out of shared spaces.</li>
-                  <li>Store <strong>ski boots</strong> in the laundry room racks.</li>
-                  <li>Store other gear in the <strong>outside stairwell</strong>.</li>
-                </ul>
-              </div>
-              <div>
-                <h3 class="font-semibold text-zinc-900 mb-2">Pets</h3>
-                <p>No pets are allowed — <strong>no exceptions.</strong></p>
-              </div>
-              <div>
-                <h3 class="font-semibold text-zinc-900 mb-2">Smoking & Vaping</h3>
-                <p><strong>Prohibited</strong> indoors and on covered decks.</p>
-              </div>
-              <div>
-                <h3 class="font-semibold text-zinc-900 mb-2">Children</h3>
-                <p>For safety, children should not play on or near the stairs.</p>
-              </div>
-            </div>
-          </details>
-          <!-- What to Bring (Collapsible) -->
-          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
-            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
-              <span class="flex items-center">
-                <span class="mr-2">🎒</span>
-                <span>What to Bring</span>
-              </span>
-              <.icon
-                name="hero-chevron-down"
-                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
-              />
-            </summary>
-            <div>
-              <p class="font-semibold">
-                Please note: <strong>linens and towels are not provided.</strong>
-              </p>
-              <p class="font-semibold mb-2">Bring:</p>
-              <ul class="list-disc list-inside space-y-1">
-                <li>Sheets, towels, sleeping bags, and pillowcases</li>
-                <li>Food (kitchen includes microwave & basic spices)</li>
-                <li>Fire starters or kindling</li>
-              </ul>
-              <div class="bg-zinc-100 rounded p-3 text-sm mt-3">
-                <p>
-                  Firewood under the deck may be damp — best for sustaining fires, not starting them.
+          </div>
+        </div>
+        <!-- Mobile Sticky Footer (only visible on mobile) -->
+        <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-zinc-200 shadow-2xl z-50 p-4">
+          <div class="max-w-screen-xl mx-auto flex items-center justify-between gap-4">
+            <div class="flex-1">
+              <div :if={@calculated_price} class="text-right">
+                <p class="text-xs text-zinc-500 uppercase">Total</p>
+                <p class="text-xl font-black text-blue-600">
+                  <%= MoneyHelper.format_money!(@calculated_price) %>
                 </p>
               </div>
-            </div>
-          </details>
-          <!-- Rates & Seasonal Rules (Collapsible) -->
-          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
-            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
-              <span class="flex items-center">
-                <span class="mr-2">💰</span>
-                <span>Rates & Seasonal Rules</span>
-              </span>
-              <.icon
-                name="hero-chevron-down"
-                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
-              />
-            </summary>
-            <div>
-              <div>
-                <p class="font-semibold mb-2">Per-Person, Per-Night Rates</p>
-                <ul class="list-disc list-inside space-y-1">
-                  <li>Adults: <strong>$45</strong></li>
-                  <li>Children (5–17): <strong>$25</strong></li>
-                  <li>Children under 5: <strong>Free</strong></li>
-                </ul>
-              </div>
-              <div>
-                <p class="font-semibold mb-2">Seasonal Availability</p>
-                <ul class="list-disc list-inside space-y-1">
-                  <li>
-                    <strong>Summer (May 1 – Nov 30):</strong>
-                    Full-cabin or room reservations allowed (up to 17 guests)
-                  </li>
-                  <li><strong>Winter (Dec – Apr):</strong> Individual room bookings only</li>
-                </ul>
+              <div :if={!@calculated_price} class="text-sm text-zinc-500">
+                Select dates and rooms
               </div>
             </div>
-          </details>
-          <!-- Cleanliness & Chores (Collapsible) -->
-          <details class="border border-zinc-200 rounded p-4 bg-zinc-50">
-            <summary class="cursor-pointer font-semibold text-lg text-zinc-900 mb-4 list-none flex items-center justify-between">
-              <span class="flex items-center">
-                <span class="mr-2">🧹</span>
-                <span>Cleanliness & Chores</span>
-              </span>
-              <.icon
-                name="hero-chevron-down"
-                class="w-5 h-5 text-zinc-500 chevron-icon flex-shrink-0"
-              />
-            </summary>
-            <div>
-              <p>
-                Keeping the cabin affordable depends on everyone pitching in!
-              </p>
-              <div>
-                <p class="font-semibold mb-2">Guests must:</p>
-                <ul class="list-disc list-inside space-y-1">
-                  <li>Clean up after themselves</li>
-                  <li>Strip and clean their rooms</li>
-                  <li>Wash, dry, and store any used club bedding</li>
-                  <li>Leave the kitchen spotless and remove all food</li>
-                  <li>Secure bear-proof garbage lids</li>
-                </ul>
-              </div>
-              <div class="bg-zinc-100 rounded p-3 text-sm mt-3">
-                <p>
-                  <strong>Your cooperation helps keep cabin rates low for all members.</strong>
-                </p>
-              </div>
-            </div>
-          </details>
+            <.button
+              :if={@can_book}
+              phx-click="create-booking"
+              disabled={
+                !can_submit_booking?(
+                  @selected_booking_mode,
+                  @checkin_date,
+                  @checkout_date,
+                  get_selected_rooms_for_submit(assigns),
+                  @capacity_error,
+                  @price_error,
+                  @form_errors,
+                  @date_validation_errors
+                )
+              }
+              class={
+                if can_submit_booking?(
+                     @selected_booking_mode,
+                     @checkin_date,
+                     @checkout_date,
+                     get_selected_rooms_for_submit(assigns),
+                     @capacity_error,
+                     @price_error,
+                     @form_errors,
+                     @date_validation_errors
+                   ) do
+                  "px-6 py-3"
+                else
+                  "px-6 py-3 bg-zinc-200 text-zinc-600 hover:bg-zinc-300 opacity-50 cursor-not-allowed"
+                end
+              }
+            >
+              Book Now
+            </.button>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
+    <!-- Main Content for Non-Logged-In Users -->
+    <section :if={!@user} class="max-w-screen-xl mx-auto px-4 py-20">
+      <div class="space-y-12">
+        <!-- Welcome Header -->
+        <div class="text-center max-w-3xl mx-auto">
+          <h1 class="text-4xl md:text-5xl font-bold text-zinc-900 mb-4">
+            Experience Tahoe
+          </h1>
+          <p class="text-lg text-zinc-600 leading-relaxed">
+            Welcome to the <strong class="text-zinc-900">YSC Tahoe Cabin</strong>
+            — your year-round retreat in the heart of Lake Tahoe. Since <strong class="text-zinc-900">1993</strong>, the YSC has proudly owned this beautiful cabin, located just minutes from Tahoe City on the
+            <strong class="text-zinc-900">west shore</strong>
+            of <strong class="text-zinc-900">Lake Tahoe</strong>.
+          </p>
+        </div>
+        <!-- Experience Tahoe Feature Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+          <!-- Traditional Sauna -->
+          <div class="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="text-4xl flex-shrink-0">🔥</div>
+              <div class="flex-1">
+                <h3 class="text-xl font-black text-zinc-900 mb-2">Traditional Sauna</h3>
+                <p class="text-zinc-700 leading-relaxed">
+                  Experience the authentic Scandinavian wood-fired sauna. This traditional feature brings the Nordic wellness culture to the mountains, perfect for unwinding after a day on the slopes or trails.
+                </p>
+              </div>
+            </div>
+          </div>
+          <!-- Ski Proximity -->
+          <div class="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="text-4xl flex-shrink-0">🎿</div>
+              <div class="flex-1">
+                <h3 class="text-xl font-black text-zinc-900 mb-2">Ski Proximity</h3>
+                <p class="text-zinc-700 leading-relaxed">
+                  <strong class="text-blue-700">5 minutes</strong>
+                  to Homewood Ski Resort. <strong class="text-blue-700">20 minutes</strong>
+                  to Palisades Tahoe (site of the 1960 Winter Olympics) and Alpine Meadows. World-class skiing is right at your doorstep.
+                </p>
+              </div>
+            </div>
+          </div>
+          <!-- West Shore Magic -->
+          <div class="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="text-4xl flex-shrink-0">🌲</div>
+              <div class="flex-1">
+                <h3 class="text-xl font-black text-zinc-900 mb-2">West Shore Magic</h3>
+                <p class="text-zinc-700 leading-relaxed">
+                  Escape the tourist traps. Our cabin offers quiet, forested living on Tahoe's pristine west shore. Experience the authentic mountain lifestyle away from the crowds.
+                </p>
+              </div>
+            </div>
+          </div>
+          <!-- The Dugnad Spirit -->
+          <div class="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="text-4xl flex-shrink-0">🤝</div>
+              <div class="flex-1">
+                <h3 class="text-xl font-black text-zinc-900 mb-2">The Dugnad Spirit</h3>
+                <p class="text-zinc-700 leading-relaxed">
+                  Low rates (<strong class="text-purple-700">$45/adult</strong>) are possible because members steward the cabin together. This is <strong class="text-purple-700">your cabin — not a hotel</strong>. Members share responsibility for cleaning and maintenance, keeping costs affordable for everyone.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- CTA Card for Non-Logged-In Users -->
+        <div class="mt-12 max-w-2xl mx-auto">
+          <div class="p-8 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-2xl">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div class="flex-1 text-center md:text-left">
+                <h4 class="text-2xl font-black mb-2">Ready to Experience Tahoe?</h4>
+                <p class="text-blue-100">
+                  <%= raw(@booking_disabled_reason) %>
+                </p>
+              </div>
+              <.link
+                navigate={~p"/users/log-in"}
+                class="px-8 py-3 bg-white text-blue-600 font-bold rounded-lg hover:bg-blue-50 transition shadow-lg whitespace-nowrap"
+              >
+                Sign In to Book
+              </.link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
     """
   end
 
@@ -2246,10 +2843,20 @@ defmodule YscWeb.TahoeBookingLive do
   def handle_event("date-changed", %{"checkin_date" => checkin_date_str}, socket) do
     checkin_date = parse_date(checkin_date_str)
 
+    # Smart Weekend Rule: Auto-select Sunday if Saturday is selected
+    checkout_date =
+      if checkin_date && Date.day_of_week(checkin_date) == 6 do
+        # Saturday selected - auto-select Sunday
+        Date.add(checkin_date, 1)
+      else
+        socket.assigns.checkout_date
+      end
+
     socket =
       socket
       |> assign(
         checkin_date: checkin_date,
+        checkout_date: checkout_date,
         selected_room_id: nil,
         selected_room_ids: [],
         available_rooms: [],
@@ -2611,116 +3218,181 @@ defmodule YscWeb.TahoeBookingLive do
     {:noreply, socket}
   end
 
+  def handle_event("show-confirm-modal", _params, socket) do
+    {:noreply,
+     assign(socket, show_confirm_modal: true, linens_confirmed: false, chores_confirmed: false)}
+  end
+
+  def handle_event("close-confirm-modal", _params, socket) do
+    {:noreply, assign(socket, show_confirm_modal: false)}
+  end
+
+  def handle_event("toggle-linens-confirmation", _params, socket) do
+    {:noreply,
+     assign(socket, linens_confirmed: !Map.get(socket.assigns, :linens_confirmed, false))}
+  end
+
+  def handle_event("toggle-chores-confirmation", _params, socket) do
+    {:noreply,
+     assign(socket, chores_confirmed: !Map.get(socket.assigns, :chores_confirmed, false))}
+  end
+
   def handle_event("create-booking", _params, socket) do
-    case validate_and_create_booking(socket) do
-      {:ok, booking} ->
-        # Redirect to checkout page for payment
-        {:noreply,
-         socket
-         |> put_flash(:info, "Booking created! Please complete payment to confirm.")
-         |> push_navigate(to: ~p"/bookings/checkout/#{booking.id}")}
+    # Check if confirmation modal checkboxes are checked
+    unless Map.get(socket.assigns, :linens_confirmed, false) &&
+             Map.get(socket.assigns, :chores_confirmed, false) do
+      {:noreply, assign(socket, show_confirm_modal: true)}
+    else
+      case validate_and_create_booking(socket) do
+        {:ok, booking} ->
+          # Redirect to checkout page for payment
+          {:noreply,
+           socket
+           |> assign(show_confirm_modal: false, linens_confirmed: false, chores_confirmed: false)
+           |> put_flash(:info, "Booking created! Please complete payment to confirm.")
+           |> push_navigate(to: ~p"/bookings/checkout/#{booking.id}")}
 
-      {:error, :insufficient_capacity} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Sorry, there is not enough capacity for your requested dates.")
-         |> assign(
-           form_errors: %{
-             general: "Sorry, there is not enough capacity for your requested dates."
-           },
-           calculated_price: nil,
-           price_error: "Insufficient capacity"
-         )}
+        {:error, :insufficient_capacity} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Sorry, there is not enough capacity for your requested dates.")
+           |> assign(
+             form_errors: %{
+               general: "Sorry, there is not enough capacity for your requested dates."
+             },
+             calculated_price: nil,
+             price_error: "Insufficient capacity"
+           )}
 
-      {:error, :property_unavailable} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Sorry, the property is not available for your requested dates.")
-         |> assign(
-           form_errors: %{
-             general: "Sorry, the property is not available for your requested dates."
-           },
-           calculated_price: nil,
-           price_error: "Property unavailable"
-         )}
+        {:error, :property_unavailable} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Sorry, the property is not available for your requested dates.")
+           |> assign(
+             form_errors: %{
+               general: "Sorry, the property is not available for your requested dates."
+             },
+             calculated_price: nil,
+             price_error: "Property unavailable"
+           )}
 
-      {:error, :rooms_already_booked} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Sorry, some rooms are already booked for your requested dates.")
-         |> assign(
-           form_errors: %{
-             general: "Sorry, some rooms are already booked for your requested dates."
-           },
-           calculated_price: nil,
-           price_error: "Rooms unavailable"
-         )}
+        {:error, :rooms_already_booked} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Sorry, some rooms are already booked for your requested dates.")
+           |> assign(
+             form_errors: %{
+               general: "Sorry, some rooms are already booked for your requested dates."
+             },
+             calculated_price: nil,
+             price_error: "Rooms unavailable"
+           )}
 
-      {:error, :room_unavailable} ->
-        # Map room_unavailable to rooms_already_booked for consistent error handling
-        {:noreply,
-         socket
-         |> put_flash(:error, "Sorry, some rooms are already booked for your requested dates.")
-         |> assign(
-           form_errors: %{
-             general: "Sorry, some rooms are already booked for your requested dates."
-           },
-           calculated_price: nil,
-           price_error: "Rooms unavailable"
-         )}
+        {:error, :room_unavailable} ->
+          # Map room_unavailable to rooms_already_booked for consistent error handling
+          {:noreply,
+           socket
+           |> put_flash(:error, "Sorry, some rooms are already booked for your requested dates.")
+           |> assign(
+             form_errors: %{
+               general: "Sorry, some rooms are already booked for your requested dates."
+             },
+             calculated_price: nil,
+             price_error: "Rooms unavailable"
+           )}
 
-      {:error, :stale_inventory} ->
-        {:noreply,
-         socket
-         |> put_flash(
-           :error,
-           "The availability changed while you were booking. Please refresh the calendar and try again."
-         )
-         |> assign(
-           form_errors: %{
-             general:
-               "The availability changed while you were booking. Please refresh the calendar and try again."
-           },
-           calculated_price: nil,
-           price_error: "Availability changed"
-         )}
+        {:error, :stale_inventory} ->
+          {:noreply,
+           socket
+           |> put_flash(
+             :error,
+             "The availability changed while you were booking. Please refresh the calendar and try again."
+           )
+           |> assign(
+             form_errors: %{
+               general:
+                 "The availability changed while you were booking. Please refresh the calendar and try again."
+             },
+             calculated_price: nil,
+             price_error: "Availability changed"
+           )}
 
-      {:error, :invalid_parameters} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Please fill in all required fields.")
-         |> assign(
-           form_errors: %{general: "Please fill in all required fields."},
-           calculated_price: nil,
-           price_error: "Invalid parameters"
-         )}
+        {:error, :invalid_parameters} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Please fill in all required fields.")
+           |> assign(
+             form_errors: %{general: "Please fill in all required fields."},
+             calculated_price: nil,
+             price_error: "Invalid parameters",
+             show_confirm_modal: false
+           )}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        form_errors = format_errors(changeset)
-        error_message = "Please fix the errors above and try again."
+        {:error, changeset} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Please fix the errors below.")
+           |> assign(
+             form_errors: format_errors(changeset),
+             calculated_price: nil,
+             price_error: "Validation errors",
+             show_confirm_modal: false
+           )}
 
-        {:noreply,
-         socket
-         |> put_flash(:error, error_message)
-         |> assign(
-           form_errors: form_errors,
-           calculated_price: nil,
-           price_error: "Please fix the errors above"
-         )}
+        {:error, %Ecto.Changeset{} = changeset} ->
+          form_errors = format_errors(changeset)
+          error_message = "Please fix the errors above and try again."
 
-      {:error, _reason} ->
-        # Handle any other error atoms that weren't explicitly handled above
-        {:noreply,
-         socket
-         |> put_flash(:error, "An error occurred while creating your booking. Please try again.")
-         |> assign(
-           form_errors: %{
-             general: "An error occurred while creating your booking. Please try again."
-           },
-           calculated_price: nil,
-           price_error: "Booking failed"
-         )}
+          {:noreply,
+           socket
+           |> put_flash(:error, error_message)
+           |> assign(
+             form_errors: form_errors,
+             calculated_price: nil,
+             price_error: "Please fix the errors above",
+             show_confirm_modal: false
+           )}
+
+        {:error, _reason} ->
+          # Handle any other error atoms that weren't explicitly handled above
+          {:noreply,
+           socket
+           |> put_flash(
+             :error,
+             "An error occurred while creating your booking. Please try again."
+           )
+           |> assign(
+             form_errors: %{
+               general: "An error occurred while creating your booking. Please try again."
+             },
+             calculated_price: nil,
+             price_error: "Booking failed",
+             show_confirm_modal: false
+           )}
+      end
     end
+  end
+
+  def handle_event("toggle-terms-agreement", _params, socket) do
+    {:noreply, assign(socket, terms_agreed: !Map.get(socket.assigns, :terms_agreed, false))}
+  end
+
+  def handle_event("show-terms-modal", _params, socket) do
+    # Switch to rules tab to show terms
+    {:noreply, assign(socket, info_tab: :rules)}
+  end
+
+  def handle_event("switch-info-tab", %{"tab" => tab}, socket) do
+    info_tab =
+      case tab do
+        "about" -> :about
+        "rules" -> :rules
+        "location" -> :location
+        "preparation" -> :preparation
+        _ -> :about
+      end
+
+    {:noreply, assign(socket, info_tab: info_tab)}
   end
 
   def handle_event("switch-tab", %{"tab" => tab}, socket) do

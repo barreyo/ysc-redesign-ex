@@ -159,8 +159,8 @@ defmodule Ysc.Events do
           lock_version: e.lock_version,
           inserted_at: e.inserted_at,
           updated_at: e.updated_at,
-          recent_tickets_count: count(tt.id),
-          selling_fast: fragment("count(?) >= 5", tt.id)
+          recent_tickets_count: count(t.id),
+          selling_fast: fragment("count(?) >= 5", t.id)
         },
         order_by: [
           # First sort by state: non-cancelled events first, cancelled events last
@@ -221,8 +221,8 @@ defmodule Ysc.Events do
           lock_version: e.lock_version,
           inserted_at: e.inserted_at,
           updated_at: e.updated_at,
-          recent_tickets_count: count(tt.id),
-          selling_fast: fragment("count(?) >= 5", tt.id)
+          recent_tickets_count: count(t.id),
+          selling_fast: fragment("count(?) >= 5", t.id)
         },
         order_by: [
           # Sort by start_date descending (most recent past events first)
@@ -864,7 +864,7 @@ defmodule Ysc.Events do
       |> where([t, tt], tt.type != :donation)
       |> Repo.aggregate(:count, :id)
 
-    recent_ticket_count >= 10
+    recent_ticket_count >= 5
   end
 
   @doc """

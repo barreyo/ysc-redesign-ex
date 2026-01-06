@@ -824,6 +824,11 @@ defmodule YscWeb.CoreComponents do
   attr(:property, :atom, default: nil)
   attr(:today, :any, default: nil)
 
+  attr(:allow_saturdays, :boolean,
+    default: false,
+    doc: "Allow Saturday selection (default: false for booking restrictions)"
+  )
+
   def date_range_picker(assigns) do
     ~H"""
     <.live_component
@@ -842,6 +847,7 @@ defmodule YscWeb.CoreComponents do
       date_tooltips={@date_tooltips}
       property={@property}
       today={@today}
+      allow_saturdays={@allow_saturdays}
     />
     <div phx-feedback-for={@start_date_field.name}>
       <.error :for={msg <- @start_date_field.errors}><%= format_form_error(msg) %></.error>

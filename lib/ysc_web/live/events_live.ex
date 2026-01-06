@@ -12,10 +12,10 @@ defmodule YscWeb.EventsLive do
       <%!-- The "Masthead" Header --%>
       <div class="max-w-screen-xl mx-auto px-4 mb-16">
         <div class="text-center py-12 border-y border-zinc-200">
-          <p class="text-xs font-black text-blue-400 uppercase tracking-widest mb-4">
+          <p class="text-xs font-black text-blue-400 uppercase tracking-[0.2em] mb-4">
             Events
           </p>
-          <h1 class="text-6xl md:text-8xl font-black text-zinc-900 tracking-tighter">
+          <h1 class="text-5xl md:text-7xl font-black text-zinc-900">
             What's Next
           </h1>
         </div>
@@ -30,7 +30,16 @@ defmodule YscWeb.EventsLive do
           >
             <div class="relative flex flex-col sm:block sm:aspect-[16/10] sm:rounded-xl sm:overflow-hidden sm:shadow-2xl">
               <%!-- Image container --%>
-              <div class="relative aspect-[16/9] w-full overflow-hidden sm:absolute sm:inset-0 sm:aspect-auto sm:h-full">
+              <div class={[
+                "relative aspect-[16/9] w-full overflow-hidden sm:absolute sm:inset-0 sm:aspect-auto sm:h-full",
+                if(
+                  (Map.get(@hero_event, :state) || Map.get(@hero_event, "state")) in [
+                    :cancelled,
+                    "cancelled"
+                  ],
+                  do: "grayscale"
+                )
+              ]}>
                 <canvas
                   id={"blur-hash-hero-#{@hero_event.id}"}
                   src={get_blur_hash(@hero_event.image)}
@@ -54,30 +63,35 @@ defmodule YscWeb.EventsLive do
                 />
 
                 <%!-- Overlay gradient for text readability (hidden on mobile, shown on sm+) --%>
-                <div class="hidden sm:block absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent">
+                <div class="hidden sm:block absolute inset-0 z-[2] bg-gradient-to-t from-zinc-900/80 via-zinc-900/40 to-transparent">
                 </div>
               </div>
 
               <%!-- Content (stacked on mobile, overlaid on sm+) --%>
               <div class="relative z-[3] flex flex-col p-5 sm:absolute sm:inset-0 sm:justify-end sm:p-8 lg:p-12 transition-all duration-500">
                 <div class="max-w-3xl">
-                  <div class="flex flex-wrap items-center gap-2 mb-4">
-                    <span class="px-2.5 py-1 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm sm:bg-blue-500/90 sm:backdrop-blur-md sm:border sm:border-blue-400">
-                      <.icon name="hero-calendar-solid" class="w-3 h-3 inline me-1" />Happening Soon
+                  <div class="flex flex-wrap items-center gap-2 mb-4 grayscale-0">
+                    <span class="px-2.5 py-1 bg-slate-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm sm:bg-slate-500/90 sm:backdrop-blur-md sm:border sm:border-slate-400 animate-badge-shine-slate">
+                      <.icon name="hero-calendar-solid" class="w-3 h-3 inline me-1 relative z-10" />Happening Soon
                     </span>
                     <%= for badge <- get_hero_event_badges(@hero_event) do %>
                       <span class={[
                         "px-2.5 py-1 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm",
                         badge_class_mobile(badge),
-                        badge_class_desktop_responsive(badge)
+                        badge_class_desktop_responsive(badge),
+                        if(badge.text == "Going Fast!", do: "animate-badge-shine-emerald", else: "")
                       ]}>
-                        <.icon :if={badge.icon} name={badge.icon} class="w-3 h-3 inline me-1" />
-                        <%= badge.text %>
+                        <.icon
+                          :if={badge.icon}
+                          name={badge.icon}
+                          class="w-3 h-3 inline me-1 relative z-10"
+                        />
+                        <span class="relative z-10"><%= badge.text %></span>
                       </span>
                     <% end %>
                   </div>
 
-                  <h2 class="text-3xl font-black leading-tight tracking-tighter text-zinc-900 sm:text-zinc-50 sm:text-4xl lg:text-5xl xl:text-6xl mb-3 transition-colors duration-300">
+                  <h2 class="text-3xl font-black leading-tight tracking-tighter text-zinc-900 sm:text-zinc-50 sm:text-4xl lg:text-5xl xl:text-6xl mb-3 transition-colors duration-300 sm:drop-shadow-md">
                     <%= @hero_event.title %>
                   </h2>
 
@@ -98,14 +112,17 @@ defmodule YscWeb.EventsLive do
 
                   <p
                     :if={@hero_event.description}
-                    class="text-zinc-600 sm:text-zinc-200 text-sm sm:text-base lg:text-lg leading-relaxed line-clamp-2 mb-6 max-w-2xl"
+                    class="text-zinc-600 sm:text-zinc-200 text-sm sm:text-base lg:text-lg leading-relaxed line-clamp-2 mb-6 max-w-2xl sm:drop-shadow-md"
                   >
                     <%= @hero_event.description %>
                   </p>
 
-                  <div class="flex items-center pt-4 border-t border-zinc-100 sm:border-white/20">
-                    <span class="rounded-xl bg-zinc-900 px-4 py-1.5 text-xs sm:text-sm font-black text-white sm:bg-white sm:text-zinc-900 shadow-sm">
+                  <div class="flex items-center gap-4 pt-4 border-t border-zinc-100 sm:border-white/20">
+                    <span class="text-xs sm:text-sm font-black text-zinc-900 sm:text-white">
                       <%= @hero_event.pricing_info.display_text %>
+                    </span>
+                    <span class="hidden sm:inline-flex items-center gap-1 text-sm font-bold text-white/90 hover:text-white transition-colors">
+                      View Details <.icon name="hero-arrow-right" class="w-4 h-4" />
                     </span>
                   </div>
                 </div>
@@ -131,7 +148,7 @@ defmodule YscWeb.EventsLive do
           <aside class="lg:col-span-3">
             <div class="sticky top-24 space-y-8">
               <div class="p-8 bg-zinc-50 rounded-xl border border-zinc-100">
-                <h4 class="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">
+                <h4 class="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-6">
                   Upcoming Events
                 </h4>
                 <p class="text-sm text-zinc-600 leading-relaxed">
@@ -147,7 +164,7 @@ defmodule YscWeb.EventsLive do
       <%= if @past_events_exist do %>
         <section class="mt-32 py-16 border-t border-zinc-100">
           <div class="max-w-screen-xl mx-auto px-4">
-            <h2 class="text-3xl font-black text-zinc-300 tracking-tighter italic mb-12 group relative inline-block">
+            <h2 class="text-3xl font-black text-zinc-500 tracking-tighter italic mb-12 group relative inline-block">
               <span class="inline-block transition-all duration-500 ease-in-out group-hover:-translate-y-full group-hover:opacity-0">
                 <%= random_past_events_title() %>
               </span>
@@ -371,7 +388,7 @@ defmodule YscWeb.EventsLive do
           [
             %{
               text: "Just Added",
-              class: "bg-blue-500/90 border-blue-400 text-white",
+              class: "bg-slate-500/90 border-slate-400 text-white",
               icon: nil
             }
           ]
@@ -400,7 +417,7 @@ defmodule YscWeb.EventsLive do
           [
             %{
               text: "Going Fast!",
-              class: "bg-amber-500/90 border-amber-400 text-white",
+              class: "bg-emerald-600/90 border-emerald-500 text-white",
               icon: "hero-bolt-solid"
             }
           ]
@@ -421,9 +438,9 @@ defmodule YscWeb.EventsLive do
     cond do
       text == "Cancelled" -> "bg-red-600"
       text == "Sold Out" -> "bg-red-600"
-      text == "Just Added" -> "bg-blue-600"
+      text == "Just Added" -> "bg-slate-600"
       String.contains?(text, "left") -> "bg-sky-600"
-      text == "Going Fast!" -> "bg-amber-600"
+      text == "Going Fast!" -> "bg-emerald-600"
       true -> "bg-zinc-600"
     end
   end
@@ -436,9 +453,9 @@ defmodule YscWeb.EventsLive do
       cond do
         text == "Cancelled" -> "sm:bg-red-500/90 sm:border-red-400"
         text == "Sold Out" -> "sm:bg-red-500/90 sm:border-red-400"
-        text == "Just Added" -> "sm:bg-blue-500/90 sm:border-blue-400"
+        text == "Just Added" -> "sm:bg-slate-500/90 sm:border-slate-400"
         String.contains?(text, "left") -> "sm:bg-sky-500/90 sm:border-sky-400"
-        text == "Going Fast!" -> "sm:bg-amber-500/90 sm:border-amber-400"
+        text == "Going Fast!" -> "sm:bg-emerald-600/90 sm:border-emerald-500"
         true -> "sm:bg-zinc-500/90 sm:border-zinc-400"
       end
 

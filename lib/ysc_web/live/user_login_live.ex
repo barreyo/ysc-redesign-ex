@@ -61,6 +61,7 @@ defmodule YscWeb.UserLoginLive do
         phx-update="ignore"
         class="pt-8"
       >
+        <input type="hidden" name="redirect_to" value={@redirect_to} />
         <.input field={@form[:email]} type="email" label="Email" required />
         <.input field={@form[:password]} type="password-toggle" label="Password" required />
 
@@ -83,7 +84,7 @@ defmodule YscWeb.UserLoginLive do
     """
   end
 
-  def mount(_params, session, socket) do
+  def mount(params, session, socket) do
     email = Phoenix.Flash.get(socket.assigns.flash, :email)
     form = to_form(%{"email" => email}, as: "user")
 
@@ -94,9 +95,24 @@ defmodule YscWeb.UserLoginLive do
       |> Kernel.||(Map.get(session, "failed_login_attempts"))
       |> Kernel.||(0)
 
+    # Capture redirect_to from URL params and validate it's an internal path
+    redirect_to =
+      case params do
+        %{"redirect_to" => redirect_path} when is_binary(redirect_path) ->
+          if YscWeb.UserAuth.valid_internal_redirect?(redirect_path) do
+            redirect_path
+          else
+            nil
+          end
+
+        _ ->
+          nil
+      end
+
     {:ok,
      assign(socket, form: form)
      |> assign(:page_title, "Sign in")
-     |> assign(:failed_login_attempts, failed_login_attempts), temporary_assigns: [form: form]}
+     |> assign(:failed_login_attempts, failed_login_attempts)
+     |> assign(:redirect_to, redirect_to), temporary_assigns: [form: form]}
   end
 end

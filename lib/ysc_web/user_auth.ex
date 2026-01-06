@@ -36,11 +36,24 @@ defmodule YscWeb.UserAuth do
     token = Accounts.generate_user_session_token(user)
     user_return_to = get_session(conn, :user_return_to)
 
+    # Validate redirect_to if provided
+    validated_redirect =
+      cond do
+        redirect_to && valid_internal_redirect?(redirect_to) ->
+          redirect_to
+
+        user_return_to && valid_internal_redirect?(user_return_to) ->
+          user_return_to
+
+        true ->
+          nil
+      end
+
     conn
     |> renew_session()
     |> put_token_in_session(token)
     |> maybe_write_remember_me_cookie(token, params)
-    |> redirect(to: redirect_to || user_return_to || signed_in_path_for_user(user, conn))
+    |> redirect(to: validated_redirect || signed_in_path_for_user(user, conn))
   end
 
   # Get the appropriate signed-in path for a user
@@ -369,6 +382,58 @@ defmodule YscWeb.UserAuth do
   end
 
   defp not_approved_path(_conn), do: ~p"/pending-review"
+
+  @doc """
+  Validates that a redirect URL is an internal path and not an external URL.
+
+  This prevents open redirect vulnerabilities by ensuring redirects only go to
+  paths within the application, not to external websites.
+
+  ## Examples
+
+      iex> valid_internal_redirect?("/events/123")
+      true
+
+      iex> valid_internal_redirect?("/users/settings")
+      true
+
+      iex> valid_internal_redirect?("https://evil.com")
+      false
+
+      iex> valid_internal_redirect?("//evil.com")
+      false
+
+      iex> valid_internal_redirect?("javascript:alert(1)")
+      false
+  """
+  def valid_internal_redirect?(path) when is_binary(path) do
+    # First check for dangerous patterns in the raw string
+    if String.contains?(path, ["//", "javascript:", "data:", "vbscript:", "://"]) do
+      false
+    else
+      # Parse the path to check if it's a valid URI
+      case URI.parse(path) do
+        # Must be a relative path (no scheme, no host)
+        %URI{scheme: nil, host: nil, path: path_part} when is_binary(path_part) ->
+          # Check that path starts with / (relative internal path)
+          String.starts_with?(path_part, "/")
+
+        # Reject any URI with a scheme (http://, https://, etc.)
+        %URI{scheme: scheme} when not is_nil(scheme) ->
+          false
+
+        # Reject any URI with a host (external domain)
+        %URI{host: host} when not is_nil(host) ->
+          false
+
+        # Reject malformed URIs or empty paths
+        _ ->
+          false
+      end
+    end
+  end
+
+  def valid_internal_redirect?(_), do: false
 
   @doc """
   Checks if a membership is active.

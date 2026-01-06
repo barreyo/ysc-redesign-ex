@@ -241,6 +241,7 @@ defmodule YscWeb.AdminEventsNewLive do
                     start_date_field={@form[:start_date]}
                     end_date_field={@form[:end_date]}
                     min={Date.utc_today()}
+                    allow_saturdays={true}
                   />
                 </div>
 

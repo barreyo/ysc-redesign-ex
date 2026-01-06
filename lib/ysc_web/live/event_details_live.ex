@@ -78,7 +78,7 @@ defmodule YscWeb.EventDetailsLive do
                   <%= if @event_selling_fast do %>
                     <span class="h-3 w-px bg-zinc-200"></span>
                     <span class="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded uppercase tracking-widest">
-                      High Demand
+                      Going Fast!
                     </span>
                   <% end %>
                 </div>
@@ -587,7 +587,7 @@ defmodule YscWeb.EventDetailsLive do
                   </div>
 
                   <div class="p-8 space-y-6 shadow-[inset_0_10px_20px_-15px_rgba(0,0,0,0.05)]">
-                    <%= if @event_selling_fast && !@event_at_capacity do %>
+                    <%= if (@event_selling_fast || (@sold_percentage != nil && @sold_percentage >= 85)) && !@event_at_capacity do %>
                       <% available_capacity = @available_capacity %>
                       <% sold_percentage = @sold_percentage %>
                       <div class="p-4 bg-orange-50 rounded-xl border border-orange-100 space-y-3">
@@ -635,15 +635,8 @@ defmodule YscWeb.EventDetailsLive do
                           :if={@available_capacity != :unlimited && !@event_at_capacity}
                           class="flex items-center gap-3 text-sm text-zinc-600 font-medium"
                         >
-                          <.icon name="hero-users" class="w-4 h-4 text-blue-500" />
+                          <.icon name="hero-users" class="w-5 h-5 text-blue-500" />
                           <%= @available_capacity %> Spots Available
-                        </div>
-                        <div
-                          :if={@active_membership?}
-                          class="flex items-center gap-3 text-sm text-zinc-600 font-medium"
-                        >
-                          <.icon name="hero-check-badge" class="w-4 h-4 text-blue-500" />
-                          Member Exclusive
                         </div>
                         <%= if @active_membership? && @attendees_count != nil && @attendees_count >= 5 && @attendees_list != nil && length(@attendees_list) > 0 do %>
                           <% attendees_to_show = Enum.take(@attendees_list, 5) %>

@@ -30,7 +30,7 @@ defmodule YscWeb.Layouts do
 
       # Booking pages (both logged in and not logged in)
       String.starts_with?(conn_or_path, "/bookings/tahoe") ->
-        false
+        true
 
       String.starts_with?(conn_or_path, "/bookings/clear-lake") ->
         true
