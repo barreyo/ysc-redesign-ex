@@ -1,7 +1,7 @@
 defmodule YscWeb.OrderConfirmationLive do
   use YscWeb, :live_view
 
-  alias Ysc.Tickets
+  alias Ysc.Tickets.TicketOrder
   alias Ysc.Events
   alias Ysc.Ledgers.Refund
   alias Ysc.MoneyHelper
@@ -10,19 +10,36 @@ defmodule YscWeb.OrderConfirmationLive do
 
   @impl true
   def mount(%{"order_id" => order_id} = params, _session, socket) do
-    # Show confetti only if confetti=true parameter is present (from checkout redirect)
-    show_confetti = Map.get(params, "confetti") == "true"
+    user = socket.assigns.current_user
 
-    case Tickets.get_ticket_order(order_id) do
-      nil ->
-        {:ok,
-         socket
-         |> put_flash(:error, "Order not found")
-         |> redirect(to: ~p"/events")}
+    if is_nil(user) do
+      {:ok,
+       socket
+       |> put_flash(:error, "You must be signed in to view this order.")
+       |> redirect(to: ~p"/events")}
+    else
+      # SECURITY: Filter by user_id in the database query to prevent unauthorized access
+      # This ensures we only fetch orders that belong to the current user
+      # Show confetti only if confetti=true parameter is present (from checkout redirect)
+      show_confetti = Map.get(params, "confetti") == "true"
 
-      ticket_order ->
-        # Verify the order belongs to the current user
-        if ticket_order.user_id == socket.assigns.current_user.id do
+      case from(to in TicketOrder,
+             where: to.id == ^order_id and to.user_id == ^user.id,
+             preload: [
+               :user,
+               event: [agendas: :agenda_items],
+               payment: :payment_method,
+               tickets: :ticket_tier
+             ]
+           )
+           |> Repo.one() do
+        nil ->
+          {:ok,
+           socket
+           |> put_flash(:error, "Order not found")
+           |> redirect(to: ~p"/events")}
+
+        ticket_order ->
           # Load the event with cover image preloaded
           event =
             Events.get_event!(ticket_order.event_id)
@@ -40,16 +57,11 @@ defmodule YscWeb.OrderConfirmationLive do
            socket
            |> assign(:ticket_order, ticket_order)
            |> assign(:event, event)
-           |> assign(:user_first_name, socket.assigns.current_user.first_name || "Member")
+           |> assign(:user_first_name, user.first_name || "Member")
            |> assign(:refund_data, refund_data)
            |> assign(:show_confetti, show_confetti)
            |> assign(:page_title, "Order Confirmation")}
-        else
-          {:ok,
-           socket
-           |> put_flash(:error, "You don't have permission to view this order")
-           |> redirect(to: ~p"/events")}
-        end
+      end
     end
   end
 

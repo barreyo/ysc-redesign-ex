@@ -31,6 +31,7 @@ defmodule Ysc.Bookings do
     RoomCategory,
     Blackout,
     Booking,
+    BookingGuest,
     DoorCode,
     RefundPolicy,
     RefundPolicyRule,
@@ -535,6 +536,53 @@ defmodule Ysc.Bookings do
   """
   def delete_booking(%Booking{} = booking) do
     Repo.delete(booking)
+  end
+
+  ## Booking Guests
+
+  @doc """
+  Lists all guests for a booking, ordered by order_index.
+  """
+  def list_booking_guests(booking_id) do
+    from(bg in BookingGuest,
+      where: bg.booking_id == ^booking_id,
+      order_by: [asc: bg.order_index]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Creates multiple booking guests atomically.
+  """
+  def create_booking_guests(booking_id, guests_attrs) when is_list(guests_attrs) do
+    import Ecto.Multi
+
+    multi =
+      Enum.reduce(guests_attrs, new(), fn {index, guest_attrs}, acc ->
+        guest_attrs_with_booking =
+          Map.merge(guest_attrs, %{"booking_id" => booking_id, "order_index" => index})
+
+        changeset = BookingGuest.changeset(%BookingGuest{}, guest_attrs_with_booking)
+
+        insert(acc, {:guest, index}, changeset)
+      end)
+
+    case Repo.transaction(multi) do
+      {:ok, results} ->
+        guests = Enum.map(results, fn {_key, guest} -> guest end)
+        {:ok, guests}
+
+      {:error, _key, changeset, _changes} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
+  Deletes all guests for a booking.
+  """
+  def delete_booking_guests(booking_id) do
+    from(bg in BookingGuest, where: bg.booking_id == ^booking_id)
+    |> Repo.delete_all()
   end
 
   ## Blackouts

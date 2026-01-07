@@ -66,11 +66,38 @@ defmodule YscWeb.BookingCheckoutLive do
                 # Calculate price
                 case calculate_booking_price(booking) do
                   {:ok, total_price, price_breakdown} ->
-                    # Preload user association
-                    booking = Repo.preload(booking, [:user])
+                    # Preload user association and booking guests
+                    booking = Repo.preload(booking, [:user, :booking_guests])
 
                     # Re-check expiration after price calculation
                     is_expired = booking_expired?(booking)
+
+                    # Determine checkout step based on booking mode and existing guests
+                    {checkout_step, guest_info_form} =
+                      if booking.booking_mode == :room do
+                        existing_guests = booking.booking_guests || []
+
+                        if length(existing_guests) > 0 do
+                          # Guests already saved, go to payment
+                          {:payment, nil}
+                        else
+                          # Need to collect guest info
+                          form = initialize_guest_forms(booking, user)
+                          {:guest_info, form}
+                        end
+                      else
+                        # Buyout bookings skip guest info
+                        {:payment, nil}
+                      end
+
+                    # Load family members for guest selection
+                    family_members = Ysc.Accounts.get_family_group(user)
+                    # Exclude the current user from family members list
+                    other_family_members =
+                      Enum.reject(family_members, fn member -> member.id == user.id end)
+
+                    # Initialize show_price_details for mobile (default to false on mobile)
+                    show_price_details = false
 
                     socket =
                       assign(socket,
@@ -81,7 +108,15 @@ defmodule YscWeb.BookingCheckoutLive do
                         payment_error: nil,
                         show_payment_form: false,
                         is_expired: is_expired,
-                        timezone: timezone
+                        timezone: timezone,
+                        checkout_step: checkout_step,
+                        guest_info_form: guest_info_form,
+                        guest_info_errors: %{},
+                        family_members: family_members,
+                        other_family_members: other_family_members,
+                        guests_for_me: %{},
+                        selected_family_members_for_guests: %{},
+                        show_price_details: show_price_details
                       )
 
                     if is_expired do
@@ -91,20 +126,26 @@ defmodule YscWeb.BookingCheckoutLive do
                            "This booking has expired and is no longer available for payment."
                        )}
                     else
-                      # Create Stripe payment intent
-                      case create_payment_intent(booking, total_price, user) do
-                        {:ok, payment_intent} ->
-                          {:ok,
-                           assign(socket,
-                             payment_intent: payment_intent,
-                             show_payment_form: true
-                           )}
+                      # Only create payment intent if we're on the payment step
+                      if checkout_step == :payment do
+                        # Create Stripe payment intent
+                        case create_payment_intent(booking, total_price, user) do
+                          {:ok, payment_intent} ->
+                            {:ok,
+                             assign(socket,
+                               payment_intent: payment_intent,
+                               show_payment_form: true
+                             )}
 
-                        {:error, reason} ->
-                          {:ok,
-                           assign(socket,
-                             payment_error: "Failed to initialize payment: #{reason}"
-                           )}
+                          {:error, reason} ->
+                            {:ok,
+                             assign(socket,
+                               payment_error: "Failed to initialize payment: #{reason}"
+                             )}
+                        end
+                      else
+                        # On guest info step, don't create payment intent yet
+                        {:ok, socket}
                       end
                     end
 
@@ -180,8 +221,362 @@ defmodule YscWeb.BookingCheckoutLive do
               </div>
             </div>
           </div>
+          <!-- Guest Information Section (for room bookings) -->
+          <div
+            :if={@checkout_step == :guest_info}
+            class="bg-white rounded-lg border border-zinc-200 p-8 shadow-sm"
+          >
+            <h2 class="text-xl font-bold mb-2">Guest Information</h2>
+            <%!-- Capacity Summary --%>
+            <% room_names =
+              if Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0,
+                do: Enum.map(@booking.rooms, & &1.name) |> Enum.join(", "),
+                else: "your selected room" %>
+            <p class="text-sm text-zinc-600 mb-4">
+              You are booking <%= room_names %> for <%= @booking.guests_count || 1 %> <%= if (@booking.guests_count ||
+                                                                                                1) ==
+                                                                                               1,
+                                                                                             do:
+                                                                                               "adult",
+                                                                                             else:
+                                                                                               "adults" %>
+              <%= if @booking.children_count && @booking.children_count > 0 do %>
+                and <%= @booking.children_count %> <%= if @booking.children_count == 1,
+                  do: "child",
+                  else: "children" %>
+              <% end %>.
+            </p>
+            <%!-- Booking Representative Header --%>
+            <% booking_user_guest =
+              if @guest_info_form do
+                Enum.find(@guest_info_form.source, fn {_, guest_data} ->
+                  Map.get(guest_data, "is_booking_user") == true
+                end)
+              end %>
+            <%= if booking_user_guest do %>
+              <% {_, booking_user_data} = booking_user_guest %>
+              <div class="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
+                <div class="flex items-start gap-3">
+                  <div class="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden ring-2 ring-blue-200">
+                    <%= if assigns[:current_user] do %>
+                      <.user_avatar_image
+                        email={assigns[:current_user].email || ""}
+                        user_id={to_string(assigns[:current_user].id)}
+                        country={assigns[:current_user].most_connected_country || "SE"}
+                        class="w-full h-full object-cover"
+                      />
+                    <% else %>
+                      <.icon name="hero-user-circle" class="w-full h-full text-blue-600 p-2" />
+                    <% end %>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <p class="text-sm font-semibold text-blue-900">Booking Representative</p>
+                      <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded">
+                        Required
+                      </span>
+                    </div>
+                    <p class="text-sm text-blue-700 font-medium mb-2">
+                      <%= Map.get(booking_user_data, "first_name", "") %> <%= Map.get(
+                        booking_user_data,
+                        "last_name",
+                        ""
+                      ) %>
+                    </p>
+                    <p class="text-xs text-blue-600">
+                      You as the booking member must be present. You are already included in the total count above.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+            <%!-- Error Summary (visible) --%>
+            <%= if map_size(@guest_info_errors || %{}) > 0 do %>
+              <% error_count =
+                @guest_info_errors
+                |> Enum.reject(fn {key, _} -> key == :general end)
+                |> Enum.count() %>
+              <%= if error_count > 0 do %>
+                <div
+                  id="guest-errors-summary"
+                  role="alert"
+                  aria-live="polite"
+                  aria-atomic="true"
+                  class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
+                >
+                  <p class="text-sm font-semibold text-red-800">
+                    <%= error_count %> <%= if error_count == 1, do: "guest is", else: "guests are" %> missing required information.
+                  </p>
+                </div>
+              <% end %>
+            <% end %>
+            <!-- General Errors -->
+            <div
+              :if={@guest_info_errors[:general]}
+              class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
+              role="alert"
+            >
+              <p class="text-sm text-red-800"><%= @guest_info_errors[:general] %></p>
+            </div>
+            <!-- Guest Information Form -->
+            <form
+              phx-change="validate-guest-info"
+              phx-submit="save-guest-info"
+              phx-debounce="300"
+              id="guest-info-form"
+            >
+              <div class="space-y-6">
+                <%= if @guest_info_form do %>
+                  <%!-- Filter to only show guests up to the expected total --%>
+                  <% expected_total = (@booking.guests_count || 1) + (@booking.children_count || 0) %>
+                  <% guest_entries =
+                    @guest_info_form.source
+                    |> Enum.map(fn {index_str, guest_data} ->
+                      {String.to_integer(index_str), {index_str, guest_data}}
+                    end)
+                    |> Enum.sort_by(fn {order_index, _} -> order_index end)
+                    |> Enum.take(expected_total)
+                    |> Enum.map(fn {_order_index, {index_str, guest_data}} ->
+                      {index_str, guest_data}
+                    end) %>
+                  <%!-- Filter out booking user from guest list (shown in header) --%>
+                  <% non_booking_guests =
+                    guest_entries
+                    |> Enum.reject(fn {_, guest_data} ->
+                      Map.get(guest_data, "is_booking_user") == true
+                    end) %>
+                  <%= for {index_str, guest_data} <- non_booking_guests do %>
+                    <% index = String.to_integer(index_str) %>
+                    <% is_booking_user = Map.get(guest_data, "is_booking_user") == true %>
+                    <% is_child = Map.get(guest_data, "is_child") == true %>
+                    <% selected_family_members = @selected_family_members_for_guests || %{} %>
+                    <% selected_family_member_id = Map.get(selected_family_members, index_str) %>
+                    <% selected_family_member =
+                      if selected_family_member_id,
+                        do:
+                          Enum.find(@other_family_members || [], fn u ->
+                            to_string(u.id) == to_string(selected_family_member_id)
+                          end),
+                        else: nil %>
+                    <% has_selected_family_member = not is_nil(selected_family_member) %>
+                    <% first_name =
+                      cond do
+                        is_booking_user -> Map.get(guest_data, "first_name", "")
+                        has_selected_family_member -> selected_family_member.first_name || ""
+                        true -> Map.get(guest_data, "first_name", "")
+                      end %>
+                    <% last_name =
+                      cond do
+                        is_booking_user -> Map.get(guest_data, "last_name", "")
+                        has_selected_family_member -> selected_family_member.last_name || ""
+                        true -> Map.get(guest_data, "last_name", "")
+                      end %>
+                    <div class={[
+                      "flex items-start gap-4 p-4 rounded-r-lg shadow-sm",
+                      if(is_child,
+                        do: "bg-white border-l-4 border-green-500",
+                        else: "bg-white border-l-4 border-blue-500"
+                      )
+                    ]}>
+                      <div class={[
+                        "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm",
+                        if(is_child,
+                          do: "bg-green-100 text-green-600",
+                          else: "bg-blue-100 text-blue-600"
+                        )
+                      ]}>
+                        <%= index %>
+                      </div>
+                      <div class="flex-1 space-y-3">
+                        <div class="flex justify-between items-center">
+                          <h3 class="font-bold text-zinc-800">
+                            <%= if is_child do %>
+                              Child Guest
+                            <% else %>
+                              Adult Guest
+                            <% end %>
+                          </h3>
+                          <%= if !is_child && length(@other_family_members || []) > 0 do %>
+                            <%!-- Family Member Selection Dropdown (only for adults) --%>
+                            <select
+                              id={"guest-#{index_str}-attendee-select"}
+                              name={"guest-#{index_str}-attendee-select"}
+                              phx-change="select-guest-attendee"
+                              phx-debounce="100"
+                              phx-value-guest-index={index_str}
+                              value={
+                                cond do
+                                  has_selected_family_member ->
+                                    "family_#{selected_family_member.id}"
+
+                                  true ->
+                                    "other"
+                                end
+                              }
+                              class="text-xs border-none bg-zinc-100 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <%= if length(@other_family_members) > 0 do %>
+                                <optgroup label="Family Members">
+                                  <%= for family_member <- @other_family_members do %>
+                                    <option
+                                      value={"family_#{family_member.id}"}
+                                      selected={
+                                        has_selected_family_member &&
+                                          selected_family_member.id == family_member.id
+                                      }
+                                    >
+                                      <%= family_member.first_name %> <%= family_member.last_name %>
+                                    </option>
+                                  <% end %>
+                                </optgroup>
+                              <% end %>
+                              <option value="other" selected={!has_selected_family_member}>
+                                Someone else (Enter details)
+                              </option>
+                            </select>
+                          <% end %>
+                        </div>
+                        <%!-- Show badge when family member selected (only for adults), otherwise show form inputs --%>
+                        <%= if !is_child && has_selected_family_member do %>
+                          <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+                            <.icon name="hero-check-circle" class="w-5 h-5 text-green-600" />
+                            <span class="text-xs font-semibold text-green-800">
+                              Applied: <%= selected_family_member.first_name %> <%= selected_family_member.last_name %>
+                            </span>
+                          </div>
+                        <% else %>
+                          <div class="grid grid-cols-2 gap-2">
+                            <div class="relative">
+                              <input
+                                type="text"
+                                id={"guest-#{index_str}-first-name"}
+                                name={"guests[#{index_str}][first_name]"}
+                                value={first_name}
+                                required={true}
+                                placeholder="First Name"
+                                autocapitalize="words"
+                                autocomplete="given-name"
+                                phx-change="validate-guest-info"
+                                phx-debounce="300"
+                                class={[
+                                  "w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-zinc-400",
+                                  if(
+                                    @guest_info_errors[index_str] &&
+                                      @guest_info_errors[index_str][:first_name],
+                                    do: "border-red-300 bg-red-50",
+                                    else:
+                                      if(first_name != "",
+                                        do: "border-green-300 bg-green-50",
+                                        else: "border-zinc-300 bg-white"
+                                      )
+                                  )
+                                ]}
+                              />
+                              <%= if first_name != "" && (!@guest_info_errors[index_str] || !@guest_info_errors[index_str][:first_name]) do %>
+                                <div class="absolute right-2 top-1/2 -translate-y-1/2">
+                                  <.icon name="hero-check-circle" class="w-4 h-4 text-green-600" />
+                                </div>
+                              <% end %>
+                            </div>
+                            <div class="relative">
+                              <input
+                                type="text"
+                                id={"guest-#{index_str}-last-name"}
+                                name={"guests[#{index_str}][last_name]"}
+                                value={last_name}
+                                required={true}
+                                placeholder="Last Name"
+                                autocapitalize="words"
+                                autocomplete="family-name"
+                                phx-change="validate-guest-info"
+                                phx-debounce="300"
+                                class={[
+                                  "w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-zinc-400",
+                                  if(
+                                    @guest_info_errors[index_str] &&
+                                      @guest_info_errors[index_str][:last_name],
+                                    do: "border-red-300 bg-red-50",
+                                    else:
+                                      if(last_name != "",
+                                        do: "border-green-300 bg-green-50",
+                                        else: "border-zinc-300 bg-white"
+                                      )
+                                  )
+                                ]}
+                              />
+                              <%= if last_name != "" && (!@guest_info_errors[index_str] || !@guest_info_errors[index_str][:last_name]) do %>
+                                <div class="absolute right-2 top-1/2 -translate-y-1/2">
+                                  <.icon name="hero-check-circle" class="w-4 h-4 text-green-600" />
+                                </div>
+                              <% end %>
+                            </div>
+                          </div>
+                          <%= if @guest_info_errors[index_str] do %>
+                            <div class="text-xs text-red-600 space-y-0.5">
+                              <%= if @guest_info_errors[index_str][:first_name] do %>
+                                <p>
+                                  First name: <%= Enum.join(
+                                    @guest_info_errors[index_str][:first_name],
+                                    ", "
+                                  ) %>
+                                </p>
+                              <% end %>
+                              <%= if @guest_info_errors[index_str][:last_name] do %>
+                                <p>
+                                  Last name: <%= Enum.join(
+                                    @guest_info_errors[index_str][:last_name],
+                                    ", "
+                                  ) %>
+                                </p>
+                              <% end %>
+                            </div>
+                          <% end %>
+                        <% end %>
+                      </div>
+                      <!-- Hidden fields for guest metadata -->
+                      <input
+                        type="hidden"
+                        name={"guests[#{index_str}][is_child]"}
+                        value={if is_child, do: "true", else: "false"}
+                      />
+                      <input
+                        type="hidden"
+                        name={"guests[#{index_str}][is_booking_user]"}
+                        value={if is_booking_user, do: "true", else: "false"}
+                      />
+                      <input type="hidden" name={"guests[#{index_str}][order_index]"} value={index} />
+                    </div>
+                  <% end %>
+                <% end %>
+              </div>
+
+              <div class="pt-6 border-t border-zinc-100 mt-6 space-y-4">
+                <div class="flex flex-col sm:flex-row gap-4">
+                  <.button
+                    type="submit"
+                    class="flex-1 w-full text-lg py-3.5"
+                    disabled={!all_guests_valid?(@guest_info_form, @booking)}
+                  >
+                    <span class="text-lg font-semibold">Continue to Payment</span>
+                    <.icon name="hero-arrow-right" class="w-5 h-5 -mt-1 ms-1" />
+                  </.button>
+                  <button
+                    type="button"
+                    phx-click="cancel-booking"
+                    phx-confirm="Are you sure you want to cancel this booking? The availability will be released immediately."
+                    class="px-6 py-3.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
           <!-- Payment Section -->
-          <div class="bg-white rounded-lg border border-zinc-200 p-8 shadow-sm">
+          <div
+            :if={@checkout_step == :payment}
+            class="bg-white rounded-lg border border-zinc-200 p-8 shadow-sm"
+          >
             <h2 class="text-xl font-bold mb-6">Secure Payment</h2>
             <!-- Payment Error -->
             <div :if={@payment_error} class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -195,40 +590,72 @@ defmodule YscWeb.BookingCheckoutLive do
                 data-client-secret={@payment_intent.client_secret}
                 data-booking-id={@booking.id}
               >
-                <div id="payment-element" class="mb-6">
+                <div id="payment-element" class="mb-6 hidden">
                   <!-- Stripe Elements will mount here -->
                 </div>
                 <div id="payment-message" class="hidden mt-4"></div>
               </div>
 
-              <div class="flex flex-col sm:flex-row gap-4 pt-6 border-t border-zinc-100">
-                <.button
-                  id="submit-payment"
-                  type="button"
-                  class="flex-1 w-full text-lg py-3.5"
-                  disabled={@is_expired}
-                >
-                  <.icon name="hero-lock-closed" class="w-5 h-5 -mt-1 me-1" />
-                  <span class="text-lg font-semibold">
-                    Pay <%= MoneyHelper.format_money!(@total_price) %> Securely
-                  </span>
-                </.button>
-                <.button_link
-                  type="button"
-                  phx-click="cancel-booking"
-                  phx-confirm="Are you sure you want to cancel this booking? The availability will be released immediately."
-                  color="red"
-                  class="text-zinc-500 hover:text-white"
-                >
-                  Cancel
-                </.button_link>
-              </div>
-
-              <div class="mt-6 flex items-center justify-center gap-2 text-zinc-400">
-                <.icon name="hero-lock-closed" class="w-4 h-4" />
-                <span class="text-xs uppercase tracking-widest font-semibold">
-                  Encrypted & Secure
-                </span>
+              <div class="pt-6 border-t border-zinc-100 space-y-4">
+                <div class="flex flex-col sm:flex-row gap-4">
+                  <.button
+                    id="submit-payment"
+                    type="button"
+                    class="flex-1 w-full text-lg py-3.5"
+                    disabled={@is_expired}
+                  >
+                    <.icon name="hero-lock-closed" class="w-5 h-5 -mt-1 me-1" />
+                    <span class="text-lg font-semibold">
+                      Pay <%= MoneyHelper.format_money!(@total_price) %> Securely
+                    </span>
+                  </.button>
+                  <button
+                    type="button"
+                    phx-click="cancel-booking"
+                    phx-confirm="Are you sure you want to cancel this booking? The availability will be released immediately."
+                    class="px-6 py-3.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <%!-- Payment Icons --%>
+                <div class="flex items-center justify-center gap-3 pt-2">
+                  <span class="text-xs text-zinc-500 uppercase tracking-wide">Secure Payment</span>
+                  <div class="flex items-center gap-2">
+                    <%!-- Visa Logo --%>
+                    <svg class="w-10 h-6 opacity-70" viewBox="0 0 40 24" fill="none" aria-label="Visa">
+                      <rect width="40" height="24" rx="2" fill="#1A1F71" />
+                      <path
+                        d="M16.5 8.5h-2.5l-1.5 7h2.5l1.5-7zm8.5 4.5c0-1.5-2-2.5-2-3.5 0-.5.5-1 1.5-1 .5 0 1 .2 1.5.5l.5-2.5c-.5-.2-1-.5-2-.5-2.5 0-4 1.5-4 3.5 0 1.5 1.5 2.5 2.5 3 1 .5 1.5 1 1.5 1.5 0 1-1 1.5-2 1.5-.5 0-1-.2-1.5-.5l-.5 2.5c.5.2 1 .5 2 .5 2.5 0 4.5-1.5 4.5-3.5zm-6-4.5l-2 7h-2.5l2-7h2.5z"
+                        fill="#F79E1B"
+                      />
+                    </svg>
+                    <%!-- Mastercard Logo --%>
+                    <svg
+                      class="w-10 h-6 opacity-70"
+                      viewBox="0 0 40 24"
+                      fill="none"
+                      aria-label="Mastercard"
+                    >
+                      <rect width="40" height="24" rx="2" fill="#EB001B" />
+                      <circle cx="15" cy="12" r="4" fill="#F79E1B" />
+                      <circle cx="25" cy="12" r="4" fill="#FF5F00" />
+                    </svg>
+                    <%!-- Stripe Logo --%>
+                    <svg
+                      class="w-10 h-6 opacity-70"
+                      viewBox="0 0 40 24"
+                      fill="none"
+                      aria-label="Stripe"
+                    >
+                      <rect width="40" height="24" rx="2" fill="#635BFF" />
+                      <path
+                        d="M17 10.5c0 .8-.6 1.4-1.4 1.4h-2.2v2.8h-1.3V9.1h3.5c.8 0 1.4.6 1.4 1.4zm-1.4 0c0-.3-.2-.5-.5-.5h-2.2v1h2.2c.3 0 .5-.2.5-.5zm4.4 4.2h-1.3v-5.6h1.3v5.6zm3.5 0h-1.3v-3.9c0-.5-.3-.8-.8-.8s-.8.3-.8.8v3.9h-1.3v-3.9c0-1.1.9-2 2-2s2 .9 2 2v3.9zm5.5-2.1c0-1.1-.9-2-2-2h-1.5v5.6h1.3v-2.1h.2l1.5 2.1h1.6l-1.7-2.3c.8-.3 1.2-1 1.2-1.9zm-2.2 0c0 .4.3.7.7.7h1.3v-1.4h-1.3c-.4 0-.7.3-.7.7z"
+                        fill="white"
+                      />
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
             <!-- Expired Booking Message -->
@@ -248,20 +675,41 @@ defmodule YscWeb.BookingCheckoutLive do
               </a>
             </div>
           </div>
+          <!-- Right Column: Countdown Timer and Price Details -->
         </div>
-        <!-- Right Column: Countdown Timer and Price Details -->
         <aside class="space-y-6 lg:sticky lg:top-24">
           <!-- Hold Expiry Countdown -->
           <div
             :if={@booking.hold_expires_at && (!assigns[:is_expired] || !@is_expired)}
-            class="bg-amber-50 border border-amber-200 rounded-lg p-6"
+            class={[
+              "border rounded-lg p-4",
+              if(remaining_minutes(@booking.hold_expires_at) < 5,
+                do: "bg-rose-50 border-rose-200",
+                else: "bg-blue-50 border-blue-200"
+              )
+            ]}
+            id="hold-countdown-container"
+            phx-hook="CountdownColor"
+            data-expires-at={DateTime.to_iso8601(@booking.hold_expires_at)}
           >
-            <div class="flex items-center gap-3 text-amber-800 mb-2">
-              <.icon name="hero-clock" class="w-5 h-5 animate-pulse" />
-              <span class="font-bold">Hold Expires</span>
+            <div class={[
+              "flex items-center gap-2 mb-1",
+              if(remaining_minutes(@booking.hold_expires_at) < 5,
+                do: "text-rose-800",
+                else: "text-blue-800"
+              )
+            ]}>
+              <.icon name="hero-clock" class="w-4 h-4" />
+              <span class="text-xs font-semibold uppercase tracking-wide">Hold Expires</span>
             </div>
-            <p class="text-sm text-amber-700 leading-relaxed">
-              We've reserved your rooms! Complete payment within
+            <p class={[
+              "text-sm leading-relaxed",
+              if(remaining_minutes(@booking.hold_expires_at) < 5,
+                do: "text-rose-700",
+                else: "text-blue-700"
+              )
+            ]}>
+              Complete payment within
               <span
                 class="font-bold tabular-nums"
                 id="hold-countdown"
@@ -271,15 +719,36 @@ defmodule YscWeb.BookingCheckoutLive do
               >
                 <%= calculate_remaining_time(@booking.hold_expires_at) %>
               </span>
-              before they are released.
+              to secure your booking.
             </p>
           </div>
           <!-- Price Details -->
           <div class="bg-zinc-900 text-white rounded-lg p-6 shadow-xl">
-            <h3 class="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4">
+            <%!-- Mobile Collapsible Header --%>
+            <button
+              type="button"
+              class="lg:hidden w-full flex items-center justify-between mb-4"
+              phx-click="toggle-price-details"
+              aria-expanded={if assigns[:show_price_details], do: "true", else: "false"}
+            >
+              <h3 class="text-sm font-bold text-zinc-400 uppercase tracking-widest">
+                Price Details
+              </h3>
+              <.icon
+                name={
+                  if assigns[:show_price_details], do: "hero-chevron-up", else: "hero-chevron-down"
+                }
+                class="w-5 h-5 text-zinc-400"
+              />
+            </button>
+            <%!-- Desktop Header --%>
+            <h3 class="hidden lg:block text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4">
               Price Details
             </h3>
-            <div class="space-y-3">
+            <div class={[
+              "space-y-3",
+              if(assigns[:show_price_details] == false, do: "hidden lg:block")
+            ]}>
               <%= if @price_breakdown do %>
                 <%= render_price_breakdown_sidebar(assigns) %>
               <% end %>
@@ -323,20 +792,681 @@ defmodule YscWeb.BookingCheckoutLive do
               </li>
             </ol>
           </div>
-          <!-- Booking Reference (Help Section) -->
-          <div class="bg-zinc-50 rounded-lg border border-zinc-200 p-6">
-            <h3 class="text-sm font-semibold text-zinc-900 mb-2">Booking Reference</h3>
-            <div class="inline-flex items-center px-3 py-1.5 bg-white border border-zinc-300 rounded-lg font-mono text-sm font-semibold text-zinc-900">
-              <%= @booking.reference_id %>
-            </div>
-            <p class="mt-2 text-xs text-zinc-500">
-              Save this reference number for your records. You'll also receive it via email.
-            </p>
-          </div>
         </aside>
       </div>
+      <%!-- Mobile Sticky Footer --%>
+      <div
+        :if={@checkout_step == :guest_info}
+        class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-200 shadow-lg z-50 p-4"
+      >
+        <div class="max-w-screen-xl mx-auto flex items-center justify-between gap-4">
+          <div>
+            <p class="text-xs text-zinc-500 uppercase tracking-wide">Total</p>
+            <p class="text-2xl font-black text-blue-600">
+              <%= MoneyHelper.format_money!(@total_price) %>
+            </p>
+          </div>
+          <button
+            type="submit"
+            form="guest-info-form"
+            class="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={!all_guests_valid?(@guest_info_form, @booking)}
+          >
+            Continue to Payment<.icon name="hero-arrow-right" class="w-5 h-5 -mt-1 ms-1" />
+          </button>
+        </div>
+      </div>
+      <%!-- Spacer for mobile footer --%>
+      <div :if={@checkout_step == :guest_info} class="lg:hidden h-24"></div>
     </div>
     """
+  end
+
+  @impl true
+  def handle_event("validate-guest-info", %{"guests" => guest_params}, socket) do
+    require Logger
+    Logger.debug("[validate-guest-info] Event received")
+    Logger.debug("[validate-guest-info] Received guest_params: #{inspect(guest_params)}")
+
+    # Merge family member selections into guest_params before validation
+    selected_family_members = socket.assigns.selected_family_members_for_guests || %{}
+    other_family_members = socket.assigns.other_family_members || []
+
+    Logger.debug(
+      "[validate-guest-info] selected_family_members: #{inspect(selected_family_members)}"
+    )
+
+    Logger.debug(
+      "[validate-guest-info] other_family_members count: #{length(other_family_members)}"
+    )
+
+    # Update guest_params with family member data if selected
+    updated_guest_params =
+      guest_params
+      |> Enum.map(fn {index_str, guest_data} ->
+        selected_family_member_id = Map.get(selected_family_members, index_str)
+
+        updated_guest_data =
+          cond do
+            selected_family_member_id ->
+              # Use selected family member's details
+              selected_family_member =
+                Enum.find(other_family_members, fn u ->
+                  to_string(u.id) == to_string(selected_family_member_id)
+                end)
+
+              if selected_family_member do
+                Map.merge(guest_data, %{
+                  "first_name" => selected_family_member.first_name || "",
+                  "last_name" => selected_family_member.last_name || ""
+                })
+              else
+                guest_data
+              end
+
+            true ->
+              # Use form data as-is
+              guest_data
+          end
+
+        {index_str, updated_guest_data}
+      end)
+      |> Map.new()
+
+    Logger.debug(
+      "[validate-guest-info] updated_guest_params after family member merge: #{inspect(updated_guest_params)}"
+    )
+
+    # Find and include the booking user entry from form source (it's not in the submitted params)
+    guest_info_form = socket.assigns.guest_info_form || to_form(%{}, as: "guests")
+
+    Logger.debug(
+      "[validate-guest-info] guest_info_form.source keys: #{inspect(Map.keys(guest_info_form.source))}"
+    )
+
+    Logger.debug(
+      "[validate-guest-info] guest_info_form.source: #{inspect(guest_info_form.source)}"
+    )
+
+    # Merge all entries from form source, then update with submitted params
+    # When a user types in a field, only that field's data is submitted via phx-change,
+    # so we need to merge all entries from the form source to preserve all guest data
+    # We need to do a deep merge to preserve nested fields within each guest entry
+    # IMPORTANT: Normalize boolean values from strings to actual booleans
+    updated_guest_params =
+      guest_info_form.source
+      |> Map.merge(updated_guest_params, fn _key, source_data, submitted_data ->
+        # Deep merge: merge the nested maps so we preserve all fields
+        merged = Map.merge(source_data, submitted_data)
+
+        # Normalize boolean fields from strings to actual booleans
+        # Form submissions send "true"/"false" as strings, but we need actual booleans
+        merged
+        |> Map.update("is_child", false, fn
+          "true" -> true
+          "false" -> false
+          true -> true
+          false -> false
+          val -> val
+        end)
+        |> Map.update("is_booking_user", false, fn
+          "true" -> true
+          "false" -> false
+          true -> true
+          false -> false
+          val -> val
+        end)
+        |> Map.update("order_index", 0, fn
+          val when is_binary(val) -> String.to_integer(val)
+          val when is_integer(val) -> val
+          val -> val
+        end)
+      end)
+
+    Logger.debug(
+      "[validate-guest-info] After merging form source, updated_guest_params keys: #{inspect(Map.keys(updated_guest_params))}"
+    )
+
+    Logger.debug(
+      "[validate-guest-info] Final updated_guest_params keys: #{inspect(Map.keys(updated_guest_params))}"
+    )
+
+    Logger.debug(
+      "[validate-guest-info] Final updated_guest_params: #{inspect(updated_guest_params)}"
+    )
+
+    # Update the form with new params to preserve user input
+    updated_form = to_form(updated_guest_params, as: "guests")
+
+    Logger.debug(
+      "[validate-guest-info] Building changesets for booking: #{socket.assigns.booking.id}"
+    )
+
+    Logger.debug(
+      "[validate-guest-info] Booking guests_count: #{socket.assigns.booking.guests_count}, children_count: #{socket.assigns.booking.children_count}"
+    )
+
+    case build_guest_changesets(socket.assigns.booking, updated_guest_params) do
+      {:ok, changesets} ->
+        Logger.debug("[validate-guest-info] Built #{length(changesets)} changesets")
+
+        Logger.debug(
+          "[validate-guest-info] Changesets valid status: #{inspect(Enum.map(changesets, & &1.valid?))}"
+        )
+
+        # Check if all changesets are valid
+        all_valid = Enum.all?(changesets, & &1.valid?)
+        Logger.debug("[validate-guest-info] All valid: #{all_valid}")
+
+        if all_valid do
+          {:noreply,
+           assign(socket,
+             guest_info_form: updated_form,
+             guest_info_errors: %{}
+           )}
+        else
+          # Collect errors from all changesets
+          # Use order_index from the changeset data to match the form keys
+          # We need to pair changesets with their order_index from the original guest data
+          errors =
+            updated_guest_params
+            |> Enum.map(fn {index_str, guest_attrs} ->
+              {String.to_integer(index_str), guest_attrs}
+            end)
+            |> Enum.sort_by(fn {index, _} -> index end)
+            |> Enum.with_index()
+            |> Enum.reduce(%{}, fn {{original_index, _guest_attrs}, changeset_index}, acc ->
+              changeset = Enum.at(changesets, changeset_index)
+
+              if changeset && not changeset.valid? do
+                changeset_errors =
+                  Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+                    if is_binary(msg) do
+                      Enum.reduce(opts, msg, fn {key, value}, acc ->
+                        String.replace(acc, "%{#{key}}", to_string(value))
+                      end)
+                    else
+                      to_string(msg)
+                    end
+                  end)
+
+                # Use the original index_str from the form to match template keys
+                Map.put(acc, Integer.to_string(original_index), changeset_errors)
+              else
+                acc
+              end
+            end)
+
+          {:noreply,
+           assign(socket,
+             guest_info_form: updated_form,
+             guest_info_errors: errors
+           )}
+        end
+
+      {:error, error_message} when is_binary(error_message) ->
+        Logger.error("[validate-guest-info] Error building changesets: #{error_message}")
+
+        {:noreply,
+         assign(socket,
+           guest_info_form: updated_form,
+           guest_info_errors: %{general: error_message}
+         )}
+
+      {:error, invalid_changesets} when is_list(invalid_changesets) ->
+        errors =
+          Enum.with_index(invalid_changesets)
+          |> Enum.reduce(%{}, fn {changeset, index}, acc ->
+            if not changeset.valid? do
+              changeset_errors =
+                Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+                  if is_binary(msg) do
+                    Enum.reduce(opts, msg, fn {key, value}, acc ->
+                      String.replace(acc, "%{#{key}}", to_string(value))
+                    end)
+                  else
+                    to_string(msg)
+                  end
+                end)
+
+              Map.put(acc, Integer.to_string(index), changeset_errors)
+            else
+              acc
+            end
+          end)
+
+        {:noreply,
+         assign(socket,
+           guest_info_form: updated_form,
+           guest_info_errors: errors
+         )}
+    end
+  end
+
+  def handle_event("validate-guest-info", _params, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle-price-details", _params, socket) do
+    current_value = socket.assigns[:show_price_details] || false
+    {:noreply, assign(socket, :show_price_details, !current_value)}
+  end
+
+  @impl true
+  def handle_event("select-guest-attendee", params, socket) do
+    require Logger
+    Logger.debug("[select-guest-attendee] Event received with params: #{inspect(params)}")
+
+    # Get guest_index from params - try phx-value-guest-index first, then extract from field name
+    guest_index =
+      params["guest_index"] ||
+        params["guest-index"] ||
+        params
+        |> Map.keys()
+        |> Enum.find(fn key ->
+          String.contains?(key, "attendee-select")
+        end)
+        |> case do
+          nil ->
+            nil
+
+          field_name ->
+            field_name
+            |> String.replace("guest-", "")
+            |> String.replace("-attendee-select", "")
+        end
+
+    # Get the selected value directly from the select field
+    # The select field name is "guest-#{guest_index}-attendee-select"
+    selected_value =
+      cond do
+        guest_index ->
+          select_field_name = "guest-#{guest_index}-attendee-select"
+          params[select_field_name]
+
+        true ->
+          # Try to find any attendee-select field in params
+          params
+          |> Map.keys()
+          |> Enum.find(&String.contains?(&1, "attendee-select"))
+          |> case do
+            nil -> nil
+            field_name -> params[field_name]
+          end
+      end
+
+    Logger.debug(
+      "[select-guest-attendee] guest_index: #{inspect(guest_index)}, selected_value: #{inspect(selected_value)}"
+    )
+
+    if guest_index && selected_value do
+      guest_info_form = socket.assigns.guest_info_form || to_form(%{}, as: "guests")
+      guests_for_me = socket.assigns.guests_for_me || %{}
+      selected_family_members = socket.assigns.selected_family_members_for_guests || %{}
+      other_family_members = socket.assigns.other_family_members || []
+
+      {updated_guests_for_me, updated_selected_family_members, updated_form} =
+        cond do
+          selected_value == "other" ->
+            # Select "Someone else" - clear selections and form data
+            updated_form_source =
+              Map.put(guest_info_form.source, guest_index, %{
+                "first_name" => "",
+                "last_name" => "",
+                "is_child" =>
+                  Map.get(guest_info_form.source[guest_index] || %{}, "is_child", false),
+                "is_booking_user" =>
+                  Map.get(guest_info_form.source[guest_index] || %{}, "is_booking_user", false),
+                "order_index" =>
+                  Map.get(
+                    guest_info_form.source[guest_index] || %{},
+                    "order_index",
+                    String.to_integer(guest_index)
+                  )
+              })
+
+            updated_form = %{guest_info_form | source: updated_form_source}
+
+            {
+              Map.put(guests_for_me, guest_index, false),
+              Map.put(selected_family_members, guest_index, nil),
+              updated_form
+            }
+
+          is_binary(selected_value) and String.starts_with?(selected_value, "family_") ->
+            # Select a family member
+            user_id_str = String.replace(selected_value, "family_", "")
+
+            selected_user =
+              Enum.find(other_family_members, fn u -> to_string(u.id) == user_id_str end)
+
+            if selected_user do
+              # Get existing guest data to preserve metadata
+              existing_guest_data = Map.get(guest_info_form.source, guest_index, %{})
+
+              Logger.debug(
+                "[select-guest-attendee] Existing guest data for index #{guest_index}: #{inspect(existing_guest_data)}"
+              )
+
+              form_data = %{
+                "first_name" => selected_user.first_name || "",
+                "last_name" => selected_user.last_name || "",
+                "is_child" => Map.get(existing_guest_data, "is_child", false),
+                "is_booking_user" => Map.get(existing_guest_data, "is_booking_user", false),
+                "order_index" =>
+                  Map.get(
+                    existing_guest_data,
+                    "order_index",
+                    String.to_integer(guest_index)
+                  )
+              }
+
+              Logger.debug(
+                "[select-guest-attendee] Form data for index #{guest_index}: #{inspect(form_data)}"
+              )
+
+              updated_form_source = Map.put(guest_info_form.source, guest_index, form_data)
+              updated_form = %{guest_info_form | source: updated_form_source}
+
+              Logger.debug(
+                "[select-guest-attendee] Updated form source keys: #{inspect(Map.keys(updated_form_source))}"
+              )
+
+              {
+                Map.put(guests_for_me, guest_index, false),
+                Map.put(selected_family_members, guest_index, selected_user.id),
+                updated_form
+              }
+            else
+              {guests_for_me, selected_family_members, guest_info_form}
+            end
+
+          true ->
+            {guests_for_me, selected_family_members, guest_info_form}
+        end
+
+      # After updating the form, trigger validation to ensure all guest data is preserved
+      # and errors are updated
+      updated_socket =
+        socket
+        |> assign(:guest_info_form, updated_form)
+        |> assign(:guests_for_me, updated_guests_for_me)
+        |> assign(:selected_family_members_for_guests, updated_selected_family_members)
+
+      # Trigger validation by simulating a validate event with the current form data
+      # This ensures all guest entries are preserved and validated
+      # Include all fields, not just first_name and last_name, to preserve metadata
+      validate_params =
+        updated_form.source
+        |> Enum.map(fn {index_str, guest_data} ->
+          # Only include the fields that would be submitted from the form inputs
+          # The metadata (is_child, is_booking_user, order_index) will be preserved
+          # from the form source during the merge in validate-guest-info
+          {index_str, Map.take(guest_data, ["first_name", "last_name"])}
+        end)
+        |> Map.new()
+
+      Logger.debug(
+        "[select-guest-attendee] Triggering validation with params: #{inspect(validate_params)}"
+      )
+
+      Logger.debug(
+        "[select-guest-attendee] Form source before validation: #{inspect(updated_form.source)}"
+      )
+
+      Logger.debug(
+        "[select-guest-attendee] Before validation - selected_family_members: #{inspect(updated_selected_family_members)}"
+      )
+
+      # Call validate handler to ensure all data is preserved and errors are updated
+      # IMPORTANT: The validate handler should preserve selected_family_members_for_guests
+      {:noreply, validated_socket} =
+        handle_event("validate-guest-info", %{"guests" => validate_params}, updated_socket)
+
+      # Ensure selected_family_members_for_guests is preserved after validation
+      final_socket =
+        if Map.get(validated_socket.assigns, :selected_family_members_for_guests) !=
+             updated_selected_family_members do
+          Logger.debug(
+            "[select-guest-attendee] Restoring selected_family_members after validation was lost"
+          )
+
+          assign(
+            validated_socket,
+            :selected_family_members_for_guests,
+            updated_selected_family_members
+          )
+        else
+          validated_socket
+        end
+
+      Logger.debug(
+        "[select-guest-attendee] After validation - selected_family_members: #{inspect(final_socket.assigns.selected_family_members_for_guests)}"
+      )
+
+      Logger.debug(
+        "[select-guest-attendee] Form source after validation: #{inspect(final_socket.assigns.guest_info_form.source)}"
+      )
+
+      {:noreply, final_socket}
+    else
+      Logger.warning(
+        "select-guest-attendee: Missing guest_index or selected_value. guest_index=#{inspect(guest_index)}, selected_value=#{inspect(selected_value)}, all_params=#{inspect(params)}"
+      )
+
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("save-guest-info", %{"guests" => guest_params}, socket) do
+    require Logger
+    Logger.debug("[save-guest-info] Event received")
+    Logger.debug("[save-guest-info] Received guest_params: #{inspect(guest_params)}")
+
+    # Merge family member selections into guest_params before saving
+    selected_family_members = socket.assigns.selected_family_members_for_guests || %{}
+    other_family_members = socket.assigns.other_family_members || []
+
+    Logger.debug("[save-guest-info] selected_family_members: #{inspect(selected_family_members)}")
+    Logger.debug("[save-guest-info] other_family_members count: #{length(other_family_members)}")
+
+    # Update guest_params with family member data if selected
+    updated_guest_params =
+      guest_params
+      |> Enum.map(fn {index_str, guest_data} ->
+        selected_family_member_id = Map.get(selected_family_members, index_str)
+
+        updated_guest_data =
+          cond do
+            selected_family_member_id ->
+              # Use selected family member's details
+              selected_family_member =
+                Enum.find(other_family_members, fn u ->
+                  to_string(u.id) == to_string(selected_family_member_id)
+                end)
+
+              if selected_family_member do
+                Map.merge(guest_data, %{
+                  "first_name" => selected_family_member.first_name || "",
+                  "last_name" => selected_family_member.last_name || ""
+                })
+              else
+                guest_data
+              end
+
+            true ->
+              # Use form data as-is
+              guest_data
+          end
+
+        {index_str, updated_guest_data}
+      end)
+      |> Map.new()
+
+    Logger.debug(
+      "[save-guest-info] updated_guest_params after family member merge: #{inspect(updated_guest_params)}"
+    )
+
+    # Find and include the booking user entry from form source (it's not in the submitted params)
+    guest_info_form = socket.assigns.guest_info_form || to_form(%{}, as: "guests")
+
+    Logger.debug(
+      "[save-guest-info] guest_info_form.source keys: #{inspect(Map.keys(guest_info_form.source))}"
+    )
+
+    Logger.debug("[save-guest-info] guest_info_form.source: #{inspect(guest_info_form.source)}")
+
+    # Merge all entries from form source, then update with submitted params
+    # When a user types in a field, only that field's data is submitted via phx-change,
+    # so we need to merge all entries from the form source to preserve all guest data
+    # We need to do a deep merge to preserve nested fields within each guest entry
+    # IMPORTANT: Normalize boolean values from strings to actual booleans
+    updated_guest_params =
+      guest_info_form.source
+      |> Map.merge(updated_guest_params, fn _key, source_data, submitted_data ->
+        # Deep merge: merge the nested maps so we preserve all fields
+        merged = Map.merge(source_data, submitted_data)
+
+        # Normalize boolean fields from strings to actual booleans
+        # Form submissions send "true"/"false" as strings, but we need actual booleans
+        merged
+        |> Map.update("is_child", false, fn
+          "true" -> true
+          "false" -> false
+          true -> true
+          false -> false
+          val -> val
+        end)
+        |> Map.update("is_booking_user", false, fn
+          "true" -> true
+          "false" -> false
+          true -> true
+          false -> false
+          val -> val
+        end)
+        |> Map.update("order_index", 0, fn
+          val when is_binary(val) -> String.to_integer(val)
+          val when is_integer(val) -> val
+          val -> val
+        end)
+      end)
+
+    Logger.debug(
+      "[save-guest-info] After merging form source, updated_guest_params keys: #{inspect(Map.keys(updated_guest_params))}"
+    )
+
+    Logger.debug("[save-guest-info] Final updated_guest_params: #{inspect(updated_guest_params)}")
+
+    Logger.debug(
+      "[save-guest-info] Building changesets for booking: #{socket.assigns.booking.id}"
+    )
+
+    Logger.debug(
+      "[save-guest-info] Booking guests_count: #{socket.assigns.booking.guests_count}, children_count: #{socket.assigns.booking.children_count}"
+    )
+
+    case build_guest_changesets(socket.assigns.booking, updated_guest_params) do
+      {:ok, changesets} ->
+        Logger.debug("[save-guest-info] Built #{length(changesets)} changesets")
+
+        Logger.debug(
+          "[save-guest-info] Changesets valid status: #{inspect(Enum.map(changesets, & &1.valid?))}"
+        )
+
+        case save_guests(socket.assigns.booking, changesets) do
+          {:ok, _guests} ->
+            # Reload booking to get guests
+            booking =
+              Repo.get!(Booking, socket.assigns.booking.id)
+              |> Repo.preload([:user, :booking_guests, :rooms, rooms: :room_category])
+
+            # Create payment intent now that guests are saved
+            user = socket.assigns.current_user
+
+            case create_payment_intent(booking, socket.assigns.total_price, user) do
+              {:ok, payment_intent} ->
+                {:noreply,
+                 socket
+                 |> assign(
+                   booking: booking,
+                   checkout_step: :payment,
+                   payment_intent: payment_intent,
+                   show_payment_form: true,
+                   guest_info_form: nil,
+                   guest_info_errors: %{}
+                 )
+                 |> put_flash(:info, "Guest information saved. Please complete payment.")}
+
+              {:error, reason} ->
+                {:noreply,
+                 assign(socket,
+                   payment_error: "Failed to initialize payment: #{reason}",
+                   checkout_step: :payment
+                 )}
+            end
+
+          {:error, changeset} ->
+            errors =
+              Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+                if is_binary(msg) do
+                  Enum.reduce(opts, msg, fn {key, value}, acc ->
+                    String.replace(acc, "%{#{key}}", to_string(value))
+                  end)
+                else
+                  to_string(msg)
+                end
+              end)
+
+            {:noreply,
+             assign(socket,
+               guest_info_errors: %{general: errors}
+             )}
+        end
+
+      {:error, error_message} when is_binary(error_message) ->
+        Logger.error("[save-guest-info] Error building changesets: #{error_message}")
+
+        {:noreply,
+         assign(socket,
+           guest_info_errors: %{general: error_message}
+         )
+         |> put_flash(:error, error_message)}
+
+      {:error, invalid_changesets} when is_list(invalid_changesets) ->
+        errors =
+          Enum.with_index(invalid_changesets)
+          |> Enum.reduce(%{}, fn {changeset, index}, acc ->
+            if not changeset.valid? do
+              changeset_errors =
+                Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+                  if is_binary(msg) do
+                    Enum.reduce(opts, msg, fn {key, value}, acc ->
+                      String.replace(acc, "%{#{key}}", to_string(value))
+                    end)
+                  else
+                    to_string(msg)
+                  end
+                end)
+
+              Map.put(acc, Integer.to_string(index), changeset_errors)
+            else
+              acc
+            end
+          end)
+
+        {:noreply,
+         assign(socket, guest_info_errors: errors)
+         |> put_flash(:error, "Please fix the errors below.")}
+    end
+  end
+
+  def handle_event("save-guest-info", _params, socket) do
+    {:noreply,
+     assign(socket,
+       guest_info_errors: %{general: "No guest information provided"}
+     )
+     |> put_flash(:error, "Please provide guest information.")}
   end
 
   @impl true
@@ -1170,6 +2300,19 @@ defmodule YscWeb.BookingCheckoutLive do
 
   defp calculate_remaining_time(_), do: "—"
 
+  defp remaining_minutes(%DateTime{} = expires_at) do
+    now = DateTime.utc_now()
+    diff_seconds = DateTime.diff(expires_at, now, :second)
+
+    if diff_seconds > 0 do
+      div(diff_seconds, 60)
+    else
+      0
+    end
+  end
+
+  defp remaining_minutes(_), do: 0
+
   defp booking_expired?(booking) do
     case booking do
       %{status: :hold, hold_expires_at: hold_expires_at} when not is_nil(hold_expires_at) ->
@@ -1200,4 +2343,311 @@ defmodule YscWeb.BookingCheckoutLive do
 
   defp atom_to_readable(nil), do: "—"
   defp atom_to_readable(_), do: "—"
+
+  ## Guest Information Helpers
+
+  defp initialize_guest_forms(booking, user) do
+    # Get guest counts from booking - ensure they're valid integers
+    guests_count =
+      cond do
+        is_integer(booking.guests_count) && booking.guests_count > 0 -> booking.guests_count
+        is_binary(booking.guests_count) -> String.to_integer(booking.guests_count)
+        true -> 1
+      end
+
+    children_count =
+      cond do
+        is_integer(booking.children_count) && booking.children_count >= 0 ->
+          booking.children_count
+
+        is_binary(booking.children_count) ->
+          String.to_integer(booking.children_count)
+
+        true ->
+          0
+      end
+
+    # Log for debugging
+    require Logger
+
+    Logger.info("Initializing guest forms",
+      booking_id: booking.id,
+      guests_count: guests_count,
+      children_count: children_count,
+      booking_guests_count: booking.guests_count,
+      booking_children_count: booking.children_count
+    )
+
+    # Pre-fill user as first guest (adult, booking user)
+    user_guest = %{
+      "first_name" => user.first_name || "",
+      "last_name" => user.last_name || "",
+      "is_child" => false,
+      "is_booking_user" => true,
+      "order_index" => 0
+    }
+
+    # Calculate remaining adults and children
+    # The user is always the first adult, so we need (guests_count - 1) more adults
+    remaining_adults = max(0, guests_count - 1)
+    remaining_children = children_count
+
+    # Build list of all guests
+    additional_guests = build_guest_list(remaining_adults, remaining_children, 1)
+    guests = [user_guest] ++ additional_guests
+
+    # Log the guest list for debugging
+    require Logger
+
+    Logger.info("Built guest list",
+      total_guests: length(guests),
+      user_guest: true,
+      additional_adults: remaining_adults,
+      additional_children: remaining_children,
+      guest_list_length: length(additional_guests)
+    )
+
+    # Create a map structure for form params
+    # Use the order_index as the key to ensure correct ordering
+    guest_params =
+      guests
+      |> Enum.map(fn guest ->
+        order_index = Map.get(guest, "order_index") || 0
+        {Integer.to_string(order_index), guest}
+      end)
+      |> Map.new()
+
+    # Verify we have the correct number of guests
+    expected_total = guests_count + children_count
+    actual_total = map_size(guest_params)
+
+    # Filter to only include the expected number of guests (sorted by order_index)
+    filtered_guest_params =
+      guest_params
+      |> Enum.map(fn {index_str, guest} ->
+        order_index = Map.get(guest, "order_index") || String.to_integer(index_str)
+        {order_index, {index_str, guest}}
+      end)
+      |> Enum.sort_by(fn {order_index, _} -> order_index end)
+      |> Enum.take(expected_total)
+      |> Enum.map(fn {_order_index, {index_str, guest}} -> {index_str, guest} end)
+      |> Map.new()
+
+    if actual_total != expected_total do
+      require Logger
+
+      Logger.warning("Guest count mismatch - filtering form",
+        expected: expected_total,
+        actual: actual_total,
+        guests_count: guests_count,
+        children_count: children_count,
+        filtered_count: map_size(filtered_guest_params)
+      )
+    end
+
+    # Create a simple form from the params map
+    to_form(filtered_guest_params, as: "guests")
+  end
+
+  defp build_guest_list(remaining_adults, remaining_children, start_index) do
+    # Ensure we don't create negative ranges
+    adults =
+      if remaining_adults > 0 do
+        Enum.map(0..(remaining_adults - 1), fn i ->
+          %{
+            "first_name" => "",
+            "last_name" => "",
+            "is_child" => false,
+            "is_booking_user" => false,
+            "order_index" => start_index + i
+          }
+        end)
+      else
+        []
+      end
+
+    children =
+      if remaining_children > 0 do
+        Enum.map(0..(remaining_children - 1), fn i ->
+          %{
+            "first_name" => "",
+            "last_name" => "",
+            "is_child" => true,
+            "is_booking_user" => false,
+            "order_index" => start_index + remaining_adults + i
+          }
+        end)
+      else
+        []
+      end
+
+    adults ++ children
+  end
+
+  defp build_guest_changesets(booking, guest_params) when is_map(guest_params) do
+    require Logger
+    Logger.debug("[build_guest_changesets] Called with booking_id: #{booking.id}")
+    Logger.debug("[build_guest_changesets] guest_params keys: #{inspect(Map.keys(guest_params))}")
+    Logger.debug("[build_guest_changesets] guest_params: #{inspect(guest_params)}")
+
+    guests_count = booking.guests_count || 1
+    children_count = booking.children_count || 0
+    total_expected = guests_count + children_count
+
+    Logger.debug(
+      "[build_guest_changesets] guests_count: #{guests_count}, children_count: #{children_count}, total_expected: #{total_expected}"
+    )
+
+    # Convert guest_params map to list and sort by index
+    guests_list =
+      guest_params
+      |> Enum.map(fn {index_str, guest_attrs} ->
+        {String.to_integer(index_str), guest_attrs}
+      end)
+      |> Enum.sort_by(fn {index, _} -> index end)
+      |> Enum.map(fn {_index, attrs} -> attrs end)
+
+    Logger.debug("[build_guest_changesets] guests_list length: #{length(guests_list)}")
+    Logger.debug("[build_guest_changesets] guests_list: #{inspect(guests_list)}")
+
+    if length(guests_list) != total_expected do
+      error_msg = "Expected #{total_expected} guests, got #{length(guests_list)}"
+      Logger.error("[build_guest_changesets] #{error_msg}")
+      {:error, error_msg}
+    else
+      # Validate that exactly one guest is marked as booking user
+      # Normalize boolean values (form submissions send "true"/"false" as strings)
+      booking_user_count =
+        Enum.count(guests_list, fn guest ->
+          is_booking_user =
+            case Map.get(guest, "is_booking_user") || Map.get(guest, :is_booking_user) do
+              "true" -> true
+              "false" -> false
+              true -> true
+              false -> false
+              _ -> false
+            end
+
+          is_booking_user == true
+        end)
+
+      Logger.debug("[build_guest_changesets] booking_user_count: #{booking_user_count}")
+
+      if booking_user_count != 1 do
+        error_msg =
+          "Exactly one guest must be marked as the booking user, got #{booking_user_count}"
+
+        Logger.error("[build_guest_changesets] #{error_msg}")
+        {:error, error_msg}
+      else
+        # Validate child count
+        # Normalize boolean values (form submissions send "true"/"false" as strings)
+        child_count =
+          Enum.count(guests_list, fn guest ->
+            is_child =
+              case Map.get(guest, "is_child") || Map.get(guest, :is_child) do
+                "true" -> true
+                "false" -> false
+                true -> true
+                false -> false
+                _ -> false
+              end
+
+            is_child == true
+          end)
+
+        Logger.debug("[build_guest_changesets] child_count: #{child_count}")
+
+        if child_count != children_count do
+          error_msg = "Expected #{children_count} children, got #{child_count}"
+          Logger.error("[build_guest_changesets] #{error_msg}")
+          {:error, error_msg}
+        else
+          # Build changesets
+          changesets =
+            Enum.map(guests_list, fn guest_attrs ->
+              attrs_with_booking =
+                Map.merge(guest_attrs, %{"booking_id" => booking.id})
+
+              Ysc.Bookings.BookingGuest.changeset(
+                %Ysc.Bookings.BookingGuest{},
+                attrs_with_booking
+              )
+            end)
+
+          Logger.debug("[build_guest_changesets] Built #{length(changesets)} changesets")
+
+          Logger.debug(
+            "[build_guest_changesets] Changesets valid status: #{inspect(Enum.map(changesets, & &1.valid?))}"
+          )
+
+          # Check if all changesets are valid
+          invalid_changesets =
+            Enum.filter(changesets, fn changeset -> not changeset.valid? end)
+
+          if length(invalid_changesets) > 0 do
+            Logger.error(
+              "[build_guest_changesets] Found #{length(invalid_changesets)} invalid changesets"
+            )
+
+            {:error, invalid_changesets}
+          else
+            Logger.debug("[build_guest_changesets] All changesets are valid")
+            {:ok, changesets}
+          end
+        end
+      end
+    end
+  end
+
+  def all_guests_valid?(nil, _booking), do: false
+
+  def all_guests_valid?(guest_info_form, booking) do
+    guests_count = booking.guests_count || 1
+    children_count = booking.children_count || 0
+    total_expected = guests_count + children_count
+
+    # Check if we have the expected number of guests
+    if map_size(guest_info_form.source) != total_expected do
+      false
+    else
+      # Check if all guests have valid first_name and last_name
+      guest_info_form.source
+      |> Enum.all?(fn {_index, guest_data} ->
+        first_name = Map.get(guest_data, "first_name") || Map.get(guest_data, :first_name) || ""
+        last_name = Map.get(guest_data, "last_name") || Map.get(guest_data, :last_name) || ""
+
+        # Both first_name and last_name must be non-empty strings
+        String.trim(first_name) != "" && String.trim(last_name) != ""
+      end)
+    end
+  end
+
+  defp save_guests(booking, guest_changesets) when is_list(guest_changesets) do
+    # Delete existing guests first (in case of re-submission)
+    Bookings.delete_booking_guests(booking.id)
+
+    # Create all guests atomically
+    # Convert changesets to attrs maps, preserving order_index
+    guests_attrs =
+      Enum.map(guest_changesets, fn changeset ->
+        changes = Ecto.Changeset.apply_changes(changeset)
+        order_index = Map.get(changes, :order_index) || 0
+
+        # Convert struct to map with string keys for consistency
+        attrs_map =
+          changes
+          |> Map.from_struct()
+          |> Map.new(fn {k, v} -> {Atom.to_string(k), v} end)
+          # Remove order_index from attrs since it's passed as tuple key
+          |> Map.delete("order_index")
+
+        {order_index, attrs_map}
+      end)
+
+    case Bookings.create_booking_guests(booking.id, guests_attrs) do
+      {:ok, guests} -> {:ok, guests}
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
 end

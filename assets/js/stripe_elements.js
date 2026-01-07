@@ -175,6 +175,8 @@ const StripeElements = {
                 // Only mount if the container is still in the DOM
                 if (document.contains(paymentElementContainer)) {
                     this.paymentElement.mount('#payment-element');
+                    // Show the payment element after mounting
+                    paymentElementContainer.classList.remove('hidden');
                 } else {
                     console.error('Payment element container is not in the DOM');
                     this.showMessage('Payment form container is not available. Please refresh and try again.');
@@ -192,6 +194,8 @@ const StripeElements = {
                         try {
                             // Try to mount the payment element
                             this.paymentElement.mount('#payment-element');
+                            // Show the payment element after mounting
+                            paymentElementContainer.classList.remove('hidden');
                         } catch (mountError) {
                             console.error('Failed to mount payment element:', mountError);
                             // Recreate the payment element
@@ -203,6 +207,8 @@ const StripeElements = {
                                     }
                                 });
                                 this.paymentElement.mount('#payment-element');
+                                // Show the payment element after mounting
+                                paymentElementContainer.classList.remove('hidden');
                             } catch (recreateError) {
                                 console.error('Failed to recreate payment element:', recreateError);
                                 this.showMessage('Failed to initialize payment form. Please refresh and try again.');

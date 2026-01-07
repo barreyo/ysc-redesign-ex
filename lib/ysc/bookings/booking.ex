@@ -72,6 +72,7 @@ defmodule Ysc.Bookings.Booking do
     field :pricing_items, :map
     many_to_many :rooms, Ysc.Bookings.Room, join_through: Ysc.Bookings.BookingRoom
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
+    has_many :booking_guests, Ysc.Bookings.BookingGuest, foreign_key: :booking_id
 
     timestamps()
   end

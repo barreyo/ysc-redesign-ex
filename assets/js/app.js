@@ -39,6 +39,7 @@ import StripeInput from "./stripe_payment";
 import StripeElements from "./stripe_elements";
 import CheckoutTimer from "./checkout_timer";
 import HoldCountdown from "./hold_countdown";
+import CountdownColor from "./countdown_color";
 import PanelResizer from "./panel_resizer";
 import EmailPreview from "./email_preview";
 import AdminSearch from "./admin_search";
@@ -72,6 +73,7 @@ let Hooks = {
     StripeElements,
     CheckoutTimer,
     HoldCountdown,
+    CountdownColor,
     PanelResizer,
     EmailPreview,
     AdminSearch,
@@ -122,6 +124,19 @@ if ('scrollRestoration' in history) {
 topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });
 window.addEventListener("phx:page-loading-start", (_info) => topbar.show(300));
 window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
+
+// Handle custom events from LiveView
+window.addEventListener("phx:scroll-to-price-details", () => {
+    const priceDetails = document.getElementById("price-details-section");
+    if (priceDetails) {
+        priceDetails.scrollIntoView({ behavior: "smooth", block: "start" });
+        // Also expand if collapsed on mobile
+        const toggleButton = priceDetails.querySelector('button[phx-click="toggle-price-details"]');
+        if (toggleButton && toggleButton.getAttribute("aria-expanded") !== "true") {
+            toggleButton.click();
+        }
+    }
+});
 
 // connect if there are any LiveViews on the page
 liveSocket.connect();

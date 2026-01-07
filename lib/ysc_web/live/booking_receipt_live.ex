@@ -20,7 +20,13 @@ defmodule YscWeb.BookingReceiptLive do
        |> put_flash(:error, "You must be signed in to view this receipt.")
        |> redirect(to: ~p"/")}
     else
-      case Repo.get(Booking, booking_id) do
+      # SECURITY: Filter by user_id in the database query to prevent unauthorized access
+      # This ensures we only fetch bookings that belong to the current user
+      case from(b in Booking,
+             where: b.id == ^booking_id and b.user_id == ^user.id,
+             preload: [:user, :booking_guests, rooms: :room_category]
+           )
+           |> Repo.one() do
         nil ->
           {:ok,
            socket
@@ -28,85 +34,79 @@ defmodule YscWeb.BookingReceiptLive do
            |> redirect(to: ~p"/")}
 
         booking ->
-          # Verify booking belongs to user
-          if booking.user_id != user.id do
-            {:ok,
-             socket
-             |> put_flash(:error, "You don't have permission to view this booking.")
-             |> redirect(to: ~p"/")}
-          else
-            # Preload associations
-            booking = Repo.preload(booking, [:user, rooms: :room_category])
+          # Handle Stripe redirect parameters (may update booking status)
+          socket = handle_stripe_redirect(params, booking, socket)
 
-            # Handle Stripe redirect parameters
-            socket = handle_stripe_redirect(params, booking, socket)
-
-            # Reload booking in case status changed
-            booking =
-              Repo.get!(Booking, booking_id) |> Repo.preload([:user, rooms: :room_category])
-
-            # Get payment information
-            payment = get_booking_payment(booking)
-
-            # Get timezone from connect params
-            connect_params =
-              case get_connect_params(socket) do
-                nil -> %{}
-                v -> v
-              end
-
-            timezone = Map.get(connect_params, "timezone", "America/Los_Angeles")
-
-            # Parse saved pricing items (saved at booking time)
-            price_breakdown = parse_pricing_items(booking.pricing_items)
-
-            # Check if booking can be cancelled
-            can_cancel = can_cancel_booking?(booking)
-
-            # Get refund policy info for cancellation
-            refund_info = get_refund_info(booking)
-
-            # Check if confetti should be shown (only when coming from payment)
-            # Show confetti if:
-            # 1. URL has confetti=true parameter (from checkout page redirect)
-            # 2. URL has redirect_status=succeeded (from Stripe redirect)
-            show_confetti =
-              Map.get(params, "confetti") == "true" ||
-                Map.get(params, "redirect_status") == "succeeded"
-
-            Logger.debug(
-              "Confetti check: params=#{inspect(params)}, show_confetti=#{show_confetti}"
+          # PERFORMANCE: Reload booking only if redirect handling might have changed status
+          # Still filter by user_id for security
+          booking =
+            from(b in Booking,
+              where: b.id == ^booking_id and b.user_id == ^user.id,
+              preload: [:user, :booking_guests, rooms: :room_category]
             )
+            |> Repo.one!()
 
-            # Get door code if booking is within 48 hours of check-in or currently active
-            # Don't show door code for cancelled bookings
-            {door_code, show_door_code} =
-              if booking.status == :canceled do
-                {nil, false}
-              else
-                get_door_code_for_booking(booking)
-              end
+          # Get payment information
+          payment = get_booking_payment(booking)
 
-            # Get refund information if booking is cancelled
-            refund_data = get_refund_data_for_booking(booking, payment)
+          # Get timezone from connect params
+          connect_params =
+            case get_connect_params(socket) do
+              nil -> %{}
+              v -> v
+            end
 
-            {:ok,
-             socket
-             |> assign(:booking, booking)
-             |> assign(:payment, payment)
-             |> assign(:timezone, timezone)
-             |> assign(:price_breakdown, price_breakdown)
-             |> assign(:user_first_name, user.first_name || "Member")
-             |> assign(:can_cancel, can_cancel)
-             |> assign(:refund_info, refund_info)
-             |> assign(:show_cancel_modal, false)
-             |> assign(:cancel_reason, "")
-             |> assign(:show_confetti, show_confetti)
-             |> assign(:door_code, door_code)
-             |> assign(:show_door_code, show_door_code)
-             |> assign(:refund_data, refund_data)
-             |> assign(:page_title, "Booking Confirmation")}
-          end
+          timezone = Map.get(connect_params, "timezone", "America/Los_Angeles")
+
+          # Parse saved pricing items (saved at booking time)
+          price_breakdown = parse_pricing_items(booking.pricing_items)
+
+          # Check if booking can be cancelled
+          can_cancel = can_cancel_booking?(booking)
+
+          # Get refund policy info for cancellation
+          refund_info = get_refund_info(booking)
+
+          # Check if confetti should be shown (only when coming from payment)
+          # Show confetti if:
+          # 1. URL has confetti=true parameter (from checkout page redirect)
+          # 2. URL has redirect_status=succeeded (from Stripe redirect)
+          show_confetti =
+            Map.get(params, "confetti") == "true" ||
+              Map.get(params, "redirect_status") == "succeeded"
+
+          Logger.debug(
+            "Confetti check: params=#{inspect(params)}, show_confetti=#{show_confetti}"
+          )
+
+          # Get door code if booking is within 48 hours of check-in or currently active
+          # Don't show door code for cancelled bookings
+          {door_code, show_door_code} =
+            if booking.status == :canceled do
+              {nil, false}
+            else
+              get_door_code_for_booking(booking)
+            end
+
+          # Get refund information if booking is cancelled
+          refund_data = get_refund_data_for_booking(booking, payment)
+
+          {:ok,
+           socket
+           |> assign(:booking, booking)
+           |> assign(:payment, payment)
+           |> assign(:timezone, timezone)
+           |> assign(:price_breakdown, price_breakdown)
+           |> assign(:user_first_name, user.first_name || "Member")
+           |> assign(:can_cancel, can_cancel)
+           |> assign(:refund_info, refund_info)
+           |> assign(:show_cancel_modal, false)
+           |> assign(:cancel_reason, "")
+           |> assign(:show_confetti, show_confetti)
+           |> assign(:door_code, door_code)
+           |> assign(:show_door_code, show_door_code)
+           |> assign(:refund_data, refund_data)
+           |> assign(:page_title, "Booking Confirmation")}
       end
     end
   end
@@ -477,6 +477,91 @@ defmodule YscWeb.BookingReceiptLive do
               </div>
             </div>
           </div>
+          <!-- Guest Information (if booking guests exist) -->
+          <%= if Ecto.assoc_loaded?(@booking.booking_guests) && length(@booking.booking_guests) > 0 do %>
+            <div class={[
+              "rounded-lg border overflow-hidden",
+              if(@booking.status == :canceled,
+                do: "bg-zinc-100 border-zinc-300 opacity-60",
+                else: "bg-white border-zinc-200"
+              )
+            ]}>
+              <div class="p-8">
+                <h2 class={[
+                  "text-xl font-bold mb-6 flex items-center gap-2",
+                  if(@booking.status == :canceled,
+                    do: "text-zinc-500 line-through",
+                    else: "text-zinc-900"
+                  )
+                ]}>
+                  <.icon name="hero-users" class="w-6 h-6" /> Guest Information
+                </h2>
+                <div class="space-y-4">
+                  <%= for guest <- Enum.sort_by(@booking.booking_guests, & &1.order_index) do %>
+                    <div class={[
+                      "flex items-center gap-4 p-4 rounded-lg border-l-4",
+                      if(guest.is_child,
+                        do: "bg-green-50 border-green-300",
+                        else: "bg-blue-50 border-blue-300"
+                      )
+                    ]}>
+                      <div class={[
+                        "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm overflow-hidden",
+                        if(guest.is_child,
+                          do: "bg-green-100 text-green-700",
+                          else: "bg-blue-100 text-blue-700"
+                        )
+                      ]}>
+                        <%= if guest.is_booking_user do %>
+                          <%= if Ecto.assoc_loaded?(@booking.user) && @booking.user do %>
+                            <.user_avatar_image
+                              email={@booking.user.email || ""}
+                              user_id={to_string(@booking.user.id)}
+                              country={@booking.user.most_connected_country || "SE"}
+                              class="w-full h-full object-cover"
+                            />
+                          <% else %>
+                            <.icon name="hero-user-circle" class="w-5 h-5" />
+                          <% end %>
+                        <% else %>
+                          <%= guest.order_index + 1 %>
+                        <% end %>
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center justify-between mb-1">
+                          <h3 class={[
+                            "font-semibold",
+                            if(@booking.status == :canceled,
+                              do: "text-zinc-500 line-through",
+                              else: "text-zinc-900"
+                            )
+                          ]}>
+                            <%= if guest.is_booking_user do %>
+                              <%= guest.first_name %> <%= guest.last_name %>
+                              <span class="text-xs font-normal text-zinc-500 ml-2">
+                                (Booking Member)
+                              </span>
+                            <% else %>
+                              <%= guest.first_name %> <%= guest.last_name %>
+                            <% end %>
+                          </h3>
+                          <span class={[
+                            "text-xs font-medium px-2 py-1 rounded",
+                            if(guest.is_child,
+                              do: "bg-green-200 text-green-800",
+                              else: "bg-blue-200 text-blue-800"
+                            )
+                          ]}>
+                            <%= if guest.is_child, do: "Child", else: "Adult" %>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          <% end %>
           <!-- Utility Cards (Hidden for cancelled bookings) -->
           <%= if @booking.status != :canceled do %>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1134,8 +1219,9 @@ defmodule YscWeb.BookingReceiptLive do
   defp cents_to_money(_, _), do: Money.new(0, :USD)
 
   defp get_booking_payment(booking) do
-    # Find the payment via ledger entries
+    # PERFORMANCE: Find the payment via ledger entries with payment_method preloaded
     # Payment entries are debit entries to stripe_account
+    # Preload payment_method in the same query to avoid N+1
     entry =
       from(e in Ysc.Ledgers.LedgerEntry,
         join: a in Ysc.Ledgers.LedgerAccount,
@@ -1144,14 +1230,14 @@ defmodule YscWeb.BookingReceiptLive do
         where: e.related_entity_id == ^booking.id,
         where: e.debit_credit == "debit",
         where: a.name == "stripe_account",
-        preload: [:payment],
+        preload: [payment: :payment_method],
         order_by: [desc: e.inserted_at],
         limit: 1
       )
       |> Repo.one()
 
     if entry && entry.payment do
-      Repo.preload(entry.payment, [:payment_method])
+      entry.payment
     else
       nil
     end
