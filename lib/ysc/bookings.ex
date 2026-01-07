@@ -622,24 +622,60 @@ defmodule Ysc.Bookings do
   end
 
   @doc """
-  Checks if a date range overlaps with any blackouts for a property.
+  Checks if a blackout overlaps with a booking date range, accounting for check-in/check-out times.
 
-  Returns true if there's a blackout that would block the given date range.
+  Since check-out is at 11 AM and check-in is at 3 PM, a blackout and booking can share the
+  same date if one ends and the other starts on that date.
+
+  ## Parameters
+  - `property`: The property to check
+  - `checkin_date`: Booking check-in date
+  - `checkout_date`: Booking check-out date
+
+  ## Returns
+  - `true` if there's a blackout conflict
+  - `false` if there's no conflict
+
+  ## Examples
+      # Blackout Jan 9-12, Booking Jan 7-9: No conflict (checkout at 11 AM, blackout starts at 3 PM)
+      iex> Ysc.Bookings.has_blackout?(:tahoe, ~D[2025-01-07], ~D[2025-01-09])
+      false
+
+      # Blackout Jan 9-12, Booking Jan 9-10: Conflict (check-in at 3 PM conflicts with blackout)
+      iex> Ysc.Bookings.has_blackout?(:tahoe, ~D[2025-01-09], ~D[2025-01-10])
+      true
   """
-  def has_blackout?(property, start_date, end_date) when is_atom(property) do
-    query =
-      from b in Blackout,
-        where: b.property == ^property,
-        where:
-          fragment(
-            "(? <= ? AND ? >= ?)",
-            b.start_date,
-            ^end_date,
-            b.end_date,
-            ^start_date
-          )
+  def has_blackout?(property, checkin_date, checkout_date) when is_atom(property) do
+    # Get all blackouts that might overlap
+    blackouts = get_overlapping_blackouts(property, checkin_date, checkout_date)
 
-    Repo.exists?(query)
+    # Check if any blackout actually conflicts, accounting for check-in/checkout times
+    Enum.any?(blackouts, fn blackout ->
+      # A blackout conflicts with a booking if:
+      # 1. The booking's check-in date is before the blackout's end date
+      #    AND the booking's checkout date is after the blackout's start date
+      # 2. BUT we need to account for same-day turnarounds:
+      #    - If booking checkout is on blackout start date: No conflict (11 AM checkout vs 3 PM blackout start)
+      #    - If booking checkin is on blackout end date: No conflict (3 PM checkin vs 11 AM blackout end)
+
+      cond do
+        # Same-day turnarounds: no conflict
+        checkout_date == blackout.start_date ->
+          false
+
+        checkin_date == blackout.end_date ->
+          false
+
+        # Otherwise, check for standard overlap
+        # Conflict occurs if: checkin < blackout_end AND checkout > blackout_start
+        Date.compare(checkin_date, blackout.end_date) == :lt &&
+            Date.compare(checkout_date, blackout.start_date) == :gt ->
+          true
+
+        true ->
+          false
+      end
+    end)
   end
 
   @doc """
@@ -2209,6 +2245,178 @@ defmodule Ysc.Bookings do
           has_checkout: info.has_checkout,
           has_checkin: info.has_checkin,
           is_changeover_day: is_changeover
+        }
+      }
+    end)
+    |> Map.new()
+  end
+
+  @doc """
+  Gets daily availability information for Tahoe property.
+
+  Returns a map where keys are dates (as Date structs) and values are maps with:
+  - `has_room_booking`: Whether there's any room booking on this date
+  - `has_buyout`: Whether there's a buyout booking on this date
+  - `is_blacked_out`: Whether the date is in a blackout period
+  - `can_book_buyout`: Whether buyout is possible (not blacked out and no room bookings)
+  - `can_book_room`: Whether room bookings are possible (not blacked out and no buyout)
+
+  ## Parameters
+  - `start_date`: Start date of the range to check
+  - `end_date`: End date of the range to check
+
+  ## Returns
+  A map of dates to availability information.
+  """
+  def get_tahoe_daily_availability(start_date, end_date) do
+    date_range = Date.range(start_date, end_date) |> Enum.to_list()
+
+    # Get all bookings that overlap with the date range
+    # Expand the date range by 1 day on each side to capture all relevant checkouts and checkins
+    expanded_start = Date.add(start_date, -1)
+    expanded_end = Date.add(end_date, 1)
+    all_bookings = list_bookings(:tahoe, expanded_start, expanded_end, preload: [:rooms])
+
+    bookings =
+      Enum.filter(all_bookings, fn booking ->
+        booking.status in [:hold, :complete]
+      end)
+
+    # Get all blackouts that overlap with the date range
+    # Expand the range to include blackouts that might affect changeover days
+    expanded_blackout_start = Date.add(start_date, -1)
+    expanded_blackout_end = Date.add(end_date, 1)
+    blackouts = get_overlapping_blackouts(:tahoe, expanded_blackout_start, expanded_blackout_end)
+
+    # Create a set of blacked out dates
+    # Blackouts block:
+    # - The afternoon (check-in time) of start_date
+    # - The morning (checkout time) of end_date
+    # - All full days in between
+    # The calendar component handles morning/afternoon split based on whether dates are blacked out
+    blacked_out_dates =
+      blackouts
+      |> Enum.reduce(MapSet.new(), fn blackout, acc ->
+        # Include all dates from start_date to end_date
+        # The calendar will show:
+        # - start_date as check-in day (afternoon blocked) if start_date is blacked out
+        # - end_date as check-out day (morning blocked) if end_date is blacked out
+        # - All dates in between as fully blocked
+        blackout_dates =
+          Date.range(blackout.start_date, blackout.end_date)
+          |> Enum.reduce(MapSet.new(), fn date, set -> MapSet.put(set, date) end)
+
+        MapSet.union(acc, blackout_dates)
+      end)
+
+    # Initialize availability map
+    availability =
+      date_range
+      |> Enum.map(fn date ->
+        {date, %{has_room_booking: false, has_buyout: false}}
+      end)
+      |> Map.new()
+
+    # Process bookings to check for room bookings and buyouts
+    # Note: Exclude checkout_date from the range since checkout is at 11:00 AM
+    # and check-in is at 15:00 (3 PM), allowing same-day turnarounds
+    availability =
+      bookings
+      |> Enum.reduce(availability, fn booking, acc ->
+        # Only count dates from checkin_date to checkout_date - 1
+        # The checkout_date itself is not occupied since guests leave at 11 AM
+        if Date.compare(booking.checkout_date, booking.checkin_date) == :gt do
+          # Exclude checkout_date - only count nights actually stayed
+          booking_date_range =
+            Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
+
+          booking_date_range
+          |> Enum.reduce(acc, fn date, date_acc ->
+            if Map.has_key?(date_acc, date) do
+              case booking.booking_mode do
+                :room ->
+                  # Any room booking makes buyout unavailable
+                  Map.put(date_acc, date, %{
+                    date_acc[date]
+                    | has_room_booking: true
+                  })
+
+                :buyout ->
+                  # Buyout makes everything unavailable
+                  Map.put(date_acc, date, %{date_acc[date] | has_buyout: true})
+
+                _ ->
+                  date_acc
+              end
+            else
+              date_acc
+            end
+          end)
+        else
+          # Edge case: same day check-in/check-out (shouldn't happen, but handle gracefully)
+          acc
+        end
+      end)
+
+    # Get buyout_held from PropertyInventory for each date to account for hold bookings
+    held_inventory_by_date =
+      from(pi in PropertyInventory,
+        where: pi.property == :tahoe,
+        where: pi.day >= ^start_date and pi.day <= ^end_date,
+        select: {pi.day, %{buyout_held: pi.buyout_held}}
+      )
+      |> Repo.all()
+      |> Map.new()
+
+    # Check for held room bookings - these are bookings with :hold status
+    # We already have them in the bookings list, so filter and extract dates
+    held_room_dates =
+      bookings
+      |> Enum.filter(fn booking -> booking.status == :hold && booking.booking_mode == :room end)
+      |> Enum.flat_map(fn booking ->
+        if Date.compare(booking.checkout_date, booking.checkin_date) == :gt do
+          Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
+          |> Enum.to_list()
+        else
+          []
+        end
+      end)
+      |> MapSet.new()
+
+    # Finalize availability information for each date
+    availability
+    |> Enum.map(fn {date, info} ->
+      is_blacked_out = MapSet.member?(blacked_out_dates, date)
+
+      # Check for held buyout
+      held_inventory = Map.get(held_inventory_by_date, date, %{buyout_held: false})
+      buyout_held = held_inventory.buyout_held
+
+      # Check if there's a held room booking on this date
+      has_held_room_booking = MapSet.member?(held_room_dates, date)
+
+      # Room bookings can be made if:
+      # - Not blacked out
+      # - No buyout (confirmed or held)
+      # - No room bookings don't block other room bookings (they can coexist)
+      can_book_room = not is_blacked_out and not info.has_buyout and not buyout_held
+
+      # Buyout can only be booked if:
+      # - Not blacked out
+      # - No buyout already on that day (confirmed or held)
+      # - No room bookings (confirmed or held) on that day
+      can_book_buyout =
+        not is_blacked_out and not info.has_buyout and not buyout_held and
+          not info.has_room_booking and not has_held_room_booking
+
+      {
+        date,
+        %{
+          has_room_booking: info.has_room_booking || has_held_room_booking,
+          has_buyout: info.has_buyout || buyout_held,
+          is_blacked_out: is_blacked_out,
+          can_book_room: can_book_room,
+          can_book_buyout: can_book_buyout
         }
       }
     end)

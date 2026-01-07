@@ -35,7 +35,7 @@ defmodule YscWeb.TahoeBookingLive do
     guests_count = parse_guests_from_params(parsed_params)
     children_count = parse_children_from_params(parsed_params)
     requested_tab = parse_tab_from_params(parsed_params)
-    booking_mode = parse_booking_mode_from_params(parsed_params) || :room
+    booking_mode = parse_booking_mode_from_params(parsed_params)
 
     date_form =
       to_form(
@@ -129,10 +129,10 @@ defmodule YscWeb.TahoeBookingLive do
         seasons: seasons,
         selected_room_id: nil,
         selected_room_ids: [],
-        selected_booking_mode: booking_mode,
+        selected_booking_mode: booking_mode || :room,
         guests_count: guests_count,
         children_count: children_count,
-        guests_dropdown_open: false,
+        guests_dropdown_open: socket.assigns[:guests_dropdown_open] || false,
         available_rooms: [],
         calculated_price: nil,
         price_breakdown: nil,
@@ -154,8 +154,11 @@ defmodule YscWeb.TahoeBookingLive do
         terms_agreed: false,
         info_tab: :about,
         show_confirm_modal: false,
+        show_terms_modal: false,
         linens_confirmed: false,
-        chores_confirmed: false
+        chores_confirmed: false,
+        party_size_confirmed: false,
+        booking_step: if(booking_mode, do: :details, else: :mode_selection)
       )
 
     # If dates are present and user can book, initialize validation and room availability
@@ -183,7 +186,7 @@ defmodule YscWeb.TahoeBookingLive do
     guests_count = parse_guests_from_params(params)
     children_count = parse_children_from_params(params)
     requested_tab = parse_tab_from_params(params)
-    booking_mode = parse_booking_mode_from_params(params) || :room
+    booking_mode = parse_booking_mode_from_params(params)
 
     # Check if user can book (re-check in case user state changed)
     user = socket.assigns.current_user
@@ -283,10 +286,10 @@ defmodule YscWeb.TahoeBookingLive do
           season_end_date: season_end_date,
           guests_count: guests_count,
           children_count: children_count,
-          selected_booking_mode: booking_mode,
+          selected_booking_mode: booking_mode || :room,
           selected_room_id: nil,
           selected_room_ids: [],
-          guests_dropdown_open: false,
+          guests_dropdown_open: socket.assigns[:guests_dropdown_open] || false,
           available_rooms: [],
           calculated_price: nil,
           price_error: nil,
@@ -298,7 +301,8 @@ defmodule YscWeb.TahoeBookingLive do
           booking_error_title: booking_error_title,
           booking_disabled_reason: booking_disabled_reason,
           active_bookings: active_bookings,
-          date_tooltips: date_tooltips
+          date_tooltips: date_tooltips,
+          booking_step: if(booking_mode, do: :details, else: :mode_selection)
         )
         |> then(fn s ->
           # Only run validation/room updates if dates changed, not just tab
@@ -324,6 +328,36 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   @impl true
+  def handle_info(
+        {:availability_calendar_date_changed,
+         %{checkin_date: checkin_date, checkout_date: checkout_date}},
+        socket
+      ) do
+    date_form =
+      to_form(
+        %{
+          "checkin_date" => date_to_datetime_string(checkin_date),
+          "checkout_date" => date_to_datetime_string(checkout_date)
+        },
+        as: "booking_dates"
+      )
+
+    socket =
+      socket
+      |> assign(
+        checkin_date: checkin_date,
+        checkout_date: checkout_date,
+        date_form: date_form,
+        calculated_price: nil,
+        price_error: nil
+      )
+      |> validate_dates()
+      |> calculate_price_if_ready()
+      |> update_url_with_dates(checkin_date, checkout_date)
+
+    {:noreply, socket}
+  end
+
   def handle_info({:updated_event, %{start_date: start_date, end_date: end_date}}, socket) do
     checkin_date = if start_date, do: DateTime.to_date(start_date), else: nil
     checkout_date = if end_date, do: DateTime.to_date(end_date), else: nil
@@ -590,8 +624,121 @@ defmodule YscWeb.TahoeBookingLive do
               </div>
             </div>
             <div :if={!@can_book} class="relative opacity-60 pointer-events-none"></div>
+            <!-- Step 1: Booking Mode Selection -->
+            <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
+              <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                  1
+                </span>
+                Choose Booking Type
+              </h2>
+              <p class="text-sm text-zinc-600 mb-6">
+                Select how you'd like to book the Tahoe cabin:
+              </p>
+              <fieldset>
+                <form phx-change="booking-mode-changed">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4" role="radiogroup">
+                    <label class={[
+                      "flex flex-col p-6 border-2 rounded-lg cursor-pointer transition-all",
+                      if(@selected_booking_mode == :room || @selected_booking_mode == nil,
+                        do: "border-blue-600 bg-blue-50 shadow-md",
+                        else: "border-zinc-300 hover:border-blue-400 hover:bg-zinc-50"
+                      )
+                    ]}>
+                      <input
+                        type="radio"
+                        id="booking-mode-room"
+                        name="booking_mode"
+                        value="room"
+                        checked={@selected_booking_mode == :room || @selected_booking_mode == nil}
+                        class="sr-only"
+                      />
+                      <div class="flex items-center gap-3 mb-2">
+                        <div class={[
+                          "w-6 h-6 rounded-full border-2 flex items-center justify-center",
+                          if(@selected_booking_mode == :room || @selected_booking_mode == nil,
+                            do: "border-blue-600 bg-blue-600",
+                            else: "border-zinc-300 bg-white"
+                          )
+                        ]}>
+                          <svg
+                            :if={@selected_booking_mode == :room || @selected_booking_mode == nil}
+                            class="w-4 h-4 text-white"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
+                        </div>
+                        <span class="text-lg font-semibold text-zinc-900">Individual Room(s)</span>
+                      </div>
+                      <p class="text-sm text-zinc-600 ml-9">
+                        Book one or more individual rooms. Perfect for smaller groups or when you want to share the cabin with other members.
+                      </p>
+                    </label>
+                    <label class={[
+                      "flex flex-col p-6 border-2 rounded-lg cursor-pointer transition-all",
+                      if(@selected_booking_mode == :buyout,
+                        do: "border-blue-600 bg-blue-50 shadow-md",
+                        else: "border-zinc-300 hover:border-blue-400 hover:bg-zinc-50"
+                      ),
+                      if(not can_select_booking_mode?(@seasons, Date.utc_today()),
+                        do: "opacity-50 cursor-not-allowed",
+                        else: ""
+                      )
+                    ]}>
+                      <input
+                        type="radio"
+                        id="booking-mode-buyout"
+                        name="booking_mode"
+                        value="buyout"
+                        checked={@selected_booking_mode == :buyout}
+                        disabled={not can_select_booking_mode?(@seasons, Date.utc_today())}
+                        class="sr-only"
+                      />
+                      <div class="flex items-center gap-3 mb-2">
+                        <div class={[
+                          "w-6 h-6 rounded-full border-2 flex items-center justify-center",
+                          if(@selected_booking_mode == :buyout,
+                            do: "border-blue-600 bg-blue-600",
+                            else: "border-zinc-300 bg-white"
+                          )
+                        ]}>
+                          <svg
+                            :if={@selected_booking_mode == :buyout}
+                            class="w-4 h-4 text-white"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
+                        </div>
+                        <span class="text-lg font-semibold text-zinc-900">Full Cabin Buyout</span>
+                      </div>
+                      <p class="text-sm text-zinc-600 ml-9">
+                        Reserve the entire cabin exclusively for your group. Includes all 7 bedrooms, 3 bathrooms, and the sauna.
+                      </p>
+                      <p
+                        :if={not can_select_booking_mode?(@seasons, Date.utc_today())}
+                        class="text-xs text-amber-600 mt-2 ml-9 font-medium"
+                      >
+                        Full buyout is only available May–November.
+                      </p>
+                    </label>
+                  </div>
+                </form>
+              </fieldset>
+            </section>
             <!-- Booking Rules & Policies (Above Stay Details) -->
-            <div class="space-y-3 mb-6">
+            <div :if={@booking_step == :details} class="space-y-3 mb-6">
               <!-- Weekend Rule Alert (Reactive - shows when Saturday selected without Sunday) -->
               <div
                 :if={
@@ -664,283 +811,285 @@ defmodule YscWeb.TahoeBookingLive do
                 </div>
               </div>
             </div>
-            <!-- Section 1: Stay Details -->
-            <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
-              <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                  1
-                </span>
-                Stay Details
-              </h2>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Date Selection -->
-                <div>
-                  <.date_range_picker
-                    label="Check-in & Check-out Dates"
-                    id="booking_date_range"
-                    form={@date_form}
-                    start_date_field={@date_form[:checkin_date]}
-                    end_date_field={@date_form[:checkout_date]}
-                    min={@restricted_min_date}
-                    max={@restricted_max_date}
-                    disabled={!@can_book}
-                    date_tooltips={@date_tooltips}
-                    property={@property}
-                    today={@today}
-                  />
-                </div>
-                <!-- Guests and Children Selection (Dropdown) -->
-                <div class="py-1">
-                  <div id="guests-label" class="block text-sm font-semibold text-zinc-700 mb-2">
-                    Guests
-                  </div>
-                  <div class="relative">
-                    <!-- Dropdown Trigger -->
-                    <button
-                      type="button"
-                      id="guests-dropdown-button"
-                      phx-click="toggle-guests-dropdown"
+            <!-- Step 2a: Room Booking Details (shown when room mode selected) -->
+            <div :if={@selected_booking_mode == :room}>
+              <!-- Section 1: Stay Details -->
+              <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                  <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                    2
+                  </span>
+                  Stay Details
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <!-- Date Selection -->
+                  <div>
+                    <.date_range_picker
+                      label="Check-in & Check-out Dates"
+                      id="booking_date_range"
+                      form={@date_form}
+                      start_date_field={@date_form[:checkin_date]}
+                      end_date_field={@date_form[:checkout_date]}
+                      min={@restricted_min_date}
+                      max={@restricted_max_date}
                       disabled={!@can_book}
-                      aria-labelledby="guests-label"
-                      aria-expanded={@guests_dropdown_open}
-                      aria-haspopup="true"
-                      class="w-full px-3 py-2 border border-zinc-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span class="text-zinc-900">
-                        <%= format_guests_display(@guests_count, @children_count) %>
-                      </span>
-                      <.icon
-                        name="hero-chevron-down"
-                        class={[
-                          "w-5 h-5 text-zinc-500 transition-transform duration-200 ease-in-out",
-                          if(@guests_dropdown_open, do: "rotate-180", else: "")
-                        ]}
-                      />
-                    </button>
-                    <!-- Dropdown Panel -->
-                    <div
-                      :if={@guests_dropdown_open}
-                      phx-click-away="close-guests-dropdown"
-                      class="absolute z-10 w-full mt-1 bg-white border border-zinc-300 rounded shadow-lg p-4"
-                    >
-                      <div class="space-y-4">
-                        <!-- Adults Counter -->
-                        <div>
-                          <div
-                            id="adults-label"
-                            class="block text-sm font-semibold text-zinc-700 mb-2"
-                          >
-                            Number of Adults
+                      date_tooltips={@date_tooltips}
+                      property={@property}
+                      today={@today}
+                    />
+                  </div>
+                  <!-- Guests and Children Selection (Dropdown) -->
+                  <div class="py-1">
+                    <div id="guests-label" class="block text-sm font-semibold text-zinc-700 mb-2">
+                      Guests
+                    </div>
+                    <div class="relative">
+                      <!-- Dropdown Trigger -->
+                      <button
+                        type="button"
+                        id="guests-dropdown-button"
+                        phx-click="toggle-guests-dropdown"
+                        disabled={!@can_book}
+                        aria-labelledby="guests-label"
+                        aria-expanded={@guests_dropdown_open}
+                        aria-haspopup="true"
+                        class="w-full px-3 py-2 border border-zinc-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span class="text-zinc-900">
+                          <%= format_guests_display(@guests_count, @children_count) %>
+                        </span>
+                        <.icon
+                          name="hero-chevron-down"
+                          class={[
+                            "w-5 h-5 text-zinc-500 transition-transform duration-200 ease-in-out",
+                            if(@guests_dropdown_open, do: "rotate-180", else: "")
+                          ]}
+                        />
+                      </button>
+                      <!-- Dropdown Panel -->
+                      <div
+                        :if={@guests_dropdown_open}
+                        phx-click-away="close-guests-dropdown"
+                        class="absolute z-50 w-full mt-1 bg-white border border-zinc-300 rounded shadow-lg p-4"
+                      >
+                        <div class="space-y-4" phx-click="ignore">
+                          <!-- Adults Counter -->
+                          <div>
+                            <div
+                              id="adults-label"
+                              class="block text-sm font-semibold text-zinc-700 mb-2"
+                            >
+                              Number of Adults
+                            </div>
+                            <div
+                              class="flex items-center space-x-3"
+                              role="group"
+                              aria-labelledby="adults-label"
+                            >
+                              <button
+                                type="button"
+                                id="decrease-guests-button"
+                                phx-click="decrease-guests"
+                                phx-click-stop
+                                disabled={@guests_count <= 1}
+                                aria-label="Decrease number of adults"
+                                class={[
+                                  "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
+                                  if(@guests_count <= 1,
+                                    do:
+                                      "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
+                                    else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                                  )
+                                ]}
+                              >
+                                <.icon name="hero-minus" class="w-5 h-5" />
+                              </button>
+                              <span
+                                id="guests-count-display"
+                                class="w-12 text-center font-medium text-lg text-zinc-900"
+                                aria-live="polite"
+                              >
+                                <%= @guests_count %>
+                              </span>
+                              <button
+                                type="button"
+                                id="increase-guests-button"
+                                phx-click="increase-guests"
+                                phx-click-stop
+                                aria-label="Increase number of adults"
+                                class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
+                              >
+                                <.icon name="hero-plus" class="w-5 h-5" />
+                              </button>
+                            </div>
                           </div>
-                          <div
-                            class="flex items-center space-x-3"
-                            role="group"
-                            aria-labelledby="adults-label"
-                          >
+                          <!-- Children Counter -->
+                          <div>
+                            <div
+                              id="children-label"
+                              class="block text-sm font-semibold text-zinc-700 mb-2"
+                            >
+                              Number of Children (ages 5-17)
+                            </div>
+                            <div
+                              class="flex items-center space-x-3"
+                              role="group"
+                              aria-labelledby="children-label"
+                            >
+                              <button
+                                type="button"
+                                id="decrease-children-button"
+                                phx-click="decrease-children"
+                                phx-click-stop
+                                disabled={@children_count <= 0}
+                                aria-label="Decrease number of children"
+                                class={[
+                                  "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
+                                  if(@children_count <= 0,
+                                    do:
+                                      "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
+                                    else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                                  )
+                                ]}
+                              >
+                                <.icon name="hero-minus" class="w-5 h-5" />
+                              </button>
+                              <span
+                                id="children-count-display"
+                                class="w-12 text-center font-medium text-lg text-zinc-900"
+                                aria-live="polite"
+                              >
+                                <%= @children_count %>
+                              </span>
+                              <button
+                                type="button"
+                                id="increase-children-button"
+                                phx-click="increase-children"
+                                phx-click-stop
+                                aria-label="Increase number of children"
+                                class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
+                              >
+                                <.icon name="hero-plus" class="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                          <p class="text-sm text-zinc-600 pt-2 border-t border-zinc-200">
+                            <% season_id =
+                              if @checkin_date do
+                                season = Season.find_season_for_date(@seasons, @checkin_date)
+                                if season, do: season.id, else: nil
+                              else
+                                nil
+                              end %>
+                            <% default_children_price =
+                              get_default_children_price(@property, season_id) %> Children 5-17 years: <%= MoneyHelper.format_money!(
+                              default_children_price
+                            ) %>/night. Children under 5 stay for free.
+                          </p>
+                          <!-- Done Button -->
+                          <div class="pt-2">
                             <button
                               type="button"
-                              id="decrease-guests-button"
-                              phx-click="decrease-guests"
-                              disabled={@guests_count <= 1}
-                              aria-label="Decrease number of adults"
-                              class={[
-                                "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
-                                if(@guests_count <= 1,
-                                  do: "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
-                                  else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
-                                )
-                              ]}
+                              phx-click="close-guests-dropdown"
+                              class="w-full px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded transition-colors duration-200"
                             >
-                              <.icon name="hero-minus" class="w-5 h-5" />
-                            </button>
-                            <span
-                              id="guests-count-display"
-                              class="w-12 text-center font-medium text-lg text-zinc-900"
-                              aria-live="polite"
-                            >
-                              <%= @guests_count %>
-                            </span>
-                            <button
-                              type="button"
-                              id="increase-guests-button"
-                              phx-click="increase-guests"
-                              aria-label="Increase number of adults"
-                              class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
-                            >
-                              <.icon name="hero-plus" class="w-5 h-5" />
+                              Done
                             </button>
                           </div>
-                        </div>
-                        <!-- Children Counter -->
-                        <div>
-                          <div
-                            id="children-label"
-                            class="block text-sm font-semibold text-zinc-700 mb-2"
-                          >
-                            Number of Children (ages 5-17)
-                          </div>
-                          <div
-                            class="flex items-center space-x-3"
-                            role="group"
-                            aria-labelledby="children-label"
-                          >
-                            <button
-                              type="button"
-                              id="decrease-children-button"
-                              phx-click="decrease-children"
-                              disabled={@children_count <= 0}
-                              aria-label="Decrease number of children"
-                              class={[
-                                "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
-                                if(@children_count <= 0,
-                                  do: "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
-                                  else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
-                                )
-                              ]}
-                            >
-                              <.icon name="hero-minus" class="w-5 h-5" />
-                            </button>
-                            <span
-                              id="children-count-display"
-                              class="w-12 text-center font-medium text-lg text-zinc-900"
-                              aria-live="polite"
-                            >
-                              <%= @children_count %>
-                            </span>
-                            <button
-                              type="button"
-                              id="increase-children-button"
-                              phx-click="increase-children"
-                              aria-label="Increase number of children"
-                              class="w-10 h-10 rounded-full border-2 border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white flex items-center justify-center transition-all duration-200 font-semibold"
-                            >
-                              <.icon name="hero-plus" class="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                        <p class="text-sm text-zinc-600 pt-2 border-t border-zinc-200">
-                          <% season_id =
-                            if @checkin_date do
-                              season = Season.find_season_for_date(@seasons, @checkin_date)
-                              if season, do: season.id, else: nil
-                            else
-                              nil
-                            end %>
-                          <% default_children_price = get_default_children_price(@property, season_id) %> Children 5-17 years: <%= MoneyHelper.format_money!(
-                            default_children_price
-                          ) %>/night. Children under 5 stay for free.
-                        </p>
-                        <!-- Done Button -->
-                        <div class="pt-2">
-                          <button
-                            type="button"
-                            phx-click="close-guests-dropdown"
-                            class="w-full px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded transition-colors duration-200"
-                          >
-                            Done
-                          </button>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <!-- Error Messages -->
-              <div class="mt-4 space-y-1">
-                <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm">
-                  <%= @form_errors[:checkin_date] %>
-                </p>
-                <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm">
-                  <%= @form_errors[:checkout_date] %>
-                </p>
-                <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
-                  <%= @date_validation_errors[:weekend] %>
-                </p>
-                <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
-                  <%= @date_validation_errors[:max_nights] %>
-                </p>
-                <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm">
-                  <%= @date_validation_errors[:active_booking] %>
-                </p>
-                <p :if={@date_validation_errors[:advance_booking_limit]} class="text-red-600 text-sm">
-                  <%= @date_validation_errors[:advance_booking_limit] %>
-                </p>
-                <p :if={@date_validation_errors[:season_booking_mode]} class="text-red-600 text-sm">
-                  <%= @date_validation_errors[:season_booking_mode] %>
-                </p>
-                <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm">
-                  <%= @date_validation_errors[:season_date_range] %>
-                </p>
-                <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm">
-                  <%= @date_validation_errors[:availability] %>
-                </p>
-              </div>
-            </section>
-            <!-- Booking Mode Selection -->
-            <div :if={@checkin_date}>
-              <fieldset>
-                <legend class="block text-sm font-semibold text-zinc-700 mb-2">
-                  Booking Type
-                </legend>
-                <form phx-change="booking-mode-changed">
-                  <div class="flex gap-4" role="radiogroup">
-                    <label class="flex items-center">
-                      <input
-                        type="radio"
-                        id="booking-mode-room"
-                        name="booking_mode"
-                        value="room"
-                        checked={@selected_booking_mode == :room}
-                        class="mr-2"
-                      />
-                      <span>Individual Room(s)</span>
-                    </label>
-                    <label class={[
-                      "flex items-center",
-                      if(not can_select_booking_mode?(@seasons, @checkin_date),
-                        do: "opacity-50 cursor-not-allowed",
-                        else: ""
-                      )
-                    ]}>
-                      <input
-                        type="radio"
-                        id="booking-mode-buyout"
-                        name="booking_mode"
-                        value="buyout"
-                        checked={@selected_booking_mode == :buyout}
-                        disabled={not can_select_booking_mode?(@seasons, @checkin_date)}
-                        class={[
-                          "mr-2",
-                          if(not can_select_booking_mode?(@seasons, @checkin_date),
-                            do: "cursor-not-allowed opacity-50",
-                            else: ""
-                          )
-                        ]}
-                        onclick={
-                          if(not can_select_booking_mode?(@seasons, @checkin_date),
-                            do: "return false;",
-                            else: ""
-                          )
-                        }
-                      />
-                      <span class={
-                        if(not can_select_booking_mode?(@seasons, @checkin_date),
-                          do: "text-zinc-400",
-                          else: ""
-                        )
-                      }>
-                        Full Buyout
-                      </span>
-                    </label>
-                  </div>
-                </form>
-              </fieldset>
-              <p
-                :if={not can_select_booking_mode?(@seasons, @checkin_date)}
-                class="text-sm text-zinc-500 mt-2 ml-6"
-              >
-                Full buyout is not available for the selected dates.
-              </p>
+                <!-- Error Messages -->
+                <div class="mt-4 space-y-1">
+                  <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm">
+                    <%= @form_errors[:checkin_date] %>
+                  </p>
+                  <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm">
+                    <%= @form_errors[:checkout_date] %>
+                  </p>
+                  <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:weekend] %>
+                  </p>
+                  <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:max_nights] %>
+                  </p>
+                  <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:active_booking] %>
+                  </p>
+                  <p
+                    :if={@date_validation_errors[:advance_booking_limit]}
+                    class="text-red-600 text-sm"
+                  >
+                    <%= @date_validation_errors[:advance_booking_limit] %>
+                  </p>
+                  <p :if={@date_validation_errors[:season_booking_mode]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:season_booking_mode] %>
+                  </p>
+                  <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:season_date_range] %>
+                  </p>
+                  <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:availability] %>
+                  </p>
+                </div>
+              </section>
+            </div>
+            <!-- Step 2b: Buyout Calendar (shown when buyout mode selected) -->
+            <div :if={@selected_booking_mode == :buyout}>
+              <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
+                <div class="flex items-center justify-between mb-4">
+                  <h2 class="text-lg font-bold flex items-center gap-2">
+                    <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                      2
+                    </span>
+                    Select Dates
+                  </h2>
+                  <button
+                    :if={@checkin_date || @checkout_date}
+                    type="button"
+                    phx-click="reset-dates"
+                    class="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                  >
+                    Reset Dates
+                  </button>
+                </div>
+                <div class="mb-4">
+                  <p class="text-sm font-medium text-zinc-800 mb-2">
+                    The calendar shows which dates are available for exclusive full cabin rental.
+                    <span class="font-semibold text-blue-700">
+                      Dates with any room bookings are not available for buyout.
+                    </span>
+                  </p>
+                  <p class="text-xs text-zinc-600">
+                    Click on a date to start your selection, then click another date to complete your range.
+                  </p>
+                </div>
+                <.live_component
+                  module={YscWeb.Components.AvailabilityCalendar}
+                  id="tahoe-buyout-availability-calendar"
+                  checkin_date={@checkin_date}
+                  checkout_date={@checkout_date}
+                  selected_booking_mode={:buyout}
+                  min={@restricted_min_date}
+                  max={@restricted_max_date}
+                  property={:tahoe}
+                  today={@today}
+                />
+                <!-- Error Messages -->
+                <div class="mt-4 space-y-1">
+                  <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:weekend] %>
+                  </p>
+                  <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:max_nights] %>
+                  </p>
+                  <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:availability] %>
+                  </p>
+                </div>
+              </section>
             </div>
             <!-- Restricted Date Range Message -->
             <div
@@ -959,11 +1108,11 @@ defmodule YscWeb.TahoeBookingLive do
                 </div>
               </div>
             </div>
-            <!-- Section 2: Choose Your Rooms -->
+            <!-- Section 3: Choose Your Rooms -->
             <section :if={@selected_booking_mode == :room && @checkin_date && @checkout_date}>
               <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
                 <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                  2
+                  3
                 </span>
                 Choose Your Rooms
                 <%= if can_select_multiple_rooms?(assigns) && length(@selected_room_ids) > 0 do %>
@@ -1188,6 +1337,13 @@ defmodule YscWeb.TahoeBookingLive do
                             </span>
                           </div>
                           <div class="border-t border-zinc-200 pt-2 mt-auto">
+                            <% season_id =
+                              if @checkin_date do
+                                season = Season.find_season_for_date(@seasons, @checkin_date)
+                                if season, do: season.id, else: nil
+                              else
+                                nil
+                              end %>
                             <div class="text-sm text-zinc-900 font-bold">
                               <div :if={room.minimum_price}>
                                 <%= MoneyHelper.format_money!(room.minimum_price) %> min
@@ -1196,13 +1352,6 @@ defmodule YscWeb.TahoeBookingLive do
                                 </span>
                               </div>
                               <div :if={!room.minimum_price}>
-                                <% season_id =
-                                  if @checkin_date do
-                                    season = Season.find_season_for_date(@seasons, @checkin_date)
-                                    if season, do: season.id, else: nil
-                                  else
-                                    nil
-                                  end %>
                                 <% fallback_adult_price =
                                   get_default_adult_price(@property, season_id) %>
                                 <%= MoneyHelper.format_money!(
@@ -1346,6 +1495,13 @@ defmodule YscWeb.TahoeBookingLive do
                             </span>
                           </div>
                           <div class="border-t border-zinc-200 pt-2 mt-auto">
+                            <% season_id =
+                              if @checkin_date do
+                                season = Season.find_season_for_date(@seasons, @checkin_date)
+                                if season, do: season.id, else: nil
+                              else
+                                nil
+                              end %>
                             <div class="text-sm text-zinc-900 font-bold">
                               <div :if={room.minimum_price}>
                                 <%= MoneyHelper.format_money!(room.minimum_price) %> min
@@ -1354,13 +1510,6 @@ defmodule YscWeb.TahoeBookingLive do
                                 </span>
                               </div>
                               <div :if={!room.minimum_price}>
-                                <% season_id =
-                                  if @checkin_date do
-                                    season = Season.find_season_for_date(@seasons, @checkin_date)
-                                    if season, do: season.id, else: nil
-                                  else
-                                    nil
-                                  end %>
                                 <% fallback_adult_price =
                                   get_default_adult_price(@property, season_id) %>
                                 <%= MoneyHelper.format_money!(
@@ -1400,78 +1549,6 @@ defmodule YscWeb.TahoeBookingLive do
                 />
                 Cannot book multiple rooms with only 1 person. Please select more people to book additional rooms.
               </p>
-            </section>
-            <!-- Buyout Selection (for buyout bookings) -->
-            <section :if={@selected_booking_mode == :buyout && @checkin_date && @checkout_date}>
-              <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                  2
-                </span>
-                Full Cabin Buyout
-              </h2>
-              <div class={[
-                "border-2 rounded p-8 text-center",
-                if(@date_validation_errors[:availability],
-                  do: "border-red-200 bg-red-50",
-                  else: "border-blue-100 bg-blue-50"
-                )
-              ]}>
-                <div class={[
-                  "inline-flex items-center justify-center w-16 h-16 rounded-full mb-4",
-                  if(@date_validation_errors[:availability],
-                    do: "bg-red-100 text-red-600",
-                    else: "bg-blue-100 text-blue-600"
-                  )
-                ]}>
-                  <.icon
-                    name={
-                      if @date_validation_errors[:availability],
-                        do: "hero-exclamation-circle",
-                        else: "hero-home-modern"
-                    }
-                    class="w-8 h-8"
-                  />
-                </div>
-                <h3 class={[
-                  "text-2xl font-bold mb-2",
-                  if(@date_validation_errors[:availability],
-                    do: "text-red-900",
-                    else: "text-blue-900"
-                  )
-                ]}>
-                  <%= if @date_validation_errors[:availability],
-                    do: "Buyout Unavailable",
-                    else: "Full Cabin Buyout" %>
-                </h3>
-                <p class={[
-                  "mb-4 max-w-md mx-auto text-base",
-                  if(@date_validation_errors[:availability],
-                    do: "text-red-800",
-                    else: "text-blue-800"
-                  )
-                ]}>
-                  <%= if @date_validation_errors[:availability] do %>
-                    <%= @date_validation_errors[:availability] %>
-                  <% else %>
-                    You are reserving the entire Tahoe cabin for your group.
-                    This includes exclusive use of all 7 bedrooms, 3 bathrooms, and the sauna.
-                  <% end %>
-                </p>
-                <div
-                  :if={!@date_validation_errors[:availability]}
-                  class="flex flex-wrap justify-center gap-3 text-sm font-medium text-blue-700"
-                >
-                  <span class="bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm">
-                    Up to 17 Guests
-                  </span>
-                  <span class="bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm">
-                    Exclusive Access
-                  </span>
-                  <span class="bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm">
-                    Fixed Nightly Rate
-                  </span>
-                </div>
-              </div>
             </section>
           </div>
           <!-- Right Column: Sticky Reservation Summary (1 column on large screens) -->
@@ -1787,18 +1864,17 @@ defmodule YscWeb.TahoeBookingLive do
                       type="checkbox"
                       id="terms-agreement"
                       phx-click="toggle-terms-agreement"
-                      class="mt-1"
+                      checked={@terms_agreed}
+                      class="mt-1 items-center"
                     />
                     <span class="text-xs text-zinc-600">
-                      I have read the
-                      <button
+                      I have read and agree to the Tahoe Cabin <button
                         type="button"
                         phx-click="show-terms-modal"
                         class="text-blue-600 hover:text-blue-800 underline"
                       >
-                        Terms of Stay
-                      </button>
-                      , including Winter Driving & Linen Requirements
+                        Rules & Policies
+                      </button>.
                     </span>
                   </label>
                 </div>
@@ -1831,16 +1907,14 @@ defmodule YscWeb.TahoeBookingLive do
                            @date_validation_errors
                          ) &&
                            Map.get(assigns, :terms_agreed, false) do
-                        "w-full text-lg py-4"
+                        "w-full text-lg py-3"
                       else
-                        "w-full bg-zinc-200 text-zinc-600 hover:bg-zinc-300 opacity-50 cursor-not-allowed"
+                        "w-full bg-zinc-200 text-zinc-600 hover:bg-zinc-300 opacity-50 cursor-not-allowed py-3"
                       end
                     }
                   >
                     <span class="flex items-center justify-center gap-2">
-                      <.icon name="hero-exclamation-triangle-solid" class="w-5 h-5" />
-                      <span>Confirm Booking</span>
-                      <span class="text-xs">(No linens provided)</span>
+                      <.icon name="hero-check-circle-solid" class="w-5 h-5" />Confirm Booking
                     </span>
                   </.button>
                   <div
@@ -1864,7 +1938,6 @@ defmodule YscWeb.TahoeBookingLive do
         <div
           :if={Map.get(assigns, :show_confirm_modal, false)}
           class="fixed inset-0 z-50 overflow-y-auto"
-          phx-click="close-confirm-modal"
           phx-click-away="close-confirm-modal"
         >
           <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
@@ -1875,7 +1948,8 @@ defmodule YscWeb.TahoeBookingLive do
             </span>
             <div
               class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
-              phx-click-away="close-confirm-modal"
+              phx-click="ignore"
+              phx-click-stop
             >
               <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="sm:flex sm:items-start">
@@ -1890,7 +1964,7 @@ defmodule YscWeb.TahoeBookingLive do
                       <p class="text-sm text-zinc-500 mb-4">
                         Before confirming, please acknowledge the following requirements:
                       </p>
-                      <label class="flex items-start gap-3 cursor-pointer p-3 bg-red-50 border border-red-200 rounded">
+                      <label class="flex items-start gap-3 cursor-pointer p-3 bg-amber-50 border border-amber-200 rounded">
                         <input
                           type="checkbox"
                           phx-click="toggle-linens-confirmation"
@@ -1898,8 +1972,8 @@ defmodule YscWeb.TahoeBookingLive do
                           class="mt-1"
                         />
                         <div class="flex-1">
-                          <span class="text-sm font-semibold text-red-900">
-                            I understand that no linens or towels are provided and I will bring my own.
+                          <span class="text-sm font-semibold text-amber-900">
+                            I understand that no bed linens or towels are provided and I will bring my own.
                           </span>
                         </div>
                       </label>
@@ -1912,7 +1986,28 @@ defmodule YscWeb.TahoeBookingLive do
                         />
                         <div class="flex-1">
                           <span class="text-sm font-semibold text-blue-900">
-                            I agree to perform the required chores (stripping beds, cleaning the kitchen) before I depart.
+                            I agree to perform the required chores (cleaning the booked rooms, cleaning the kitchen and bathrooms) before I depart.
+                          </span>
+                        </div>
+                      </label>
+                      <label class="flex items-start gap-3 cursor-pointer p-3 bg-red-50 border border-red-200 rounded">
+                        <input
+                          type="checkbox"
+                          phx-click="toggle-party-size-confirmation"
+                          checked={Map.get(assigns, :party_size_confirmed, false)}
+                          class="mt-1"
+                        />
+                        <div class="flex-1">
+                          <span class="text-sm font-semibold text-red-900">
+                            <% party_size_text =
+                              if assigns.selected_booking_mode == :buyout do
+                                "17 guests (full cabin)"
+                              else
+                                guests_count = parse_guests_count(assigns.guests_count) || 1
+                                children_count = parse_children_count(assigns.children_count) || 0
+                                total = guests_count + children_count
+                                "#{total} #{if total == 1, do: "guest", else: "guests"}"
+                              end %> I confirm that the number of people in my booking (<%= party_size_text %>) matches my actual party size.
                           </span>
                         </div>
                       </label>
@@ -1925,14 +2020,16 @@ defmodule YscWeb.TahoeBookingLive do
                   phx-click="create-booking"
                   disabled={
                     !Map.get(assigns, :linens_confirmed, false) ||
-                      !Map.get(assigns, :chores_confirmed, false)
+                      !Map.get(assigns, :chores_confirmed, false) ||
+                      !Map.get(assigns, :party_size_confirmed, false)
                   }
                   class={
                     [
                       "w-full sm:ml-3 sm:w-auto px-4 py-2 text-sm font-semibold rounded",
                       if(
                         Map.get(assigns, :linens_confirmed, false) &&
-                          Map.get(assigns, :chores_confirmed, false),
+                          Map.get(assigns, :chores_confirmed, false) &&
+                          Map.get(assigns, :party_size_confirmed, false),
                         do: "bg-blue-600 text-white hover:bg-blue-700",
                         else: "bg-zinc-300 text-zinc-500 cursor-not-allowed"
                       )
@@ -1949,6 +2046,232 @@ defmodule YscWeb.TahoeBookingLive do
                   class="mt-3 w-full sm:mt-0 sm:w-auto px-4 py-2 text-sm font-semibold text-zinc-700 bg-white border border-zinc-300 rounded hover:bg-zinc-50"
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Terms & Policies Modal -->
+        <div
+          :if={Map.get(assigns, :show_terms_modal, false)}
+          class="fixed inset-0 z-50 overflow-y-auto"
+          phx-click="close-terms-modal"
+          phx-click-away="close-terms-modal"
+        >
+          <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity bg-zinc-500 bg-opacity-75" aria-hidden="true">
+            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+              &#8203;
+            </span>
+            <div
+              class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full"
+              phx-click-away="close-terms-modal"
+            >
+              <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-start justify-between mb-4">
+                  <h3 class="text-2xl font-bold text-zinc-900">
+                    Tahoe Cabin Rules & Policies
+                  </h3>
+                  <button
+                    type="button"
+                    phx-click="close-terms-modal"
+                    class="text-zinc-400 hover:text-zinc-600 transition-colors"
+                    aria-label="Close modal"
+                  >
+                    <.icon name="hero-x-mark" class="w-6 h-6" />
+                  </button>
+                </div>
+                <!-- Payment Notice -->
+                <div class="mt-4 mb-4 p-3 bg-red-50 border-2 border-red-300 rounded-lg">
+                  <p class="text-sm font-semibold text-red-900">
+                    All guests(adults & children) must be paid for in advance of showing up at the cabin.
+                  </p>
+                </div>
+                <div class="mt-4 max-h-[70vh] overflow-y-auto pr-2 space-y-6 text-sm text-zinc-700">
+                  <!-- Arrival & Departure -->
+                  <div>
+                    <h4 class="text-lg font-bold text-zinc-900 mb-2">🕒 Arrival & Departure</h4>
+                    <div class="space-y-1 ml-4">
+                      <p><strong>Check-In:</strong> 3:00 p.m.</p>
+                      <p><strong>Check-Out:</strong> 11:00 a.m.</p>
+                      <p>
+                        <strong>Registration:</strong>
+                        All guests must sign the guest book upon arrival.
+                      </p>
+                    </div>
+                  </div>
+                  <!-- Reservations & Rates -->
+                  <div>
+                    <h4 class="text-lg font-bold text-zinc-900 mb-2">📝 Reservations & Rates</h4>
+                    <div class="space-y-2 ml-4">
+                      <p>
+                        <strong>Booking:</strong>
+                        All stays must be booked and paid in advance via the website.
+                      </p>
+                      <p>
+                        <strong>Active Stays:</strong>
+                        Only one active reservation is allowed per membership. You may book your next stay once your current one is completed.
+                      </p>
+                      <div>
+                        <p class="font-semibold mb-1">Winter Limits (Dec–Apr):</p>
+                        <ul class="list-disc list-inside ml-2 space-y-1">
+                          <li>Single Members: Max 1 room.</li>
+                          <li>Family Members: Max 2 rooms (must be same dates).</li>
+                          <li>No full cabin buyouts during winter.</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p class="font-semibold mb-1">Pricing (Per Person/Night):</p>
+                        <p>Adults: $45 | Children (5–17): $25 | Under 5: Free.</p>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Location & Parking -->
+                  <div>
+                    <h4 class="text-lg font-bold text-zinc-900 mb-2">🚗 Location & Parking</h4>
+                    <div class="space-y-1 ml-4">
+                      <p><strong>Address:</strong> 2685 Cedar Lane, Homewood, CA 96141.</p>
+                      <p>
+                        <strong>Winter Driving:</strong>
+                        You must carry chains or drive a 4WD with snow tires. Check Caltrans (800-427-7623) before travel.
+                      </p>
+                      <p><strong>Parking:</strong> Extremely limited; carpooling is encouraged.</p>
+                      <p>
+                        <strong>Street Parking Ban:</strong>
+                        Do NOT park on the street from Nov 1st – May 1st. You will be towed for snow removal.
+                      </p>
+                    </div>
+                  </div>
+                  <!-- Bear Safety -->
+                  <div>
+                    <h4 class="text-lg font-bold text-zinc-900 mb-2">
+                      🐻 Bear Safety & The Electric Wire
+                    </h4>
+                    <div class="space-y-2 ml-4">
+                      <p>
+                        The cabin is protected by an electric bear wire. It is safe if handled correctly:
+                      </p>
+                      <div>
+                        <p class="font-semibold mb-1">To Enter:</p>
+                        <p>
+                          Disconnect the TOP handle first (this disables the system). Then remove the middle and bottom wires.
+                        </p>
+                      </div>
+                      <div>
+                        <p class="font-semibold mb-1">To Secure:</p>
+                        <p>
+                          When leaving or at night, replace wires from BOTTOM to TOP. The top wire activates the barrier.
+                        </p>
+                      </div>
+                      <p>
+                        <strong>Trash:</strong> Use bearproof lids on all garbage cans at all times.
+                      </p>
+                    </div>
+                  </div>
+                  <!-- Cabin Etiquette -->
+                  <div>
+                    <h4 class="text-lg font-bold text-zinc-900 mb-2">🏠 Cabin Etiquette</h4>
+                    <div class="space-y-1 ml-4">
+                      <p>
+                        <strong>Quiet Hours:</strong>
+                        10:00 p.m. – 7:00 a.m. (Please step lightly on the stairs).
+                      </p>
+                      <p>
+                        <strong>Children:</strong>
+                        For safety and noise, children are not permitted to play on the stairs.
+                      </p>
+                      <p>
+                        <strong>Prohibited:</strong> No pets. No smoking or vaping inside the cabin.
+                      </p>
+                      <p>
+                        <strong>Storage:</strong>
+                        Store ski boots in the laundry room racks; all other ski gear goes in the outside stairwell. Do not clutter common areas.
+                      </p>
+                    </div>
+                  </div>
+                  <!-- What to Bring -->
+                  <div>
+                    <h4 class="text-lg font-bold text-zinc-900 mb-2">🧺 What to Bring</h4>
+                    <div class="space-y-1 ml-4">
+                      <p>
+                        <strong>Linens:</strong>
+                        You must bring your own sheets, pillowcases, towels, and sleeping bags. None are provided.
+                      </p>
+                      <p>
+                        <strong>Food:</strong>
+                        Bring your own food. A full kitchen and spices are available.
+                      </p>
+                      <p>
+                        <strong>Firewood:</strong>
+                        Bring fire starter/kindling and some dry wood to start the stove.
+                      </p>
+                    </div>
+                  </div>
+                  <!-- Cleaning & Chores -->
+                  <div>
+                    <h4 class="text-lg font-bold text-zinc-900 mb-2">
+                      🧹 Cleaning & Chores (Required)
+                    </h4>
+                    <div class="space-y-1 ml-4">
+                      <p>
+                        <strong>Kitchen:</strong>
+                        Leave it spotless; remove all food from the refrigerator.
+                      </p>
+                      <p><strong>Rooms:</strong> Clean your room and strip the beds.</p>
+                      <p>
+                        <strong>Laundry:</strong>
+                        If you use club bedding, you must wash, dry, and fold it before leaving.
+                      </p>
+                    </div>
+                  </div>
+                  <!-- Cancellation Policy -->
+                  <div>
+                    <h4 class="text-lg font-bold text-zinc-900 mb-2">📅 Cancellation Policy</h4>
+                    <div class="space-y-1 ml-4">
+                      <p>
+                        <strong>Full Cabin:</strong>
+                        50% forfeiture &lt; 21 days; 100% forfeiture &lt; 14 days.
+                      </p>
+                      <p>
+                        <strong>Rooms:</strong>
+                        50% forfeiture &lt; 14 days; 100% forfeiture &lt; 7 days.
+                      </p>
+                      <p class="mt-2">
+                        <strong>Note:</strong>
+                        All cash refunds are subject to a 3% processing fee. Road closure cancellations must be reported immediately to the Cabin Master for credit.
+                      </p>
+                    </div>
+                  </div>
+                  <!-- Compliance & Disciplinary Actions -->
+                  <div>
+                    <h4 class="text-lg font-bold text-zinc-900 mb-2">
+                      ⚠️ Compliance & Disciplinary Actions
+                    </h4>
+                    <div class="space-y-1 ml-4">
+                      <p>
+                        Failure to comply with the rules and policies may lead to disciplinary actions or penalties, up to board discretion.
+                      </p>
+                    </div>
+                  </div>
+                  <!-- Board Authority -->
+                  <div>
+                    <h4 class="text-lg font-bold text-zinc-900 mb-2">📋 Board Authority</h4>
+                    <div class="space-y-1 ml-4">
+                      <p>
+                        Any booking may be cancelled or adjusted for any reason by the board of directors.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-zinc-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  phx-click="close-terms-modal"
+                  class="w-full sm:w-auto px-6 py-2 text-sm font-semibold text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                >
+                  I Understand
                 </button>
               </div>
             </div>
@@ -2959,6 +3282,8 @@ defmodule YscWeb.TahoeBookingLive do
       socket
       |> assign(
         selected_booking_mode: :room,
+        guests_count: 1,
+        children_count: 0,
         calculated_price: nil,
         price_error: nil
       )
@@ -2981,37 +3306,46 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   def handle_event("booking-mode-changed", %{"booking_mode" => "buyout"}, socket) do
-    # Prevent switching to buyout if not allowed
-    if can_select_booking_mode?(socket, socket.assigns.checkin_date) do
-      socket =
-        socket
-        |> assign(
-          selected_booking_mode: :buyout,
-          selected_room_id: nil,
-          selected_room_ids: [],
-          available_rooms: [],
-          calculated_price: nil,
-          price_error: nil
-        )
-        # Validate availability immediately
-        |> validate_dates()
-        |> calculate_price_if_ready()
-        |> then(fn s ->
-          update_url_with_search_params(
-            s,
-            s.assigns.checkin_date,
-            s.assigns.checkout_date,
-            s.assigns.guests_count,
-            s.assigns.children_count,
-            :buyout
+    # Allow buyout selection - calendar will show availability
+    # For buyout, set guests_count to full house capacity (17) - not required from user
+    socket =
+      socket
+      |> assign(
+        selected_booking_mode: :buyout,
+        selected_room_id: nil,
+        selected_room_ids: [],
+        available_rooms: [],
+        calculated_price: nil,
+        price_error: nil,
+        checkin_date: nil,
+        checkout_date: nil,
+        guests_count: 17,
+        children_count: 0
+      )
+      |> then(fn s ->
+        date_form =
+          to_form(
+            %{
+              "checkin_date" => nil,
+              "checkout_date" => nil
+            },
+            as: "booking_dates"
           )
-        end)
 
-      {:noreply, socket}
-    else
-      # Mode not allowed: ignore buyout selection and keep room mode
-      {:noreply, socket}
-    end
+        assign(s, date_form: date_form)
+      end)
+      |> then(fn s ->
+        update_url_with_search_params(
+          s,
+          nil,
+          nil,
+          s.assigns.guests_count,
+          s.assigns.children_count,
+          :buyout
+        )
+      end)
+
+    {:noreply, socket}
   end
 
   def handle_event("room-changed", params, socket) do
@@ -3153,7 +3487,52 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   def handle_event("close-guests-dropdown", _params, socket) do
-    {:noreply, assign(socket, guests_dropdown_open: false)}
+    socket =
+      socket
+      |> assign(guests_dropdown_open: false)
+      |> update_url_with_search_params(
+        socket.assigns.checkin_date,
+        socket.assigns.checkout_date,
+        socket.assigns.guests_count,
+        socket.assigns.children_count,
+        socket.assigns.selected_booking_mode
+      )
+
+    {:noreply, socket}
+  end
+
+  def handle_event("ignore", _params, socket) do
+    # Handler to prevent click-away from closing dropdown when clicking inside
+    {:noreply, socket}
+  end
+
+  def handle_event("reset-dates", _params, socket) do
+    date_form =
+      to_form(
+        %{
+          "checkin_date" => "",
+          "checkout_date" => ""
+        },
+        as: "booking_dates"
+      )
+
+    socket =
+      socket
+      |> assign(
+        checkin_date: nil,
+        checkout_date: nil,
+        selected_room_id: nil,
+        selected_room_ids: [],
+        available_rooms: [],
+        calculated_price: nil,
+        price_error: nil,
+        availability_error: nil,
+        date_validation_errors: %{},
+        date_form: date_form
+      )
+      |> update_url_with_dates(nil, nil)
+
+    {:noreply, socket}
   end
 
   def handle_event("increase-guests", _params, socket) do
@@ -3161,15 +3540,13 @@ defmodule YscWeb.TahoeBookingLive do
 
     socket =
       socket
-      |> assign(guests_count: new_count, calculated_price: nil, price_error: nil)
-      |> validate_guest_capacity()
-      |> update_url_with_search_params(
-        socket.assigns.checkin_date,
-        socket.assigns.checkout_date,
-        new_count,
-        socket.assigns.children_count,
-        socket.assigns.selected_booking_mode
+      |> assign(
+        guests_count: new_count,
+        calculated_price: nil,
+        price_error: nil,
+        guests_dropdown_open: socket.assigns.guests_dropdown_open
       )
+      |> validate_guest_capacity()
       |> update_available_rooms()
       |> calculate_price_if_ready()
 
@@ -3182,15 +3559,13 @@ defmodule YscWeb.TahoeBookingLive do
 
     socket =
       socket
-      |> assign(guests_count: new_count, calculated_price: nil, price_error: nil)
-      |> validate_guest_capacity()
-      |> update_url_with_search_params(
-        socket.assigns.checkin_date,
-        socket.assigns.checkout_date,
-        new_count,
-        socket.assigns.children_count,
-        socket.assigns.selected_booking_mode
+      |> assign(
+        guests_count: new_count,
+        calculated_price: nil,
+        price_error: nil,
+        guests_dropdown_open: socket.assigns.guests_dropdown_open
       )
+      |> validate_guest_capacity()
       |> update_available_rooms()
       |> calculate_price_if_ready()
 
@@ -3202,15 +3577,13 @@ defmodule YscWeb.TahoeBookingLive do
 
     socket =
       socket
-      |> assign(children_count: new_count, calculated_price: nil, price_error: nil)
-      |> validate_guest_capacity()
-      |> update_url_with_search_params(
-        socket.assigns.checkin_date,
-        socket.assigns.checkout_date,
-        socket.assigns.guests_count,
-        new_count,
-        socket.assigns.selected_booking_mode
+      |> assign(
+        children_count: new_count,
+        calculated_price: nil,
+        price_error: nil,
+        guests_dropdown_open: socket.assigns.guests_dropdown_open
       )
+      |> validate_guest_capacity()
       |> update_available_rooms()
       |> calculate_price_if_ready()
 
@@ -3223,15 +3596,13 @@ defmodule YscWeb.TahoeBookingLive do
 
     socket =
       socket
-      |> assign(children_count: new_count, calculated_price: nil, price_error: nil)
-      |> validate_guest_capacity()
-      |> update_url_with_search_params(
-        socket.assigns.checkin_date,
-        socket.assigns.checkout_date,
-        socket.assigns.guests_count,
-        new_count,
-        socket.assigns.selected_booking_mode
+      |> assign(
+        children_count: new_count,
+        calculated_price: nil,
+        price_error: nil,
+        guests_dropdown_open: socket.assigns.guests_dropdown_open
       )
+      |> validate_guest_capacity()
       |> update_available_rooms()
       |> calculate_price_if_ready()
 
@@ -3281,7 +3652,12 @@ defmodule YscWeb.TahoeBookingLive do
 
   def handle_event("show-confirm-modal", _params, socket) do
     {:noreply,
-     assign(socket, show_confirm_modal: true, linens_confirmed: false, chores_confirmed: false)}
+     assign(socket,
+       show_confirm_modal: true,
+       linens_confirmed: false,
+       chores_confirmed: false,
+       party_size_confirmed: false
+     )}
   end
 
   def handle_event("close-confirm-modal", _params, socket) do
@@ -3298,10 +3674,16 @@ defmodule YscWeb.TahoeBookingLive do
      assign(socket, chores_confirmed: !Map.get(socket.assigns, :chores_confirmed, false))}
   end
 
+  def handle_event("toggle-party-size-confirmation", _params, socket) do
+    {:noreply,
+     assign(socket, party_size_confirmed: !Map.get(socket.assigns, :party_size_confirmed, false))}
+  end
+
   def handle_event("create-booking", _params, socket) do
     # Check if confirmation modal checkboxes are checked
     unless Map.get(socket.assigns, :linens_confirmed, false) &&
-             Map.get(socket.assigns, :chores_confirmed, false) do
+             Map.get(socket.assigns, :chores_confirmed, false) &&
+             Map.get(socket.assigns, :party_size_confirmed, false) do
       {:noreply, assign(socket, show_confirm_modal: true)}
     else
       case validate_and_create_booking(socket) do
@@ -3309,7 +3691,12 @@ defmodule YscWeb.TahoeBookingLive do
           # Redirect to checkout page for payment
           {:noreply,
            socket
-           |> assign(show_confirm_modal: false, linens_confirmed: false, chores_confirmed: false)
+           |> assign(
+             show_confirm_modal: false,
+             linens_confirmed: false,
+             chores_confirmed: false,
+             party_size_confirmed: false
+           )
            |> put_flash(:info, "Booking created! Please complete payment to confirm.")
            |> push_navigate(to: ~p"/bookings/checkout/#{booking.id}")}
 
@@ -3439,8 +3826,11 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   def handle_event("show-terms-modal", _params, socket) do
-    # Switch to rules tab to show terms
-    {:noreply, assign(socket, info_tab: :rules)}
+    {:noreply, assign(socket, show_terms_modal: true)}
+  end
+
+  def handle_event("close-terms-modal", _params, socket) do
+    {:noreply, assign(socket, show_terms_modal: false)}
   end
 
   def handle_event("switch-info-tab", %{"tab" => tab}, socket) do
@@ -3868,18 +4258,30 @@ defmodule YscWeb.TahoeBookingLive do
     user_id = socket.assigns.user.id
 
     # Validate required fields
-    if is_nil(checkin_date) || is_nil(checkout_date) || is_nil(guests_count) || guests_count <= 0 do
+    # For buyout, guests_count is not required (full house capacity)
+    # For room bookings, guests_count is required
+    guests_count_valid? =
+      case booking_mode do
+        :buyout -> true
+        :room -> not is_nil(guests_count) && guests_count > 0
+      end
+
+    if is_nil(checkin_date) || is_nil(checkout_date) || !guests_count_valid? do
       {:error, :invalid_parameters}
     else
       case booking_mode do
         :buyout ->
+          # For buyout, use full house capacity (17 guests max for Tahoe)
+          # Guests count is not required from user, but we need a value for the booking record
+          buyout_guests_count = guests_count || 17
+
           # Use BookingLocker for buyout booking with inventory locking
           BookingLocker.create_buyout_booking(
             user_id,
             property,
             checkin_date,
             checkout_date,
-            guests_count
+            buyout_guests_count
           )
 
         :room ->

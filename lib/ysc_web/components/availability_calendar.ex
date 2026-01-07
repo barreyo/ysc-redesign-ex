@@ -244,14 +244,23 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     new_booking_mode = assigns[:selected_booking_mode] || :day
     booking_mode_changed = existing_booking_mode != new_booking_mode
 
+    property = assigns[:property] || :clear_lake
+
     availability =
       if !has_valid_availability || booking_mode_changed do
-        Bookings.get_clear_lake_daily_availability(start_date, end_date)
+        case property do
+          :clear_lake ->
+            Bookings.get_clear_lake_daily_availability(start_date, end_date)
+
+          :tahoe ->
+            Bookings.get_tahoe_daily_availability(start_date, end_date)
+
+          _ ->
+            Bookings.get_clear_lake_daily_availability(start_date, end_date)
+        end
       else
         socket.assigns[:availability]
       end
-
-    property = assigns[:property] || :clear_lake
 
     seasons =
       if socket.assigns[:seasons] && socket.assigns[:property] == property do
@@ -589,15 +598,21 @@ defmodule YscWeb.Components.AvailabilityCalendar do
               true
 
             assigns.selected_booking_mode == :buyout ->
-              # Unavailable for buyout if any day bookings exist or already bought out
-              # Note: has_buyout logic in Bookings context handles existing bookings
-              # We simply check if we can book buyout
+              # Unavailable for buyout if any room/day bookings exist or already bought out
+              # For Tahoe: checks for any room bookings
+              # For Clear Lake: checks for any day bookings
               !day_info.can_book_buyout
 
             assigns.selected_booking_mode == :day ->
               # Unavailable for day booking if full or bought out OR not enough spots for selected guests
+              # Only applies to Clear Lake
               !day_info.can_book_day ||
                 (assigns[:guests_count] && day_info.spots_available < assigns.guests_count)
+
+            assigns.selected_booking_mode == :room ->
+              # Unavailable for room booking if buyout exists
+              # Only applies to Tahoe
+              !day_info.can_book_room
 
             true ->
               true
@@ -691,11 +706,40 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         "Season closed"
 
       true ->
+        # Check if this is a blackout start/end date to provide more specific messaging
+        yesterday = Date.add(day, -1)
+        morning_blocked = date_unavailable_for_stay?(yesterday, assigns)
+        afternoon_blocked = date_unavailable_for_stay?(day, assigns)
+
+        day_info = Map.get(assigns.availability, day)
+        yesterday_info = Map.get(assigns.availability, yesterday)
+
+        # Determine if this is a blackout start or end date
+        is_blackout_start =
+          day_info && day_info.is_blacked_out &&
+            (!yesterday_info || !yesterday_info.is_blacked_out)
+
+        is_blackout_end =
+          day_info && day_info.is_blacked_out && (yesterday_info && yesterday_info.is_blacked_out) &&
+            !afternoon_blocked
+
         type = unavailability_type(day, assigns)
 
         case type do
           :blackout ->
-            "Blackout date"
+            cond do
+              # Blackout starts today: morning available (checkout allowed), afternoon blocked (check-in not allowed)
+              # User can checkout on this day, so show "check-in allowed" (meaning they can end a stay/checkout)
+              is_blackout_start && !morning_blocked && afternoon_blocked ->
+                "Check-in allowed"
+
+              # Blackout ends today: morning blocked (checkout not allowed), afternoon available (check-in allowed)
+              is_blackout_end && morning_blocked && !afternoon_blocked ->
+                "Check-in allowed"
+
+              true ->
+                "Blackout date"
+            end
 
           :bookings ->
             day_info = Map.get(assigns.availability, day)
@@ -704,7 +748,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                  day_info.spots_available < (assigns[:guests_count] || 1) do
               "Not enough spots"
             else
-              "Fully booked"
+              "Booking already exists"
             end
 
           :other ->
@@ -739,6 +783,9 @@ defmodule YscWeb.Components.AvailabilityCalendar do
           :bookings
 
         assigns.selected_booking_mode == :buyout && !day_info.can_book_buyout ->
+          :bookings
+
+        assigns.selected_booking_mode == :room && !day_info.can_book_room ->
           :bookings
 
         true ->
@@ -831,7 +878,20 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     start_date = if Date.compare(start_date, today) == :lt, do: today, else: start_date
     end_date = Date.end_of_month(date) |> Date.add(30)
 
-    new_availability = Bookings.get_clear_lake_daily_availability(start_date, end_date)
+    property = socket.assigns[:property] || :clear_lake
+
+    new_availability =
+      case property do
+        :clear_lake ->
+          Bookings.get_clear_lake_daily_availability(start_date, end_date)
+
+        :tahoe ->
+          Bookings.get_tahoe_daily_availability(start_date, end_date)
+
+        _ ->
+          Bookings.get_clear_lake_daily_availability(start_date, end_date)
+      end
+
     socket |> assign(:availability, new_availability)
   end
 
@@ -870,7 +930,9 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     info = Map.get(availability, day)
 
     # For Clear Lake day bookings, render visual indicator
-    if assigns[:property] == :clear_lake && mode == :day && info && info.spots_available do
+    # Tahoe doesn't show per-guest-spot indicators (only buyout or room mode)
+    if assigns[:property] == :clear_lake && mode == :day && info &&
+         Map.has_key?(info, :spots_available) do
       render_clear_lake_spots_html(day, info, assigns)
     else
       availability_display_text(day, mode, availability, assigns)
@@ -970,10 +1032,20 @@ defmodule YscWeb.Components.AvailabilityCalendar do
             "Full"
           end
 
+        mode == :room && !info.can_book_room ->
+          if is_valid_checkout do
+            "Check-out only"
+          else
+            "Unavailable"
+          end
+
         mode == :day ->
           "#{info.spots_available} spots"
 
         mode == :buyout ->
+          "Available"
+
+        mode == :room ->
           "Available"
 
         true ->
@@ -986,6 +1058,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
   defp get_clear_lake_spot_background(day, assigns) do
     # Only apply spot-based background for Clear Lake day bookings
+    # Tahoe doesn't use spot-based backgrounds (only buyout or room mode)
     if assigns[:property] == :clear_lake && assigns[:selected_booking_mode] == :day do
       info = Map.get(assigns.availability, day)
 

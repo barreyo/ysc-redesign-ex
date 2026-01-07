@@ -99,6 +99,7 @@ defmodule YscWeb.ClearLakeBookingLive do
         selected_booking_mode: booking_mode,
         guests_count: guests_count,
         max_guests: @max_guests,
+        guests_dropdown_open: false,
         calculated_price: nil,
         price_error: nil,
         availability_error: nil,
@@ -255,6 +256,7 @@ defmodule YscWeb.ClearLakeBookingLive do
           season_end_date: season_end_date,
           guests_count: guests_count,
           selected_booking_mode: resolved_booking_mode,
+          guests_dropdown_open: socket.assigns[:guests_dropdown_open] || false,
           calculated_price: nil,
           price_error: nil,
           availability_error: nil,
@@ -337,7 +339,7 @@ defmodule YscWeb.ClearLakeBookingLive do
       </div>
     </section>
     <!-- Booking Dashboard Section -->
-    <section :if={@user} class="bg-zinc-50 border-b-2 border-zinc-900 py-12">
+    <section :if={@user} class="border-b-2 border-zinc-900 py-12">
       <div class="max-w-screen-xl mx-auto px-4 space-y-10">
         <!-- Dashboard Header -->
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 pb-6">
@@ -395,374 +397,450 @@ defmodule YscWeb.ClearLakeBookingLive do
         <!-- Booking Form -->
         <div :if={@can_book} class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <!-- Left Column: Selection Area (2 columns on large screens) -->
-          <div class="lg:col-span-2 space-y-6">
-            <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-              <div class="bg-zinc-900 p-4 text-white flex justify-between items-center">
-                <span class="text-sm font-bold">New Reservation</span>
-                <span class="text-xs text-zinc-400 font-light">
-                  Max capacity: <%= @max_guests %> guests
+          <div class="lg:col-span-2 space-y-8">
+            <!-- Step 1: Booking Mode Selection -->
+            <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
+              <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                  1
                 </span>
-              </div>
-              <div class="p-6 space-y-6">
-                <!-- Section 1: Booking Type -->
-                <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
-                  <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                    <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                      1
-                    </span>
-                    Booking Type
-                  </h2>
-                  <form phx-change="booking-mode-changed">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <label class={[
-                        "p-4 bg-white border-2 rounded cursor-pointer shadow-sm transition-all",
-                        if(@selected_booking_mode == :day && @day_booking_allowed,
-                          do: "border-teal-600 bg-teal-50",
-                          else: "border-zinc-200 hover:border-zinc-300"
-                        ),
-                        if(!@day_booking_allowed, do: "opacity-50 cursor-not-allowed", else: "")
-                      ]}>
-                        <input
-                          type="radio"
-                          id="booking-mode-day"
-                          name="booking_mode"
-                          value="day"
-                          checked={@selected_booking_mode == :day}
-                          disabled={!@day_booking_allowed}
-                          class="sr-only"
-                        />
-                        <div class="flex items-start gap-3">
-                          <.icon
-                            name="hero-user"
-                            class={[
-                              "w-6 h-6 flex-shrink-0 mt-0.5",
-                              if(@selected_booking_mode == :day && @day_booking_allowed,
-                                do: "text-teal-600",
-                                else: "text-zinc-500"
-                              )
-                            ]}
-                          />
-                          <div class="flex-1">
-                            <p class={[
-                              "font-bold text-zinc-900 mb-1",
-                              if(@selected_booking_mode == :day && @day_booking_allowed,
-                                do: "text-teal-900",
-                                else: ""
-                              )
-                            ]}>
-                              A La Carte
-                            </p>
-                            <p class="text-xs text-zinc-500">
-                              Shared cabin stay. Perfect for individuals and small groups.
-                            </p>
-                          </div>
+                Choose Booking Type
+              </h2>
+              <p class="text-sm text-zinc-600 mb-6">
+                Select how you'd like to book the Clear Lake cabin:
+              </p>
+              <fieldset>
+                <form phx-change="booking-mode-changed">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4" role="radiogroup">
+                    <label class={[
+                      "flex flex-col p-6 border-2 rounded-lg cursor-pointer transition-all",
+                      if(@selected_booking_mode == :day || @selected_booking_mode == nil,
+                        do: "border-teal-600 bg-teal-50 shadow-md",
+                        else: "border-zinc-300 hover:border-teal-400 hover:bg-zinc-50"
+                      ),
+                      if(!@day_booking_allowed, do: "opacity-50 cursor-not-allowed", else: "")
+                    ]}>
+                      <input
+                        type="radio"
+                        id="booking-mode-day"
+                        name="booking_mode"
+                        value="day"
+                        checked={@selected_booking_mode == :day || @selected_booking_mode == nil}
+                        disabled={!@day_booking_allowed}
+                        class="sr-only"
+                      />
+                      <div class="flex items-center gap-3 mb-2">
+                        <div class={[
+                          "w-6 h-6 rounded-full border-2 flex items-center justify-center",
+                          if(@selected_booking_mode == :day || @selected_booking_mode == nil,
+                            do: "border-teal-600 bg-teal-600",
+                            else: "border-zinc-300 bg-white"
+                          )
+                        ]}>
+                          <svg
+                            :if={@selected_booking_mode == :day || @selected_booking_mode == nil}
+                            class="w-4 h-4 text-white"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
                         </div>
-                      </label>
-                      <label class={[
-                        "p-4 bg-white border-2 rounded cursor-pointer shadow-sm transition-all",
-                        if(
-                          @selected_booking_mode == :buyout && @buyout_booking_allowed &&
-                            is_nil(@availability_error),
-                          do: "border-teal-600 bg-teal-50",
-                          else: "border-zinc-200 hover:border-zinc-300"
-                        ),
-                        if(
+                        <span class="text-lg font-semibold text-zinc-900">A La Carte</span>
+                      </div>
+                      <p class="text-sm text-zinc-600 ml-9">
+                        Shared cabin stay. Perfect for individuals and small groups.
+                      </p>
+                    </label>
+                    <label class={[
+                      "flex flex-col p-6 border-2 rounded-lg cursor-pointer transition-all",
+                      if(@selected_booking_mode == :buyout,
+                        do: "border-teal-600 bg-teal-50 shadow-md",
+                        else: "border-zinc-300 hover:border-teal-400 hover:bg-zinc-50"
+                      ),
+                      if(
+                        !@buyout_booking_allowed ||
+                          (@selected_booking_mode == :buyout && @availability_error),
+                        do: "opacity-50 cursor-not-allowed",
+                        else: ""
+                      )
+                    ]}>
+                      <input
+                        type="radio"
+                        id="booking-mode-buyout"
+                        name="booking_mode"
+                        value="buyout"
+                        checked={@selected_booking_mode == :buyout}
+                        disabled={
                           !@buyout_booking_allowed ||
-                            (@selected_booking_mode == :buyout && @availability_error),
-                          do: "opacity-50 cursor-not-allowed",
-                          else: ""
-                        )
-                      ]}>
-                        <input
-                          type="radio"
-                          id="booking-mode-buyout"
-                          name="booking_mode"
-                          value="buyout"
-                          checked={@selected_booking_mode == :buyout}
-                          disabled={
-                            !@buyout_booking_allowed ||
-                              (@selected_booking_mode == :buyout && @availability_error)
-                          }
-                          class="sr-only"
-                        />
-                        <div class="flex items-start gap-3">
-                          <.icon
-                            name="hero-home-modern"
-                            class={[
-                              "w-6 h-6 flex-shrink-0 mt-0.5",
-                              if(
-                                @selected_booking_mode == :buyout && @buyout_booking_allowed &&
-                                  is_nil(@availability_error),
-                                do: "text-teal-600",
-                                else: "text-zinc-500"
-                              )
-                            ]}
-                          />
-                          <div class="flex-1">
-                            <p class={[
-                              "font-bold text-zinc-900 mb-1",
-                              if(
-                                @selected_booking_mode == :buyout && @buyout_booking_allowed &&
-                                  is_nil(@availability_error),
-                                do: "text-teal-900",
-                                else: ""
-                              )
-                            ]}>
-                              Full Buyout
-                            </p>
-                            <p class="text-xs text-zinc-500">
-                              Exclusive use of the property. Great for large families.
-                            </p>
-                            <span
-                              :if={
-                                @selected_booking_mode == :buyout && @buyout_booking_allowed &&
-                                  is_nil(@availability_error)
-                              }
-                              class="inline-block mt-2 px-2 py-0.5 text-[10px] font-bold text-teal-700 bg-teal-100 rounded"
-                            >
-                              Best for family reunions & retreats
-                            </span>
-                            <p
-                              :if={
-                                @selected_booking_mode == :buyout && @availability_error &&
-                                  @checkin_date && @checkout_date
-                              }
-                              class="text-xs text-amber-600 font-medium mt-2"
-                            >
-                              Buyout unavailable: Other members have already booked spots on these dates.
-                            </p>
-                          </div>
+                            (@selected_booking_mode == :buyout && @availability_error)
+                        }
+                        class="sr-only"
+                      />
+                      <div class="flex items-center gap-3 mb-2">
+                        <div class={[
+                          "w-6 h-6 rounded-full border-2 flex items-center justify-center",
+                          if(@selected_booking_mode == :buyout,
+                            do: "border-teal-600 bg-teal-600",
+                            else: "border-zinc-300 bg-white"
+                          )
+                        ]}>
+                          <svg
+                            :if={@selected_booking_mode == :buyout}
+                            class="w-4 h-4 text-white"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
                         </div>
-                      </label>
+                        <span class="text-lg font-semibold text-zinc-900">Full Buyout</span>
+                      </div>
+                      <p class="text-sm text-zinc-600 ml-9">
+                        Exclusive use of the property. Great for large families.
+                      </p>
+                      <p
+                        :if={
+                          @selected_booking_mode == :buyout && @availability_error &&
+                            @checkin_date && @checkout_date
+                        }
+                        class="text-xs text-amber-600 mt-2 ml-9 font-medium"
+                      >
+                        Buyout unavailable: Other members have already booked spots on these dates.
+                      </p>
+                    </label>
+                  </div>
+                </form>
+              </fieldset>
+              <div class="mt-4">
+                <p class="text-sm text-zinc-600">
+                  <span
+                    :if={
+                      !@day_booking_allowed && !@buyout_booking_allowed &&
+                        (@checkin_date || @checkout_date)
+                    }
+                    class="text-amber-600 font-medium"
+                  >
+                    Please select dates to see available booking options for your selected period.
+                  </span>
+                  <span
+                    :if={!@day_booking_allowed && @selected_booking_mode == :day && @checkin_date}
+                    class="text-amber-600 font-medium"
+                  >
+                    A La Carte bookings are not available for the selected dates based on season settings.
+                  </span>
+                  <span
+                    :if={
+                      !@buyout_booking_allowed && @selected_booking_mode == :buyout &&
+                        @checkin_date
+                    }
+                    class="text-amber-600 font-medium"
+                  >
+                    Full Buyout bookings are not available for the selected dates based on season settings.
+                  </span>
+                </p>
+              </div>
+            </section>
+            <!-- Step 2a: Day Booking Details (shown when day mode selected) -->
+            <div :if={@selected_booking_mode == :day}>
+              <!-- Section 1: Stay Details -->
+              <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                  <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                    2
+                  </span>
+                  Stay Details
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <!-- Guests and Children Selection (Dropdown) -->
+                  <div class="py-1">
+                    <div id="guests-label" class="block text-sm font-semibold text-zinc-700 mb-2">
+                      Guests
                     </div>
-                  </form>
-                  <div class="mt-4">
-                    <p class="text-sm text-zinc-600">
-                      <span
-                        :if={
-                          !@day_booking_allowed && !@buyout_booking_allowed &&
-                            (@checkin_date || @checkout_date)
-                        }
-                        class="text-amber-600 font-medium"
+                    <div class="relative">
+                      <!-- Dropdown Trigger -->
+                      <button
+                        type="button"
+                        id="guests-dropdown-button"
+                        phx-click="toggle-guests-dropdown"
+                        disabled={!@can_book}
+                        aria-labelledby="guests-label"
+                        aria-expanded={@guests_dropdown_open}
+                        aria-haspopup="true"
+                        class="w-full px-3 py-2 border border-zinc-300 rounded focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Please select dates to see available booking options for your selected period.
-                      </span>
-                      <span
-                        :if={!@day_booking_allowed && @selected_booking_mode == :day && @checkin_date}
-                        class="text-amber-600 font-medium"
+                        <span class="text-zinc-900">
+                          <%= @guests_count %> <%= if @guests_count == 1, do: "guest", else: "guests" %>
+                        </span>
+                        <.icon
+                          name="hero-chevron-down"
+                          class={[
+                            "w-5 h-5 text-zinc-500 transition-transform duration-200 ease-in-out",
+                            if(@guests_dropdown_open, do: "rotate-180", else: "")
+                          ]}
+                        />
+                      </button>
+                      <!-- Dropdown Panel -->
+                      <div
+                        :if={@guests_dropdown_open}
+                        phx-click-away="close-guests-dropdown"
+                        class="absolute z-50 w-full mt-1 bg-white border border-zinc-300 rounded shadow-lg p-4"
                       >
-                        A La Carte bookings are not available for the selected dates based on season settings.
-                      </span>
-                      <span
-                        :if={
-                          !@buyout_booking_allowed && @selected_booking_mode == :buyout &&
-                            @checkin_date
-                        }
-                        class="text-amber-600 font-medium"
-                      >
-                        Full Buyout bookings are not available for the selected dates based on season settings.
-                      </span>
-                    </p>
-                  </div>
-                </section>
-                <!-- Section 2: Number of Guests -->
-                <section
-                  :if={@selected_booking_mode == :day}
-                  class="bg-white rounded border border-zinc-200 overflow-hidden shadow-sm"
-                >
-                  <div class="p-6 border-b border-zinc-100 bg-zinc-50">
-                    <h2 class="text-lg font-bold text-zinc-900 flex items-center gap-2">
-                      <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                        2
-                      </span>
-                      Number of Guests
-                    </h2>
-                  </div>
-                  <div class="p-8">
-                    <div class="max-w-xs">
-                      <label for="guests_count" class="block text-sm font-semibold text-zinc-700 mb-4">
-                        Staying Guests
-                      </label>
-                      <form phx-change="guests-changed" phx-debounce="300">
-                        <div class="flex items-center justify-center gap-4">
-                          <button
-                            type="button"
-                            phx-click="decrease-guests"
-                            disabled={@guests_count <= 1}
-                            class={[
-                              "w-12 h-12 rounded-full border flex items-center justify-center text-2xl transition-colors",
-                              if(@guests_count <= 1,
-                                do: "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
-                                else:
-                                  "border-zinc-300 hover:bg-zinc-100 text-zinc-700 hover:border-teal-300"
-                              )
-                            ]}
-                          >
-                            <span class="-mt-0.5">−</span>
-                          </button>
-                          <input
-                            type="number"
-                            name="guests_count"
-                            id="guests_count"
-                            min="1"
-                            max={@max_guests || 12}
-                            step="1"
-                            value={@guests_count}
-                            readonly
-                            class="w-16 text-2xl font-bold text-center border-0 focus:ring-0 bg-transparent"
-                          />
-                          <button
-                            type="button"
-                            phx-click="increase-guests"
-                            disabled={@guests_count >= (@max_guests || 12)}
-                            class={[
-                              "w-12 h-12 rounded-full border-2 flex items-center justify-center text-2xl transition-all font-semibold",
-                              if(@guests_count >= (@max_guests || 12),
-                                do: "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
-                                else:
-                                  "border-teal-600 bg-teal-600 hover:bg-teal-700 hover:border-teal-700 text-white"
-                              )
-                            ]}
-                          >
-                            <span class="-mt-0.5">+</span>
-                          </button>
-                        </div>
-                      </form>
-                      <div class="mt-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
-                        <div class="flex items-start gap-2">
-                          <.icon
-                            name="hero-information-circle"
-                            class="w-4 h-4 text-teal-600 flex-shrink-0 mt-0.5"
-                          />
-                          <p class="text-sm text-teal-800 leading-relaxed">
+                        <div class="space-y-4" phx-click="ignore">
+                          <!-- Guests Counter -->
+                          <div>
+                            <div
+                              id="guests-label"
+                              class="block text-sm font-semibold text-zinc-700 mb-2"
+                            >
+                              Number of Guests
+                            </div>
+                            <div
+                              class="flex items-center space-x-3"
+                              role="group"
+                              aria-labelledby="guests-label"
+                            >
+                              <button
+                                type="button"
+                                id="decrease-guests-button"
+                                phx-click="decrease-guests"
+                                phx-click-stop
+                                disabled={@guests_count <= 1}
+                                aria-label="Decrease number of guests"
+                                class={[
+                                  "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
+                                  if(@guests_count <= 1,
+                                    do:
+                                      "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
+                                    else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                                  )
+                                ]}
+                              >
+                                <.icon name="hero-minus" class="w-5 h-5" />
+                              </button>
+                              <span
+                                id="guests-count-display"
+                                class="w-12 text-center font-medium text-lg text-zinc-900"
+                                aria-live="polite"
+                              >
+                                <%= @guests_count %>
+                              </span>
+                              <button
+                                type="button"
+                                id="increase-guests-button"
+                                phx-click="increase-guests"
+                                phx-click-stop
+                                disabled={@guests_count >= (@max_guests || 12)}
+                                aria-label="Increase number of guests"
+                                class={[
+                                  "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-200 font-semibold",
+                                  if(@guests_count >= (@max_guests || 12),
+                                    do:
+                                      "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
+                                    else:
+                                      "border-teal-600 bg-teal-600 hover:bg-teal-700 hover:border-teal-700 text-white"
+                                  )
+                                ]}
+                              >
+                                <.icon name="hero-plus" class="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                          <p class="text-sm text-zinc-600 pt-2 border-t border-zinc-200">
                             <strong>Children 5 and under stay free.</strong>
                             Please do not include them when registering attendees.
                           </p>
+                          <!-- Done Button -->
+                          <div class="pt-2">
+                            <button
+                              type="button"
+                              phx-click="close-guests-dropdown"
+                              class="w-full px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white font-semibold rounded transition-colors duration-200"
+                            >
+                              Done
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <p :if={@form_errors[:guests_count]} class="text-red-600 text-sm mt-2">
-                        <%= @form_errors[:guests_count] %>
-                      </p>
                     </div>
                   </div>
-                </section>
-                <!-- Section 3: Select Your Dates (Step 2 for buyout, Step 3 for day) -->
-                <section class="bg-white rounded border border-zinc-200 overflow-hidden shadow-sm">
-                  <div class="p-6 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
-                    <h2 class="text-lg font-bold text-zinc-900 flex items-center gap-2">
-                      <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                        <%= if @selected_booking_mode == :buyout, do: "2", else: "3" %>
-                      </span>
-                      Select Your Dates
-                    </h2>
-                    <button
-                      :if={@checkin_date || @checkout_date}
-                      type="button"
-                      phx-click="reset-dates"
-                      class="text-xs font-semibold text-teal-600 hover:text-teal-800 transition-colors"
-                    >
-                      Reset Dates
-                    </button>
-                  </div>
-                  <div class="p-6">
-                    <div class="mb-4">
-                      <p class="text-sm font-medium text-zinc-800 mb-2">
-                        <span :if={@selected_booking_mode == :day}>
-                          The calendar shows how many spots are available for each day (up to 12 guests per day).
-                          <span
-                            :if={@guests_count && @guests_count > 0}
-                            class="font-semibold text-teal-700"
-                          >
-                            Dates with fewer than <%= @guests_count %> spot<%= if @guests_count == 1,
-                              do: "",
-                              else: "s" %> available are disabled.
-                          </span>
-                        </span>
-                        <span :if={@selected_booking_mode == :buyout}>
-                          The calendar shows which dates are available for exclusive full cabin rental.
-                        </span>
-                      </p>
-                      <p class="text-xs text-zinc-600">
-                        Click on a date to start your selection, then click another date to complete your range.
-                      </p>
-                    </div>
-                    <.live_component
-                      module={YscWeb.Components.AvailabilityCalendar}
-                      id="clear-lake-availability-calendar"
-                      checkin_date={@checkin_date}
-                      checkout_date={@checkout_date}
-                      selected_booking_mode={@selected_booking_mode}
-                      min={@today}
-                      max={@max_booking_date}
-                      property={:clear_lake}
-                      today={@today}
-                      guests_count={@guests_count}
-                    />
-                    <!-- Error Messages -->
-                    <div class="mt-4 space-y-1">
-                      <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm">
-                        <%= @form_errors[:checkin_date] %>
-                      </p>
-                      <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm">
-                        <%= @form_errors[:checkout_date] %>
-                      </p>
-                      <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
-                        <%= @date_validation_errors[:weekend] %>
-                      </p>
-                      <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
-                        <%= @date_validation_errors[:max_nights] %>
-                      </p>
-                      <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm">
-                        <%= @date_validation_errors[:active_booking] %>
-                      </p>
-                      <p
-                        :if={@date_validation_errors[:advance_booking_limit]}
-                        class="text-red-600 text-sm"
-                      >
-                        <%= @date_validation_errors[:advance_booking_limit] %>
-                      </p>
-                      <p
-                        :if={@date_validation_errors[:season_date_range]}
-                        class="text-red-600 text-sm"
-                      >
-                        <%= @date_validation_errors[:season_date_range] %>
-                      </p>
-                    </div>
-                  </div>
-                </section>
-                <!-- Price Error -->
-                <div :if={@price_error} class="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div class="flex items-start">
-                    <div class="flex-shrink-0">
-                      <.icon name="hero-exclamation-circle" class="h-5 w-5 text-red-600 -mt-1" />
-                    </div>
-                    <div class="ms-3">
-                      <p class="text-sm text-red-800"><%= @price_error %></p>
-                    </div>
-                  </div>
+                </div>
+                <!-- Error Messages -->
+                <div class="mt-4 space-y-1">
+                  <p :if={@form_errors[:guests_count]} class="text-red-600 text-sm">
+                    <%= @form_errors[:guests_count] %>
+                  </p>
+                </div>
+              </section>
+            </div>
+            <!-- Step 2b: Buyout Calendar (shown when buyout mode selected) -->
+            <div :if={@selected_booking_mode == :buyout}>
+              <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
+                <div class="flex items-center justify-between mb-4">
+                  <h2 class="text-lg font-bold flex items-center gap-2">
+                    <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                      2
+                    </span>
+                    Select Dates
+                  </h2>
+                  <button
+                    :if={@checkin_date || @checkout_date}
+                    type="button"
+                    phx-click="reset-dates"
+                    class="text-xs font-semibold text-teal-600 hover:text-teal-800 transition-colors"
+                  >
+                    Reset Dates
+                  </button>
+                </div>
+                <div class="mb-4">
+                  <p class="text-sm font-medium text-zinc-800 mb-2">
+                    The calendar shows which dates are available for exclusive full cabin rental.
+                  </p>
+                  <p class="text-xs text-zinc-600">
+                    Click on a date to start your selection, then click another date to complete your range.
+                  </p>
+                </div>
+                <.live_component
+                  module={YscWeb.Components.AvailabilityCalendar}
+                  id="clear-lake-availability-calendar"
+                  checkin_date={@checkin_date}
+                  checkout_date={@checkout_date}
+                  selected_booking_mode={@selected_booking_mode}
+                  min={@today}
+                  max={@max_booking_date}
+                  property={:clear_lake}
+                  today={@today}
+                  guests_count={@guests_count}
+                />
+                <!-- Error Messages -->
+                <div class="mt-4 space-y-1">
+                  <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:weekend] %>
+                  </p>
+                  <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:max_nights] %>
+                  </p>
+                  <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:availability] %>
+                  </p>
+                </div>
+              </section>
+            </div>
+            <!-- Step 3: Select Your Dates (for day mode) -->
+            <div :if={@selected_booking_mode == :day}>
+              <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
+                <div class="flex items-center justify-between mb-4">
+                  <h2 class="text-lg font-bold flex items-center gap-2">
+                    <span class="w-6 h-6 bg-teal-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                      3
+                    </span>
+                    Select Your Dates
+                  </h2>
+                  <button
+                    :if={@checkin_date || @checkout_date}
+                    type="button"
+                    phx-click="reset-dates"
+                    class="text-xs font-semibold text-teal-600 hover:text-teal-800 transition-colors"
+                  >
+                    Reset Dates
+                  </button>
+                </div>
+                <div class="mb-4">
+                  <p class="text-sm font-medium text-zinc-800 mb-2">
+                    The calendar shows how many spots are available for each day (up to 12 guests per day).
+                    <span :if={@guests_count && @guests_count > 0} class="font-semibold text-teal-700">
+                      Dates with fewer than <%= @guests_count %> spot<%= if @guests_count == 1,
+                        do: "",
+                        else: "s" %> available are disabled.
+                    </span>
+                  </p>
+                  <p class="text-xs text-zinc-600">
+                    Click on a date to start your selection, then click another date to complete your range.
+                  </p>
+                </div>
+                <.live_component
+                  module={YscWeb.Components.AvailabilityCalendar}
+                  id="clear-lake-availability-calendar"
+                  checkin_date={@checkin_date}
+                  checkout_date={@checkout_date}
+                  selected_booking_mode={@selected_booking_mode}
+                  min={@today}
+                  max={@max_booking_date}
+                  property={:clear_lake}
+                  today={@today}
+                  guests_count={@guests_count}
+                />
+                <!-- Error Messages -->
+                <div class="mt-4 space-y-1">
+                  <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm">
+                    <%= @form_errors[:checkin_date] %>
+                  </p>
+                  <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm">
+                    <%= @form_errors[:checkout_date] %>
+                  </p>
+                  <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:weekend] %>
+                  </p>
+                  <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:max_nights] %>
+                  </p>
+                  <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:active_booking] %>
+                  </p>
+                  <p
+                    :if={@date_validation_errors[:advance_booking_limit]}
+                    class="text-red-600 text-sm"
+                  >
+                    <%= @date_validation_errors[:advance_booking_limit] %>
+                  </p>
+                  <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm">
+                    <%= @date_validation_errors[:season_date_range] %>
+                  </p>
+                </div>
+              </section>
+            </div>
+            <!-- Price Error -->
+            <div :if={@price_error} class="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div class="flex items-start">
+                <div class="flex-shrink-0">
+                  <.icon name="hero-exclamation-circle" class="h-5 w-5 text-red-600 -mt-1" />
+                </div>
+                <div class="ms-3">
+                  <p class="text-sm text-red-800"><%= @price_error %></p>
                 </div>
               </div>
             </div>
           </div>
-          <!-- Right Column: Sticky Reservation Summary -->
-          <aside class="sticky top-24">
+          <!-- Right Column: Sticky Reservation Summary (1 column on large screens) -->
+          <aside class="lg:sticky lg:top-24">
             <div class="bg-white rounded-2xl border-2 border-teal-600 shadow-xl overflow-hidden">
               <div class="bg-teal-600 p-4 text-white text-center">
                 <h3 class="text-lg font-bold">Reservation Summary</h3>
               </div>
               <div class="p-6 space-y-4">
                 <!-- Dates -->
-                <div :if={@checkin_date && @checkout_date} class="space-y-2">
-                  <div class="flex justify-between text-sm">
-                    <span class="text-zinc-500 font-medium">Stay</span>
+                <div :if={@checkin_date && @checkout_date} class="space-y-3">
+                  <div class="flex justify-between items-start text-sm">
+                    <span class="text-zinc-500 font-medium">Check-in</span>
                     <span class="font-semibold text-zinc-900 text-right">
-                      <%= Calendar.strftime(@checkin_date, "%b %d") %> — <%= Calendar.strftime(
-                        @checkout_date,
-                        "%b %d"
-                      ) %>
+                      <%= Calendar.strftime(@checkin_date, "%b %d, %Y") %>
                     </span>
                   </div>
-                  <div class="flex justify-between text-sm">
+                  <div class="flex justify-between items-start text-sm">
+                    <span class="text-zinc-500 font-medium">Check-out</span>
+                    <span class="font-semibold text-zinc-900 text-right">
+                      <%= Calendar.strftime(@checkout_date, "%b %d, %Y") %>
+                    </span>
+                  </div>
+                  <div class="flex justify-between items-start text-sm">
                     <span class="text-zinc-500 font-medium">Nights</span>
                     <span class="font-semibold text-zinc-900">
                       <%= Date.diff(@checkout_date, @checkin_date) %> <%= if Date.diff(
@@ -785,15 +863,19 @@ defmodule YscWeb.ClearLakeBookingLive do
                   </span>
                 </div>
                 <!-- Booking Mode -->
-                <div :if={@selected_booking_mode} class="flex justify-between text-sm">
-                  <span class="text-zinc-500 font-medium">Booking Type</span>
-                  <span class="font-semibold text-zinc-900">
-                    <%= if @selected_booking_mode == :day do
-                      "A La Carte"
-                    else
-                      "Full Buyout"
-                    end %>
-                  </span>
+                <div
+                  :if={@selected_booking_mode == :buyout && @checkin_date && @checkout_date}
+                  class="space-y-2"
+                >
+                  <p class="text-xs font-bold text-zinc-400 uppercase">Booking Type</p>
+                  <div class="text-sm text-zinc-700 font-medium">Full Buyout</div>
+                </div>
+                <div
+                  :if={@selected_booking_mode == :day && @checkin_date && @checkout_date}
+                  class="space-y-2"
+                >
+                  <p class="text-xs font-bold text-zinc-400 uppercase">Booking Type</p>
+                  <div class="text-sm text-zinc-700 font-medium">A La Carte</div>
                 </div>
                 <!-- Sunday Morning Parking Tip -->
                 <div
@@ -894,25 +976,65 @@ defmodule YscWeb.ClearLakeBookingLive do
                         </div>
                       </span>
                     </div>
-                    <!-- Total Price -->
-                    <div class="flex justify-between items-center pt-4 border-t border-zinc-200">
+
+                    <hr class="border-zinc-200 my-3" />
+
+                    <div class="flex justify-between items-end">
                       <span class="text-lg font-bold text-zinc-900">Total</span>
-                      <span :if={!@availability_error} class="text-3xl font-black text-teal-600">
-                        <%= MoneyHelper.format_money!(@calculated_price) %>
-                      </span>
-                      <span :if={@availability_error} class="text-2xl font-bold text-zinc-400">
-                        —
-                      </span>
+                      <div class="text-right">
+                        <span :if={!@availability_error} class="text-2xl font-black text-teal-600">
+                          <%= MoneyHelper.format_money!(@calculated_price) %>
+                        </span>
+                        <span :if={@availability_error} class="text-2xl font-bold text-zinc-400">
+                          —
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <!-- Cancellation Policy -->
-                <p
-                  :if={@checkin_date && @checkout_date}
-                  class="text-[10px] text-zinc-400 text-center leading-tight px-6 pb-4"
+                <!-- Error Messages -->
+                <div :if={@price_error || @availability_error} class="space-y-1">
+                  <p :if={@price_error} class="text-red-600 text-xs">
+                    <%= @price_error %>
+                  </p>
+                  <p :if={@availability_error} class="text-red-600 text-xs">
+                    <%= @availability_error %>
+                  </p>
+                </div>
+                <!-- Missing Info List (Smart Sidebar) -->
+                <div
+                  :if={
+                    !can_submit_booking?(
+                      @selected_booking_mode,
+                      @checkin_date,
+                      @checkout_date,
+                      @guests_count,
+                      @availability_error
+                    ) && @can_book
+                  }
+                  class="p-3 bg-amber-50 border border-amber-200 rounded"
                 >
-                  Cancellations are subject to a 3% processing fee.
-                </p>
+                  <p class="text-xs font-semibold text-amber-900 mb-2">Missing Information:</p>
+                  <ul class="text-xs text-amber-800 space-y-1 list-disc list-inside">
+                    <li :if={!@checkin_date || !@checkout_date}>
+                      Please select check-in and check-out dates
+                    </li>
+                    <li :if={
+                      @checkin_date &&
+                        @checkout_date &&
+                        @selected_booking_mode == :day &&
+                        (!@guests_count || @guests_count < 1)
+                    }>
+                      Please select number of guests
+                    </li>
+                    <li :if={@form_errors && map_size(@form_errors) > 0}>
+                      Please fix form errors above
+                    </li>
+                    <li :if={@date_validation_errors && map_size(@date_validation_errors) > 0}>
+                      Please fix date validation errors
+                    </li>
+                  </ul>
+                </div>
                 <!-- Empty State -->
                 <div :if={!@checkin_date || !@checkout_date} class="text-center py-8">
                   <p class="text-sm text-zinc-500">
@@ -1957,14 +2079,10 @@ defmodule YscWeb.ClearLakeBookingLive do
         guests_count: guests_count,
         calculated_price: nil,
         price_error: nil,
-        availability_error: availability_error
+        availability_error: availability_error,
+        guests_dropdown_open: socket.assigns.guests_dropdown_open
       )
       |> calculate_price_if_ready()
-      |> then(fn updated_socket ->
-        # Always update URL when guests change, even if dates are nil
-        # This ensures guests_count is preserved in the URL
-        update_url_with_guests(updated_socket)
-      end)
 
     {:noreply, socket}
   end
@@ -1994,12 +2112,10 @@ defmodule YscWeb.ClearLakeBookingLive do
         guests_count: new_count,
         calculated_price: nil,
         price_error: nil,
-        availability_error: availability_error
+        availability_error: availability_error,
+        guests_dropdown_open: socket.assigns.guests_dropdown_open
       )
       |> calculate_price_if_ready()
-      |> then(fn updated_socket ->
-        update_url_with_guests(updated_socket)
-      end)
 
     {:noreply, socket}
   end
@@ -2029,13 +2145,36 @@ defmodule YscWeb.ClearLakeBookingLive do
         guests_count: new_count,
         calculated_price: nil,
         price_error: nil,
-        availability_error: availability_error
+        availability_error: availability_error,
+        guests_dropdown_open: socket.assigns.guests_dropdown_open
       )
       |> calculate_price_if_ready()
+
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle-guests-dropdown", _params, socket) do
+    {:noreply, assign(socket, guests_dropdown_open: !socket.assigns.guests_dropdown_open)}
+  end
+
+  def handle_event("close-guests-dropdown", _params, socket) do
+    socket =
+      socket
+      |> assign(guests_dropdown_open: false)
       |> then(fn updated_socket ->
         update_url_with_guests(updated_socket)
       end)
 
+    {:noreply, socket}
+  end
+
+  def handle_event("ignore", _params, socket) do
+    # Handler to prevent click-away from closing dropdown when clicking inside
+    {:noreply, socket}
+  end
+
+  def handle_event("payment-redirect-started", _params, socket) do
+    # Acknowledge that the payment redirect has started (no action needed)
     {:noreply, socket}
   end
 

@@ -365,6 +365,12 @@ defmodule YscWeb.BookingCheckoutLive do
   end
 
   @impl true
+  def handle_event("payment-redirect-started", _params, socket) do
+    # Acknowledge that the payment redirect has started (no action needed)
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("payment-success", %{"payment_intent_id" => payment_intent_id}, socket) do
     # Check if booking has expired before processing payment
     if booking_expired?(socket.assigns.booking) do
@@ -599,22 +605,58 @@ defmodule YscWeb.BookingCheckoutLive do
          }) do
       {:ok, payment_intent} ->
         if payment_intent.status == "succeeded" do
-          # Process payment in ledger
-          case process_ledger_payment(booking, payment_intent) do
-            {:ok, _payment} ->
-              # Confirm booking
-              case BookingLocker.confirm_booking(booking.id) do
-                {:ok, confirmed_booking} ->
-                  {:ok, confirmed_booking}
+          # Reload booking to get latest status (webhook may have already confirmed it)
+          reloaded_booking = Repo.get!(Booking, booking.id) |> Repo.preload([:rooms, :user])
 
-                {:error, reason} ->
-                  Logger.error("Failed to confirm booking: #{inspect(reason)}")
-                  {:error, :booking_confirmation_failed}
-              end
+          # Check if booking is already confirmed (e.g., by webhook)
+          if reloaded_booking.status == :complete do
+            Logger.info(
+              "Booking already confirmed (likely by webhook), returning existing booking",
+              booking_id: booking.id,
+              payment_intent_id: payment_intent_id
+            )
 
-            {:error, reason} ->
-              Logger.error("Failed to process ledger payment: #{inspect(reason)}")
-              {:error, :payment_processing_failed}
+            {:ok, reloaded_booking}
+          else
+            # Process payment in ledger (handles idempotency - returns existing payment if already processed)
+            case process_ledger_payment(reloaded_booking, payment_intent) do
+              {:ok, _payment} ->
+                # Confirm booking (only if not already confirmed)
+                case BookingLocker.confirm_booking(reloaded_booking.id) do
+                  {:ok, confirmed_booking} ->
+                    {:ok, confirmed_booking}
+
+                  {:error, :invalid_status} ->
+                    # Booking was confirmed between reload and confirm attempt (race condition)
+                    # Reload again and return the confirmed booking
+                    final_booking =
+                      Repo.get!(Booking, reloaded_booking.id) |> Repo.preload([:rooms, :user])
+
+                    if final_booking.status == :complete do
+                      Logger.info(
+                        "Booking confirmed by another process, returning confirmed booking",
+                        booking_id: booking.id
+                      )
+
+                      {:ok, final_booking}
+                    else
+                      Logger.error("Failed to confirm booking: invalid status",
+                        booking_id: booking.id,
+                        status: final_booking.status
+                      )
+
+                      {:error, :booking_confirmation_failed}
+                    end
+
+                  {:error, reason} ->
+                    Logger.error("Failed to confirm booking: #{inspect(reason)}")
+                    {:error, :booking_confirmation_failed}
+                end
+
+              {:error, reason} ->
+                Logger.error("Failed to process ledger payment: #{inspect(reason)}")
+                {:error, :payment_processing_failed}
+            end
           end
         else
           {:error, :payment_not_succeeded}
