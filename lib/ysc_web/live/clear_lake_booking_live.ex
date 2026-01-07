@@ -308,23 +308,11 @@ defmodule YscWeb.ClearLakeBookingLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <style>
-      details summary::-webkit-details-marker {
-        display: none;
-      }
-      details summary .chevron-icon {
-        transition: transform 0.2s ease-in-out;
-      }
-      details[open] summary .chevron-icon {
-        transform: rotate(180deg);
-      }
-    </style>
     <!-- Hero Section with Carousel (For logged-in users) -->
     <section
       :if={@user}
       id="hero-section"
-      class="relative w-full overflow-hidden -mt-[88px] pt-[88px]"
-      style="min-height: 40vh;"
+      class="relative w-full overflow-hidden -mt-[88px] pt-[88px] min-h-[40vh]"
     >
       <div
         id="clear-lake-carousel-wrapper"
@@ -610,7 +598,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                               )
                             ]}
                           >
-                            <span>−</span>
+                            <span class="-mt-0.5">−</span>
                           </button>
                           <input
                             type="number"
@@ -636,7 +624,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                               )
                             ]}
                           >
-                            <span>+</span>
+                            <span class="-mt-0.5">+</span>
                           </button>
                         </div>
                       </form>

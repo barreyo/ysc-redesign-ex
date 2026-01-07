@@ -501,7 +501,7 @@ defmodule YscWeb.BookingReceiptLive do
                   <.icon name="hero-document-check" class="w-5 h-5" /> Cabin Rules
                 </h3>
                 <p class="text-sm text-zinc-600 mb-4">
-                  Reminder: Please bring your own linens and ensure the kitchen is cleaned before departure.
+                  Reminder: Bring your own bed sheets and comforters and ensure the kitchen is cleaned before departure.
                 </p>
                 <a
                   href={get_cabin_guide_url(@booking.property)}

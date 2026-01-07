@@ -377,7 +377,7 @@ defmodule YscWeb.UserSettingsLive do
               <.icon name="hero-wallet" class="w-5 h-5 me-2" /> Payments
             </.link>
           </li>
-          <%= if @current_user && (Accounts.is_primary_user?(@current_user) || Accounts.is_sub_account?(@current_user)) do %>
+          <%= if @current_user && (Accounts.is_primary_user?(@current_user) || Accounts.is_sub_account?(@current_user)) && (@active_plan_type == :family || @active_plan_type == :lifetime) do %>
             <li>
               <.link
                 navigate={~p"/users/settings/family"}

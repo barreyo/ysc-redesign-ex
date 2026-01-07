@@ -414,43 +414,17 @@ defmodule YscWeb.TahoeBookingLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <style>
-      details summary::-webkit-details-marker {
-        display: none;
-      }
-      details summary .chevron-icon {
-        transition: transform 0.2s ease-in-out;
-      }
-      details[open] summary .chevron-icon {
-        transform: rotate(180deg);
-      }
-    </style>
     <!-- Hero Section with Carousel (For logged-in users) -->
     <section
       :if={@user}
       id="hero-section"
-      class="relative w-full overflow-hidden -mt-[88px] pt-[88px] min-h-[30vh]"
+      class="relative w-full overflow-hidden -mt-[88px] pt-[88px] min-h-[40vh]"
     >
-      <div
-        id="tahoe-carousel-wrapper"
-        phx-hook="ImageCarouselAutoplay"
-        class="absolute inset-0 h-full w-full z-[2]"
-      >
-        <YscWeb.Components.ImageCarousel.image_carousel
-          id="about-the-tahoe-cabin-carousel-logged-in"
-          images={[
-            %{
-              src: ~p"/images/tahoe/tahoe_cabin_main.webp",
-              alt: "Tahoe Cabin Exterior"
-            },
-            %{src: ~p"/images/tahoe/tahoe_room_1.webp", alt: "Tahoe Cabin Room 1"},
-            %{src: ~p"/images/tahoe/tahoe_room_2.webp", alt: "Tahoe Cabin Room 2"},
-            %{src: ~p"/images/tahoe/tahoe_room_4.webp", alt: "Tahoe Cabin Room 4"},
-            %{src: ~p"/images/tahoe/tahoe_room_5.webp", alt: "Tahoe Cabin Room 5"},
-            %{src: ~p"/images/tahoe/tahoe_room_6.webp", alt: "Tahoe Cabin Room 6"},
-            %{src: ~p"/images/tahoe/tahoe_room_7.webp", alt: "Tahoe Cabin Room 7"}
-          ]}
-          class="h-full w-full"
+      <div class="absolute inset-0 h-full w-full z-[2]">
+        <img
+          src={~p"/images/tahoe/tahoe_cabin_main.webp"}
+          alt="Tahoe Cabin Exterior"
+          class="h-full w-full object-cover"
         />
         <div class="absolute inset-0 z-[5] bg-black/30 pointer-events-none" aria-hidden="true"></div>
       </div>
