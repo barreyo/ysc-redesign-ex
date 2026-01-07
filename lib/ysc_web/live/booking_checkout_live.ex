@@ -431,8 +431,16 @@ defmodule YscWeb.BookingCheckoutLive do
                booking.guests_count,
                0
              ) do
-          {:ok, total} ->
-            {:ok, total, %{nights: nights, price_per_night: Money.div(total, nights) |> elem(1)}}
+          {:ok, total, breakdown} ->
+            # Use breakdown if available, otherwise create a simple one
+            final_breakdown =
+              if breakdown && is_map(breakdown) do
+                Map.merge(breakdown, %{nights: nights})
+              else
+                %{nights: nights, price_per_night: Money.div(total, nights) |> elem(1)}
+              end
+
+            {:ok, total, final_breakdown}
 
           error ->
             error
@@ -488,20 +496,27 @@ defmodule YscWeb.BookingCheckoutLive do
                booking.guests_count,
                0
              ) do
-          {:ok, total} ->
-            price_per_guest_per_night =
-              if nights > 0 and booking.guests_count > 0 do
-                Money.div(total, nights * booking.guests_count) |> elem(1)
+          {:ok, total, breakdown} ->
+            # Use breakdown if available, otherwise create a simple one
+            final_breakdown =
+              if breakdown && is_map(breakdown) do
+                Map.merge(breakdown, %{nights: nights, guests_count: booking.guests_count})
               else
-                Money.new(0, :USD)
+                price_per_guest_per_night =
+                  if nights > 0 and booking.guests_count > 0 do
+                    Money.div(total, nights * booking.guests_count) |> elem(1)
+                  else
+                    Money.new(0, :USD)
+                  end
+
+                %{
+                  nights: nights,
+                  guests_count: booking.guests_count,
+                  price_per_guest_per_night: price_per_guest_per_night
+                }
               end
 
-            {:ok, total,
-             %{
-               nights: nights,
-               guests_count: booking.guests_count,
-               price_per_guest_per_night: price_per_guest_per_night
-             }}
+            {:ok, total, final_breakdown}
 
           error ->
             error
@@ -774,15 +789,28 @@ defmodule YscWeb.BookingCheckoutLive do
 
         {:ok, total, breakdown_map}
 
-      {:ok, total} ->
-        {:ok, total,
-         %{
-           nights: nights,
-           guests_count: guests_count,
-           children_count: children_count,
-           multi_room: true,
-           room_count: length(room_ids)
-         }}
+      {:ok, total, breakdown} ->
+        # Use breakdown if available, otherwise create a simple one
+        final_breakdown =
+          if breakdown && is_map(breakdown) do
+            Map.merge(breakdown, %{
+              nights: nights,
+              guests_count: guests_count,
+              children_count: children_count,
+              multi_room: true,
+              room_count: length(room_ids)
+            })
+          else
+            %{
+              nights: nights,
+              guests_count: guests_count,
+              children_count: children_count,
+              multi_room: true,
+              room_count: length(room_ids)
+            }
+          end
+
+        {:ok, total, final_breakdown}
 
       error ->
         error

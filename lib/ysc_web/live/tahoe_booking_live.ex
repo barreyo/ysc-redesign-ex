@@ -660,8 +660,24 @@ defmodule YscWeb.TahoeBookingLive do
                 <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p class="text-xs font-semibold text-blue-900 mb-2">Pricing Breakdown:</p>
                   <div class="text-xs text-blue-800 space-y-0.5">
-                    <p>Adults: <strong>$45</strong> per night</p>
-                    <p>Children (5-17): <strong>$25</strong> per night</p>
+                    <% season_id =
+                      if @checkin_date do
+                        season = Season.find_season_for_date(@seasons, @checkin_date)
+                        if season, do: season.id, else: nil
+                      else
+                        nil
+                      end %>
+                    <% default_adult_price = get_default_adult_price(@property, season_id) %>
+                    <% default_children_price = get_default_children_price(@property, season_id) %>
+                    <p>
+                      Adults: <strong><%= MoneyHelper.format_money!(default_adult_price) %></strong>
+                      per night
+                    </p>
+                    <p>
+                      Children (5-17):
+                      <strong><%= MoneyHelper.format_money!(default_children_price) %></strong>
+                      per night
+                    </p>
                     <p>Under 5: <strong>Free</strong></p>
                   </div>
                 </div>
@@ -829,7 +845,16 @@ defmodule YscWeb.TahoeBookingLive do
                           </div>
                         </div>
                         <p class="text-sm text-zinc-600 pt-2 border-t border-zinc-200">
-                          Children 5-17 years: $25/night. Children under 5 stay for free.
+                          <% season_id =
+                            if @checkin_date do
+                              season = Season.find_season_for_date(@seasons, @checkin_date)
+                              if season, do: season.id, else: nil
+                            else
+                              nil
+                            end %>
+                          <% default_children_price = get_default_children_price(@property, season_id) %> Children 5-17 years: <%= MoneyHelper.format_money!(
+                            default_children_price
+                          ) %>/night. Children under 5 stay for free.
                         </p>
                         <!-- Done Button -->
                         <div class="pt-2">
@@ -1197,14 +1222,25 @@ defmodule YscWeb.TahoeBookingLive do
                                 </span>
                               </div>
                               <div :if={!room.minimum_price}>
+                                <% season_id =
+                                  if @checkin_date do
+                                    season = Season.find_season_for_date(@seasons, @checkin_date)
+                                    if season, do: season.id, else: nil
+                                  else
+                                    nil
+                                  end %>
+                                <% fallback_adult_price =
+                                  get_default_adult_price(@property, season_id) %>
                                 <%= MoneyHelper.format_money!(
-                                  room.adult_price_per_night || Money.new(45, :USD)
+                                  room.adult_price_per_night || fallback_adult_price
                                 ) %>/adult
                               </div>
                             </div>
                             <div class="text-xs text-zinc-500">
+                              <% fallback_children_price =
+                                get_default_children_price(@property, season_id) %>
                               <%= MoneyHelper.format_money!(
-                                room.children_price_per_night || Money.new(25, :USD)
+                                room.children_price_per_night || fallback_children_price
                               ) %>/child
                             </div>
                           </div>
@@ -1344,14 +1380,25 @@ defmodule YscWeb.TahoeBookingLive do
                                 </span>
                               </div>
                               <div :if={!room.minimum_price}>
+                                <% season_id =
+                                  if @checkin_date do
+                                    season = Season.find_season_for_date(@seasons, @checkin_date)
+                                    if season, do: season.id, else: nil
+                                  else
+                                    nil
+                                  end %>
+                                <% fallback_adult_price =
+                                  get_default_adult_price(@property, season_id) %>
                                 <%= MoneyHelper.format_money!(
-                                  room.adult_price_per_night || Money.new(45, :USD)
+                                  room.adult_price_per_night || fallback_adult_price
                                 ) %>/adult
                               </div>
                             </div>
                             <div class="text-xs text-zinc-500">
+                              <% fallback_children_price =
+                                get_default_children_price(@property, season_id) %>
                               <%= MoneyHelper.format_money!(
-                                room.children_price_per_night || Money.new(25, :USD)
+                                room.children_price_per_night || fallback_children_price
                               ) %>/child
                             </div>
                           </div>
@@ -1548,13 +1595,20 @@ defmodule YscWeb.TahoeBookingLive do
                                 <%= room.name %> requires minimum of <%= min_required %> guests
                               </p>
                               <p class="text-xs text-red-800 mt-0.5">
-                                (<%= MoneyHelper.format_money!(
-                                  case Money.mult(
-                                         room.adult_price_per_night || Money.new(45, :USD),
-                                         min_required
-                                       ) do
+                                <% season_id =
+                                  if @checkin_date do
+                                    season = Season.find_season_for_date(@seasons, @checkin_date)
+                                    if season, do: season.id, else: nil
+                                  else
+                                    nil
+                                  end %>
+                                <% fallback_adult_price =
+                                  get_default_adult_price(@property, season_id) %>
+                                <% room_adult_price =
+                                  room.adult_price_per_night || fallback_adult_price %> (<%= MoneyHelper.format_money!(
+                                  case Money.mult(room_adult_price, min_required) do
                                     {:ok, total} -> total
-                                    _ -> room.adult_price_per_night || Money.new(45, :USD)
+                                    _ -> room_adult_price
                                   end
                                 ) %>/night minimum)
                               </p>
@@ -2130,7 +2184,19 @@ defmodule YscWeb.TahoeBookingLive do
                           </tr>
                           <tr>
                             <td class="py-2 pr-4 font-semibold">Children Pricing</td>
-                            <td class="py-2">5–17 years: $25/night<br />Under 5: Free</td>
+                            <td class="py-2">
+                              <% season_id =
+                                if @checkin_date do
+                                  season = Season.find_season_for_date(@seasons, @checkin_date)
+                                  if season, do: season.id, else: nil
+                                else
+                                  nil
+                                end %>
+                              <% default_children_price =
+                                get_default_children_price(@property, season_id) %> 5–17 years: <%= MoneyHelper.format_money!(
+                                default_children_price
+                              ) %>/night<br />Under 5: Free
+                            </td>
                           </tr>
                         </tbody>
                       </table>
@@ -2616,8 +2682,22 @@ defmodule YscWeb.TahoeBookingLive do
                   <div>
                     <p class="font-semibold mb-2">Per-Person, Per-Night Rates</p>
                     <ul class="list-disc list-inside space-y-1">
-                      <li>Adults: <strong>$45</strong></li>
-                      <li>Children (5–17): <strong>$25</strong></li>
+                      <% season_id =
+                        if @checkin_date do
+                          season = Season.find_season_for_date(@seasons, @checkin_date)
+                          if season, do: season.id, else: nil
+                        else
+                          nil
+                        end %>
+                      <% default_adult_price = get_default_adult_price(@property, season_id) %>
+                      <% default_children_price = get_default_children_price(@property, season_id) %>
+                      <li>
+                        Adults: <strong><%= MoneyHelper.format_money!(default_adult_price) %></strong>
+                      </li>
+                      <li>
+                        Children (5–17):
+                        <strong><%= MoneyHelper.format_money!(default_children_price) %></strong>
+                      </li>
                       <li>Children under 5: <strong>Free</strong></li>
                     </ul>
                   </div>
@@ -2783,7 +2863,14 @@ defmodule YscWeb.TahoeBookingLive do
               <div class="flex-1">
                 <h3 class="text-xl font-black text-zinc-900 mb-2">The Dugnad Spirit</h3>
                 <p class="text-zinc-700 leading-relaxed">
-                  Low rates (<strong class="text-purple-700">$45/adult</strong>) are possible because members steward the cabin together. This is <strong class="text-purple-700">your cabin — not a hotel</strong>. Members share responsibility for cleaning and maintenance, keeping costs affordable for everyone.
+                  <% season_id =
+                    if @checkin_date do
+                      season = Season.find_season_for_date(@seasons, @checkin_date)
+                      if season, do: season.id, else: nil
+                    else
+                      nil
+                    end %>
+                  <% default_adult_price = get_default_adult_price(@property, season_id) %> Low rates (<strong class="text-purple-700"><%= MoneyHelper.format_money!(default_adult_price) %>/adult</strong>) are possible because members steward the cabin together. This is <strong class="text-purple-700">your cabin — not a hotel</strong>. Members share responsibility for cleaning and maintenance, keeping costs affordable for everyone.
                 </p>
               </div>
             </div>
@@ -3663,8 +3750,8 @@ defmodule YscWeb.TahoeBookingLive do
               if pricing_rule && pricing_rule.amount do
                 pricing_rule.amount
               else
-                # Fallback to default if no pricing rule found
-                Money.new(45, :USD)
+                # Fallback to property-level default pricing rule
+                get_default_adult_price(socket.assigns.property, season_id)
               end
 
             # Look up children pricing using same hierarchy
@@ -3698,8 +3785,8 @@ defmodule YscWeb.TahoeBookingLive do
               if children_pricing_rule && children_pricing_rule.children_amount do
                 children_pricing_rule.children_amount
               else
-                # Fallback to $25 if no children pricing rule found
-                Money.new(25, :USD)
+                # Fallback to property-level default children pricing rule
+                get_default_children_price(socket.assigns.property, season_id)
               end
 
             {room, adult_price, children_price}
@@ -5037,6 +5124,46 @@ defmodule YscWeb.TahoeBookingLive do
       not is_nil(image.optimized_image_path) -> image.optimized_image_path
       not is_nil(image.raw_image_path) -> image.raw_image_path
       true -> "/images/ysc_logo.png"
+    end
+  end
+
+  # Helper to get default adult price from pricing rules (property-level fallback)
+  defp get_default_adult_price(property, season_id) do
+    pricing_rule =
+      PricingRule.find_most_specific(
+        property,
+        season_id,
+        nil,
+        nil,
+        :room,
+        :per_person_per_night
+      )
+
+    if pricing_rule && pricing_rule.amount do
+      pricing_rule.amount
+    else
+      # Last resort fallback - should rarely happen if pricing rules are configured
+      Money.new(45, :USD)
+    end
+  end
+
+  # Helper to get default children price from pricing rules (property-level fallback)
+  defp get_default_children_price(property, season_id) do
+    children_pricing_rule =
+      PricingRule.find_children_pricing_rule(
+        property,
+        season_id,
+        nil,
+        nil,
+        :room,
+        :per_person_per_night
+      )
+
+    if children_pricing_rule && children_pricing_rule.children_amount do
+      children_pricing_rule.children_amount
+    else
+      # Last resort fallback - should rarely happen if pricing rules are configured
+      Money.new(25, :USD)
     end
   end
 

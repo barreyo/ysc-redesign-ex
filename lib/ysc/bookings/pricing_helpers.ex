@@ -133,13 +133,6 @@ defmodule Ysc.Bookings.PricingHelpers do
           price_error: nil
         )
 
-      {:ok, price} ->
-        assign(socket,
-          calculated_price: price,
-          price_breakdown: nil,
-          price_error: nil
-        )
-
       {:error, reason} ->
         assign_error(socket, "Unable to calculate price: #{inspect(reason)}")
     end
@@ -283,13 +276,6 @@ defmodule Ysc.Bookings.PricingHelpers do
             price_error: nil
           )
 
-        {:ok, price} ->
-          assign(socket,
-            calculated_price: price,
-            price_breakdown: nil,
-            price_error: nil
-          )
-
         {:error, reason} ->
           assign_error(socket, "Unable to calculate price: #{inspect(reason)}")
       end
@@ -306,8 +292,15 @@ defmodule Ysc.Bookings.PricingHelpers do
            nil,
            guests_count
          ) do
-      {:ok, price} ->
-        assign(socket, calculated_price: price, price_breakdown: nil, price_error: nil)
+      {:ok, price, breakdown} ->
+        assign(socket,
+          calculated_price: price,
+          price_breakdown:
+            Map.merge(breakdown || %{}, %{
+              guests_count: guests_count
+            }),
+          price_error: nil
+        )
 
       {:error, reason} ->
         assign_error(socket, "Unable to calculate price: #{inspect(reason)}")

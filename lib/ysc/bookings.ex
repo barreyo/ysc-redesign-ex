@@ -1285,8 +1285,17 @@ defmodule Ysc.Bookings do
       total_guests = guests_count
 
       case Money.mult(pricing_rule.amount, total_days * total_guests) do
-        {:ok, total} -> {:ok, total}
-        {:error, reason} -> {:error, reason}
+        {:ok, total} ->
+          breakdown = %{
+            nights: nights,
+            guests_count: guests_count,
+            price_per_guest_per_night: pricing_rule.amount
+          }
+
+          {:ok, total, breakdown}
+
+        {:error, reason} ->
+          {:error, reason}
       end
     else
       {:error, :pricing_rule_not_found}

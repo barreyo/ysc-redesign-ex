@@ -849,7 +849,19 @@ defmodule YscWeb.ClearLakeBookingLive do
                     <div class="space-y-2 text-sm">
                       <span :if={@selected_booking_mode == :day}>
                         <% nights = Date.diff(@checkout_date, @checkin_date) %>
-                        <% price_per_guest_per_night = Money.new(50, :USD) %>
+                        <% price_per_guest_per_night =
+                          if @price_breakdown && @price_breakdown.price_per_guest_per_night do
+                            @price_breakdown.price_per_guest_per_night
+                          else
+                            if @calculated_price && nights > 0 && @guests_count > 0 do
+                              case Money.div(@calculated_price, nights * @guests_count) do
+                                {:ok, price} -> price
+                                _ -> Money.new(0, :USD)
+                              end
+                            else
+                              Money.new(0, :USD)
+                            end
+                          end %>
                         <% total_guest_nights = nights * @guests_count %>
                         <div class="flex justify-between items-center text-zinc-600">
                           <span>
@@ -868,7 +880,19 @@ defmodule YscWeb.ClearLakeBookingLive do
                       </span>
                       <span :if={@selected_booking_mode == :buyout}>
                         <% nights = Date.diff(@checkout_date, @checkin_date) %>
-                        <% price_per_night = Money.new(500, :USD) %>
+                        <% price_per_night =
+                          if @price_breakdown && @price_breakdown.price_per_night do
+                            @price_breakdown.price_per_night
+                          else
+                            if @calculated_price && nights > 0 do
+                              case Money.div(@calculated_price, nights) do
+                                {:ok, price} -> price
+                                _ -> Money.new(0, :USD)
+                              end
+                            else
+                              Money.new(0, :USD)
+                            end
+                          end %>
                         <div class="flex justify-between items-center text-zinc-600">
                           <span>
                             Full Buyout (<%= nights %> night<%= if nights != 1, do: "s", else: "" %>)

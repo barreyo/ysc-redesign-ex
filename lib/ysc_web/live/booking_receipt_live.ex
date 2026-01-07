@@ -57,8 +57,8 @@ defmodule YscWeb.BookingReceiptLive do
 
             timezone = Map.get(connect_params, "timezone", "America/Los_Angeles")
 
-            # Calculate price breakdown
-            price_breakdown = calculate_price_breakdown(booking)
+            # Parse saved pricing items (saved at booking time)
+            price_breakdown = parse_pricing_items(booking.pricing_items)
 
             # Check if booking can be cancelled
             can_cancel = can_cancel_booking?(booking)
@@ -539,22 +539,161 @@ defmodule YscWeb.BookingReceiptLive do
                 "space-y-4 text-sm",
                 if(@booking.status == :canceled, do: "text-zinc-900", else: "")
               ]}>
-                <div class="flex justify-between">
-                  <span class={
-                    if(@booking.status == :canceled, do: "text-zinc-600", else: "text-zinc-400")
-                  }>
-                    Total Paid
-                  </span>
-                  <span class={[
-                    "font-bold text-xl",
+                <!-- Price Breakdown -->
+                <%= if @price_breakdown do %>
+                  <%= case @booking.booking_mode do %>
+                    <% :buyout -> %>
+                      <%= if @price_breakdown.nights && @price_breakdown.price_per_night do %>
+                        <div class="flex justify-between">
+                          <span class={
+                            if(@booking.status == :canceled,
+                              do: "text-zinc-600",
+                              else: "text-zinc-400"
+                            )
+                          }>
+                            Full Buyout
+                            (<%= MoneyHelper.format_money!(@price_breakdown.price_per_night) %> × <%= @price_breakdown.nights %>)
+                          </span>
+                          <span class={
+                            if(@booking.status == :canceled,
+                              do: "text-zinc-700",
+                              else: "text-zinc-300"
+                            )
+                          }>
+                            <%= MoneyHelper.format_money!(@payment.amount) %>
+                          </span>
+                        </div>
+                      <% end %>
+                    <% :day -> %>
+                      <%= if @price_breakdown.nights && @price_breakdown.price_per_guest_per_night && @price_breakdown.guests_count do %>
+                        <% total_guest_nights =
+                          @price_breakdown.nights * @price_breakdown.guests_count %>
+                        <div class="flex justify-between">
+                          <span class={
+                            if(@booking.status == :canceled,
+                              do: "text-zinc-600",
+                              else: "text-zinc-400"
+                            )
+                          }>
+                            Spot Rental
+                            (<%= @price_breakdown.guests_count %> × <%= @price_breakdown.nights %> night<%= if @price_breakdown.nights !=
+                                                                                                                 1,
+                                                                                                               do:
+                                                                                                                 "s",
+                                                                                                               else:
+                                                                                                                 "" %>)
+                          </span>
+                          <span class={
+                            if(@booking.status == :canceled,
+                              do: "text-zinc-700",
+                              else: "text-zinc-300"
+                            )
+                          }>
+                            <%= MoneyHelper.format_money!(
+                              Money.mult(
+                                @price_breakdown.price_per_guest_per_night,
+                                total_guest_nights
+                              )
+                              |> elem(1)
+                            ) %>
+                          </span>
+                        </div>
+                      <% end %>
+                    <% :room -> %>
+                      <%= if @price_breakdown.nights do %>
+                        <%= if @price_breakdown[:base] do %>
+                          <div class="flex justify-between">
+                            <span class={
+                              if(@booking.status == :canceled,
+                                do: "text-zinc-600",
+                                else: "text-zinc-400"
+                              )
+                            }>
+                              Base Price
+                              <%= if @price_breakdown[:adult_price_per_night] do %>
+                                <% adult_count =
+                                  @price_breakdown[:billable_people] ||
+                                    @price_breakdown[:guests_count] || 0 %> (<%= adult_count %> <%= if adult_count ==
+                                                                                                         1,
+                                                                                                       do:
+                                                                                                         "adult",
+                                                                                                       else:
+                                                                                                         "adults" %> × <%= @price_breakdown.nights %>)
+                              <% end %>
+                            </span>
+                            <span class={
+                              if(@booking.status == :canceled,
+                                do: "text-zinc-700",
+                                else: "text-zinc-300"
+                              )
+                            }>
+                              <%= MoneyHelper.format_money!(@price_breakdown.base) %>
+                            </span>
+                          </div>
+                        <% end %>
+                        <%= if @price_breakdown[:children] && @price_breakdown[:children_count] && @price_breakdown[:children_count] > 0 do %>
+                          <div class="flex justify-between">
+                            <span class={
+                              if(@booking.status == :canceled,
+                                do: "text-zinc-600",
+                                else: "text-zinc-400"
+                              )
+                            }>
+                              Children
+                              (<%= @price_breakdown[:children_count] %> × <%= @price_breakdown.nights %>)
+                            </span>
+                            <span class={
+                              if(@booking.status == :canceled,
+                                do: "text-zinc-700",
+                                else: "text-zinc-300"
+                              )
+                            }>
+                              <%= MoneyHelper.format_money!(@price_breakdown.children) %>
+                            </span>
+                          </div>
+                        <% end %>
+                      <% end %>
+                  <% end %>
+                  <div class={[
+                    "flex justify-between",
                     if(@booking.status == :canceled,
-                      do: "text-zinc-900",
-                      else: "text-blue-400"
+                      do: "border-t border-red-200 pt-4",
+                      else: "border-t border-zinc-800 pt-4"
                     )
                   ]}>
-                    <%= MoneyHelper.format_money!(@payment.amount) %>
-                  </span>
-                </div>
+                    <span class={
+                      if(@booking.status == :canceled, do: "text-zinc-600", else: "text-zinc-400")
+                    }>
+                      Total Paid
+                    </span>
+                    <span class={[
+                      "font-bold text-xl",
+                      if(@booking.status == :canceled,
+                        do: "text-zinc-900",
+                        else: "text-blue-400"
+                      )
+                    ]}>
+                      <%= MoneyHelper.format_money!(@payment.amount) %>
+                    </span>
+                  </div>
+                <% else %>
+                  <div class="flex justify-between">
+                    <span class={
+                      if(@booking.status == :canceled, do: "text-zinc-600", else: "text-zinc-400")
+                    }>
+                      Total Paid
+                    </span>
+                    <span class={[
+                      "font-bold text-xl",
+                      if(@booking.status == :canceled,
+                        do: "text-zinc-900",
+                        else: "text-blue-400"
+                      )
+                    ]}>
+                      <%= MoneyHelper.format_money!(@payment.amount) %>
+                    </span>
+                  </div>
+                <% end %>
                 <%= if @booking.status == :canceled && @refund_data do %>
                   <%= if @refund_data.total_refunded do %>
                     <div class="flex justify-between border-t border-red-200 pt-4">
@@ -1018,62 +1157,101 @@ defmodule YscWeb.BookingReceiptLive do
     end
   end
 
-  defp calculate_price_breakdown(booking) do
-    nights = Date.diff(booking.checkout_date, booking.checkin_date)
+  defp parse_pricing_items(nil), do: nil
 
-    case booking.booking_mode do
-      :buyout ->
-        case Bookings.calculate_booking_price(
-               booking.property,
-               booking.checkin_date,
-               booking.checkout_date,
-               :buyout,
-               nil,
-               booking.guests_count,
-               0
-             ) do
-          {:ok, total} ->
-            %{
+  defp parse_pricing_items(pricing_items) when is_map(pricing_items) do
+    case Map.get(pricing_items, "type") do
+      "buyout" ->
+        %{
+          nights: Map.get(pricing_items, "nights"),
+          price_per_night: parse_money_from_map(Map.get(pricing_items, "price_per_night"))
+        }
+
+      "per_guest" ->
+        %{
+          nights: Map.get(pricing_items, "nights"),
+          guests_count: Map.get(pricing_items, "guests_count"),
+          price_per_guest_per_night:
+            parse_money_from_map(Map.get(pricing_items, "price_per_guest_per_night"))
+        }
+
+      "room" ->
+        # For room bookings, extract breakdown from the first room or aggregate
+        rooms = Map.get(pricing_items, "rooms", [])
+        nights = Map.get(pricing_items, "nights")
+        guests_count = Map.get(pricing_items, "guests_count")
+        children_count = Map.get(pricing_items, "children_count", 0)
+
+        # If there are room items, extract breakdown from first room
+        # Otherwise use top-level fields
+        breakdown =
+          if length(rooms) > 0 do
+            first_room = List.first(rooms)
+
+            base_breakdown = %{
               nights: nights,
-              price_per_night: Money.div(total, nights) |> elem(1)
+              guests_count: guests_count,
+              children_count: children_count
             }
 
-          _ ->
-            nil
-        end
+            # Extract breakdown fields if they exist (base, children, etc.)
+            breakdown_fields =
+              first_room
+              |> Map.drop([
+                "type",
+                "room_id",
+                "room_name",
+                "nights",
+                "guests_count",
+                "children_count",
+                "total"
+              ])
+              |> Enum.map(fn {key, value} ->
+                # Convert money maps to Money structs, keep other values as-is
+                parsed_value =
+                  if is_map(value) && Map.has_key?(value, "amount") &&
+                       Map.has_key?(value, "currency") do
+                    parse_money_from_map(value)
+                  else
+                    value
+                  end
 
-      :day ->
-        case Bookings.calculate_booking_price(
-               booking.property,
-               booking.checkin_date,
-               booking.checkout_date,
-               :day,
-               nil,
-               booking.guests_count,
-               0
-             ) do
-          {:ok, total} ->
-            price_per_guest_per_night =
-              if nights > 0 and booking.guests_count > 0 do
-                Money.div(total, nights * booking.guests_count) |> elem(1)
-              else
-                Money.new(0, :USD)
-              end
+                {String.to_atom(key), parsed_value}
+              end)
+              |> Enum.into(%{})
 
+            Map.merge(base_breakdown, breakdown_fields)
+          else
             %{
               nights: nights,
-              guests_count: booking.guests_count,
-              price_per_guest_per_night: price_per_guest_per_night
+              guests_count: guests_count,
+              children_count: children_count
             }
+          end
 
-          _ ->
-            nil
-        end
+        breakdown
 
       _ ->
         nil
     end
   end
+
+  defp parse_pricing_items(_), do: nil
+
+  # Helper to convert money map (with string amount) back to Money struct
+  defp parse_money_from_map(nil), do: nil
+
+  defp parse_money_from_map(%{"amount" => amount_str, "currency" => currency_str}) do
+    try do
+      amount = Decimal.new(amount_str)
+      currency = String.to_existing_atom(currency_str)
+      Money.new(currency, amount)
+    rescue
+      _ -> nil
+    end
+  end
+
+  defp parse_money_from_map(_), do: nil
 
   defp get_payment_method_description(payment) do
     case payment.payment_method do

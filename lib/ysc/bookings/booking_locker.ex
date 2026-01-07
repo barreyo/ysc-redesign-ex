@@ -224,27 +224,7 @@ defmodule Ysc.Bookings.BookingLocker do
                guests_count,
                0
              ) do
-          {:ok, total} ->
-            nights = Date.diff(checkout_date, checkin_date)
-            price_per_night = if nights > 0, do: Money.div(total, nights) |> elem(1), else: total
-
-            items = %{
-              "type" => "buyout",
-              "nights" => nights,
-              "price_per_night" => %{
-                "amount" => Decimal.to_string(price_per_night.amount),
-                "currency" => to_string(price_per_night.currency)
-              },
-              "total" => %{
-                "amount" => Decimal.to_string(total.amount),
-                "currency" => to_string(total.currency)
-              }
-            }
-
-            {total, items}
-
           {:ok, total, _breakdown} ->
-            # Handle 3-tuple return value with breakdown
             nights = Date.diff(checkout_date, checkin_date)
             price_per_night = if nights > 0, do: Money.div(total, nights) |> elem(1), else: total
 
@@ -747,7 +727,7 @@ defmodule Ysc.Bookings.BookingLocker do
                guests_count,
                0
              ) do
-          {:ok, total} ->
+          {:ok, total, _breakdown} ->
             nights = Date.diff(checkout_date, checkin_date)
 
             price_per_guest_per_night =

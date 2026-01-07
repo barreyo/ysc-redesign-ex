@@ -37,8 +37,30 @@ defmodule YscWeb.VolunteerLive do
 
         <div class="not-prose">
           <.simple_form for={@form} phx-change="validate" phx-submit="save" id="volunteer-form">
-            <%!-- Name and Email in Two Columns --%>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <%!-- Show user info if logged in, otherwise show input fields --%>
+            <div :if={@logged_in?} class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-blue-200">
+                  <.user_avatar_image
+                    email={@current_user.email}
+                    user_id={@current_user.id}
+                    country={@current_user.most_connected_country}
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-blue-900">Submitting as</p>
+                  <p class="text-sm text-blue-700">
+                    <%= @current_user.first_name %> <%= @current_user.last_name %> (<%= @current_user.email %>)
+                  </p>
+                </div>
+              </div>
+              <%!-- Hidden fields to ensure name and email are submitted --%>
+              <input type="hidden" name={@form[:name].name} value={@form[:name].value} />
+              <input type="hidden" name={@form[:email].name} value={@form[:email].value} />
+            </div>
+
+            <div :if={!@logged_in?} class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <.input
                 field={@form[:name]}
                 label="Name (*)"
@@ -272,6 +294,7 @@ defmodule YscWeb.VolunteerLive do
      socket
      |> assign(:page_title, "Volunteer")
      |> assign(:logged_in?, current_user != nil)
+     |> assign(:current_user, current_user)
      |> assign(:remote_ip, remote_ip)
      |> assign(:submitted, false)
      |> assign_form(changeset)

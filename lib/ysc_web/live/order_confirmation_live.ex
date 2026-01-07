@@ -541,10 +541,19 @@ defmodule YscWeb.OrderConfirmationLive do
   defp get_payment_method_description(payment) do
     case payment.payment_method do
       nil ->
-        "Credit Card (Stripe)"
+        # Payment method not synced - try to get it from Stripe payment intent
+        get_payment_method_from_stripe(payment)
 
       payment_method ->
-        case payment_method.type do
+        # Normalize type to atom (could be string from database)
+        payment_type =
+          case payment_method.type do
+            type when is_atom(type) -> type
+            type when is_binary(type) -> String.to_atom(type)
+            _ -> nil
+          end
+
+        case payment_type do
           :card ->
             if payment_method.last_four do
               brand = payment_method.display_brand || "Card"
@@ -561,11 +570,127 @@ defmodule YscWeb.OrderConfirmationLive do
               "Bank Account"
             end
 
+          type when not is_nil(type) ->
+            # Handle alternative payment methods (klarna, amazon_pay, cashapp, etc.)
+            format_alternative_payment_method(type, payment_method)
+
           _ ->
-            "Payment Method"
+            # Fallback: try to get from Stripe
+            get_payment_method_from_stripe(payment)
         end
     end
   end
+
+  # Get payment method type from Stripe payment intent when not synced to database
+  defp get_payment_method_from_stripe(payment) do
+    if payment.external_payment_id do
+      stripe_client = Application.get_env(:ysc, :stripe_client, Ysc.StripeClient)
+
+      case stripe_client.retrieve_payment_intent(payment.external_payment_id, %{
+             expand: ["payment_method", "charges.data.payment_method"]
+           }) do
+        {:ok, payment_intent} ->
+          # Try to get payment method type from payment intent
+          payment_method_type =
+            cond do
+              # Payment method is expanded as an object
+              is_map(payment_intent.payment_method) &&
+                  Map.has_key?(payment_intent.payment_method, :type) ->
+                payment_intent.payment_method.type
+
+              # Payment method is a string ID - retrieve it
+              is_binary(payment_intent.payment_method) ->
+                case Stripe.PaymentMethod.retrieve(payment_intent.payment_method) do
+                  {:ok, pm} -> pm.type
+                  _ -> nil
+                end
+
+              # Try to get from charges
+              payment_intent.charges && payment_intent.charges.data &&
+                  length(payment_intent.charges.data) > 0 ->
+                first_charge = List.first(payment_intent.charges.data)
+
+                cond do
+                  is_map(first_charge.payment_method) &&
+                      Map.has_key?(first_charge.payment_method, :type) ->
+                    first_charge.payment_method.type
+
+                  is_binary(first_charge.payment_method) ->
+                    case Stripe.PaymentMethod.retrieve(first_charge.payment_method) do
+                      {:ok, pm} -> pm.type
+                      _ -> nil
+                    end
+
+                  true ->
+                    nil
+                end
+
+              true ->
+                nil
+            end
+
+          case payment_method_type do
+            nil -> "Credit Card (Stripe)"
+            type -> format_alternative_payment_method(String.to_atom(type), nil)
+          end
+
+        {:error, _} ->
+          "Credit Card (Stripe)"
+      end
+    else
+      "Credit Card (Stripe)"
+    end
+  end
+
+  # Format alternative payment method names for display
+  defp format_alternative_payment_method(type, _payment_method) when is_atom(type) do
+    case type do
+      :klarna ->
+        "Klarna"
+
+      :amazon_pay ->
+        "Amazon Pay"
+
+      :cashapp ->
+        "Cash App"
+
+      :paypal ->
+        "PayPal"
+
+      :apple_pay ->
+        "Apple Pay"
+
+      :google_pay ->
+        "Google Pay"
+
+      :link ->
+        "Link"
+
+      :us_bank_account ->
+        "Bank Account"
+
+      :card ->
+        "Credit Card"
+
+      :bank_account ->
+        "Bank Account"
+
+      _ ->
+        # Convert atom to human-readable string
+        type
+        |> Atom.to_string()
+        |> String.replace("_", " ")
+        |> String.split()
+        |> Enum.map(&String.capitalize/1)
+        |> Enum.join(" ")
+    end
+  end
+
+  defp format_alternative_payment_method(type, _payment_method) when is_binary(type) do
+    format_alternative_payment_method(String.to_atom(type), nil)
+  end
+
+  defp format_alternative_payment_method(_, _), do: "Payment Method"
 
   defp get_refund_data_for_order(ticket_order) do
     if ticket_order.payment do
