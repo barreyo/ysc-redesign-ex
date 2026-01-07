@@ -3464,7 +3464,73 @@ defmodule YscWeb.EventDetailsLive do
     # The payment success page will handle the redirect back
     if socket.assigns.ticket_order && socket.assigns.show_payment_modal &&
          !socket.assigns[:payment_redirect_in_progress] do
-      Ysc.Tickets.cancel_ticket_order(socket.assigns.ticket_order, "User left checkout")
+      # Check payment intent status to see if a redirect is required
+      # Payment methods like Amazon Pay, CashApp require redirects and set status to "requires_action"
+      should_cancel =
+        case socket.assigns.ticket_order.payment_intent_id do
+          nil ->
+            # No payment intent yet, safe to cancel
+            true
+
+          payment_intent_id ->
+            # Check payment intent status from Stripe
+            # If it requires action (redirect), don't cancel - user is completing payment
+            case Stripe.PaymentIntent.retrieve(payment_intent_id, %{}) do
+              {:ok, payment_intent} ->
+                # Don't cancel if payment intent is in a state that indicates active payment processing
+                # Statuses that indicate redirect/action required: requires_action (Amazon Pay, CashApp, etc.)
+                # Statuses that indicate in-progress: processing, requires_confirmation
+                # Statuses that indicate completion: succeeded, canceled (order already handled)
+                # Status that indicates no payment method: requires_payment_method (user hasn't started payment yet, safe to cancel)
+                case payment_intent.status do
+                  "requires_action" ->
+                    # Redirect payment method in progress - don't cancel
+                    false
+
+                  "processing" ->
+                    # Payment is being processed - don't cancel
+                    false
+
+                  "requires_confirmation" ->
+                    # Payment needs confirmation - don't cancel
+                    false
+
+                  "succeeded" ->
+                    # Payment already succeeded - order should be completed, but if we're here,
+                    # something went wrong. Don't cancel to be safe.
+                    require Logger
+
+                    Logger.warning(
+                      "Payment intent already succeeded in terminate/2, not cancelling order",
+                      payment_intent_id: payment_intent_id,
+                      ticket_order_id: socket.assigns.ticket_order.id
+                    )
+
+                    false
+
+                  _ ->
+                    # Other statuses (requires_payment_method, canceled, etc.) - safe to cancel
+                    true
+                end
+
+              {:error, _} ->
+                # If we can't retrieve payment intent, err on the side of caution
+                # and don't cancel (might be a temporary Stripe API issue or payment in progress)
+                require Logger
+
+                Logger.warning(
+                  "Could not retrieve payment intent status in terminate/2, not cancelling order",
+                  payment_intent_id: payment_intent_id,
+                  ticket_order_id: socket.assigns.ticket_order.id
+                )
+
+                false
+            end
+        end
+
+      if should_cancel do
+        Ysc.Tickets.cancel_ticket_order(socket.assigns.ticket_order, "User left checkout")
+      end
     end
   end
 

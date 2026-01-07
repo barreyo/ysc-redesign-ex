@@ -315,8 +315,12 @@ const StripeElements = {
 
             // Notify LiveView that a redirect might be about to happen
             // This prevents the order from being cancelled when the connection is lost
+            // Send the event and wait a bit to ensure it's processed before redirect
             if (ticketOrderId || bookingId) {
                 this.pushEvent('payment-redirect-started', {});
+                // Give LiveView a moment to process the event before redirect happens
+                // This is especially important for redirect-based payment methods (Amazon Pay, CashApp, etc.)
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
 
             const { error } = await this.stripe.confirmPayment({
