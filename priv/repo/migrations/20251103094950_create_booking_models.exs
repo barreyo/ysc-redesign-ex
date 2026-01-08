@@ -19,8 +19,8 @@ defmodule Ysc.Repo.Migrations.CreateBookingModels do
     # Create seasons table
     create table(:seasons, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
-      add :name, :text, size: 255, null: false
-      add :description, :text, size: 1000, null: true
+      add :name, :text, null: false
+      add :description, :text, null: true
 
       # Property this season applies to
       add :property, :booking_property, null: false
@@ -48,8 +48,8 @@ defmodule Ysc.Repo.Migrations.CreateBookingModels do
     # Create room_categories table
     create table(:room_categories, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
-      add :name, :text, size: 255, null: false
-      add :notes, :text, size: 1000, null: true
+      add :name, :text, null: false
+      add :notes, :text, null: true
 
       timestamps(type: :utc_datetime)
     end
@@ -59,8 +59,8 @@ defmodule Ysc.Repo.Migrations.CreateBookingModels do
     # Create rooms table
     create table(:rooms, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
-      add :name, :text, size: 255, null: false
-      add :description, :text, size: 1000, null: true
+      add :name, :text, null: false
+      add :description, :text, null: true
 
       # Property location (tahoe or clear_lake)
       add :property, :booking_property, null: false

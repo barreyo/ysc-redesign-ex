@@ -15,10 +15,18 @@ defmodule YscWeb.Router do
             end)
 
   pipeline :browser do
-    plug :accepts, ["html"]
+    plug :accepts, [
+      "html",
+      "swiftui"
+    ]
+
     plug :fetch_session
     plug :fetch_live_flash
-    plug :put_root_layout, html: {YscWeb.Layouts, :root}
+
+    plug :put_root_layout,
+      html: {YscWeb.Layouts, :root},
+      swiftui: {YscWeb.Layouts.SwiftUI, :root}
+
     plug :protect_from_forgery
 
     # Enforce SSL/HSTS (Strict-Transport-Security) - only in production
@@ -115,6 +123,7 @@ defmodule YscWeb.Router do
       live "/bookings/clear-lake", ClearLakeBookingLive, :index
       live "/bookings/checkout/:booking_id", BookingCheckoutLive, :index
       live "/bookings/:booking_id/receipt", BookingReceiptLive, :index
+      live "/property-check-in", PropertyCheckInLive, :index
     end
   end
 

@@ -37,6 +37,16 @@ defmodule YscWeb.TahoeBookingLive do
     requested_tab = parse_tab_from_params(parsed_params)
     booking_mode = parse_booking_mode_from_params(parsed_params)
 
+    redirect_to =
+      tahoe_redirect_to(
+        checkin_date,
+        checkout_date,
+        guests_count,
+        children_count,
+        requested_tab,
+        booking_mode || :room
+      )
+
     date_form =
       to_form(
         %{
@@ -51,7 +61,7 @@ defmodule YscWeb.TahoeBookingLive do
 
     # Check if user can book (pass active_bookings to avoid duplicate query)
     {can_book, booking_error_title, booking_disabled_reason} =
-      check_booking_eligibility(user, active_bookings)
+      check_booking_eligibility(user, active_bookings, redirect_to)
 
     # If user can't book, default to information tab
     active_tab =
@@ -188,6 +198,16 @@ defmodule YscWeb.TahoeBookingLive do
     requested_tab = parse_tab_from_params(params)
     booking_mode = parse_booking_mode_from_params(params)
 
+    redirect_to =
+      tahoe_redirect_to(
+        checkin_date,
+        checkout_date,
+        guests_count,
+        children_count,
+        requested_tab,
+        booking_mode || :room
+      )
+
     # Check if user can book (re-check in case user state changed)
     user = socket.assigns.current_user
 
@@ -201,7 +221,7 @@ defmodule YscWeb.TahoeBookingLive do
 
     # Check if user can book (pass active_bookings to avoid duplicate query)
     {can_book, booking_error_title, booking_disabled_reason} =
-      check_booking_eligibility(user, active_bookings)
+      check_booking_eligibility(user, active_bookings, redirect_to)
 
     # If user can't book and requested booking tab, switch to information tab
     active_tab =
@@ -469,28 +489,13 @@ defmodule YscWeb.TahoeBookingLive do
       id="hero-section"
       class="relative w-full overflow-hidden -mt-[88px] pt-[88px] min-h-[75vh]"
     >
-      <div
-        id="tahoe-carousel-wrapper"
-        phx-hook="ImageCarouselAutoplay"
-        class="absolute inset-0 h-full w-full z-[2]"
-      >
-        <YscWeb.Components.ImageCarousel.image_carousel
-          id="about-the-tahoe-cabin-carousel"
-          images={[
-            %{
-              src: ~p"/images/tahoe/tahoe_cabin_main.webp",
-              alt: "Tahoe Cabin Exterior"
-            },
-            %{src: ~p"/images/tahoe/tahoe_room_1.webp", alt: "Tahoe Cabin Room 1"},
-            %{src: ~p"/images/tahoe/tahoe_room_2.webp", alt: "Tahoe Cabin Room 2"},
-            %{src: ~p"/images/tahoe/tahoe_room_4.webp", alt: "Tahoe Cabin Room 4"},
-            %{src: ~p"/images/tahoe/tahoe_room_5.webp", alt: "Tahoe Cabin Room 5"},
-            %{src: ~p"/images/tahoe/tahoe_room_6.webp", alt: "Tahoe Cabin Room 6"},
-            %{src: ~p"/images/tahoe/tahoe_room_7.webp", alt: "Tahoe Cabin Room 7"}
-          ]}
-          class="h-full w-full"
+      <div class="absolute inset-0 h-full w-full z-[2]">
+        <img
+          src={~p"/images/tahoe/tahoe_cabin_main.webp"}
+          alt="Tahoe Cabin Exterior"
+          class="h-full w-full object-cover"
         />
-        <div class="absolute inset-0 z-[5] bg-black/40 pointer-events-none" aria-hidden="true"></div>
+        <div class="absolute inset-0 z-[5] bg-black/30 pointer-events-none" aria-hidden="true"></div>
       </div>
       <!-- Title Text Section -->
       <div class="absolute bottom-0 left-0 right-0 z-[10] px-4 py-16 lg:py-20 pointer-events-none">
@@ -4919,13 +4924,13 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
-  defp check_booking_eligibility(user, active_bookings)
+  defp check_booking_eligibility(user, active_bookings, redirect_to)
 
-  defp check_booking_eligibility(nil, _active_bookings) do
-    sign_in_path = ~p"/users/log-in"
+  defp check_booking_eligibility(nil, _active_bookings, redirect_to) do
+    sign_in_path = ~p"/users/log-in?#{%{redirect_to: redirect_to}}"
 
     sign_in_link =
-      ~s(<a href="#{sign_in_path}" class="font-semibold text-amber-900 hover:text-amber-950 underline">sign in</a>)
+      ~s(<a href="#{sign_in_path}" class="font-semibold text-zinc-100 hover:text-blue-200 underline">sign in</a>)
 
     {
       false,
@@ -4934,7 +4939,7 @@ defmodule YscWeb.TahoeBookingLive do
     }
   end
 
-  defp check_booking_eligibility(user, active_bookings) do
+  defp check_booking_eligibility(user, active_bookings, _redirect_to) do
     # Check if user account is approved
     if user.state != :active do
       {
@@ -5031,6 +5036,31 @@ defmodule YscWeb.TahoeBookingLive do
           "You need an active membership to make bookings. Please activate or renew your membership to continue."
         }
       end
+    end
+  end
+
+  defp tahoe_redirect_to(
+         checkin_date,
+         checkout_date,
+         guests_count,
+         children_count,
+         tab,
+         booking_mode
+       ) do
+    query_params =
+      build_query_params(
+        checkin_date,
+        checkout_date,
+        guests_count,
+        children_count,
+        tab || :booking,
+        booking_mode || :room
+      )
+
+    if map_size(query_params) > 0 do
+      ~p"/bookings/tahoe?#{URI.encode_query(query_params)}"
+    else
+      ~p"/bookings/tahoe"
     end
   end
 

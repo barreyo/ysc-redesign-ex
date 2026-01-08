@@ -12,8 +12,8 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
 
       add :organizer_id, references(:users, column: :id, type: :binary_id, on_delete: :nothing)
 
-      add :title, :text, size: 256
-      add :description, :text, size: 1024, null: true
+      add :title, :text
+      add :description, :text, null: true
       add :max_attendees, :integer, null: true
       add :age_restriction, :integer, null: true
       add :show_participants, :boolean, default: false
@@ -29,8 +29,8 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
       add :end_date, :utc_datetime, null: true
       add :end_time, :time, null: true
 
-      add :location_name, :text, size: 1024, null: true
-      add :address, :text, size: 1024, null: true
+      add :location_name, :text, null: true
+      add :address, :text, null: true
       add :latitude, :float, null: true
       add :longitude, :float, null: true
       add :place_id, :text, null: true
@@ -47,7 +47,7 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
     create table(:agendas, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
       add :event_id, references(:events, column: :id, type: :binary_id, on_delete: :delete_all)
-      add :title, :text, size: 256
+      add :title, :text
       add :position, :integer, default: 0
 
       timestamps()
@@ -62,8 +62,8 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
 
       add :position, :integer, default: 0
 
-      add :title, :text, size: 256
-      add :description, :text, size: 1024, null: true
+      add :title, :text
+      add :description, :text, null: true
       add :start_time, :time, null: true
       add :end_time, :time, null: true
 
@@ -78,7 +78,7 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
       add :event_id, references(:events, column: :id, type: :binary_id, on_delete: :delete_all)
 
       add :question, :text
-      add :answer, :text, size: 1024
+      add :answer, :text
 
       timestamps()
     end
@@ -88,8 +88,8 @@ defmodule Ysc.Repo.Migrations.AddEventTables do
     create table(:ticket_tiers, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
 
-      add :name, :text, size: 256
-      add :description, :text, size: 1024, null: true
+      add :name, :text
+      add :description, :text, null: true
 
       add :type, :string, default: "paid"
 

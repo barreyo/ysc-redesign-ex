@@ -14,6 +14,7 @@ alias Ysc.Repo
 alias Ysc.Accounts.{Address, User}
 alias Ysc.SiteSettings.SiteSetting
 alias Ysc.Bookings
+import Ecto.Query
 
 # Default settings
 Repo.insert!(
@@ -640,7 +641,11 @@ if length(users_for_notes) > 0 and admin_user do
 
       final_note = note_text <> (variations |> Enum.shuffle() |> hd())
 
-      case Accounts.create_user_note(user, %{note: final_note, category: category}, admin_user) do
+      case Accounts.create_user_note(
+             user,
+             %{"note" => final_note, "category" => category},
+             admin_user
+           ) do
         {:ok, _note} -> :ok
         # Silently skip if there's an error
         {:error, _error} -> :ok
@@ -652,7 +657,6 @@ if length(users_for_notes) > 0 and admin_user do
 end
 
 # Seed Posts and Events with Images
-import Ecto.Query
 alias Ysc.Posts
 alias Ysc.Posts.Post
 alias Ysc.Events

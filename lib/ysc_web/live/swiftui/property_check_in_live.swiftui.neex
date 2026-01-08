@@ -1,0 +1,273 @@
+<.flash_group flash={@flash} />
+
+<%= cond do %>
+  <% @step == :welcome -> %>
+    <VStack alignment="center" spacing={40} class="kiosk-screen">
+      <.logo />
+      <VStack alignment="center" spacing={20}>
+        <Text font="largeTitle" fontWeight="bold" foregroundColor="primary">
+          Welcome to Mountain View Retreat
+        </Text>
+        <Text font="title2" foregroundColor="secondary">
+          Property Check-In Kiosk
+        </Text>
+      </VStack>
+
+      <Button phx-click="start_check_in" class="kiosk-primary-button-wide">
+        <Text font="title2" fontWeight="semibold">Tap to Check In</Text>
+      </Button>
+    </VStack>
+
+  <% @step == :reservation -> %>
+    <VStack alignment="center" spacing={30} class="kiosk-screen">
+      <.logo />
+      <VStack alignment="center" spacing={15}>
+        <Text font="title" fontWeight="bold">
+          Enter Your Reservation Number
+        </Text>
+        <Text font="body" foregroundColor="secondary" multilineTextAlignment="center">
+          Please enter the reservation number from your confirmation email, or scan the QR code.
+        </Text>
+      </VStack>
+
+      <VStack alignment="center" spacing={20} class="kiosk-stack-560">
+        <TextField
+          phx-change="update_reservation_number"
+          phx-submit="submit_reservation"
+          name="reservation_number"
+          value={@reservation_number}
+          placeholder="RES-2024-001"
+          class="kiosk-textfield"
+        />
+
+        <Button phx-click="submit_reservation" class="kiosk-primary-button-full">
+          <Text font="title3" fontWeight="semibold">Continue</Text>
+        </Button>
+      </VStack>
+    </VStack>
+
+  <% @step == :guests -> %>
+    <ScrollView>
+      <VStack alignment="leading" spacing={25} class="kiosk-screen-leading">
+        <HStack alignment="center" spacing={0}>
+          <Spacer />
+          <.logo />
+          <Spacer />
+        </HStack>
+
+        <VStack alignment="leading" spacing={10}>
+          <Text font="title" fontWeight="bold">
+            Confirm Guest Arrival
+          </Text>
+          <Text font="body" foregroundColor="secondary">
+            Please mark each guest as arrived when they check in.
+          </Text>
+        </VStack>
+
+        <VStack alignment="leading" spacing={15} class="kiosk-stack-900">
+          <%= for guest <- @reservation.guests do %>
+            <HStack alignment="center" spacing={20} class="kiosk-card">
+              <VStack
+                alignment="leading"
+                spacing={5}
+                style={["frame(maxWidth: .infinity, alignment: .leading)"]}
+              >
+                <Text font="headline">
+                  <%= guest.first_name %> <%= guest.last_name %>
+                </Text>
+                <Text font="subheadline" foregroundColor="secondary">
+                  <%= guest.room %>
+                  <%= if guest.is_primary do %>
+                    <Text foregroundColor="primary"> • Primary Guest</Text>
+                  <% end %>
+                </Text>
+              </VStack>
+
+              <Toggle
+                phx-click="toggle_guest_arrived"
+                phx-value-guest_id={guest.id}
+                isOn={guest.arrived}
+              />
+            </HStack>
+          <% end %>
+        </VStack>
+
+        <Button phx-click="continue_to_vehicle" class="kiosk-primary-button kiosk-stack-900">
+          <Text font="title3" fontWeight="semibold">Continue to Vehicle Registration</Text>
+        </Button>
+      </VStack>
+    </ScrollView>
+
+  <% @step == :vehicle -> %>
+    <ScrollView>
+      <VStack alignment="leading" spacing={30} class="kiosk-screen-leading">
+        <HStack alignment="center" spacing={0}>
+          <Spacer />
+          <.logo />
+          <Spacer />
+        </HStack>
+
+        <VStack alignment="leading" spacing={10}>
+          <Text font="title" fontWeight="bold">
+            Vehicle Registration
+          </Text>
+          <Text font="body" foregroundColor="secondary">
+            Add your vehicle information for parking purposes. You can skip this step if you don't have a vehicle.
+          </Text>
+        </VStack>
+
+        <VStack alignment="leading" spacing={25} class="kiosk-stack-720">
+          <VStack alignment="leading" spacing={10}>
+            <Text font="headline">License Plate</Text>
+            <TextField
+              phx-change="update_vehicle_field"
+              phx-value-field="plate"
+              name="plate"
+              value={@current_vehicle.plate}
+              placeholder="ABC-1234"
+              class="kiosk-textfield-52"
+            />
+          </VStack>
+
+          <VStack alignment="leading" spacing={15}>
+            <Text font="headline">Vehicle Color</Text>
+            <HStack alignment="center" spacing={15}>
+              <%= for color <- ["Red", "Blue", "Black", "White", "Silver"] do %>
+                <Button
+                  class={if @current_vehicle.color == color, do: "kiosk-chip-selected", else: "kiosk-chip"}
+                  phx-click="update_vehicle_field"
+                  phx-value-field="color"
+                  phx-value-value={color}
+                >
+                  <Text><%= color %></Text>
+                </Button>
+              <% end %>
+            </HStack>
+          </VStack>
+
+          <VStack alignment="leading" spacing={15}>
+            <Text font="headline">Vehicle Type</Text>
+            <HStack alignment="center" spacing={15}>
+              <%= for type <- ["Sedan", "SUV", "Truck", "Van", "Other"] do %>
+                <Button
+                  class={if @current_vehicle.type == type, do: "kiosk-chip-selected", else: "kiosk-chip"}
+                  phx-click="update_vehicle_field"
+                  phx-value-field="type"
+                  phx-value-value={type}
+                >
+                  <Text><%= type %></Text>
+                </Button>
+              <% end %>
+            </HStack>
+          </VStack>
+
+          <HStack alignment="center" spacing={15}>
+            <Button phx-click="add_vehicle" class="kiosk-primary-button-full">
+              <Text font="title3" fontWeight="semibold">Add Vehicle</Text>
+            </Button>
+            <Button phx-click="skip_vehicle" class="kiosk-secondary-button-full">
+              <Text font="title3">Skip</Text>
+            </Button>
+          </HStack>
+        </VStack>
+      </VStack>
+    </ScrollView>
+
+  <% @step == :overview -> %>
+    <ScrollView>
+      <VStack alignment="leading" spacing={30} class="kiosk-screen-leading">
+        <HStack alignment="center" spacing={0}>
+          <Spacer />
+          <.logo />
+          <Spacer />
+        </HStack>
+
+        <VStack alignment="leading" spacing={10}>
+          <Text font="title" fontWeight="bold">
+            House Overview
+          </Text>
+          <Text font="body" foregroundColor="secondary">
+            Here's a summary of room assignments and who's staying where.
+          </Text>
+        </VStack>
+
+        <VStack alignment="leading" spacing={15} class="kiosk-stack-980">
+          <%= for room <- @reservation.rooms do %>
+            <VStack alignment="leading" spacing={12} class="kiosk-card">
+              <HStack alignment="center" spacing={15}>
+                <VStack
+                  alignment="leading"
+                  spacing={5}
+                  style={["frame(maxWidth: .infinity, alignment: .leading)"]}
+                >
+                  <Text font="headline" fontWeight="semibold">
+                    <%= room.name %>
+                  </Text>
+                  <Text font="subheadline" foregroundColor="secondary">
+                    Primary Guest: <%= room.primary_guest %>
+                  </Text>
+                  <Text font="subheadline" foregroundColor="secondary">
+                    <%= room.guest_count %> <%= if room.guest_count == 1, do: "Guest", else: "Guests" %>
+                  </Text>
+                </VStack>
+              </HStack>
+
+              <%= if length(@vehicles) > 0 do %>
+                <VStack alignment="leading" spacing={8} style={["padding(.top, 10)"]}>
+                  <Text font="subheadline" fontWeight="medium">Vehicles:</Text>
+                  <%= for vehicle <- @vehicles do %>
+                    <Text font="body" foregroundColor="secondary">
+                      • <%= vehicle.plate %> <%= if vehicle.color != "", do: "(#{vehicle.color} #{vehicle.type})" %>
+                    </Text>
+                  <% end %>
+                </VStack>
+              <% end %>
+            </VStack>
+          <% end %>
+        </VStack>
+
+        <Button phx-click="complete_check_in" class="kiosk-primary-button kiosk-stack-980">
+          <Text font="title3" fontWeight="semibold">Complete Check-In</Text>
+        </Button>
+      </VStack>
+    </ScrollView>
+
+  <% @step == :success -> %>
+    <VStack alignment="center" spacing={40} class="kiosk-screen">
+      <.logo />
+      <VStack alignment="center" spacing={20}>
+        <Text class="kiosk-checkmark">
+          ✓
+        </Text>
+        <Text font="largeTitle" fontWeight="bold">
+          You're All Set!
+        </Text>
+        <Text font="title2" foregroundColor="secondary" multilineTextAlignment="center">
+          Your check-in is complete. Welcome to <%= @reservation.property_name %>!
+        </Text>
+      </VStack>
+
+      <VStack alignment="center" spacing={20} class="kiosk-card-lg kiosk-stack-560">
+        <Text font="headline" fontWeight="semibold">
+          Wi-Fi Information
+        </Text>
+        <VStack alignment="center" spacing={10}>
+          <Text font="title" fontWeight="bold" foregroundColor="primary">
+            <%= @reservation.wifi_password %>
+          </Text>
+          <Text font="body" foregroundColor="secondary">
+            Network: <%= @reservation.property_name %>_Guest
+          </Text>
+        </VStack>
+      </VStack>
+
+      <VStack alignment="center" spacing={15} class="kiosk-stack-560">
+        <Text font="body" foregroundColor="secondary" multilineTextAlignment="center">
+          If you need assistance, please contact the front desk or your host.
+        </Text>
+        <Button phx-click="start_over" class="kiosk-secondary-button-full">
+          <Text font="title3">Check In Another Guest</Text>
+        </Button>
+      </VStack>
+    </VStack>
+<% end %>

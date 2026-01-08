@@ -19,7 +19,7 @@ config :ysc, Ysc.Repo,
 config :ysc, YscWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}, port: 4000],
+  http: [ip: {0, 0, 0, 0}, port: 4000],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
@@ -59,9 +59,11 @@ config :ysc, YscWeb.Endpoint,
 config :ysc, YscWeb.Endpoint,
   live_reload: [
     patterns: [
-      ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg|swiftui\.styles)$",
       ~r"priv/gettext/.*(po)$",
-      ~r"lib/ysc_web/(controllers|live|components)/.*(ex|heex)$"
+      ~r"lib/ysc_web/(controllers|live|components)/.*(ex|heex)$",
+      ~r"lib/ysc_web/(live|components)/.*neex$",
+      ~r"lib/ysc_web/styles/.*(ex|neex|heex)$"
     ]
   ]
 
@@ -125,3 +127,10 @@ config :ysc,
       }
     }
   ]
+
+# Include HEEx debug annotations as HTML comments in rendered markup
+config :phoenix_live_view, :debug_heex_annotations, true
+
+config :live_view_native_stylesheet,
+  annotations: true,
+  pretty: true

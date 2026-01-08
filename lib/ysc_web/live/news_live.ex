@@ -135,7 +135,7 @@ defmodule YscWeb.NewsLive do
           <div
             :for={post <- @posts}
             id={"post-#{post.id}"}
-            class="group flex flex-col bg-white rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-xl hover:-translate-y-2 transition-all duration-500 border border-transparent hover:border-blue-500/20"
+            class="group flex flex-col bg-white rounded-xl p-4 ring-1 ring-zinc-100 shadow-sm hover:shadow-xl hover:ring-blue-500/30 transition-all duration-500"
           >
             <.link navigate={~p"/posts/#{post.url_name}"} class="block">
               <div class="relative aspect-[16/10] overflow-hidden rounded-lg mb-8">

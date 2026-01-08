@@ -7,12 +7,12 @@ defmodule Ysc.Repo.Migrations.AddMediaImage do
       add :user_id, references(:users, column: :id, type: :binary_id), null: false
 
       add :title, :text, null: true
-      add :alt_text, :text, size: 512, null: true
+      add :alt_text, :text, null: true
 
-      add :optimized_image_path, :text, size: 2048, null: true
-      add :raw_image_path, :text, size: 2048, null: false
-      add :thumbnail_path, :text, size: 2048, null: true
-      add :blur_hash, :text, size: 1024, null: true
+      add :optimized_image_path, :text, null: true
+      add :raw_image_path, :text, null: false
+      add :thumbnail_path, :text, null: true
+      add :blur_hash, :text, null: true
 
       add :width, :integer, default: 0
       add :height, :integer, default: 0

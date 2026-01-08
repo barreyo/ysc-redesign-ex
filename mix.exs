@@ -13,6 +13,8 @@ defmodule Ysc.MixProject do
     ]
   end
 
+  def cli, do: []
+
   # Configuration for the OTP application.
   #
   # Type `mix help compile.app` for more information.
@@ -70,6 +72,10 @@ defmodule Ysc.MixProject do
       {:iso, ">= 0.0.0"},
       {:jason, "~> 1.4"},
       {:let_me, "~> 1.2.3"},
+      {:live_view_native_swiftui, "~> 0.3.1"},
+      {:live_view_native, "~> 0.3.1"},
+      {:live_view_native_stylesheet, "~> 0.3.2"},
+      {:live_view_native_live_form, "~> 0.3.1"},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:mjml_eex, "~> 0.12"},
       {:mogrify, "~> 0.8.0"},
@@ -113,6 +119,10 @@ defmodule Ysc.MixProject do
       setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
+      precommit: [
+        "format",
+        "compile"
+      ],
       test: [
         "ecto.create --quiet",
         "ecto.migrate --quiet",
