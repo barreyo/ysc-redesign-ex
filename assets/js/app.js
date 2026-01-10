@@ -90,6 +90,7 @@ let Hooks = {
     ImageCarouselAutoplay,
     ReadingProgress,
     TimelineFilter,
+    ClickableTableRows,
 };
 Hooks.LivePhone = LivePhone;
 

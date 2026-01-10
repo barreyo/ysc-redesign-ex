@@ -600,6 +600,51 @@ defmodule YscWeb.AdminBookingsLive do
               No refunds found for this booking.
             </p>
           </div>
+          <!-- Check-in Section -->
+          <div class="pt-4 border-t border-zinc-200">
+            <h3 class="text-sm font-semibold text-zinc-700 mb-3">Check-in Details</h3>
+            <div :if={Ecto.assoc_loaded?(@booking.check_ins) && length(@booking.check_ins) > 0} class="space-y-3">
+              <%= for check_in <- @booking.check_ins do %>
+                <div class="bg-green-50 rounded-lg p-3 border border-green-200">
+                  <div class="flex items-center gap-2 mb-2">
+                    <.icon name="hero-check-circle" class="w-5 h-5 text-green-600" />
+                    <span class="text-sm font-semibold text-zinc-900">Checked In</span>
+                  </div>
+                  <div class="space-y-1 text-sm text-zinc-700">
+                    <p>
+                      <span class="font-medium">Time:</span>
+                      <%= if check_in.checked_in_at do
+                        format_datetime(check_in.checked_in_at, @timezone)
+                      else
+                        "—"
+                      end %>
+                    </p>
+                    <p>
+                      <span class="font-medium">Rules Agreed:</span>
+                      <%= if check_in.rules_agreed, do: "Yes", else: "No" %>
+                    </p>
+                    <%= if Ecto.assoc_loaded?(check_in.check_in_vehicles) && length(check_in.check_in_vehicles) > 0 do %>
+                      <div class="mt-2">
+                        <p class="font-medium mb-1">Vehicles:</p>
+                        <div class="space-y-1 ml-4">
+                          <%= for vehicle <- check_in.check_in_vehicles do %>
+                            <p class="text-xs">
+                              <%= vehicle.type %> • <%= vehicle.color %> • <%= vehicle.make %>
+                            </p>
+                          <% end %>
+                        </div>
+                      </div>
+                    <% else %>
+                      <p class="text-xs text-zinc-500 mt-1">No vehicles registered</p>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+            <p :if={!Ecto.assoc_loaded?(@booking.check_ins) || length(@booking.check_ins) == 0} class="text-sm text-zinc-500">
+              No check-in recorded for this booking.
+            </p>
+          </div>
         </div>
 
         <div class="flex justify-between items-center mt-6 pt-4 border-t border-zinc-200">
@@ -1891,6 +1936,16 @@ defmodule YscWeb.AdminBookingsLive do
                       <.badge type="dark" class="whitespace-nowrap flex-shrink-0">—</.badge>
                   <% end %>
                 </:col>
+                <:col :let={{_, booking}} label="Checked In">
+                  <%= if Ecto.assoc_loaded?(booking.check_ins) && length(booking.check_ins) > 0 do %>
+                    <div class="flex items-center gap-1.5">
+                      <.icon name="hero-check-circle" class="w-5 h-5 text-green-600" />
+                      <span class="text-sm text-green-700 font-medium">Yes</span>
+                    </div>
+                  <% else %>
+                    <span class="text-sm text-zinc-400">—</span>
+                  <% end %>
+                </:col>
                 <:col :let={{_, booking}} label="Booked" field={:inserted_at}>
                   <span class="text-sm text-zinc-600">
                     <%= if booking.inserted_at do
@@ -1902,11 +1957,11 @@ defmodule YscWeb.AdminBookingsLive do
                     end %>
                   </span>
                 </:col>
-                <:action :let={{_, booking}} label="Action">
+                <:action :let={{_, booking}} label="View">
                   <button
                     phx-click="view-booking"
                     phx-value-booking-id={booking.id}
-                    class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
+                    class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm whitespace-nowrap"
                   >
                     View
                   </button>
@@ -3107,7 +3162,9 @@ defmodule YscWeb.AdminBookingsLive do
 
   defp apply_action(socket, :view_booking, %{"id" => id}) do
     booking = Bookings.get_booking!(id)
-    booking = Ysc.Repo.preload(booking, [:user, rooms: :room_category])
+
+    booking =
+      Ysc.Repo.preload(booking, [:user, rooms: :room_category, check_ins: :check_in_vehicles])
 
     # Ensure selected_property matches the booking's property
     socket =
@@ -5269,6 +5326,16 @@ defmodule YscWeb.AdminBookingsLive do
         ""
       end
 
+    # Add checkmark if checked in (to the right of the name)
+    checked_in_indicator =
+      if Ecto.assoc_loaded?(booking.check_ins) && length(booking.check_ins) > 0 do
+        "<svg class=\"w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5\" fill=\"currentColor\" viewBox=\"0 0 20 20\">
+          <path fill-rule=\"evenodd\" d=\"M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z\" clip-rule=\"evenodd\" />
+        </svg>"
+      else
+        ""
+      end
+
     """
     <div
       class="h-10 rounded shadow-sm border text-xs font-medium flex flex-col items-start justify-center #{bg_color} #{border_color} #{text_color} cursor-pointer #{hover_color} transition-colors duration-200 relative #{fade_class}"
@@ -5277,7 +5344,10 @@ defmodule YscWeb.AdminBookingsLive do
       phx-click="view-booking"
       phx-value-booking-id="#{booking.id}"
     >
-      <div class="truncate px-2 font-semibold">#{escaped_user_name_str}</div>
+      <div class="truncate px-2 font-semibold flex items-center gap-1.5">
+        <span class="truncate">#{escaped_user_name_str}</span>
+        #{checked_in_indicator}
+      </div>
       <div class="truncate px-2 text-[10px] opacity-90">#{escaped_checkin_str} - #{escaped_checkout_str}</div>
       #{right_indicator}
     </div>
@@ -5300,7 +5370,10 @@ defmodule YscWeb.AdminBookingsLive do
     filtered_blackouts = Bookings.list_blackouts(property, start_date, end_date)
 
     # Load bookings for this property and date range (filtered at database level)
-    bookings_in_range = Bookings.list_bookings(property, start_date, end_date)
+    bookings_in_range =
+      Bookings.list_bookings(property, start_date, end_date,
+        preload: [:rooms, :user, check_ins: :check_in_vehicles]
+      )
 
     # Filter out canceled and refunded bookings (only show active bookings on calendar)
     # Note: This filtering in memory is acceptable since we're already loading a filtered set
@@ -5435,6 +5508,15 @@ defmodule YscWeb.AdminBookingsLive do
         (params["filter"] || %{})
         |> Map.put("property", Atom.to_string(socket.assigns.selected_property))
       )
+      # Ensure default ordering by most recently booked first if no order is specified
+      |> then(fn p ->
+        order_by = p["order_by"] || p[:order_by]
+        if order_by == nil || order_by == [] do
+          Map.merge(p, %{"order_by" => ["inserted_at"], "order_directions" => ["desc"]})
+        else
+          p
+        end
+      end)
 
     case Bookings.list_paginated_bookings(params_with_property, search_term) do
       {:ok, {reservations, meta}} ->

@@ -70,9 +70,12 @@ defmodule Ysc.Bookings.Booking do
     field :hold_expires_at, :utc_datetime
     field :total_price, Money.Ecto.Composite.Type, default_currency: :USD
     field :pricing_items, :map
+    field :checked_in, :boolean, default: false
     many_to_many :rooms, Ysc.Bookings.Room, join_through: Ysc.Bookings.BookingRoom
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
     has_many :booking_guests, Ysc.Bookings.BookingGuest, foreign_key: :booking_id
+    has_many :check_in_bookings, Ysc.Bookings.CheckInBooking, foreign_key: :booking_id
+    many_to_many :check_ins, Ysc.Bookings.CheckIn, join_through: Ysc.Bookings.CheckInBooking
 
     timestamps()
   end
@@ -107,7 +110,8 @@ defmodule Ysc.Bookings.Booking do
       :hold_expires_at,
       :total_price,
       :pricing_items,
-      :user_id
+      :user_id,
+      :checked_in
     ])
     |> put_assoc(:rooms, opts[:rooms] || [])
     |> validate_required([:checkin_date, :checkout_date, :property, :booking_mode, :user_id])

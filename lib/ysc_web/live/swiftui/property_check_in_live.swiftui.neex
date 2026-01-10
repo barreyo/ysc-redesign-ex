@@ -1,273 +1,1188 @@
-<.flash_group flash={@flash} />
+<VStack
+  alignment="leading"
+  spacing={24}
+  style={[
+    "frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)",
+    "padding(48)"
+  ]}
+>
+  <%
+    timeline_steps = ["Search", "Confirm", "Car", "Done"]
 
-<%= cond do %>
-  <% @step == :welcome -> %>
-    <VStack alignment="center" spacing={40} class="kiosk-screen">
-      <.logo />
-      <VStack alignment="center" spacing={20}>
-        <Text font="largeTitle" fontWeight="bold" foregroundColor="primary">
-          Welcome to Mountain View Retreat
-        </Text>
-        <Text font="title2" foregroundColor="secondary">
-          Property Check-In Kiosk
-        </Text>
-      </VStack>
+    current_step =
+      cond do
+        @step == :search -> 1
+        @step == :confirm -> 2
+        @step == :vehicles -> 3
+        @step == :done -> 4
+        true -> 1
+      end
+  %>
 
-      <Button phx-click="start_check_in" class="kiosk-primary-button-wide">
-        <Text font="title2" fontWeight="semibold">Tap to Check In</Text>
-      </Button>
-    </VStack>
-
-  <% @step == :reservation -> %>
-    <VStack alignment="center" spacing={30} class="kiosk-screen">
-      <.logo />
-      <VStack alignment="center" spacing={15}>
-        <Text font="title" fontWeight="bold">
-          Enter Your Reservation Number
-        </Text>
-        <Text font="body" foregroundColor="secondary" multilineTextAlignment="center">
-          Please enter the reservation number from your confirmation email, or scan the QR code.
-        </Text>
-      </VStack>
-
-      <VStack alignment="center" spacing={20} class="kiosk-stack-560">
-        <TextField
-          phx-change="update_reservation_number"
-          phx-submit="submit_reservation"
-          name="reservation_number"
-          value={@reservation_number}
-          placeholder="RES-2024-001"
-          class="kiosk-textfield"
-        />
-
-        <Button phx-click="submit_reservation" class="kiosk-primary-button-full">
-          <Text font="title3" fontWeight="semibold">Continue</Text>
-        </Button>
-      </VStack>
-    </VStack>
-
-  <% @step == :guests -> %>
-    <ScrollView>
-      <VStack alignment="leading" spacing={25} class="kiosk-screen-leading">
-        <HStack alignment="center" spacing={0}>
-          <Spacer />
-          <.logo />
-          <Spacer />
-        </HStack>
-
-        <VStack alignment="leading" spacing={10}>
-          <Text font="title" fontWeight="bold">
-            Confirm Guest Arrival
-          </Text>
-          <Text font="body" foregroundColor="secondary">
-            Please mark each guest as arrived when they check in.
-          </Text>
-        </VStack>
-
-        <VStack alignment="leading" spacing={15} class="kiosk-stack-900">
-          <%= for guest <- @reservation.guests do %>
-            <HStack alignment="center" spacing={20} class="kiosk-card">
-              <VStack
-                alignment="leading"
-                spacing={5}
-                style={["frame(maxWidth: .infinity, alignment: .leading)"]}
-              >
-                <Text font="headline">
-                  <%= guest.first_name %> <%= guest.last_name %>
-                </Text>
-                <Text font="subheadline" foregroundColor="secondary">
-                  <%= guest.room %>
-                  <%= if guest.is_primary do %>
-                    <Text foregroundColor="primary"> • Primary Guest</Text>
-                  <% end %>
-                </Text>
-              </VStack>
-
-              <Toggle
-                phx-click="toggle_guest_arrived"
-                phx-value-guest_id={guest.id}
-                isOn={guest.arrived}
+  <HStack style={["frame(maxWidth: .infinity, alignment: .center)"]}>
+    <HStack
+      spacing={12}
+      style={[
+        "padding(12)",
+        "background(.secondarySystemBackground)",
+        "clipShape(RoundedRectangle(cornerRadius: 18))"
+      ]}
+    >
+      <%= for {label, idx} <- Enum.with_index(timeline_steps, 1) do %>
+        <HStack spacing={8}>
+          <%= cond do %>
+            <% idx < current_step -> %>
+              <Image
+                systemName="checkmark.circle.fill"
+                style={[
+                  "font(.system(size: 18, weight: .semibold))",
+                  "foregroundStyle(.green)"
+                ]}
               />
-            </HStack>
+            <% idx == current_step -> %>
+              <Image
+                systemName="circle.fill"
+                style={[
+                  "font(.system(size: 18, weight: .semibold))",
+                  "foregroundStyle(.tint)"
+                ]}
+              />
+            <% true -> %>
+              <Image
+                systemName="circle"
+                style={[
+                  "font(.system(size: 18, weight: .semibold))",
+                  "foregroundStyle(.secondary)"
+                ]}
+              />
           <% end %>
-        </VStack>
 
-        <Button phx-click="continue_to_vehicle" class="kiosk-primary-button kiosk-stack-900">
-          <Text font="title3" fontWeight="semibold">Continue to Vehicle Registration</Text>
+          <%= if idx == current_step do %>
+            <Text style={["font(.system(size: 16, weight: .semibold))", "foregroundStyle(.primary)"]}>
+              <%= label %>
+            </Text>
+          <% else %>
+            <Text style={["font(.system(size: 16, weight: .semibold))", "foregroundStyle(.secondary)"]}>
+              <%= label %>
+            </Text>
+          <% end %>
+
+          <Image
+            :if={idx != Enum.count(timeline_steps)}
+            systemName="chevron.right"
+            style={[
+              "font(.system(size: 14, weight: .semibold))",
+              "foregroundStyle(.tertiary)"
+            ]}
+          />
+        </HStack>
+      <% end %>
+    </HStack>
+  </HStack>
+
+  <VStack :if={@step == :search} alignment="center" spacing={28} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
+    <Text style={["font(.system(size: 44, weight: .bold))"]}>Find your reservation</Text>
+    <Text multilineTextAlignment="center" style={["frame(maxWidth: 520)", "foregroundStyle(.secondary)"]}>
+      Enter the last name on the reservation to search.
+    </Text>
+
+    <.simple_form
+      :let={f}
+      for={@form}
+      id="reservation-search-form"
+      phx-change="update_last_name"
+      phx-submit="search_reservation"
+      style={["frame(maxWidth: 520)", "padding(.top, 12)"]}
+    >
+      <Group>
+        <HStack spacing={10} style={["frame(maxWidth: .infinity)"]}>
+          <Image
+            systemName="magnifyingglass"
+            style={[
+              "font(.system(size: 18, weight: .semibold))",
+              "foregroundStyle(.secondary)"
+            ]}
+          />
+
+          <.input
+            field={f[:last_name]}
+            type="TextField"
+            placeholder="Search by last name"
+            autocomplete="off"
+            style={[
+              "textFieldStyle(.roundedBorder)",
+              "submitLabel(.search)",
+              "textInputAutocapitalization(.characters)",
+              "autocorrectionDisabled()",
+              "controlSize(.large)",
+              "font(.title3)",
+              "frame(minHeight: 64)"
+            ]}
+          />
+        </HStack>
+      </Group>
+
+      <:actions>
+        <LiveSubmitButton style={[
+          "buttonStyle(.borderedProminent)",
+          "controlSize(.large)",
+          "frame(maxWidth: .infinity)"
+        ]}>
+          <Text style={["fontWeight(.bold)"]}>Search</Text>
+        </LiveSubmitButton>
+      </:actions>
+    </.simple_form>
+
+    <VStack
+      :if={@search_results != []}
+      alignment="leading"
+      spacing={12}
+      style={["frame(maxWidth: 520, alignment: .leading)"]}
+    >
+      <Text font="title2" style={["fontWeight(.bold)"]}>Select your reservation</Text>
+
+      <%= for reservation <- @search_results do %>
+        <%
+          primary =
+            Enum.find(reservation.guests, fn g -> Map.get(g, :is_primary, false) end) ||
+              List.first(reservation.guests)
+
+          primary_name =
+            if primary do
+              "#{primary.first_name} #{primary.last_name}"
+            else
+              "Reservation"
+            end
+        %>
+
+        <Button phx-click="select_reservation" phx-value-number={reservation.number} style="buttonStyle(.plain)">
+          <ZStack alignment="topLeading">
+            <RoundedRectangle
+              cornerRadius={22}
+              style={[
+                "fill(.white)",
+                "frame(maxWidth: .infinity)",
+                "shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)"
+              ]}
+            />
+            <RoundedRectangle
+              cornerRadius={22}
+              style={[
+                "stroke(.gray.opacity(0.3), lineWidth: 1)",
+                "frame(maxWidth: .infinity)"
+              ]}
+            />
+            <VStack alignment="leading" spacing={12} style={[
+              "padding(20)",
+              "frame(maxWidth: .infinity, alignment: .topLeading)",
+              "clipShape(RoundedRectangle(cornerRadius: 22))"
+            ]}>
+            <HStack style={["frame(maxWidth: .infinity)"]}>
+              <VStack alignment="leading" spacing={2}>
+                <Text font="title2" style={["fontWeight(.bold)"]}><%= primary_name %></Text>
+                <Text style={["font(.system(size: 15))", "foregroundStyle(.secondary)"]}><%= reservation.property_name %></Text>
+              </VStack>
+              <Spacer />
+              <HStack
+                spacing={6}
+                style={[
+                  "padding(.horizontal, 10)",
+                  "padding(.vertical, 6)",
+                  "background(.blue.opacity(0.12))",
+                  "clipShape(Capsule())"
+                ]}
+              >
+                <Text style={["font(.system(size: 12, weight: .semibold))", "foregroundStyle(.blue)"]}>
+                  <%= reservation.number %>
+                </Text>
+              </HStack>
+            </HStack>
+
+            <HStack spacing={10}>
+              <Text style={["foregroundStyle(.secondary)"]}>
+                <%= reservation.adult_count %> adults
+              </Text>
+              <Text style={["foregroundStyle(.secondary)"]}>•</Text>
+              <Text style={["foregroundStyle(.secondary)"]}>
+                <%= reservation.child_count %> children
+              </Text>
+            </HStack>
+
+            <VStack :if={reservation.rooms != []} alignment="leading" spacing={8}>
+              <Text style={["foregroundStyle(.secondary)"]}>Rooms</Text>
+              <HStack spacing={8}>
+                <%= for room_name <- reservation.rooms do %>
+                  <HStack
+                    spacing={6}
+                    style={[
+                      "padding(.horizontal, 10)",
+                      "padding(.vertical, 6)",
+                      "background(.white)",
+                      "clipShape(RoundedRectangle(cornerRadius: 999))",
+                      "shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)"
+                    ]}
+                  >
+                    <Text style={["font(.system(size: 14, weight: .semibold))", "foregroundStyle(.secondary)"]}><%= room_name %></Text>
+                  </HStack>
+                <% end %>
+              </HStack>
+            </VStack>
+            </VStack>
+          </ZStack>
         </Button>
-      </VStack>
-    </ScrollView>
+      <% end %>
+    </VStack>
+  </VStack>
 
-  <% @step == :vehicle -> %>
-    <ScrollView>
-      <VStack alignment="leading" spacing={30} class="kiosk-screen-leading">
-        <HStack alignment="center" spacing={0}>
-          <Spacer />
-          <.logo />
-          <Spacer />
+  <VStack
+    :if={@step == :confirm and @reservation != nil}
+    alignment="center"
+    spacing={24}
+    style={["frame(maxWidth: .infinity, alignment: .center)"]}
+  >
+    <Text style={["font(.system(size: 44, weight: .bold))"]}>Confirm details</Text>
+    <Text multilineTextAlignment="center" style={["frame(maxWidth: 520)", "foregroundStyle(.secondary)"]}>
+      Please confirm your reservation details are correct.
+    </Text>
+
+    <VStack alignment="leading" spacing={12} style={["frame(maxWidth: 520, alignment: .leading)"]}>
+      <%
+        rooms_text = Enum.join(@reservation.rooms || [], ", ")
+
+        primary_guest =
+          Enum.find(@reservation.guests, fn g -> Map.get(g, :is_primary, false) end) ||
+            List.first(@reservation.guests)
+
+        primary_name =
+          if primary_guest do
+            "#{primary_guest.first_name} #{primary_guest.last_name}"
+          else
+            "Reservation"
+          end
+      %>
+      <.card corner_radius={16} fill=".white" padding={20} shadow_opacity={0.10} shadow_radius={8} shadow_x={0} shadow_y={4}>
+        <VStack alignment="leading" spacing={16}>
+          <HStack style={["frame(maxWidth: .infinity)"]}>
+            <VStack alignment="leading" spacing={4}>
+              <Text font="title2" style={["fontWeight(.bold)"]}><%= primary_name %></Text>
+              <HStack spacing={10}>
+                <Text style={["font(.system(size: 15))", "foregroundStyle(.secondary)"]}>
+                  <%= Map.get(@reservation, :adult_count, 0) %> <%= if Map.get(@reservation, :adult_count, 0) == 1, do: "adult", else: "adults" %>
+                </Text>
+                <Text :if={Map.get(@reservation, :child_count, 0) > 0} style={["foregroundStyle(.secondary)"]}>•</Text>
+                <Text :if={Map.get(@reservation, :child_count, 0) > 0} style={["font(.system(size: 15))", "foregroundStyle(.secondary)"]}>
+                  <%= Map.get(@reservation, :child_count, 0) %> <%= if Map.get(@reservation, :child_count, 0) == 1, do: "child", else: "children" %>
+                </Text>
+              </HStack>
+            </VStack>
+            <Spacer />
+            <HStack
+              spacing={6}
+              style={[
+                "padding(.horizontal, 10)",
+                "padding(.vertical, 6)",
+                "background(.blue.opacity(0.12))",
+                "clipShape(Capsule())"
+              ]}
+            >
+              <Text style={["font(.system(size: 12, weight: .semibold))", "foregroundStyle(.blue)"]}>
+                <%= @reservation.number %>
+              </Text>
+            </HStack>
+          </HStack>
+
+          <%
+            check_in_date = Map.get(@reservation, :check_in_date) || Map.get(@reservation, :checkin_date)
+            check_out_date = Map.get(@reservation, :check_out_date) || Map.get(@reservation, :checkout_date)
+          %>
+          <VStack :if={check_in_date || check_out_date} alignment="leading" spacing={8}>
+            <%= if check_in_date do %>
+              <HStack spacing={8}>
+                <Text style={["font(.system(size: 14))", "foregroundStyle(.secondary)"]}>Check-in:</Text>
+                <Text style={["font(.system(size: 14, weight: .medium))", "foregroundStyle(.primary)"]}>
+                  <%= Calendar.strftime(check_in_date, "%B %d, %Y") %> at 3:00 PM
+                </Text>
+              </HStack>
+            <% end %>
+            <%= if check_out_date do %>
+              <HStack spacing={8}>
+                <Text style={["font(.system(size: 14))", "foregroundStyle(.secondary)"]}>Check-out:</Text>
+                <Text style={["font(.system(size: 14, weight: .medium))", "foregroundStyle(.primary)"]}>
+                  <%= Calendar.strftime(check_out_date, "%B %d, %Y") %> at 11:00 AM
+                </Text>
+              </HStack>
+            <% end %>
+          </VStack>
+
+          <VStack alignment="leading" spacing={4}>
+            <Text font="headline" style={["fontWeight(.semibold)", "foregroundStyle(.secondary)"]}>Rooms</Text>
+            <Text style={["font(.system(size: 17))", "foregroundStyle(.primary)"]}>
+              <%= if rooms_text != "", do: rooms_text, else: "No rooms booked" %>
+            </Text>
+          </VStack>
+
+          <VStack alignment="leading" spacing={4}>
+            <Text font="headline" style={["fontWeight(.semibold)", "foregroundStyle(.secondary)"]}>Guests</Text>
+            <VStack alignment="leading" spacing={6}>
+              <%= for guest <- @reservation.guests do %>
+                <Text style={["font(.system(size: 17))", "foregroundStyle(.primary)"]}>
+                  <%= "#{guest.first_name} #{guest.last_name}" %>
+                </Text>
+              <% end %>
+            </VStack>
+          </VStack>
+        </VStack>
+      </.card>
+
+      <.simple_form
+        :let={f}
+        for={@rules_form}
+        id="rules-agreement-form"
+        phx-change="update_rules_agreement"
+        style={["frame(maxWidth: 520)", "padding(.top, 8)"]}
+      >
+        <HStack spacing={10} style={["frame(maxWidth: .infinity, alignment: .leading)"]} alignment="top">
+          <.input
+            field={f[:rules_agreement]}
+            type="Toggle"
+            id="rules-agreement"
+          />
+          <Text style={["font(.system(size: 15))", "foregroundStyle(.primary)"]}>
+            I agree to the booking and cabin rules for myself and all guests.
+          </Text>
+        </HStack>
+      </.simple_form>
+
+      <HStack spacing={12} style={["frame(maxWidth: 520)"]}>
+        <.button
+          phx-click="clear_reservation"
+          style={[
+            "buttonStyle(.bordered)",
+            "controlSize(.large)",
+            "frame(maxWidth: .infinity)"
+          ]}
+        >
+          Pick a different reservation
+        </.button>
+
+        <.button
+          phx-click="confirm_reservation"
+          style={[
+            "buttonStyle(.borderedProminent)",
+            "controlSize(.large)",
+            "frame(maxWidth: .infinity)",
+            if(!@rules_agreed, do: "disabled(true)", else: "")
+          ]}
+        >
+          Continue
+        </.button>
+      </HStack>
+    </VStack>
+  </VStack>
+
+  <VStack
+    :if={@step == :vehicles and @reservation != nil}
+    alignment="center"
+    spacing={24}
+    style={["frame(maxWidth: .infinity, alignment: .center)"]}
+  >
+    <Text style={["font(.system(size: 44, weight: .bold))"]}>Vehicle information</Text>
+    <Text multilineTextAlignment="center" style={["frame(maxWidth: 520)", "foregroundStyle(.secondary)"]}>
+      Add each car by type, color, and maker. This helps guests manage and coordinate parking outside the cabin during your stay.
+    </Text>
+
+    <VStack alignment="center" spacing={16} style={["frame(maxWidth: 520, alignment: .center)"]}>
+      <%!-- Step 1: Overview (always first in car flow) --%>
+      <VStack
+        :if={@vehicle_step == :overview}
+        alignment="leading"
+        spacing={12}
+      >
+        <.card corner_radius={22} fill=".white" shadow_opacity={0.10} shadow_radius={10} padding={22}>
+          <Text font="headline">Cars added (<%= Enum.count(@vehicles) %>)</Text>
+
+          <VStack :if={@vehicles == []} alignment="leading" spacing={10}>
+            <Text style={["foregroundStyle(.secondary)"]}>
+              No cars added yet. If you arrived without a car, you can skip this step.
+            </Text>
+
+            <HStack spacing={12} style={["frame(maxWidth: .infinity)", "padding(.top, 16)"]}>
+              <.button
+                phx-click="skip_cars"
+                style={[
+                  "buttonStyle(.bordered)",
+                  "controlSize(.large)",
+                  "frame(maxWidth: .infinity)"
+                ]}
+              >
+                Skip car step
+              </.button>
+
+              <.button
+                phx-click="start_add_vehicle"
+                style={[
+                  "buttonStyle(.borderedProminent)",
+                  "controlSize(.large)",
+                  "frame(maxWidth: .infinity)"
+                ]}
+              >
+                Add a car
+              </.button>
+            </HStack>
+          </VStack>
+
+          <VStack :if={@vehicles != []} alignment="leading" spacing={12} style={["frame(maxWidth: .infinity, alignment: .topLeading)"]}>
+            <%= for vehicle <- @vehicles do %>
+              <%
+                type_icon =
+                  case vehicle.type do
+                    "Sedan" -> "car.side"
+                    "SUV" -> "suv.side"
+                    "Pick up" -> "truck.pickup.side"
+                    "Hatchback" -> "car.side"
+                    "VAN" -> "bus"
+                    _ -> "car"
+                  end
+              %>
+              <.card
+                corner_radius={16}
+                fill=".white"
+                padding={14}
+                shadow_opacity={0.08}
+                shadow_radius={6}
+                shadow_x={0}
+                shadow_y={2}
+              >
+                <HStack>
+                  <ZStack>
+                    <RoundedRectangle
+                      cornerRadius={12}
+                      style={[
+                        "fill(.black.opacity(0.10))",
+                        "frame(width: 44, height: 44)"
+                      ]}
+                    />
+
+                    <%= cond do %>
+                      <% vehicle.color == "White" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.white)"]} />
+                      <% vehicle.color == "Black" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.black)"]} />
+                      <% vehicle.color == "Gray" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.gray)"]} />
+                      <% vehicle.color == "Silver" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.systemGray2)"]} />
+                      <% vehicle.color == "Blue" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.blue)"]} />
+                      <% vehicle.color == "Red" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.red)"]} />
+                      <% vehicle.color == "Green" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.green)"]} />
+                      <% vehicle.color == "Brown" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.brown)"]} />
+                      <% vehicle.color == "Orange" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.orange)"]} />
+                      <% vehicle.color == "Gold" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(Color(red: 0.85, green: 0.65, blue: 0.13))"]} />
+                      <% vehicle.color == "Purple" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.purple)"]} />
+                      <% vehicle.color == "Yellow" -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.yellow)"]} />
+                      <% true -> %>
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.tint)"]} />
+                    <% end %>
+                  </ZStack>
+
+                  <VStack alignment="leading" spacing={2}>
+                    <Text font="title3" fontWeight="semibold"><%= vehicle.make %></Text>
+                    <Text style={["foregroundStyle(.secondary)"]}><%= vehicle.color %> • <%= vehicle.type %></Text>
+                  </VStack>
+                  <Spacer />
+                  <Button phx-click="remove_vehicle" phx-value-id={vehicle.id} style={["buttonStyle(.bordered)", "controlSize(.regular)"]}>
+                    Remove
+                  </Button>
+                </HStack>
+              </.card>
+            <% end %>
+
+            <HStack spacing={12} style={["frame(maxWidth: .infinity)"]}>
+              <.button
+                phx-click="start_add_vehicle"
+                style={[
+                  "buttonStyle(.bordered)",
+                  "controlSize(.large)",
+                  "frame(maxWidth: .infinity)"
+                ]}
+              >
+                Add more
+              </.button>
+
+              <.button
+                phx-click="finish_check_in"
+                style={[
+                  "buttonStyle(.borderedProminent)",
+                  "controlSize(.large)",
+                  "frame(maxWidth: .infinity)"
+                ]}
+              >
+                Finish check-in
+              </.button>
+            </HStack>
+          </VStack>
+        </.card>
+      </VStack>
+
+      <VStack :if={@vehicle_step == :type} alignment="center" spacing={14} style={["frame(maxWidth: 520, alignment: .center)"]}>
+        <HStack spacing={10} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
+          <Image systemName="1.circle.fill" style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.tint)"]} />
+          <Text style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.primary)"]}>Select car type</Text>
         </HStack>
 
-        <VStack alignment="leading" spacing={10}>
-          <Text font="title" fontWeight="bold">
-            Vehicle Registration
-          </Text>
-          <Text font="body" foregroundColor="secondary">
-            Add your vehicle information for parking purposes. You can skip this step if you don't have a vehicle.
-          </Text>
-        </VStack>
-
-        <VStack alignment="leading" spacing={25} class="kiosk-stack-720">
-          <VStack alignment="leading" spacing={10}>
-            <Text font="headline">License Plate</Text>
-            <TextField
-              phx-change="update_vehicle_field"
-              phx-value-field="plate"
-              name="plate"
-              value={@current_vehicle.plate}
-              placeholder="ABC-1234"
-              class="kiosk-textfield-52"
-            />
-          </VStack>
-
-          <VStack alignment="leading" spacing={15}>
-            <Text font="headline">Vehicle Color</Text>
-            <HStack alignment="center" spacing={15}>
-              <%= for color <- ["Red", "Blue", "Black", "White", "Silver"] do %>
-                <Button
-                  class={if @current_vehicle.color == color, do: "kiosk-chip-selected", else: "kiosk-chip"}
-                  phx-click="update_vehicle_field"
-                  phx-value-field="color"
-                  phx-value-value={color}
-                >
-                  <Text><%= color %></Text>
-                </Button>
-              <% end %>
-            </HStack>
-          </VStack>
-
-          <VStack alignment="leading" spacing={15}>
-            <Text font="headline">Vehicle Type</Text>
-            <HStack alignment="center" spacing={15}>
-              <%= for type <- ["Sedan", "SUV", "Truck", "Van", "Other"] do %>
-                <Button
-                  class={if @current_vehicle.type == type, do: "kiosk-chip-selected", else: "kiosk-chip"}
-                  phx-click="update_vehicle_field"
-                  phx-value-field="type"
-                  phx-value-value={type}
-                >
-                  <Text><%= type %></Text>
-                </Button>
-              <% end %>
-            </HStack>
-          </VStack>
-
-          <HStack alignment="center" spacing={15}>
-            <Button phx-click="add_vehicle" class="kiosk-primary-button-full">
-              <Text font="title3" fontWeight="semibold">Add Vehicle</Text>
+        <VStack spacing={14} style={[
+          "padding(22)"
+        ]}>
+          <HStack spacing={14} style={["frame(maxWidth: .infinity)"]}>
+            <Button phx-click="select_vehicle_type" phx-value-type="Sedan" style="buttonStyle(.plain)">
+              <ZStack alignment="center">
+                <RoundedRectangle
+                  cornerRadius={20}
+                  style={[
+                    "fill(.white)",
+                    "frame(maxWidth: .infinity, minHeight: 140)",
+                    "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
+                  ]}
+                />
+                <RoundedRectangle
+                  cornerRadius={20}
+                  style={[
+                    "stroke(.gray.opacity(0.3), lineWidth: 1)",
+                    "frame(maxWidth: .infinity, minHeight: 140)"
+                  ]}
+                />
+                <VStack spacing={10} style={[
+                  "padding(18)",
+                  "frame(maxWidth: .infinity, minHeight: 140)",
+                  "clipShape(RoundedRectangle(cornerRadius: 20))"
+                ]}>
+                  <Image systemName="car.side" style={["font(.system(size: 44))", "foregroundStyle(.tint)"]} />
+                  <Text font="headline" style={["fontWeight(.bold)"]}>Sedan</Text>
+                </VStack>
+              </ZStack>
             </Button>
-            <Button phx-click="skip_vehicle" class="kiosk-secondary-button-full">
-              <Text font="title3">Skip</Text>
+
+            <Button phx-click="select_vehicle_type" phx-value-type="SUV" style="buttonStyle(.plain)">
+              <ZStack alignment="center">
+                <RoundedRectangle
+                  cornerRadius={20}
+                  style={[
+                    "fill(.white)",
+                    "frame(maxWidth: .infinity, minHeight: 140)",
+                    "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
+                  ]}
+                />
+                <RoundedRectangle
+                  cornerRadius={20}
+                  style={[
+                    "stroke(.gray.opacity(0.3), lineWidth: 1)",
+                    "frame(maxWidth: .infinity, minHeight: 140)"
+                  ]}
+                />
+                <VStack spacing={10} style={[
+                  "padding(18)",
+                  "frame(maxWidth: .infinity, minHeight: 140)",
+                  "clipShape(RoundedRectangle(cornerRadius: 20))"
+                ]}>
+                  <Image systemName="suv.side" style={["font(.system(size: 44))", "foregroundStyle(.tint)"]} />
+                  <Text font="headline" style={["fontWeight(.bold)"]}>SUV</Text>
+                </VStack>
+              </ZStack>
+            </Button>
+          </HStack>
+
+          <HStack spacing={14} style={["frame(maxWidth: .infinity)"]}>
+            <Button phx-click="select_vehicle_type" phx-value-type="Pick up" style="buttonStyle(.plain)">
+              <ZStack alignment="center">
+                <RoundedRectangle
+                  cornerRadius={20}
+                  style={[
+                    "fill(.white)",
+                    "frame(maxWidth: .infinity, minHeight: 140)",
+                    "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
+                  ]}
+                />
+                <RoundedRectangle
+                  cornerRadius={20}
+                  style={[
+                    "stroke(.gray.opacity(0.3), lineWidth: 1)",
+                    "frame(maxWidth: .infinity, minHeight: 140)"
+                  ]}
+                />
+                <VStack spacing={10} style={[
+                  "padding(18)",
+                  "frame(maxWidth: .infinity, minHeight: 140)",
+                  "clipShape(RoundedRectangle(cornerRadius: 20))"
+                ]}>
+                  <Image systemName="truck.pickup.side" style={["font(.system(size: 44))", "foregroundStyle(.tint)"]} />
+                  <Text font="headline" style={["fontWeight(.bold)"]}>Pick up</Text>
+                </VStack>
+              </ZStack>
+            </Button>
+
+            <Button phx-click="select_vehicle_type" phx-value-type="Hatchback" style="buttonStyle(.plain)">
+              <ZStack alignment="center">
+                <RoundedRectangle
+                  cornerRadius={20}
+                  style={[
+                    "fill(.white)",
+                    "frame(maxWidth: .infinity, minHeight: 140)",
+                    "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
+                  ]}
+                />
+                <RoundedRectangle
+                  cornerRadius={20}
+                  style={[
+                    "stroke(.gray.opacity(0.3), lineWidth: 1)",
+                    "frame(maxWidth: .infinity, minHeight: 140)"
+                  ]}
+                />
+                <VStack spacing={10} style={[
+                  "padding(18)",
+                  "frame(maxWidth: .infinity, minHeight: 140)",
+                  "clipShape(RoundedRectangle(cornerRadius: 20))"
+                ]}>
+                  <Image systemName="car.side" style={["font(.system(size: 44))", "foregroundStyle(.tint)"]} />
+                  <Text font="headline" style={["fontWeight(.bold)"]}>Hatchback</Text>
+                </VStack>
+              </ZStack>
+            </Button>
+          </HStack>
+
+          <HStack spacing={14} style={["frame(maxWidth: .infinity)"]}>
+            <Button phx-click="select_vehicle_type" phx-value-type="VAN" style="buttonStyle(.plain)">
+              <ZStack alignment="center">
+                <RoundedRectangle
+                  cornerRadius={20}
+                  style={[
+                    "fill(.white)",
+                    "frame(maxWidth: .infinity, minHeight: 140)",
+                    "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
+                  ]}
+                />
+                <RoundedRectangle
+                  cornerRadius={20}
+                  style={[
+                    "stroke(.gray.opacity(0.3), lineWidth: 1)",
+                    "frame(maxWidth: .infinity, minHeight: 140)"
+                  ]}
+                />
+                <VStack spacing={10} style={[
+                  "padding(18)",
+                  "frame(maxWidth: .infinity, minHeight: 140)",
+                  "clipShape(RoundedRectangle(cornerRadius: 20))"
+                ]}>
+                  <Image systemName="bus" style={["font(.system(size: 44))", "foregroundStyle(.tint)"]} />
+                  <Text font="headline" style={["fontWeight(.bold)"]}>VAN</Text>
+                </VStack>
+              </ZStack>
+            </Button>
+
+            <VStack
+              spacing={10}
+              style={[
+                "padding(18)",
+                "frame(maxWidth: .infinity, minHeight: 140)",
+                "background(.clear)"
+              ]}
+            >
+              <Text style={["foregroundStyle(.secondary)"]}> </Text>
+            </VStack>
+          </HStack>
+        </VStack>
+      </VStack>
+
+      <VStack :if={@vehicle_step == :color} alignment="leading" spacing={14} style={["frame(maxWidth: 520, alignment: .leading)"]}>
+        <HStack spacing={10} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
+          <Image systemName="2.circle.fill" style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.tint)"]} />
+          <Text style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.primary)"]}>Select car color</Text>
+        </HStack>
+
+        <VStack spacing={12} style={[
+          "padding(22)"
+        ]}>
+          <%!-- Row 1: White, Black, Gray --%>
+          <HStack spacing={12} style={["frame(maxWidth: .infinity)"]}>
+            <Button phx-click="select_vehicle_color" phx-value-color="White" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "White" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.white)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.black)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>White</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.white)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.black)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>White</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
+            </Button>
+
+            <Button phx-click="select_vehicle_color" phx-value-color="Black" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "Black" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.black)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Black</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.black)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Black</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
+            </Button>
+
+            <Button phx-click="select_vehicle_color" phx-value-color="Gray" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "Gray" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.gray)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Gray</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.gray)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Gray</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
+            </Button>
+          </HStack>
+
+          <%!-- Row 2: Silver, Blue, Red --%>
+          <HStack spacing={12} style={["frame(maxWidth: .infinity)"]}>
+            <Button phx-click="select_vehicle_color" phx-value-color="Silver" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "Silver" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(Color(white: 0.75))",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Silver</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(Color(white: 0.75))",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Silver</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
+            </Button>
+
+            <Button phx-click="select_vehicle_color" phx-value-color="Blue" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "Blue" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.blue)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Blue</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.blue)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Blue</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
+            </Button>
+
+            <Button phx-click="select_vehicle_color" phx-value-color="Red" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "Red" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.red)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Red</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.red)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Red</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
+            </Button>
+          </HStack>
+
+          <%!-- Row 3: Green, Brown, Orange --%>
+          <HStack spacing={12} style={["frame(maxWidth: .infinity)"]}>
+            <Button phx-click="select_vehicle_color" phx-value-color="Green" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "Green" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.green)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Green</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.green)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Green</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
+            </Button>
+
+            <Button phx-click="select_vehicle_color" phx-value-color="Brown" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "Brown" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.brown)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Brown</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.brown)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Brown</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
+            </Button>
+
+            <Button phx-click="select_vehicle_color" phx-value-color="Orange" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "Orange" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.orange)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Orange</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.orange)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Orange</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
+            </Button>
+          </HStack>
+
+          <%!-- Row 4: Gold, Purple, Yellow --%>
+          <HStack spacing={12} style={["frame(maxWidth: .infinity)"]}>
+            <Button phx-click="select_vehicle_color" phx-value-color="Gold" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "Gold" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(Color(red: 0.85, green: 0.65, blue: 0.13))",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Gold</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(Color(red: 0.85, green: 0.65, blue: 0.13))",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Gold</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
+            </Button>
+
+            <Button phx-click="select_vehicle_color" phx-value-color="Purple" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "Purple" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.purple)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Purple</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.purple)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Purple</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
+            </Button>
+
+            <Button phx-click="select_vehicle_color" phx-value-color="Yellow" style="buttonStyle(.plain)">
+              <%= if @vehicle_draft.color == "Yellow" do %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.yellow)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 12)"
+                    ]}
+                  />
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Yellow</Text><Image systemName="checkmark.circle.fill" />
+                  </HStack>
+                </ZStack>
+              <% else %>
+                <ZStack alignment="center">
+                  <RoundedRectangle
+                    cornerRadius={16}
+                    style={[
+                      "fill(.yellow)",
+                      "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
+                      "shadow(radius: 4)"
+                    ]}
+                  />
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                    <Text style={["font(.system(size: 17, weight: .bold))"]}>Yellow</Text>
+                  </HStack>
+                </ZStack>
+              <% end %>
             </Button>
           </HStack>
         </VStack>
       </VStack>
-    </ScrollView>
 
-  <% @step == :overview -> %>
-    <ScrollView>
-      <VStack alignment="leading" spacing={30} class="kiosk-screen-leading">
-        <HStack alignment="center" spacing={0}>
-          <Spacer />
-          <.logo />
-          <Spacer />
+      <VStack :if={@vehicle_step == :make} alignment="center" spacing={14} style={["frame(maxWidth: 520, alignment: .center)"]}>
+        <HStack spacing={10} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
+          <Image systemName="3.circle.fill" style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.tint)"]} />
+          <Text style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.primary)"]}>Enter maker</Text>
         </HStack>
 
-        <VStack alignment="leading" spacing={10}>
-          <Text font="title" fontWeight="bold">
-            House Overview
+        <VStack alignment="leading" spacing={12} style={[
+          "frame(maxWidth: 520, alignment: .leading)",
+          "padding(22)",
+          "background(.white)",
+          "clipShape(RoundedRectangle(cornerRadius: 22))",
+          "shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 6)"
+        ]}>
+          <Text style={["foregroundStyle(.secondary)"]}>
+            <%= @vehicle_draft.type %> • <%= @vehicle_draft.color %>
           </Text>
-          <Text font="body" foregroundColor="secondary">
-            Here's a summary of room assignments and who's staying where.
-          </Text>
-        </VStack>
 
-        <VStack alignment="leading" spacing={15} class="kiosk-stack-980">
-          <%= for room <- @reservation.rooms do %>
-            <VStack alignment="leading" spacing={12} class="kiosk-card">
-              <HStack alignment="center" spacing={15}>
-                <VStack
-                  alignment="leading"
-                  spacing={5}
-                  style={["frame(maxWidth: .infinity, alignment: .leading)"]}
-                >
-                  <Text font="headline" fontWeight="semibold">
-                    <%= room.name %>
-                  </Text>
-                  <Text font="subheadline" foregroundColor="secondary">
-                    Primary Guest: <%= room.primary_guest %>
-                  </Text>
-                  <Text font="subheadline" foregroundColor="secondary">
-                    <%= room.guest_count %> <%= if room.guest_count == 1, do: "Guest", else: "Guests" %>
-                  </Text>
-                </VStack>
-              </HStack>
-
-              <%= if length(@vehicles) > 0 do %>
-                <VStack alignment="leading" spacing={8} style={["padding(.top, 10)"]}>
-                  <Text font="subheadline" fontWeight="medium">Vehicles:</Text>
-                  <%= for vehicle <- @vehicles do %>
-                    <Text font="body" foregroundColor="secondary">
-                      • <%= vehicle.plate %> <%= if vehicle.color != "", do: "(#{vehicle.color} #{vehicle.type})" %>
-                    </Text>
-                  <% end %>
-                </VStack>
-              <% end %>
+          <.simple_form
+            :let={vf}
+            for={@vehicle_make_form}
+            id="vehicle-make-form"
+            phx-change="update_vehicle_make"
+            phx-submit="add_vehicle"
+            style={["frame(maxWidth: .infinity)"]}
+          >
+            <VStack alignment="leading" spacing={12}>
+              <.input
+                field={vf[:make]}
+                type="TextField"
+                placeholder="Maker (e.g. Subaru, Volvo)"
+                style={[
+                  "textFieldStyle(.roundedBorder)",
+                  "textInputAutocapitalization(.words)",
+                  "autocorrectionDisabled()",
+                  "controlSize(.large)",
+                  "font(.title3)",
+                  "frame(height: 64)",
+                  "autocomplete(.suggestions([\"Toyota\", \"Ford\", \"Chevrolet\", \"Honda\", \"Hyundai\", \"Nissan\", \"Kia\", \"GMC\", \"Subaru\", \"Jeep\", \"Tesla\"]))"
+                ]}
+              />
             </VStack>
-          <% end %>
+
+            <:actions>
+              <.button
+                type="submit"
+                style={[
+                  "buttonStyle(.bordered)",
+                  "controlSize(.large)",
+                  "frame(maxWidth: .infinity)"
+                ]}
+              >
+                Add vehicle
+              </.button>
+            </:actions>
+          </.simple_form>
         </VStack>
-
-        <Button phx-click="complete_check_in" class="kiosk-primary-button kiosk-stack-980">
-          <Text font="title3" fontWeight="semibold">Complete Check-In</Text>
-        </Button>
-      </VStack>
-    </ScrollView>
-
-  <% @step == :success -> %>
-    <VStack alignment="center" spacing={40} class="kiosk-screen">
-      <.logo />
-      <VStack alignment="center" spacing={20}>
-        <Text class="kiosk-checkmark">
-          ✓
-        </Text>
-        <Text font="largeTitle" fontWeight="bold">
-          You're All Set!
-        </Text>
-        <Text font="title2" foregroundColor="secondary" multilineTextAlignment="center">
-          Your check-in is complete. Welcome to <%= @reservation.property_name %>!
-        </Text>
-      </VStack>
-
-      <VStack alignment="center" spacing={20} class="kiosk-card-lg kiosk-stack-560">
-        <Text font="headline" fontWeight="semibold">
-          Wi-Fi Information
-        </Text>
-        <VStack alignment="center" spacing={10}>
-          <Text font="title" fontWeight="bold" foregroundColor="primary">
-            <%= @reservation.wifi_password %>
-          </Text>
-          <Text font="body" foregroundColor="secondary">
-            Network: <%= @reservation.property_name %>_Guest
-          </Text>
-        </VStack>
-      </VStack>
-
-      <VStack alignment="center" spacing={15} class="kiosk-stack-560">
-        <Text font="body" foregroundColor="secondary" multilineTextAlignment="center">
-          If you need assistance, please contact the front desk or your host.
-        </Text>
-        <Button phx-click="start_over" class="kiosk-secondary-button-full">
-          <Text font="title3">Check In Another Guest</Text>
-        </Button>
       </VStack>
     </VStack>
-<% end %>
+  </VStack>
+
+  <VStack :if={@step == :done} alignment="center" spacing={24} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
+    <Image systemName="checkmark.circle.fill" style={["font(.system(size: 88))", "foregroundStyle(.green)"]} />
+    <Text style={["font(.system(size: 44, weight: .bold))"]}>You’re all set</Text>
+    <Text multilineTextAlignment="center" style={["frame(maxWidth: 520)", "foregroundStyle(.secondary)"]}>
+      Thanks — your check-in is complete.
+    </Text>
+
+    <.button
+      phx-click="back"
+      style={[
+        "buttonStyle(.borderedProminent)",
+        "controlSize(.large)",
+        "frame(maxWidth: 520)"
+      ]}
+    >
+      Back to Home
+    </.button>
+  </VStack>
+</VStack>

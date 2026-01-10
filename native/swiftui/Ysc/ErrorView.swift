@@ -4,8 +4,11 @@
 //
 
 import SwiftUI
+#if canImport(LiveViewNative)
 import LiveViewNative
+#endif
 
+#if canImport(LiveViewNative)
 struct ErrorView: View {
     let error: Error
     
@@ -104,3 +107,20 @@ struct ErrorView: View {
 #Preview {
    ErrorView(error: LiveConnectionError.initialParseError(missingOrInvalid: .csrfToken))
 }
+#else
+struct ErrorView: View {
+    let error: Error
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Label("Connection Failed", systemImage: "network.slash")
+                .font(.headline)
+            Text(error.localizedDescription)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+    }
+}
+#endif

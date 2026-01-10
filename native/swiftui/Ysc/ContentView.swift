@@ -4,8 +4,10 @@
 //
 
 import SwiftUI
+
 import LiveViewNative
 import LiveViewNativeLiveForm
+
 
 struct ContentView: View {
     private static func developmentURL() -> URL {
@@ -18,27 +20,27 @@ struct ContentView: View {
         // - LVN_DEV_PORT (defaults to 4000)
         let host = ProcessInfo.processInfo.environment["LVN_DEV_HOST"] ?? "127.0.0.1"
         let port = ProcessInfo.processInfo.environment["LVN_DEV_PORT"] ?? "4000"
-        return URL(string: "http://\(host):\(port)/property-check-in")!
+        return URL(string: "http://\(host):\(port)/")!
     }
 
     var body: some View {
-        #LiveView(
-            .automatic(
-                development: Self.developmentURL(),
-                production: URL(string: "https://example.com/property-check-in")!
-            ),
-            addons: [.liveForm]
-        ) {
-            ConnectingView()
-        } disconnected: {
-            DisconnectedView()
-        } reconnecting: { content, isReconnecting in
-            ReconnectingView(isReconnecting: isReconnecting) {
-                content
-            }
-        } error: { error in
-            ErrorView(error: error)
-        }
+                #LiveView(
+                    .automatic(
+                        development: Self.developmentURL(),
+                        production: URL(string: "https://example.com/")!
+                    ),
+                    addons: [.liveForm]
+                ) {
+                    ConnectingView()
+                } disconnected: {
+                    DisconnectedView()
+                } reconnecting: { content, isReconnecting in
+                    ReconnectingView(isReconnecting: isReconnecting) {
+                        content
+                    }
+                } error: { error in
+                    ErrorView(error: error)
+                }
+
     }
 }
-

@@ -3,16 +3,20 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		01CE3B20A18362873DE1E91B /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EED8607232F01F14F779A2D5 /* Preview Assets.xcassets */; };
 		1FBD2FD91896F4A2DB7A595A /* Ysc.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF2D5AAF66CBECF751735DE /* Ysc.swift */; };
 		20ABBC33CF9F360CC9253D21 /* DisconnectedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 342DBBEC5DC9FE788CDD543C /* DisconnectedView.swift */; };
+		20D98ADEFCDA89AD7649E1CC /* LiveViewNativeLiveForm in Frameworks */ = {isa = PBXBuildFile; productRef = 46ED0A2EE996983139A5C1A8 /* LiveViewNativeLiveForm */; };
+		46A1A34DC541CF9B39E0DD93 /* Info-Debug.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0C2226E548AAD00C333B6A0A /* Info-Debug.plist */; };
 		46D3C14DBA99427D142517C1 /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B69A64FE836650C1AE24A420 /* ErrorView.swift */; };
 		476C5E543BA7260A77CCA7A3 /* ReconnectingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 035FBEFE5A02CF1A8AAB0C8B /* ReconnectingView.swift */; };
+		4D0DB66628C9A5759E6E2F2F /* Info-Release.plist in Resources */ = {isa = PBXBuildFile; fileRef = 48B13DC9332FB800361C5F2A /* Info-Release.plist */; };
 		4D6EF8A993082F0586677F73 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 62F1876AA511BEBFD31DF200 /* Assets.xcassets */; };
+		566A30B586A946B59F06679C /* LiveViewNativeLiveForm in Frameworks */ = {isa = PBXBuildFile; productRef = E5D4429998B2FA779E4D57B5 /* LiveViewNativeLiveForm */; };
 		8840A3E78F3B9D36ABF36E70 /* DisconnectedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 342DBBEC5DC9FE788CDD543C /* DisconnectedView.swift */; };
 		8AB56A1F137691A44B6B8F98 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A982BAD78C9FF5265AC0C39C /* ContentView.swift */; };
 		99ED2957A2F1F7828C0985EA /* ReconnectingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 035FBEFE5A02CF1A8AAB0C8B /* ReconnectingView.swift */; };
@@ -20,6 +24,8 @@
 		B5D65ECF14FEBD84F54B5568 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A982BAD78C9FF5265AC0C39C /* ContentView.swift */; };
 		C5F0B3011192C6BFC665BD6E /* LiveViewNative in Frameworks */ = {isa = PBXBuildFile; productRef = 6302762A33684BC9724C0D6A /* LiveViewNative */; };
 		C8912B897FA688C87DAE2E45 /* ConnectingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D6C0A0EEDA86266213D20B9 /* ConnectingView.swift */; };
+		CBB69406F70C8C962FD09F81 /* Info-Debug.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0C2226E548AAD00C333B6A0A /* Info-Debug.plist */; };
+		CC719F7041FB1F6173337D8C /* Info-Release.plist in Resources */ = {isa = PBXBuildFile; fileRef = 48B13DC9332FB800361C5F2A /* Info-Release.plist */; };
 		EB41ADE65E8C9AE35F32ACB5 /* LiveViewNative in Frameworks */ = {isa = PBXBuildFile; productRef = FF90AB2D3FCD30AB7ACEE8F8 /* LiveViewNative */; };
 		EFFBBB579E6791E224E7E9C8 /* Ysc.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF2D5AAF66CBECF751735DE /* Ysc.swift */; };
 		F0BBF1444B45FC9ACD441D8D /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EED8607232F01F14F779A2D5 /* Preview Assets.xcassets */; };
@@ -29,12 +35,14 @@
 
 /* Begin PBXFileReference section */
 		035FBEFE5A02CF1A8AAB0C8B /* ReconnectingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectingView.swift; sourceTree = "<group>"; };
+		0C2226E548AAD00C333B6A0A /* Info-Debug.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Info-Debug.plist"; sourceTree = "<group>"; };
 		342DBBEC5DC9FE788CDD543C /* DisconnectedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisconnectedView.swift; sourceTree = "<group>"; };
+		48B13DC9332FB800361C5F2A /* Info-Release.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Info-Release.plist"; sourceTree = "<group>"; };
 		62F1876AA511BEBFD31DF200 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6ED705926E97C93A5D5FA5E3 /* Ysc Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Ysc Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9D6C0A0EEDA86266213D20B9 /* ConnectingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectingView.swift; sourceTree = "<group>"; };
 		A982BAD78C9FF5265AC0C39C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		B430833E77AA5A4A1CF1240E /* Ysc.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ysc.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B430833E77AA5A4A1CF1240E /* Ysc.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Ysc.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B69A64FE836650C1AE24A420 /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
 		CDF2D5AAF66CBECF751735DE /* Ysc.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ysc.swift; sourceTree = "<group>"; };
 		EED8607232F01F14F779A2D5 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -46,6 +54,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C5F0B3011192C6BFC665BD6E /* LiveViewNative in Frameworks */,
+				20D98ADEFCDA89AD7649E1CC /* LiveViewNativeLiveForm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -54,6 +63,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EB41ADE65E8C9AE35F32ACB5 /* LiveViewNative in Frameworks */,
+				566A30B586A946B59F06679C /* LiveViewNativeLiveForm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -86,6 +96,8 @@
 				A982BAD78C9FF5265AC0C39C /* ContentView.swift */,
 				342DBBEC5DC9FE788CDD543C /* DisconnectedView.swift */,
 				B69A64FE836650C1AE24A420 /* ErrorView.swift */,
+				0C2226E548AAD00C333B6A0A /* Info-Debug.plist */,
+				48B13DC9332FB800361C5F2A /* Info-Release.plist */,
 				035FBEFE5A02CF1A8AAB0C8B /* ReconnectingView.swift */,
 				CDF2D5AAF66CBECF751735DE /* Ysc.swift */,
 			);
@@ -118,6 +130,7 @@
 			name = "Ysc Watch App";
 			packageProductDependencies = (
 				6302762A33684BC9724C0D6A /* LiveViewNative */,
+				46ED0A2EE996983139A5C1A8 /* LiveViewNativeLiveForm */,
 			);
 			productName = "Ysc Watch App";
 			productReference = 6ED705926E97C93A5D5FA5E3 /* Ysc Watch App.app */;
@@ -138,6 +151,7 @@
 			name = Ysc;
 			packageProductDependencies = (
 				FF90AB2D3FCD30AB7ACEE8F8 /* LiveViewNative */,
+				E5D4429998B2FA779E4D57B5 /* LiveViewNativeLiveForm */,
 			);
 			productName = Ysc;
 			productReference = B430833E77AA5A4A1CF1240E /* Ysc.app */;
@@ -150,7 +164,9 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2620;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = 302433BA0039866DDBA5B3F4 /* Build configuration list for PBXProject "Ysc" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -163,7 +179,7 @@
 			mainGroup = 7BFD2952EEE5B17C62749F4F;
 			packageReferences = (
 				4FBD738FC351AC5FF6DF7E3B /* XCRemoteSwiftPackageReference "liveview-client-swiftui" */,
-				D9A0D4852F102C7A006A2295 /* XCRemoteSwiftPackageReference "liveview-native-live-form" */,
+				AA4D3D7BB6A0D733CE24E35E /* XCRemoteSwiftPackageReference "liveview-native-live-form" */,
 			);
 			projectDirPath = "";
 			projectRoot = "";
@@ -180,6 +196,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D6EF8A993082F0586677F73 /* Assets.xcassets in Resources */,
+				CBB69406F70C8C962FD09F81 /* Info-Debug.plist in Resources */,
+				4D0DB66628C9A5759E6E2F2F /* Info-Release.plist in Resources */,
 				01CE3B20A18362873DE1E91B /* Preview Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -189,6 +207,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A18F35A09CC7463EF8FC5A01 /* Assets.xcassets in Resources */,
+				46A1A34DC541CF9B39E0DD93 /* Info-Debug.plist in Resources */,
+				CC719F7041FB1F6173337D8C /* Info-Release.plist in Resources */,
 				F0BBF1444B45FC9ACD441D8D /* Preview Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -296,7 +316,6 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -310,7 +329,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -392,7 +410,6 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -417,7 +434,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -473,7 +489,7 @@
 				minimumVersion = 0.3.1;
 			};
 		};
-		D9A0D4852F102C7A006A2295 /* XCRemoteSwiftPackageReference "liveview-native-live-form" */ = {
+		AA4D3D7BB6A0D733CE24E35E /* XCRemoteSwiftPackageReference "liveview-native-live-form" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/liveview-native/liveview-native-live-form";
 			requirement = {
@@ -484,10 +500,20 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		46ED0A2EE996983139A5C1A8 /* LiveViewNativeLiveForm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA4D3D7BB6A0D733CE24E35E /* XCRemoteSwiftPackageReference "liveview-native-live-form" */;
+			productName = LiveViewNativeLiveForm;
+		};
 		6302762A33684BC9724C0D6A /* LiveViewNative */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4FBD738FC351AC5FF6DF7E3B /* XCRemoteSwiftPackageReference "liveview-client-swiftui" */;
 			productName = LiveViewNative;
+		};
+		E5D4429998B2FA779E4D57B5 /* LiveViewNativeLiveForm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA4D3D7BB6A0D733CE24E35E /* XCRemoteSwiftPackageReference "liveview-native-live-form" */;
+			productName = LiveViewNativeLiveForm;
 		};
 		FF90AB2D3FCD30AB7ACEE8F8 /* LiveViewNative */ = {
 			isa = XCSwiftPackageProductDependency;

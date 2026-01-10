@@ -36,7 +36,10 @@ defmodule Ysc.Bookings do
     RefundPolicy,
     RefundPolicyRule,
     PendingRefund,
-    PropertyInventory
+    PropertyInventory,
+    CheckIn,
+    CheckInVehicle,
+    CheckInBooking
   }
 
   # Check-in and check-out times
@@ -329,7 +332,8 @@ defmodule Ysc.Bookings do
     # Extract property filter if present
     {property_filter, other_params} = extract_property_filter(other_params)
 
-    base_query = from(b in Booking, preload: [:user, rooms: :room_category])
+    base_query =
+      from(b in Booking, preload: [:user, rooms: :room_category, check_ins: :check_in_vehicles])
 
     # Apply property filter
     base_query =
@@ -443,7 +447,7 @@ defmodule Ysc.Bookings do
           fragment("SIMILARITY(?, ?) > 0.2", u.first_name, ^search_term) or
           fragment("SIMILARITY(?, ?) > 0.2", u.last_name, ^search_term) or
           ilike(b.reference_id, ^search_like),
-      preload: [:user, rooms: :room_category]
+      preload: [:user, rooms: :room_category, check_ins: :check_in_vehicles]
     )
   end
 
@@ -510,7 +514,32 @@ defmodule Ysc.Bookings do
   """
   def get_booking!(id) do
     Repo.get!(Booking, id)
-    |> Repo.preload([:rooms, :user])
+    |> Repo.preload([
+      {:booking_guests, from(bg in BookingGuest, order_by: [asc: bg.order_index])},
+      :rooms,
+      :user
+    ])
+  end
+
+  @doc """
+  Gets a booking by reference_id.
+  """
+  def get_booking_by_reference_id(reference_id) do
+    booking =
+      from(b in Booking,
+        where: b.reference_id == ^reference_id,
+        preload: [:rooms, :user]
+      )
+      |> Repo.one()
+
+    if booking do
+      booking
+      |> Repo.preload([
+        {:booking_guests, from(bg in BookingGuest, order_by: [asc: bg.order_index])}
+      ])
+    else
+      nil
+    end
   end
 
   @doc """
@@ -583,6 +612,175 @@ defmodule Ysc.Bookings do
   def delete_booking_guests(booking_id) do
     from(bg in BookingGuest, where: bg.booking_id == ^booking_id)
     |> Repo.delete_all()
+  end
+
+  ## Check-ins
+
+  @doc """
+  Creates a check-in with associated bookings and vehicles.
+  """
+  def create_check_in(attrs \\ %{}) do
+    import Ecto.Multi
+
+    bookings = Map.get(attrs, :bookings, []) || []
+    vehicles = Map.get(attrs, :vehicles, []) || []
+
+    check_in_attrs =
+      attrs
+      |> Map.drop([:bookings, :vehicles])
+      |> Map.put(:checked_in_at, DateTime.utc_now())
+
+    multi =
+      new()
+      |> insert(:check_in, CheckIn.changeset(%CheckIn{}, check_in_attrs))
+      |> insert_check_in_bookings(bookings)
+      |> insert_check_in_vehicles(vehicles)
+      |> mark_bookings_checked_in(bookings)
+
+    case Repo.transaction(multi) do
+      {:ok, %{check_in: check_in}} ->
+        check_in =
+          Repo.preload(check_in, [:bookings, :check_in_vehicles])
+
+        {:ok, check_in}
+
+      {:error, _key, changeset, _changes} ->
+        {:error, changeset}
+    end
+  end
+
+  defp insert_check_in_bookings(multi, []) do
+    multi
+  end
+
+  defp insert_check_in_bookings(multi, bookings) when is_list(bookings) do
+    import Ecto.Multi
+
+    Enum.reduce(bookings, multi, fn booking, acc ->
+      insert(acc, {:check_in_booking, booking.id}, fn %{check_in: check_in} ->
+        %CheckInBooking{}
+        |> Ecto.Changeset.change()
+        |> Ecto.Changeset.put_change(:check_in_id, check_in.id)
+        |> Ecto.Changeset.put_change(:booking_id, booking.id)
+      end)
+    end)
+  end
+
+  defp insert_check_in_vehicles(multi, []) do
+    multi
+  end
+
+  defp insert_check_in_vehicles(multi, vehicles) when is_list(vehicles) do
+    import Ecto.Multi
+
+    Enum.with_index(vehicles)
+    |> Enum.reduce(multi, fn {vehicle_attrs, index}, acc ->
+      insert(acc, {:vehicle, index}, fn %{check_in: check_in} ->
+        CheckInVehicle.changeset(
+          %CheckInVehicle{},
+          Map.merge(vehicle_attrs, %{"check_in_id" => check_in.id})
+        )
+      end)
+    end)
+  end
+
+  defp mark_bookings_checked_in(multi, []) do
+    multi
+  end
+
+  defp mark_bookings_checked_in(multi, bookings) when is_list(bookings) do
+    # Extract booking IDs
+    booking_ids = Enum.map(bookings, & &1.id)
+
+    # Use update_all to directly update the database without touching relations
+    Ecto.Multi.run(multi, :mark_bookings_checked_in, fn repo, _changes ->
+      {count, _} =
+        from(b in Booking, where: b.id in ^booking_ids)
+        |> repo.update_all(set: [checked_in: true])
+
+      {:ok, count}
+    end)
+  end
+
+  @doc """
+  Gets a single check-in with preloaded associations.
+  """
+  def get_check_in!(id) do
+    Repo.get!(CheckIn, id)
+    |> Repo.preload([:bookings, :check_in_vehicles])
+  end
+
+  @doc """
+  Lists all check-ins for a specific booking.
+  """
+  def list_check_ins_by_booking(booking_id) do
+    from(ci in CheckIn,
+      join: cib in CheckInBooking,
+      on: ci.id == cib.check_in_id,
+      where: cib.booking_id == ^booking_id,
+      order_by: [desc: ci.checked_in_at],
+      preload: [:bookings, :check_in_vehicles]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Searches bookings by the booking owner's last name (case-insensitive).
+  Returns bookings that are active today (in PST) and belong to a user with matching last name.
+  Filters by the specified property.
+
+  A booking is considered active if:
+  - checkin_date <= today (PST)
+  - checkout_date > today (PST)
+
+  ## Parameters
+  - `last_name`: The last name to search for (case-insensitive)
+  - `property`: The property to filter by (:tahoe or :clear_lake)
+  """
+  def search_bookings_by_last_name(last_name, property)
+      when is_binary(last_name) and is_atom(property) do
+    # Normalize input to lowercase for case-insensitive comparison
+    normalized_last_name = String.downcase(String.trim(last_name))
+
+    if normalized_last_name == "" do
+      []
+    else
+      # Get today's date in PST timezone
+      today_pst = DateTime.now!("America/Los_Angeles") |> DateTime.to_date()
+
+      bookings =
+        from(b in Booking,
+          join: u in assoc(b, :user),
+          # Case-insensitive comparison: convert database value to lowercase
+          where:
+            b.property == ^property and
+              b.checkin_date <= ^today_pst and
+              b.checkout_date > ^today_pst and
+              fragment("LOWER(?) = LOWER(?)", u.last_name, ^normalized_last_name),
+          order_by: [desc: b.checkin_date],
+          preload: [:rooms, :user]
+        )
+        |> Repo.all()
+
+      # Preload booking_guests with ordering separately
+      Enum.map(bookings, fn booking ->
+        booking
+        |> Repo.preload([
+          {:booking_guests, from(bg in BookingGuest, order_by: [asc: bg.order_index])}
+        ])
+      end)
+    end
+  end
+
+  @doc """
+  Marks a booking as checked in.
+  """
+  def mark_booking_checked_in(booking_id) do
+    booking = Repo.get!(Booking, booking_id)
+
+    booking
+    |> Booking.changeset(%{checked_in: true})
+    |> Repo.update()
   end
 
   ## Blackouts

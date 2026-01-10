@@ -3394,14 +3394,14 @@ trix-editor .attachment__metadata .attachment__size {
 
 
 /* Hero text shadows for better legibility - only on sm+ screens where text overlays image */
-@media (min-width: 640px) {
-  .hero-title-shadow {
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  }
 
-  .hero-description-shadow {
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-  }
+@media (min-width: 640px) {
+    .hero-title-shadow {
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    .hero-description-shadow {
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    }
 }
 
 

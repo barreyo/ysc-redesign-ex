@@ -2,69 +2,28 @@ defmodule YscWeb.PropertyCheckInLive do
   use YscWeb, :live_view
   use YscNative, :live_view
 
-  # Step states
-  @step_welcome :welcome
-  @step_reservation :reservation
-  @step_guests :guests
-  @step_vehicle :vehicle
-  @step_overview :overview
-  @step_success :success
-
-  # Dummy data
-  @dummy_reservation %{
-    number: "RES-2024-001",
-    property_name: "Mountain View Retreat",
-    wifi_password: "Welcome2024!",
-    guests: [
-      %{
-        id: 1,
-        first_name: "Jane",
-        last_name: "Doe",
-        room: "Master Suite",
-        arrived: false,
-        is_primary: true
-      },
-      %{
-        id: 2,
-        first_name: "John",
-        last_name: "Smith",
-        room: "Guest Room A",
-        arrived: false,
-        is_primary: true
-      },
-      %{
-        id: 3,
-        first_name: "Sarah",
-        last_name: "Johnson",
-        room: "Master Suite",
-        arrived: false,
-        is_primary: false
-      },
-      %{
-        id: 4,
-        first_name: "Mike",
-        last_name: "Williams",
-        room: "The Loft",
-        arrived: false,
-        is_primary: true
-      }
-    ],
-    rooms: [
-      %{name: "Master Suite", primary_guest: "Jane Doe", guest_count: 2, vehicles: []},
-      %{name: "Guest Room A", primary_guest: "John Smith", guest_count: 1, vehicles: []},
-      %{name: "The Loft", primary_guest: "Mike Williams", guest_count: 1, vehicles: []}
-    ]
-  }
+  alias Ysc.Bookings
 
   @impl true
   def mount(_params, _session, socket) do
+    form = to_form(%{"last_name" => ""}, as: :search)
+    vehicle_make_form = to_form(%{"make" => ""}, as: :vehicle)
+    rules_form = to_form(%{"rules_agreement" => false}, as: :rules)
+
     {:ok,
      socket
-     |> assign(:step, @step_welcome)
-     |> assign(:reservation_number, "")
+     |> assign(:last_name, "")
+     |> assign(:step, :search)
+     |> assign(:form, form)
+     |> assign(:search_results, [])
      |> assign(:reservation, nil)
-     |> assign(:current_vehicle, %{plate: "", color: "", type: ""})
-     |> assign(:vehicles, [])}
+     |> assign(:matching_guests, [])
+     |> assign(:vehicles, [])
+     |> assign(:vehicle_step, :overview)
+     |> assign(:vehicle_draft, %{type: nil, color: nil, make: ""})
+     |> assign(:vehicle_make_form, vehicle_make_form)
+     |> assign(:rules_form, rules_form)
+     |> assign(:rules_agreed, false)}
   end
 
   @impl true
@@ -73,119 +32,466 @@ defmodule YscWeb.PropertyCheckInLive do
   end
 
   @impl true
-  def handle_event("start_check_in", _params, socket) do
-    {:noreply, assign(socket, :step, @step_reservation)}
+  def handle_event("update_last_name", %{"search" => %{"last_name" => last_name}}, socket) do
+    update_last_name(last_name, socket)
   end
 
-  def handle_event("submit_reservation", params, socket) do
-    number = Map.get(params, "reservation_number", socket.assigns.reservation_number)
-
-    # In real app, this would look up the reservation
-    # For now, use dummy data if number matches or any non-empty string
-    reservation = if String.trim(number) != "", do: @dummy_reservation, else: nil
-
-    socket =
-      if reservation do
-        socket
-        |> assign(:reservation, reservation)
-        |> assign(:reservation_number, number)
-        |> assign(:step, @step_guests)
-      else
-        socket
-        |> assign(:reservation_number, number)
-        |> put_flash(:error, "Reservation not found. Please check your reservation number.")
-      end
-
-    {:noreply, socket}
+  # LiveView Native LiveForm currently emits unnested params (e.g. %{"last_name" => "Doe"})
+  # for both phx-change and phx-submit, so we accept both shapes.
+  def handle_event("update_last_name", %{"last_name" => last_name}, socket) do
+    update_last_name(last_name, socket)
   end
 
-  def handle_event("update_reservation_number", params, socket) do
-    number = Map.get(params, "reservation_number", socket.assigns.reservation_number)
-    {:noreply, assign(socket, :reservation_number, number)}
+  def handle_event("search_reservation", %{"search" => search_params}, socket) do
+    search_reservation(search_params, socket)
   end
 
-  def handle_event("toggle_guest_arrived", %{"guest_id" => id_str}, socket) do
-    guest_id = String.to_integer(id_str)
-    reservation = socket.assigns.reservation
+  def handle_event("search_reservation", params, socket) when is_map(params) do
+    search_reservation(params, socket)
+  end
 
-    updated_guests =
-      Enum.map(reservation.guests, fn guest ->
-        if guest.id == guest_id do
-          Map.update!(guest, :arrived, &(!&1))
-        else
-          guest
+  def handle_event("select_reservation", %{"number" => reference_id}, socket) do
+    try do
+      # Try to find booking by reference_id first, then by id (in case it's a ULID)
+      booking =
+        case Bookings.get_booking_by_reference_id(reference_id) do
+          nil ->
+            # Fallback to ID lookup (in case the template passes ID instead of reference_id)
+            try do
+              Bookings.get_booking!(reference_id)
+            rescue
+              Ecto.NoResultsError -> nil
+            end
+
+          booking ->
+            booking
         end
-      end)
 
-    updated_reservation = Map.put(reservation, :guests, updated_guests)
+      if is_nil(booking) do
+        {:noreply, put_flash(socket, :error, "Reservation not found. Please search again.")}
+      else
+        reservation = transform_booking_to_reservation(booking)
 
-    {:noreply, assign(socket, :reservation, updated_reservation)}
-  end
-
-  def handle_event("continue_to_vehicle", _params, socket) do
-    {:noreply, assign(socket, :step, @step_vehicle)}
-  end
-
-  def handle_event("update_vehicle_field", params, socket) do
-    field = Map.get(params, "field", "")
-    value = Map.get(params, "value", "")
-    plate = Map.get(params, "plate", socket.assigns.current_vehicle.plate)
-
-    current_vehicle = socket.assigns.current_vehicle
-
-    updated_vehicle =
-      cond do
-        field == "plate" or Map.has_key?(params, "plate") ->
-          Map.put(current_vehicle, :plate, plate)
-
-        field == "color" ->
-          Map.put(current_vehicle, :color, value)
-
-        field == "type" ->
-          Map.put(current_vehicle, :type, value)
-
-        true ->
-          current_vehicle
+        {:noreply,
+         socket
+         |> assign(:step, :confirm)
+         |> assign(:reservation, reservation)
+         |> assign(:booking, booking)
+         |> assign(:matching_guests, reservation.guests)
+         |> assign(:vehicles, [])
+         |> assign(:vehicle_step, :overview)
+         |> assign(:vehicle_draft, %{type: nil, color: nil, make: ""})
+         |> assign(:vehicle_make_form, to_form(%{"make" => ""}, as: :vehicle))
+         |> assign(:rules_form, to_form(%{"rules_agreement" => false}, as: :rules))
+         |> assign(:rules_agreed, false)}
       end
-
-    {:noreply, assign(socket, :current_vehicle, updated_vehicle)}
-  end
-
-  def handle_event("add_vehicle", _params, socket) do
-    vehicle = socket.assigns.current_vehicle
-
-    if vehicle.plate != "" do
-      new_vehicle = %{
-        plate: vehicle.plate,
-        color: vehicle.color,
-        type: vehicle.type
-      }
-
-      {:noreply,
-       socket
-       |> assign(:vehicles, socket.assigns.vehicles ++ [new_vehicle])
-       |> assign(:current_vehicle, %{plate: "", color: "", type: ""})
-       |> assign(:step, @step_overview)}
-    else
-      {:noreply, socket}
+    rescue
+      Ecto.NoResultsError ->
+        {:noreply, put_flash(socket, :error, "Reservation not found. Please search again.")}
     end
   end
 
-  def handle_event("skip_vehicle", _params, socket) do
-    {:noreply, assign(socket, :step, @step_overview)}
-  end
-
-  def handle_event("complete_check_in", _params, socket) do
-    {:noreply, assign(socket, :step, @step_success)}
-  end
-
-  def handle_event("start_over", _params, socket) do
+  def handle_event("clear_reservation", _params, socket) do
     {:noreply,
      socket
-     |> assign(:step, @step_welcome)
-     |> assign(:reservation_number, "")
+     |> assign(:step, :search)
      |> assign(:reservation, nil)
-     |> assign(:current_vehicle, %{plate: "", color: "", type: ""})
-     |> assign(:vehicles, [])}
+     |> assign(:matching_guests, [])
+     |> assign(:vehicles, [])
+     |> assign(:vehicle_step, :overview)
+     |> assign(:vehicle_draft, %{type: nil, color: nil, make: ""})
+     |> assign(:vehicle_make_form, to_form(%{"make" => ""}, as: :vehicle))
+     |> assign(:rules_form, to_form(%{"rules_agreement" => false}, as: :rules))
+     |> assign(:rules_agreed, false)}
+  end
+
+  # Handle phx-change events from rules agreement form
+  def handle_event("update_rules_agreement", %{"rules" => %{"rules_agreement" => value}}, socket) do
+    new_value = value == true or value == "true"
+
+    {:noreply,
+     socket
+     |> assign(:rules_agreed, new_value)
+     |> assign(:rules_form, to_form(%{"rules_agreement" => new_value}, as: :rules))}
+  end
+
+  def handle_event("update_rules_agreement", params, socket) do
+    # Handle unnested params from LiveView Native
+    value = Map.get(params, "rules_agreement", false)
+    new_value = value == true or value == "true"
+
+    {:noreply,
+     socket
+     |> assign(:rules_agreed, new_value)
+     |> assign(:rules_form, to_form(%{"rules_agreement" => new_value}, as: :rules))}
+  end
+
+  def handle_event("confirm_reservation", _params, socket) do
+    if socket.assigns.rules_agreed do
+      {:noreply,
+       socket
+       |> assign(:step, :vehicles)
+       |> assign(:vehicle_step, :overview)
+       |> assign(:vehicle_draft, %{type: nil, color: nil, make: ""})
+       |> assign(:vehicle_make_form, to_form(%{"make" => ""}, as: :vehicle))}
+    else
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "Please confirm that you have read and understand the booking and cabin rules."
+       )}
+    end
+  end
+
+  # Vehicle wizard
+  def handle_event("start_add_vehicle", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:vehicle_step, :type)
+     |> assign(:vehicle_draft, %{type: nil, color: nil, make: ""})
+     |> assign(:vehicle_make_form, to_form(%{"make" => ""}, as: :vehicle))}
+  end
+
+  def handle_event("select_vehicle_type", %{"type" => type}, socket) do
+    {:noreply,
+     socket
+     |> assign(:vehicle_draft, %{socket.assigns.vehicle_draft | type: type})
+     |> assign(:vehicle_step, :color)}
+  end
+
+  def handle_event("select_vehicle_color", %{"color" => color}, socket) do
+    {:noreply,
+     socket
+     |> assign(:vehicle_draft, %{socket.assigns.vehicle_draft | color: color})
+     |> assign(:vehicle_step, :make)}
+  end
+
+  # LiveView Native LiveForm currently emits unnested params for phx-change, so accept both shapes.
+  def handle_event("update_vehicle_make", %{"vehicle" => %{"make" => make}}, socket) do
+    update_vehicle_make(make, socket)
+  end
+
+  def handle_event("update_vehicle_make", %{"make" => make}, socket) do
+    update_vehicle_make(make, socket)
+  end
+
+  def handle_event("add_vehicle", %{"vehicle" => vehicle_params}, socket) do
+    add_vehicle(vehicle_params, socket)
+  end
+
+  def handle_event("add_vehicle", params, socket) when is_map(params) do
+    add_vehicle(params, socket)
+  end
+
+  def handle_event("remove_vehicle", %{"id" => id}, socket) do
+    {id, _} = Integer.parse(to_string(id))
+    vehicles = Enum.reject(socket.assigns.vehicles, fn v -> v.id == id end)
+    {:noreply, assign(socket, :vehicles, vehicles)}
+  end
+
+  def handle_event("skip_cars", _params, socket) do
+    booking = socket.assigns.booking
+    rules_agreed = socket.assigns.rules_agreed
+
+    if is_nil(booking) do
+      {:noreply, put_flash(socket, :error, "No booking selected. Please search again.")}
+    else
+      attrs = %{
+        rules_agreed: rules_agreed,
+        bookings: [booking],
+        vehicles: []
+      }
+
+      case Bookings.create_check_in(attrs) do
+        {:ok, _check_in} ->
+          {:noreply,
+           socket
+           |> assign(:step, :done)
+           |> clear_flash()
+           |> put_flash(:info, "Check-in completed successfully!")}
+
+        {:error, _changeset} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Failed to complete check-in. Please try again."
+           )}
+      end
+    end
+  end
+
+  def handle_event("finish_check_in", _params, socket) do
+    booking = socket.assigns.booking
+    vehicles = socket.assigns.vehicles
+    rules_agreed = socket.assigns.rules_agreed
+
+    if is_nil(booking) do
+      {:noreply, put_flash(socket, :error, "No booking selected. Please search again.")}
+    else
+      vehicle_attrs =
+        Enum.map(vehicles, fn vehicle ->
+          %{
+            "type" => vehicle.type,
+            "color" => vehicle.color,
+            "make" => vehicle.make
+          }
+        end)
+
+      attrs = %{
+        rules_agreed: rules_agreed,
+        bookings: [booking],
+        vehicles: vehicle_attrs
+      }
+
+      case Bookings.create_check_in(attrs) do
+        {:ok, _check_in} ->
+          {:noreply,
+           socket
+           |> assign(:step, :done)
+           |> clear_flash()
+           |> put_flash(:info, "Check-in completed successfully!")}
+
+        {:error, _changeset} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Failed to complete check-in. Please try again."
+           )}
+      end
+    end
+  end
+
+  def handle_event("back", _params, socket) do
+    case socket.assigns.step do
+      :search ->
+        {:noreply, push_navigate(socket, to: ~p"/")}
+
+      :confirm ->
+        {:noreply,
+         socket
+         |> assign(:step, :search)
+         |> assign(:reservation, nil)
+         |> assign(:matching_guests, [])
+         |> assign(:vehicles, [])
+         |> assign(:vehicle_step, :overview)
+         |> assign(:vehicle_draft, %{type: nil, color: nil, make: ""})
+         |> assign(:vehicle_make_form, to_form(%{"make" => ""}, as: :vehicle))}
+
+      :vehicles ->
+        case socket.assigns.vehicle_step do
+          :overview ->
+            {:noreply,
+             socket
+             |> assign(:step, :confirm)
+             |> assign(
+               :rules_form,
+               to_form(%{"rules_agreement" => socket.assigns.rules_agreed}, as: :rules)
+             )}
+
+          :type ->
+            {:noreply, assign(socket, :vehicle_step, :overview)}
+
+          :color ->
+            {:noreply, assign(socket, :vehicle_step, :type)}
+
+          :make ->
+            {:noreply, assign(socket, :vehicle_step, :color)}
+        end
+
+      :done ->
+        {:noreply, push_navigate(socket, to: ~p"/")}
+    end
+  end
+
+  defp update_vehicle_make(make, socket) do
+    make =
+      make
+      |> to_string()
+      |> String.trim()
+
+    {:noreply,
+     socket
+     |> assign(:vehicle_draft, %{socket.assigns.vehicle_draft | make: make})
+     |> assign(:vehicle_make_form, to_form(%{"make" => make}, as: :vehicle))}
+  end
+
+  defp add_vehicle(vehicle_params, socket) do
+    make =
+      vehicle_params
+      |> Map.get("make", socket.assigns.vehicle_draft.make)
+      |> to_string()
+      |> String.trim()
+
+    socket =
+      socket
+      |> assign(:vehicle_draft, %{socket.assigns.vehicle_draft | make: make})
+      |> assign(:vehicle_make_form, to_form(%{"make" => make}, as: :vehicle))
+
+    %{type: type, color: color} = socket.assigns.vehicle_draft
+
+    cond do
+      is_nil(type) or type == "" ->
+        {:noreply, put_flash(socket, :error, "Please select a car type.")}
+
+      is_nil(color) or color == "" ->
+        {:noreply, put_flash(socket, :error, "Please select a car color.")}
+
+      make == "" ->
+        {:noreply, put_flash(socket, :error, "Please enter the maker (e.g. Subaru).")}
+
+      true ->
+        vehicle = %{id: System.unique_integer([:positive]), type: type, color: color, make: make}
+        vehicles = socket.assigns.vehicles ++ [vehicle]
+
+        {:noreply,
+         socket
+         |> clear_flash()
+         |> assign(:vehicles, vehicles)
+         |> assign(:vehicle_step, :overview)
+         |> assign(:vehicle_draft, %{type: nil, color: nil, make: ""})
+         |> assign(:vehicle_make_form, to_form(%{"make" => ""}, as: :vehicle))}
+    end
+  end
+
+  defp search_reservation(search_params, socket) do
+    last_name =
+      search_params
+      |> Map.get("last_name", socket.assigns.last_name)
+      |> to_string()
+      |> String.trim()
+      |> String.upcase()
+
+    socket = assign(socket, :form, to_form(%{"last_name" => last_name}, as: :search))
+
+    if last_name == "" do
+      {:noreply,
+       socket
+       |> assign(:search_results, [])
+       |> assign(:step, :search)
+       |> assign(:reservation, nil)
+       |> assign(:matching_guests, [])
+       |> put_flash(:error, "Please enter a last name.")}
+    else
+      bookings = Bookings.search_bookings_by_last_name(last_name, :tahoe)
+
+      if bookings == [] do
+        {:noreply,
+         socket
+         |> assign(:search_results, [])
+         |> assign(:step, :search)
+         |> assign(:reservation, nil)
+         |> assign(:matching_guests, [])
+         |> put_flash(:error, "No reservation found for that last name.")}
+      else
+        search_results = Enum.map(bookings, &transform_booking_to_reservation/1)
+
+        {:noreply,
+         socket
+         |> assign(:search_results, search_results)
+         |> assign(:step, :search)
+         |> assign(:reservation, nil)
+         |> assign(:matching_guests, [])}
+      end
+    end
+  end
+
+  defp update_last_name(last_name, socket) do
+    last_name =
+      last_name
+      |> to_string()
+      |> String.trim()
+      |> String.upcase()
+
+    # LiveView Native triggers phx-change right before phx-submit when tapping
+    # the submit button; if the value hasn't changed, don't clear/reset UI.
+    if last_name == socket.assigns.last_name do
+      {:noreply, assign(socket, :form, to_form(%{"last_name" => last_name}, as: :search))}
+    else
+      {:noreply,
+       socket
+       |> assign(:last_name, last_name)
+       |> assign(:step, :search)
+       |> assign(:form, to_form(%{"last_name" => last_name}, as: :search))
+       |> assign(:search_results, [])
+       |> assign(:reservation, nil)
+       |> assign(:matching_guests, [])}
+    end
+  end
+
+  defp transform_booking_to_reservation(booking) do
+    property_name = get_property_name(booking.property)
+
+    # Get guests assigned to rooms
+    booking_guests = booking.booking_guests || []
+
+    # Map guests to expected format
+    guests =
+      Enum.map(booking_guests, fn guest ->
+        # Find which room this guest is assigned to (if any)
+        # For now, we'll use the first room if booking has rooms
+        room_name =
+          if booking.rooms && length(booking.rooms) > 0 do
+            Enum.at(booking.rooms, 0).name
+          else
+            nil
+          end
+
+        %{
+          id: guest.id,
+          first_name: guest.first_name,
+          last_name: guest.last_name,
+          room: room_name || "—",
+          arrived: false,
+          is_primary: guest.is_booking_user || false
+        }
+      end)
+
+    # Build rooms list - just room names that are part of the booking
+    rooms =
+      if booking.rooms && length(booking.rooms) > 0 do
+        Enum.map(booking.rooms, & &1.name)
+      else
+        []
+      end
+
+    %{
+      number: booking.reference_id,
+      booking_id: booking.id,
+      property_name: property_name,
+      wifi_password: get_wifi_password(booking.property),
+      adult_count: booking.guests_count || 1,
+      child_count: booking.children_count || 0,
+      checkin_date: booking.checkin_date,
+      checkout_date: booking.checkout_date,
+      guests: guests,
+      rooms: rooms
+    }
+  end
+
+  defp get_property_name(:tahoe), do: "Tahoe Cabin"
+  defp get_property_name(:clear_lake), do: "Clear Lake Cabin"
+
+  defp get_property_name(property) when is_atom(property),
+    do: String.capitalize(to_string(property)) <> " Cabin"
+
+  defp get_property_name(property), do: to_string(property) <> " Cabin"
+
+  defp get_wifi_password(:tahoe), do: "Welcome2024!"
+  defp get_wifi_password(:clear_lake), do: "ClearLake2024!"
+  defp get_wifi_password(_), do: "ContactProperty"
+
+  defp get_all_rooms_for_property(property) do
+    alias Ysc.Bookings.Room
+    alias Ysc.Repo
+    import Ecto.Query
+
+    from(r in Room,
+      where: r.property == ^property and r.is_active == true,
+      order_by: [asc: r.name]
+    )
+    |> Repo.all()
   end
 end

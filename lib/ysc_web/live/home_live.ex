@@ -1,5 +1,6 @@
 defmodule YscWeb.HomeLive do
   use YscWeb, :live_view
+  use YscNative, :live_view
 
   alias Ysc.{Accounts, Events, Posts, Mailpoet, Tickets}
   alias Ysc.Bookings.{Booking, Season}
@@ -9,73 +10,87 @@ defmodule YscWeb.HomeLive do
   import Ecto.Query
 
   @impl true
-  def mount(_params, _session, socket) do
-    user = socket.assigns.current_user
+  def mount(params, _session, socket) do
+    if Map.get(params, "_format") == "swiftui" do
+      upcoming_events =
+        Events.list_upcoming_events(3)
+        |> Enum.reject(&(&1.state == :cancelled))
 
-    socket =
-      if user do
-        # Load user with subscriptions and get membership info
-        user_with_subs =
-          Accounts.get_user!(user.id)
-          |> Ysc.Repo.preload(subscriptions: :subscription_items)
-          |> Accounts.User.populate_virtual_fields()
+      {:ok,
+       assign(socket,
+         page_title: "Kiosk",
+         upcoming_events: upcoming_events
+       )}
+    else
+      user = socket.assigns.current_user
 
-        # Check if user is a sub-account and get primary user
-        is_sub_account = Accounts.is_sub_account?(user_with_subs)
-        primary_user = if is_sub_account, do: Accounts.get_primary_user(user_with_subs), else: nil
+      socket =
+        if user do
+          # Load user with subscriptions and get membership info
+          user_with_subs =
+            Accounts.get_user!(user.id)
+            |> Ysc.Repo.preload(subscriptions: :subscription_items)
+            |> Accounts.User.populate_virtual_fields()
 
-        upcoming_tickets = get_upcoming_tickets(user.id)
-        future_bookings = get_future_active_bookings(user.id)
+          # Check if user is a sub-account and get primary user
+          is_sub_account = Accounts.is_sub_account?(user_with_subs)
 
-        upcoming_events =
-          Events.list_upcoming_events(3)
-          |> Enum.reject(&(&1.state == :cancelled))
+          primary_user =
+            if is_sub_account, do: Accounts.get_primary_user(user_with_subs), else: nil
 
-        latest_news = Posts.list_posts(3)
+          upcoming_tickets = get_upcoming_tickets(user.id)
+          future_bookings = get_future_active_bookings(user.id)
 
-        assign(socket,
-          page_title: "Home",
-          is_sub_account: is_sub_account,
-          primary_user: primary_user,
-          upcoming_tickets: upcoming_tickets,
-          future_bookings: future_bookings,
-          upcoming_events: upcoming_events,
-          latest_news: latest_news,
-          newsletter_email: "",
-          newsletter_submitted: false,
-          newsletter_error: nil
-        )
-      else
-        upcoming_events =
-          Events.list_upcoming_events(3)
-          |> Enum.reject(&(&1.state == :cancelled))
+          upcoming_events =
+            Events.list_upcoming_events(3)
+            |> Enum.reject(&(&1.state == :cancelled))
 
-        latest_news = Posts.list_posts(3)
+          latest_news = Posts.list_posts(3)
 
-        # Determine hero video and poster image based on current Tahoe season
-        # Use Clear Lake video during summer, Tahoe video otherwise
-        {hero_video, hero_poster} =
-          case Season.for_date(:tahoe, Date.utc_today()) do
-            %{name: "Summer"} ->
-              {~p"/video/clear_lake_hero.mp4", ~p"/images/clear_lake_hero_poster.jpg"}
+          assign(socket,
+            page_title: "Home",
+            is_sub_account: is_sub_account,
+            primary_user: primary_user,
+            upcoming_tickets: upcoming_tickets,
+            future_bookings: future_bookings,
+            upcoming_events: upcoming_events,
+            latest_news: latest_news,
+            newsletter_email: "",
+            newsletter_submitted: false,
+            newsletter_error: nil
+          )
+        else
+          upcoming_events =
+            Events.list_upcoming_events(3)
+            |> Enum.reject(&(&1.state == :cancelled))
 
-            _ ->
-              {~p"/video/tahoe_hero.mp4", ~p"/images/tahoe_hero_poster.jpg"}
-          end
+          latest_news = Posts.list_posts(3)
 
-        assign(socket,
-          page_title: "Home",
-          upcoming_events: upcoming_events,
-          latest_news: latest_news,
-          hero_video: hero_video,
-          hero_poster: hero_poster,
-          newsletter_email: "",
-          newsletter_submitted: false,
-          newsletter_error: nil
-        )
-      end
+          # Determine hero video and poster image based on current Tahoe season
+          # Use Clear Lake video during summer, Tahoe video otherwise
+          {hero_video, hero_poster} =
+            case Season.for_date(:tahoe, Date.utc_today()) do
+              %{name: "Summer"} ->
+                {~p"/video/clear_lake_hero.mp4", ~p"/images/clear_lake_hero_poster.jpg"}
 
-    {:ok, socket}
+              _ ->
+                {~p"/video/tahoe_hero.mp4", ~p"/images/tahoe_hero_poster.jpg"}
+            end
+
+          assign(socket,
+            page_title: "Home",
+            upcoming_events: upcoming_events,
+            latest_news: latest_news,
+            hero_video: hero_video,
+            hero_poster: hero_poster,
+            newsletter_email: "",
+            newsletter_submitted: false,
+            newsletter_error: nil
+          )
+        end
+
+      {:ok, socket}
+    end
   end
 
   @impl true
@@ -131,7 +146,7 @@ defmodule YscWeb.HomeLive do
           </div>
           <div class="w-px h-12 bg-white/30"></div>
           <div class="text-center">
-            <div class="text-3xl font-bold text-white"><%= Date.utc_today().year - 1950 %>+</div>
+            <div class="text-3xl font-bold text-white">75+</div>
             <div class="text-sm uppercase tracking-wide">Years</div>
           </div>
         </div>
@@ -1255,64 +1270,6 @@ defmodule YscWeb.HomeLive do
                 <% end %>
               </div>
             </section>
-
-            <%!-- Club Calendar Widget --%>
-            <%!-- <section>
-              <h3 class="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-6">
-                Club Calendar
-              </h3>
-              <div class="bg-white rounded shadow-lg border border-zinc-200 p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <h4 class="font-bold text-zinc-900">
-                    <%= Calendar.strftime(Date.utc_today(), "%B %Y") %>
-                  </h4>
-                  <.link
-                    navigate={~p"/events"}
-                    class="text-xs font-semibold text-teal-600 hover:text-teal-700"
-                  >
-                    View All
-                  </.link>
-                </div>
-                <div class="grid grid-cols-7 gap-1 text-xs text-center mb-2">
-                  <%= for day <- ["S", "M", "T", "W", "T", "F", "S"] do %>
-                    <div class="font-semibold text-zinc-500 py-1"><%= day %></div>
-                  <% end %>
-                </div>
-                <div class="grid grid-cols-7 gap-1 text-sm">
-                  <%= for day <- get_calendar_days() do %>
-                    <div class={[
-                      "aspect-square flex items-center justify-center rounded transition-colors",
-                      if day == nil do
-                        "text-transparent"
-                      else
-                        cond do
-                          Date.compare(day, Date.utc_today()) == :eq ->
-                            "bg-teal-600 text-white font-bold"
-
-                          Date.compare(day, Date.utc_today()) == :lt ->
-                            "text-zinc-300"
-
-                          has_event_on_date?(day, @upcoming_events) ->
-                            "bg-teal-50 text-teal-700 font-semibold hover:bg-teal-100"
-
-                          true ->
-                            "text-zinc-700 hover:bg-zinc-50"
-                        end
-                      end
-                    ]}>
-                      <%= if day, do: Calendar.strftime(day, "%d"), else: "" %>
-                    </div>
-                  <% end %>
-                </div>
-                <div class="mt-4 pt-4 border-t border-zinc-100">
-                  <p class="text-xs text-zinc-500 text-center">
-                    <%= length(@upcoming_events) %> event<%= if length(@upcoming_events) != 1,
-                      do: "s",
-                      else: "" %> this month
-                  </p>
-                </div>
-              </div>
-            </section> --%>
           </aside>
         </div>
 
@@ -1689,6 +1646,22 @@ defmodule YscWeb.HomeLive do
             diff = Date.diff(event_date_only, now_date_only)
             max(0, diff)
         end
+    end
+  end
+
+  @impl true
+  def handle_event("native_nav", %{"to" => to}, socket) do
+    allowed =
+      MapSet.new([
+        "/property-check-in",
+        "/bookings/tahoe",
+        "/bookings/clear-lake"
+      ])
+
+    if MapSet.member?(allowed, to) do
+      {:noreply, push_navigate(socket, to: to)}
+    else
+      {:noreply, socket}
     end
   end
 

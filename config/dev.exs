@@ -19,7 +19,15 @@ config :ysc, Ysc.Repo,
 config :ysc, YscWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {0, 0, 0, 0}, port: 4000],
+  http: [
+    ip: {0, 0, 0, 0},
+    port: 4000,
+    protocol_options: [
+      # LiveView Native can generate large query strings (interface metadata).
+      # Raise request-line limit in dev to avoid 414 responses while iterating.
+      max_request_line_length: 64_000
+    ]
+  ],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
