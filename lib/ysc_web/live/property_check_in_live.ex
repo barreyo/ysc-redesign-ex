@@ -482,16 +482,4 @@ defmodule YscWeb.PropertyCheckInLive do
   defp get_wifi_password(:tahoe), do: "Welcome2024!"
   defp get_wifi_password(:clear_lake), do: "ClearLake2024!"
   defp get_wifi_password(_), do: "ContactProperty"
-
-  defp get_all_rooms_for_property(property) do
-    alias Ysc.Bookings.Room
-    alias Ysc.Repo
-    import Ecto.Query
-
-    from(r in Room,
-      where: r.property == ^property and r.is_active == true,
-      order_by: [asc: r.name]
-    )
-    |> Repo.all()
-  end
 end

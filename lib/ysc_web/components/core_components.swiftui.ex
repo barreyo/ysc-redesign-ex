@@ -496,10 +496,15 @@ defmodule YscWeb.CoreComponents.SwiftUI do
   slot :inner_block, required: true
 
   def card(assigns) do
-    is_white = assigns.fill == ".white" or assigns.fill == "white" or assigns.fill == nil
+    assigns =
+      assign(
+        assigns,
+        :is_white,
+        assigns.fill == ".white" or assigns.fill == "white" or assigns.fill == nil
+      )
 
     ~LVN"""
-    <%= if is_white do %>
+    <%= if @is_white do %>
       <VStack alignment="leading" spacing={12} style={[
         "padding(#{@padding})",
         "frame(maxWidth: .infinity, alignment: .topLeading)",
