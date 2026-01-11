@@ -30,6 +30,8 @@
 		D4E5F6A7B8C9D0E1F2A3B4C5 /* APIKeyInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3B4 /* APIKeyInputView.swift */; };
 		D95F83A12F134ED4001199AB /* RoomCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A02F134ED4001199AB /* RoomCalendarView.swift */; };
 		D95F83A22F134ED4001199AB /* RoomCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A02F134ED4001199AB /* RoomCalendarView.swift */; };
+		D95F83A42F135D57001199AB /* CabinRulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A32F135D57001199AB /* CabinRulesView.swift */; };
+		D95F83A52F135D58001199AB /* CabinRulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A32F135D57001199AB /* CabinRulesView.swift */; };
 		E5F6A7B8C9D0E1F2A3B4C5D6 /* APIKeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2A3 /* APIKeyManager.swift */; };
 		EB41ADE65E8C9AE35F32ACB5 /* LiveViewNative in Frameworks */ = {isa = PBXBuildFile; productRef = FF90AB2D3FCD30AB7ACEE8F8 /* LiveViewNative */; };
 		EFFBBB579E6791E224E7E9C8 /* Ysc.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF2D5AAF66CBECF751735DE /* Ysc.swift */; };
@@ -54,6 +56,7 @@
 		B69A64FE836650C1AE24A420 /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
 		CDF2D5AAF66CBECF751735DE /* Ysc.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ysc.swift; sourceTree = "<group>"; };
 		D95F83A02F134ED4001199AB /* RoomCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomCalendarView.swift; sourceTree = "<group>"; };
+		D95F83A32F135D57001199AB /* CabinRulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CabinRulesView.swift; sourceTree = "<group>"; };
 		EED8607232F01F14F779A2D5 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -99,6 +102,7 @@
 		B0E406537C85C6F345BF4979 /* Ysc */ = {
 			isa = PBXGroup;
 			children = (
+				D95F83A32F135D57001199AB /* CabinRulesView.swift */,
 				D1201F7D33DE27DC218A6258 /* Preview Content */,
 				62F1876AA511BEBFD31DF200 /* Assets.xcassets */,
 				A1B2C3D4E5F6A7B8C9D0E1F2A3 /* APIKeyManager.swift */,
@@ -238,6 +242,7 @@
 				46D3C14DBA99427D142517C1 /* ErrorView.swift in Sources */,
 				99ED2957A2F1F7828C0985EA /* ReconnectingView.swift in Sources */,
 				D95F83A12F134ED4001199AB /* RoomCalendarView.swift in Sources */,
+				D95F83A42F135D57001199AB /* CabinRulesView.swift in Sources */,
 				1FBD2FD91896F4A2DB7A595A /* Ysc.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -254,6 +259,7 @@
 				FAD9327345A098540F1A7951 /* ErrorView.swift in Sources */,
 				476C5E543BA7260A77CCA7A3 /* ReconnectingView.swift in Sources */,
 				D95F83A22F134ED4001199AB /* RoomCalendarView.swift in Sources */,
+				D95F83A52F135D58001199AB /* CabinRulesView.swift in Sources */,
 				EFFBBB579E6791E224E7E9C8 /* Ysc.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

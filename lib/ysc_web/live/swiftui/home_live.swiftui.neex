@@ -62,7 +62,7 @@
 
       <Button
         phx-click="native_nav"
-        phx-value-to={~p"/bookings/clear-lake"}
+        phx-value-to={~p"/cabin-rules"}
         style={[
           "buttonStyle(.bordered)",
           "buttonBorderShape(.roundedRectangle(radius: 28))"

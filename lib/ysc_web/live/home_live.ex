@@ -1656,7 +1656,8 @@ defmodule YscWeb.HomeLive do
         "/property-check-in",
         "/bookings/tahoe",
         "/bookings/tahoe/staying-with",
-        "/bookings/clear-lake"
+        "/bookings/clear-lake",
+        "/cabin-rules"
       ])
 
     if MapSet.member?(allowed, to) do

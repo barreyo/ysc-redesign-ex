@@ -131,6 +131,7 @@ defmodule YscWeb.Router do
       live "/bookings/checkout/:booking_id", BookingCheckoutLive, :index
       live "/bookings/:booking_id/receipt", BookingReceiptLive, :index
       live "/property-check-in", PropertyCheckInLive, :index
+      live "/cabin-rules", TahoeCabinRulesLive, :index
     end
   end
 

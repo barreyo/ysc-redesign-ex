@@ -81,7 +81,7 @@ struct LiveViewWithAPIKey: View {
                 development: developmentURLWithKey,
                 production: productionURLWithKey
             ),
-            addons: [.liveForm, .roomCalendarView]
+            addons: [.liveForm, .roomCalendarView, .cabinRulesView]
         ) {
             ConnectingView()
         } disconnected: {
