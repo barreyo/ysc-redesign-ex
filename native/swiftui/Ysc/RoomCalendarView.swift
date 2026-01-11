@@ -48,6 +48,8 @@ struct Booking: Codable {
     let checkoutDate: String // ISO8601 date string
     let checkedIn: Bool
     let carInfo: String?  // Optional car information
+    let guestsCount: Int  // Number of adults
+    let childrenCount: Int  // Number of children
 }
 
 struct CalendarData: Codable {
@@ -402,7 +404,7 @@ struct RoomCalendar<Root: RootRegistry>: View {
         }
 
         return AnyView(
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) { // Reduced spacing from 4 to 3
                 HStack(alignment: .center, spacing: 4) {
                     Text(booking.userName)
                         .font(.system(size: 13, weight: .semibold))
@@ -418,7 +420,12 @@ struct RoomCalendar<Root: RootRegistry>: View {
                     Spacer()
                 }
 
-                Text("\(checkinStr) - \(checkoutStr)")
+                // Display date range with guest count on the same line
+                let guestText = formatGuestCount(adults: booking.guestsCount, children: booking.childrenCount)
+                let dateText = !guestText.isEmpty
+                    ? "\(checkinStr) - \(checkoutStr) • \(guestText)"
+                    : "\(checkinStr) - \(checkoutStr)"
+                Text(dateText)
                     .font(.system(size: 11))
                     .foregroundColor(.blue.opacity(0.8))
                     .lineLimit(1)
@@ -431,8 +438,8 @@ struct RoomCalendar<Root: RootRegistry>: View {
                 }
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .frame(width: barWidth, height: booking.carInfo != nil && !booking.carInfo!.isEmpty ? 80 : 68, alignment: .leading)
+            .padding(.vertical, 4) // Reduced from 6 to 4 to fit better
+            .frame(width: barWidth, height: calculateBookingBarHeight(hasCarInfo: booking.carInfo != nil && !booking.carInfo!.isEmpty, hasGuests: booking.guestsCount > 0 || booking.childrenCount > 0), alignment: .leading)
             .background(Color.blue.opacity(0.2))
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .offset(x: startOffset)
@@ -440,6 +447,52 @@ struct RoomCalendar<Root: RootRegistry>: View {
     }
 
     // Helper functions
+    private func formatGuestCount(adults: Int, children: Int) -> String {
+        var parts: [String] = []
+
+        if adults > 0 {
+            if adults == 1 {
+                parts.append("1 adult")
+            } else {
+                parts.append("\(adults) adults")
+            }
+        }
+
+        if children > 0 {
+            if children == 1 {
+                parts.append("1 child")
+            } else {
+                parts.append("\(children) children")
+            }
+        }
+
+        return parts.joined(separator: ", ")
+    }
+
+    private func calculateBookingBarHeight(hasCarInfo: Bool, hasGuests: Bool) -> CGFloat {
+        // Calculate height based on content with reduced padding (4) and spacing (3):
+        // - Vertical padding: 4 * 2 = 8
+        // - Name line (font 13, semibold): ~18
+        // - VStack spacing: 3
+        // - Date line (font 11): ~16
+        // - VStack spacing (if car info): 3
+        // - Car info line (font 10, if present): ~14
+
+        var height: CGFloat = 8 // Vertical padding (4 top + 4 bottom)
+        height += 18 // Name line (font 13, semibold)
+        height += 3 // VStack spacing
+        height += 16 // Date range line (font 11)
+
+        if hasCarInfo {
+            height += 3 // VStack spacing before car info
+            height += 14 // Car info line (font 10)
+        }
+
+        // Total: 8 + 18 + 3 + 16 = 45 (base) or 45 + 3 + 14 = 62 (with car)
+        // Ensure it doesn't exceed row height (80) to prevent layout breaking
+        return min(height, rowHeight - 2) // Leave 2 points margin for safety
+    }
+
     private func parseDate(_ dateStr: String) -> Date? {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withFullDate, .withDashSeparatorInDate]

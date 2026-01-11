@@ -43,7 +43,9 @@ defmodule YscWeb.TahoeStayingWithLive do
             checkin_date: booking.checkin_date,
             checkout_date: booking.checkout_date,
             checked_in: booking.checked_in || false,
-            car_info: format_car_info(booking.check_ins)
+            car_info: format_car_info(booking.check_ins),
+            guests_count: booking.guests_count || 1,
+            children_count: booking.children_count || 0
           }
 
           Map.update(room_acc, room.id, [booking_data], fn existing ->
@@ -142,7 +144,9 @@ defmodule YscWeb.TahoeStayingWithLive do
               checkinDate: date_to_string.(booking.checkin_date),
               checkoutDate: date_to_string.(booking.checkout_date),
               checkedIn: booking.checked_in,
-              carInfo: booking.car_info
+              carInfo: booking.car_info,
+              guestsCount: booking.guests_count,
+              childrenCount: booking.children_count
             }
           end)
 
