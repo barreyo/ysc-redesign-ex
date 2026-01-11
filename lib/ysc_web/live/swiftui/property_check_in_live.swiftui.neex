@@ -365,13 +365,16 @@
           Pick a different reservation
         </.button>
 
+        <%
+          disabled_style = if !@rules_agreed, do: "disabled(true)", else: ""
+        %>
         <.button
           phx-click="confirm_reservation"
           style={[
             "buttonStyle(.borderedProminent)",
             "controlSize(.large)",
             "frame(maxWidth: .infinity)",
-            if(!@rules_agreed, do: "disabled(true)", else: "")
+            disabled_style
           ]}
         >
           Continue

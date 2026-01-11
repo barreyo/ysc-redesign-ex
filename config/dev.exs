@@ -142,3 +142,7 @@ config :phoenix_live_view, :debug_heex_annotations, true
 config :live_view_native_stylesheet,
   annotations: true,
   pretty: true
+
+# Native iOS API Key Configuration
+# Default API key for development (can be overridden via NATIVE_API_KEY env var)
+config :ysc, :native_api_key, System.get_env("NATIVE_API_KEY") || "development"

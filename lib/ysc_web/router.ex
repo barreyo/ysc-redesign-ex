@@ -86,8 +86,14 @@ defmodule YscWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # Pipeline for native iOS API key validation
+  # Only validates API key for swiftui format requests
+  pipeline :native_api_key do
+    plug YscWeb.Plugs.NativeAPIKey
+  end
+
   scope "/", YscWeb do
-    pipe_through [:browser, :mount_site_settings]
+    pipe_through [:browser, :native_api_key, :mount_site_settings]
 
     get "/history", PageController, :history
     get "/board", PageController, :board
@@ -120,6 +126,7 @@ defmodule YscWeb.Router do
       live "/news", NewsLive, :index
 
       live "/bookings/tahoe", TahoeBookingLive, :index
+      live "/bookings/tahoe/staying-with", TahoeStayingWithLive, :index
       live "/bookings/clear-lake", ClearLakeBookingLive, :index
       live "/bookings/checkout/:booking_id", BookingCheckoutLive, :index
       live "/bookings/:booking_id/receipt", BookingReceiptLive, :index

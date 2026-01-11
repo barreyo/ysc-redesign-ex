@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -22,13 +22,19 @@
 		99ED2957A2F1F7828C0985EA /* ReconnectingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 035FBEFE5A02CF1A8AAB0C8B /* ReconnectingView.swift */; };
 		A18F35A09CC7463EF8FC5A01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 62F1876AA511BEBFD31DF200 /* Assets.xcassets */; };
 		B5D65ECF14FEBD84F54B5568 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A982BAD78C9FF5265AC0C39C /* ContentView.swift */; };
+		C3D4E5F6A7B8C9D0E1F2A3B4 /* APIKeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2A3 /* APIKeyManager.swift */; };
 		C5F0B3011192C6BFC665BD6E /* LiveViewNative in Frameworks */ = {isa = PBXBuildFile; productRef = 6302762A33684BC9724C0D6A /* LiveViewNative */; };
 		C8912B897FA688C87DAE2E45 /* ConnectingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D6C0A0EEDA86266213D20B9 /* ConnectingView.swift */; };
 		CBB69406F70C8C962FD09F81 /* Info-Debug.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0C2226E548AAD00C333B6A0A /* Info-Debug.plist */; };
 		CC719F7041FB1F6173337D8C /* Info-Release.plist in Resources */ = {isa = PBXBuildFile; fileRef = 48B13DC9332FB800361C5F2A /* Info-Release.plist */; };
+		D4E5F6A7B8C9D0E1F2A3B4C5 /* APIKeyInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3B4 /* APIKeyInputView.swift */; };
+		D95F83A12F134ED4001199AB /* RoomCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A02F134ED4001199AB /* RoomCalendarView.swift */; };
+		D95F83A22F134ED4001199AB /* RoomCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A02F134ED4001199AB /* RoomCalendarView.swift */; };
+		E5F6A7B8C9D0E1F2A3B4C5D6 /* APIKeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2A3 /* APIKeyManager.swift */; };
 		EB41ADE65E8C9AE35F32ACB5 /* LiveViewNative in Frameworks */ = {isa = PBXBuildFile; productRef = FF90AB2D3FCD30AB7ACEE8F8 /* LiveViewNative */; };
 		EFFBBB579E6791E224E7E9C8 /* Ysc.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF2D5AAF66CBECF751735DE /* Ysc.swift */; };
 		F0BBF1444B45FC9ACD441D8D /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EED8607232F01F14F779A2D5 /* Preview Assets.xcassets */; };
+		F6A7B8C9D0E1F2A3B4C5D6E7 /* APIKeyInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3B4 /* APIKeyInputView.swift */; };
 		FAD9327345A098540F1A7951 /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B69A64FE836650C1AE24A420 /* ErrorView.swift */; };
 		FEA99EA236046BA0289BEA38 /* ConnectingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D6C0A0EEDA86266213D20B9 /* ConnectingView.swift */; };
 /* End PBXBuildFile section */
@@ -41,10 +47,13 @@
 		62F1876AA511BEBFD31DF200 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6ED705926E97C93A5D5FA5E3 /* Ysc Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Ysc Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9D6C0A0EEDA86266213D20B9 /* ConnectingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectingView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E1F2A3 /* APIKeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyManager.swift; sourceTree = "<group>"; };
 		A982BAD78C9FF5265AC0C39C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B2C3D4E5F6A7B8C9D0E1F2A3B4 /* APIKeyInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyInputView.swift; sourceTree = "<group>"; };
 		B430833E77AA5A4A1CF1240E /* Ysc.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Ysc.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B69A64FE836650C1AE24A420 /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
 		CDF2D5AAF66CBECF751735DE /* Ysc.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ysc.swift; sourceTree = "<group>"; };
+		D95F83A02F134ED4001199AB /* RoomCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomCalendarView.swift; sourceTree = "<group>"; };
 		EED8607232F01F14F779A2D5 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -92,6 +101,8 @@
 			children = (
 				D1201F7D33DE27DC218A6258 /* Preview Content */,
 				62F1876AA511BEBFD31DF200 /* Assets.xcassets */,
+				A1B2C3D4E5F6A7B8C9D0E1F2A3 /* APIKeyManager.swift */,
+				B2C3D4E5F6A7B8C9D0E1F2A3B4 /* APIKeyInputView.swift */,
 				9D6C0A0EEDA86266213D20B9 /* ConnectingView.swift */,
 				A982BAD78C9FF5265AC0C39C /* ContentView.swift */,
 				342DBBEC5DC9FE788CDD543C /* DisconnectedView.swift */,
@@ -100,6 +111,7 @@
 				48B13DC9332FB800361C5F2A /* Info-Release.plist */,
 				035FBEFE5A02CF1A8AAB0C8B /* ReconnectingView.swift */,
 				CDF2D5AAF66CBECF751735DE /* Ysc.swift */,
+				D95F83A02F134ED4001199AB /* RoomCalendarView.swift */,
 			);
 			path = Ysc;
 			sourceTree = "<group>";
@@ -165,8 +177,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = 302433BA0039866DDBA5B3F4 /* Build configuration list for PBXProject "Ysc" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -220,11 +230,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C3D4E5F6A7B8C9D0E1F2A3B4 /* APIKeyManager.swift in Sources */,
+				D4E5F6A7B8C9D0E1F2A3B4C5 /* APIKeyInputView.swift in Sources */,
 				C8912B897FA688C87DAE2E45 /* ConnectingView.swift in Sources */,
 				8AB56A1F137691A44B6B8F98 /* ContentView.swift in Sources */,
 				8840A3E78F3B9D36ABF36E70 /* DisconnectedView.swift in Sources */,
 				46D3C14DBA99427D142517C1 /* ErrorView.swift in Sources */,
 				99ED2957A2F1F7828C0985EA /* ReconnectingView.swift in Sources */,
+				D95F83A12F134ED4001199AB /* RoomCalendarView.swift in Sources */,
 				1FBD2FD91896F4A2DB7A595A /* Ysc.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -233,11 +246,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E5F6A7B8C9D0E1F2A3B4C5D6 /* APIKeyManager.swift in Sources */,
+				F6A7B8C9D0E1F2A3B4C5D6E7 /* APIKeyInputView.swift in Sources */,
 				FEA99EA236046BA0289BEA38 /* ConnectingView.swift in Sources */,
 				B5D65ECF14FEBD84F54B5568 /* ContentView.swift in Sources */,
 				20ABBC33CF9F360CC9253D21 /* DisconnectedView.swift in Sources */,
 				FAD9327345A098540F1A7951 /* ErrorView.swift in Sources */,
 				476C5E543BA7260A77CCA7A3 /* ReconnectingView.swift in Sources */,
+				D95F83A22F134ED4001199AB /* RoomCalendarView.swift in Sources */,
 				EFFBBB579E6791E224E7E9C8 /* Ysc.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

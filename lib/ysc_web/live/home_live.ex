@@ -1655,6 +1655,7 @@ defmodule YscWeb.HomeLive do
       MapSet.new([
         "/property-check-in",
         "/bookings/tahoe",
+        "/bookings/tahoe/staying-with",
         "/bookings/clear-lake"
       ])
 

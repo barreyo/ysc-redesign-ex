@@ -44,7 +44,7 @@
 
       <Button
         phx-click="native_nav"
-        phx-value-to={~p"/bookings/tahoe"}
+        phx-value-to={~p"/bookings/tahoe/staying-with"}
         style={[
           "buttonStyle(.bordered)",
           "buttonBorderShape(.roundedRectangle(radius: 28))"

@@ -166,6 +166,7 @@ defmodule YscWeb.AdminBookingsLive do
             field={@form[:amount]}
             label="Adult Amount"
             placeholder="0.00"
+            id="adult_amount_input"
             phx-hook="MoneyInput"
             value={format_money_for_input(@form[:amount].value)}
             required
@@ -178,6 +179,7 @@ defmodule YscWeb.AdminBookingsLive do
             field={@form[:children_amount]}
             label="Children Amount (optional)"
             placeholder="0.00"
+            id="children_amount_input"
             phx-hook="MoneyInput"
             value={format_money_for_input(@form[:children_amount].value)}
           >
@@ -350,6 +352,7 @@ defmodule YscWeb.AdminBookingsLive do
             name="approve_refund[admin_refund_amount]"
             label="Refund Amount"
             placeholder={MoneyHelper.format_money!(@selected_pending_refund.policy_refund_amount)}
+            id="admin_refund_amount_input"
             phx-hook="MoneyInput"
             value=""
           >
@@ -5511,6 +5514,7 @@ defmodule YscWeb.AdminBookingsLive do
       # Ensure default ordering by most recently booked first if no order is specified
       |> then(fn p ->
         order_by = p["order_by"] || p[:order_by]
+
         if order_by == nil || order_by == [] do
           Map.merge(p, %{"order_by" => ["inserted_at"], "order_directions" => ["desc"]})
         else
