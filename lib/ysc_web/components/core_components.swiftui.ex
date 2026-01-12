@@ -496,35 +496,27 @@ defmodule YscWeb.CoreComponents.SwiftUI do
   slot :inner_block, required: true
 
   def card(assigns) do
-    assigns =
-      assign(
-        assigns,
-        :is_white,
-        assigns.fill == ".white" or assigns.fill == "white" or assigns.fill == nil
-      )
+    is_white = assigns.fill == ".white" or assigns.fill == "white" or assigns.fill == nil
+
+    # Build style array in Elixir to avoid @ variables in style attribute
+    style_array =
+      [
+        "padding(#{assigns.padding})",
+        "frame(maxWidth: .infinity, alignment: .topLeading)",
+        if(is_white, do: "background(.white)", else: "background(#{assigns.fill})"),
+        "clipShape(RoundedRectangle(cornerRadius: #{assigns.corner_radius}))",
+        "shadow(color: .black.opacity(#{assigns.shadow_opacity}), radius: #{assigns.shadow_radius}, x: #{assigns.shadow_x}, y: #{assigns.shadow_y})"
+      ]
+      |> Enum.filter(&(&1 != nil and &1 != ""))
+
+    # Put style in rest map to avoid using @ variable in style attribute
+    rest_with_style = Map.put(assigns.rest || %{}, :style, style_array)
+    assigns = assign(assigns, :rest, rest_with_style)
 
     ~LVN"""
-    <%= if @is_white do %>
-      <VStack alignment="leading" spacing={12} style={[
-        "padding(#{@padding})",
-        "frame(maxWidth: .infinity, alignment: .topLeading)",
-        "background(.white)",
-        "clipShape(RoundedRectangle(cornerRadius: #{@corner_radius}))",
-        "shadow(color: .black.opacity(#{@shadow_opacity}), radius: #{@shadow_radius}, x: #{@shadow_x}, y: #{@shadow_y})"
-      ]} {@rest}>
-        <%= render_slot(@inner_block) %>
-      </VStack>
-    <% else %>
-      <VStack alignment="leading" spacing={12} style={[
-        "padding(#{@padding})",
-        "frame(maxWidth: .infinity, alignment: .topLeading)",
-        "background(#{@fill})",
-        "clipShape(RoundedRectangle(cornerRadius: #{@corner_radius}))",
-        "shadow(color: .black.opacity(#{@shadow_opacity}), radius: #{@shadow_radius}, x: #{@shadow_x}, y: #{@shadow_y})"
-      ]} {@rest}>
-        <%= render_slot(@inner_block) %>
-      </VStack>
-    <% end %>
+    <VStack alignment="leading" spacing={12} {@rest}>
+      <%= render_slot(@inner_block) %>
+    </VStack>
     """
   end
 

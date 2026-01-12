@@ -1676,10 +1676,15 @@ defmodule YscWeb.HomeLive do
       ])
 
     if MapSet.member?(allowed, to) do
-      # Send current path to SwiftUI before navigating
+      # Send push_event to notify SwiftUI of navigation
       socket =
-        socket
-        |> Phoenix.LiveView.push_event("current_path", %{path: to})
+        if to != "/" do
+          socket
+          |> Phoenix.LiveView.push_event("navigate_away_from_home", %{})
+        else
+          socket
+          |> Phoenix.LiveView.push_event("navigate_to_home", %{})
+        end
 
       {:noreply, push_navigate(socket, to: to)}
     else

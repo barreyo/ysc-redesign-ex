@@ -23,7 +23,9 @@ defmodule YscWeb.PropertyCheckInLive do
      |> assign(:vehicle_draft, %{type: nil, color: nil, make: ""})
      |> assign(:vehicle_make_form, vehicle_make_form)
      |> assign(:rules_form, rules_form)
-     |> assign(:rules_agreed, false)}
+     |> assign(:rules_agreed, false)
+     |> assign(:confirm_button_style, build_confirm_button_style())
+     |> assign(:confirm_button_disabled, true)}
   end
 
   @impl true
@@ -37,7 +39,6 @@ defmodule YscWeb.PropertyCheckInLive do
       socket
       |> Phoenix.LiveView.push_event("current_path", %{path: current_path})
 
-    {:noreply, socket}
     {:noreply, socket}
   end
 
@@ -93,7 +94,9 @@ defmodule YscWeb.PropertyCheckInLive do
          |> assign(:vehicle_draft, %{type: nil, color: nil, make: ""})
          |> assign(:vehicle_make_form, to_form(%{"make" => ""}, as: :vehicle))
          |> assign(:rules_form, to_form(%{"rules_agreement" => false}, as: :rules))
-         |> assign(:rules_agreed, false)}
+         |> assign(:rules_agreed, false)
+         |> assign(:confirm_button_style, build_confirm_button_style())
+         |> assign(:confirm_button_disabled, true)}
       end
     rescue
       Ecto.NoResultsError ->
@@ -112,28 +115,36 @@ defmodule YscWeb.PropertyCheckInLive do
      |> assign(:vehicle_draft, %{type: nil, color: nil, make: ""})
      |> assign(:vehicle_make_form, to_form(%{"make" => ""}, as: :vehicle))
      |> assign(:rules_form, to_form(%{"rules_agreement" => false}, as: :rules))
-     |> assign(:rules_agreed, false)}
+     |> assign(:rules_agreed, false)
+     |> assign(:confirm_button_style, build_confirm_button_style())
+     |> assign(:confirm_button_disabled, true)}
   end
 
   # Handle phx-change events from rules agreement form
   def handle_event("update_rules_agreement", %{"rules" => %{"rules_agreement" => value}}, socket) do
     new_value = value == true or value == "true"
+    confirm_button_style = build_confirm_button_style()
 
     {:noreply,
      socket
      |> assign(:rules_agreed, new_value)
-     |> assign(:rules_form, to_form(%{"rules_agreement" => new_value}, as: :rules))}
+     |> assign(:rules_form, to_form(%{"rules_agreement" => new_value}, as: :rules))
+     |> assign(:confirm_button_style, confirm_button_style)
+     |> assign(:confirm_button_disabled, !new_value)}
   end
 
   def handle_event("update_rules_agreement", params, socket) do
     # Handle unnested params from LiveView Native
     value = Map.get(params, "rules_agreement", false)
     new_value = value == true or value == "true"
+    confirm_button_style = build_confirm_button_style()
 
     {:noreply,
      socket
      |> assign(:rules_agreed, new_value)
-     |> assign(:rules_form, to_form(%{"rules_agreement" => new_value}, as: :rules))}
+     |> assign(:rules_form, to_form(%{"rules_agreement" => new_value}, as: :rules))
+     |> assign(:confirm_button_style, confirm_button_style)
+     |> assign(:confirm_button_disabled, !new_value)}
   end
 
   def handle_event("confirm_reservation", _params, socket) do
@@ -343,6 +354,14 @@ defmodule YscWeb.PropertyCheckInLive do
     else
       {:noreply, socket}
     end
+  end
+
+  defp build_confirm_button_style do
+    [
+      "buttonStyle(.borderedProminent)",
+      "controlSize(.large)",
+      "frame(maxWidth: .infinity)"
+    ]
   end
 
   defp update_vehicle_make(make, socket) do

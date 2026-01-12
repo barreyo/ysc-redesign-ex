@@ -7,18 +7,15 @@
 import SwiftUI
 import LiveViewNative
 
-// PreferenceKey for tracking scroll offset
-struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
 
 // Helper view to synchronize horizontal scrolling between header and body
+// and provide vertical scroll offset for room names synchronization
+@available(iOS 18.0, *)
 struct SynchronizedScrollView<HeaderContent: View, BodyContent: View>: View {
     let headerContent: () -> HeaderContent
     let bodyContent: () -> BodyContent
+    @Binding var verticalScrollOffset: CGFloat
+    @Binding var userIsScrollingCalendar: Bool
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: true) {
@@ -30,6 +27,20 @@ struct SynchronizedScrollView<HeaderContent: View, BodyContent: View>: View {
                 ScrollView(.vertical, showsIndicators: true) {
                     bodyContent()
                 }
+                .onScrollPhaseChange { oldPhase, newPhase in
+                    // Track when user is actively scrolling the calendar
+                    // Check if the phase indicates active user interaction
+                    userIsScrollingCalendar = (newPhase != .idle)
+                }
+                .onScrollGeometryChange(for: CGFloat.self, of: { geometry in
+                    // Extract the y offset from the scroll geometry
+                    geometry.contentOffset.y
+                }, action: { oldValue, newValue in
+                    // Only update if user is scrolling the calendar (not the room names)
+                    if userIsScrollingCalendar {
+                        verticalScrollOffset = newValue
+                    }
+                })
             }
         }
     }
@@ -61,23 +72,23 @@ struct CalendarData: Codable {
     let calendarEndDate: String
 }
 
+@available(iOS 18.0, *)
 @LiveElement
 struct RoomCalendar<Root: RootRegistry>: View {
     let element: ElementNode
+    @State private var verticalScrollOffset: CGFloat = 0
+    @State private var lastSyncedRoomIndex: Int = -1
+    @State private var userIsScrollingCalendar: Bool = false
 
     // Parse data from element attributes
     private var calendarData: CalendarData? {
-        // Debug: Check what we're getting
-        let attrValue = element.attributeValue(for: "data")
-
-        guard let dataAttr = attrValue as? String else {
-            print("[RoomCalendar] Attribute 'data' is not a String. Type: \(type(of: attrValue)), Value: \(String(describing: attrValue))")
+        guard let dataString = element.attributeValue(for: "data"), !dataString.isEmpty else {
             return nil
         }
 
         // Decode HTML entities (LiveView Native HTML-encodes JSON attributes)
         // Must decode in order: &amp; first, then others
-        let decodedString = dataAttr
+        let decodedString = dataString
             .replacingOccurrences(of: "&amp;", with: "&")
             .replacingOccurrences(of: "&quot;", with: "\"")
             .replacingOccurrences(of: "&lt;", with: "<")
@@ -86,21 +97,13 @@ struct RoomCalendar<Root: RootRegistry>: View {
             .replacingOccurrences(of: "&#x27;", with: "'")
             .replacingOccurrences(of: "&#x2F;", with: "/")
 
-        guard let data = decodedString.data(using: String.Encoding.utf8) else {
-            print("[RoomCalendar] Failed to convert string to Data. String length: \(decodedString.count)")
-            print("[RoomCalendar] First 200 chars: \(String(decodedString.prefix(200)))")
+        guard let data = decodedString.data(using: .utf8) else {
             return nil
         }
 
         do {
-            let decoded = try JSONDecoder().decode(CalendarData.self, from: data)
-            print("[RoomCalendar] Successfully decoded calendar data. Rooms: \(decoded.rooms.count), Dates: \(decoded.calendarDates.count)")
-            return decoded
+            return try JSONDecoder().decode(CalendarData.self, from: data)
         } catch {
-            print("[RoomCalendar] JSON decode error: \(error)")
-            if let jsonString = String(data: data, encoding: .utf8) {
-                print("[RoomCalendar] JSON string (first 500 chars): \(String(jsonString.prefix(500)))")
-            }
             return nil
         }
     }
@@ -111,38 +114,16 @@ struct RoomCalendar<Root: RootRegistry>: View {
     private let roomColumnWidth: CGFloat = 140
 
     var body: some View {
-        if let data = calendarData {
-            calendarView(data: data)
-        } else {
-            VStack(spacing: 12) {
-                Text("Loading calendar...")
-                    .foregroundColor(.secondary)
-
-                // Debug info
-                if let attrValue = element.attributeValue(for: "data") {
-                    Text("Attribute type: \(String(describing: type(of: attrValue)))")
-                        .font(.caption)
-                        .foregroundColor(.red)
-
-                    if let str = attrValue as? String, !str.isEmpty {
-                        Text("String length: \(str.count)")
-                            .font(.caption)
-                            .foregroundColor(.red)
-
-                        if str.count > 0 {
-                            Text("First 100 chars: \(String(str.prefix(100)))")
-                                .font(.caption)
-                                .foregroundColor(.red)
-                                .lineLimit(3)
-                        }
-                    }
-                } else {
-                    Text("Attribute 'data' is nil")
-                        .font(.caption)
-                        .foregroundColor(.red)
+        Group {
+            if let data = calendarData {
+                calendarView(data: data)
+            } else {
+                VStack(spacing: 12) {
+                    Text("Loading calendar...")
+                        .foregroundColor(.secondary)
                 }
+                .padding()
             }
-            .padding()
         }
     }
 
@@ -167,7 +148,7 @@ struct RoomCalendar<Root: RootRegistry>: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 12))
                     .foregroundColor(.green)
-                
+
                 Text("Checked in")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
@@ -198,25 +179,51 @@ struct RoomCalendar<Root: RootRegistry>: View {
                         alignment: .bottom
                     )
 
-                    // Room Names List
-                    ScrollView(.vertical, showsIndicators: true) {
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(data.rooms, id: \.id) { room in
-                                HStack(alignment: .center) {
-                                    Text(room.name)
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundColor(.primary)
+                    // Room Names List - synchronized with calendar body
+                    ScrollViewReader { roomProxy in
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(alignment: .leading, spacing: 0) {
+                                ForEach(Array(data.rooms.enumerated()), id: \.element.id) { index, room in
+                                    HStack(alignment: .center) {
+                                        Text(room.name)
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundColor(.primary)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .frame(height: rowHeight)
+                                    .overlay(
+                                        Rectangle()
+                                            .frame(height: 1)
+                                            .foregroundColor(Color(uiColor: .separator)),
+                                        alignment: .bottom
+                                    )
+                                    .id("room-name-\(index)")
                                 }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .frame(height: rowHeight)
-                                .overlay(
-                                    Rectangle()
-                                        .frame(height: 1)
-                                        .foregroundColor(Color(uiColor: .separator)),
-                                    alignment: .bottom
-                                )
+                            }
+                        }
+                        .disabled(true) // Disable user scrolling on room names - it syncs with calendar
+                        .onChange(of: verticalScrollOffset) { newOffset in
+                            // Calculate which room should be at the top based on scroll offset
+                            // Each room has height rowHeight, so divide offset by rowHeight to get room index
+                            // The offset represents how much we've scrolled down (positive value)
+                            let calculatedIndex = newOffset / rowHeight
+                            let roomIndex = max(0, min(Int(calculatedIndex.rounded(.toNearestOrAwayFromZero)), data.rooms.count - 1))
+
+                            // Only scroll if the room index has changed to avoid excessive scrollTo calls
+                            if abs(roomIndex - lastSyncedRoomIndex) > 0 && roomIndex < data.rooms.count {
+                                lastSyncedRoomIndex = roomIndex
+                                withAnimation(.linear(duration: 0.1)) {
+                                    roomProxy.scrollTo("room-name-\(roomIndex)", anchor: .top)
+                                }
+                            }
+                        }
+                        .onAppear {
+                            // Initialize scroll position on appear
+                            if lastSyncedRoomIndex == -1 && !data.rooms.isEmpty {
+                                lastSyncedRoomIndex = 0
+                                roomProxy.scrollTo("room-name-0", anchor: .top)
                             }
                         }
                     }
@@ -238,7 +245,7 @@ struct RoomCalendar<Root: RootRegistry>: View {
                     },
                     bodyContent: {
                         VStack(alignment: .leading, spacing: 0) {
-                            ForEach(data.rooms, id: \.id) { room in
+                            ForEach(Array(data.rooms.enumerated()), id: \.element.id) { index, room in
                                 roomRow(
                                     room: room,
                                     dates: data.calendarDates,
@@ -246,9 +253,12 @@ struct RoomCalendar<Root: RootRegistry>: View {
                                     startDate: data.calendarStartDate,
                                     today: data.today
                                 )
+                                .id("calendar-room-\(index)")
                             }
                         }
-                    }
+                    },
+                    verticalScrollOffset: $verticalScrollOffset,
+                    userIsScrollingCalendar: $userIsScrollingCalendar
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -389,13 +399,6 @@ struct RoomCalendar<Root: RootRegistry>: View {
         // Ensure minimum width (at least half a day) for same-day bookings
         let barWidth = max(dayWidth / 2, endOffset - startOffset)
 
-        // Debug logging
-        print("[RoomCalendar] Booking '\(booking.userName)' - Check-in: \(checkinDateStr) (idx: \(checkinIdx) -> \(clampedCheckinIdx)), Checkout: \(checkoutDateStr) (idx: \(checkoutIdx) -> \(clampedCheckoutIdx))")
-        print("[RoomCalendar] Offsets - Start: \(startOffset), End: \(endOffset), Width: \(barWidth)")
-        if clampedCheckinIdx < dates.count && clampedCheckoutIdx < dates.count {
-            print("[RoomCalendar] Renders on dates: \(dates[clampedCheckinIdx]) to \(dates[clampedCheckoutIdx])")
-        }
-
         // Format dates for display
         let dateFormatter = DateFormatter()
         dateFormatter.timeZone = TimeZone(identifier: "America/Los_Angeles") // Use PST/PDT
@@ -531,6 +534,7 @@ struct RoomCalendar<Root: RootRegistry>: View {
 
 // The Addons namespace is used by LiveView Native to register custom components
 extension Addons {
+    @available(iOS 18.0, *)
     @Addon
     struct RoomCalendarView<Root: RootRegistry> {
         enum TagName: String {

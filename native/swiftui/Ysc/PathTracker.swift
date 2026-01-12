@@ -13,10 +13,16 @@ struct PathTracker<Root: RootRegistry>: View {
     let element: ElementNode
 
     var body: some View {
-        // Hidden component - just a minimal view that doesn't access any LiveView internals
-        // Path tracking is handled by backend push_events via handle_params
-        // This component exists in the template but doesn't need to do anything
+        // Hidden component that listens for push_event messages via JavaScript hook
+        // The JavaScript hook (path_tracker.js) should handle receiving push_event messages
+        // and posting to NotificationCenter. However, since this is a native app,
+        // JavaScript hooks might not work. The actual event handling should happen
+        // via the JavaScript hook, but we need to verify it works in native apps.
         EmptyView()
+            .onAppear {
+                print("[PathTracker] Component appeared - JavaScript hook should handle events")
+                print("[PathTracker] If JavaScript hooks don't work in native apps, we need an alternative")
+            }
     }
 }
 

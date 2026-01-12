@@ -3792,20 +3792,6 @@ defmodule YscWeb.TahoeBookingLive do
              show_confirm_modal: false
            )}
 
-        {:error, %Ecto.Changeset{} = changeset} ->
-          form_errors = format_errors(changeset)
-          error_message = "Please fix the errors above and try again."
-
-          {:noreply,
-           socket
-           |> put_flash(:error, error_message)
-           |> assign(
-             form_errors: form_errors,
-             calculated_price: nil,
-             price_error: "Please fix the errors above",
-             show_confirm_modal: false
-           )}
-
         {:error, _reason} ->
           # Handle any other error atoms that weren't explicitly handled above
           {:noreply,

@@ -437,6 +437,10 @@ defmodule YscWeb.Styles.App.SwiftUI do
     ignoresSafeArea()
   end
 
+  "bg-secondary-system-background" do
+    background(.secondarySystemBackground)
+  end
+
   "kiosk-card-concierge" do
     padding(24)
     background(.white)
@@ -485,6 +489,22 @@ defmodule YscWeb.Styles.App.SwiftUI do
     cornerRadius(20)
     shadow(radius: 2)
   end
+
+  # Shape fill helpers for RoundedRectangle
+  "fill-white" do foregroundStyle(.white) end
+  "fill-black" do foregroundStyle(.black) end
+  "fill-gray" do foregroundStyle(.gray) end
+  "fill-blue" do foregroundStyle(.blue) end
+  "fill-red" do foregroundStyle(.red) end
+  "fill-green" do foregroundStyle(.green) end
+  "fill-brown" do foregroundStyle(.brown) end
+  "fill-orange" do foregroundStyle(.orange) end
+  "fill-purple" do foregroundStyle(.purple) end
+  "fill-yellow" do foregroundStyle(.yellow) end
+  "fill-secondary-system-background" do fill(.secondarySystemBackground) end
+  "fill-gray-opacity-75" do foregroundStyle(.gray.opacity(0.75)) end
+  "fill-black-opacity-10" do foregroundStyle(.black.opacity(0.10)) end
+  "fill-orange-opacity-90" do foregroundStyle(.orange.opacity(0.9)) end
 
   # NOTE: Avoid overlay/stroke in stylesheet (parser can drop rules).
   "selected-border" do

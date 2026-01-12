@@ -7,6 +7,7 @@ import LiveViewNative
 import LiveViewNativeLiveForm
 import SwiftUI
 
+@available(iOS 18.0, *)
 struct ContentView: View {
     @State private var isAuthenticated: Bool = false
     @State private var apiKey: String?
@@ -54,6 +55,7 @@ struct ContentView: View {
 }
 
 // Helper view that configures LiveView with API key in URL query parameter
+@available(iOS 18.0, *)
 struct LiveViewWithAPIKey: View {
     let baseDevelopmentURL: URL
     let baseProductionURL: URL
@@ -61,7 +63,8 @@ struct LiveViewWithAPIKey: View {
     @ObservedObject var inactivityTimer: InactivityTimer
     @State private var forceNavigateToHome: Bool = false
     @State private var navigationKey: Int = 0
-    @State private var hasNavigatedAway: Bool = false // Track if user has navigated away from home
+    @State private var isOnHomePage: Bool = true // Track if we're on home page
+    @State private var justRedirected: Bool = false // Track if we just redirected (don't show countdown/redirect again)
     @State private var initialLoadComplete: Bool = false // Track if initial load is complete
 
     init(developmentURL: URL, productionURL: URL, apiKey: String, inactivityTimer: InactivityTimer) {
@@ -88,11 +91,15 @@ struct LiveViewWithAPIKey: View {
 
     private var developmentURLWithKey: URL {
         // If we need to navigate to home, use home path, otherwise use base URL
-        urlWithAPIKey(baseDevelopmentURL, path: forceNavigateToHome ? "/" : nil)
+        let url = urlWithAPIKey(baseDevelopmentURL, path: forceNavigateToHome ? "/" : nil)
+        print("[ContentView] developmentURLWithKey computed - path: \(url.path), forceNavigateToHome: \(forceNavigateToHome)")
+        return url
     }
 
     private var productionURLWithKey: URL {
-        urlWithAPIKey(baseProductionURL, path: forceNavigateToHome ? "/" : nil)
+        let url = urlWithAPIKey(baseProductionURL, path: forceNavigateToHome ? "/" : nil)
+        print("[ContentView] productionURLWithKey computed - path: \(url.path), forceNavigateToHome: \(forceNavigateToHome)")
+        return url
     }
 
     var body: some View {
@@ -117,11 +124,20 @@ struct LiveViewWithAPIKey: View {
                         }
                 }
                 .onAppear {
-                    // When reconnecting view appears, if we're not forcing navigation to home,
-                    // assume we've navigated to a new route
+                    // When reconnecting view appears after initial load, it means we've navigated
+                    // Reset the inactivity timer when navigation happens
                     if initialLoadComplete && !forceNavigateToHome {
-                        hasNavigatedAway = true
-                        print("[ContentView] Reconnecting view appeared - not forcing to home, setting hasNavigatedAway = true")
+                        // User navigated to a new page - reset timer and mark as not on home
+                        isOnHomePage = false
+                        justRedirected = false // Reset redirect flag on new navigation
+                        inactivityTimer.reset()
+                        print("[ContentView] Navigation detected - reset timer, isOnHomePage = false")
+                    } else if forceNavigateToHome {
+                        // We're forcing to home - mark as on home and reset redirect flag
+                        isOnHomePage = true
+                        justRedirected = true // Set flag so we don't show countdown/redirect again
+                        inactivityTimer.reset()
+                        print("[ContentView] Forced to home - isOnHomePage = true, justRedirected = true")
                     }
                 }
             } error: { error in
@@ -129,79 +145,30 @@ struct LiveViewWithAPIKey: View {
             }
             .detectInactivity(timer: inactivityTimer)
             .onAppear {
-                // Set up timeout callback to navigate to home (also set up here for initial load)
+                // Set up timeout callback to navigate to home
                 setupInactivityHandler()
-                // Listen for navigation events to track if we're on home page
-                setupNavigationTracking()
 
                 // Track initial load - on first appearance, we're on home
                 if !initialLoadComplete {
                     initialLoadComplete = true
-                    hasNavigatedAway = false
-                    print("[ContentView] Initial load - on home page (hasNavigatedAway = false)")
-                } else {
-                    // After initial load, if view appears and we're not forcing navigation to home,
-                    // it means we've navigated to a different page (LiveView reconnected to a new route)
-                    // Set hasNavigatedAway = true to ensure countdown works on non-home pages
-                    if !forceNavigateToHome {
-                        hasNavigatedAway = true
-                        print("[ContentView] View appeared after initial load - not forcing to home, setting hasNavigatedAway = true")
-                    } else {
-                        hasNavigatedAway = false
-                        print("[ContentView] View appeared - forcing navigation to home (hasNavigatedAway = false)")
-                    }
-                }
-            }
-            .onDisappear {
-                // When view disappears, if we're not forcing navigation to home,
-                // it likely means we're navigating to a new route
-                // Set hasNavigatedAway = true to prepare for the next route
-                if !forceNavigateToHome && initialLoadComplete {
-                    hasNavigatedAway = true
-                    print("[ContentView] View disappeared - not forcing to home, setting hasNavigatedAway = true for next route")
-                }
-            }
-            .onChange(of: navigationKey) { newKey in
-                // When navigation key changes, check if we're forcing navigation to home
-                if forceNavigateToHome {
-                    hasNavigatedAway = false
-                    print("[ContentView] Navigation key changed - forcing to home (hasNavigatedAway = false)")
-                } else if initialLoadComplete {
-                    // If navigation key changes and we're not forcing to home, we've navigated away
-                    // This is the most reliable indicator of navigation
-                    hasNavigatedAway = true
-                    print("[ContentView] Navigation key changed - not forcing to home, setting hasNavigatedAway = true")
+                    isOnHomePage = true
+                    justRedirected = false
+                    inactivityTimer.reset()
+                    print("[ContentView] Initial load - on home page, reset timer")
                 }
             }
             .onChange(of: forceNavigateToHome) { isForcing in
-                // When we force navigate to home, we're definitely on home
+                // When we force navigate to home, mark as on home
                 if isForcing {
-                    hasNavigatedAway = false
-                    print("[ContentView] Force navigate to home changed - setting hasNavigatedAway = false")
+                    isOnHomePage = true
+                    justRedirected = true
                 }
             }
             .id(navigationKey) // Force re-render when navigation key changes
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("CurrentPathChanged"))) { notification in
-                if let path = notification.userInfo?["path"] as? String {
-                    let isHome = path == "/" || path.isEmpty
-                    hasNavigatedAway = !isHome
-                    print("[ContentView] Path changed to '\(path)' - hasNavigatedAway = \(hasNavigatedAway)")
-                }
-            }
-            .onChange(of: inactivityTimer.secondsRemaining) { secondsRemaining in
-                // Debug logging for countdown visibility
-                if secondsRemaining <= InactivityTimer.warningThreshold && secondsRemaining > 0 {
-                    let shouldShow = hasNavigatedAway && !forceNavigateToHome && (secondsRemaining > 0 || inactivityTimer.isCancelling)
-                    print("[ContentView] Countdown check - hasNavigatedAway: \(hasNavigatedAway), forceNavigateToHome: \(forceNavigateToHome), shouldShow: \(shouldShow), secondsRemaining: \(secondsRemaining)")
-                }
-            }
 
-            // Countdown indicator overlay (only show if not on home page)
-            // Only show countdown if we've explicitly navigated away (hasNavigatedAway = true)
-            // We don't use the conservative fallback here because we want to avoid showing
-            // the countdown on the home page. The timeout handler uses the conservative
-            // check, but the countdown visibility should be more strict.
-            let shouldShowCountdown = hasNavigatedAway &&
+            // Countdown indicator overlay (only show if not on home page and not just redirected)
+            let shouldShowCountdown = !isOnHomePage &&
+                !justRedirected && // Don't show if we just redirected
                 !forceNavigateToHome && // Don't show when navigating to home
                 ((inactivityTimer.secondsRemaining <= InactivityTimer.warningThreshold && inactivityTimer.secondsRemaining > 0) || inactivityTimer.isCancelling)
 
@@ -212,27 +179,18 @@ struct LiveViewWithAPIKey: View {
                 )
             }
         }
-        .onChange(of: inactivityTimer.secondsRemaining) { secondsRemaining in
-            // Debug logging for countdown visibility
-            if secondsRemaining <= InactivityTimer.warningThreshold && secondsRemaining > 0 {
-                let shouldShow = hasNavigatedAway && !forceNavigateToHome && (secondsRemaining > 0 || inactivityTimer.isCancelling)
-                print("[ContentView] Countdown check - hasNavigatedAway: \(hasNavigatedAway), forceNavigateToHome: \(forceNavigateToHome), shouldShow: \(shouldShow), secondsRemaining: \(secondsRemaining)")
-            }
-        }
     }
 
     private func setupInactivityHandler() {
         inactivityTimer.onTimeout = {
-            // Only navigate if user has explicitly navigated away from home
-            // Don't use conservative check here - we don't want to redirect on home page
-            print("[ContentView] Inactivity timeout triggered - hasNavigatedAway = \(hasNavigatedAway), initialLoadComplete = \(initialLoadComplete)")
-
-            if hasNavigatedAway {
-                print("[ContentView] Inactivity timeout triggered - navigating to home")
+            // Only navigate if we're not on home page and haven't just redirected
+            if !isOnHomePage && !justRedirected {
+                print("[ContentView] Inactivity timeout - navigating to home")
                 // Force navigation by changing the URL to home and triggering a re-render
                 DispatchQueue.main.async {
                     forceNavigateToHome = true
-                    hasNavigatedAway = false // Reset - we're back on home
+                    isOnHomePage = true
+                    justRedirected = true // Set flag so we don't show countdown/redirect again
                     navigationKey += 1 // Force LiveView to reconnect with home URL
                     // Reset the flag after a short delay so normal navigation can work again
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -240,19 +198,9 @@ struct LiveViewWithAPIKey: View {
                     }
                 }
             } else {
-                print("[ContentView] Inactivity timeout triggered - already on home page, skipping navigation")
+                print("[ContentView] Inactivity timeout - already on home or just redirected, skipping navigation")
             }
         }
-    }
-
-    private func setupNavigationTracking() {
-        // Since we can't easily receive push_events in SwiftUI, we use a heuristic:
-        // We track navigation by assuming we've navigated away unless we explicitly
-        // navigate to home via timeout. This means:
-        // - On initial load, we start with hasNavigatedAway = false (we're on home)
-        // - After a short delay, if we haven't navigated to home, set hasNavigatedAway = true
-        // - When we navigate to home via timeout, set hasNavigatedAway = false
-        // This is handled in onAppear and onChange handlers
     }
 }
 

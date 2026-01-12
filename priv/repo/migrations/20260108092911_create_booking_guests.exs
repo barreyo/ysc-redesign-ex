@@ -2,7 +2,7 @@ defmodule Ysc.Repo.Migrations.CreateBookingGuests do
   use Ecto.Migration
 
   def change do
-    create table(:booking_guests, primary_key: false, if_not_exists: true) do
+    create table(:booking_guests, primary_key: false) do
       add :id, :binary_id, null: false, primary_key: true
 
       add :booking_id,

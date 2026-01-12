@@ -21,13 +21,6 @@
 
   <HStack style={["frame(maxWidth: .infinity, alignment: .center)"]}>
     <ZStack>
-      <RoundedRectangle
-        cornerRadius={18}
-        style={[
-          "fill(Color(.secondarySystemBackground))",
-          "frame(maxWidth: .infinity)"
-        ]}
-      />
       <HStack
         spacing={12}
         class="kiosk-timeline"
@@ -165,7 +158,7 @@
             <RoundedRectangle
               cornerRadius={22}
               style={[
-                "fill(.white)",
+                "background(.white)",
                 "frame(maxWidth: .infinity)",
                 "shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)"
               ]}
@@ -354,6 +347,14 @@
         </HStack>
       </.simple_form>
 
+      <%
+        # Build rest map with style and disabled to avoid @ variables in style attribute
+        confirm_rest = [
+          {:style, @confirm_button_style},
+          {"phx-click", "confirm_reservation"},
+          {:disabled, @confirm_button_disabled}
+        ] |> Enum.into(%{})
+      %>
       <HStack spacing={12} style={["frame(maxWidth: 520)"]}>
         <.button
           phx-click="clear_reservation"
@@ -366,18 +367,7 @@
           Pick a different reservation
         </.button>
 
-        <%
-          disabled_style = if !@rules_agreed, do: "disabled(true)", else: ""
-        %>
-        <.button
-          phx-click="confirm_reservation"
-          style={[
-            "buttonStyle(.borderedProminent)",
-            "controlSize(.large)",
-            "frame(maxWidth: .infinity)",
-            disabled_style
-          ]}
-        >
+        <.button {confirm_rest}>
           Continue
         </.button>
       </HStack>
@@ -462,7 +452,7 @@
                     <RoundedRectangle
                       cornerRadius={12}
                       style={[
-                        "fill(.black.opacity(0.10))",
+                        "background(.black.opacity(0.10))",
                         "frame(width: 44, height: 44)"
                       ]}
                     />
@@ -487,7 +477,7 @@
                       <% vehicle.color == "Orange" -> %>
                         <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.orange)"]} />
                       <% vehicle.color == "Gold" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(Color(red: 0.85, green: 0.65, blue: 0.13))"]} />
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.orange)"]} />
                       <% vehicle.color == "Purple" -> %>
                         <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.purple)"]} />
                       <% vehicle.color == "Yellow" -> %>
@@ -551,7 +541,7 @@
                 <RoundedRectangle
                   cornerRadius={20}
                   style={[
-                    "fill(.white)",
+                    "background(.white)",
                     "frame(maxWidth: .infinity, minHeight: 140)",
                     "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
                   ]}
@@ -578,7 +568,7 @@
                 <RoundedRectangle
                   cornerRadius={20}
                   style={[
-                    "fill(.white)",
+                    "background(.white)",
                     "frame(maxWidth: .infinity, minHeight: 140)",
                     "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
                   ]}
@@ -607,7 +597,7 @@
                 <RoundedRectangle
                   cornerRadius={20}
                   style={[
-                    "fill(.white)",
+                    "background(.white)",
                     "frame(maxWidth: .infinity, minHeight: 140)",
                     "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
                   ]}
@@ -634,7 +624,7 @@
                 <RoundedRectangle
                   cornerRadius={20}
                   style={[
-                    "fill(.white)",
+                    "background(.white)",
                     "frame(maxWidth: .infinity, minHeight: 140)",
                     "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
                   ]}
@@ -663,7 +653,7 @@
                 <RoundedRectangle
                   cornerRadius={20}
                   style={[
-                    "fill(.white)",
+                    "background(.white)",
                     "frame(maxWidth: .infinity, minHeight: 140)",
                     "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
                   ]}
@@ -716,7 +706,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.white)",
+                      "background(.white)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -730,7 +720,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.white)",
+                      "background(.white)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -748,7 +738,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.black)",
+                      "background(.black)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -762,7 +752,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.black)",
+                      "background(.black)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -780,7 +770,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.gray)",
+                      "background(.gray)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -794,7 +784,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.gray)",
+                      "background(.gray)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -815,7 +805,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(Color(white: 0.75))",
+                      "background(.gray.opacity(0.75))",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -829,7 +819,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(Color(white: 0.75))",
+                      "background(.gray.opacity(0.75))",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -847,7 +837,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.blue)",
+                      "background(.blue)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -861,7 +851,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.blue)",
+                      "background(.blue)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -879,7 +869,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.red)",
+                      "background(.red)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -893,7 +883,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.red)",
+                      "background(.red)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -914,7 +904,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.green)",
+                      "background(.green)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -928,7 +918,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.green)",
+                      "background(.green)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -946,7 +936,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.brown)",
+                      "background(.brown)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -960,7 +950,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.brown)",
+                      "background(.brown)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -978,7 +968,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.orange)",
+                      "background(.orange)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -992,7 +982,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.orange)",
+                      "background(.orange)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -1013,7 +1003,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(Color(red: 0.85, green: 0.65, blue: 0.13))",
+                      "background(.orange.opacity(0.9))",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -1027,7 +1017,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(Color(red: 0.85, green: 0.65, blue: 0.13))",
+                      "background(.orange.opacity(0.9))",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -1045,7 +1035,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.purple)",
+                      "background(.purple)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -1059,7 +1049,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.purple)",
+                      "background(.purple)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -1077,7 +1067,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.yellow)",
+                      "background(.yellow)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -1091,7 +1081,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "fill(.yellow)",
+                      "background(.yellow)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}

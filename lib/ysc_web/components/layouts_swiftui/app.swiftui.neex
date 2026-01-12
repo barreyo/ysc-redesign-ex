@@ -2,13 +2,12 @@
 <Style url={~p"/assets/app.swiftui.styles"} />
 <PathTracker />
 <NavigationStack
+  class="kiosk-bg"
   style={[
-    "frame(maxWidth: .infinity, maxHeight: .infinity)",
-    "background(Color(.systemGroupedBackground))",
-    "ignoresSafeArea()"
+    "frame(maxWidth: .infinity, maxHeight: .infinity)"
   ]}
 >
-  <VStack style={[
+  <VStack class="bg-secondary-system-background" style={[
     "frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)",
     "padding(24)"
   ]}>
