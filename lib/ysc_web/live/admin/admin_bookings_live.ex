@@ -606,7 +606,10 @@ defmodule YscWeb.AdminBookingsLive do
           <!-- Check-in Section -->
           <div class="pt-4 border-t border-zinc-200">
             <h3 class="text-sm font-semibold text-zinc-700 mb-3">Check-in Details</h3>
-            <div :if={Ecto.assoc_loaded?(@booking.check_ins) && length(@booking.check_ins) > 0} class="space-y-3">
+            <div
+              :if={Ecto.assoc_loaded?(@booking.check_ins) && length(@booking.check_ins) > 0}
+              class="space-y-3"
+            >
               <%= for check_in <- @booking.check_ins do %>
                 <div class="bg-green-50 rounded-lg p-3 border border-green-200">
                   <div class="flex items-center gap-2 mb-2">
@@ -644,7 +647,10 @@ defmodule YscWeb.AdminBookingsLive do
                 </div>
               <% end %>
             </div>
-            <p :if={!Ecto.assoc_loaded?(@booking.check_ins) || length(@booking.check_ins) == 0} class="text-sm text-zinc-500">
+            <p
+              :if={!Ecto.assoc_loaded?(@booking.check_ins) || length(@booking.check_ins) == 0}
+              class="text-sm text-zinc-500"
+            >
               No check-in recorded for this booking.
             </p>
           </div>

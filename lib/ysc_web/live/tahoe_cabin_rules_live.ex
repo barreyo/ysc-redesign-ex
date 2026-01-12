@@ -19,7 +19,16 @@ defmodule YscWeb.TahoeCabinRulesLive do
   end
 
   @impl true
-  def handle_params(params, _uri, socket) do
+  def handle_params(params, uri, socket) do
+    # Parse URI to get current path and send to SwiftUI
+    parsed_uri = URI.parse(uri)
+    current_path = parsed_uri.path || "/"
+
+    # Send current path to SwiftUI via push_event
+    socket =
+      socket
+      |> Phoenix.LiveView.push_event("current_path", %{path: current_path})
+
     category = Map.get(params, "category", socket.assigns.selected_category)
     {:noreply, assign(socket, :selected_category, category)}
   end
@@ -45,6 +54,16 @@ defmodule YscWeb.TahoeCabinRulesLive do
       ])
 
     if MapSet.member?(allowed, to) do
+      # Send push_event to notify SwiftUI of navigation
+      socket =
+        if to != "/" do
+          socket
+          |> Phoenix.LiveView.push_event("navigate_away_from_home", %{})
+        else
+          socket
+          |> Phoenix.LiveView.push_event("navigate_to_home", %{})
+        end
+
       {:noreply, push_navigate(socket, to: to)}
     else
       {:noreply, socket}

@@ -56,6 +56,7 @@ import AutoConsumeUpload from "./auto_consume_upload";
 import ImageCarouselAutoplay from "./image_carousel_autoplay";
 import ReadingProgress from "./reading_progress";
 import TimelineFilter from "./timeline_filter";
+import PathTracker from "./path_tracker";
 
 let Hooks = {
     StickyNavbar,
@@ -91,6 +92,7 @@ let Hooks = {
     ReadingProgress,
     TimelineFilter,
     ClickableTableRows,
+    PathTracker,
 };
 Hooks.LivePhone = LivePhone;
 

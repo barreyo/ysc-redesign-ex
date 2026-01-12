@@ -20,10 +20,18 @@
   %>
 
   <HStack style={["frame(maxWidth: .infinity, alignment: .center)"]}>
-    <HStack
-      spacing={12}
-      class="kiosk-timeline"
-    >
+    <ZStack>
+      <RoundedRectangle
+        cornerRadius={18}
+        style={[
+          "fill(Color(.secondarySystemBackground))",
+          "frame(maxWidth: .infinity)"
+        ]}
+      />
+      <HStack
+        spacing={12}
+        class="kiosk-timeline"
+      >
       <%= for {label, idx} <- Enum.with_index(timeline_steps, 1) do %>
         <HStack spacing={8}>
           <%= cond do %>
@@ -73,7 +81,8 @@
           />
         </HStack>
       <% end %>
-    </HStack>
+      </HStack>
+    </ZStack>
   </HStack>
 
   <VStack :if={@step == :search} alignment="center" spacing={28} style={["frame(maxWidth: .infinity, alignment: .center)"]}>

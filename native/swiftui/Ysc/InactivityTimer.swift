@@ -11,7 +11,7 @@ import Combine
 /// Observable object that manages the inactivity timer
 class InactivityTimer: ObservableObject {
     /// Timeout duration in seconds (30 seconds)
-    static let timeoutDuration: TimeInterval = 60.0
+    static let timeoutDuration: TimeInterval = 15.0
 
     /// Warning threshold - show countdown when this many seconds remain
     static let warningThreshold: TimeInterval = 10.0

@@ -53,6 +53,7 @@ defmodule YscWeb.Plugs.NativeAPIKey do
       is_nil(api_key) || api_key == "" ->
         # Missing API key
         json = Phoenix.json_library().encode!(%{error: "Missing API key"})
+
         conn
         |> put_resp_content_type("application/json")
         |> send_resp(401, json)
@@ -61,6 +62,7 @@ defmodule YscWeb.Plugs.NativeAPIKey do
       api_key != expected_key ->
         # Invalid API key
         json = Phoenix.json_library().encode!(%{error: "Invalid API key"})
+
         conn
         |> put_resp_content_type("application/json")
         |> send_resp(401, json)

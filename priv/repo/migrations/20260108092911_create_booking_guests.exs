@@ -2,7 +2,7 @@ defmodule Ysc.Repo.Migrations.CreateBookingGuests do
   use Ecto.Migration
 
   def change do
-    create table(:booking_guests, primary_key: false) do
+    create table(:booking_guests, primary_key: false, if_not_exists: true) do
       add :id, :binary_id, null: false, primary_key: true
 
       add :booking_id,
@@ -18,8 +18,8 @@ defmodule Ysc.Repo.Migrations.CreateBookingGuests do
       timestamps(type: :utc_datetime)
     end
 
-    create index(:booking_guests, [:booking_id])
-    create index(:booking_guests, [:order_index])
-    create index(:booking_guests, [:booking_id, :order_index])
+    create index(:booking_guests, [:booking_id], if_not_exists: true)
+    create index(:booking_guests, [:order_index], if_not_exists: true)
+    create index(:booking_guests, [:booking_id, :order_index], if_not_exists: true)
   end
 end

@@ -72,7 +72,16 @@ defmodule YscWeb.TahoeStayingWithLive do
   end
 
   @impl true
-  def handle_params(_params, _uri, socket) do
+  def handle_params(_params, uri, socket) do
+    # Parse URI to get current path and send to SwiftUI
+    parsed_uri = URI.parse(uri)
+    current_path = parsed_uri.path || "/"
+
+    # Send current path to SwiftUI via push_event
+    socket =
+      socket
+      |> Phoenix.LiveView.push_event("current_path", %{path: current_path})
+
     {:noreply, socket}
   end
 
