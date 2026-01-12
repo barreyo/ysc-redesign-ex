@@ -1653,6 +1653,7 @@ defmodule YscWeb.HomeLive do
   def handle_event("native_nav", %{"to" => to}, socket) do
     allowed =
       MapSet.new([
+        "/",
         "/property-check-in",
         "/bookings/tahoe",
         "/bookings/tahoe/staying-with",

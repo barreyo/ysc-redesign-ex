@@ -72,10 +72,6 @@ struct RoomCalendar<Root: RootRegistry>: View {
 
         guard let dataAttr = attrValue as? String else {
             print("[RoomCalendar] Attribute 'data' is not a String. Type: \(type(of: attrValue)), Value: \(String(describing: attrValue))")
-            // Try to get it as Data directly
-            if let dataValue = attrValue as? Data {
-                return try? JSONDecoder().decode(CalendarData.self, from: dataValue)
-            }
             return nil
         }
 
@@ -128,7 +124,7 @@ struct RoomCalendar<Root: RootRegistry>: View {
                         .font(.caption)
                         .foregroundColor(.red)
 
-                    if let str = attrValue as? String {
+                    if let str = attrValue as? String, !str.isEmpty {
                         Text("String length: \(str.count)")
                             .font(.caption)
                             .foregroundColor(.red)
@@ -163,6 +159,21 @@ struct RoomCalendar<Root: RootRegistry>: View {
                     .foregroundColor(.secondary)
             }
             .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial)
+
+            // Legend
+            HStack(alignment: .center, spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.green)
+                
+                Text("Checked in")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.regularMaterial)
 

@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var isAuthenticated: Bool = false
     @State private var apiKey: String?
+    @StateObject private var inactivityTimer = InactivityTimer()
 
     private static func developmentURL() -> URL {
         // `.localhost(...)` resolves to `localhost` which often prefers IPv6 (`::1`).
@@ -36,7 +37,8 @@ struct ContentView: View {
             LiveViewWithAPIKey(
                 developmentURL: Self.developmentURL(),
                 productionURL: URL(string: "https://example.com/")!,
-                apiKey: apiKey
+                apiKey: apiKey,
+                inactivityTimer: inactivityTimer
             )
         } else {
             // Show API key input view
@@ -53,45 +55,97 @@ struct ContentView: View {
 
 // Helper view that configures LiveView with API key in URL query parameter
 struct LiveViewWithAPIKey: View {
-    let developmentURLWithKey: URL
-    let productionURLWithKey: URL
+    let baseDevelopmentURL: URL
+    let baseProductionURL: URL
+    let apiKey: String
+    @ObservedObject var inactivityTimer: InactivityTimer
+    @State private var forceNavigateToHome: Bool = false
+    @State private var navigationKey: Int = 0
 
-    init(developmentURL: URL, productionURL: URL, apiKey: String) {
-        // Append API key as query parameter
-        // Note: LiveView Native doesn't expose a direct way to set custom headers.
-        // We use query parameters as a workaround. The backend accepts API key from
-        // both X-API-Key header and api_key query param.
-        func urlWithAPIKey(_ baseURL: URL) -> URL {
-            guard var urlComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
-                return baseURL
-            }
-            var queryItems = urlComponents.queryItems ?? []
-            queryItems.append(URLQueryItem(name: "api_key", value: apiKey))
-            urlComponents.queryItems = queryItems
-            return urlComponents.url ?? baseURL
+    init(developmentURL: URL, productionURL: URL, apiKey: String, inactivityTimer: InactivityTimer) {
+        self.baseDevelopmentURL = developmentURL
+        self.baseProductionURL = productionURL
+        self.apiKey = apiKey
+        self._inactivityTimer = ObservedObject(wrappedValue: inactivityTimer)
+    }
+
+    private func urlWithAPIKey(_ baseURL: URL, path: String? = nil) -> URL {
+        guard var urlComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            return baseURL
         }
+        // Set path if provided (for navigation to home)
+        if let path = path {
+            urlComponents.path = path
+        }
+        // Append API key as query parameter
+        var queryItems = urlComponents.queryItems ?? []
+        queryItems.append(URLQueryItem(name: "api_key", value: apiKey))
+        urlComponents.queryItems = queryItems
+        return urlComponents.url ?? baseURL
+    }
 
-        self.developmentURLWithKey = urlWithAPIKey(developmentURL)
-        self.productionURLWithKey = urlWithAPIKey(productionURL)
+    private var developmentURLWithKey: URL {
+        // If we need to navigate to home, use home path, otherwise use base URL
+        urlWithAPIKey(baseDevelopmentURL, path: forceNavigateToHome ? "/" : nil)
+    }
+
+    private var productionURLWithKey: URL {
+        urlWithAPIKey(baseProductionURL, path: forceNavigateToHome ? "/" : nil)
     }
 
     var body: some View {
-        #LiveView(
-            .automatic(
-                development: developmentURLWithKey,
-                production: productionURLWithKey
-            ),
-            addons: [.liveForm, .roomCalendarView, .cabinRulesView]
-        ) {
-            ConnectingView()
-        } disconnected: {
-            DisconnectedView()
-        } reconnecting: { content, isReconnecting in
-            ReconnectingView(isReconnecting: isReconnecting) {
-                content
+        ZStack {
+            #LiveView(
+                .automatic(
+                    development: developmentURLWithKey,
+                    production: productionURLWithKey
+                ),
+                addons: [.liveForm, .roomCalendarView, .cabinRulesView]
+            ) {
+                ConnectingView()
+            } disconnected: {
+                DisconnectedView()
+            } reconnecting: { content, isReconnecting in
+                ReconnectingView(isReconnecting: isReconnecting) {
+                    content
+                        .detectInactivity(timer: inactivityTimer)
+                        .onAppear {
+                            // Set up timeout callback to navigate to home
+                            setupInactivityHandler()
+                        }
+                }
+            } error: { error in
+                ErrorView(error: error)
             }
-        } error: { error in
-            ErrorView(error: error)
+            .detectInactivity(timer: inactivityTimer)
+            .onAppear {
+                // Set up timeout callback to navigate to home (also set up here for initial load)
+                setupInactivityHandler()
+            }
+            .id(navigationKey) // Force re-render when navigation key changes
+
+            // Countdown indicator overlay
+            if (inactivityTimer.secondsRemaining <= InactivityTimer.warningThreshold && inactivityTimer.secondsRemaining > 0) || inactivityTimer.isCancelling {
+                InactivityCountdownView(
+                    secondsRemaining: Int(inactivityTimer.secondsRemaining),
+                    isCancelling: inactivityTimer.isCancelling
+                )
+            }
+        }
+    }
+
+    private func setupInactivityHandler() {
+        inactivityTimer.onTimeout = {
+            print("[ContentView] Inactivity timeout triggered - navigating to home")
+            // Force navigation by changing the URL to home and triggering a re-render
+            DispatchQueue.main.async {
+                forceNavigateToHome = true
+                navigationKey += 1 // Force LiveView to reconnect with home URL
+                // Reset the flag after a short delay so normal navigation can work again
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    forceNavigateToHome = false
+                }
+            }
         }
     }
 }

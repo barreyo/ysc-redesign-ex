@@ -48,9 +48,7 @@ struct CabinRules<Root: RootRegistry>: View {
 
     // Parse data from element attributes
     private var rulesData: RulesData? {
-        let dataAttr = element.attributeValue(for: "data")
-
-        guard let dataString = dataAttr as? String else {
+        guard let dataString = element.attributeValue(for: "data") as? String else {
             return nil
         }
 
@@ -103,18 +101,19 @@ struct CabinRules<Root: RootRegistry>: View {
             updateSelectedCategory(from: data)
         }
     }
-    
+
     @ViewBuilder
     private func sidebarView(data: RulesData) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Cabin Rules")
-                .font(.system(size: 28, weight: .bold))
+            Text("Cabin Guide")
+                .font(.system(size: 32, weight: .bold))
+                .foregroundColor(.primary)
                 .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 16)
+                .padding(.top, 24)
+                .padding(.bottom, 20)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     ForEach(data.categories) { category in
                         categoryButton(category: category)
                     }
@@ -122,97 +121,181 @@ struct CabinRules<Root: RootRegistry>: View {
                 .padding(.vertical, 8)
             }
         }
-        .frame(width: 280)
+        .frame(width: 300)
         .background(Color(uiColor: .systemGroupedBackground))
     }
-    
+
     @ViewBuilder
     private func categoryButton(category: RuleCategory) -> some View {
         let isSelected = selectedCategory == category.id
         Button(action: {
+            // Notify inactivity timer of user interaction
+            NotificationCenter.default.post(name: NSNotification.Name("UserInteraction"), object: nil)
             selectedCategory = category.id
             selectCategory(value: ["category": category.id])
         }) {
-            HStack(spacing: 12) {
+            HStack(spacing: 16) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.system(size: 22, weight: .medium))
                     .foregroundColor(isSelected ? .blue : .secondary)
-                    .frame(width: 24)
+                    .frame(width: 32)
 
                 Text(category.title)
-                    .font(.system(size: 17, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 18, weight: isSelected ? .semibold : .regular))
                     .foregroundColor(isSelected ? .primary : .secondary)
 
                 Spacer()
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+            .padding(.vertical, 16)
+            .frame(minHeight: 60)
+            .background(
+                Group {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.blue.opacity(0.15))
+                    } else {
+                        Color.clear
+                    }
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 2)
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
-    
+
     @ViewBuilder
     private func contentView(data: RulesData, categoryId: String) -> some View {
         if let rules = data.rules[categoryId] {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 28) {
                     categoryHeader(data: data, categoryId: categoryId)
                     rulesList(rules: rules)
                 }
-                .padding(24)
+                .padding(32)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         } else {
             VStack {
                 Text("Select a category")
+                    .font(.system(size: 18))
                     .foregroundColor(.secondary)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
-    
+
     @ViewBuilder
     private func categoryHeader(data: RulesData, categoryId: String) -> some View {
         if let category = data.categories.first(where: { $0.id == categoryId }) {
-            HStack(spacing: 12) {
+            HStack(spacing: 16) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 32, weight: .semibold))
+                    .font(.system(size: 36, weight: .semibold))
                     .foregroundColor(.blue)
+                    .frame(width: 44, height: 44)
 
                 Text(category.title)
-                    .font(.system(size: 36, weight: .bold))
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundColor(.primary)
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, 12)
         }
     }
-    
+
     @ViewBuilder
     private func rulesList(rules: [RuleItem]) -> some View {
         ForEach(rules) { rule in
             VStack(alignment: .leading, spacing: 12) {
-                Text(rule.title)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.primary)
+                // Special styling for TL;DR sections
+                if rule.title.uppercased() == "TL;DR" {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(rule.title)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .textCase(.uppercase)
+                            .tracking(1.2)
 
-                Text(rule.content)
-                    .font(.system(size: 17))
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                        Text(rule.content)
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.white)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.8)]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                } else if rule.title == "Checklist" {
+                    checklistView(rule: rule)
+                } else {
+                    // Regular rule item
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(rule.title)
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundColor(.primary)
+
+                        Text(rule.content)
+                            .font(.system(size: 17))
+                            .foregroundColor(.secondary)
+                            .lineSpacing(4)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(uiColor: .secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
             }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(uiColor: .secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
     }
 
     private func updateSelectedCategory(from data: RulesData) {
-        if let categoryId = element.attributeValue(for: "selectedCategory") as? String {
+        if let categoryId = element.attributeValue(for: "selectedCategory") as? String, !categoryId.isEmpty {
             selectedCategory = categoryId
         } else if selectedCategory == nil, let firstCategory = data.categories.first {
             selectedCategory = firstCategory.id
         }
+    }
+
+    @ViewBuilder
+    private func checklistView(rule: RuleItem) -> some View {
+        let checklistItems = rule.content.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        VStack(alignment: .leading, spacing: 12) {
+            Text(rule.title)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundColor(.primary)
+                .padding(.bottom, 4)
+
+            ForEach(Array(checklistItems.enumerated()), id: \.offset) { _, item in
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "square")
+                        .font(.system(size: 18))
+                        .foregroundColor(.blue)
+                        .padding(.top, 2)
+
+                    Text(item.replacingOccurrences(of: "□", with: "").trimmingCharacters(in: .whitespaces))
+                        .font(.system(size: 17))
+                        .foregroundColor(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: .secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 

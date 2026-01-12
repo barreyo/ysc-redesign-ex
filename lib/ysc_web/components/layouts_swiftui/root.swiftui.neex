@@ -1,10 +1,9 @@
 <.csrf_token />
 <Style url={~p"/assets/app.swiftui.styles"} />
 <NavigationStack
+  class="kiosk-bg"
   style={[
-    "frame(maxWidth: .infinity, maxHeight: .infinity)",
-    "background(.systemGroupedBackground)",
-    "ignoresSafeArea()"
+    "frame(maxWidth: .infinity, maxHeight: .infinity)"
   ]}
 >
   <VStack style={[

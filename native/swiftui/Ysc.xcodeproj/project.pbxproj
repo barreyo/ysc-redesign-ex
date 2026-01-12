@@ -32,6 +32,12 @@
 		D95F83A22F134ED4001199AB /* RoomCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A02F134ED4001199AB /* RoomCalendarView.swift */; };
 		D95F83A42F135D57001199AB /* CabinRulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A32F135D57001199AB /* CabinRulesView.swift */; };
 		D95F83A52F135D58001199AB /* CabinRulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A32F135D57001199AB /* CabinRulesView.swift */; };
+		D95F83A72F13710E001199AB /* InactivityTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A62F13710E001199AB /* InactivityTimer.swift */; };
+		D95F83A82F13710E001199AB /* InactivityTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A62F13710E001199AB /* InactivityTimer.swift */; };
+		D95F83AA2F13720C001199AB /* InactivityResetHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A92F13720C001199AB /* InactivityResetHandler.swift */; };
+		D95F83AB2F13720C001199AB /* InactivityResetHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A92F13720C001199AB /* InactivityResetHandler.swift */; };
+		D95F83AD2F14A1EB001199AB /* InactivityCountdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83AC2F14A1EB001199AB /* InactivityCountdownView.swift */; };
+		D95F83AE2F14A1EB001199AB /* InactivityCountdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83AC2F14A1EB001199AB /* InactivityCountdownView.swift */; };
 		E5F6A7B8C9D0E1F2A3B4C5D6 /* APIKeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2A3 /* APIKeyManager.swift */; };
 		EB41ADE65E8C9AE35F32ACB5 /* LiveViewNative in Frameworks */ = {isa = PBXBuildFile; productRef = FF90AB2D3FCD30AB7ACEE8F8 /* LiveViewNative */; };
 		EFFBBB579E6791E224E7E9C8 /* Ysc.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF2D5AAF66CBECF751735DE /* Ysc.swift */; };
@@ -57,6 +63,9 @@
 		CDF2D5AAF66CBECF751735DE /* Ysc.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ysc.swift; sourceTree = "<group>"; };
 		D95F83A02F134ED4001199AB /* RoomCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomCalendarView.swift; sourceTree = "<group>"; };
 		D95F83A32F135D57001199AB /* CabinRulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CabinRulesView.swift; sourceTree = "<group>"; };
+		D95F83A62F13710E001199AB /* InactivityTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InactivityTimer.swift; sourceTree = "<group>"; };
+		D95F83A92F13720C001199AB /* InactivityResetHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InactivityResetHandler.swift; sourceTree = "<group>"; };
+		D95F83AC2F14A1EB001199AB /* InactivityCountdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InactivityCountdownView.swift; sourceTree = "<group>"; };
 		EED8607232F01F14F779A2D5 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -102,6 +111,9 @@
 		B0E406537C85C6F345BF4979 /* Ysc */ = {
 			isa = PBXGroup;
 			children = (
+				D95F83AC2F14A1EB001199AB /* InactivityCountdownView.swift */,
+				D95F83A92F13720C001199AB /* InactivityResetHandler.swift */,
+				D95F83A62F13710E001199AB /* InactivityTimer.swift */,
 				D95F83A32F135D57001199AB /* CabinRulesView.swift */,
 				D1201F7D33DE27DC218A6258 /* Preview Content */,
 				62F1876AA511BEBFD31DF200 /* Assets.xcassets */,
@@ -234,9 +246,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D95F83AB2F13720C001199AB /* InactivityResetHandler.swift in Sources */,
 				C3D4E5F6A7B8C9D0E1F2A3B4 /* APIKeyManager.swift in Sources */,
 				D4E5F6A7B8C9D0E1F2A3B4C5 /* APIKeyInputView.swift in Sources */,
 				C8912B897FA688C87DAE2E45 /* ConnectingView.swift in Sources */,
+				D95F83A82F13710E001199AB /* InactivityTimer.swift in Sources */,
+				D95F83AD2F14A1EB001199AB /* InactivityCountdownView.swift in Sources */,
 				8AB56A1F137691A44B6B8F98 /* ContentView.swift in Sources */,
 				8840A3E78F3B9D36ABF36E70 /* DisconnectedView.swift in Sources */,
 				46D3C14DBA99427D142517C1 /* ErrorView.swift in Sources */,
@@ -251,9 +266,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D95F83AA2F13720C001199AB /* InactivityResetHandler.swift in Sources */,
 				E5F6A7B8C9D0E1F2A3B4C5D6 /* APIKeyManager.swift in Sources */,
 				F6A7B8C9D0E1F2A3B4C5D6E7 /* APIKeyInputView.swift in Sources */,
 				FEA99EA236046BA0289BEA38 /* ConnectingView.swift in Sources */,
+				D95F83A72F13710E001199AB /* InactivityTimer.swift in Sources */,
+				D95F83AE2F14A1EB001199AB /* InactivityCountdownView.swift in Sources */,
 				B5D65ECF14FEBD84F54B5568 /* ContentView.swift in Sources */,
 				20ABBC33CF9F360CC9253D21 /* DisconnectedView.swift in Sources */,
 				FAD9327345A098540F1A7951 /* ErrorView.swift in Sources */,
@@ -330,6 +348,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Ysc;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.example.Ysc;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -423,6 +443,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Ysc;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.example.Ysc;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;

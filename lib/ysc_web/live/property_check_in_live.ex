@@ -306,6 +306,25 @@ defmodule YscWeb.PropertyCheckInLive do
     end
   end
 
+  @impl true
+  def handle_event("native_nav", %{"to" => to}, socket) do
+    allowed =
+      MapSet.new([
+        "/",
+        "/property-check-in",
+        "/bookings/tahoe",
+        "/bookings/tahoe/staying-with",
+        "/bookings/clear-lake",
+        "/cabin-rules"
+      ])
+
+    if MapSet.member?(allowed, to) do
+      {:noreply, push_navigate(socket, to: to)}
+    else
+      {:noreply, socket}
+    end
+  end
+
   defp update_vehicle_make(make, socket) do
     make =
       make

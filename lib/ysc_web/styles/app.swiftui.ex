@@ -399,7 +399,7 @@ defmodule YscWeb.Styles.App.SwiftUI do
 
   "kiosk-timeline" do
     padding(12)
-    background(.secondarySystemBackground)
+    background(Color(.secondarySystemBackground))
     cornerRadius(18)
   end
 
@@ -436,7 +436,7 @@ defmodule YscWeb.Styles.App.SwiftUI do
 
   # --- Concierge / web-design-language translation (parser-safe) ---
   "kiosk-bg" do
-    background(.systemGroupedBackground)
+    background(Color(.systemGroupedBackground))
     ignoresSafeArea()
   end
 

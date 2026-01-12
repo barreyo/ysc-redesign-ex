@@ -22,11 +22,7 @@
   <HStack style={["frame(maxWidth: .infinity, alignment: .center)"]}>
     <HStack
       spacing={12}
-      style={[
-        "padding(12)",
-        "background(.secondarySystemBackground)",
-        "clipShape(RoundedRectangle(cornerRadius: 18))"
-      ]}
+      class="kiosk-timeline"
     >
       <%= for {label, idx} <- Enum.with_index(timeline_steps, 1) do %>
         <HStack spacing={8}>
@@ -174,8 +170,7 @@
             />
             <VStack alignment="leading" spacing={12} style={[
               "padding(20)",
-              "frame(maxWidth: .infinity, alignment: .topLeading)",
-              "clipShape(RoundedRectangle(cornerRadius: 22))"
+              "frame(maxWidth: .infinity, alignment: .topLeading)"
             ]}>
             <HStack style={["frame(maxWidth: .infinity)"]}>
               <VStack alignment="leading" spacing={2}>
@@ -188,8 +183,7 @@
                 style={[
                   "padding(.horizontal, 10)",
                   "padding(.vertical, 6)",
-                  "background(.blue.opacity(0.12))",
-                  "clipShape(Capsule())"
+                  "background(.blue.opacity(0.12))"
                 ]}
               >
                 <Text style={["font(.system(size: 12, weight: .semibold))", "foregroundStyle(.blue)"]}>
@@ -218,7 +212,6 @@
                       "padding(.horizontal, 10)",
                       "padding(.vertical, 6)",
                       "background(.white)",
-                      "clipShape(RoundedRectangle(cornerRadius: 999))",
                       "shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)"
                     ]}
                   >
@@ -281,8 +274,7 @@
               style={[
                 "padding(.horizontal, 10)",
                 "padding(.vertical, 6)",
-                "background(.blue.opacity(0.12))",
-                "clipShape(Capsule())"
+                "background(.blue.opacity(0.12))"
               ]}
             >
               <Text style={["font(.system(size: 12, weight: .semibold))", "foregroundStyle(.blue)"]}>
@@ -474,7 +466,7 @@
                       <% vehicle.color == "Gray" -> %>
                         <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.gray)"]} />
                       <% vehicle.color == "Silver" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.systemGray2)"]} />
+                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.gray)"]} />
                       <% vehicle.color == "Blue" -> %>
                         <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.blue)"]} />
                       <% vehicle.color == "Red" -> %>
@@ -564,8 +556,7 @@
                 />
                 <VStack spacing={10} style={[
                   "padding(18)",
-                  "frame(maxWidth: .infinity, minHeight: 140)",
-                  "clipShape(RoundedRectangle(cornerRadius: 20))"
+                  "frame(maxWidth: .infinity, minHeight: 140)"
                 ]}>
                   <Image systemName="car.side" style={["font(.system(size: 44))", "foregroundStyle(.tint)"]} />
                   <Text font="headline" style={["fontWeight(.bold)"]}>Sedan</Text>
@@ -592,8 +583,7 @@
                 />
                 <VStack spacing={10} style={[
                   "padding(18)",
-                  "frame(maxWidth: .infinity, minHeight: 140)",
-                  "clipShape(RoundedRectangle(cornerRadius: 20))"
+                  "frame(maxWidth: .infinity, minHeight: 140)"
                 ]}>
                   <Image systemName="suv.side" style={["font(.system(size: 44))", "foregroundStyle(.tint)"]} />
                   <Text font="headline" style={["fontWeight(.bold)"]}>SUV</Text>
@@ -622,8 +612,7 @@
                 />
                 <VStack spacing={10} style={[
                   "padding(18)",
-                  "frame(maxWidth: .infinity, minHeight: 140)",
-                  "clipShape(RoundedRectangle(cornerRadius: 20))"
+                  "frame(maxWidth: .infinity, minHeight: 140)"
                 ]}>
                   <Image systemName="truck.pickup.side" style={["font(.system(size: 44))", "foregroundStyle(.tint)"]} />
                   <Text font="headline" style={["fontWeight(.bold)"]}>Pick up</Text>
@@ -650,8 +639,7 @@
                 />
                 <VStack spacing={10} style={[
                   "padding(18)",
-                  "frame(maxWidth: .infinity, minHeight: 140)",
-                  "clipShape(RoundedRectangle(cornerRadius: 20))"
+                  "frame(maxWidth: .infinity, minHeight: 140)"
                 ]}>
                   <Image systemName="car.side" style={["font(.system(size: 44))", "foregroundStyle(.tint)"]} />
                   <Text font="headline" style={["fontWeight(.bold)"]}>Hatchback</Text>
@@ -680,8 +668,7 @@
                 />
                 <VStack spacing={10} style={[
                   "padding(18)",
-                  "frame(maxWidth: .infinity, minHeight: 140)",
-                  "clipShape(RoundedRectangle(cornerRadius: 20))"
+                  "frame(maxWidth: .infinity, minHeight: 140)"
                 ]}>
                   <Image systemName="bus" style={["font(.system(size: 44))", "foregroundStyle(.tint)"]} />
                   <Text font="headline" style={["fontWeight(.bold)"]}>VAN</Text>
@@ -725,7 +712,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.black)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.black)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>White</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -739,7 +726,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.black)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.black)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>White</Text>
                   </HStack>
                 </ZStack>
@@ -757,7 +744,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Black</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -771,7 +758,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Black</Text>
                   </HStack>
                 </ZStack>
@@ -789,7 +776,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Gray</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -803,7 +790,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Gray</Text>
                   </HStack>
                 </ZStack>
@@ -824,7 +811,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Silver</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -838,7 +825,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Silver</Text>
                   </HStack>
                 </ZStack>
@@ -856,7 +843,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Blue</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -870,7 +857,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Blue</Text>
                   </HStack>
                 </ZStack>
@@ -888,7 +875,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Red</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -902,7 +889,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Red</Text>
                   </HStack>
                 </ZStack>
@@ -923,7 +910,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Green</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -937,7 +924,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Green</Text>
                   </HStack>
                 </ZStack>
@@ -955,7 +942,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Brown</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -969,7 +956,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Brown</Text>
                   </HStack>
                 </ZStack>
@@ -987,7 +974,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Orange</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -1001,7 +988,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Orange</Text>
                   </HStack>
                 </ZStack>
@@ -1022,7 +1009,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Gold</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -1036,7 +1023,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Gold</Text>
                   </HStack>
                 </ZStack>
@@ -1054,7 +1041,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Purple</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -1068,7 +1055,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Purple</Text>
                   </HStack>
                 </ZStack>
@@ -1086,7 +1073,7 @@
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Yellow</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -1100,7 +1087,7 @@
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "clipShape(RoundedRectangle(cornerRadius: 16))", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Yellow</Text>
                   </HStack>
                 </ZStack>
@@ -1120,7 +1107,6 @@
           "frame(maxWidth: 520, alignment: .leading)",
           "padding(22)",
           "background(.white)",
-          "clipShape(RoundedRectangle(cornerRadius: 22))",
           "shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 6)"
         ]}>
           <Text style={["foregroundStyle(.secondary)"]}>
@@ -1147,7 +1133,6 @@
                   "controlSize(.large)",
                   "font(.title3)",
                   "frame(height: 64)",
-                  "autocomplete(.suggestions([\"Toyota\", \"Ford\", \"Chevrolet\", \"Honda\", \"Hyundai\", \"Nissan\", \"Kia\", \"GMC\", \"Subaru\", \"Jeep\", \"Tesla\"]))"
                 ]}
               />
             </VStack>
