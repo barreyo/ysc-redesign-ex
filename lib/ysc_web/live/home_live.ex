@@ -1989,8 +1989,6 @@ defmodule YscWeb.HomeLive do
     Calendar.strftime(date, "%b %d")
   end
 
-  defp format_booking_date(_), do: ""
-
   defp days_since_inserted(%DateTime{} = inserted_at) do
     # Get current time in PST and convert inserted_at to PST
     now_pst = DateTime.now!("America/Los_Angeles")
@@ -2037,7 +2035,12 @@ defmodule YscWeb.HomeLive do
     end
   end
 
-  defp preview_text_for_news(%Post{preview_text: preview_text}), do: preview_text
+  defp preview_text_for_news(%Post{preview_text: preview_text}),
+    do:
+      preview_text
+      |> Scrubber.scrub(YscWeb.Scrubber.StripEverythingExceptText)
+      |> String.slice(0, 150)
+      |> Kernel.<>("...")
 
   defp thumbnail_image_url(nil), do: "/images/ysc_logo.png"
   defp thumbnail_image_url(%Image{thumbnail_path: nil} = image), do: image.raw_image_path
