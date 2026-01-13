@@ -634,7 +634,7 @@ defmodule YscWeb.HomeLive do
                   }
                 />
               </div>
-              <time class="text-[10px] font-black text-teal-600 uppercase tracking-widest">
+              <time class="text-[10px] font-black text-blue-600 uppercase tracking-widest">
                 <%= format_post_date(post.published_on) %> · <%= reading_time_for_news(post) %> min read
               </time>
               <h3 class="text-2xl font-black text-zinc-900 tracking-tighter mt-3 group-hover:text-blue-600 transition-colors leading-none">
@@ -802,7 +802,7 @@ defmodule YscWeb.HomeLive do
         <div class="max-w-screen-xl mx-auto px-4 py-10 lg:py-16">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div class="space-y-1">
-              <p class="text-teal-600 text-xs font-bold uppercase tracking-[0.2em]">
+              <p class="text-blue-600 text-xs font-bold uppercase tracking-[0.2em]">
                 Member Dashboard
               </p>
               <h1 class="text-4xl lg:text-5xl font-black text-zinc-900 tracking-tight">
@@ -896,11 +896,11 @@ defmodule YscWeb.HomeLive do
             <section>
               <div class="flex items-center justify-between mb-6">
                 <h3 class="text-lg font-bold text-zinc-900 flex items-center gap-2">
-                  <.icon name="hero-map-pin" class="w-5 h-5 text-teal-600" />Your Upcoming Stays
+                  <.icon name="hero-map-pin" class="w-5 h-5 text-blue-600" />Your Upcoming Stays
                 </h3>
                 <.link
                   navigate={~p"/users/payments"}
-                  class="text-xs font-bold text-teal-600 hover:underline"
+                  class="text-xs font-bold text-blue-600 hover:underline"
                 >
                   View All Trips
                 </.link>
@@ -1075,7 +1075,7 @@ defmodule YscWeb.HomeLive do
                       <.icon name="hero-ticket" class="w-8 h-8 text-zinc-300" />
                     </div>
                     <.link navigate={~p"/events/#{event.id}"} class="block group">
-                      <h4 class="font-black text-zinc-900 leading-tight mb-2 group-hover:text-teal-600 transition-colors">
+                      <h4 class="font-black text-zinc-900 leading-tight mb-2 group-hover:text-blue-600 transition-colors">
                         <%= event.title %>
                       </h4>
                     </.link>
@@ -1094,7 +1094,7 @@ defmodule YscWeb.HomeLive do
                       <.link
                         :if={order_id}
                         navigate={~p"/orders/#{order_id}/confirmation"}
-                        class="text-xs font-bold text-zinc-700 hover:text-teal-600 underline transition-colors"
+                        class="text-xs font-bold text-zinc-700 hover:text-blue-600 underline transition-colors"
                       >
                         View Order
                       </.link>
@@ -1126,7 +1126,7 @@ defmodule YscWeb.HomeLive do
             ]}>
               <div class="absolute inset-0 z-0 opacity-40">
                 <%= if @active_membership? do %>
-                  <div class="absolute -top-[20%] -left-[10%] h-[80%] w-[80%] rounded-full bg-teal-500 blur-[80px]">
+                  <div class="absolute -top-[20%] -left-[10%] h-[80%] w-[80%] rounded-full bg-blue-500 blur-[80px]">
                   </div>
                   <div class="absolute top-[20%] -right-[10%] h-[70%] w-[70%] rounded-full bg-blue-600 blur-[80px]">
                   </div>
@@ -1156,7 +1156,7 @@ defmodule YscWeb.HomeLive do
                     class={[
                       "w-6 h-6",
                       if @active_membership? do
-                        "text-teal-400"
+                        "text-blue-400"
                       else
                         "text-amber-300"
                       end
@@ -1198,7 +1198,7 @@ defmodule YscWeb.HomeLive do
                   class={[
                     "flex w-full items-center justify-center rounded px-6 py-4 text-sm font-black transition-all hover:scale-[1.02] active:scale-[0.98]",
                     if @active_membership? do
-                      "bg-white text-zinc-900 hover:bg-teal-50"
+                      "bg-white text-zinc-900 hover:bg-blue-50"
                     else
                       "bg-white text-amber-900 hover:bg-amber-50 shadow-lg animate-pulse"
                     end
@@ -1256,10 +1256,10 @@ defmodule YscWeb.HomeLive do
                       </div>
                     </div>
                     <div>
-                      <p class="text-[10px] font-bold text-teal-600 mb-1">
+                      <p class="text-[10px] font-bold text-blue-600 mb-1">
                         <%= format_post_date(post.published_on) %>
                       </p>
-                      <h4 class="text-sm font-bold text-zinc-900 group-hover:text-teal-600 transition-colors">
+                      <h4 class="text-sm font-bold text-zinc-900 group-hover:text-blue-600 transition-colors">
                         <%= post.title %>
                       </h4>
                       <p class="text-xs text-zinc-500 line-clamp-1">
@@ -1286,7 +1286,7 @@ defmodule YscWeb.HomeLive do
               </div>
               <.link
                 navigate={~p"/events"}
-                class="text-sm font-bold text-teal-600 hover:text-teal-700 transition-colors"
+                class="text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
               >
                 View all events →
               </.link>

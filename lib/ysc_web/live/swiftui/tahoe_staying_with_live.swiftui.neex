@@ -1,1 +1,33 @@
-<RoomCalendar data={@calendar_data_json} />
+<VStack spacing={0}>
+  <VStack alignment="leading" spacing={8} style={["padding(20)", "frame(maxWidth: .infinity, alignment: .leading)"]}>
+    <Text style={["font(.system(size: 32, weight: .bold))"]}>
+      Who Am I Staying With?
+    </Text>
+    <Text style={["font(.system(size: 16))", "foregroundStyle(.secondary)"]}>
+      <%= @date_range_text %>
+    </Text>
+  </VStack>
+
+  <TabView selection={@tab} phx-change="tab-changed" style={["background(.white)"]}>
+    <VStack tag="1" style="tabItem(:item)">
+      <Label
+        template="item"
+        systemImage="calendar"
+      >
+        Calendar
+      </Label>
+
+      <RoomCalendar data={@calendar_data_json} />
+    </VStack>
+    <VStack tag="2" style="tabItem(:item)">
+      <Label
+        template="item"
+        systemImage="list.bullet"
+      >
+        Reservations
+      </Label>
+
+      <ReservationsTable data={@reservations_data_json} />
+    </VStack>
+  </TabView>
+</VStack>

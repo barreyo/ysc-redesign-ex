@@ -61,11 +61,10 @@ struct LiveViewWithAPIKey: View {
     let baseProductionURL: URL
     let apiKey: String
     @ObservedObject var inactivityTimer: InactivityTimer
+    @ObservedObject var homePageState = HomePageState.shared // Observe shared state from PathTracker
     @State private var forceNavigateToHome: Bool = false
     @State private var navigationKey: Int = 0
-    @State private var isOnHomePage: Bool = true // Track if we're on home page
     @State private var justRedirected: Bool = false // Track if we just redirected (don't show countdown/redirect again)
-    @State private var initialLoadComplete: Bool = false // Track if initial load is complete
 
     init(developmentURL: URL, productionURL: URL, apiKey: String, inactivityTimer: InactivityTimer) {
         self.baseDevelopmentURL = developmentURL
@@ -91,15 +90,11 @@ struct LiveViewWithAPIKey: View {
 
     private var developmentURLWithKey: URL {
         // If we need to navigate to home, use home path, otherwise use base URL
-        let url = urlWithAPIKey(baseDevelopmentURL, path: forceNavigateToHome ? "/" : nil)
-        print("[ContentView] developmentURLWithKey computed - path: \(url.path), forceNavigateToHome: \(forceNavigateToHome)")
-        return url
+        urlWithAPIKey(baseDevelopmentURL, path: forceNavigateToHome ? "/" : nil)
     }
 
     private var productionURLWithKey: URL {
-        let url = urlWithAPIKey(baseProductionURL, path: forceNavigateToHome ? "/" : nil)
-        print("[ContentView] productionURLWithKey computed - path: \(url.path), forceNavigateToHome: \(forceNavigateToHome)")
-        return url
+        urlWithAPIKey(baseProductionURL, path: forceNavigateToHome ? "/" : nil)
     }
 
     var body: some View {
@@ -109,7 +104,7 @@ struct LiveViewWithAPIKey: View {
                     development: developmentURLWithKey,
                     production: productionURLWithKey
                 ),
-                addons: [.liveForm, .roomCalendarView, .cabinRulesView, .pathTrackerView]
+                addons: [.liveForm, .roomCalendarView, .cabinRulesView, .pathTrackerView, .reservationsTableView]
             ) {
                 ConnectingView()
             } disconnected: {
@@ -124,20 +119,14 @@ struct LiveViewWithAPIKey: View {
                         }
                 }
                 .onAppear {
-                    // When reconnecting view appears after initial load, it means we've navigated
-                    // Reset the inactivity timer when navigation happens
-                    if initialLoadComplete && !forceNavigateToHome {
-                        // User navigated to a new page - reset timer and mark as not on home
-                        isOnHomePage = false
-                        justRedirected = false // Reset redirect flag on new navigation
+                    // Reset timer when navigation happens (reconnecting view appears)
+                    if !forceNavigateToHome {
+                        justRedirected = false
                         inactivityTimer.reset()
-                        print("[ContentView] Navigation detected - reset timer, isOnHomePage = false")
-                    } else if forceNavigateToHome {
-                        // We're forcing to home - mark as on home and reset redirect flag
-                        isOnHomePage = true
+                    } else {
+                        // We're forcing to home
                         justRedirected = true // Set flag so we don't show countdown/redirect again
                         inactivityTimer.reset()
-                        print("[ContentView] Forced to home - isOnHomePage = true, justRedirected = true")
                     }
                 }
             } error: { error in
@@ -147,27 +136,24 @@ struct LiveViewWithAPIKey: View {
             .onAppear {
                 // Set up timeout callback to navigate to home
                 setupInactivityHandler()
-
-                // Track initial load - on first appearance, we're on home
-                if !initialLoadComplete {
-                    initialLoadComplete = true
-                    isOnHomePage = true
-                    justRedirected = false
-                    inactivityTimer.reset()
-                    print("[ContentView] Initial load - on home page, reset timer")
-                }
             }
             .onChange(of: forceNavigateToHome) { isForcing in
-                // When we force navigate to home, mark as on home
+                // When we force navigate to home, update state immediately (bypass debounce)
                 if isForcing {
-                    isOnHomePage = true
+                    homePageState.setImmediate(true)
                     justRedirected = true
                 }
+            }
+            // Observe changes to homePageState.isHome (updated by PathTracker)
+            .onChange(of: homePageState.isHome) { newValue in
+                print("[ContentView] homePageState.isHome changed to: \(newValue)")
+                justRedirected = false
+                inactivityTimer.reset()
             }
             .id(navigationKey) // Force re-render when navigation key changes
 
             // Countdown indicator overlay (only show if not on home page and not just redirected)
-            let shouldShowCountdown = !isOnHomePage &&
+            let shouldShowCountdown = !homePageState.isHome &&
                 !justRedirected && // Don't show if we just redirected
                 !forceNavigateToHome && // Don't show when navigating to home
                 ((inactivityTimer.secondsRemaining <= InactivityTimer.warningThreshold && inactivityTimer.secondsRemaining > 0) || inactivityTimer.isCancelling)
@@ -184,12 +170,12 @@ struct LiveViewWithAPIKey: View {
     private func setupInactivityHandler() {
         inactivityTimer.onTimeout = {
             // Only navigate if we're not on home page and haven't just redirected
-            if !isOnHomePage && !justRedirected {
-                print("[ContentView] Inactivity timeout - navigating to home")
+            if !homePageState.isHome && !justRedirected {
+                print("[ContentView] Inactivity timeout - navigating to home (isHome: \(homePageState.isHome))")
                 // Force navigation by changing the URL to home and triggering a re-render
                 DispatchQueue.main.async {
                     forceNavigateToHome = true
-                    isOnHomePage = true
+                    homePageState.setImmediate(true) // Bypass debounce for forced navigation
                     justRedirected = true // Set flag so we don't show countdown/redirect again
                     navigationKey += 1 // Force LiveView to reconnect with home URL
                     // Reset the flag after a short delay so normal navigation can work again
@@ -198,7 +184,7 @@ struct LiveViewWithAPIKey: View {
                     }
                 }
             } else {
-                print("[ContentView] Inactivity timeout - already on home or just redirected, skipping navigation")
+                print("[ContentView] Inactivity timeout - already on home (isHome: \(homePageState.isHome)) or just redirected, skipping navigation")
             }
         }
     }

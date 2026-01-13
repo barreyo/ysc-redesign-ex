@@ -130,19 +130,6 @@ struct RoomCalendar<Root: RootRegistry>: View {
     @ViewBuilder
     private func calendarView(data: CalendarData) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Who Am I Staying With?")
-                    .font(.system(size: 32, weight: .bold))
-
-                Text(dateRangeText(startDate: data.calendarStartDate, endDate: data.calendarEndDate))
-                    .font(.system(size: 16))
-                    .foregroundColor(.secondary)
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial)
-
             // Legend
             HStack(alignment: .center, spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
@@ -156,7 +143,7 @@ struct RoomCalendar<Root: RootRegistry>: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial)
+            .background(.white)
 
             // Calendar Grid
             HStack(alignment: VerticalAlignment.top, spacing: 0) {
@@ -170,6 +157,7 @@ struct RoomCalendar<Root: RootRegistry>: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(height: headerHeight)
                     .background(Color(uiColor: .secondarySystemBackground))
                     .overlay(
@@ -512,23 +500,6 @@ struct RoomCalendar<Root: RootRegistry>: View {
         formatter.formatOptions = [.withFullDate, .withDashSeparatorInDate]
         formatter.timeZone = TimeZone(identifier: "America/Los_Angeles") // Use PST/PDT
         return formatter.date(from: dateStr)
-    }
-
-    private func dateRangeText(startDate: String, endDate: String) -> String {
-        let formatter = DateFormatter()
-        formatter.timeZone = TimeZone(identifier: "America/Los_Angeles") // Use PST/PDT
-        formatter.dateFormat = "MMMM dd"
-
-        guard let start = parseDate(startDate),
-              let end = parseDate(endDate) else {
-            return "\(startDate) - \(endDate)"
-        }
-
-        let startStr = formatter.string(from: start)
-        formatter.dateFormat = "MMMM dd, yyyy"
-        let endStr = formatter.string(from: end)
-
-        return "\(startStr) - \(endStr)"
     }
 }
 

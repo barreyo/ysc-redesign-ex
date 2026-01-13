@@ -58,21 +58,31 @@ defmodule YscWeb.TahoeStayingWithLive do
     calendar_data_json =
       format_calendar_data(rooms, calendar_dates, bookings_by_room, today, start_date, end_date)
 
+    # Format reservations data for table (flatten bookings with room names)
+    reservations_data_json = format_reservations_data(bookings, rooms)
+
     # Ensure we have valid JSON
     if calendar_data_json == nil || calendar_data_json == "" do
       require Logger
       Logger.error("[TahoeStayingWithLive] Failed to generate calendar_data_json")
     end
 
+    # Format date range for display
+    date_range_text = format_date_range_text(start_date, end_date)
+
     socket =
       socket
       |> assign(:calendar_data_json, calendar_data_json)
+      |> assign(:reservations_data_json, reservations_data_json)
+      # Default to calendar tab
+      |> assign(:tab, "1")
+      |> assign(:date_range_text, date_range_text)
 
     {:ok, socket}
   end
 
   @impl true
-  def handle_params(_params, uri, socket) do
+  def handle_params(params, uri, socket) do
     # Parse URI to get current path and send to SwiftUI
     parsed_uri = URI.parse(uri)
     current_path = parsed_uri.path || "/"
@@ -82,7 +92,26 @@ defmodule YscWeb.TahoeStayingWithLive do
       socket
       |> Phoenix.LiveView.push_event("current_path", %{path: current_path})
 
+    # Restore tab state from query params
+    tab = Map.get(params, "tab", socket.assigns.tab || "1")
+    socket = assign(socket, :tab, tab)
+
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("tab-changed", %{"selection" => tab}, socket) do
+    # Only update if tab actually changed
+    if tab != socket.assigns.tab do
+      # Update URL with the new tab (handle_params will update the assign)
+      socket =
+        socket
+        |> push_patch(to: ~p"/bookings/tahoe/staying-with?tab=#{tab}", replace: true)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
   end
 
   defp format_user_name(user) do
@@ -177,5 +206,56 @@ defmodule YscWeb.TahoeStayingWithLive do
 
     # Encode to JSON
     Jason.encode!(calendar_data)
+  end
+
+  defp format_reservations_data(bookings, rooms) do
+    # Create a map of room_id -> room_name for quick lookup
+    room_map =
+      rooms
+      |> Enum.map(fn room -> {room.id, room.name} end)
+      |> Map.new()
+
+    # Flatten bookings - each booking can have multiple rooms, so create a row per room
+    reservations =
+      bookings
+      |> Enum.flat_map(fn booking ->
+        # Get room names for this booking
+        room_names =
+          booking.rooms
+          |> Enum.map(fn room -> Map.get(room_map, room.id, "Unknown") end)
+          |> Enum.sort()
+          |> Enum.join(", ")
+
+        # Create one reservation entry per booking (with all rooms listed)
+        [
+          %{
+            id: to_string(booking.id),
+            userName: format_user_name(booking.user),
+            roomNames: room_names,
+            checkinDate: Date.to_iso8601(booking.checkin_date),
+            checkoutDate: Date.to_iso8601(booking.checkout_date),
+            checkedIn: booking.checked_in || false,
+            carInfo: format_car_info(booking.check_ins),
+            guestsCount: booking.guests_count || 1,
+            childrenCount: booking.children_count || 0
+          }
+        ]
+      end)
+      |> Enum.sort_by(& &1.checkinDate)
+
+    # Build the data structure
+    reservations_data = %{
+      reservations: reservations
+    }
+
+    # Encode to JSON
+    Jason.encode!(reservations_data)
+  end
+
+  defp format_date_range_text(start_date, end_date) do
+    # Format: "MMMM dd - MMMM dd, yyyy" (e.g., "January 08 - January 22, 2025")
+    start_str = Calendar.strftime(start_date, "%B %d")
+    end_str = Calendar.strftime(end_date, "%B %d, %Y")
+    "#{start_str} - #{end_str}"
   end
 end

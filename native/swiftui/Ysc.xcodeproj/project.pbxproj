@@ -30,6 +30,8 @@
 		D4E5F6A7B8C9D0E1F2A3B4C5 /* APIKeyInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3B4 /* APIKeyInputView.swift */; };
 		D952E9CD2F14AD8400D68D62 /* PathTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952E9CC2F14AD8400D68D62 /* PathTracker.swift */; };
 		D952E9CE2F14AD8400D68D62 /* PathTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952E9CC2F14AD8400D68D62 /* PathTracker.swift */; };
+		D952E9D02F16BE9400D68D62 /* ReservationsTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952E9CF2F16BE9400D68D62 /* ReservationsTableView.swift */; };
+		D952E9D12F16BE9500D68D62 /* ReservationsTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952E9CF2F16BE9400D68D62 /* ReservationsTableView.swift */; };
 		D95F83A12F134ED4001199AB /* RoomCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A02F134ED4001199AB /* RoomCalendarView.swift */; };
 		D95F83A22F134ED4001199AB /* RoomCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A02F134ED4001199AB /* RoomCalendarView.swift */; };
 		D95F83A42F135D57001199AB /* CabinRulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A32F135D57001199AB /* CabinRulesView.swift */; };
@@ -64,6 +66,7 @@
 		B69A64FE836650C1AE24A420 /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
 		CDF2D5AAF66CBECF751735DE /* Ysc.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ysc.swift; sourceTree = "<group>"; };
 		D952E9CC2F14AD8400D68D62 /* PathTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathTracker.swift; sourceTree = "<group>"; };
+		D952E9CF2F16BE9400D68D62 /* ReservationsTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReservationsTableView.swift; sourceTree = "<group>"; };
 		D95F83A02F134ED4001199AB /* RoomCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomCalendarView.swift; sourceTree = "<group>"; };
 		D95F83A32F135D57001199AB /* CabinRulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CabinRulesView.swift; sourceTree = "<group>"; };
 		D95F83A62F13710E001199AB /* InactivityTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InactivityTimer.swift; sourceTree = "<group>"; };
@@ -114,6 +117,7 @@
 		B0E406537C85C6F345BF4979 /* Ysc */ = {
 			isa = PBXGroup;
 			children = (
+				D952E9CF2F16BE9400D68D62 /* ReservationsTableView.swift */,
 				D952E9CC2F14AD8400D68D62 /* PathTracker.swift */,
 				D95F83AC2F14A1EB001199AB /* InactivityCountdownView.swift */,
 				D95F83A92F13720C001199AB /* InactivityResetHandler.swift */,
@@ -253,6 +257,7 @@
 				D95F83AB2F13720C001199AB /* InactivityResetHandler.swift in Sources */,
 				C3D4E5F6A7B8C9D0E1F2A3B4 /* APIKeyManager.swift in Sources */,
 				D4E5F6A7B8C9D0E1F2A3B4C5 /* APIKeyInputView.swift in Sources */,
+				D952E9D12F16BE9500D68D62 /* ReservationsTableView.swift in Sources */,
 				D952E9CD2F14AD8400D68D62 /* PathTracker.swift in Sources */,
 				C8912B897FA688C87DAE2E45 /* ConnectingView.swift in Sources */,
 				D95F83A82F13710E001199AB /* InactivityTimer.swift in Sources */,
@@ -274,6 +279,7 @@
 				D95F83AA2F13720C001199AB /* InactivityResetHandler.swift in Sources */,
 				E5F6A7B8C9D0E1F2A3B4C5D6 /* APIKeyManager.swift in Sources */,
 				F6A7B8C9D0E1F2A3B4C5D6E7 /* APIKeyInputView.swift in Sources */,
+				D952E9D02F16BE9400D68D62 /* ReservationsTableView.swift in Sources */,
 				D952E9CE2F14AD8400D68D62 /* PathTracker.swift in Sources */,
 				FEA99EA236046BA0289BEA38 /* ConnectingView.swift in Sources */,
 				D95F83A72F13710E001199AB /* InactivityTimer.swift in Sources */,

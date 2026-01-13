@@ -1,6 +1,6 @@
 <.csrf_token />
 <Style url={~p"/assets/app.swiftui.styles"} />
-<PathTracker />
+<PathTracker is-home={(@request_path || "/") in ["/", ""]} />
 <NavigationStack
   class="kiosk-bg"
   style={[
