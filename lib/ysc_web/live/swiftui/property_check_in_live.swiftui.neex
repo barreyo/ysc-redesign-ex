@@ -20,69 +20,82 @@
   %>
 
   <HStack style={["frame(maxWidth: .infinity, alignment: .center)"]}>
-    <ZStack>
-      <HStack
-        spacing={12}
-        class="kiosk-timeline"
-      >
+    <HStack
+      spacing={6}
+      style={[
+        "padding(.horizontal, 20)",
+        "padding(.vertical, 12)",
+        "background(.white.opacity(0.9))",
+        "clipShape(.capsule)"
+      ]}
+    >
       <%= for {label, idx} <- Enum.with_index(timeline_steps, 1) do %>
-        <HStack spacing={8}>
+        <HStack spacing={6}>
           <%= cond do %>
             <% idx < current_step -> %>
-              <Image
-                systemName="checkmark.circle.fill"
-                style={[
-                  "font(.system(size: 18, weight: .semibold))",
-                  "foregroundStyle(.green)"
-                ]}
-              />
+              <ZStack>
+                <Circle style={["fill(.green.opacity(0.15))", "frame(width: 28, height: 28)"]} />
+                <Image
+                  systemName="checkmark"
+                  style={[
+                    "font(.system(size: 12, weight: .bold))",
+                    "foregroundStyle(.green)"
+                  ]}
+                />
+              </ZStack>
             <% idx == current_step -> %>
-              <Image
-                systemName="circle.fill"
-                style={[
-                  "font(.system(size: 18, weight: .semibold))",
-                  "foregroundStyle(.tint)"
-                ]}
-              />
+              <ZStack>
+                <Circle style={["fill(.blue)", "frame(width: 28, height: 28)"]} />
+                <Text style={["font(.system(size: 13, weight: .bold))", "foregroundStyle(.white)"]}>
+                  <%= idx %>
+                </Text>
+              </ZStack>
             <% true -> %>
-              <Image
-                systemName="circle"
-                style={[
-                  "font(.system(size: 18, weight: .semibold))",
-                  "foregroundStyle(.secondary)"
-                ]}
-              />
+              <ZStack>
+                <Circle style={["fill(.gray.opacity(0.15))", "frame(width: 28, height: 28)"]} />
+                <Text style={["font(.system(size: 13, weight: .semibold))", "foregroundStyle(.gray)"]}>
+                  <%= idx %>
+                </Text>
+              </ZStack>
           <% end %>
 
-          <%= if idx == current_step do %>
-            <Text style={["font(.system(size: 16, weight: .semibold))", "foregroundStyle(.primary)"]}>
-              <%= label %>
-            </Text>
-          <% else %>
-            <Text style={["font(.system(size: 16, weight: .semibold))", "foregroundStyle(.secondary)"]}>
-              <%= label %>
-            </Text>
+          <%= cond do %>
+            <% idx < current_step -> %>
+              <Text style={["font(.system(size: 14, weight: .medium))", "foregroundStyle(.green)"]}>
+                <%= label %>
+              </Text>
+            <% idx == current_step -> %>
+              <Text style={["font(.system(size: 14, weight: .semibold))", "foregroundStyle(.primary)"]}>
+                <%= label %>
+              </Text>
+            <% true -> %>
+              <Text style={["font(.system(size: 14, weight: .medium))", "foregroundStyle(.secondary)"]}>
+                <%= label %>
+              </Text>
           <% end %>
 
-          <Image
-            :if={idx != Enum.count(timeline_steps)}
-            systemName="chevron.right"
-            style={[
-              "font(.system(size: 14, weight: .semibold))",
-              "foregroundStyle(.tertiary)"
-            ]}
-          />
+          <%= if idx != Enum.count(timeline_steps) do %>
+            <Image
+              systemName="chevron.right"
+              style={[
+                "font(.system(size: 11, weight: .semibold))",
+                "foregroundStyle(.quaternary)",
+                "padding(.horizontal, 4)"
+              ]}
+            />
+          <% end %>
         </HStack>
       <% end %>
-      </HStack>
-    </ZStack>
+    </HStack>
   </HStack>
 
   <VStack :if={@step == :search} alignment="center" spacing={28} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
-    <Text style={["font(.system(size: 44, weight: .bold))"]}>Find your reservation</Text>
-    <Text multilineTextAlignment="center" style={["frame(maxWidth: 520)", "foregroundStyle(.secondary)"]}>
-      Enter the last name on the reservation to search.
-    </Text>
+    <VStack spacing={12}>
+      <Text style={["font(.system(size: 44, weight: .bold))"]}>Find your reservation</Text>
+      <Text multilineTextAlignment="center" style={["frame(maxWidth: 520)", "foregroundStyle(.secondary)", "font(.system(size: 17))"]}>
+        Enter the last name on your reservation to begin check-in.
+      </Text>
+    </VStack>
 
     <.simple_form
       :let={f}
@@ -154,76 +167,84 @@
         %>
 
         <Button phx-click="select_reservation" phx-value-number={reservation.number} style="buttonStyle(.plain)">
-          <ZStack alignment="topLeading">
-            <RoundedRectangle
-              cornerRadius={22}
-              style={[
-                "background(.white)",
-                "frame(maxWidth: .infinity)",
-                "shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)"
-              ]}
-            />
-            <RoundedRectangle
-              cornerRadius={22}
-              style={[
-                "stroke(.gray.opacity(0.3), lineWidth: 1)",
-                "frame(maxWidth: .infinity)"
-              ]}
-            />
-            <VStack alignment="leading" spacing={12} style={[
+          <HStack spacing={0} style={[
+            "frame(maxWidth: .infinity)",
+            "background(.white)",
+            "clipShape(.rect(cornerRadius: 22))",
+            "shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)",
+            "overlay(RoundedRectangle(cornerRadius: 22).stroke(.blue.opacity(0.3), lineWidth: 2))"
+          ]}>
+            <VStack alignment="leading" spacing={10} style={[
               "padding(20)",
               "frame(maxWidth: .infinity, alignment: .topLeading)"
             ]}>
-            <HStack style={["frame(maxWidth: .infinity)"]}>
-              <VStack alignment="leading" spacing={2}>
-                <Text font="title2" style={["fontWeight(.bold)"]}><%= primary_name %></Text>
-                <Text style={["font(.system(size: 15))", "foregroundStyle(.secondary)"]}><%= reservation.property_name %></Text>
-              </VStack>
-              <Spacer />
-              <HStack
-                spacing={6}
-                style={[
-                  "padding(.horizontal, 10)",
-                  "padding(.vertical, 6)",
-                  "background(.blue.opacity(0.12))"
-                ]}
-              >
-                <Text style={["font(.system(size: 12, weight: .semibold))", "foregroundStyle(.blue)"]}>
-                  <%= reservation.number %>
-                </Text>
+              <HStack style={["frame(maxWidth: .infinity)"]}>
+                <VStack alignment="leading" spacing={2}>
+                  <Text font="title2" style={["fontWeight(.bold)"]}><%= primary_name %></Text>
+                  <Text style={["font(.system(size: 15))", "foregroundStyle(.secondary)"]}><%= reservation.property_name %></Text>
+                </VStack>
+                <Spacer />
+                <Text
+                  style={[
+                    "font(.system(size: 12, weight: .semibold))",
+                    "foregroundStyle(.blue)",
+                    "padding(.horizontal, 10)",
+                    "padding(.vertical, 5)",
+                    "background(.blue.opacity(0.12))",
+                    "clipShape(.capsule)"
+                  ]}
+                ><%= reservation.number %></Text>
               </HStack>
-            </HStack>
 
-            <HStack spacing={10}>
-              <Text style={["foregroundStyle(.secondary)"]}>
-                <%= reservation.adult_count %> adults
-              </Text>
-              <Text style={["foregroundStyle(.secondary)"]}>•</Text>
-              <Text style={["foregroundStyle(.secondary)"]}>
-                <%= reservation.child_count %> children
-              </Text>
-            </HStack>
+              <HStack spacing={10}>
+                <HStack spacing={4}>
+                  <Image systemName="person.fill" style={["font(.system(size: 11))", "foregroundStyle(.tertiary)"]} />
+                  <Text style={["foregroundStyle(.secondary)", "font(.system(size: 14))"]}>
+                    <%= reservation.adult_count %> adults
+                  </Text>
+                </HStack>
+                <%= if reservation.child_count > 0 do %>
+                  <Text style={["foregroundStyle(.tertiary)"]}>•</Text>
+                  <Text style={["foregroundStyle(.secondary)", "font(.system(size: 14))"]}>
+                    <%= reservation.child_count %> children
+                  </Text>
+                <% end %>
+              </HStack>
 
-            <VStack :if={reservation.rooms != []} alignment="leading" spacing={8}>
-              <Text style={["foregroundStyle(.secondary)"]}>Rooms</Text>
-              <HStack spacing={8}>
+              <HStack :if={reservation.rooms != []} spacing={6}>
+                <Image systemName="bed.double.fill" style={["font(.system(size: 12))", "foregroundStyle(.tertiary)"]} />
                 <%= for room_name <- reservation.rooms do %>
-                  <HStack
-                    spacing={6}
+                  <Text
                     style={[
+                      "font(.system(size: 13, weight: .medium))",
+                      "foregroundStyle(.secondary)",
                       "padding(.horizontal, 10)",
-                      "padding(.vertical, 6)",
-                      "background(.white)",
-                      "shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)"
+                      "padding(.vertical, 4)",
+                      "background(.gray.opacity(0.1))",
+                      "clipShape(.capsule)"
                     ]}
-                  >
-                    <Text style={["font(.system(size: 14, weight: .semibold))", "foregroundStyle(.secondary)"]}><%= room_name %></Text>
-                  </HStack>
+                  ><%= room_name %></Text>
                 <% end %>
               </HStack>
             </VStack>
+
+            <%!-- Tap indicator --%>
+            <VStack style={[
+              "frame(width: 48)",
+              "frame(maxHeight: .infinity)",
+              "background(.blue.opacity(0.08))"
+            ]}>
+              <Spacer />
+              <Image
+                systemName="chevron.right.circle.fill"
+                style={[
+                  "font(.system(size: 24))",
+                  "foregroundStyle(.blue)"
+                ]}
+              />
+              <Spacer />
             </VStack>
-          </ZStack>
+          </HStack>
         </Button>
       <% end %>
     </VStack>
@@ -235,10 +256,12 @@
     spacing={24}
     style={["frame(maxWidth: .infinity, alignment: .center)"]}
   >
-    <Text style={["font(.system(size: 44, weight: .bold))"]}>Confirm details</Text>
-    <Text multilineTextAlignment="center" style={["frame(maxWidth: 520)", "foregroundStyle(.secondary)"]}>
-      Please confirm your reservation details are correct.
-    </Text>
+    <VStack spacing={12}>
+      <Text style={["font(.system(size: 44, weight: .bold))"]}>Confirm details</Text>
+      <Text multilineTextAlignment="center" style={["frame(maxWidth: 520)", "foregroundStyle(.secondary)", "font(.system(size: 17))"]}>
+        Please review your reservation details before continuing.
+      </Text>
+    </VStack>
 
     <VStack alignment="leading" spacing={12} style={["frame(maxWidth: 520, alignment: .leading)"]}>
       <%
@@ -271,18 +294,16 @@
               </HStack>
             </VStack>
             <Spacer />
-            <HStack
-              spacing={6}
+            <Text
               style={[
+                "font(.system(size: 12, weight: .semibold))",
+                "foregroundStyle(.blue)",
                 "padding(.horizontal, 10)",
-                "padding(.vertical, 6)",
-                "background(.blue.opacity(0.12))"
+                "padding(.vertical, 5)",
+                "background(.blue.opacity(0.12))",
+                "clipShape(.capsule)"
               ]}
-            >
-              <Text style={["font(.system(size: 12, weight: .semibold))", "foregroundStyle(.blue)"]}>
-                <%= @reservation.number %>
-              </Text>
-            </HStack>
+            ><%= @reservation.number %></Text>
           </HStack>
 
           <%
@@ -380,10 +401,12 @@
     spacing={24}
     style={["frame(maxWidth: .infinity, alignment: .center)"]}
   >
-    <Text style={["font(.system(size: 44, weight: .bold))"]}>Vehicle information</Text>
-    <Text multilineTextAlignment="center" style={["frame(maxWidth: 520)", "foregroundStyle(.secondary)"]}>
-      Add each car by type, color, and maker. This helps guests manage and coordinate parking outside the cabin during your stay.
-    </Text>
+    <VStack spacing={12}>
+      <Text style={["font(.system(size: 44, weight: .bold))"]}>Vehicle information</Text>
+      <Text multilineTextAlignment="center" style={["frame(maxWidth: 520)", "foregroundStyle(.secondary)", "font(.system(size: 17))"]}>
+        Add your vehicle details to help coordinate parking during your stay.
+      </Text>
+    </VStack>
 
     <VStack alignment="center" spacing={16} style={["frame(maxWidth: 520, alignment: .center)"]}>
       <%!-- Step 1: Overview (always first in car flow) --%>
@@ -425,7 +448,7 @@
             </HStack>
           </VStack>
 
-          <VStack :if={@vehicles != []} alignment="leading" spacing={12} style={["frame(maxWidth: .infinity, alignment: .topLeading)"]}>
+          <VStack :if={@vehicles != []} alignment="leading" spacing={14} style={["frame(maxWidth: .infinity, alignment: .topLeading)"]}>
             <%= for vehicle <- @vehicles do %>
               <%
                 type_icon =
@@ -437,66 +460,92 @@
                     "VAN" -> "bus"
                     _ -> "car"
                   end
+
+                {bg_color, icon_color} =
+                  case vehicle.color do
+                    "White" -> {".gray.opacity(0.15)", ".gray"}
+                    "Black" -> {".black.opacity(0.9)", ".white"}
+                    "Gray" -> {".gray.opacity(0.4)", ".white"}
+                    "Silver" -> {".gray.opacity(0.25)", ".gray"}
+                    "Blue" -> {".blue.opacity(0.15)", ".blue"}
+                    "Red" -> {".red.opacity(0.15)", ".red"}
+                    "Green" -> {".green.opacity(0.15)", ".green"}
+                    "Brown" -> {".brown.opacity(0.2)", ".brown"}
+                    "Orange" -> {".orange.opacity(0.15)", ".orange"}
+                    "Gold" -> {".orange.opacity(0.2)", ".orange"}
+                    "Purple" -> {".purple.opacity(0.15)", ".purple"}
+                    "Yellow" -> {".yellow.opacity(0.3)", ".orange"}
+                    _ -> {".blue.opacity(0.1)", ".blue"}
+                  end
               %>
-              <.card
-                corner_radius={16}
-                fill=".white"
-                padding={14}
-                shadow_opacity={0.08}
-                shadow_radius={6}
-                shadow_x={0}
-                shadow_y={2}
-              >
-                <HStack>
-                  <ZStack>
-                    <RoundedRectangle
-                      cornerRadius={12}
+              <HStack spacing={14} style={[
+                "frame(maxWidth: .infinity)",
+                "padding(16)",
+                "background(.white)",
+                "clipShape(.rect(cornerRadius: 18))",
+                "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
+              ]}>
+                <%!-- Vehicle icon with color-matched background --%>
+                <ZStack style={["frame(width: 56, height: 56)"]}>
+                  <RoundedRectangle
+                    cornerRadius={14}
+                    style={[
+                      "fill(#{bg_color})",
+                      "frame(width: 56, height: 56)"
+                    ]}
+                  />
+                  <Image
+                    systemName={type_icon}
+                    style={[
+                      "font(.system(size: 26, weight: .medium))",
+                      "foregroundStyle(#{icon_color})"
+                    ]}
+                  />
+                </ZStack>
+
+                <%!-- Vehicle details --%>
+                <VStack alignment="leading" spacing={4} style={["frame(maxWidth: .infinity, alignment: .leading)"]}>
+                  <Text style={["font(.system(size: 18, weight: .semibold))"]}>
+                    <%= vehicle.make %>
+                  </Text>
+                  <HStack spacing={6}>
+                    <Text
                       style={[
-                        "background(.black.opacity(0.10))",
-                        "frame(width: 44, height: 44)"
+                        "font(.system(size: 13, weight: .medium))",
+                        "foregroundStyle(.secondary)",
+                        "padding(.horizontal, 8)",
+                        "padding(.vertical, 3)",
+                        "background(.gray.opacity(0.1))",
+                        "clipShape(.capsule)"
+                      ]}
+                    ><%= vehicle.color %></Text>
+                    <Text
+                      style={[
+                        "font(.system(size: 13, weight: .medium))",
+                        "foregroundStyle(.secondary)",
+                        "padding(.horizontal, 8)",
+                        "padding(.vertical, 3)",
+                        "background(.gray.opacity(0.1))",
+                        "clipShape(.capsule)"
+                      ]}
+                    ><%= vehicle.type %></Text>
+                  </HStack>
+                </VStack>
+
+                <%!-- Remove button --%>
+                <Button phx-click="remove_vehicle" phx-value-id={vehicle.id} style={["buttonStyle(.plain)"]}>
+                  <ZStack style={["frame(width: 36, height: 36)"]}>
+                    <Circle style={["fill(.red.opacity(0.1))", "frame(width: 36, height: 36)"]} />
+                    <Image
+                      systemName="xmark"
+                      style={[
+                        "font(.system(size: 14, weight: .semibold))",
+                        "foregroundStyle(.red)"
                       ]}
                     />
-
-                    <%= cond do %>
-                      <% vehicle.color == "White" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.white)"]} />
-                      <% vehicle.color == "Black" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.black)"]} />
-                      <% vehicle.color == "Gray" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.gray)"]} />
-                      <% vehicle.color == "Silver" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.gray)"]} />
-                      <% vehicle.color == "Blue" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.blue)"]} />
-                      <% vehicle.color == "Red" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.red)"]} />
-                      <% vehicle.color == "Green" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.green)"]} />
-                      <% vehicle.color == "Brown" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.brown)"]} />
-                      <% vehicle.color == "Orange" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.orange)"]} />
-                      <% vehicle.color == "Gold" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.orange)"]} />
-                      <% vehicle.color == "Purple" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.purple)"]} />
-                      <% vehicle.color == "Yellow" -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.yellow)"]} />
-                      <% true -> %>
-                        <Image systemName={type_icon} style={["font(.system(size: 22, weight: .semibold))", "foregroundStyle(.tint)"]} />
-                    <% end %>
                   </ZStack>
-
-                  <VStack alignment="leading" spacing={2}>
-                    <Text font="title3" fontWeight="semibold"><%= vehicle.make %></Text>
-                    <Text style={["foregroundStyle(.secondary)"]}><%= vehicle.color %> • <%= vehicle.type %></Text>
-                  </VStack>
-                  <Spacer />
-                  <Button phx-click="remove_vehicle" phx-value-id={vehicle.id} style={["buttonStyle(.bordered)", "controlSize(.regular)"]}>
-                    Remove
-                  </Button>
-                </HStack>
-              </.card>
+                </Button>
+              </HStack>
             <% end %>
 
             <HStack spacing={12} style={["frame(maxWidth: .infinity)"]}>
@@ -526,22 +575,21 @@
         </.card>
       </VStack>
 
-      <VStack :if={@vehicle_step == :type} alignment="center" spacing={14} style={["frame(maxWidth: 520, alignment: .center)"]}>
+      <VStack :if={@vehicle_step == :type} alignment="leading" spacing={14} style={["frame(maxWidth: 520, alignment: .leading)"]}>
+        <VStack spacing={14} style={[
+          "padding(22)"
+        ]}>
         <HStack spacing={10} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
           <Image systemName="1.circle.fill" style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.tint)"]} />
           <Text style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.primary)"]}>Select car type</Text>
         </HStack>
-
-        <VStack spacing={14} style={[
-          "padding(22)"
-        ]}>
           <HStack spacing={14} style={["frame(maxWidth: .infinity)"]}>
             <Button phx-click="select_vehicle_type" phx-value-type="Sedan" style="buttonStyle(.plain)">
               <ZStack alignment="center">
                 <RoundedRectangle
                   cornerRadius={20}
                   style={[
-                    "background(.white)",
+                    "fill(.white)",
                     "frame(maxWidth: .infinity, minHeight: 140)",
                     "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
                   ]}
@@ -568,7 +616,7 @@
                 <RoundedRectangle
                   cornerRadius={20}
                   style={[
-                    "background(.white)",
+                    "fill(.white)",
                     "frame(maxWidth: .infinity, minHeight: 140)",
                     "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
                   ]}
@@ -597,7 +645,7 @@
                 <RoundedRectangle
                   cornerRadius={20}
                   style={[
-                    "background(.white)",
+                    "fill(.white)",
                     "frame(maxWidth: .infinity, minHeight: 140)",
                     "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
                   ]}
@@ -624,7 +672,7 @@
                 <RoundedRectangle
                   cornerRadius={20}
                   style={[
-                    "background(.white)",
+                    "fill(.white)",
                     "frame(maxWidth: .infinity, minHeight: 140)",
                     "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
                   ]}
@@ -653,7 +701,7 @@
                 <RoundedRectangle
                   cornerRadius={20}
                   style={[
-                    "background(.white)",
+                    "fill(.white)",
                     "frame(maxWidth: .infinity, minHeight: 140)",
                     "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
                   ]}
@@ -690,14 +738,13 @@
       </VStack>
 
       <VStack :if={@vehicle_step == :color} alignment="leading" spacing={14} style={["frame(maxWidth: 520, alignment: .leading)"]}>
-        <HStack spacing={10} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
-          <Image systemName="2.circle.fill" style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.tint)"]} />
-          <Text style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.primary)"]}>Select car color</Text>
-        </HStack>
-
         <VStack spacing={12} style={[
           "padding(22)"
         ]}>
+          <HStack spacing={10} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
+            <Image systemName="2.circle.fill" style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.tint)"]} />
+            <Text style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.primary)"]}>Select car color</Text>
+          </HStack>
           <%!-- Row 1: White, Black, Gray --%>
           <HStack spacing={12} style={["frame(maxWidth: .infinity)"]}>
             <Button phx-click="select_vehicle_color" phx-value-color="White" style="buttonStyle(.plain)">
@@ -706,7 +753,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.white)",
+                      "fill(.white)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -720,7 +767,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.white)",
+                      "fill(.white)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -738,7 +785,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.black)",
+                      "fill(.black)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -752,7 +799,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.black)",
+                      "fill(.black)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -770,7 +817,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.gray)",
+                      "fill(.gray)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -784,7 +831,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.gray)",
+                      "fill(.gray)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -805,7 +852,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.gray.opacity(0.75))",
+                      "fill(.gray.opacity(0.75))",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -819,7 +866,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.gray.opacity(0.75))",
+                      "fill(.gray.opacity(0.75))",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -837,7 +884,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.blue)",
+                      "fill(.blue)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -851,7 +898,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.blue)",
+                      "fill(.blue)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -869,7 +916,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.red)",
+                      "fill(.red)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -883,7 +930,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.red)",
+                      "fill(.red)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -904,7 +951,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.green)",
+                      "fill(.green)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -918,7 +965,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.green)",
+                      "fill(.green)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -936,7 +983,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.brown)",
+                      "fill(.brown)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -950,7 +997,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.brown)",
+                      "fill(.brown)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -968,7 +1015,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.orange)",
+                      "fill(.orange)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -982,7 +1029,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.orange)",
+                      "fill(.orange)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -1003,7 +1050,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.orange.opacity(0.9))",
+                      "fill(.orange.opacity(0.9))",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -1017,7 +1064,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.orange.opacity(0.9))",
+                      "fill(.orange.opacity(0.9))",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -1035,7 +1082,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.purple)",
+                      "fill(.purple)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
@@ -1049,7 +1096,7 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.purple)",
+                      "fill(.purple)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
@@ -1067,12 +1114,12 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.yellow)",
+                      "fill(.yellow)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 12)"
                     ]}
                   />
-                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" spacing={8} style={["padding(14)", "frame(minHeight: 64)", "scaleEffect(1.05)", "foregroundStyle(.black.opacity(0.7))"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Yellow</Text><Image systemName="checkmark.circle.fill" />
                   </HStack>
                 </ZStack>
@@ -1081,12 +1128,12 @@
                   <RoundedRectangle
                     cornerRadius={16}
                     style={[
-                      "background(.yellow)",
+                      "fill(.yellow)",
                       "frame(minWidth: 0, maxWidth: .infinity, minHeight: 64)",
                       "shadow(radius: 4)"
                     ]}
                   />
-                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.white)"]}>
+                  <HStack alignment="center" style={["padding(14)", "frame(minHeight: 64)", "foregroundStyle(.black.opacity(0.7))"]}>
                     <Text style={["font(.system(size: 17, weight: .bold))"]}>Yellow</Text>
                   </HStack>
                 </ZStack>
@@ -1097,79 +1144,87 @@
       </VStack>
 
       <VStack :if={@vehicle_step == :make} alignment="center" spacing={14} style={["frame(maxWidth: 520, alignment: .center)"]}>
-        <HStack spacing={10} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
-          <Image systemName="3.circle.fill" style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.tint)"]} />
-          <Text style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.primary)"]}>Enter maker</Text>
-        </HStack>
+        <.card corner_radius={22} fill=".white" shadow_opacity={0.10} shadow_radius={10} padding={22}>
+          <HStack spacing={10} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
+            <Image systemName="3.circle.fill" style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.tint)"]} />
+            <Text style={["font(.system(size: 28, weight: .bold))", "foregroundStyle(.primary)"]}>Enter maker</Text>
+          </HStack>
+          <VStack alignment="leading" spacing={12} style={["frame(maxWidth: .infinity, alignment: .leading)"]}>
+            <HStack spacing={8}>
+              <Image systemName="car.fill" style={["font(.system(size: 16))", "foregroundStyle(.secondary)"]} />
+              <Text style={["foregroundStyle(.secondary)", "font(.system(size: 15, weight: .medium))"]}>
+                <%= @vehicle_draft.type %> • <%= @vehicle_draft.color %>
+              </Text>
+            </HStack>
 
-        <VStack alignment="leading" spacing={12} style={[
-          "frame(maxWidth: 520, alignment: .leading)",
-          "padding(22)",
-          "background(.white)",
-          "shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 6)"
-        ]}>
-          <Text style={["foregroundStyle(.secondary)"]}>
-            <%= @vehicle_draft.type %> • <%= @vehicle_draft.color %>
-          </Text>
+            <.simple_form
+              :let={vf}
+              for={@vehicle_make_form}
+              id="vehicle-make-form"
+              phx-change="update_vehicle_make"
+              phx-submit="add_vehicle"
+              style={["frame(maxWidth: .infinity)"]}
+            >
+              <VStack alignment="leading" spacing={12}>
+                <.input
+                  field={vf[:make]}
+                  type="TextField"
+                  placeholder="Maker (e.g. Subaru, Volvo)"
+                  style={[
+                    "textFieldStyle(.roundedBorder)",
+                    "textInputAutocapitalization(.words)",
+                    "autocorrectionDisabled()",
+                    "controlSize(.large)",
+                    "font(.title3)",
+                    "frame(height: 64)"
+                  ]}
+                />
+              </VStack>
 
-          <.simple_form
-            :let={vf}
-            for={@vehicle_make_form}
-            id="vehicle-make-form"
-            phx-change="update_vehicle_make"
-            phx-submit="add_vehicle"
-            style={["frame(maxWidth: .infinity)"]}
-          >
-            <VStack alignment="leading" spacing={12}>
-              <.input
-                field={vf[:make]}
-                type="TextField"
-                placeholder="Maker (e.g. Subaru, Volvo)"
-                style={[
-                  "textFieldStyle(.roundedBorder)",
-                  "textInputAutocapitalization(.words)",
-                  "autocorrectionDisabled()",
-                  "controlSize(.large)",
-                  "font(.title3)",
-                  "frame(height: 64)",
-                ]}
-              />
-            </VStack>
-
-            <:actions>
-              <.button
-                type="submit"
-                style={[
-                  "buttonStyle(.bordered)",
-                  "controlSize(.large)",
-                  "frame(maxWidth: .infinity)"
-                ]}
-              >
-                Add vehicle
-              </.button>
-            </:actions>
-          </.simple_form>
-        </VStack>
+              <:actions>
+                <.button
+                  type="submit"
+                  style={[
+                    "buttonStyle(.borderedProminent)",
+                    "controlSize(.large)",
+                    "frame(maxWidth: .infinity)"
+                  ]}
+                >
+                  Add vehicle
+                </.button>
+              </:actions>
+            </.simple_form>
+          </VStack>
+        </.card>
       </VStack>
     </VStack>
   </VStack>
 
-  <VStack :if={@step == :done} alignment="center" spacing={24} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
-    <Image systemName="checkmark.circle.fill" style={["font(.system(size: 88))", "foregroundStyle(.green)"]} />
-    <Text style={["font(.system(size: 44, weight: .bold))"]}>You’re all set</Text>
-    <Text multilineTextAlignment="center" style={["frame(maxWidth: 520)", "foregroundStyle(.secondary)"]}>
-      Thanks — your check-in is complete.
-    </Text>
+  <VStack :if={@step == :done} alignment="center" spacing={32} style={["frame(maxWidth: .infinity, alignment: .center)"]}>
+    <AnimatedCheckmark />
 
-    <.button
-      phx-click="back"
-      style={[
-        "buttonStyle(.borderedProminent)",
-        "controlSize(.large)",
-        "frame(maxWidth: 520)"
-      ]}
-    >
-      Back to Home
-    </.button>
+    <VStack spacing={12}>
+      <Text style={["font(.system(size: 40, weight: .bold))"]}>You're all set!</Text>
+      <Text multilineTextAlignment="center" style={["frame(maxWidth: 480)", "foregroundStyle(.secondary)", "font(.system(size: 18))"]}>
+        Your check-in is complete. Enjoy your stay at the cabin!
+      </Text>
+    </VStack>
+
+    <VStack spacing={12} style={["padding(.top, 8)"]}>
+      <.button
+        phx-click="back"
+        style={[
+          "buttonStyle(.borderedProminent)",
+          "controlSize(.large)",
+          "frame(width: 280)"
+        ]}
+      >
+        Back to Home
+      </.button>
+
+      <Text style={["font(.system(size: 13))", "foregroundStyle(.tertiary)"]}>
+        This screen will automatically return home shortly
+      </Text>
+    </VStack>
   </VStack>
 </VStack>

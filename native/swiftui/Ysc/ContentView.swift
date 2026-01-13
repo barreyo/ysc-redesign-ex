@@ -104,7 +104,7 @@ struct LiveViewWithAPIKey: View {
                     development: developmentURLWithKey,
                     production: productionURLWithKey
                 ),
-                addons: [.liveForm, .roomCalendarView, .cabinRulesView, .pathTrackerView, .reservationsTableView]
+                addons: [.liveForm, .roomCalendarView, .cabinRulesView, .pathTrackerView, .reservationsTableView, .animatedCheckmarkView]
             ) {
                 ConnectingView()
             } disconnected: {

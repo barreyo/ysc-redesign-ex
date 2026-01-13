@@ -32,6 +32,8 @@
 		D952E9CE2F14AD8400D68D62 /* PathTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952E9CC2F14AD8400D68D62 /* PathTracker.swift */; };
 		D952E9D02F16BE9400D68D62 /* ReservationsTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952E9CF2F16BE9400D68D62 /* ReservationsTableView.swift */; };
 		D952E9D12F16BE9500D68D62 /* ReservationsTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952E9CF2F16BE9400D68D62 /* ReservationsTableView.swift */; };
+		D952E9D32F16CBC500D68D62 /* AnimatedCheckmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952E9D22F16CBC500D68D62 /* AnimatedCheckmark.swift */; };
+		D952E9D42F16CBC500D68D62 /* AnimatedCheckmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952E9D22F16CBC500D68D62 /* AnimatedCheckmark.swift */; };
 		D95F83A12F134ED4001199AB /* RoomCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A02F134ED4001199AB /* RoomCalendarView.swift */; };
 		D95F83A22F134ED4001199AB /* RoomCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A02F134ED4001199AB /* RoomCalendarView.swift */; };
 		D95F83A42F135D57001199AB /* CabinRulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95F83A32F135D57001199AB /* CabinRulesView.swift */; };
@@ -67,6 +69,7 @@
 		CDF2D5AAF66CBECF751735DE /* Ysc.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ysc.swift; sourceTree = "<group>"; };
 		D952E9CC2F14AD8400D68D62 /* PathTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathTracker.swift; sourceTree = "<group>"; };
 		D952E9CF2F16BE9400D68D62 /* ReservationsTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReservationsTableView.swift; sourceTree = "<group>"; };
+		D952E9D22F16CBC500D68D62 /* AnimatedCheckmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedCheckmark.swift; sourceTree = "<group>"; };
 		D95F83A02F134ED4001199AB /* RoomCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomCalendarView.swift; sourceTree = "<group>"; };
 		D95F83A32F135D57001199AB /* CabinRulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CabinRulesView.swift; sourceTree = "<group>"; };
 		D95F83A62F13710E001199AB /* InactivityTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InactivityTimer.swift; sourceTree = "<group>"; };
@@ -117,6 +120,7 @@
 		B0E406537C85C6F345BF4979 /* Ysc */ = {
 			isa = PBXGroup;
 			children = (
+				D952E9D22F16CBC500D68D62 /* AnimatedCheckmark.swift */,
 				D952E9CF2F16BE9400D68D62 /* ReservationsTableView.swift */,
 				D952E9CC2F14AD8400D68D62 /* PathTracker.swift */,
 				D95F83AC2F14A1EB001199AB /* InactivityCountdownView.swift */,
@@ -268,6 +272,7 @@
 				99ED2957A2F1F7828C0985EA /* ReconnectingView.swift in Sources */,
 				D95F83A12F134ED4001199AB /* RoomCalendarView.swift in Sources */,
 				D95F83A42F135D57001199AB /* CabinRulesView.swift in Sources */,
+				D952E9D32F16CBC500D68D62 /* AnimatedCheckmark.swift in Sources */,
 				1FBD2FD91896F4A2DB7A595A /* Ysc.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -290,6 +295,7 @@
 				476C5E543BA7260A77CCA7A3 /* ReconnectingView.swift in Sources */,
 				D95F83A22F134ED4001199AB /* RoomCalendarView.swift in Sources */,
 				D95F83A52F135D58001199AB /* CabinRulesView.swift in Sources */,
+				D952E9D42F16CBC500D68D62 /* AnimatedCheckmark.swift in Sources */,
 				EFFBBB579E6791E224E7E9C8 /* Ysc.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
