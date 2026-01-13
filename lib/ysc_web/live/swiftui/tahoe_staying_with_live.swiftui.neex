@@ -1,5 +1,5 @@
 <VStack spacing={0}>
-  <VStack alignment="leading" spacing={8} style={["padding(20)", "frame(maxWidth: .infinity, alignment: .leading)"]}>
+  <VStack alignment="leading" spacing={8} style={["padding(.horizontal, 20)", "frame(maxWidth: .infinity, alignment: .leading)"]}>
     <Text style={["font(.system(size: 32, weight: .bold))"]}>
       Who Am I Staying With?
     </Text>
@@ -17,7 +17,9 @@
         Calendar
       </Label>
 
-      <RoomCalendar data={@calendar_data_json} />
+      <VStack style={["padding(.bottom, 24)"]}>
+        <RoomCalendar data={@calendar_data_json} />
+      </VStack>
     </VStack>
     <VStack tag="2" style="tabItem(:item)">
       <Label

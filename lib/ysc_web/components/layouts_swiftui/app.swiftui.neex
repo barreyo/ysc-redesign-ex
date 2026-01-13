@@ -7,10 +7,16 @@
     "frame(maxWidth: .infinity, maxHeight: .infinity)"
   ]}
 >
-  <VStack class="bg-secondary-system-background" style={[
-    "frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)",
-    "padding(24)"
-  ]}>
+  <%
+    # Routes that should fill the whole view (no padding)
+    full_view_routes = ["/bookings/tahoe/staying-with", "/cabin-rules"]
+    request_path = (@request_path || "/") |> String.trim_trailing("/")
+    should_have_padding = request_path not in full_view_routes
+
+    base_styles = ["frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"]
+    styles = if should_have_padding, do: ["padding(24)" | base_styles], else: ["ignoresSafeArea(.all)" | base_styles]
+  %>
+  <VStack spacing={0} class="bg-secondary-system-background" style={styles}>
     <.flash_group flash={@flash} />
     <%= @inner_content %>
   </VStack>

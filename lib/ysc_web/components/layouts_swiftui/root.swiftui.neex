@@ -7,8 +7,7 @@
   ]}
 >
   <VStack class="bg-secondary-system-background" style={[
-    "frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)",
-    "padding(24)"
+    "frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"
   ]}>
     <%= @inner_content %>
   </VStack>

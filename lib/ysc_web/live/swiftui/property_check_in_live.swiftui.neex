@@ -461,21 +461,21 @@
                     _ -> "car"
                   end
 
-                {bg_color, icon_color} =
+                {bg_fill, icon_foreground} =
                   case vehicle.color do
-                    "White" -> {".gray.opacity(0.15)", ".gray"}
-                    "Black" -> {".black.opacity(0.9)", ".white"}
-                    "Gray" -> {".gray.opacity(0.4)", ".white"}
-                    "Silver" -> {".gray.opacity(0.25)", ".gray"}
-                    "Blue" -> {".blue.opacity(0.15)", ".blue"}
-                    "Red" -> {".red.opacity(0.15)", ".red"}
-                    "Green" -> {".green.opacity(0.15)", ".green"}
-                    "Brown" -> {".brown.opacity(0.2)", ".brown"}
-                    "Orange" -> {".orange.opacity(0.15)", ".orange"}
-                    "Gold" -> {".orange.opacity(0.2)", ".orange"}
-                    "Purple" -> {".purple.opacity(0.15)", ".purple"}
-                    "Yellow" -> {".yellow.opacity(0.3)", ".orange"}
-                    _ -> {".blue.opacity(0.1)", ".blue"}
+                    "White" -> {"fill(.gray.opacity(0.15))", "foregroundStyle(.gray)"}
+                    "Black" -> {"fill(.black.opacity(0.9))", "foregroundStyle(.white)"}
+                    "Gray" -> {"fill(.gray.opacity(0.4))", "foregroundStyle(.white)"}
+                    "Silver" -> {"fill(.gray.opacity(0.25))", "foregroundStyle(.gray)"}
+                    "Blue" -> {"fill(.blue.opacity(0.15))", "foregroundStyle(.blue)"}
+                    "Red" -> {"fill(.red.opacity(0.15))", "foregroundStyle(.red)"}
+                    "Green" -> {"fill(.green.opacity(0.15))", "foregroundStyle(.green)"}
+                    "Brown" -> {"fill(.brown.opacity(0.2))", "foregroundStyle(.brown)"}
+                    "Orange" -> {"fill(.orange.opacity(0.15))", "foregroundStyle(.orange)"}
+                    "Gold" -> {"fill(.orange.opacity(0.2))", "foregroundStyle(.orange)"}
+                    "Purple" -> {"fill(.purple.opacity(0.15))", "foregroundStyle(.purple)"}
+                    "Yellow" -> {"fill(.yellow.opacity(0.3))", "foregroundStyle(.orange)"}
+                    _ -> {"fill(.blue.opacity(0.1))", "foregroundStyle(.blue)"}
                   end
               %>
               <HStack spacing={14} style={[
@@ -490,7 +490,7 @@
                   <RoundedRectangle
                     cornerRadius={14}
                     style={[
-                      "fill(#{bg_color})",
+                      bg_fill,
                       "frame(width: 56, height: 56)"
                     ]}
                   />
@@ -498,7 +498,7 @@
                     systemName={type_icon}
                     style={[
                       "font(.system(size: 26, weight: .medium))",
-                      "foregroundStyle(#{icon_color})"
+                      icon_foreground
                     ]}
                   />
                 </ZStack>
