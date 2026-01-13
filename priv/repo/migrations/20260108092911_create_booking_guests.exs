@@ -18,8 +18,8 @@ defmodule Ysc.Repo.Migrations.CreateBookingGuests do
       timestamps(type: :utc_datetime)
     end
 
-    create index(:booking_guests, [:booking_id], if_not_exists: true)
-    create index(:booking_guests, [:order_index], if_not_exists: true)
-    create index(:booking_guests, [:booking_id, :order_index], if_not_exists: true)
+    create index(:booking_guests, [:booking_id] )
+    create index(:booking_guests, [:order_index])
+    create index(:booking_guests, [:booking_id, :order_index])
   end
 end
