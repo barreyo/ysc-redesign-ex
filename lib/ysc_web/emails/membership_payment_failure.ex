@@ -20,7 +20,15 @@ defmodule YscWeb.Emails.MembershipPaymentFailure do
     YscWeb.Endpoint.url() <> "/users/membership"
   end
 
-  def prepare_email_data(user, membership_type, is_renewal \\ false) do
+  def retry_payment_url(invoice_id) when is_binary(invoice_id) do
+    YscWeb.Endpoint.url() <>
+      "/users/membership?" <>
+      URI.encode_query(%{retry_invoice: invoice_id})
+  end
+
+  def retry_payment_url(_), do: nil
+
+  def prepare_email_data(user, membership_type, is_renewal \\ false, invoice_id \\ nil) do
     # Validate input
     if is_nil(user) do
       raise ArgumentError, "User cannot be nil"
@@ -30,11 +38,20 @@ defmodule YscWeb.Emails.MembershipPaymentFailure do
     first_name = user.first_name || "Valued Member"
     membership_type_name = get_membership_type_name(membership_type)
 
+    retry_url =
+      if invoice_id do
+        retry_payment_url(invoice_id)
+      else
+        nil
+      end
+
     %{
       first_name: first_name,
       membership_type: membership_type_name,
       is_renewal: is_renewal,
-      pay_membership_url: pay_membership_url()
+      invoice_id: invoice_id,
+      pay_membership_url: pay_membership_url(),
+      retry_payment_url: retry_url
     }
   end
 

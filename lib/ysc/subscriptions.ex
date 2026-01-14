@@ -842,4 +842,126 @@ defmodule Ysc.Subscriptions do
       end
     end
   end
+
+  @doc """
+  Retries payment for a failed invoice.
+
+  Validates that the invoice belongs to the user and attempts to pay it via Stripe.
+
+  ## Examples
+
+      iex> retry_failed_invoice(user, "in_1234567890")
+      {:ok, %Stripe.Invoice{}}
+
+      iex> retry_failed_invoice(user, "invalid")
+      {:error, :invoice_not_found}
+
+  """
+  def retry_failed_invoice(user, invoice_id) when is_binary(invoice_id) do
+    require Logger
+
+    # Retrieve the invoice from Stripe to verify it exists and belongs to the user
+    case Stripe.Invoice.retrieve(invoice_id) do
+      {:ok, invoice} ->
+        # Verify the invoice belongs to the user
+        customer_id = invoice.customer
+
+        if customer_id != user.stripe_id do
+          Logger.warning("Invoice does not belong to user",
+            user_id: user.id,
+            invoice_id: invoice_id,
+            invoice_customer: customer_id,
+            user_stripe_id: user.stripe_id
+          )
+
+          {:error, :unauthorized}
+        else
+          # Check if invoice is already paid
+          if invoice.status == "paid" do
+            Logger.info("Invoice is already paid",
+              user_id: user.id,
+              invoice_id: invoice_id
+            )
+
+            {:error, :already_paid}
+          else
+            # Check if invoice is open and can be paid
+            if invoice.status != "open" do
+              Logger.warning("Invoice is not in a payable state",
+                user_id: user.id,
+                invoice_id: invoice_id,
+                invoice_status: invoice.status
+              )
+
+              {:error, :invalid_invoice_status}
+            else
+              # Attempt to pay the invoice
+              Logger.info("Attempting to retry payment for invoice",
+                user_id: user.id,
+                invoice_id: invoice_id
+              )
+
+              case Stripe.Invoice.pay(invoice_id, %{}) do
+                {:ok, paid_invoice} ->
+                  Logger.info("Successfully retried payment for invoice",
+                    user_id: user.id,
+                    invoice_id: invoice_id,
+                    invoice_status: paid_invoice.status
+                  )
+
+                  {:ok, paid_invoice}
+
+                {:error, %Stripe.Error{} = error} ->
+                  Logger.error("Failed to retry payment for invoice",
+                    user_id: user.id,
+                    invoice_id: invoice_id,
+                    error: error.message,
+                    error_type: error.type,
+                    error_code: error.code
+                  )
+
+                  {:error, error.message}
+
+                {:error, reason} ->
+                  Logger.error("Failed to retry payment for invoice",
+                    user_id: user.id,
+                    invoice_id: invoice_id,
+                    error: inspect(reason)
+                  )
+
+                  {:error, :payment_failed}
+              end
+            end
+          end
+        end
+
+      {:error, %Stripe.Error{code: code}} when code in ["resource_missing"] ->
+        Logger.warning("Invoice not found in Stripe",
+          user_id: user.id,
+          invoice_id: invoice_id
+        )
+
+        {:error, :invoice_not_found}
+
+      {:error, %Stripe.Error{} = error} ->
+        Logger.error("Failed to retrieve invoice from Stripe",
+          user_id: user.id,
+          invoice_id: invoice_id,
+          error: error.message
+        )
+
+        {:error, error.message}
+
+      {:error, reason} ->
+        Logger.error("Failed to retrieve invoice from Stripe",
+          user_id: user.id,
+          invoice_id: invoice_id,
+          error: inspect(reason)
+        )
+
+        {:error, :stripe_error}
+    end
+  end
+
+  def retry_failed_invoice(_user, _invoice_id), do: {:error, :invalid_invoice_id}
 end

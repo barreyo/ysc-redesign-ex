@@ -2712,7 +2712,7 @@ defmodule Ysc.Stripe.WebhookHandler do
 
     try do
       email_module = YscWeb.Emails.MembershipPaymentFailure
-      email_data = email_module.prepare_email_data(user, membership_type, is_renewal)
+      email_data = email_module.prepare_email_data(user, membership_type, is_renewal, invoice_id)
       subject = email_module.get_subject()
       template_name = email_module.get_template_name()
 

@@ -1409,7 +1409,18 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   @impl true
-  def handle_params(_params, _uri, socket) do
+  def handle_params(params, _uri, socket) do
+    # Handle retry invoice payment from email link
+    socket =
+      if params["retry_invoice"] do
+        invoice_id = params["retry_invoice"]
+        # Trigger the retry via an event to ensure proper error handling
+        send(self(), {:retry_invoice_payment, invoice_id})
+        socket
+      else
+        socket
+      end
+
     {:noreply, socket}
   end
 
@@ -2559,6 +2570,10 @@ defmodule YscWeb.UserSettingsLive do
      |> assign(:default_payment_method, updated_default)}
   end
 
+  def handle_event("retry-invoice-payment", %{"invoice_id" => invoice_id}, socket) do
+    handle_retry_invoice_payment(socket, invoice_id)
+  end
+
   def handle_event("cancel-membership", _params, socket) do
     user = socket.assigns.user
 
@@ -2814,6 +2829,10 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   @impl true
+  def handle_info({:retry_invoice_payment, invoice_id}, socket) do
+    handle_retry_invoice_payment(socket, invoice_id)
+  end
+
   def handle_info({:refresh_payment_methods, user_id}, socket) do
     if socket.assigns.user.id == user_id do
       user = socket.assigns.user
@@ -3753,5 +3772,98 @@ defmodule YscWeb.UserSettingsLive do
         <.badge type="green" class="text-xs">Completed</.badge>
         """
     end
+  end
+
+  # Helper function to handle retry invoice payment
+  defp handle_retry_invoice_payment(socket, invoice_id) when is_binary(invoice_id) do
+    require Logger
+    user = socket.assigns.user
+
+    if user.state != :active do
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "You must have an approved account to retry invoice payments."
+       )}
+    else
+      Logger.info("Retrying invoice payment",
+        user_id: user.id,
+        invoice_id: invoice_id
+      )
+
+      case Subscriptions.retry_failed_invoice(user, invoice_id) do
+        {:ok, _paid_invoice} ->
+          Logger.info("Successfully retried invoice payment",
+            user_id: user.id,
+            invoice_id: invoice_id
+          )
+
+          {:noreply,
+           socket
+           |> put_flash(
+             :info,
+             "Payment retry successful! Your invoice has been paid and your membership will be updated shortly."
+           )
+           |> redirect(to: ~p"/users/membership")}
+
+        {:error, :invoice_not_found} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Invoice not found. Please contact support if this issue persists."
+           )}
+
+        {:error, :unauthorized} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "This invoice does not belong to your account."
+           )}
+
+        {:error, :already_paid} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :info,
+             "This invoice has already been paid. Your membership is up to date."
+           )}
+
+        {:error, :invalid_invoice_status} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "This invoice cannot be paid in its current state. Please update your payment method and try again."
+           )}
+
+        {:error, error_message} when is_binary(error_message) ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Failed to retry payment: #{error_message}. Please update your payment method and try again."
+           )}
+
+        {:error, _reason} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Failed to retry payment. Please update your payment method and try again, or contact support if the issue persists."
+           )}
+      end
+    end
+  end
+
+  defp handle_retry_invoice_payment(socket, _invalid_invoice_id) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Invalid invoice ID. Please use the link from your email or contact support."
+     )}
   end
 end
