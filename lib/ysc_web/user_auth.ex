@@ -10,7 +10,7 @@ defmodule YscWeb.UserAuth do
   import Phoenix.Controller
 
   alias Ysc.Accounts
-  alias Ysc.Customers
+  alias Ysc.Accounts.MembershipCache
   alias Ysc.Subscriptions
 
   # Make the remember me cookie valid for 60 days.
@@ -129,7 +129,7 @@ defmodule YscWeb.UserAuth do
     conn = assign(conn, :current_user, user)
 
     if user do
-      active_membership = get_active_membership(user)
+      active_membership = MembershipCache.get_active_membership(user)
       conn = assign(conn, :current_membership, active_membership)
       assign(conn, :active_membership?, active_membership != nil)
     else
@@ -280,7 +280,7 @@ defmodule YscWeb.UserAuth do
     socket =
       Phoenix.Component.assign_new(socket, :current_membership, fn ->
         if socket.assigns.current_user != nil do
-          get_active_membership(socket.assigns.current_user)
+          MembershipCache.get_active_membership(socket.assigns.current_user)
         end
       end)
 
@@ -578,6 +578,8 @@ defmodule YscWeb.UserAuth do
   and returns the plan type. Use this when you have a User object instead
   of a membership struct.
 
+  This function uses caching with a 5-minute TTL to reduce database queries.
+
   ## Examples
 
       iex> get_user_membership_plan_type(user)
@@ -589,8 +591,7 @@ defmodule YscWeb.UserAuth do
   def get_user_membership_plan_type(user) when is_nil(user), do: nil
 
   def get_user_membership_plan_type(user) do
-    membership = get_active_membership(user)
-    get_membership_plan_type(membership)
+    MembershipCache.get_membership_plan_type(user)
   end
 
   @doc """
@@ -631,6 +632,8 @@ defmodule YscWeb.UserAuth do
   Returns the membership struct (lifetime map or subscription) or nil.
   For sub-accounts, checks the primary user's membership.
 
+  This function uses caching with a 5-minute TTL to reduce database queries.
+
   ## Examples
 
       iex> get_active_membership(user)
@@ -640,73 +643,6 @@ defmodule YscWeb.UserAuth do
       %{type: :lifetime, ...}
   """
   def get_active_membership(user) do
-    # For sub-accounts, check the primary user's membership
-    user_to_check =
-      if Accounts.is_sub_account?(user) do
-        Accounts.get_primary_user(user) || user
-      else
-        user
-      end
-
-    # Check for lifetime membership first (highest priority)
-    if Accounts.has_lifetime_membership?(user_to_check) do
-      # Return a special struct representing lifetime membership
-      %{
-        type: :lifetime,
-        awarded_at: user_to_check.lifetime_membership_awarded_at,
-        user_id: user_to_check.id
-      }
-    else
-      # Use preloaded subscriptions if available, otherwise fetch them
-      subscriptions =
-        case user_to_check.subscriptions do
-          %Ecto.Association.NotLoaded{} ->
-            # Fallback: fetch subscriptions if not preloaded
-            Customers.subscriptions(user_to_check)
-            |> Enum.filter(&Subscriptions.valid?/1)
-
-          subscriptions when is_list(subscriptions) ->
-            # Subscriptions are already preloaded and filtered (active only from get_user_by_session_token)
-            subscriptions
-
-          _ ->
-            []
-        end
-
-      case subscriptions do
-        [] ->
-          nil
-
-        [single_subscription] ->
-          single_subscription
-
-        multiple_subscriptions ->
-          # If multiple active subscriptions, pick the most expensive one
-          get_most_expensive_subscription(multiple_subscriptions)
-      end
-    end
-  end
-
-  # Helper function to determine the most expensive subscription
-  defp get_most_expensive_subscription(subscriptions) do
-    membership_plans = Application.get_env(:ysc, :membership_plans)
-
-    # Create a map of price_id to amount for quick lookup
-    price_to_amount =
-      Map.new(membership_plans, fn plan ->
-        {plan.stripe_price_id, plan.amount}
-      end)
-
-    # Find the subscription with the highest amount
-    Enum.max_by(subscriptions, fn subscription ->
-      # Get the first subscription item (assuming one item per subscription)
-      case subscription.subscription_items do
-        [item | _] ->
-          Map.get(price_to_amount, item.stripe_price_id, 0)
-
-        _ ->
-          0
-      end
-    end)
+    MembershipCache.get_active_membership(user)
   end
 end

@@ -28,48 +28,137 @@ defmodule Ysc.SubscriptionsTest do
       assert sub.stripe_status == "active"
     end
 
-    test "active?/1 returns true for active/trialing", %{user: user} do
-      active_sub = %Subscription{stripe_status: "active"}
-      trialing_sub = %Subscription{stripe_status: "trialing"}
+    test "active?/1 returns true for active/trialing with valid dates", %{user: user} do
+      now = DateTime.utc_now()
+      future_date = DateTime.add(now, 30, :day)
+      past_date = DateTime.add(now, -1, :day)
+
+      # Active subscription with future period end
+      active_sub = %Subscription{
+        stripe_status: "active",
+        current_period_end: future_date,
+        ends_at: nil
+      }
+
+      # Trialing subscription with future period end
+      trialing_sub = %Subscription{
+        stripe_status: "trialing",
+        current_period_end: future_date,
+        ends_at: nil
+      }
+
+      # Cancelled subscription
       cancelled_sub = %Subscription{stripe_status: "cancelled"}
+
+      # Active subscription with expired period end
+      expired_active = %Subscription{
+        stripe_status: "active",
+        current_period_end: past_date,
+        ends_at: nil
+      }
+
+      # Active subscription with ends_at in the past
+      ended_subscription = %Subscription{
+        stripe_status: "active",
+        current_period_end: future_date,
+        ends_at: past_date
+      }
+
+      # Active subscription with nil current_period_end (defensive check)
+      no_period_end = %Subscription{
+        stripe_status: "active",
+        current_period_end: nil,
+        ends_at: nil
+      }
 
       assert Subscriptions.active?(active_sub)
       assert Subscriptions.active?(trialing_sub)
       refute Subscriptions.active?(cancelled_sub)
+      refute Subscriptions.active?(expired_active)
+      refute Subscriptions.active?(ended_subscription)
+      refute Subscriptions.active?(no_period_end)
     end
 
-    test "cancelled?/1 checks status or end date", %{user: user} do
+    test "cancelled?/1 checks status, ends_at, and current_period_end", %{user: user} do
+      now = DateTime.utc_now()
+      past_date = DateTime.add(now, -1, :day)
+      future_date = DateTime.add(now, 1, :day)
+
+      # Cancelled by status
       cancelled_status = %Subscription{stripe_status: "cancelled"}
+      assert Subscriptions.cancelled?(cancelled_status)
 
-      # Future end date means scheduled cancellation? No, ended_at in Stripe usually means it HAS ended.
-      ended_date = %Subscription{ends_at: DateTime.utc_now() |> DateTime.add(1, :day)}
-      # Wait, implementation says: DateTime.compare(ends_at, DateTime.utc_now()) == :gt
-      # If ends_at is in the future, it returns true? That logic seems like "scheduled to end".
-      # Let's re-read logic:
-      # %Subscription{ends_at: %DateTime{} = ends_at} -> DateTime.compare(ends_at, DateTime.utc_now()) == :gt
-      # This means if ends_at is SET and in FUTURE, it returns true.
-      # Usually `ends_at` (or `cancel_at`) means it WILL cancel.
-      # If it already ended, ends_at would be in the past? Or is it `ended_at`?
-      # Schema has `ends_at`. Stripe has `ended_at` (past) and `cancel_at` (future).
-      # The mapping says `ends_at: stripe_subscription.ended_at`.
-      # If `ended_at` is populated, the subscription has ended.
-      # So `DateTime.compare(ends_at, DateTime.utc_now()) == :gt` would mean it ended in the future? That's impossible for `ended_at`.
-      # Maybe `ends_at` is mapping to `cancel_at`?
-      # Line 675: `ends_at: stripe_subscription.ended_at`
-      # If `ended_at` is a timestamp, it marks when it ended.
-      # So `cancelled?` logic seems to be checking if it is scheduled to end in the future?
-      # Actually, if `ended_at` is set, it IS cancelled/ended.
-      # But the logic `DateTime.compare(ends_at, DateTime.utc_now()) == :gt` returns true if ends_at > now.
-      # That implies it "will end".
-      # If it ended in the past, it returns false? That's weird for "cancelled?".
+      # Cancelled because ends_at is in the past
+      ended_subscription = %Subscription{
+        stripe_status: "active",
+        ends_at: past_date,
+        current_period_end: future_date
+      }
 
-      # Let's trust the code behavior for the test:
-      future_end = %Subscription{ends_at: DateTime.utc_now() |> DateTime.add(3600, :second)}
-      assert Subscriptions.cancelled?(future_end)
+      assert Subscriptions.cancelled?(ended_subscription)
 
-      # If ends_at is nil
-      active = %Subscription{ends_at: nil, stripe_status: "active"}
+      # Cancelled because current_period_end is in the past
+      expired_subscription = %Subscription{
+        stripe_status: "active",
+        current_period_end: past_date,
+        ends_at: nil
+      }
+
+      assert Subscriptions.cancelled?(expired_subscription)
+
+      # Not cancelled - ends_at is in the future (scheduled cancellation)
+      scheduled_cancellation = %Subscription{
+        stripe_status: "active",
+        ends_at: future_date,
+        current_period_end: future_date
+      }
+
+      refute Subscriptions.cancelled?(scheduled_cancellation)
+
+      # Not cancelled - active subscription
+      active = %Subscription{
+        stripe_status: "active",
+        ends_at: nil,
+        current_period_end: future_date
+      }
+
       refute Subscriptions.cancelled?(active)
+
+      # Nil subscription
+      refute Subscriptions.cancelled?(nil)
+    end
+
+    test "valid?/1 checks expiration dates", %{user: user} do
+      now = DateTime.utc_now()
+      future_date = DateTime.add(now, 30, :day)
+      past_date = DateTime.add(now, -1, :day)
+
+      # Valid subscription
+      valid_sub = %Subscription{
+        stripe_status: "active",
+        current_period_end: future_date,
+        ends_at: nil
+      }
+
+      assert Subscriptions.valid?(valid_sub)
+
+      # Invalid - expired period end
+      expired_sub = %Subscription{
+        stripe_status: "active",
+        current_period_end: past_date,
+        ends_at: nil
+      }
+
+      refute Subscriptions.valid?(expired_sub)
+
+      # Invalid - ends_at in past
+      ended_sub = %Subscription{
+        stripe_status: "active",
+        current_period_end: future_date,
+        ends_at: past_date
+      }
+
+      refute Subscriptions.valid?(ended_sub)
     end
   end
 end

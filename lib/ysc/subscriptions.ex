@@ -4,6 +4,7 @@ defmodule Ysc.Subscriptions do
   """
 
   import Ecto.Query, warn: false
+  alias Ysc.Accounts.MembershipCache
   alias Ysc.Repo
   alias Ysc.Subscriptions.{Subscription, SubscriptionItem}
 
@@ -92,9 +93,24 @@ defmodule Ysc.Subscriptions do
 
   """
   def update_subscription(%Subscription{} = subscription, attrs) do
-    subscription
-    |> Subscription.changeset(attrs)
-    |> Repo.update()
+    result =
+      subscription
+      |> Subscription.changeset(attrs)
+      |> Repo.update()
+
+    # Invalidate membership cache when subscription is updated
+    case result do
+      {:ok, updated_subscription} ->
+        # Invalidate cache for the user
+        if updated_subscription.user_id do
+          MembershipCache.invalidate_user(updated_subscription.user_id)
+        end
+
+        result
+
+      {:error, _} = error ->
+        error
+    end
   end
 
   @doc """
@@ -110,7 +126,21 @@ defmodule Ysc.Subscriptions do
 
   """
   def delete_subscription(%Subscription{} = subscription) do
-    Repo.delete(subscription)
+    user_id = subscription.user_id
+    result = Repo.delete(subscription)
+
+    # Invalidate membership cache when subscription is deleted
+    case result do
+      {:ok, _} ->
+        if user_id do
+          MembershipCache.invalidate_user(user_id)
+        end
+
+        result
+
+      {:error, _} = error ->
+        error
+    end
   end
 
   @doc """
@@ -196,6 +226,11 @@ defmodule Ysc.Subscriptions do
   @doc """
   Checks if a subscription is active.
 
+  A subscription is considered active if:
+  - The stripe_status is "active" or "trialing"
+  - The current_period_end is in the future (subscription hasn't expired)
+  - If ends_at is set, it must be in the future (not cancelled/ended)
+
   ## Examples
 
       iex> active?(subscription)
@@ -206,15 +241,53 @@ defmodule Ysc.Subscriptions do
 
   """
   def active?(%Subscription{} = subscription) do
-    case subscription.stripe_status do
-      "active" -> true
-      "trialing" -> true
-      _ -> false
+    now = DateTime.utc_now()
+
+    # Check status first
+    status_valid? =
+      case subscription.stripe_status do
+        "active" -> true
+        "trialing" -> true
+        _ -> false
+      end
+
+    if not status_valid? do
+      false
+    else
+      # Check if current_period_end has passed
+      period_expired? =
+        case subscription.current_period_end do
+          %DateTime{} = period_end ->
+            DateTime.compare(period_end, now) != :gt
+
+          _ ->
+            # If current_period_end is nil, we can't verify it's active
+            # This is a defensive check - if we don't have the date, be conservative
+            false
+        end
+
+      # Check if ends_at has passed (subscription was cancelled/ended)
+      ends_at_expired? =
+        case subscription.ends_at do
+          %DateTime{} = ends_at ->
+            DateTime.compare(ends_at, now) != :gt
+
+          _ ->
+            false
+        end
+
+      # Subscription is active only if status is valid AND neither date has expired
+      status_valid? and not period_expired? and not ends_at_expired?
     end
   end
 
   @doc """
   Checks if a subscription is valid (active or trialing).
+
+  A subscription is valid if it is active, which includes:
+  - Status is "active" or "trialing"
+  - current_period_end is in the future
+  - ends_at (if set) is in the future
 
   ## Examples
 
@@ -232,6 +305,11 @@ defmodule Ysc.Subscriptions do
   @doc """
   Checks if a subscription is cancelled.
 
+  A subscription is considered cancelled if:
+  - The stripe_status is "cancelled", OR
+  - ends_at is set and has passed (in the past), OR
+  - current_period_end has passed (subscription period expired)
+
   ## Examples
 
       iex> cancelled?(subscription)
@@ -245,12 +323,19 @@ defmodule Ysc.Subscriptions do
 
   """
   def cancelled?(%Subscription{} = subscription) do
+    now = DateTime.utc_now()
+
     case subscription do
       %Subscription{stripe_status: "cancelled"} ->
         true
 
       %Subscription{ends_at: %DateTime{} = ends_at} ->
-        DateTime.compare(ends_at, DateTime.utc_now()) == :gt
+        # Subscription is cancelled if ends_at is in the past
+        DateTime.compare(ends_at, now) != :gt
+
+      %Subscription{current_period_end: %DateTime{} = period_end} ->
+        # If current_period_end has passed, subscription is effectively cancelled/expired
+        DateTime.compare(period_end, now) != :gt
 
       _ ->
         false
@@ -331,6 +416,11 @@ defmodule Ysc.Subscriptions do
              })
              |> Repo.update() do
           {:ok, updated_subscription} ->
+            # Invalidate membership cache when subscription is cancelled
+            if updated_subscription.user_id do
+              MembershipCache.invalidate_user(updated_subscription.user_id)
+            end
+
             {:ok, Repo.preload(updated_subscription, :subscription_items)}
 
           {:error, changeset} ->
@@ -829,6 +919,9 @@ defmodule Ysc.Subscriptions do
             stripe_subscription_id: stripe_subscription.id
           )
 
+          # Invalidate membership cache when subscription is created
+          MembershipCache.invalidate_user(user.id)
+
           {:ok, subscription}
 
         {:error, reason} ->
@@ -915,9 +1008,7 @@ defmodule Ysc.Subscriptions do
                   Logger.error("Failed to retry payment for invoice",
                     user_id: user.id,
                     invoice_id: invoice_id,
-                    error: error.message,
-                    error_type: error.type,
-                    error_code: error.code
+                    error: error.message
                   )
 
                   {:error, error.message}

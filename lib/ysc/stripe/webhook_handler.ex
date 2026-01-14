@@ -308,12 +308,19 @@ defmodule Ysc.Stripe.WebhookHandler do
   end
 
   defp handle("customer.subscription.updated", %Stripe.Subscription{} = event) do
+    require Logger
+
     subscription = Subscriptions.get_subscription_by_stripe_id(event.id)
 
     if subscription do
       status = event.status
 
       if status == "incomplete_expired" do
+        # Invalidate cache before deleting
+        if subscription.user_id do
+          Ysc.Accounts.MembershipCache.invalidate_user(subscription.user_id)
+        end
+
         Subscriptions.delete_subscription(subscription)
       else
         # Build update attrs from Stripe subscription
@@ -340,6 +347,24 @@ defmodule Ysc.Stripe.WebhookHandler do
           {:ok, updated_subscription} ->
             # Update subscription items
             update_subscription_items(updated_subscription, event.items.data)
+
+            # Check if subscription is now expired or cancelled after update
+            # This handles edge cases where status might be "active" but period has ended
+            if Subscriptions.cancelled?(updated_subscription) or
+                 not Subscriptions.active?(updated_subscription) do
+              # Invalidate membership cache to ensure immediate access revocation
+              if updated_subscription.user_id do
+                Ysc.Accounts.MembershipCache.invalidate_user(updated_subscription.user_id)
+
+                Logger.info("Subscription expired/cancelled via webhook, cache invalidated",
+                  subscription_id: updated_subscription.id,
+                  user_id: updated_subscription.user_id,
+                  stripe_status: updated_subscription.stripe_status,
+                  current_period_end: updated_subscription.current_period_end,
+                  ends_at: updated_subscription.ends_at
+                )
+              end
+            end
 
           {:error, _changeset} ->
             :ok
@@ -442,6 +467,7 @@ defmodule Ysc.Stripe.WebhookHandler do
     :ok
   end
 
+  # Handle invoice.payment.failed (with dots) - newer Stripe API format
   defp handle("invoice.payment.failed", %Stripe.Invoice{} = invoice) do
     # Convert Stripe struct to map and call the map handler
     invoice_map = %{
@@ -455,8 +481,41 @@ defmodule Ysc.Stripe.WebhookHandler do
     handle("invoice.payment.failed", invoice_map)
   end
 
+  # Handle invoice.payment_failed (with underscore) - older Stripe API format
+  defp handle("invoice.payment_failed", %Stripe.Invoice{} = invoice) do
+    # Convert Stripe struct to map and call the map handler
+    invoice_map = %{
+      id: invoice.id,
+      customer: invoice.customer,
+      subscription: invoice.subscription,
+      billing_reason: Map.get(invoice, :billing_reason),
+      lines: invoice.lines
+    }
+
+    handle("invoice.payment.failed", invoice_map)
+  end
+
+  # Handle invoice.payment_failed (with underscore) - map format
+  defp handle("invoice.payment_failed", invoice) when is_map(invoice) do
+    # Route to the same handler as invoice.payment.failed
+    handle("invoice.payment.failed", invoice)
+  end
+
   defp handle("invoice.payment.failed", invoice) when is_map(invoice) do
     require Logger
+
+    invoice_id = invoice[:id] || invoice["id"]
+    customer_id = invoice[:customer] || invoice["customer"]
+    subscription_id_raw = invoice[:subscription] || invoice["subscription"]
+    billing_reason = invoice[:billing_reason] || invoice["billing_reason"]
+
+    Logger.info("Handling invoice.payment.failed webhook",
+      invoice_id: invoice_id,
+      customer_id: customer_id,
+      subscription_id: subscription_id_raw,
+      billing_reason: billing_reason,
+      invoice_keys: if(is_map(invoice), do: Map.keys(invoice), else: [])
+    )
 
     # Check if this is a subscription invoice (membership)
     subscription_id = resolve_subscription_id(invoice)
@@ -464,18 +523,16 @@ defmodule Ysc.Stripe.WebhookHandler do
     case subscription_id do
       nil ->
         # Not a subscription invoice, skip
-        Logger.debug("Invoice payment failed is not for a subscription, skipping",
-          invoice_id: invoice[:id] || invoice["id"]
+        Logger.info("Invoice payment failed is not for a subscription, skipping",
+          invoice_id: invoice_id,
+          customer_id: customer_id,
+          subscription_id_from_invoice: subscription_id_raw,
+          billing_reason: billing_reason
         )
 
         :ok
 
       subscription_id ->
-        # Get the user from the customer ID
-        customer_id = invoice[:customer] || invoice["customer"]
-        invoice_id = invoice[:id] || invoice["id"]
-        billing_reason = invoice[:billing_reason] || invoice["billing_reason"]
-
         user = Accounts.get_user_from_stripe_id(customer_id)
 
         if user do
@@ -496,14 +553,35 @@ defmodule Ysc.Stripe.WebhookHandler do
             billing_reason: billing_reason
           )
 
-          # Send email notification
+          # Send email notification (always send, regardless of renewal status)
           send_membership_payment_failure_email(user, membership_type, is_renewal, invoice_id)
+
+          # If this is a renewal payment failure, check if subscription should be expired
+          # and immediately invalidate cache to revoke access
+          if is_renewal do
+            subscription = Subscriptions.get_subscription_by_stripe_id(subscription_id)
+
+            if subscription do
+              # Check if subscription is expired or should be expired
+              if Subscriptions.cancelled?(subscription) or not Subscriptions.active?(subscription) do
+                # Invalidate membership cache to ensure immediate access revocation
+                Ysc.Accounts.MembershipCache.invalidate_user(user.id)
+
+                Logger.info("Renewal payment failed and subscription expired, cache invalidated",
+                  user_id: user.id,
+                  subscription_id: subscription_id,
+                  invoice_id: invoice_id
+                )
+              end
+            end
+          end
 
           :ok
         else
           Logger.warning("No user found for invoice payment failure",
             invoice_id: invoice_id,
-            customer_id: customer_id
+            customer_id: customer_id,
+            subscription_id: subscription_id
           )
 
           :ok
@@ -853,6 +931,21 @@ defmodule Ysc.Stripe.WebhookHandler do
     )
 
     # You could add logic here to update refund status in ledger
+    :ok
+  end
+
+  defp handle(event_name, event_object) when is_binary(event_name) do
+    # Log unhandled invoice-related events for debugging
+    if String.starts_with?(event_name, "invoice.") do
+      require Logger
+
+      Logger.debug("Unhandled invoice webhook event",
+        event_type: event_name,
+        event_object_type:
+          if(is_map(event_object), do: "map", else: inspect(event_object.__struct__))
+      )
+    end
+
     :ok
   end
 

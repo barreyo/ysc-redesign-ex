@@ -1017,8 +1017,29 @@ defmodule Ysc.Accounts do
     user = Repo.one(query)
 
     if user do
-      # Preload active subscriptions with subscription_items in a single optimized query
-      preload_active_subscriptions_for_auth(user)
+      # Check membership cache first - if we have cached membership data, we can skip
+      # subscription preload to reduce DB queries. The membership cache will load
+      # subscriptions on-demand if needed (when cache misses or expires).
+      #
+      # Note: This means subscriptions may not be preloaded on the user object.
+      # Code that needs subscriptions should check Ecto.assoc_loaded?/1 or use
+      # the membership cache functions which handle this automatically.
+      cache_key = "membership:#{user.id}:active"
+
+      case :ysc_cache |> Cachex.get(cache_key) do
+        {:ok, nil} ->
+          # Cache miss - preload subscriptions for membership check and other uses
+          preload_active_subscriptions_for_auth(user)
+
+        {:ok, _cached_membership} ->
+          # Cache hit - skip preload to reduce DB queries
+          # Subscriptions will be loaded by membership cache if needed
+          user
+
+        {:error, _reason} ->
+          # Cache error - fallback to preloading for safety
+          preload_active_subscriptions_for_auth(user)
+      end
     else
       nil
     end
@@ -1482,9 +1503,15 @@ defmodule Ysc.Accounts do
       # Get all subscriptions for the user
       subscriptions =
         case user.subscriptions do
-          %Ecto.Association.NotLoaded{} -> []
-          subscriptions when is_list(subscriptions) -> subscriptions
-          _ -> []
+          %Ecto.Association.NotLoaded{} ->
+            # Fetch subscriptions if not loaded
+            Ysc.Subscriptions.list_subscriptions(user)
+
+          subscriptions when is_list(subscriptions) ->
+            subscriptions
+
+          _ ->
+            []
         end
 
       # Filter for active subscriptions only
@@ -1509,7 +1536,21 @@ defmodule Ysc.Accounts do
   end
 
   defp get_membership_type_from_subscription_for_filter(subscription, price_to_type) do
-    case subscription.subscription_items do
+    subscription_items =
+      case subscription.subscription_items do
+        %Ecto.Association.NotLoaded{} ->
+          # Preload subscription items if not loaded
+          subscription = Repo.preload(subscription, :subscription_items)
+          subscription.subscription_items
+
+        items when is_list(items) ->
+          items
+
+        _ ->
+          []
+      end
+
+    case subscription_items do
       [item | _] ->
         Map.get(price_to_type, item.stripe_price_id, :none)
 
@@ -1530,7 +1571,21 @@ defmodule Ysc.Accounts do
     # Find the subscription with the highest amount
     Enum.max_by(subscriptions, fn subscription ->
       # Get the first subscription item (assuming one item per subscription)
-      case subscription.subscription_items do
+      subscription_items =
+        case subscription.subscription_items do
+          %Ecto.Association.NotLoaded{} ->
+            # Preload subscription items if not loaded
+            subscription = Repo.preload(subscription, :subscription_items)
+            subscription.subscription_items
+
+          items when is_list(items) ->
+            items
+
+          _ ->
+            []
+        end
+
+      case subscription_items do
         [item | _] ->
           Map.get(price_to_amount, item.stripe_price_id, 0)
 

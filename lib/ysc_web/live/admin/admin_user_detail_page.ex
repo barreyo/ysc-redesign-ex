@@ -10,6 +10,7 @@ defmodule YscWeb.AdminUserDetailsLive do
     statics: YscWeb.static_paths()
 
   alias Ysc.Accounts
+  alias Ysc.Accounts.MembershipCache
   alias Ysc.Bookings
   alias Ysc.ExpenseReports
   alias Ysc.Ledgers
@@ -1626,6 +1627,15 @@ defmodule YscWeb.AdminUserDetailsLive do
       {:ok, updated_user} ->
         # Reload user to get updated lifetime membership status
         updated_user = Accounts.get_user!(updated_user.id)
+
+        # Invalidate membership cache when lifetime membership is updated
+        # Also invalidate for sub-accounts since they inherit from primary user
+        MembershipCache.invalidate_user(updated_user.id)
+        sub_accounts = Accounts.get_sub_accounts(updated_user)
+
+        Enum.each(sub_accounts, fn sub_account ->
+          MembershipCache.invalidate_user(sub_account.id)
+        end)
 
         # If awarding lifetime membership and user has an active :single or :family subscription,
         # cancel it in Stripe so they are no longer charged

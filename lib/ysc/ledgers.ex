@@ -2085,7 +2085,20 @@ defmodule Ysc.Ledgers do
     # Get membership subscription if this is a membership payment
     subscription =
       if entity_type == :membership && entity_id do
-        Ysc.Subscriptions.get_subscription(entity_id)
+        # get_subscription already preloads subscription_items
+        subscription = Ysc.Subscriptions.get_subscription(entity_id)
+        # Ensure subscription_items are loaded
+        if subscription do
+          case subscription.subscription_items do
+            %Ecto.Association.NotLoaded{} ->
+              Repo.preload(subscription, :subscription_items)
+
+            _ ->
+              subscription
+          end
+        else
+          nil
+        end
       else
         nil
       end
@@ -2195,7 +2208,21 @@ defmodule Ysc.Ledgers do
   defp build_payment_description(_), do: "Payment"
 
   defp get_membership_plan_type(subscription) do
-    case subscription.subscription_items do
+    subscription_items =
+      case subscription.subscription_items do
+        %Ecto.Association.NotLoaded{} ->
+          # Preload subscription items if not loaded
+          subscription = Repo.preload(subscription, :subscription_items)
+          subscription.subscription_items
+
+        items when is_list(items) ->
+          items
+
+        _ ->
+          []
+      end
+
+    case subscription_items do
       [item | _] ->
         plans = Application.get_env(:ysc, :membership_plans)
         plan = Enum.find(plans, &(&1.stripe_price_id == item.stripe_price_id))
@@ -2695,7 +2722,21 @@ defmodule Ysc.Ledgers do
   defp get_membership_details_from_subscription(nil), do: "Unknown membership"
 
   defp get_membership_details_from_subscription(subscription) do
-    case subscription.subscription_items do
+    subscription_items =
+      case subscription.subscription_items do
+        %Ecto.Association.NotLoaded{} ->
+          # Preload subscription items if not loaded
+          subscription = Repo.preload(subscription, :subscription_items)
+          subscription.subscription_items
+
+        items when is_list(items) ->
+          items
+
+        _ ->
+          []
+      end
+
+    case subscription_items do
       [] ->
         "Membership"
 

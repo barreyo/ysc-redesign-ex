@@ -2,6 +2,7 @@ defmodule YscWeb.UserSettingsLive do
   use YscWeb, :live_view
 
   alias Ysc.Accounts
+  alias Ysc.Accounts.MembershipCache
   alias Ysc.Accounts.UserNotifier
   alias Ysc.Customers
   alias Ysc.Ledgers
@@ -1474,26 +1475,9 @@ defmodule YscWeb.UserSettingsLive do
     # This is all very dumb, but it's just a quick way to get the current membership status
     current_membership = socket.assigns.current_membership
 
-    # Optimize: Use already preloaded subscriptions from authentication instead of querying again
-    # The user's subscriptions are already preloaded via preload_active_subscriptions_for_auth
-    family_plan_active? =
-      case user.subscriptions do
-        %Ecto.Association.NotLoaded{} ->
-          # Fallback if subscriptions aren't preloaded (shouldn't happen in normal flow)
-          Customers.subscribed_to_price?(user, get_price_id(:family))
-
-        subscriptions when is_list(subscriptions) ->
-          subscriptions
-          |> Enum.any?(fn subscription ->
-            Subscriptions.active?(subscription) and
-              Enum.any?(subscription.subscription_items || [], fn item ->
-                item.stripe_price_id == get_price_id(:family)
-              end)
-          end)
-
-        _ ->
-          false
-      end
+    # Get membership type from current or past subscriptions
+    # This will pre-select the user's current membership type, or their most recent past membership
+    membership_type_to_select = get_membership_type_for_selection(user)
 
     active_plan = get_membership_plan(current_membership)
 
@@ -1532,7 +1516,7 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:address_form, to_form(address_changeset))
       |> assign(
         :membership_form,
-        to_form(%{"membership_type" => default_select(family_plan_active?)})
+        to_form(%{"membership_type" => membership_type_to_select})
       )
       |> assign(:trigger_submit, false)
       |> assign(:phone_verification_form, to_form(%{"verification_code" => ""}))
@@ -2174,6 +2158,15 @@ defmodule YscWeb.UserSettingsLive do
             # Also save the subscription locally as a backup in case webhook fails
             case Ysc.Subscriptions.create_subscription_from_stripe(user, stripe_subscription) do
               {:ok, _local_subscription} ->
+                # Invalidate membership cache when new subscription is created
+                MembershipCache.invalidate_user(user.id)
+                # Also invalidate for sub-accounts since they inherit from primary user
+                sub_accounts = Accounts.get_sub_accounts(user)
+
+                Enum.each(sub_accounts, fn sub_account ->
+                  MembershipCache.invalidate_user(sub_account.id)
+                end)
+
                 {:noreply,
                  socket
                  |> put_flash(:info, "Membership activated successfully!")
@@ -2187,6 +2180,14 @@ defmodule YscWeb.UserSettingsLive do
                   stripe_subscription_id: stripe_subscription.id,
                   error: reason
                 )
+
+                # Invalidate cache even if local save failed (webhook will update it)
+                MembershipCache.invalidate_user(user.id)
+                sub_accounts = Accounts.get_sub_accounts(user)
+
+                Enum.each(sub_accounts, fn sub_account ->
+                  MembershipCache.invalidate_user(sub_account.id)
+                end)
 
                 {:noreply,
                  socket
@@ -2584,6 +2585,14 @@ defmodule YscWeb.UserSettingsLive do
       # Schedule cancellation at end of current period in Stripe and persist locally
       case Subscriptions.cancel(socket.assigns.current_membership) do
         {:ok, _subscription} ->
+          # Cache invalidation is handled in Subscriptions.cancel
+          # Also invalidate for sub-accounts since they inherit from primary user
+          sub_accounts = Accounts.get_sub_accounts(user)
+
+          Enum.each(sub_accounts, fn sub_account ->
+            MembershipCache.invalidate_user(sub_account.id)
+          end)
+
           {:noreply,
            put_flash(socket, :info, "Membership cancelled.")
            |> redirect(to: ~p"/users/membership")}
@@ -2609,11 +2618,27 @@ defmodule YscWeb.UserSettingsLive do
           {:noreply, put_flash(socket, :error, reason)}
 
         {:ok, _subscription} ->
+          # Cache invalidation is handled in Subscriptions.resume (via update_subscription)
+          # Also invalidate for sub-accounts since they inherit from primary user
+          sub_accounts = Accounts.get_sub_accounts(user)
+
+          Enum.each(sub_accounts, fn sub_account ->
+            MembershipCache.invalidate_user(sub_account.id)
+          end)
+
           {:noreply,
            put_flash(socket, :info, "Membership reactivated.")
            |> redirect(to: ~p"/users/membership")}
 
         _subscription ->
+          # Cache invalidation is handled in Subscriptions.resume (via update_subscription)
+          # Also invalidate for sub-accounts since they inherit from primary user
+          sub_accounts = Accounts.get_sub_accounts(user)
+
+          Enum.each(sub_accounts, fn sub_account ->
+            MembershipCache.invalidate_user(sub_account.id)
+          end)
+
           {:noreply,
            put_flash(socket, :info, "Membership reactivated.")
            |> redirect(to: ~p"/users/membership")}
@@ -2726,6 +2751,14 @@ defmodule YscWeb.UserSettingsLive do
                           updated_subscription
                           |> Repo.preload(:subscription_items)
 
+                        # Cache invalidation is handled in Subscriptions.change_membership_plan (via update_subscription)
+                        # Also invalidate for sub-accounts since they inherit from primary user
+                        sub_accounts = Accounts.get_sub_accounts(user)
+
+                        Enum.each(sub_accounts, fn sub_account ->
+                          MembershipCache.invalidate_user(sub_account.id)
+                        end)
+
                         # Determine success message based on direction
                         success_message =
                           case direction do
@@ -2750,6 +2783,14 @@ defmodule YscWeb.UserSettingsLive do
                          |> redirect(to: ~p"/users/membership")}
 
                       {:scheduled, _schedule} ->
+                        # Invalidate cache even for scheduled changes
+                        MembershipCache.invalidate_user(user.id)
+                        sub_accounts = Accounts.get_sub_accounts(user)
+
+                        Enum.each(sub_accounts, fn sub_account ->
+                          MembershipCache.invalidate_user(sub_account.id)
+                        end)
+
                         {:noreply,
                          put_flash(
                            socket,
@@ -2779,6 +2820,14 @@ defmodule YscWeb.UserSettingsLive do
                       updated_membership =
                         updated_subscription
                         |> Repo.preload(:subscription_items)
+
+                      # Cache invalidation is handled in Subscriptions.change_membership_plan (via update_subscription)
+                      # Also invalidate for sub-accounts since they inherit from primary user
+                      sub_accounts = Accounts.get_sub_accounts(user)
+
+                      Enum.each(sub_accounts, fn sub_account ->
+                        MembershipCache.invalidate_user(sub_account.id)
+                      end)
 
                       # Determine success message based on direction
                       success_message =
@@ -3059,8 +3108,71 @@ defmodule YscWeb.UserSettingsLive do
   # defp payment_to_badge_style("void"), do: "red"
   # defp payment_to_badge_style(_), do: "blue"
 
-  defp default_select(true), do: "family"
-  defp default_select(false), do: "single"
+  # Get membership type for form pre-selection
+  # Returns "family" or "single" based on current active membership, or most recent past membership
+  defp get_membership_type_for_selection(user) do
+    # Get all subscriptions (active and past)
+    subscriptions =
+      case user.subscriptions do
+        %Ecto.Association.NotLoaded{} ->
+          # Fallback if subscriptions aren't preloaded
+          Subscriptions.list_subscriptions(user)
+
+        subscriptions when is_list(subscriptions) ->
+          subscriptions
+
+        _ ->
+          []
+      end
+
+    # Get price IDs for membership type lookup
+    family_price_id = get_price_id(:family)
+    single_price_id = get_price_id(:single)
+
+    # First, check active subscriptions
+    active_membership_type =
+      subscriptions
+      |> Enum.filter(&Subscriptions.active?/1)
+      |> Enum.find_value(fn subscription ->
+        if subscription_items_contain_price?(subscription, family_price_id) do
+          :family
+        else
+          if subscription_items_contain_price?(subscription, single_price_id) do
+            :single
+          else
+            nil
+          end
+        end
+      end)
+
+    # If we found an active membership type, return it
+    if active_membership_type do
+      Atom.to_string(active_membership_type)
+    else
+      # No active membership, check past subscriptions (most recent first)
+      past_membership_type =
+        subscriptions
+        |> Enum.sort_by(& &1.inserted_at, {:desc, DateTime})
+        |> Enum.find_value(fn subscription ->
+          if subscription_items_contain_price?(subscription, family_price_id) do
+            :family
+          else
+            if subscription_items_contain_price?(subscription, single_price_id) do
+              :single
+            else
+              nil
+            end
+          end
+        end)
+
+      # Return past membership type if found, otherwise default to "single"
+      if past_membership_type do
+        Atom.to_string(past_membership_type)
+      else
+        "single"
+      end
+    end
+  end
 
   defp payment_secret(:payment_method, user) do
     case Customers.create_setup_intent(user,
@@ -3606,7 +3718,17 @@ defmodule YscWeb.UserSettingsLive do
         """
 
       payment_info.type == :membership && not is_nil(payment_info.subscription) ->
-        assigns = Map.put(assigns, :subscription, payment_info.subscription)
+        # Ensure subscription_items are loaded before rendering
+        subscription =
+          case payment_info.subscription.subscription_items do
+            %Ecto.Association.NotLoaded{} ->
+              Repo.preload(payment_info.subscription, :subscription_items)
+
+            _ ->
+              payment_info.subscription
+          end
+
+        assigns = Map.put(assigns, :subscription, subscription)
 
         ~H"""
         <div class="flex flex-col text-sm text-zinc-500">
@@ -3716,7 +3838,17 @@ defmodule YscWeb.UserSettingsLive do
         """
 
       payment_info.type == :membership && not is_nil(payment_info.subscription) ->
-        assigns = Map.put(assigns, :subscription, payment_info.subscription)
+        # Ensure subscription_items are loaded before rendering
+        subscription =
+          case payment_info.subscription.subscription_items do
+            %Ecto.Association.NotLoaded{} ->
+              Repo.preload(payment_info.subscription, :subscription_items)
+
+            _ ->
+              payment_info.subscription
+          end
+
+        assigns = Map.put(assigns, :subscription, subscription)
 
         ~H"""
         <p class="font-medium text-zinc-700">
@@ -3799,6 +3931,16 @@ defmodule YscWeb.UserSettingsLive do
             invoice_id: invoice_id
           )
 
+          # Invalidate membership cache after successful payment
+          # The subscription will be updated via webhook, but invalidate cache now for immediate effect
+          MembershipCache.invalidate_user(user.id)
+          # Also invalidate for sub-accounts since they inherit from primary user
+          sub_accounts = Accounts.get_sub_accounts(user)
+
+          Enum.each(sub_accounts, fn sub_account ->
+            MembershipCache.invalidate_user(sub_account.id)
+          end)
+
           {:noreply,
            socket
            |> put_flash(
@@ -3865,5 +4007,25 @@ defmodule YscWeb.UserSettingsLive do
        :error,
        "Invalid invoice ID. Please use the link from your email or contact support."
      )}
+  end
+
+  defp subscription_items_contain_price?(subscription, price_id) do
+    subscription_items =
+      case subscription.subscription_items do
+        %Ecto.Association.NotLoaded{} ->
+          # Preload subscription items if not loaded
+          subscription = Repo.preload(subscription, :subscription_items)
+          subscription.subscription_items
+
+        items when is_list(items) ->
+          items
+
+        _ ->
+          []
+      end
+
+    Enum.any?(subscription_items, fn item ->
+      item.stripe_price_id == price_id
+    end)
   end
 end

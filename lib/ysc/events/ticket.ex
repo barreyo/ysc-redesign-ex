@@ -202,7 +202,21 @@ defmodule Ysc.Events.Ticket do
   defp get_most_expensive_subscription(subscriptions) do
     Enum.max_by(subscriptions, fn subscription ->
       # Get the price from the subscription items
-      case subscription.subscription_items do
+      subscription_items =
+        case subscription.subscription_items do
+          %Ecto.Association.NotLoaded{} ->
+            # Preload subscription items if not loaded
+            subscription = Ysc.Repo.preload(subscription, :subscription_items)
+            subscription.subscription_items
+
+          items when is_list(items) ->
+            items
+
+          _ ->
+            []
+        end
+
+      case subscription_items do
         [item | _] -> item.price.amount
         _ -> 0
       end

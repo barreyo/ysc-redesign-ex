@@ -22,11 +22,18 @@ defmodule YscWeb.BookingReceiptLive do
     else
       # SECURITY: Filter by user_id in the database query to prevent unauthorized access
       # This ensures we only fetch bookings that belong to the current user
-      case from(b in Booking,
-             where: b.id == ^booking_id and b.user_id == ^user.id,
-             preload: [:user, :booking_guests, rooms: :room_category]
-           )
-           |> Repo.one() do
+      # PERFORMANCE: Preload all associations in a single query to avoid N+1
+      booking_query =
+        from(b in Booking,
+          where: b.id == ^booking_id and b.user_id == ^user.id,
+          preload: [
+            :user,
+            :booking_guests,
+            rooms: :room_category
+          ]
+        )
+
+      case Repo.one(booking_query) do
         nil ->
           {:ok,
            socket
@@ -35,18 +42,26 @@ defmodule YscWeb.BookingReceiptLive do
 
         booking ->
           # Handle Stripe redirect parameters (may update booking status)
-          socket = handle_stripe_redirect(params, booking, socket)
+          # Track if booking was actually updated to avoid unnecessary reload
+          {socket, booking_updated} = handle_stripe_redirect(params, booking, socket)
 
-          # PERFORMANCE: Reload booking only if redirect handling might have changed status
-          # Still filter by user_id for security
+          # PERFORMANCE: Only reload booking if redirect handling actually changed it
           booking =
-            from(b in Booking,
-              where: b.id == ^booking_id and b.user_id == ^user.id,
-              preload: [:user, :booking_guests, rooms: :room_category]
-            )
-            |> Repo.one!()
+            if booking_updated do
+              from(b in Booking,
+                where: b.id == ^booking_id and b.user_id == ^user.id,
+                preload: [
+                  :user,
+                  :booking_guests,
+                  rooms: :room_category
+                ]
+              )
+              |> Repo.one!()
+            else
+              booking
+            end
 
-          # Get payment information
+          # Get payment information (optimized to avoid separate queries)
           payment = get_booking_payment(booking)
 
           # Get timezone from connect params
@@ -1010,13 +1025,13 @@ defmodule YscWeb.BookingReceiptLive do
         # Payment succeeded via redirect - process it
         case process_payment_from_redirect(booking, payment_intent_id) do
           {:ok, _confirmed_booking} ->
-            socket
-            |> put_flash(:info, "Payment successful! Your booking is confirmed.")
+            {socket
+             |> put_flash(:info, "Payment successful! Your booking is confirmed."), true}
 
           {:error, :already_processed} ->
             # Payment was already processed (maybe via webhook or client-side)
-            socket
-            |> put_flash(:info, "Your booking is confirmed.")
+            {socket
+             |> put_flash(:info, "Your booking is confirmed."), false}
 
           {:error, reason} ->
             Logger.error("Failed to process payment from redirect",
@@ -1025,23 +1040,23 @@ defmodule YscWeb.BookingReceiptLive do
               error: reason
             )
 
-            socket
-            |> put_flash(
-              :error,
-              "Payment was successful, but there was an issue confirming your booking. Please contact support."
-            )
+            {socket
+             |> put_flash(
+               :error,
+               "Payment was successful, but there was an issue confirming your booking. Please contact support."
+             ), false}
         end
 
       {"failed", _payment_intent_id} ->
-        socket
-        |> put_flash(
-          :error,
-          "Payment failed. Please try again or contact support if the problem persists."
-        )
+        {socket
+         |> put_flash(
+           :error,
+           "Payment failed. Please try again or contact support if the problem persists."
+         ), false}
 
       _ ->
         # No redirect parameters or unknown status
-        socket
+        {socket, false}
     end
   end
 

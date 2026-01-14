@@ -2599,7 +2599,21 @@ defmodule YscWeb.ClearLakeBookingLive do
       end)
 
     Enum.max_by(subscriptions, fn subscription ->
-      case subscription.subscription_items do
+      subscription_items =
+        case subscription.subscription_items do
+          %Ecto.Association.NotLoaded{} ->
+            # Preload subscription items if not loaded
+            subscription = Ysc.Repo.preload(subscription, :subscription_items)
+            subscription.subscription_items
+
+          items when is_list(items) ->
+            items
+
+          _ ->
+            []
+        end
+
+      case subscription_items do
         [item | _] ->
           Map.get(price_to_amount, item.stripe_price_id, 0)
 

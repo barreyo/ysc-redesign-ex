@@ -173,9 +173,27 @@ defmodule Ysc.Customers do
     |> subscriptions()
     |> Enum.any?(fn subscription ->
       Subscriptions.active?(subscription) and
-        Enum.any?(subscription.subscription_items, fn item ->
-          item.stripe_price_id == price_id
-        end)
+        subscription_items_contain_price?(subscription, price_id)
+    end)
+  end
+
+  defp subscription_items_contain_price?(subscription, price_id) do
+    subscription_items =
+      case subscription.subscription_items do
+        %Ecto.Association.NotLoaded{} ->
+          # Preload subscription items if not loaded
+          subscription = Ysc.Repo.preload(subscription, :subscription_items)
+          subscription.subscription_items
+
+        items when is_list(items) ->
+          items
+
+        _ ->
+          []
+      end
+
+    Enum.any?(subscription_items, fn item ->
+      item.stripe_price_id == price_id
     end)
   end
 
