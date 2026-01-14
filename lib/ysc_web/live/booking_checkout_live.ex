@@ -806,14 +806,14 @@ defmodule YscWeb.BookingCheckoutLive do
               <%= MoneyHelper.format_money!(@total_price) %>
             </p>
           </div>
-          <button
+          <.button
             type="submit"
             form="guest-info-form"
-            class="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            class="flex-1"
             disabled={!all_guests_valid?(@guest_info_form, @booking)}
           >
             Continue to Payment<.icon name="hero-arrow-right" class="w-5 h-5 -mt-1 ms-1" />
-          </button>
+          </.button>
         </div>
       </div>
       <%!-- Spacer for mobile footer --%>
