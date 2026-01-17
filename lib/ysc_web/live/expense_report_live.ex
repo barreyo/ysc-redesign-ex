@@ -1947,6 +1947,7 @@ defmodule YscWeb.ExpenseReportLive do
                                       phx-click="consume-receipt"
                                       phx-value-ref={entry.ref}
                                       phx-value-index={expense_f.index}
+                                      phx-disable-with="Attaching..."
                                       disabled={!entry.done? || entry.progress != 100}
                                       id={"receipt-consume-#{entry.ref}"}
                                       data-ref={entry.ref}
@@ -1967,6 +1968,7 @@ defmodule YscWeb.ExpenseReportLive do
                                       type="button"
                                       phx-click="cancel-upload"
                                       phx-value-ref={entry.ref}
+                                      phx-disable-with="Cancelling..."
                                       class="px-4 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 border border-red-300 min-h-[44px]"
                                     >
                                       Cancel
@@ -2215,6 +2217,7 @@ defmodule YscWeb.ExpenseReportLive do
                                       phx-click="consume-proof"
                                       phx-value-ref={entry.ref}
                                       phx-value-index={income_f.index}
+                                      phx-disable-with="Attaching..."
                                       disabled={!entry.done? || entry.progress != 100}
                                       id={"proof-consume-#{entry.ref}"}
                                       data-ref={entry.ref}
@@ -2235,6 +2238,7 @@ defmodule YscWeb.ExpenseReportLive do
                                       type="button"
                                       phx-click="cancel-proof-upload"
                                       phx-value-ref={entry.ref}
+                                      phx-disable-with="Cancelling..."
                                       class="px-4 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 border border-red-300 min-h-[44px]"
                                     >
                                       Cancel

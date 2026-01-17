@@ -554,6 +554,7 @@ defmodule YscWeb.BookingCheckoutLive do
                 <div class="flex flex-col sm:flex-row gap-4">
                   <.button
                     type="submit"
+                    phx-disable-with="Processing..."
                     class="flex-1 w-full text-lg py-3.5"
                     disabled={!all_guests_valid?(@guest_info_form, @booking)}
                   >
@@ -563,6 +564,7 @@ defmodule YscWeb.BookingCheckoutLive do
                   <button
                     type="button"
                     phx-click="cancel-booking"
+                    phx-disable-with="Cancelling..."
                     phx-confirm="Are you sure you want to cancel this booking? The availability will be released immediately."
                     class="px-6 py-3.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors"
                   >
@@ -612,6 +614,7 @@ defmodule YscWeb.BookingCheckoutLive do
                   <button
                     type="button"
                     phx-click="cancel-booking"
+                    phx-disable-with="Cancelling..."
                     phx-confirm="Are you sure you want to cancel this booking? The availability will be released immediately."
                     class="px-6 py-3.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors"
                   >
@@ -809,6 +812,7 @@ defmodule YscWeb.BookingCheckoutLive do
           <.button
             type="submit"
             form="guest-info-form"
+            phx-disable-with="Processing..."
             class="flex-1"
             disabled={!all_guests_valid?(@guest_info_form, @booking)}
           >

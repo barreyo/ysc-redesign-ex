@@ -59,13 +59,13 @@ defmodule YscWeb.AdminEventsNewLive do
 
           <div class="pl-4 space-x-1 flex flex-row">
             <div :if={@event.state in [:draft, :scheduled]}>
-              <.button color="blue" phx-click="publish-event">
+              <.button color="blue" phx-click="publish-event" phx-disable-with="Publishing...">
                 <.icon name="hero-document-arrow-up" class="w-5 h-5 -mt-1 me-1" />Publish
               </.button>
             </div>
 
             <div :if={@event.state in [:published]}>
-              <.button color="red" phx-click="unpublish-event">
+              <.button color="red" phx-click="unpublish-event" phx-disable-with="Unpublishing...">
                 <.icon name="hero-document-arrow-down" class="w-5 h-5 -mt-1 me-1" />Unpublish
               </.button>
             </div>
@@ -322,7 +322,7 @@ defmodule YscWeb.AdminEventsNewLive do
                 </p>
               </div>
 
-              <.button type="button" phx-click="add-agenda">
+              <.button type="button" phx-click="add-agenda" phx-disable-with="Adding...">
                 <.icon name="hero-plus" class="-mt-0.5" /> Add Agenda
               </.button>
 

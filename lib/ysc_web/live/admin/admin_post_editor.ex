@@ -167,11 +167,19 @@ defmodule YscWeb.AdminPostEditorLive do
                 </div>
 
                 <div class="flex justify-between items-center mt-3">
-                  <.button :if={!@featured_images_start?} phx-click="prev-featured-images">
+                  <.button
+                    :if={!@featured_images_start?}
+                    phx-click="prev-featured-images"
+                    phx-disable-with="Loading..."
+                  >
                     Previous
                   </.button>
                   <span class="flex-1"></span>
-                  <.button :if={!@featured_images_end?} phx-click="next-featured-images">
+                  <.button
+                    :if={!@featured_images_end?}
+                    phx-click="next-featured-images"
+                    phx-disable-with="Loading..."
+                  >
                     Next
                   </.button>
                 </div>
@@ -249,6 +257,7 @@ defmodule YscWeb.AdminPostEditorLive do
                   <div class="w-full flex justify-end pt-3">
                     <.button
                       type="submit"
+                      phx-disable-with="Uploading..."
                       aria-disabled={length(@uploads.featured_image_upload.entries) == 0}
                       disabled={length(@uploads.featured_image_upload.entries) == 0}
                     >

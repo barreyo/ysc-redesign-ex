@@ -148,7 +148,7 @@ defmodule YscWeb.PostLive do
               </.input>
               <input type="hidden" name="comment[post_id]" value={@post.id} />
               <div class="flex justify-end mt-4">
-                <.button type="submit">
+                <.button type="submit" phx-disable-with="Posting...">
                   Post Comment
                   <.icon
                     :if={@loading}

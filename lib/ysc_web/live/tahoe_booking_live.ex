@@ -1888,6 +1888,7 @@ defmodule YscWeb.TahoeBookingLive do
                   <.button
                     :if={@can_book}
                     phx-click="show-confirm-modal"
+                    phx-disable-with="Loading..."
                     disabled={
                       !can_submit_booking?(
                         @selected_booking_mode,

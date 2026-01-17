@@ -2004,7 +2004,7 @@ defmodule YscWeb.EventDetailsLive do
             >
               Cancel
             </.button>
-            <.button type="submit" class="flex-1">
+            <.button type="submit" phx-disable-with="Processing..." class="flex-1">
               <%= if Money.zero?(@ticket_order.total_amount) do %>
                 Continue to Confirmation
               <% else %>
@@ -2294,7 +2294,11 @@ defmodule YscWeb.EventDetailsLive do
           >
             Cancel
           </.button>
-          <.button phx-click="confirm-free-tickets" class="flex-1 bg-green-600 hover:bg-green-700">
+          <.button
+            phx-click="confirm-free-tickets"
+            phx-disable-with="Confirming..."
+            class="flex-1 bg-green-600 hover:bg-green-700"
+          >
             Confirm Free Tickets
           </.button>
         </div>

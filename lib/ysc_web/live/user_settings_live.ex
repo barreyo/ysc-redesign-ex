@@ -64,6 +64,7 @@ defmodule YscWeb.UserSettingsLive do
               <%= if sms_resend_available?(assigns) do %>
                 <.link
                   phx-click="resend_phone_code"
+                  phx-disable-with="Sending..."
                   class="text-blue-600 hover:underline cursor-pointer"
                 >
                   click here to resend
@@ -133,6 +134,7 @@ defmodule YscWeb.UserSettingsLive do
               <%= if email_resend_available?(assigns) do %>
                 <.link
                   phx-click="resend_email_code"
+                  phx-disable-with="Sending..."
                   class="text-blue-600 hover:underline cursor-pointer"
                 >
                   click here to resend
@@ -281,6 +283,7 @@ defmodule YscWeb.UserSettingsLive do
                 id="add-payment-method"
                 type="button"
                 phx-click="add-new-payment-method"
+                phx-disable-with="Loading..."
                 class="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -326,6 +329,7 @@ defmodule YscWeb.UserSettingsLive do
                 <button
                   type="submit"
                   id="submit"
+                  phx-disable-with="Saving..."
                   class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Save Payment Method
@@ -632,6 +636,7 @@ defmodule YscWeb.UserSettingsLive do
                       @active_plan_type != :lifetime
                   }
                   phx-click="cancel-membership"
+                  phx-disable-with="Cancelling..."
                   color="red"
                   disabled={
                     !@user_is_active || Subscriptions.scheduled_for_cancellation?(@current_membership)
@@ -646,6 +651,7 @@ defmodule YscWeb.UserSettingsLive do
                     !@is_sub_account && Subscriptions.scheduled_for_cancellation?(@current_membership)
                   }
                   phx-click="reactivate-membership"
+                  phx-disable-with="Reactivating..."
                   color="green"
                   disabled={!@user_is_active}
                 >
@@ -886,6 +892,7 @@ defmodule YscWeb.UserSettingsLive do
                         disabled={@default_payment_method == nil || !@user_is_active}
                         phx-click="change-membership"
                         phx-value-membership_type={@membership_form.params["membership_type"]}
+                        phx-disable-with="Changing..."
                         type="button"
                       >
                         <.icon name="hero-arrows-right-left" class="me-2 -mt-0.5" />Change Membership Plan

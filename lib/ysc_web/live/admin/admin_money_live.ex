@@ -1028,7 +1028,7 @@ defmodule YscWeb.AdminMoneyLive do
               class="block w-full rounded-md border-zinc-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             />
           </div>
-          <.button type="submit" class="bg-blue-600 hover:bg-blue-700">
+          <.button type="submit" phx-disable-with="Updating..." class="bg-blue-600 hover:bg-blue-700">
             Update
           </.button>
         </form>
@@ -1766,7 +1766,11 @@ defmodule YscWeb.AdminMoneyLive do
             >
               Cancel
             </.button>
-            <.button type="submit" class="bg-red-600 hover:bg-red-700">
+            <.button
+              type="submit"
+              phx-disable-with="Processing..."
+              class="bg-red-600 hover:bg-red-700"
+            >
               Process Refund
             </.button>
           </div>
@@ -1845,7 +1849,11 @@ defmodule YscWeb.AdminMoneyLive do
             >
               Cancel
             </.button>
-            <.button type="submit" class="bg-green-600 hover:bg-green-700">
+            <.button
+              type="submit"
+              phx-disable-with="Adding..."
+              class="bg-green-600 hover:bg-green-700"
+            >
               Add Credit
             </.button>
           </div>
@@ -2472,7 +2480,11 @@ defmodule YscWeb.AdminMoneyLive do
             <.button type="button" phx-click="close_entry_modal" class="bg-zinc-500 hover:bg-zinc-600">
               Cancel
             </.button>
-            <.button type="submit" class="bg-yellow-600 hover:bg-yellow-700">
+            <.button
+              type="submit"
+              phx-disable-with="Updating..."
+              class="bg-yellow-600 hover:bg-yellow-700"
+            >
               Update Entry
             </.button>
           </div>
@@ -2819,7 +2831,11 @@ defmodule YscWeb.AdminMoneyLive do
             >
               Close
             </.button>
-            <.button type="submit" class="bg-blue-600 hover:bg-blue-700">
+            <.button
+              type="submit"
+              phx-disable-with="Updating..."
+              class="bg-blue-600 hover:bg-blue-700"
+            >
               Update Status
             </.button>
           </div>

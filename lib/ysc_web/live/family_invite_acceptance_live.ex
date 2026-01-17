@@ -136,7 +136,7 @@ defmodule YscWeb.FamilyInviteAcceptanceLive do
             />
 
             <:actions>
-              <.button type="submit">Create Account</.button>
+              <.button type="submit" phx-disable-with="Creating...">Create Account</.button>
             </:actions>
           </.simple_form>
         </div>

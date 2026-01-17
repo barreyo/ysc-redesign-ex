@@ -78,7 +78,9 @@ defmodule YscWeb.ContactLive do
               </div>
 
               <:actions>
-                <.button type="submit" class="w-full">Send Message</.button>
+                <.button type="submit" phx-disable-with="Sending..." class="w-full">
+                  Send Message
+                </.button>
               </:actions>
             </.simple_form>
           </div>

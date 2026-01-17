@@ -769,7 +769,12 @@ defmodule YscWeb.HomeLive do
                 required
                 disabled={@newsletter_submitted}
               />
-              <.button :if={!@newsletter_submitted} type="submit" class="px-6 py-3 whitespace-nowrap">
+              <.button
+                :if={!@newsletter_submitted}
+                type="submit"
+                phx-disable-with="Subscribing..."
+                class="px-6 py-3 whitespace-nowrap"
+              >
                 Subscribe
               </.button>
             </div>

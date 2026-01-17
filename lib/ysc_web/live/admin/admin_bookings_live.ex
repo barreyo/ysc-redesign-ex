@@ -84,6 +84,7 @@ defmodule YscWeb.AdminBookingsLive do
                   type="button"
                   phx-click="delete-blackout"
                   phx-value-id={@blackout.id}
+                  phx-disable-with="Deleting..."
                   data-confirm="Are you sure you want to delete this blackout?"
                   class="rounded bg-red-600 hover:bg-red-700 py-2 px-4 transition duration-200 text-sm font-semibold text-white active:text-white/80"
                 >
@@ -98,7 +99,12 @@ defmodule YscWeb.AdminBookingsLive do
                 }>
                   Cancel
                 </.button>
-                <.button type="submit">
+                <.button
+                  type="submit"
+                  phx-disable-with={
+                    if @live_action == :new_blackout, do: "Creating...", else: "Updating..."
+                  }
+                >
                   <%= if @live_action == :new_blackout, do: "Create", else: "Update" %>
                 </.button>
               </div>
@@ -221,7 +227,12 @@ defmodule YscWeb.AdminBookingsLive do
             }>
               Cancel
             </.button>
-            <.button type="submit">
+            <.button
+              type="submit"
+              phx-disable-with={
+                if @live_action == :new_pricing_rule, do: "Creating...", else: "Updating..."
+              }
+            >
               <%= if @live_action == :new_pricing_rule, do: "Create", else: "Update" %>
             </.button>
           </:actions>
@@ -313,7 +324,7 @@ defmodule YscWeb.AdminBookingsLive do
                 }>
                   Cancel
                 </.button>
-                <.button type="submit">Update</.button>
+                <.button type="submit" phx-disable-with="Updating...">Update</.button>
               </div>
             </div>
           </:actions>
@@ -371,7 +382,11 @@ defmodule YscWeb.AdminBookingsLive do
           <:actions>
             <div class="flex justify-end gap-2">
               <.button phx-click="close-approve-refund-modal" type="button">Cancel</.button>
-              <.button type="submit" class="bg-green-600 hover:bg-green-700 text-white">
+              <.button
+                type="submit"
+                phx-disable-with="Approving..."
+                class="bg-green-600 hover:bg-green-700 text-white"
+              >
                 Approve Refund
               </.button>
             </div>
@@ -411,7 +426,9 @@ defmodule YscWeb.AdminBookingsLive do
           <:actions>
             <div class="flex justify-end gap-2">
               <.button phx-click="close-reject-refund-modal" type="button">Cancel</.button>
-              <.button type="submit" color="red">Reject Refund</.button>
+              <.button type="submit" phx-disable-with="Rejecting..." color="red">
+                Reject Refund
+              </.button>
             </div>
           </:actions>
         </.simple_form>
@@ -661,6 +678,7 @@ defmodule YscWeb.AdminBookingsLive do
             <.button
               :if={@primary_payment && length(@booking_refunds) == 0}
               phx-click="show-booking-refund-modal"
+              phx-disable-with="Loading..."
               class="bg-red-600 hover:bg-red-700 text-white"
             >
               <.icon name="hero-arrow-uturn-left" class="w-4 h-4 -mt-0.5" />
@@ -747,7 +765,11 @@ defmodule YscWeb.AdminBookingsLive do
               <.button type="button" phx-click="close-booking-refund-modal">
                 Cancel
               </.button>
-              <.button type="submit" class="bg-red-600 hover:bg-red-700">
+              <.button
+                type="submit"
+                phx-disable-with="Processing..."
+                class="bg-red-600 hover:bg-red-700"
+              >
                 Process Refund
               </.button>
             </div>
@@ -832,7 +854,12 @@ defmodule YscWeb.AdminBookingsLive do
             }>
               Cancel
             </.button>
-            <.button type="submit">
+            <.button
+              type="submit"
+              phx-disable-with={
+                if @live_action == :new_refund_policy, do: "Creating...", else: "Updating..."
+              }
+            >
               <%= if @live_action == :new_refund_policy, do: "Create", else: "Update" %>
             </.button>
           </:actions>
@@ -897,6 +924,7 @@ defmodule YscWeb.AdminBookingsLive do
                 <button
                   phx-click="delete-refund-policy-rule"
                   phx-value-rule-id={rule.id}
+                  phx-disable-with="Deleting..."
                   data-confirm="Are you sure you want to delete this rule?"
                   class="text-red-600 hover:text-red-800 font-semibold text-sm"
                 >
@@ -962,7 +990,7 @@ defmodule YscWeb.AdminBookingsLive do
               </.input>
 
               <:actions>
-                <.button type="submit">Add Rule</.button>
+                <.button type="submit" phx-disable-with="Adding...">Add Rule</.button>
               </:actions>
             </.simple_form>
           </div>
@@ -1082,7 +1110,7 @@ defmodule YscWeb.AdminBookingsLive do
               }>
                 Cancel
               </.button>
-              <.button type="submit">Create Booking</.button>
+              <.button type="submit" phx-disable-with="Creating...">Create Booking</.button>
             </div>
           </:actions>
         </.simple_form>
@@ -1346,6 +1374,7 @@ defmodule YscWeb.AdminBookingsLive do
                   type="button"
                   phx-click="delete-room"
                   phx-value-id={@room.id}
+                  phx-disable-with="Deleting..."
                   data-confirm="Are you sure you want to delete this room?"
                   class="rounded bg-red-600 hover:bg-red-700 py-2 px-4 transition duration-200 text-sm font-semibold text-white active:text-white/80"
                 >
@@ -1360,7 +1389,12 @@ defmodule YscWeb.AdminBookingsLive do
                 }>
                   Cancel
                 </.button>
-                <.button type="submit">
+                <.button
+                  type="submit"
+                  phx-disable-with={
+                    if @live_action == :new_room, do: "Creating...", else: "Updating..."
+                  }
+                >
                   <%= if @live_action == :new_room, do: "Create", else: "Update" %>
                 </.button>
               </div>

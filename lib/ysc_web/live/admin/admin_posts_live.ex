@@ -43,7 +43,7 @@ defmodule YscWeb.AdminPostsLive do
             >
               Cancel
             </button>
-            <.button type="submit">Create Post</.button>
+            <.button type="submit" phx-disable-with="Creating...">Create Post</.button>
           </div>
         </.simple_form>
       </.modal>

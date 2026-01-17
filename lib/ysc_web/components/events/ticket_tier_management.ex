@@ -96,6 +96,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                     phx-click="edit-ticket-tier"
                     phx-value-id={ticket_tier.id}
                     phx-target={@myself}
+                    phx-disable-with="Loading..."
                     class="flex-1 sm:flex-none"
                   >
                     <.icon name="hero-pencil" class="w-4 h-4 sm:me-0" />
@@ -107,6 +108,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                     phx-click="delete-ticket-tier"
                     phx-value-id={ticket_tier.id}
                     phx-target={@myself}
+                    phx-disable-with="Deleting..."
                     data-confirm="Are you sure you want to delete this ticket tier? This action cannot be undone."
                     disabled={ticket_tier.sold_tickets_count > 0}
                     title={
@@ -136,6 +138,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
             <.button
               phx-click="export-tickets-csv"
               phx-target={@myself}
+              phx-disable-with="Exporting..."
               color="blue"
               class="w-full sm:w-auto"
             >

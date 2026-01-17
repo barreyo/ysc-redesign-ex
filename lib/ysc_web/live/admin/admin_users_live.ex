@@ -249,6 +249,7 @@ defmodule YscWeb.AdminUsersLive do
               </div>
               <.button
                 type="submit"
+                phx-disable-with="Exporting..."
                 disabled={!(@export_status == :not_exporting || @export_status == :failed)}
               >
                 <span :if={@export_status == :not_exporting || @export_status == :failed}>

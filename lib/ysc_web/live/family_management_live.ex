@@ -380,7 +380,11 @@ defmodule YscWeb.FamilyManagementLive do
                   />
 
                   <:actions>
-                    <.button type="submit" disabled={not @can_send_invite}>
+                    <.button
+                      type="submit"
+                      phx-disable-with="Sending..."
+                      disabled={not @can_send_invite}
+                    >
                       Send Invitation
                     </.button>
                   </:actions>
@@ -422,6 +426,7 @@ defmodule YscWeb.FamilyManagementLive do
                             <button
                               phx-click="remove_sub_account"
                               phx-value-user_id={sub_account.id}
+                              phx-disable-with="Removing..."
                               data-confirm="Are you sure you want to remove this sub-account? They will lose access to membership benefits."
                               class="text-red-600 hover:text-red-800"
                             >
@@ -483,6 +488,7 @@ defmodule YscWeb.FamilyManagementLive do
                               <button
                                 phx-click="revoke_invite"
                                 phx-value-invite_id={invite.id}
+                                phx-disable-with="Revoking..."
                                 class="text-red-600 hover:text-red-800"
                               >
                                 Revoke

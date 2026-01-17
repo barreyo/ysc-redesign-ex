@@ -161,7 +161,7 @@ defmodule YscWeb.AdminMediaLive do
             >
               Cancel
             </button>
-            <.button type="submit">
+            <.button type="submit" phx-disable-with="Updating...">
               Update Image
             </.button>
           </div>
@@ -248,6 +248,7 @@ defmodule YscWeb.AdminMediaLive do
             <div class="w-full flex justify-end pt-4">
               <.button
                 type="submit"
+                phx-disable-with="Uploading..."
                 aria-disabled={length(@uploads.media_uploads.entries) == 0}
                 disabled={length(@uploads.media_uploads.entries) == 0}
               >
