@@ -20,6 +20,7 @@ defmodule YscWeb.AdminBookingsLive do
   import Ecto.Query
   require Logger
 
+  @impl true
   def render(assigns) do
     ~H"""
     <.side_menu
@@ -2762,6 +2763,7 @@ defmodule YscWeb.AdminBookingsLive do
     """
   end
 
+  @impl true
   def mount(params, _session, socket) do
     # Parse query parameters (may be malformed if URL is double-encoded)
     parsed_params = parse_mount_params(params)
@@ -2798,14 +2800,6 @@ defmodule YscWeb.AdminBookingsLive do
         :calendar
       end
 
-    seasons = Bookings.list_seasons()
-    pricing_rules = Bookings.list_pricing_rules()
-    refund_policies = Bookings.list_refund_policies()
-    room_categories = Bookings.list_room_categories()
-    rooms = Bookings.list_rooms()
-
-    # Note: blackouts and bookings are loaded on-demand in update_calendar_view with date range filtering
-
     today = Date.utc_today()
 
     # Read calendar dates from params if available, otherwise default to current month
@@ -2835,83 +2829,127 @@ defmodule YscWeb.AdminBookingsLive do
       |> Ecto.Changeset.cast(form_data, [:from_date, :to_date])
       |> to_form(as: "calendar_range")
 
-    # Load door codes for the selected property
-    door_codes = Bookings.list_door_codes(selected_property)
-    active_door_code = Bookings.get_active_door_code(selected_property)
-
     # Create initial door code form
     door_code_form =
       %Ysc.Bookings.DoorCode{}
       |> Ysc.Bookings.DoorCode.changeset(%{})
       |> to_form(as: "door_code")
 
-    {:ok,
+    # Generate calendar dates for initial render (no DB needed)
+    calendar_dates = generate_calendar_dates(calendar_start, calendar_end)
+
+    # Initialize socket with placeholder values for fast initial render
+    socket =
+      socket
+      |> assign(:page_title, "Bookings")
+      |> assign(:active_page, :bookings)
+      |> assign(:timezone, timezone)
+      |> assign(:selected_property, selected_property)
+      |> assign(:current_section, current_section)
+      |> assign(:loading_bookings_data, true)
+      # Placeholder values - will be populated when connected
+      |> assign(:seasons, [])
+      |> assign(:pricing_rules, [])
+      |> assign(:room_categories, [])
+      |> assign(:rooms, [])
+      |> assign(:refund_policies, [])
+      |> assign(:today, today)
+      |> assign(:calendar_start_date, calendar_start)
+      |> assign(:calendar_end_date, calendar_end)
+      |> assign(:calendar_dates, calendar_dates)
+      |> assign(:filtered_rooms, [])
+      |> assign(:filtered_blackouts, [])
+      |> assign(:room_bookings, [])
+      |> assign(:buyout_bookings, [])
+      |> assign(:booking_payments, [])
+      |> assign(:booking_refunds, [])
+      |> assign(:booking_room_id, nil)
+      |> assign(:primary_payment, nil)
+      |> assign(:show_refund_modal, false)
+      |> assign(:refund_form, nil)
+      |> assign(:calendar_range_form, changeset)
+      |> assign(:user_search, "")
+      |> assign(:user_search_results, [])
+      |> assign(:selected_user, nil)
+      |> assign(:date_selection_type, nil)
+      |> assign(:date_selection_start, nil)
+      |> assign(:date_selection_room_id, nil)
+      |> assign(:date_selection_hover_end, nil)
+      |> assign(:reservation_params, %{})
+      |> assign(:reservation_meta, nil)
+      |> assign(:reservation_empty, false)
+      |> assign(:reservation_filter_start_date, nil)
+      |> assign(:reservation_filter_end_date, nil)
+      |> assign(:door_codes, [])
+      |> assign(:active_door_code, nil)
+      |> assign(:door_code_form, door_code_form)
+      |> assign(:pending_refunds, [])
+      |> assign(:pending_refunds_count, 0)
+      |> assign(:selected_pending_refund, nil)
+      |> assign(:approve_refund_form, nil)
+      |> assign(:reject_refund_form, nil)
+      |> assign(:door_code_warning, nil)
+      |> assign(:season, nil)
+      |> assign(:season_form, nil)
+      |> assign(:refund_policy, nil)
+      |> assign(:refund_policy_form, nil)
+      |> assign(:refund_policy_rules, [])
+      |> assign(:refund_policy_rule_form, nil)
+      |> assign(:room, nil)
+      |> assign(:room_form, nil)
+      |> assign(:selected_room_image, nil)
+      |> assign(:show_image_gallery, false)
+      |> assign(:image_gallery, [])
+      |> assign(:image_gallery_page, 1)
+      |> assign(:image_gallery_end?, false)
+      |> assign(:daily_availability, %{})
+      |> assign(
+        :reservations_path,
+        ~p"/admin/bookings?property=#{selected_property}&section=reservations"
+      )
+      # Initialize filtered data with empty values
+      |> assign(:filtered_seasons, [])
+      |> assign(:filtered_pricing_rules, [])
+      |> assign(:filtered_refund_policies, [])
+
+    # Schedule data loading only when connected (stateful mount)
+    if connected?(socket) do
+      send(self(), :load_bookings_data)
+    end
+
+    {:ok, socket}
+  end
+
+  @impl true
+  def handle_info(:load_bookings_data, socket) do
+    selected_property = socket.assigns.selected_property
+
+    # Load reference data
+    seasons = Bookings.list_seasons()
+    pricing_rules = Bookings.list_pricing_rules()
+    refund_policies = Bookings.list_refund_policies()
+    room_categories = Bookings.list_room_categories()
+    rooms = Bookings.list_rooms()
+
+    # Load door codes for the selected property
+    door_codes = Bookings.list_door_codes(selected_property)
+    active_door_code = Bookings.get_active_door_code(selected_property)
+
+    {:noreply,
      socket
-     |> assign(:page_title, "Bookings")
-     |> assign(:active_page, :bookings)
-     |> assign(:timezone, timezone)
-     |> assign(:selected_property, selected_property)
-     |> assign(:current_section, current_section)
+     |> assign(:loading_bookings_data, false)
      |> assign(:seasons, seasons)
      |> assign(:pricing_rules, pricing_rules)
      |> assign(:room_categories, room_categories)
      |> assign(:rooms, rooms)
-     |> assign(:today, today)
-     |> assign(:calendar_start_date, calendar_start)
-     |> assign(:calendar_end_date, calendar_end)
-     |> assign(:room_bookings, [])
-     |> assign(:buyout_bookings, [])
-     |> assign(:booking_payments, [])
-     |> assign(:booking_refunds, [])
-     |> assign(:booking_room_id, nil)
-     |> assign(:primary_payment, nil)
-     |> assign(:show_refund_modal, false)
-     |> assign(:refund_form, nil)
-     |> assign(:calendar_range_form, changeset)
-     |> assign(:user_search, "")
-     |> assign(:user_search_results, [])
-     |> assign(:selected_user, nil)
-     |> assign(:date_selection_type, nil)
-     |> assign(:date_selection_start, nil)
-     |> assign(:date_selection_room_id, nil)
-     |> assign(:date_selection_hover_end, nil)
-     |> assign(:reservation_params, %{})
-     |> assign(:reservation_meta, nil)
-     |> assign(:reservation_empty, false)
-     |> assign(:reservation_filter_start_date, nil)
-     |> assign(:reservation_filter_end_date, nil)
+     |> assign(:refund_policies, refund_policies)
      |> assign(:door_codes, door_codes)
      |> assign(:active_door_code, active_door_code)
-     |> assign(:door_code_form, door_code_form)
-     |> assign(:pending_refunds, [])
-     |> assign(:pending_refunds_count, 0)
-     |> assign(:selected_pending_refund, nil)
-     |> assign(:approve_refund_form, nil)
-     |> assign(:reject_refund_form, nil)
-     |> assign(:door_code_warning, nil)
-     |> assign(:season, nil)
-     |> assign(:season_form, nil)
-     |> assign(:refund_policies, refund_policies)
-     |> assign(:refund_policy, nil)
-     |> assign(:refund_policy_form, nil)
-     |> assign(:refund_policy_rules, [])
-     |> assign(:refund_policy_rule_form, nil)
-     |> assign(:room, nil)
-     |> assign(:room_form, nil)
-     |> assign(:selected_room_image, nil)
-     |> assign(:show_image_gallery, false)
-     |> assign(:image_gallery, [])
-     |> assign(:image_gallery_page, 1)
-     |> assign(:image_gallery_end?, false)
-     |> assign(:daily_availability, %{})
-     |> assign(
-       :reservations_path,
-       ~p"/admin/bookings?property=#{selected_property}&section=reservations"
-     )
      |> assign_filtered_data(selected_property, seasons, pricing_rules, refund_policies)
      |> update_calendar_view(selected_property)}
   end
 
+  @impl true
   def handle_params(params, uri, socket) do
     # Parse query string manually if params are malformed (e.g., double-encoded)
     params = parse_query_params(params, uri)
@@ -3605,6 +3643,7 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:image_gallery_end?, false)
   end
 
+  @impl true
   def handle_event("select-property", %{"property" => property}, socket) do
     property_atom = String.to_existing_atom(property)
 

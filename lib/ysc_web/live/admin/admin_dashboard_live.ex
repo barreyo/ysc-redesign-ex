@@ -28,8 +28,16 @@ defmodule YscWeb.AdminDashboardLive do
           <div>
             <h1 class="text-3xl font-black text-zinc-900 tracking-tight">Overview</h1>
             <p class="text-xs text-zinc-500 font-medium mt-1 flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Build: <%= @build_version %>
+              <span class={[
+                "w-2 h-2 rounded-full",
+                if(@loading_dashboard, do: "bg-amber-500 animate-pulse", else: "bg-emerald-500")
+              ]}>
+              </span>
+              <%= if @loading_dashboard do %>
+                Loading dashboard...
+              <% else %>
+                Build: <%= @build_version %>
+              <% end %>
             </p>
           </div>
           <div class="w-full md:w-96">
@@ -407,6 +415,51 @@ defmodule YscWeb.AdminDashboardLive do
   @impl true
   @spec mount(any(), any(), map()) :: {:ok, map()}
   def mount(_params, _session, socket) do
+    build_version = get_build_version()
+
+    # Initialize with placeholder values for fast initial render
+    socket =
+      socket
+      |> assign(:active_page, :dashboard)
+      |> assign(:build_version, build_version)
+      |> assign(:page_title, "Dashboard")
+      |> assign(:loading_dashboard, true)
+      # Placeholder values - will be populated when connected
+      |> assign(:latest_comments, [])
+      |> assign(:events_with_tickets, [])
+      |> assign(:pending_users, [])
+      |> assign(:pending_reviews_count, 0)
+      |> assign(:current_month_revenue, Money.new(:USD, 0))
+      |> assign(:revenue_change_text, "—")
+      |> assign(:revenue_change_direction, :neutral)
+      |> assign(:last_month_revenue, Money.new(:USD, 0))
+      |> assign(:last_year_month_revenue, Money.new(:USD, 0))
+      |> assign(:next_event_date, nil)
+      |> assign(:applications_this_month, 0)
+      |> assign(:applications_this_year, 0)
+      |> assign(:applications_last_month, 0)
+      |> assign(:applications_last_year, 0)
+      |> assign(:applications_month_change, 0)
+      |> assign(:applications_year_change, 0)
+      |> assign(:revenue_bookings, Money.new(:USD, 0))
+      |> assign(:revenue_events, Money.new(:USD, 0))
+      |> assign(:revenue_membership, Money.new(:USD, 0))
+      |> assign(:revenue_mix_bookings_percent, 0)
+      |> assign(:revenue_mix_events_percent, 0)
+      |> assign(:revenue_mix_membership_percent, 0)
+      |> assign(:active_guests_count, 0)
+      |> assign(:active_guests_sample, [])
+
+    # Schedule data loading only when connected (stateful mount)
+    if connected?(socket) do
+      send(self(), :load_dashboard_data)
+    end
+
+    {:ok, socket}
+  end
+
+  @impl true
+  def handle_info(:load_dashboard_data, socket) do
     # Load all data in parallel where possible
     latest_comments = Posts.get_latest_comments(5)
     events_with_tickets = Events.get_upcoming_events_with_ticket_tier_counts()
@@ -426,13 +479,9 @@ defmodule YscWeb.AdminDashboardLive do
 
     {active_guests_count, active_guests_sample} = get_active_guests()
 
-    build_version = get_build_version()
-
-    {:ok,
+    {:noreply,
      socket
-     |> assign(:active_page, :dashboard)
-     |> assign(:build_version, build_version)
-     |> assign(:page_title, "Dashboard")
+     |> assign(:loading_dashboard, false)
      |> assign(:latest_comments, latest_comments)
      |> assign(:events_with_tickets, events_with_tickets)
      |> assign(:pending_users, pending_users)

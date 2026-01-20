@@ -26,50 +26,82 @@ defmodule YscWeb.AdminMoneyLive do
     start_date = DateTime.new!(Date.new!(current_year, 1, 1), ~T[00:00:00])
     end_date = DateTime.new!(Date.new!(current_year, 12, 31), ~T[23:59:59])
 
-    accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+    # Initialize socket with placeholder values for fast initial render
+    socket =
+      socket
+      |> assign(:page_title, "Money")
+      |> assign(:active_page, :money)
+      |> assign(:loading_money_data, true)
+      # Placeholder values - will be populated when connected
+      |> assign(:accounts_with_balances, [])
+      |> assign(:start_date, start_date)
+      |> assign(:end_date, end_date)
+      |> assign(:show_refund_modal, false)
+      |> assign(:show_credit_modal, false)
+      |> assign(:show_webhook_modal, false)
+      |> assign(:show_payout_modal, false)
+      |> assign(:selected_payment, nil)
+      |> assign(:selected_user, nil)
+      |> assign(:selected_webhook, nil)
+      |> assign(:selected_entry, nil)
+      |> assign(:selected_payout, nil)
+      |> assign(:ticket_order, nil)
+      |> assign(:refund_form, to_form(%{}, as: :refund))
+      |> assign(:credit_form, to_form(%{}, as: :credit))
+      |> assign(:entry_form, to_form(%{}, as: :entry))
+      |> assign(:show_entry_modal, false)
+      |> assign(:show_payment_modal, false)
+      |> assign(:payment_refunds, [])
+      |> assign(:payment_ledger_entries, [])
+      |> assign(:payment_related_entity, nil)
+      |> assign(:ledger_accounts, [])
+      |> assign(:sections_collapsed, %{
+        accounts: false,
+        quick_actions: false,
+        payments: false,
+        ledger_entries: true,
+        webhooks: true,
+        expense_reports: true
+      })
+      |> assign(:payments_page, 1)
+      |> assign(:ledger_entries_page, 1)
+      |> assign(:webhooks_page, 1)
+      |> assign(:expense_reports_page, 1)
+      |> assign(:per_page, 20)
+      |> assign(:show_expense_report_modal, false)
+      |> assign(:selected_expense_report, nil)
+      |> assign(:expense_report_status_form, to_form(%{}, as: :expense_report_status))
+      # Placeholder values for paginated data
+      |> assign(:recent_payments, [])
+      |> assign(:payments_end?, true)
+      |> assign(:ledger_entries, [])
+      |> assign(:ledger_entries_end?, true)
+      |> assign(:webhook_events, [])
+      |> assign(:webhooks_end?, true)
+      |> assign(:expense_reports, [])
+      |> assign(:expense_reports_end?, true)
 
-    {:ok,
+    # Schedule data loading only when connected (stateful mount)
+    if connected?(socket) do
+      send(self(), :load_money_data)
+    end
+
+    {:ok, socket}
+  end
+
+  @impl true
+  def handle_info(:load_money_data, socket) do
+    start_date = socket.assigns.start_date
+    end_date = socket.assigns.end_date
+
+    accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+    ledger_accounts = Ledgers.list_accounts()
+
+    {:noreply,
      socket
-     |> assign(:page_title, "Money")
-     |> assign(:active_page, :money)
+     |> assign(:loading_money_data, false)
      |> assign(:accounts_with_balances, accounts_with_balances)
-     |> assign(:start_date, start_date)
-     |> assign(:end_date, end_date)
-     |> assign(:show_refund_modal, false)
-     |> assign(:show_credit_modal, false)
-     |> assign(:show_webhook_modal, false)
-     |> assign(:show_payout_modal, false)
-     |> assign(:selected_payment, nil)
-     |> assign(:selected_user, nil)
-     |> assign(:selected_webhook, nil)
-     |> assign(:selected_entry, nil)
-     |> assign(:selected_payout, nil)
-     |> assign(:ticket_order, nil)
-     |> assign(:refund_form, to_form(%{}, as: :refund))
-     |> assign(:credit_form, to_form(%{}, as: :credit))
-     |> assign(:entry_form, to_form(%{}, as: :entry))
-     |> assign(:show_entry_modal, false)
-     |> assign(:show_payment_modal, false)
-     |> assign(:payment_refunds, [])
-     |> assign(:payment_ledger_entries, [])
-     |> assign(:payment_related_entity, nil)
-     |> assign(:ledger_accounts, Ledgers.list_accounts())
-     |> assign(:sections_collapsed, %{
-       accounts: false,
-       quick_actions: false,
-       payments: false,
-       ledger_entries: true,
-       webhooks: true,
-       expense_reports: true
-     })
-     |> assign(:payments_page, 1)
-     |> assign(:ledger_entries_page, 1)
-     |> assign(:webhooks_page, 1)
-     |> assign(:expense_reports_page, 1)
-     |> assign(:per_page, 20)
-     |> assign(:show_expense_report_modal, false)
-     |> assign(:selected_expense_report, nil)
-     |> assign(:expense_report_status_form, to_form(%{}, as: :expense_report_status))
+     |> assign(:ledger_accounts, ledger_accounts)
      |> paginate_payments(1)
      |> paginate_ledger_entries(1)
      |> paginate_webhooks(1)
