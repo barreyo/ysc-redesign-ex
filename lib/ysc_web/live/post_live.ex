@@ -254,16 +254,27 @@ defmodule YscWeb.PostLive do
 
   @impl true
   def handle_async(:load_comments, {:ok, sorted_comments}, socket) do
+    # Re-assign the form since temporary_assigns clears it after each render
+    # The .comment component needs a valid form to render
+    new_comment_changeset = Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
+
     {:noreply,
      socket
      |> assign(:comments_loaded, true)
+     |> assign_form(new_comment_changeset)
      |> stream(:comments, sorted_comments, reset: true)}
   end
 
   def handle_async(:load_comments, {:exit, reason}, socket) do
     require Logger
     Logger.error("Failed to load comments async: #{inspect(reason)}")
-    {:noreply, assign(socket, :comments_loaded, true)}
+    # Still need to provide a form even on error
+    new_comment_changeset = Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
+
+    {:noreply,
+     socket
+     |> assign(:comments_loaded, true)
+     |> assign_form(new_comment_changeset)}
   end
 
   @impl true
