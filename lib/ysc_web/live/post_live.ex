@@ -20,6 +20,7 @@ defmodule YscWeb.PostLive do
     membership_director: "Membership Director"
   }
 
+  @impl true
   def render(assigns) do
     ~H"""
     <%!-- Reading Progress Bar --%>
@@ -159,7 +160,21 @@ defmodule YscWeb.PostLive do
               </div>
             </.form>
 
-            <div id={"comment-section-#{@post.id}"} phx-update="stream">
+            <%!-- Loading skeleton for comments --%>
+            <div :if={!@comments_loaded && @n_comments > 0} class="space-y-4">
+              <%= for _i <- 1..min(@n_comments, 3) do %>
+                <div class="flex gap-4 p-4 bg-zinc-50 rounded-lg animate-pulse">
+                  <div class="w-10 h-10 bg-zinc-200 rounded-full flex-shrink-0"></div>
+                  <div class="flex-1 space-y-2">
+                    <div class="h-3 bg-zinc-200 rounded w-1/4"></div>
+                    <div class="h-4 bg-zinc-200 rounded w-full"></div>
+                    <div class="h-4 bg-zinc-200 rounded w-3/4"></div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+
+            <div :if={@comments_loaded} id={"comment-section-#{@post.id}"} phx-update="stream">
               <.comment
                 :for={{id, comment} <- @streams.comments}
                 id={id}
@@ -183,7 +198,9 @@ defmodule YscWeb.PostLive do
     """
   end
 
+  @impl true
   def mount(%{"id" => id} = _params, _session, socket) do
+    # Load post synchronously - essential for SEO (title, content, image)
     post =
       case Ecto.ULID.cast(id) do
         {:ok, ulid_id} -> Posts.get_post(ulid_id, [:author, :featured_image])
@@ -198,25 +215,58 @@ defmodule YscWeb.PostLive do
          |> redirect(to: ~p"/news")}
 
       post ->
+        # Essential assigns for initial render (SEO-critical)
         new_comment_changeset = Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
-        comments = Posts.get_comments_for_post(post.id, [:author])
-        sorted_comments = Posts.sort_comments_for_render(comments)
 
-        YscWeb.Endpoint.subscribe(Posts.post_topic(post.id))
+        socket =
+          socket
+          |> assign(:post_id, id)
+          |> assign(:post, post)
+          |> assign(:page_title, post.title)
+          |> assign(:animate_insert, false)
+          # Use cached comment_count from post for initial render
+          |> assign(:n_comments, post.comment_count)
+          |> assign(:loading, false)
+          |> assign(:comments_loaded, false)
+          |> assign_form(new_comment_changeset)
+          # Initialize empty stream for comments (will be populated after connection)
+          |> stream(:comments, [])
 
-        {:ok,
-         socket
-         |> assign(:post_id, id)
-         |> assign(:post, post)
-         |> assign(:page_title, post.title)
-         |> assign(:animate_insert, false)
-         |> assign(:n_comments, post.comment_count)
-         |> assign(:loading, false)
-         |> assign_form(new_comment_changeset)
-         |> stream(:comments, sorted_comments), temporary_assigns: [form: nil]}
+        if connected?(socket) do
+          # Subscribe to real-time updates only when connected
+          YscWeb.Endpoint.subscribe(Posts.post_topic(post.id))
+
+          # Load comments asynchronously (not needed for SEO)
+          {:ok, load_comments_async(socket, post.id), temporary_assigns: [form: nil]}
+        else
+          {:ok, socket, temporary_assigns: [form: nil]}
+        end
     end
   end
 
+  # Load comments asynchronously after WebSocket connection
+  defp load_comments_async(socket, post_id) do
+    start_async(socket, :load_comments, fn ->
+      comments = Posts.get_comments_for_post(post_id, [:author])
+      Posts.sort_comments_for_render(comments)
+    end)
+  end
+
+  @impl true
+  def handle_async(:load_comments, {:ok, sorted_comments}, socket) do
+    {:noreply,
+     socket
+     |> assign(:comments_loaded, true)
+     |> stream(:comments, sorted_comments, reset: true)}
+  end
+
+  def handle_async(:load_comments, {:exit, reason}, socket) do
+    require Logger
+    Logger.error("Failed to load comments async: #{inspect(reason)}")
+    {:noreply, assign(socket, :comments_loaded, true)}
+  end
+
+  @impl true
   def handle_event("save", %{"comment" => comment}, socket) do
     text_body = Map.get(comment, "text", "")
     # Ensure no bad stuff gets rendered ever
@@ -229,6 +279,7 @@ defmodule YscWeb.PostLive do
     {:noreply, socket |> assign(:loading, true)}
   end
 
+  @impl true
   def handle_info(%Phoenix.Socket.Broadcast{event: "new_comment", payload: new_comment}, socket) do
     loaded = Posts.get_comment!(new_comment.id, [:author])
     new_comment_changeset = Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})

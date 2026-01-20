@@ -56,22 +56,8 @@ defmodule YscWeb.TahoeBookingLive do
         as: "booking_dates"
       )
 
-    # Load active bookings for the entire family group (needed for eligibility check)
-    active_bookings = if user, do: get_family_group_active_bookings(user), else: []
-
-    # Check if user can book (pass active_bookings to avoid duplicate query)
-    {can_book, booking_error_title, booking_disabled_reason} =
-      check_booking_eligibility(user, active_bookings, redirect_to)
-
-    # If user can't book, default to information tab
-    active_tab =
-      if !can_book do
-        :information
-      else
-        requested_tab
-      end
-
-    # Use preloaded subscriptions from auth if available, otherwise load them
+    # Load user with subscriptions FIRST (to avoid multiple fetches)
+    # This user_with_subs will be reused by check_booking_eligibility and get_membership_type
     user_with_subs =
       if user do
         # Check if subscriptions are already preloaded from auth
@@ -86,7 +72,23 @@ defmodule YscWeb.TahoeBookingLive do
         nil
       end
 
+    # Load active bookings for the entire family group (needed for eligibility check)
+    active_bookings = if user, do: get_family_group_active_bookings(user), else: []
+
+    # Check if user can book (pass user_with_subs to avoid re-fetching subscriptions)
+    {can_book, booking_error_title, booking_disabled_reason} =
+      check_booking_eligibility(user_with_subs, active_bookings, redirect_to)
+
+    # If user can't book, default to information tab
+    active_tab =
+      if !can_book do
+        :information
+      else
+        requested_tab
+      end
+
     # Calculate membership type once and cache it (if user exists)
+    # user_with_subs already has subscriptions loaded, so this won't re-fetch
     membership_type =
       if user_with_subs do
         get_membership_type(user_with_subs)
@@ -208,20 +210,32 @@ defmodule YscWeb.TahoeBookingLive do
         booking_mode || :room
       )
 
-    # Check if user can book (re-check in case user state changed)
-    user = socket.assigns.current_user
-
-    # Load active bookings for the entire family group (only if not already loaded in mount)
-    active_bookings =
-      if user && !socket.assigns[:active_bookings] do
-        get_family_group_active_bookings(user)
-      else
-        socket.assigns[:active_bookings] || []
-      end
-
-    # Check if user can book (pass active_bookings to avoid duplicate query)
+    # Reuse eligibility data from mount if already computed (avoid duplicate queries)
+    # Only re-check if we don't have the data yet (should be rare)
     {can_book, booking_error_title, booking_disabled_reason} =
-      check_booking_eligibility(user, active_bookings, redirect_to)
+      if socket.assigns[:can_book] != nil do
+        # Already computed in mount - reuse it
+        {
+          socket.assigns.can_book,
+          socket.assigns.booking_error_title,
+          socket.assigns.booking_disabled_reason
+        }
+      else
+        # First time (shouldn't happen normally since mount runs first)
+        user = socket.assigns.current_user
+
+        active_bookings_loaded =
+          if user && !socket.assigns[:active_bookings] do
+            get_family_group_active_bookings(user)
+          else
+            socket.assigns[:active_bookings] || []
+          end
+
+        # Use the user with subscriptions preloaded if available
+        user_for_check = socket.assigns[:user] || user
+
+        check_booking_eligibility(user_for_check, active_bookings_loaded, redirect_to)
+      end
 
     # If user can't book and requested booking tab, switch to information tab
     active_tab =

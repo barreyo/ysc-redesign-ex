@@ -61,9 +61,6 @@ defmodule YscWeb.BookingReceiptLive do
               booking
             end
 
-          # Get payment information (optimized to avoid separate queries)
-          payment = get_booking_payment(booking)
-
           # Get timezone from connect params
           connect_params =
             case get_connect_params(socket) do
@@ -73,19 +70,13 @@ defmodule YscWeb.BookingReceiptLive do
 
           timezone = Map.get(connect_params, "timezone", "America/Los_Angeles")
 
-          # Parse saved pricing items (saved at booking time)
+          # Parse saved pricing items (saved at booking time) - no query needed
           price_breakdown = parse_pricing_items(booking.pricing_items)
 
-          # Check if booking can be cancelled
+          # Check if booking can be cancelled - no query needed
           can_cancel = can_cancel_booking?(booking)
 
-          # Get refund policy info for cancellation
-          refund_info = get_refund_info(booking)
-
           # Check if confetti should be shown (only when coming from payment)
-          # Show confetti if:
-          # 1. URL has confetti=true parameter (from checkout page redirect)
-          # 2. URL has redirect_status=succeeded (from Stripe redirect)
           show_confetti =
             Map.get(params, "confetti") == "true" ||
               Map.get(params, "redirect_status") == "succeeded"
@@ -94,34 +85,35 @@ defmodule YscWeb.BookingReceiptLive do
             "Confetti check: params=#{inspect(params)}, show_confetti=#{show_confetti}"
           )
 
-          # Get door code if booking is within 48 hours of check-in or currently active
-          # Don't show door code for cancelled bookings
-          {door_code, show_door_code} =
-            if booking.status == :canceled do
-              {nil, false}
-            else
-              get_door_code_for_booking(booking)
-            end
+          # PERFORMANCE: Essential data for initial render
+          # - booking, price_breakdown, can_cancel are needed immediately
+          # - payment, refund_info, door_code, refund_data can be loaded after connection
 
-          # Get refund information if booking is cancelled
-          refund_data = get_refund_data_for_booking(booking, payment)
+          socket =
+            socket
+            |> assign(:booking, booking)
+            |> assign(:timezone, timezone)
+            |> assign(:price_breakdown, price_breakdown)
+            |> assign(:user_first_name, user.first_name || "Member")
+            |> assign(:can_cancel, can_cancel)
+            |> assign(:show_cancel_modal, false)
+            |> assign(:cancel_reason, "")
+            |> assign(:show_confetti, show_confetti)
+            |> assign(:page_title, "Booking Confirmation")
+            # Placeholders for async-loaded data
+            |> assign(:payment, nil)
+            |> assign(:refund_info, nil)
+            |> assign(:door_code, nil)
+            |> assign(:show_door_code, false)
+            |> assign(:refund_data, nil)
+            |> assign(:async_data_loaded, false)
 
-          {:ok,
-           socket
-           |> assign(:booking, booking)
-           |> assign(:payment, payment)
-           |> assign(:timezone, timezone)
-           |> assign(:price_breakdown, price_breakdown)
-           |> assign(:user_first_name, user.first_name || "Member")
-           |> assign(:can_cancel, can_cancel)
-           |> assign(:refund_info, refund_info)
-           |> assign(:show_cancel_modal, false)
-           |> assign(:cancel_reason, "")
-           |> assign(:show_confetti, show_confetti)
-           |> assign(:door_code, door_code)
-           |> assign(:show_door_code, show_door_code)
-           |> assign(:refund_data, refund_data)
-           |> assign(:page_title, "Booking Confirmation")}
+          if connected?(socket) do
+            # Load secondary data asynchronously after WebSocket connection
+            {:ok, load_receipt_data_async(socket, booking)}
+          else
+            {:ok, socket}
+          end
       end
     end
   end
@@ -615,8 +607,26 @@ defmodule YscWeb.BookingReceiptLive do
         </div>
         <!-- Right Column: Sidebar -->
         <aside class="space-y-6">
+          <!-- Payment Summary Loading Skeleton -->
+          <div :if={!@async_data_loaded} class="rounded-lg p-8 shadow-xl bg-zinc-900 animate-pulse">
+            <div class="h-3 w-32 bg-zinc-700 rounded mb-6"></div>
+            <div class="space-y-4">
+              <div class="flex justify-between">
+                <div class="h-4 w-24 bg-zinc-700 rounded"></div>
+                <div class="h-4 w-16 bg-zinc-700 rounded"></div>
+              </div>
+              <div class="border-t border-zinc-700 pt-4 flex justify-between">
+                <div class="h-4 w-20 bg-zinc-700 rounded"></div>
+                <div class="h-6 w-24 bg-zinc-700 rounded"></div>
+              </div>
+              <div class="border-t border-zinc-700 pt-4 space-y-2">
+                <div class="h-3 w-28 bg-zinc-700 rounded"></div>
+                <div class="h-3 w-40 bg-zinc-700 rounded"></div>
+              </div>
+            </div>
+          </div>
           <!-- Payment Summary -->
-          <%= if @payment do %>
+          <%= if @async_data_loaded && @payment do %>
             <div class={[
               "rounded-lg p-8 shadow-xl",
               if(@booking.status == :canceled,
@@ -1233,6 +1243,58 @@ defmodule YscWeb.BookingReceiptLive do
 
   defp cents_to_money(_, _), do: Money.new(0, :USD)
 
+  # Load receipt data asynchronously after WebSocket connection
+  defp load_receipt_data_async(socket, booking) do
+    start_async(socket, :load_receipt_data, fn ->
+      load_receipt_data(booking)
+    end)
+  end
+
+  # Load all secondary receipt data in one function to minimize context switches
+  defp load_receipt_data(booking) do
+    # Get payment information (single query)
+    payment = get_booking_payment(booking)
+
+    # Get refund info - pass payment to avoid duplicate query
+    refund_info = get_refund_info_with_payment(booking, payment)
+
+    # Get door code if booking is within 48 hours of check-in or currently active
+    {door_code, show_door_code} =
+      if booking.status == :canceled do
+        {nil, false}
+      else
+        get_door_code_for_booking(booking)
+      end
+
+    # Get refund data for cancelled bookings
+    refund_data = get_refund_data_for_booking(booking, payment)
+
+    %{
+      payment: payment,
+      refund_info: refund_info,
+      door_code: door_code,
+      show_door_code: show_door_code,
+      refund_data: refund_data
+    }
+  end
+
+  @impl true
+  def handle_async(:load_receipt_data, {:ok, results}, socket) do
+    {:noreply,
+     socket
+     |> assign(:payment, results.payment)
+     |> assign(:refund_info, results.refund_info)
+     |> assign(:door_code, results.door_code)
+     |> assign(:show_door_code, results.show_door_code)
+     |> assign(:refund_data, results.refund_data)
+     |> assign(:async_data_loaded, true)}
+  end
+
+  def handle_async(:load_receipt_data, {:exit, reason}, socket) do
+    Logger.error("Failed to load receipt data async: #{inspect(reason)}")
+    {:noreply, assign(socket, :async_data_loaded, true)}
+  end
+
   defp get_booking_payment(booking) do
     # PERFORMANCE: Find the payment via ledger entries with payment_method preloaded
     # Payment entries are debit entries to stripe_account
@@ -1461,7 +1523,8 @@ defmodule YscWeb.BookingReceiptLive do
     DateTime.compare(now_pst, checkin_datetime_today) == :lt
   end
 
-  defp get_refund_info(booking) do
+  # Accepts pre-fetched payment to avoid duplicate query
+  defp get_refund_info_with_payment(booking, payment) do
     if can_cancel_booking?(booking) do
       case Bookings.calculate_refund(booking, Date.utc_today()) do
         {:ok, refund_amount, applied_rule} ->
@@ -1469,13 +1532,10 @@ defmodule YscWeb.BookingReceiptLive do
           rules = if policy, do: policy.rules || [], else: []
 
           # If refund_amount is nil, it means full refund (no policy)
-          # In that case, we need to get the payment amount
+          # Use pre-fetched payment to get amount (avoiding duplicate query)
           estimated_refund =
             if is_nil(refund_amount) do
-              case get_booking_payment(booking) do
-                nil -> nil
-                payment -> payment.amount
-              end
+              if payment, do: payment.amount, else: nil
             else
               refund_amount
             end

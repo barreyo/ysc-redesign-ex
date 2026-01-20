@@ -1365,44 +1365,44 @@ defmodule YscWeb.ExpenseReportLive do
           </div>
         </div>
         <!-- Actions -->
-        <div class="print-hide space-y-4">
+        <div class="print-hide mt-8">
           <!-- Primary Actions -->
-          <div class="flex flex-wrap justify-center gap-3">
+          <div class="flex flex-col sm:flex-row justify-center gap-3">
             <.link
               navigate={~p"/expensereport"}
-              class="px-6 py-3 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 min-h-[44px] flex items-center justify-center gap-2"
+              class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
             >
               <.icon name="hero-plus" class="w-5 h-5" /> Submit Another Report
             </.link>
             <button
               type="button"
               phx-click="download-pdf"
-              class="px-6 py-3 text-sm font-medium text-zinc-700 bg-white border border-zinc-300 rounded-md hover:bg-zinc-50 min-h-[44px] flex items-center justify-center gap-2"
+              class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-zinc-700 bg-white border border-zinc-300 rounded-lg shadow-sm hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 transition-colors"
             >
-              <.icon name="hero-arrow-down-tray" class="w-5 h-5" /> Download as PDF
+              <.icon name="hero-arrow-down-tray" class="w-5 h-5" /> Download PDF
             </button>
           </div>
           <!-- Secondary Actions -->
-          <div class="flex flex-wrap justify-center gap-3 pt-2">
+          <div class="flex flex-wrap items-center justify-center mt-6 text-sm">
             <.link
               navigate={~p"/expensereports"}
-              class="px-4 py-2 text-sm font-medium text-zinc-700 hover:text-zinc-900 hover:underline"
+              class="px-3 py-2 text-zinc-600 hover:text-blue-600 transition-colors"
             >
               View My Reports
             </.link>
-            <span class="text-zinc-300">•</span>
+            <span class="text-zinc-300">·</span>
             <.link
               navigate={~p"/"}
-              class="px-4 py-2 text-sm font-medium text-zinc-700 hover:text-zinc-900 hover:underline"
+              class="px-3 py-2 text-zinc-600 hover:text-blue-600 transition-colors"
             >
               Return to Dashboard
             </.link>
-            <span class="text-zinc-300">•</span>
+            <span class="text-zinc-300">·</span>
             <.link
               href={"mailto:treasurer@ysc.org?subject=Question about Expense Report #{@expense_report.id}&body=Hi Treasurer,%0D%0A%0D%0AI have a question regarding my expense report (ID: #{@expense_report.id}).%0D%0A%0D%0A[Please describe your question or issue here]%0D%0A%0D%0AThank you!"}
-              class="px-4 py-2 text-sm font-medium text-zinc-700 hover:text-zinc-900 hover:underline"
+              class="px-3 py-2 text-zinc-600 hover:text-blue-600 transition-colors"
             >
-              Something wrong? Contact Treasurer
+              Contact Treasurer
             </.link>
           </div>
         </div>

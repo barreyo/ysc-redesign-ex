@@ -2630,26 +2630,24 @@ defmodule YscWeb.EventDetailsLive do
   defp load_async_data(socket, event_id) do
     current_user = socket.assigns.current_user
     active_membership? = socket.assigns.active_membership?
+    # Pass the event we already have to avoid re-fetching it
+    event = socket.assigns.event
 
     socket
     |> start_async(:load_event_data, fn ->
-      load_event_data_async(event_id, current_user, active_membership?)
+      load_event_data_async(event, event_id, current_user, active_membership?)
     end)
   end
 
   # Background task to load all event data in parallel
-  defp load_event_data_async(event_id, current_user, active_membership?) do
+  # Note: event is passed from socket.assigns to avoid re-fetching it
+  defp load_event_data_async(event, event_id, current_user, active_membership?) do
     # Run queries in parallel using Task.async_stream
+    # Note: We removed check_availability_with_lock as it's expensive (runs transaction with locks
+    # and re-fetches event/ticket_tiers). Instead, we compute availability from ticket_tiers data.
     tasks = [
       {:agendas, fn -> Agendas.list_agendas_for_event(event_id) end},
       {:ticket_tiers, fn -> Events.list_ticket_tiers_for_event(event_id) end},
-      {:availability,
-       fn ->
-         case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
-           {:ok, availability} -> availability
-           {:error, _} -> nil
-         end
-       end},
       {:selling_fast, fn -> Events.event_selling_fast?(event_id) end},
       {:user_tickets, fn -> load_user_tickets(current_user, event_id) end},
       {:attendees, fn -> load_attendees(active_membership?, current_user, event_id) end}
@@ -2660,7 +2658,78 @@ defmodule YscWeb.EventDetailsLive do
       |> Task.async_stream(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
       |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
 
-    results
+    # Compute availability from ticket_tiers data (avoids expensive locking transaction)
+    # list_ticket_tiers_for_event already includes sold_tickets_count via LEFT JOIN
+    ticket_tiers = Map.get(results, :ticket_tiers, [])
+    availability = compute_availability_from_tiers(event, ticket_tiers)
+
+    Map.put(results, :availability, availability)
+  end
+
+  # Compute availability data from ticket_tiers without expensive database transaction
+  # This reuses the sold_tickets_count from list_ticket_tiers_for_event query
+  defp compute_availability_from_tiers(event, ticket_tiers) do
+    # Calculate event-level capacity info
+    # Count only non-donation tickets (donations don't count toward capacity)
+    total_sold =
+      ticket_tiers
+      |> Enum.reject(fn tier ->
+        tier_type = tier.type
+        tier_type == :donation or tier_type == "donation"
+      end)
+      |> Enum.reduce(0, fn tier, acc -> acc + (tier.sold_tickets_count || 0) end)
+
+    event_capacity =
+      case event.max_attendees do
+        nil ->
+          %{
+            max_attendees: nil,
+            current_attendees: total_sold,
+            available: :unlimited,
+            at_capacity: false
+          }
+
+        max_attendees ->
+          available = max(0, max_attendees - total_sold)
+
+          %{
+            max_attendees: max_attendees,
+            current_attendees: total_sold,
+            available: available,
+            at_capacity: total_sold >= max_attendees
+          }
+      end
+
+    # Calculate per-tier availability
+    tier_availability =
+      Enum.map(ticket_tiers, fn tier ->
+        sold = tier.sold_tickets_count || 0
+        total_qty = tier.quantity
+
+        available =
+          cond do
+            total_qty == nil or total_qty == 0 -> :unlimited
+            true -> max(0, total_qty - sold)
+          end
+
+        on_sale = tier_on_sale?(tier)
+
+        %{
+          tier_id: tier.id,
+          name: tier.name,
+          total_quantity: total_qty,
+          available: available,
+          sold: sold,
+          on_sale: on_sale,
+          start_date: tier.start_date,
+          end_date: tier.end_date
+        }
+      end)
+
+    %{
+      event_capacity: event_capacity,
+      tiers: tier_availability
+    }
   end
 
   defp load_user_tickets(nil, _event_id), do: {[], %{}}

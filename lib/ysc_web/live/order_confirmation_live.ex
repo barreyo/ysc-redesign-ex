@@ -2,7 +2,6 @@ defmodule YscWeb.OrderConfirmationLive do
   use YscWeb, :live_view
 
   alias Ysc.Tickets.TicketOrder
-  alias Ysc.Events
   alias Ysc.Ledgers.Refund
   alias Ysc.MoneyHelper
   alias Ysc.Repo
@@ -23,13 +22,17 @@ defmodule YscWeb.OrderConfirmationLive do
       # Show confetti only if confetti=true parameter is present (from checkout redirect)
       show_confetti = Map.get(params, "confetti") == "true"
 
+      # PERFORMANCE: Preload everything in a single query to avoid N+1 and duplicate queries
+      # - Include cover_image via event preload
+      # - Include registration via tickets preload
+      # This eliminates 3 separate queries (event, cover_image, registration)
       case from(to in TicketOrder,
              where: to.id == ^order_id and to.user_id == ^user.id,
              preload: [
                :user,
-               event: [agendas: :agenda_items],
+               event: [:cover_image, agendas: :agenda_items],
                payment: :payment_method,
-               tickets: :ticket_tier
+               tickets: [:ticket_tier, :registration]
              ]
            )
            |> Repo.one() do
@@ -40,27 +43,27 @@ defmodule YscWeb.OrderConfirmationLive do
            |> redirect(to: ~p"/events")}
 
         ticket_order ->
-          # Load the event with cover image preloaded
-          event =
-            Events.get_event!(ticket_order.event_id)
-            |> Repo.preload(:cover_image)
+          # Use the already-preloaded event (no additional query needed)
+          event = ticket_order.event
 
-          # Preload ticket registrations (TicketDetail) for tickets that require registration
-          ticket_order =
-            ticket_order
-            |> Repo.preload(tickets: [:ticket_tier, :registration])
+          # Essential assigns for initial render
+          socket =
+            socket
+            |> assign(:ticket_order, ticket_order)
+            |> assign(:event, event)
+            |> assign(:user_first_name, user.first_name || "Member")
+            |> assign(:show_confetti, show_confetti)
+            |> assign(:page_title, "Order Confirmation")
+            # Placeholder for async-loaded data
+            |> assign(:refund_data, nil)
+            |> assign(:async_data_loaded, false)
 
-          # Get refund information if order has refunds
-          refund_data = get_refund_data_for_order(ticket_order)
-
-          {:ok,
-           socket
-           |> assign(:ticket_order, ticket_order)
-           |> assign(:event, event)
-           |> assign(:user_first_name, user.first_name || "Member")
-           |> assign(:refund_data, refund_data)
-           |> assign(:show_confetti, show_confetti)
-           |> assign(:page_title, "Order Confirmation")}
+          if connected?(socket) do
+            # Load refund data asynchronously (only needed for cancelled orders with payments)
+            {:ok, load_order_data_async(socket, ticket_order)}
+          else
+            {:ok, socket}
+          end
       end
     end
   end
@@ -703,6 +706,29 @@ defmodule YscWeb.OrderConfirmationLive do
   end
 
   defp format_alternative_payment_method(_, _), do: "Payment Method"
+
+  # Load order data asynchronously after WebSocket connection
+  defp load_order_data_async(socket, ticket_order) do
+    start_async(socket, :load_order_data, fn ->
+      # Only fetch refund data if order has a payment
+      # (free orders have no payment and no refunds)
+      get_refund_data_for_order(ticket_order)
+    end)
+  end
+
+  @impl true
+  def handle_async(:load_order_data, {:ok, refund_data}, socket) do
+    {:noreply,
+     socket
+     |> assign(:refund_data, refund_data)
+     |> assign(:async_data_loaded, true)}
+  end
+
+  def handle_async(:load_order_data, {:exit, reason}, socket) do
+    require Logger
+    Logger.error("Failed to load order data async: #{inspect(reason)}")
+    {:noreply, assign(socket, :async_data_loaded, true)}
+  end
 
   defp get_refund_data_for_order(ticket_order) do
     if ticket_order.payment do
