@@ -58,6 +58,7 @@ import ReadingProgress from "./reading_progress";
 import TimelineFilter from "./timeline_filter";
 import PathTracker from "./path_tracker";
 import Autocomplete from "./autocomplete";
+import ReceiptLightbox from "./receipt_lightbox";
 
 let Hooks = {
     StickyNavbar,
@@ -94,6 +95,7 @@ let Hooks = {
     TimelineFilter,
     PathTracker,
     Autocomplete,
+    ReceiptLightbox,
 };
 Hooks.LivePhone = LivePhone;
 

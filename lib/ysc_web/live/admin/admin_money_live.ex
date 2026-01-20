@@ -2566,11 +2566,8 @@ defmodule YscWeb.AdminMoneyLive do
                 <p class="font-medium text-zinc-700">Address</p>
                 <p class="text-zinc-900">
                   <%= if Ecto.assoc_loaded?(@selected_expense_report.address) && @selected_expense_report.address do %>
-                    <%= @selected_expense_report.address.street_address %><br />
-                    <%= if @selected_expense_report.address.street_address_2 do %>
-                      <%= @selected_expense_report.address.street_address_2 %><br />
-                    <% end %>
-                    <%= @selected_expense_report.address.city %>, <%= @selected_expense_report.address.state %> <%= @selected_expense_report.address.postal_code %>
+                    <%= @selected_expense_report.address.address %><br />
+                    <%= @selected_expense_report.address.city %>, <%= @selected_expense_report.address.region %> <%= @selected_expense_report.address.postal_code %>
                   <% else %>
                     <span class="text-zinc-400">Not set</span>
                   <% end %>

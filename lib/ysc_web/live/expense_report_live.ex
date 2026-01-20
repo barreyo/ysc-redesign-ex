@@ -1127,94 +1127,7 @@ defmodule YscWeb.ExpenseReportLive do
           </p>
         </div>
         <!-- Reimbursement Timeline -->
-        <div class="reimbursement-timeline bg-white rounded-lg shadow-sm border border-zinc-200 mb-6 p-6">
-          <h2 class="text-lg font-semibold text-zinc-900 mb-4">Reimbursement Timeline</h2>
-          <div class="space-y-4">
-            <!-- Step 1: Submitted -->
-            <div class="flex items-start gap-4">
-              <div class="flex-shrink-0">
-                <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                  <.icon name="hero-check" class="w-5 h-5 text-white" />
-                </div>
-              </div>
-              <div class="flex-1 -pt-2">
-                <p class="text-sm font-medium text-zinc-900">Report Submitted</p>
-                <p class="text-xs text-zinc-500 mt-1">Your expense report has been received</p>
-              </div>
-            </div>
-            <!-- Connector Line -->
-            <div class="flex items-start gap-4">
-              <div class="flex-shrink-0">
-                <div class="w-8 h-8 flex items-center justify-center">
-                  <div class="w-0.5 h-8 bg-zinc-300"></div>
-                </div>
-              </div>
-            </div>
-            <!-- Step 2: Under Review (Active) -->
-            <div class="flex items-start gap-4">
-              <div class="flex-shrink-0">
-                <div class="w-8 h-8 rounded-full bg-blue-100 border-2 border-blue-400 flex items-center justify-center animate-pulse">
-                  <.icon name="hero-clock" class="w-5 h-5 text-blue-600" />
-                </div>
-              </div>
-              <div class="flex-1 -pt-2">
-                <p class="text-sm font-medium text-zinc-900">Under Review</p>
-                <p class="text-xs text-zinc-500 mt-1">Treasurer is reviewing your submission</p>
-              </div>
-            </div>
-            <!-- Connector Line -->
-            <div class="flex items-start gap-4">
-              <div class="flex-shrink-0">
-                <div class="w-8 h-8 flex items-center justify-center">
-                  <div class="w-0.5 h-8 bg-zinc-300"></div>
-                </div>
-              </div>
-            </div>
-            <!-- Step 3: Processing -->
-            <div class="flex items-start gap-4">
-              <div class="flex-shrink-0">
-                <div class="w-8 h-8 rounded-full bg-zinc-100 border-2 border-zinc-300 flex items-center justify-center">
-                  <.icon name="hero-arrow-path" class="w-5 h-5 text-zinc-400" />
-                </div>
-              </div>
-              <div class="flex-1 -pt-2">
-                <p class="text-sm font-medium text-zinc-500">Processing Payment</p>
-                <p class="text-xs text-zinc-500 mt-1">Reimbursement is being processed</p>
-              </div>
-            </div>
-            <!-- Connector Line -->
-            <div class="flex items-start gap-4">
-              <div class="flex-shrink-0">
-                <div class="w-8 h-8 flex items-center justify-center">
-                  <div class="w-0.5 h-8 bg-zinc-300"></div>
-                </div>
-              </div>
-            </div>
-            <!-- Step 4: Completed -->
-            <div class="flex items-start gap-4">
-              <div class="flex-shrink-0">
-                <div class="w-8 h-8 rounded-full bg-zinc-100 border-2 border-zinc-300 flex items-center justify-center">
-                  <.icon name="hero-banknotes" class="w-5 h-5 text-zinc-400" />
-                </div>
-              </div>
-              <div class="flex-1 -pt-2">
-                <p class="text-sm font-medium text-zinc-500">Reimbursement Complete</p>
-                <p class="text-xs text-zinc-500 mt-1">
-                  <%= case @expense_report.reimbursement_method do
-                    "bank_transfer" -> "Funds will be transferred to your bank account"
-                    "check" -> "Check will be mailed to your address"
-                    _ -> "Reimbursement will be processed"
-                  end %>
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="mt-4 pt-4 border-t border-zinc-200">
-            <p class="text-xs text-zinc-500">
-              <strong>Typical processing time:</strong> 5-7 business days from submission
-            </p>
-          </div>
-        </div>
+        <.timeline_section expense_report={@expense_report} />
         <!-- Expense Report Summary Card -->
         <div class="bg-white rounded-lg shadow-sm border border-zinc-200 mb-6">
           <div class="px-6 py-4 border-b border-zinc-200">
@@ -1281,7 +1194,7 @@ defmodule YscWeb.ExpenseReportLive do
               <%= if Enum.empty?(@expense_report.expense_items) do %>
                 <p class="text-sm text-zinc-500">No expense items</p>
               <% else %>
-                <%= for item <- @expense_report.expense_items do %>
+                <%= for {item, index} <- Enum.with_index(@expense_report.expense_items) do %>
                   <div class="flex justify-between items-start p-4 bg-zinc-50 rounded-lg">
                     <div class="flex-1">
                       <p class="font-medium text-zinc-900"><%= item.description %></p>
@@ -1294,13 +1207,29 @@ defmodule YscWeb.ExpenseReportLive do
                         <% end %>
                       </p>
                       <%= if item.receipt_s3_path do %>
-                        <a
-                          href={ExpenseReports.receipt_url(item.receipt_s3_path)}
-                          target="_blank"
-                          class="text-xs text-green-600 mt-1 hover:text-green-700 hover:underline inline-flex items-center gap-1"
-                        >
-                          <.icon name="hero-document-check" class="w-4 h-4" /> Receipt attached
-                        </a>
+                        <%= if is_pdf?(item.receipt_s3_path) do %>
+                          <a
+                            href={ExpenseReports.receipt_url(item.receipt_s3_path)}
+                            target="_blank"
+                            class="text-xs text-green-600 mt-1 hover:text-green-700 hover:underline inline-flex items-center gap-1"
+                          >
+                            <.icon name="hero-document-check" class="w-4 h-4" /> View PDF receipt
+                          </a>
+                        <% else %>
+                          <div
+                            phx-hook="ReceiptLightbox"
+                            id={"success-receipt-#{@expense_report.id}-#{index}"}
+                            class="inline-block"
+                          >
+                            <a
+                              href={ExpenseReports.receipt_url(item.receipt_s3_path)}
+                              data-lightbox="receipt"
+                              class="text-xs text-green-600 mt-1 hover:text-green-700 hover:underline inline-flex items-center gap-1 cursor-zoom-in"
+                            >
+                              <.icon name="hero-document-check" class="w-4 h-4" /> View receipt
+                            </a>
+                          </div>
+                        <% end %>
                       <% end %>
                     </div>
                     <div class="text-right ml-4">
@@ -1326,7 +1255,7 @@ defmodule YscWeb.ExpenseReportLive do
             </div>
             <div class="px-6 py-4">
               <div class="space-y-4">
-                <%= for item <- @expense_report.income_items do %>
+                <%= for {item, index} <- Enum.with_index(@expense_report.income_items) do %>
                   <div class="flex justify-between items-start p-4 bg-zinc-50 rounded-lg">
                     <div class="flex-1">
                       <p class="font-medium text-zinc-900"><%= item.description %></p>
@@ -1336,13 +1265,29 @@ defmodule YscWeb.ExpenseReportLive do
                         <% end %>
                       </p>
                       <%= if item.proof_s3_path do %>
-                        <a
-                          href={ExpenseReports.receipt_url(item.proof_s3_path)}
-                          target="_blank"
-                          class="text-xs text-green-600 mt-1 hover:text-green-700 hover:underline inline-flex items-center gap-1"
-                        >
-                          <.icon name="hero-document-check" class="w-4 h-4" /> Proof attached
-                        </a>
+                        <%= if is_pdf?(item.proof_s3_path) do %>
+                          <a
+                            href={ExpenseReports.receipt_url(item.proof_s3_path)}
+                            target="_blank"
+                            class="text-xs text-green-600 mt-1 hover:text-green-700 hover:underline inline-flex items-center gap-1"
+                          >
+                            <.icon name="hero-document-check" class="w-4 h-4" /> View PDF proof
+                          </a>
+                        <% else %>
+                          <div
+                            phx-hook="ReceiptLightbox"
+                            id={"success-proof-#{@expense_report.id}-#{index}"}
+                            class="inline-block"
+                          >
+                            <a
+                              href={ExpenseReports.receipt_url(item.proof_s3_path)}
+                              data-lightbox="receipt"
+                              class="text-xs text-green-600 mt-1 hover:text-green-700 hover:underline inline-flex items-center gap-1 cursor-zoom-in"
+                            >
+                              <.icon name="hero-document-check" class="w-4 h-4" /> View proof
+                            </a>
+                          </div>
+                        <% end %>
                       <% end %>
                     </div>
                     <div class="text-right ml-4">
@@ -1834,19 +1779,33 @@ defmodule YscWeb.ExpenseReportLive do
                       <div
                         :if={expense_f[:receipt_s3_path].value}
                         class="mb-3 p-4 bg-green-50 border-2 border-green-300 rounded-lg"
+                        phx-hook="ReceiptLightbox"
+                        id={"receipt-preview-#{expense_f.index}"}
                       >
                         <div class="flex items-start gap-4">
                           <div class="flex-shrink-0">
                             <%= if is_pdf?(expense_f[:receipt_s3_path].value) do %>
-                              <div class="w-24 h-24 bg-red-50 border-2 border-red-300 rounded-lg flex items-center justify-center">
-                                <.icon name="hero-document-text" class="w-12 h-12 text-red-600" />
-                              </div>
+                              <a
+                                href={ExpenseReports.receipt_url(expense_f[:receipt_s3_path].value)}
+                                target="_blank"
+                                class="block"
+                              >
+                                <div class="w-24 h-24 bg-red-50 border-2 border-red-300 rounded-lg flex items-center justify-center hover:bg-red-100 transition-colors">
+                                  <.icon name="hero-document-text" class="w-12 h-12 text-red-600" />
+                                </div>
+                              </a>
                             <% else %>
-                              <img
-                                src={ExpenseReports.receipt_url(expense_f[:receipt_s3_path].value)}
-                                alt="Receipt preview"
-                                class="w-24 h-24 object-cover rounded-lg border-2 border-green-300"
-                              />
+                              <a
+                                href={ExpenseReports.receipt_url(expense_f[:receipt_s3_path].value)}
+                                data-lightbox="receipt"
+                                class="block cursor-zoom-in"
+                              >
+                                <img
+                                  src={ExpenseReports.receipt_url(expense_f[:receipt_s3_path].value)}
+                                  alt="Receipt preview"
+                                  class="w-24 h-24 object-cover rounded-lg border-2 border-green-300 hover:border-blue-400 transition-colors"
+                                />
+                              </a>
                             <% end %>
                           </div>
                           <div class="flex-1 min-w-0">
@@ -1858,13 +1817,17 @@ defmodule YscWeb.ExpenseReportLive do
                               <span class="text-sm font-medium text-green-800">Receipt attached</span>
                             </div>
                             <div class="flex items-center gap-3">
-                              <a
-                                href={ExpenseReports.receipt_url(expense_f[:receipt_s3_path].value)}
-                                target="_blank"
-                                class="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                              >
-                                View full size
-                              </a>
+                              <%= if is_pdf?(expense_f[:receipt_s3_path].value) do %>
+                                <a
+                                  href={ExpenseReports.receipt_url(expense_f[:receipt_s3_path].value)}
+                                  target="_blank"
+                                  class="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                >
+                                  Open PDF
+                                </a>
+                              <% else %>
+                                <span class="text-sm text-zinc-500">Click image to preview</span>
+                              <% end %>
                               <button
                                 type="button"
                                 phx-click="remove-receipt"
@@ -2102,19 +2065,33 @@ defmodule YscWeb.ExpenseReportLive do
                       <div
                         :if={income_f[:proof_s3_path].value}
                         class="mb-3 p-4 bg-green-50 border-2 border-green-300 rounded-lg"
+                        phx-hook="ReceiptLightbox"
+                        id={"proof-preview-#{income_f.index}"}
                       >
                         <div class="flex items-start gap-4">
                           <div class="flex-shrink-0">
                             <%= if is_pdf?(income_f[:proof_s3_path].value) do %>
-                              <div class="w-24 h-24 bg-red-50 border-2 border-red-300 rounded-lg flex items-center justify-center">
-                                <.icon name="hero-document-text" class="w-12 h-12 text-red-600" />
-                              </div>
+                              <a
+                                href={ExpenseReports.receipt_url(income_f[:proof_s3_path].value)}
+                                target="_blank"
+                                class="block"
+                              >
+                                <div class="w-24 h-24 bg-red-50 border-2 border-red-300 rounded-lg flex items-center justify-center hover:bg-red-100 transition-colors">
+                                  <.icon name="hero-document-text" class="w-12 h-12 text-red-600" />
+                                </div>
+                              </a>
                             <% else %>
-                              <img
-                                src={ExpenseReports.receipt_url(income_f[:proof_s3_path].value)}
-                                alt="Proof document preview"
-                                class="w-24 h-24 object-cover rounded-lg border-2 border-green-300"
-                              />
+                              <a
+                                href={ExpenseReports.receipt_url(income_f[:proof_s3_path].value)}
+                                data-lightbox="receipt"
+                                class="block cursor-zoom-in"
+                              >
+                                <img
+                                  src={ExpenseReports.receipt_url(income_f[:proof_s3_path].value)}
+                                  alt="Proof document preview"
+                                  class="w-24 h-24 object-cover rounded-lg border-2 border-green-300 hover:border-blue-400 transition-colors"
+                                />
+                              </a>
                             <% end %>
                           </div>
                           <div class="flex-1 min-w-0">
@@ -2128,13 +2105,17 @@ defmodule YscWeb.ExpenseReportLive do
                               </span>
                             </div>
                             <div class="flex items-center gap-3">
-                              <a
-                                href={ExpenseReports.receipt_url(income_f[:proof_s3_path].value)}
-                                target="_blank"
-                                class="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                              >
-                                View full size
-                              </a>
+                              <%= if is_pdf?(income_f[:proof_s3_path].value) do %>
+                                <a
+                                  href={ExpenseReports.receipt_url(income_f[:proof_s3_path].value)}
+                                  target="_blank"
+                                  class="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                >
+                                  Open PDF
+                                </a>
+                              <% else %>
+                                <span class="text-sm text-zinc-500">Click image to preview</span>
+                              <% end %>
                               <button
                                 type="button"
                                 phx-click="remove-proof"
@@ -3041,6 +3022,147 @@ defmodule YscWeb.ExpenseReportLive do
   end
 
   defp error_to_string({msg, _opts}), do: msg
+
+  # Timeline component for expense report status
+  defp timeline_section(assigns) do
+    ~H"""
+    <div class="reimbursement-timeline bg-white rounded-lg shadow-sm border border-zinc-200 mb-6 p-6">
+      <h2 class="text-lg font-semibold text-zinc-900 mb-4">Reimbursement Timeline</h2>
+      <%= if @expense_report.status == "rejected" do %>
+        <!-- Rejected state -->
+        <div class="space-y-4">
+          <.timeline_step
+            status={:completed}
+            icon="hero-check"
+            title="Report Submitted"
+            description="Your expense report was received"
+          />
+          <.timeline_connector completed={true} />
+          <.timeline_step
+            status={:rejected}
+            icon="hero-x-mark"
+            title="Report Rejected"
+            description="Your expense report was not approved. Please review the feedback and resubmit."
+          />
+        </div>
+      <% else %>
+        <!-- Normal flow: submitted -> approved -> paid -->
+        <div class="space-y-4">
+          <.timeline_step
+            status={:completed}
+            icon="hero-check"
+            title="Report Submitted"
+            description="Your expense report has been received"
+          />
+          <.timeline_connector completed={@expense_report.status in ["approved", "paid"]} />
+          <.timeline_step
+            status={timeline_step_status(@expense_report.status, "submitted", ["approved", "paid"])}
+            icon="hero-clock"
+            title="Under Review"
+            description="Treasurer is reviewing your submission"
+          />
+          <.timeline_connector completed={@expense_report.status == "paid"} />
+          <.timeline_step
+            status={timeline_step_status(@expense_report.status, "approved", ["paid"])}
+            icon="hero-arrow-path"
+            title="Processing Payment"
+            description="Reimbursement is being processed"
+          />
+          <.timeline_connector completed={@expense_report.status == "paid"} />
+          <.timeline_step
+            status={if @expense_report.status == "paid", do: :completed, else: :pending}
+            icon="hero-banknotes"
+            title="Reimbursement Complete"
+            description={reimbursement_description(@expense_report)}
+          />
+        </div>
+      <% end %>
+      <div class="mt-4 pt-4 border-t border-zinc-200">
+        <p class="text-xs text-zinc-500">
+          <strong>Typical processing time:</strong> 5-7 business days from submission
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  defp timeline_step(assigns) do
+    ~H"""
+    <div class="flex items-start gap-4">
+      <div class="flex-shrink-0">
+        <%= case @status do %>
+          <% :completed -> %>
+            <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+              <.icon name="hero-check" class="w-5 h-5 text-white" />
+            </div>
+          <% :active -> %>
+            <div class="w-8 h-8 rounded-full bg-blue-100 border-2 border-blue-400 flex items-center justify-center animate-pulse">
+              <.icon name={@icon} class="w-5 h-5 text-blue-600" />
+            </div>
+          <% :rejected -> %>
+            <div class="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center">
+              <.icon name={@icon} class="w-5 h-5 text-white" />
+            </div>
+          <% :pending -> %>
+            <div class="w-8 h-8 rounded-full bg-zinc-100 border-2 border-zinc-300 flex items-center justify-center">
+              <.icon name={@icon} class="w-5 h-5 text-zinc-400" />
+            </div>
+        <% end %>
+      </div>
+      <div class="flex-1">
+        <p class={[
+          "text-sm font-medium",
+          if(@status in [:completed, :active, :rejected], do: "text-zinc-900", else: "text-zinc-500")
+        ]}>
+          <%= @title %>
+        </p>
+        <p class="text-xs text-zinc-500 mt-1"><%= @description %></p>
+      </div>
+    </div>
+    """
+  end
+
+  defp timeline_connector(assigns) do
+    ~H"""
+    <div class="flex items-start gap-4">
+      <div class="flex-shrink-0">
+        <div class="w-8 h-8 flex items-center justify-center">
+          <div class={["w-0.5 h-8", if(@completed, do: "bg-green-500", else: "bg-zinc-300")]}></div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  # Determine the status of a timeline step based on the expense report status
+  defp timeline_step_status(report_status, active_when, completed_when) do
+    cond do
+      report_status in completed_when -> :completed
+      report_status == active_when -> :active
+      true -> :pending
+    end
+  end
+
+  defp reimbursement_description(expense_report) do
+    case expense_report.reimbursement_method do
+      "bank_transfer" ->
+        if expense_report.status == "paid" do
+          "Funds have been transferred to your bank account"
+        else
+          "Funds will be transferred to your bank account"
+        end
+
+      "check" ->
+        if expense_report.status == "paid" do
+          "Check has been mailed to your address"
+        else
+          "Check will be mailed to your address"
+        end
+
+      _ ->
+        "Reimbursement will be processed"
+    end
+  end
 
   defp get_treasurer do
     from(u in User, where: u.board_position == "treasurer" and u.state == :active)
