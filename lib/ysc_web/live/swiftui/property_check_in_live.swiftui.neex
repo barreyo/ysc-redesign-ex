@@ -486,20 +486,18 @@
                 "shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)"
               ]}>
                 <%!-- Vehicle icon with color-matched background --%>
+                <%
+                  rect_attrs = %{style: [bg_fill, "frame(width: 56, height: 56)"]}
+                  image_attrs = %{style: ["font(.system(size: 26, weight: .medium))", icon_foreground]}
+                %>
                 <ZStack style={["frame(width: 56, height: 56)"]}>
                   <RoundedRectangle
                     cornerRadius={14}
-                    style={[
-                      bg_fill,
-                      "frame(width: 56, height: 56)"
-                    ]}
+                    {rect_attrs}
                   />
                   <Image
                     systemName={type_icon}
-                    style={[
-                      "font(.system(size: 26, weight: .medium))",
-                      icon_foreground
-                    ]}
+                    {image_attrs}
                   />
                 </ZStack>
 

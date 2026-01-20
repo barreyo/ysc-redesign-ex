@@ -146,3 +146,17 @@ config :live_view_native_stylesheet,
 # Native iOS API Key Configuration
 # Default API key for development (can be overridden via NATIVE_API_KEY env var)
 config :ysc, :native_api_key, System.get_env("NATIVE_API_KEY") || "development"
+
+config :elixir_dashboard,
+  # Application name shown in UI (default: "ElixirDashboard")
+  app_name: "YSC Performance Dashboard",
+  # Maximum items to keep in memory (default: 100)
+  max_items: 100,
+  # Endpoint threshold in milliseconds (default: 100)
+  endpoint_threshold_ms: 50,
+  # Query threshold in milliseconds (default: 50)
+  query_threshold_ms: 25,
+  # Auto-refresh interval in milliseconds (default: 5000)
+  refresh_interval_ms: 5000,
+  # Ecto repo telemetry prefixes to monitor
+  repo_prefixes: [[:ysc, :repo]]

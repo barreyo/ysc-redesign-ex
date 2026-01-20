@@ -177,8 +177,13 @@ defmodule YscWeb.UserSettingsLive do
           </h2>
 
           <div class="space-y-6">
+            <!-- Loading state for payment methods -->
+            <div :if={assigns[:loading_payment_methods]} class="flex items-center justify-center py-8">
+              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <span class="ml-3 text-zinc-600 text-sm">Loading payment methods...</span>
+            </div>
             <!-- Existing Payment Methods -->
-            <div :if={length(@all_payment_methods) > 0}>
+            <div :if={!assigns[:loading_payment_methods] && length(@all_payment_methods) > 0}>
               <h3 class="text-lg font-medium text-zinc-900 mb-4">Select Existing Payment Method</h3>
               <div class="space-y-3">
                 <div
@@ -1216,212 +1221,223 @@ defmodule YscWeb.UserSettingsLive do
                   </div>
                 <% end %>
               </div>
-              <!-- Filter Chips -->
-              <div class="flex flex-wrap gap-2 pb-4 border-b border-zinc-200">
-                <button
-                  phx-click="filter-payments"
-                  phx-value-filter="all"
-                  class={[
-                    "px-4 py-2 rounded-full text-sm font-semibold transition-all",
-                    if(@payment_filter == :all,
-                      do: "bg-blue-600 text-white shadow-md",
-                      else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                    )
-                  ]}
-                >
-                  All
-                </button>
-                <button
-                  phx-click="filter-payments"
-                  phx-value-filter="tahoe"
-                  class={[
-                    "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
-                    if(@payment_filter == :tahoe,
-                      do: "bg-blue-600 text-white shadow-md",
-                      else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                    )
-                  ]}
-                >
-                  <.icon
-                    name="hero-home"
-                    class={[
-                      "w-4 h-4",
-                      if(@payment_filter == :tahoe, do: "text-white", else: "text-blue-600")
-                    ]}
-                  />Tahoe
-                </button>
-                <button
-                  phx-click="filter-payments"
-                  phx-value-filter="clear_lake"
-                  class={[
-                    "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
-                    if(@payment_filter == :clear_lake,
-                      do: "bg-emerald-600 text-white shadow-md",
-                      else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                    )
-                  ]}
-                >
-                  <.icon
-                    name="hero-home"
-                    class={[
-                      "w-4 h-4",
-                      if(@payment_filter == :clear_lake, do: "text-white", else: "text-emerald-600")
-                    ]}
-                  />Clear Lake
-                </button>
-                <button
-                  phx-click="filter-payments"
-                  phx-value-filter="events"
-                  class={[
-                    "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
-                    if(@payment_filter == :events,
-                      do: "bg-purple-600 text-white shadow-md",
-                      else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                    )
-                  ]}
-                >
-                  <.icon
-                    name="hero-ticket"
-                    class={[
-                      "w-4 h-4",
-                      if(@payment_filter == :events, do: "text-white", else: "text-purple-600")
-                    ]}
-                  />Events
-                </button>
-                <button
-                  phx-click="filter-payments"
-                  phx-value-filter="donations"
-                  class={[
-                    "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
-                    if(@payment_filter == :donations,
-                      do: "bg-yellow-600 text-white shadow-md",
-                      else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                    )
-                  ]}
-                >
-                  <.icon
-                    name="hero-gift"
-                    class={[
-                      "w-4 h-4",
-                      if(@payment_filter == :donations, do: "text-white", else: "text-yellow-600")
-                    ]}
-                  />Donations
-                </button>
-                <button
-                  phx-click="filter-payments"
-                  phx-value-filter="membership"
-                  class={[
-                    "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
-                    if(@payment_filter == :membership,
-                      do: "bg-teal-600 text-white shadow-md",
-                      else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                    )
-                  ]}
-                >
-                  <.icon
-                    name="hero-heart"
-                    class={[
-                      "w-4 h-4",
-                      if(@payment_filter == :membership, do: "text-white", else: "text-teal-600")
-                    ]}
-                  />Membership
-                </button>
+              <!-- Loading state for payments -->
+              <div :if={assigns[:loading_payments]} class="flex items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span class="ml-3 text-zinc-600">Loading payment history...</span>
               </div>
-              <!-- Desktop Table View -->
-              <div class="hidden md:block overflow-x-auto">
-                <table class="min-w-full divide-y divide-zinc-200">
-                  <thead class="bg-zinc-50">
-                    <tr>
-                      <th
-                        scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider"
-                      >
-                        Transaction
-                      </th>
-                      <th
-                        scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider"
-                      >
-                        Details
-                      </th>
-                      <th
-                        scope="col"
-                        class="px-6 py-3 text-right text-xs font-medium text-zinc-500 uppercase tracking-wider"
-                      >
-                        Amount
-                      </th>
-                      <th
-                        scope="col"
-                        class="px-6 py-3 text-center text-xs font-medium text-zinc-500 uppercase tracking-wider"
-                      >
-                        Status
-                      </th>
-                      <th
-                        scope="col"
-                        class="px-6 py-3 text-center text-xs font-medium text-zinc-500 uppercase tracking-wider"
-                      >
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody
-                    id="payments-list"
-                    phx-update="stream"
-                    class="bg-white divide-y divide-zinc-200"
+              <!-- Filter Chips (hidden while loading) -->
+              <div :if={!assigns[:loading_payments]}>
+                <div class="flex flex-wrap gap-2 pb-4 border-b border-zinc-200">
+                  <button
+                    phx-click="filter-payments"
+                    phx-value-filter="all"
+                    class={[
+                      "px-4 py-2 rounded-full text-sm font-semibold transition-all",
+                      if(@payment_filter == :all,
+                        do: "bg-blue-600 text-white shadow-md",
+                        else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      )
+                    ]}
                   >
-                    <%= for {id, payment_info} <- @streams.payments do %>
-                      <%= render_payment_table_row(payment_info, id: id) %>
-                    <% end %>
-                  </tbody>
-                </table>
-              </div>
-              <!-- Mobile Card View -->
-              <div
-                :if={@filtered_payments_count > 0}
-                id="payments-cards"
-                phx-update="stream"
-                class="md:hidden space-y-4"
-              >
-                <%= for {id, payment_info} <- @streams.payments do %>
-                  <div id={id}>
-                    <%= render_payment_card(payment_info) %>
+                    All
+                  </button>
+                  <button
+                    phx-click="filter-payments"
+                    phx-value-filter="tahoe"
+                    class={[
+                      "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
+                      if(@payment_filter == :tahoe,
+                        do: "bg-blue-600 text-white shadow-md",
+                        else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      )
+                    ]}
+                  >
+                    <.icon
+                      name="hero-home"
+                      class={[
+                        "w-4 h-4",
+                        if(@payment_filter == :tahoe, do: "text-white", else: "text-blue-600")
+                      ]}
+                    />Tahoe
+                  </button>
+                  <button
+                    phx-click="filter-payments"
+                    phx-value-filter="clear_lake"
+                    class={[
+                      "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
+                      if(@payment_filter == :clear_lake,
+                        do: "bg-emerald-600 text-white shadow-md",
+                        else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      )
+                    ]}
+                  >
+                    <.icon
+                      name="hero-home"
+                      class={[
+                        "w-4 h-4",
+                        if(@payment_filter == :clear_lake, do: "text-white", else: "text-emerald-600")
+                      ]}
+                    />Clear Lake
+                  </button>
+                  <button
+                    phx-click="filter-payments"
+                    phx-value-filter="events"
+                    class={[
+                      "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
+                      if(@payment_filter == :events,
+                        do: "bg-purple-600 text-white shadow-md",
+                        else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      )
+                    ]}
+                  >
+                    <.icon
+                      name="hero-ticket"
+                      class={[
+                        "w-4 h-4",
+                        if(@payment_filter == :events, do: "text-white", else: "text-purple-600")
+                      ]}
+                    />Events
+                  </button>
+                  <button
+                    phx-click="filter-payments"
+                    phx-value-filter="donations"
+                    class={[
+                      "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
+                      if(@payment_filter == :donations,
+                        do: "bg-yellow-600 text-white shadow-md",
+                        else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      )
+                    ]}
+                  >
+                    <.icon
+                      name="hero-gift"
+                      class={[
+                        "w-4 h-4",
+                        if(@payment_filter == :donations, do: "text-white", else: "text-yellow-600")
+                      ]}
+                    />Donations
+                  </button>
+                  <button
+                    phx-click="filter-payments"
+                    phx-value-filter="membership"
+                    class={[
+                      "px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2",
+                      if(@payment_filter == :membership,
+                        do: "bg-teal-600 text-white shadow-md",
+                        else: "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      )
+                    ]}
+                  >
+                    <.icon
+                      name="hero-heart"
+                      class={[
+                        "w-4 h-4",
+                        if(@payment_filter == :membership, do: "text-white", else: "text-teal-600")
+                      ]}
+                    />Membership
+                  </button>
+                </div>
+                <!-- Desktop Table View -->
+                <div class="hidden md:block overflow-x-auto">
+                  <table class="min-w-full divide-y divide-zinc-200">
+                    <thead class="bg-zinc-50">
+                      <tr>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider"
+                        >
+                          Transaction
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider"
+                        >
+                          Details
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-right text-xs font-medium text-zinc-500 uppercase tracking-wider"
+                        >
+                          Amount
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-center text-xs font-medium text-zinc-500 uppercase tracking-wider"
+                        >
+                          Status
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-6 py-3 text-center text-xs font-medium text-zinc-500 uppercase tracking-wider"
+                        >
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody
+                      id="payments-list"
+                      phx-update="stream"
+                      class="bg-white divide-y divide-zinc-200"
+                    >
+                      <%= for {id, payment_info} <- @streams.payments do %>
+                        <%= render_payment_table_row(payment_info, id: id) %>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
+                <!-- Mobile Card View -->
+                <div
+                  :if={@filtered_payments_count > 0}
+                  id="payments-cards"
+                  phx-update="stream"
+                  class="md:hidden space-y-4"
+                >
+                  <%= for {id, payment_info} <- @streams.payments do %>
+                    <div id={id}>
+                      <%= render_payment_card(payment_info) %>
+                    </div>
+                  <% end %>
+                </div>
+
+                <div
+                  :if={@filtered_payments_count == 0 && @payments_total > 0}
+                  class="text-center py-12"
+                >
+                  <p class="text-zinc-500 text-sm">
+                    No payments match the selected filter.
+                  </p>
+                </div>
+
+                <div :if={@payments_total == 0} class="text-center py-12">
+                  <p class="text-zinc-600 text-sm">No payments found.</p>
+                </div>
+
+                <div
+                  :if={@payments_total > 0}
+                  class="flex items-center justify-between border-t border-zinc-200 pt-4 mt-6"
+                >
+                  <div class="flex items-center space-x-2">
+                    <.button :if={@payments_page > 1} phx-click="prev-payments-page">
+                      <.icon name="hero-chevron-left" class="w-4 h-4 me-1" /> Previous
+                    </.button>
                   </div>
-                <% end %>
-              </div>
 
-              <div
-                :if={@filtered_payments_count == 0 && @payments_total > 0}
-                class="text-center py-12"
-              >
-                <p class="text-zinc-500 text-sm">
-                  No payments match the selected filter.
-                </p>
-              </div>
+                  <div class="text-sm text-zinc-600">
+                    Page <%= @payments_page %> of <%= @payments_total_pages %>
+                  </div>
 
-              <div :if={@payments_total == 0} class="text-center py-12">
-                <p class="text-zinc-600 text-sm">No payments found.</p>
-              </div>
-
-              <div
-                :if={@payments_total > 0}
-                class="flex items-center justify-between border-t border-zinc-200 pt-4 mt-6"
-              >
-                <div class="flex items-center space-x-2">
-                  <.button :if={@payments_page > 1} phx-click="prev-payments-page">
-                    <.icon name="hero-chevron-left" class="w-4 h-4 me-1" /> Previous
-                  </.button>
-                </div>
-
-                <div class="text-sm text-zinc-600">
-                  Page <%= @payments_page %> of <%= @payments_total_pages %>
-                </div>
-
-                <div class="flex items-center space-x-2">
-                  <.button :if={@payments_page < @payments_total_pages} phx-click="next-payments-page">
-                    Next <.icon name="hero-chevron-right" class="w-4 h-4 ms-1" />
-                  </.button>
+                  <div class="flex items-center space-x-2">
+                    <.button
+                      :if={@payments_page < @payments_total_pages}
+                      phx-click="next-payments-page"
+                    >
+                      Next <.icon name="hero-chevron-right" class="w-4 h-4 ms-1" />
+                    </.button>
+                  </div>
                 </div>
               </div>
+              <%!-- End of loading wrapper --%>
             </div>
           </div>
         </div>
@@ -1468,38 +1484,8 @@ defmodule YscWeb.UserSettingsLive do
     user = socket.assigns.current_user
     live_action = socket.assigns[:live_action] || :edit
 
-    # Ensure Stripe customer exists - create if missing or invalid
-    user = ensure_stripe_customer_exists(user)
-    # Reload user with billing_address after ensure_stripe_customer_exists
-    user = Repo.preload(user, :billing_address)
-
-    email_changeset = Accounts.change_user_email(user)
-    password_changeset = Accounts.change_user_password(user)
-    profile_changeset = Accounts.change_user_profile(user)
-    notification_changeset = Accounts.change_notification_preferences(user)
-    address_changeset = Accounts.change_billing_address(user)
-
-    public_key = Application.get_env(:stripity_stripe, :public_key)
-
-    # Optimize: Load payment methods once and derive default from the list
-    all_payment_methods =
-      Ysc.Payments.list_payment_methods(user)
-      |> Enum.sort_by(fn pm -> {!pm.is_default, pm.inserted_at} end)
-
-    default_payment_method = Enum.find(all_payment_methods, & &1.is_default)
-
-    membership_plans = Application.get_env(:ysc, :membership_plans)
-
-    # Safely fetch invoices with error handling
-    # invoices = fetch_user_invoices(user)
-
     # This is all very dumb, but it's just a quick way to get the current membership status
     current_membership = socket.assigns.current_membership
-
-    # Get membership type from current or past subscriptions
-    # This will pre-select the user's current membership type, or their most recent past membership
-    membership_type_to_select = get_membership_type_for_selection(user)
-
     active_plan = get_membership_plan(current_membership)
 
     # Check if user is active to determine if they can manage membership
@@ -1507,8 +1493,17 @@ defmodule YscWeb.UserSettingsLive do
 
     # Check if user is a sub-account and get primary user info
     is_sub_account = Accounts.is_sub_account?(user)
-    primary_user = if is_sub_account, do: Accounts.get_primary_user(user), else: nil
 
+    membership_plans = Application.get_env(:ysc, :membership_plans)
+    public_key = Application.get_env(:stripity_stripe, :public_key)
+
+    # Basic changesets that don't require DB queries (use existing user data)
+    email_changeset = Accounts.change_user_email(user)
+    password_changeset = Accounts.change_user_password(user)
+    profile_changeset = Accounts.change_user_profile(user)
+    notification_changeset = Accounts.change_notification_preferences(user)
+
+    # Base socket assigns that don't require expensive queries
     socket =
       socket
       |> assign(:page_title, "User Settings")
@@ -1516,16 +1511,17 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:user, user)
       |> assign(:user_is_active, user_is_active)
       |> assign(:is_sub_account, is_sub_account)
-      |> assign(:primary_user, primary_user)
-      |> assign(:payment_intent_secret, payment_secret(live_action, user))
+      |> assign(:primary_user, nil)
+      |> assign(:payment_intent_secret, nil)
       |> assign(:public_key, public_key)
       |> assign(:email_form_current_password, nil)
       |> assign(:current_email, user.email)
-      # |> assign(:invoices, invoices)
       |> assign(:change_membership_button, false)
       |> assign(:membership_change_info, nil)
-      |> assign(:default_payment_method, default_payment_method)
-      |> assign(:all_payment_methods, all_payment_methods)
+      # Placeholder values for async-loaded data
+      |> assign(:default_payment_method, nil)
+      |> assign(:all_payment_methods, [])
+      |> assign(:loading_payment_methods, true)
       |> assign(:show_new_payment_form, false)
       |> assign(:selecting_payment_method, false)
       |> assign(:membership_plans, membership_plans)
@@ -1534,10 +1530,11 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:profile_form, to_form(profile_changeset))
       |> assign(:notification_form, to_form(notification_changeset))
-      |> assign(:address_form, to_form(address_changeset))
+      # Address form with placeholder - will be populated when connected
+      |> assign(:address_form, to_form(Accounts.change_billing_address(user)))
       |> assign(
         :membership_form,
-        to_form(%{"membership_type" => membership_type_to_select})
+        to_form(%{"membership_type" => nil})
       )
       |> assign(:trigger_submit, false)
       |> assign(:phone_verification_form, to_form(%{"verification_code" => ""}))
@@ -1551,30 +1548,128 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:email_code_valid, false)
       |> assign(:email_verification_error, nil)
 
+    # Payments tab assigns (placeholders for initial render)
     socket =
       if live_action == :payments do
-        per_page = 20
-        {all_payments, total_count} = Ledgers.list_user_payments_paginated(user.id, 1, per_page)
-        total_pages = div(total_count + per_page - 1, per_page)
-
-        # Calculate yearly impact stats
-        yearly_stats = calculate_yearly_stats(all_payments)
-
         socket
         |> assign(:payments_page, 1)
-        |> assign(:payments_per_page, per_page)
-        |> assign(:payments_total, total_count)
-        |> assign(:payments_total_pages, total_pages)
-        |> assign(:all_payments, all_payments)
-        |> stream(:payments, all_payments, reset: true, dom_id: &payment_dom_id/1)
+        |> assign(:payments_per_page, 20)
+        |> assign(:payments_total, 0)
+        |> assign(:payments_total_pages, 0)
+        |> assign(:all_payments, [])
+        |> stream(:payments, [], dom_id: &payment_dom_id/1)
         |> assign(:payment_filter, :all)
-        |> assign(:filtered_payments_count, length(all_payments))
-        |> assign(:yearly_stats, yearly_stats)
+        |> assign(:filtered_payments_count, 0)
+        |> assign(:yearly_stats, nil)
+        |> assign(:loading_payments, true)
       else
         socket
       end
 
+    # Schedule data loading only when connected (stateful mount)
+    # This keeps the initial static render fast
+    if connected?(socket) do
+      send(self(), :load_settings_data)
+
+      if live_action == :payments do
+        send(self(), :load_payments_data)
+      end
+    end
+
     {:ok, socket}
+  end
+
+  # Handle async data loading for settings page
+  @impl true
+  def handle_info(:load_settings_data, socket) do
+    user = socket.assigns.current_user
+    live_action = socket.assigns[:live_action] || :edit
+
+    # Ensure Stripe customer exists - create if missing or invalid
+    user = ensure_stripe_customer_exists(user)
+    # Reload user with billing_address after ensure_stripe_customer_exists
+    user = Repo.preload(user, :billing_address)
+
+    # Load payment methods
+    all_payment_methods =
+      Ysc.Payments.list_payment_methods(user)
+      |> Enum.sort_by(fn pm -> {!pm.is_default, pm.inserted_at} end)
+
+    default_payment_method = Enum.find(all_payment_methods, & &1.is_default)
+
+    # Get membership type from current or past subscriptions
+    membership_type_to_select = get_membership_type_for_selection(user)
+
+    # Get primary user if sub-account
+    primary_user =
+      if socket.assigns.is_sub_account,
+        do: Accounts.get_primary_user(user),
+        else: nil
+
+    # Rebuild address changeset with loaded billing_address
+    address_changeset = Accounts.change_billing_address(user)
+
+    {:noreply,
+     socket
+     |> assign(:user, user)
+     |> assign(:primary_user, primary_user)
+     |> assign(:payment_intent_secret, payment_secret(live_action, user))
+     |> assign(:default_payment_method, default_payment_method)
+     |> assign(:all_payment_methods, all_payment_methods)
+     |> assign(:loading_payment_methods, false)
+     |> assign(:address_form, to_form(address_changeset))
+     |> assign(:membership_form, to_form(%{"membership_type" => membership_type_to_select}))}
+  end
+
+  # Handle async data loading for payments tab
+  def handle_info(:load_payments_data, socket) do
+    user = socket.assigns.user
+    per_page = socket.assigns.payments_per_page
+
+    {all_payments, total_count} = Ledgers.list_user_payments_paginated(user.id, 1, per_page)
+    total_pages = div(total_count + per_page - 1, per_page)
+
+    # Calculate yearly impact stats
+    yearly_stats = calculate_yearly_stats(all_payments)
+
+    {:noreply,
+     socket
+     |> assign(:payments_total, total_count)
+     |> assign(:payments_total_pages, total_pages)
+     |> assign(:all_payments, all_payments)
+     |> stream(:payments, all_payments, reset: true, dom_id: &payment_dom_id/1)
+     |> assign(:filtered_payments_count, length(all_payments))
+     |> assign(:yearly_stats, yearly_stats)
+     |> assign(:loading_payments, false)}
+  end
+
+  def handle_info({:retry_invoice_payment, invoice_id}, socket) do
+    handle_retry_invoice_payment(socket, invoice_id)
+  end
+
+  def handle_info({:refresh_payment_methods, user_id}, socket) do
+    if socket.assigns.user.id == user_id do
+      user = socket.assigns.user
+
+      # Use the new sync function to ensure we're in sync with Stripe
+      {:ok, updated_payment_methods} = Ysc.Payments.sync_payment_methods_with_stripe(user)
+      updated_default = Ysc.Payments.get_default_payment_method(user)
+
+      require Logger
+
+      Logger.info("Refreshed payment methods after selection",
+        user_id: user.id,
+        payment_methods_count: length(updated_payment_methods),
+        default_payment_method_id: updated_default && updated_default.id
+      )
+
+      {:noreply,
+       socket
+       |> assign(:all_payment_methods, updated_payment_methods)
+       |> assign(:default_payment_method, updated_default)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -2897,36 +2992,6 @@ defmodule YscWeb.UserSettingsLive do
             end
           end
       end
-    end
-  end
-
-  @impl true
-  def handle_info({:retry_invoice_payment, invoice_id}, socket) do
-    handle_retry_invoice_payment(socket, invoice_id)
-  end
-
-  def handle_info({:refresh_payment_methods, user_id}, socket) do
-    if socket.assigns.user.id == user_id do
-      user = socket.assigns.user
-
-      # Use the new sync function to ensure we're in sync with Stripe
-      {:ok, updated_payment_methods} = Ysc.Payments.sync_payment_methods_with_stripe(user)
-      updated_default = Ysc.Payments.get_default_payment_method(user)
-
-      require Logger
-
-      Logger.info("Refreshed payment methods after selection",
-        user_id: user.id,
-        payment_methods_count: length(updated_payment_methods),
-        default_payment_method_id: updated_default && updated_default.id
-      )
-
-      {:noreply,
-       socket
-       |> assign(:all_payment_methods, updated_payment_methods)
-       |> assign(:default_payment_method, updated_default)}
-    else
-      {:noreply, socket}
     end
   end
 

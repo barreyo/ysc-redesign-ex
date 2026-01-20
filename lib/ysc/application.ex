@@ -30,6 +30,8 @@ defmodule Ysc.Application do
         {Cachex, name: :ysc_cache},
         # Start verification code cache
         Ysc.VerificationCache,
+        # Start the Elixir Dashboard performance monitor
+        ElixirDashboard.PerformanceMonitor.Supervisor,
         # Start the Endpoint (http/https)
         YscWeb.Endpoint,
         # Start a worker by calling: Ysc.Worker.start_link(arg)
@@ -41,6 +43,11 @@ defmodule Ysc.Application do
         else
           []
         end
+
+    # Attach telemetry handlers (development only)
+    if Mix.env() == :dev do
+      ElixirDashboard.PerformanceMonitor.TelemetryHandler.attach()
+    end
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

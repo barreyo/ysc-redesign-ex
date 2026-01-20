@@ -3796,7 +3796,7 @@ defmodule YscWeb.TahoeBookingLive do
              show_confirm_modal: false
            )}
 
-        {:error, changeset} ->
+        {:error, %Ecto.Changeset{} = changeset} ->
           {:noreply,
            socket
            |> put_flash(:error, "Please fix the errors below.")
