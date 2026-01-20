@@ -310,6 +310,7 @@ defmodule YscWeb.Router do
       live "/bookings/blackouts/new", AdminBookingsLive, :new_blackout
       live "/bookings/blackouts/:id/edit", AdminBookingsLive, :edit_blackout
       live "/bookings/bookings/new", AdminBookingsLive, :new_booking
+      live "/bookings/bookings/:id/edit", AdminBookingsLive, :edit_booking
       live "/bookings/seasons/:id/edit", AdminBookingsLive, :edit_season
       live "/bookings/refund-policies/new", AdminBookingsLive, :new_refund_policy
       live "/bookings/refund-policies/:id/edit", AdminBookingsLive, :edit_refund_policy

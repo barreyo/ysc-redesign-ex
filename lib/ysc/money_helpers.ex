@@ -66,4 +66,23 @@ defmodule Ysc.MoneyHelper do
   end
 
   def cents_to_dollars(_), do: Decimal.new("0.0")
+
+  @doc """
+  Converts Money to cents (integer).
+
+  Examples:
+    iex> money_to_cents(%Money{amount: Decimal.new("10.99"), currency: :USD})
+    1099
+  """
+  def money_to_cents(%Money{amount: amount}) when is_struct(amount, Decimal) do
+    amount
+    |> Decimal.mult(100)
+    |> Decimal.to_integer()
+  end
+
+  def money_to_cents(%Money{amount: amount}) when is_integer(amount) do
+    amount * 100
+  end
+
+  def money_to_cents(_), do: 0
 end

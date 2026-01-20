@@ -97,23 +97,34 @@ defmodule Ysc.Bookings.Booking do
   Creates a changeset for the Booking schema.
   """
   def changeset(booking, attrs \\ %{}, opts \\ []) do
-    booking
-    |> cast(attrs, [
-      :reference_id,
-      :checkin_date,
-      :checkout_date,
-      :guests_count,
-      :children_count,
-      :property,
-      :booking_mode,
-      :status,
-      :hold_expires_at,
-      :total_price,
-      :pricing_items,
-      :user_id,
-      :checked_in
-    ])
-    |> put_assoc(:rooms, opts[:rooms] || [])
+    changeset =
+      booking
+      |> cast(attrs, [
+        :reference_id,
+        :checkin_date,
+        :checkout_date,
+        :guests_count,
+        :children_count,
+        :property,
+        :booking_mode,
+        :status,
+        :hold_expires_at,
+        :total_price,
+        :pricing_items,
+        :user_id,
+        :checked_in
+      ])
+
+    # Only update rooms association if explicitly provided in opts
+    # This prevents errors when editing existing bookings without changing rooms
+    changeset =
+      if Keyword.has_key?(opts, :rooms) do
+        put_assoc(changeset, :rooms, opts[:rooms])
+      else
+        changeset
+      end
+
+    changeset
     |> validate_required([:checkin_date, :checkout_date, :property, :booking_mode, :user_id])
     |> generate_reference_id()
     |> infer_booking_mode()

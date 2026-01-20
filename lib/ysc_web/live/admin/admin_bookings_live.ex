@@ -4,6 +4,7 @@ defmodule YscWeb.AdminBookingsLive do
 
   import Phoenix.HTML
   import YscWeb.CoreComponents
+  import YscWeb.Components.Autocomplete
   alias Phoenix.LiveView.JS
 
   use Phoenix.VerifiedRoutes,
@@ -674,7 +675,7 @@ defmodule YscWeb.AdminBookingsLive do
         </div>
 
         <div class="flex justify-between items-center mt-6 pt-4 border-t border-zinc-200">
-          <div>
+          <div class="flex gap-2">
             <.button
               :if={@primary_payment && length(@booking_refunds) == 0}
               phx-click="show-booking-refund-modal"
@@ -685,7 +686,20 @@ defmodule YscWeb.AdminBookingsLive do
               <span class="ms-1">Process Refund</span>
             </.button>
           </div>
-          <div>
+          <div class="flex gap-2">
+            <.button phx-click={
+              query_params = %{
+                "property" => Atom.to_string(@selected_property),
+                "from_date" => Date.to_string(@calendar_start_date),
+                "to_date" => Date.to_string(@calendar_end_date)
+              }
+
+              query_string = URI.encode_query(query_params)
+              JS.navigate("/admin/bookings/bookings/#{@booking.id}/edit?#{query_string}")
+            }>
+              <.icon name="hero-pencil" class="w-4 h-4 -mt-0.5" />
+              <span class="ms-1">Edit</span>
+            </.button>
             <.button phx-click={
               query_params =
                 build_booking_modal_close_params(
@@ -1014,9 +1028,9 @@ defmodule YscWeb.AdminBookingsLive do
           </div>
         </div>
       </.modal>
-      <!-- New Booking Modal -->
+      <!-- New/Edit Booking Modal -->
       <.modal
-        :if={@live_action == :new_booking}
+        :if={@live_action in [:new_booking, :edit_booking]}
         id="booking-form-modal"
         on_cancel={
           query_params =
@@ -1034,8 +1048,20 @@ defmodule YscWeb.AdminBookingsLive do
         show
       >
         <.header>
-          New Booking
+          <%= if @live_action == :new_booking, do: "New Booking", else: "Edit Booking" %>
         </.header>
+
+        <div
+          :if={@live_action == :edit_booking && @booking}
+          class="mb-4 p-3 bg-blue-50 rounded border border-blue-200"
+        >
+          <p class="text-sm text-blue-800">
+            <span class="font-semibold">Reference:</span> <%= @booking.reference_id %>
+          </p>
+          <p class="text-xs text-blue-600 mt-1">
+            Admin mode: Validation rules are bypassed
+          </p>
+        </div>
 
         <.simple_form
           for={@booking_form}
@@ -1049,11 +1075,19 @@ defmodule YscWeb.AdminBookingsLive do
             value={Atom.to_string(@selected_property)}
           />
 
-          <.input
-            type="select"
-            field={@booking_form[:user_id]}
+          <.autocomplete
+            id="booking-user-autocomplete"
             label="User"
-            options={Enum.map(@users, &format_user_option/1)}
+            name="booking[user_id]"
+            search_event="search-booking-users"
+            select_event="select-booking-user"
+            clear_event="clear-booking-user"
+            search_value={@user_search}
+            results={@user_search_results}
+            selected={@selected_user}
+            display_fn={fn user -> "#{user.first_name} #{user.last_name}" end}
+            subtitle_fn={fn user -> user.email end}
+            placeholder="Search by name or email..."
             required
           />
 
@@ -1064,7 +1098,7 @@ defmodule YscWeb.AdminBookingsLive do
           <.input
             type="number"
             field={@booking_form[:guests_count]}
-            label="Number of Guests"
+            label="Number of Adults"
             value={@booking_form[:guests_count].value || 1}
             min="1"
             required
@@ -1073,16 +1107,30 @@ defmodule YscWeb.AdminBookingsLive do
           <.input
             type="number"
             field={@booking_form[:children_count]}
-            label="Number of Children"
+            label="Number of Children (5-17 inclusive)"
             value={@booking_form[:children_count].value || 0}
             min="0"
           />
 
           <.input
+            :if={@live_action == :edit_booking}
+            type="select"
+            field={@booking_form[:status]}
+            label="Status"
+            options={[
+              {"Draft", "draft"},
+              {"Hold", "hold"},
+              {"Complete", "complete"},
+              {"Refunded", "refunded"},
+              {"Canceled", "canceled"}
+            ]}
+          />
+
+          <input
             :if={@booking_type == :room}
             type="hidden"
-            field={@booking_form[:room_id]}
-            value={@booking_form[:room_id].value}
+            name="booking[room_id]"
+            value={@booking_room_id}
           />
 
           <.input
@@ -1092,7 +1140,7 @@ defmodule YscWeb.AdminBookingsLive do
             value="room"
           />
 
-          <.input :if={@booking_type == :buyout} type="hidden" field={@booking_form[:room_id]} />
+          <input :if={@booking_type == :buyout} type="hidden" name="booking[room_id]" value="" />
 
           <.input
             :if={@booking_type == :buyout}
@@ -1102,15 +1150,37 @@ defmodule YscWeb.AdminBookingsLive do
           />
 
           <:actions>
-            <div class="flex justify-end gap-2">
-              <.button phx-click={
-                JS.navigate(
-                  ~p"/admin/bookings?property=#{@selected_property}&from_date=#{Date.to_string(@calendar_start_date)}&to_date=#{Date.to_string(@calendar_end_date)}"
-                )
-              }>
-                Cancel
-              </.button>
-              <.button type="submit" phx-disable-with="Creating...">Create Booking</.button>
+            <div class="flex justify-between w-full">
+              <div>
+                <button
+                  :if={@live_action == :edit_booking && @booking}
+                  type="button"
+                  phx-click="delete-booking"
+                  phx-value-id={@booking.id}
+                  phx-disable-with="Deleting..."
+                  data-confirm="Are you sure you want to delete this booking? This action cannot be undone."
+                  class="rounded bg-red-600 hover:bg-red-700 py-2 px-4 transition duration-200 text-sm font-semibold text-white active:text-white/80"
+                >
+                  <.icon name="hero-trash" class="w-4 h-4 -mt-0.5" /> Delete
+                </button>
+              </div>
+              <div class="flex gap-2">
+                <.button phx-click={
+                  JS.navigate(
+                    ~p"/admin/bookings?property=#{@selected_property}&from_date=#{Date.to_string(@calendar_start_date)}&to_date=#{Date.to_string(@calendar_end_date)}"
+                  )
+                }>
+                  Cancel
+                </.button>
+                <.button
+                  type="submit"
+                  phx-disable-with={
+                    if @live_action == :new_booking, do: "Creating...", else: "Updating..."
+                  }
+                >
+                  <%= if @live_action == :new_booking, do: "Create Booking", else: "Update Booking" %>
+                </.button>
+              </div>
             </div>
           </:actions>
         </.simple_form>
@@ -2734,15 +2804,6 @@ defmodule YscWeb.AdminBookingsLive do
     room_categories = Bookings.list_room_categories()
     rooms = Bookings.list_rooms()
 
-    # Load all active users for booking creation
-    users =
-      Repo.all(
-        from u in Accounts.User,
-          where: u.state == :active,
-          order_by: [asc: u.last_name, asc: u.first_name],
-          select: {u.id, u.first_name, u.last_name, u.email}
-      )
-
     # Note: blackouts and bookings are loaded on-demand in update_calendar_view with date range filtering
 
     today = Date.utc_today()
@@ -2802,11 +2863,14 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:buyout_bookings, [])
      |> assign(:booking_payments, [])
      |> assign(:booking_refunds, [])
+     |> assign(:booking_room_id, nil)
      |> assign(:primary_payment, nil)
      |> assign(:show_refund_modal, false)
      |> assign(:refund_form, nil)
      |> assign(:calendar_range_form, changeset)
-     |> assign(:users, users)
+     |> assign(:user_search, "")
+     |> assign(:user_search_results, [])
+     |> assign(:selected_user, nil)
      |> assign(:date_selection_type, nil)
      |> assign(:date_selection_start, nil)
      |> assign(:date_selection_room_id, nil)
@@ -3306,8 +3370,7 @@ defmodule YscWeb.AdminBookingsLive do
       "checkout_date" => Date.to_string(checkout_date),
       "guests_count" => "1",
       "children_count" => "0",
-      "booking_mode" => Atom.to_string(booking_type),
-      "room_id" => room_id
+      "booking_mode" => Atom.to_string(booking_type)
     }
 
     form =
@@ -3320,8 +3383,60 @@ defmodule YscWeb.AdminBookingsLive do
     |> assign(:booking_type, booking_type)
     |> assign(:booking_form, form)
     |> assign(:booking, nil)
+    |> assign(:booking_room_id, room_id)
     |> assign(:booking_payments, [])
     |> assign(:booking_refunds, [])
+    |> assign(:user_search, "")
+    |> assign(:user_search_results, [])
+    |> assign(:selected_user, nil)
+  end
+
+  defp apply_action(socket, :edit_booking, %{"id" => id}) do
+    booking = Bookings.get_booking!(id)
+    booking = Ysc.Repo.preload(booking, [:user, rooms: :room_category])
+
+    # Determine booking type from existing booking
+    has_rooms = Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0
+    booking_type = if has_rooms, do: :room, else: :buyout
+
+    # Get room_id if it's a room booking
+    room_id = if has_rooms, do: List.first(booking.rooms).id, else: nil
+
+    form_data = %{
+      "property" => Atom.to_string(booking.property),
+      "checkin_date" => Date.to_string(booking.checkin_date),
+      "checkout_date" => Date.to_string(booking.checkout_date),
+      "guests_count" => to_string(booking.guests_count),
+      "children_count" => to_string(booking.children_count || 0),
+      "booking_mode" => Atom.to_string(booking.booking_mode || booking_type),
+      "user_id" => booking.user_id,
+      "status" => Atom.to_string(booking.status || :draft)
+    }
+
+    form =
+      booking
+      |> Ysc.Bookings.Booking.changeset(form_data, skip_validation: true)
+      |> to_form(as: "booking")
+
+    # Ensure selected_property matches the booking's property
+    socket =
+      if socket.assigns.selected_property != booking.property do
+        assign(socket, :selected_property, booking.property)
+      else
+        socket
+      end
+
+    socket
+    |> assign(:page_title, "Edit Booking")
+    |> assign(:booking_type, booking_type)
+    |> assign(:booking_form, form)
+    |> assign(:booking, booking)
+    |> assign(:booking_room_id, room_id)
+    |> assign(:booking_payments, [])
+    |> assign(:booking_refunds, [])
+    |> assign(:user_search, "")
+    |> assign(:user_search_results, [])
+    |> assign(:selected_user, booking.user)
   end
 
   defp apply_action(socket, :new_refund_policy, _params) do
@@ -3584,6 +3699,30 @@ defmodule YscWeb.AdminBookingsLive do
     {:noreply,
      socket
      |> put_flash(:info, "Blackout deleted successfully")
+     |> push_navigate(to: ~p"/admin/bookings?#{URI.encode_query(query_params)}")
+     |> update_calendar_view(socket.assigns.selected_property)}
+  end
+
+  def handle_event("delete-booking", %{"id" => id}, socket) do
+    booking = Bookings.get_booking!(id)
+    Bookings.delete_booking(booking)
+
+    # Preserve date range if available
+    query_params = %{property: socket.assigns.selected_property}
+
+    query_params =
+      if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+        Map.merge(query_params, %{
+          from_date: Date.to_string(socket.assigns.calendar_start_date),
+          to_date: Date.to_string(socket.assigns.calendar_end_date)
+        })
+      else
+        query_params
+      end
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Booking deleted successfully")
      |> push_navigate(to: ~p"/admin/bookings?#{URI.encode_query(query_params)}")
      |> update_calendar_view(socket.assigns.selected_property)}
   end
@@ -4099,6 +4238,88 @@ defmodule YscWeb.AdminBookingsLive do
     {:noreply, assign(socket, :show_refund_modal, false)}
   end
 
+  def handle_event("process-booking-refund", %{"refund" => refund_params}, socket) do
+    booking = socket.assigns.booking
+    primary_payment = socket.assigns.primary_payment
+
+    # Parse refund amount
+    refund_amount = MoneyHelper.parse_money(refund_params["amount"])
+    reason = refund_params["reason"]
+    release_availability = refund_params["release_availability"] == "true"
+
+    if is_nil(refund_amount) do
+      {:noreply, put_flash(socket, :error, "Invalid refund amount")}
+    else
+      # Convert Money to cents for Stripe
+      refund_amount_cents = MoneyHelper.money_to_cents(refund_amount)
+
+      # Process refund via Stripe first, then ledger
+      result =
+        if primary_payment.external_payment_id && primary_payment.external_provider == :stripe do
+          # Use the same create_stripe_refund approach as approve_pending_refund
+          case Bookings.create_stripe_refund_for_admin(
+                 primary_payment.external_payment_id,
+                 refund_amount_cents,
+                 reason
+               ) do
+            {:ok, stripe_refund} ->
+              # Process refund in ledger
+              Ysc.Ledgers.process_refund(%{
+                payment_id: primary_payment.id,
+                refund_amount: refund_amount,
+                reason: reason,
+                external_refund_id: stripe_refund.id
+              })
+
+            {:error, reason} ->
+              {:error, {:stripe_error, reason}}
+          end
+        else
+          {:error, :no_stripe_payment}
+        end
+
+      case result do
+        {:ok, _refund} ->
+          # Optionally release booking availability
+          if release_availability do
+            Bookings.update_booking(booking, %{status: :refunded})
+          end
+
+          # Preserve date range if available
+          query_params = %{property: socket.assigns.selected_property}
+
+          query_params =
+            if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+              Map.merge(query_params, %{
+                from_date: Date.to_string(socket.assigns.calendar_start_date),
+                to_date: Date.to_string(socket.assigns.calendar_end_date)
+              })
+            else
+              query_params
+            end
+
+          {:noreply,
+           socket
+           |> put_flash(:info, "Refund processed successfully")
+           |> assign(:show_refund_modal, false)
+           |> push_navigate(to: ~p"/admin/bookings?#{URI.encode_query(query_params)}")
+           |> update_calendar_view(socket.assigns.selected_property)}
+
+        {:error, {:already_processed, _, _}} ->
+          {:noreply, put_flash(socket, :error, "Refund has already been processed.")}
+
+        {:error, {:stripe_error, msg}} ->
+          {:noreply, put_flash(socket, :error, "Stripe error: #{inspect(msg)}")}
+
+        {:error, :no_stripe_payment} ->
+          {:noreply, put_flash(socket, :error, "Cannot process refund: No Stripe payment found.")}
+
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, "Failed to process refund: #{inspect(reason)}")}
+      end
+    end
+  end
+
   def handle_event("validate-booking-refund", %{"refund" => refund_params}, socket) do
     # Simple validation changeset for the form
     changeset =
@@ -4253,12 +4474,48 @@ defmodule YscWeb.AdminBookingsLive do
   end
 
   def handle_event("validate-booking", %{"booking" => booking_params}, socket) do
+    # Use existing booking if editing, otherwise new struct
+    booking = socket.assigns[:booking] || %Ysc.Bookings.Booking{}
+
     changeset =
-      %Ysc.Bookings.Booking{}
+      booking
       |> Ysc.Bookings.Booking.changeset(booking_params, skip_validation: true)
       |> Map.put(:action, :validate)
 
     {:noreply, assign(socket, :booking_form, to_form(changeset, as: "booking"))}
+  end
+
+  # User autocomplete handlers for booking form
+  def handle_event("search-booking-users", %{"value" => query}, socket) do
+    results =
+      if String.length(query) >= 2 do
+        Accounts.search_users(query, limit: 10)
+      else
+        []
+      end
+
+    {:noreply,
+     socket
+     |> assign(:user_search, query)
+     |> assign(:user_search_results, results)}
+  end
+
+  def handle_event("select-booking-user", %{"id" => id}, socket) do
+    user = Accounts.get_user!(id)
+
+    {:noreply,
+     socket
+     |> assign(:selected_user, user)
+     |> assign(:user_search, "")
+     |> assign(:user_search_results, [])}
+  end
+
+  def handle_event("clear-booking-user", _, socket) do
+    {:noreply,
+     socket
+     |> assign(:selected_user, nil)
+     |> assign(:user_search, "")
+     |> assign(:user_search_results, [])}
   end
 
   def handle_event("save-booking", %{"booking" => booking_params}, socket) do
@@ -4280,6 +4537,15 @@ defmodule YscWeb.AdminBookingsLive do
         booking_params
       end
 
+    # Convert status string to atom if provided
+    booking_params =
+      if status_str = booking_params["status"] do
+        status_atom = String.to_existing_atom(status_str)
+        Map.put(booking_params, "status", status_atom)
+      else
+        booking_params
+      end
+
     # Convert user_id string to proper format if needed
     booking_params =
       if user_id_str = booking_params["user_id"] do
@@ -4288,20 +4554,68 @@ defmodule YscWeb.AdminBookingsLive do
         booking_params
       end
 
-    # Convert room_id to nil if empty string
-    booking_params =
-      if booking_params["room_id"] == "" do
-        Map.put(booking_params, "room_id", nil)
+    # Get room_id from params (could be nil or empty string)
+    room_id = booking_params["room_id"]
+    room_id = if room_id == "" or is_nil(room_id), do: nil, else: room_id
+
+    # Remove room_id from params as it's not a direct field on booking
+    booking_params = Map.delete(booking_params, "room_id")
+
+    # Fetch the room if room_id is provided (for room bookings)
+    rooms =
+      if room_id do
+        room = Bookings.get_room!(room_id)
+        [room]
       else
-        booking_params
+        []
       end
 
-    # Create booking with validation skipped (admin override)
-    changeset =
-      %Ysc.Bookings.Booking{}
-      |> Ysc.Bookings.Booking.changeset(booking_params, skip_validation: true)
+    # Determine if this is a create or update operation
+    existing_booking = socket.assigns[:booking]
 
-    result = Ysc.Repo.insert(changeset)
+    # Build changeset opts - include rooms for new bookings or when changing booking type
+    changeset_opts =
+      if existing_booking do
+        # For updates, only set rooms if explicitly changing to room booking
+        if room_id && booking_params["booking_mode"] == :room do
+          [skip_validation: true, rooms: rooms]
+        else
+          [skip_validation: true]
+        end
+      else
+        # For new bookings, always include rooms (even if empty for buyouts)
+        [skip_validation: true, rooms: rooms]
+      end
+
+    result =
+      if existing_booking do
+        # Update existing booking with validation skipped (admin override)
+        changeset =
+          existing_booking
+          |> Ysc.Bookings.Booking.changeset(booking_params, changeset_opts)
+
+        Ysc.Repo.update(changeset)
+      else
+        # Create new booking using BookingLocker which handles:
+        # - Setting status to :complete
+        # - Updating inventory
+        # - Sending confirmation email
+        # - Scheduling check-in/checkout reminders
+        alias Ysc.Bookings.BookingLocker
+
+        # Convert string keys to atoms for BookingLocker
+        attrs = %{
+          user_id: booking_params["user_id"],
+          property: booking_params["property"],
+          checkin_date: parse_date(booking_params["checkin_date"]),
+          checkout_date: parse_date(booking_params["checkout_date"]),
+          guests_count: parse_integer(booking_params["guests_count"], 1),
+          children_count: parse_integer(booking_params["children_count"], 0),
+          booking_mode: booking_params["booking_mode"]
+        }
+
+        BookingLocker.create_admin_booking(attrs, rooms: rooms)
+      end
 
     case result do
       {:ok, _booking} ->
@@ -4318,14 +4632,25 @@ defmodule YscWeb.AdminBookingsLive do
             query_params
           end
 
+        action_word = if existing_booking, do: "updated", else: "created"
+
         {:noreply,
          socket
-         |> put_flash(:info, "Booking created successfully")
+         |> put_flash(
+           :info,
+           "Booking #{action_word} successfully. Confirmation email sent to user."
+         )
          |> push_navigate(to: ~p"/admin/bookings?#{URI.encode_query(query_params)}")
          |> update_calendar_view(socket.assigns.selected_property)}
 
-      {:error, changeset} ->
+      {:error, {:error, changeset}} when is_struct(changeset, Ecto.Changeset) ->
         {:noreply, assign(socket, :booking_form, to_form(changeset, as: "booking"))}
+
+      {:error, changeset} when is_struct(changeset, Ecto.Changeset) ->
+        {:noreply, assign(socket, :booking_form, to_form(changeset, as: "booking"))}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to create booking: #{inspect(reason)}")}
     end
   end
 
@@ -5476,18 +5801,6 @@ defmodule YscWeb.AdminBookingsLive do
     Enum.at(calendar_dates, day_idx)
   end
 
-  # Format user for dropdown
-  defp format_user_option({id, first_name, last_name, email}) do
-    name =
-      if first_name && last_name do
-        "#{first_name} #{last_name}"
-      else
-        email || "Unknown"
-      end
-
-    {name, id}
-  end
-
   # Check if a date is in the selected range (for visual feedback)
   defp date_selection_in_range?(_date, start_date, _hover_end) when is_nil(start_date), do: false
 
@@ -5876,4 +6189,28 @@ defmodule YscWeb.AdminBookingsLive do
         end
     end
   end
+
+  # Parse a date from string or Date
+  defp parse_date(%Date{} = date), do: date
+
+  defp parse_date(date_string) when is_binary(date_string) do
+    case Date.from_iso8601(date_string) do
+      {:ok, date} -> date
+      _ -> nil
+    end
+  end
+
+  defp parse_date(_), do: nil
+
+  # Parse an integer from string or integer with a default
+  defp parse_integer(value, _default) when is_integer(value), do: value
+
+  defp parse_integer(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, _} -> int
+      :error -> default
+    end
+  end
+
+  defp parse_integer(_, default), do: default
 end

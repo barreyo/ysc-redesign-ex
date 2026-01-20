@@ -8,8 +8,32 @@ defmodule YscWeb.EventsListLive do
   def render(assigns) do
     ~H"""
     <div>
+      <%!-- Loading skeleton for hero and events --%>
+      <div :if={@defer_load} class="max-w-screen-xl mx-auto">
+        <%!-- Hero skeleton --%>
+        <div :if={@show_hero} class="mb-10 animate-pulse">
+          <div class="aspect-[16/10] rounded-xl bg-zinc-200"></div>
+        </div>
+        <%!-- Events grid skeleton --%>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <%= for _i <- 1..4 do %>
+            <div class="bg-white rounded-xl p-4 ring-1 ring-zinc-100 shadow-sm animate-pulse">
+              <div class="aspect-[16/10] rounded-lg mb-6 bg-zinc-200"></div>
+              <div class="space-y-3">
+                <div class="h-4 bg-zinc-200 rounded w-1/4"></div>
+                <div class="h-6 bg-zinc-200 rounded w-3/4"></div>
+                <div class="h-4 bg-zinc-200 rounded w-1/2"></div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
       <%!-- Hero Event Section (only if show_hero is true) --%>
-      <div :if={@show_hero && @hero_event != nil} class="max-w-screen-xl mx-auto mb-10">
+      <div
+        :if={!@defer_load && @show_hero && @hero_event != nil}
+        class="max-w-screen-xl mx-auto mb-10"
+      >
         <div id="hero-event" class="group">
           <.link
             navigate={~p"/events/#{@hero_event.id}"}
@@ -123,7 +147,7 @@ defmodule YscWeb.EventsListLive do
       </div>
 
       <%!-- Event List Section --%>
-      <div :if={@event_count > 0} class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div :if={!@defer_load && @event_count > 0} class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div :for={{id, event} <- @streams.events} id={id}>
           <.event_card
             event={event}
@@ -134,7 +158,7 @@ defmodule YscWeb.EventsListLive do
       </div>
 
       <div
-        :if={@total_event_count == 0}
+        :if={!@defer_load && @total_event_count == 0}
         class="flex flex-col items-center justify-center py-10 md:py-20 px-0 md:px-6 flex-grow"
       >
         <div class="flex flex-col items-center justify-center w-full border-2 border-dashed border-zinc-100 rounded-3xl bg-gradient-to-br from-zinc-50/50 via-white to-zinc-50/30 backdrop-blur-sm p-6 md:p-12 shadow-sm">
@@ -172,20 +196,42 @@ defmodule YscWeb.EventsListLive do
     # Check if this update includes an event message (from send_update in parent)
     event_message = Map.get(assigns, :event)
 
+    # Check if we should defer loading (for initial static render performance)
+    defer_load = Map.get(assigns, :defer_load, false)
+
     socket =
-      if event_message do
-        # Handle event message from parent LiveView
-        # This is a real-time update, only modify the stream, don't reload everything
-        # Ensure socket has all necessary assigns (send_update only passes what we give it)
-        socket = ensure_required_assigns(socket, assigns)
+      cond do
+        event_message ->
+          # Handle event message from parent LiveView
+          # This is a real-time update, only modify the stream, don't reload everything
+          # Ensure socket has all necessary assigns (send_update only passes what we give it)
+          socket = ensure_required_assigns(socket, assigns)
 
-        # Ensure stream is initialized (component might have been just mounted)
-        socket = ensure_stream_initialized_for_message(socket)
+          # Ensure stream is initialized (component might have been just mounted)
+          socket = ensure_stream_initialized_for_message(socket)
 
-        handle_event_message(event_message, socket)
-      else
-        # Normal update - load events (this happens on mount or when assigns change)
-        load_events(assigns, socket)
+          handle_event_message(event_message, socket)
+
+        defer_load ->
+          # Defer loading - show loading state until parent signals ready
+          show_hero = Map.get(assigns, :show_hero, false)
+          upcoming = Map.get(assigns, :upcoming, true)
+          limit = Map.get(assigns, :limit)
+
+          socket
+          |> assign(:show_hero, show_hero)
+          |> assign(:upcoming, upcoming)
+          |> assign(:limit, limit)
+          |> assign(:defer_load, true)
+          |> assign(:hero_event, nil)
+          |> assign(:event_count, 0)
+          |> assign(:total_event_count, 0)
+          |> stream(:events, [], reset: true)
+
+        true ->
+          # Normal update - load events (this happens on mount or when assigns change)
+          socket = load_events(assigns, socket)
+          assign(socket, :defer_load, false)
       end
 
     {:ok, socket}

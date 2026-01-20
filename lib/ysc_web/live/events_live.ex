@@ -30,6 +30,7 @@ defmodule YscWeb.EventsLive do
               module={YscWeb.EventsListLive}
               show_hero={true}
               upcoming={true}
+              defer_load={!@async_data_loaded}
             />
           </div>
 
@@ -76,8 +77,23 @@ defmodule YscWeb.EventsLive do
         </div>
       </div>
 
+      <%!-- Loading skeleton for Past Events --%>
+      <section
+        :if={!@async_data_loaded}
+        class="mt-20 md:mt-32 py-12 md:py-16 border-t border-zinc-100"
+      >
+        <div class="max-w-screen-xl mx-auto px-4">
+          <div class="h-8 w-48 bg-zinc-200 rounded mb-12 animate-pulse"></div>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <%= for _i <- 1..4 do %>
+              <div class="aspect-video rounded-2xl bg-zinc-200 animate-pulse"></div>
+            <% end %>
+          </div>
+        </div>
+      </section>
+
       <%!-- Memory Gallery - Past Events --%>
-      <%= if @past_events_exist do %>
+      <%= if @async_data_loaded && @past_events_exist do %>
         <section class="mt-20 md:mt-32 py-12 md:py-16 border-t border-zinc-100">
           <div class="max-w-screen-xl mx-auto px-4">
             <h2 class="text-3xl font-black text-zinc-800 tracking-tighter italic mb-12 group relative inline-block">
@@ -148,34 +164,78 @@ defmodule YscWeb.EventsLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    # Minimal assigns for fast initial static render
+    socket =
+      socket
+      |> assign(:page_title, "Events")
+      |> assign(:total_upcoming_count, 0)
+      |> assign(:past_events_exist, false)
+      |> assign(:past_events_limit, 10)
+      |> assign(:has_more_past_events, false)
+      |> assign(:async_data_loaded, false)
+      |> stream(:past_events, [], reset: true)
+
     if connected?(socket) do
+      # Subscribe to real-time updates only when connected
       Events.subscribe()
+
+      # Load all data asynchronously after WebSocket connection
+      {:ok, load_events_data_async(socket)}
+    else
+      {:ok, socket}
     end
+  end
 
-    # Get total count of upcoming events using efficient count query
-    total_upcoming_count = Events.count_upcoming_events()
+  # Load events data asynchronously
+  defp load_events_data_async(socket) do
+    past_events_limit = socket.assigns.past_events_limit
 
-    # Load past events and check existence from the same query
-    past_events_limit = 10
-    past_events = Events.list_past_events(past_events_limit)
+    start_async(socket, :load_events_data, fn ->
+      # Run queries in parallel
+      tasks = [
+        {:upcoming_count, fn -> Events.count_upcoming_events() end},
+        {:past_events, fn -> Events.list_past_events(past_events_limit) end}
+      ]
+
+      results =
+        tasks
+        |> Task.async_stream(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
+        |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
+
+      # Compute has_more_past_events based on results
+      past_events = Map.get(results, :past_events, [])
+
+      has_more =
+        if length(past_events) == past_events_limit do
+          Events.has_more_past_events?(past_events_limit)
+        else
+          false
+        end
+
+      Map.put(results, :has_more_past_events, has_more)
+    end)
+  end
+
+  @impl true
+  def handle_async(:load_events_data, {:ok, results}, socket) do
+    total_upcoming_count = Map.get(results, :upcoming_count, 0)
+    past_events = Map.get(results, :past_events, [])
+    has_more_past_events = Map.get(results, :has_more_past_events, false)
     past_events_exist = Enum.any?(past_events)
 
-    # Check if there are more past events available (only if we got exactly limit results)
-    has_more_past_events =
-      if length(past_events) == past_events_limit do
-        Events.has_more_past_events?(past_events_limit)
-      else
-        false
-      end
-
-    {:ok,
+    {:noreply,
      socket
-     |> assign(:page_title, "Events")
      |> assign(:total_upcoming_count, total_upcoming_count)
      |> assign(:past_events_exist, past_events_exist)
-     |> assign(:past_events_limit, past_events_limit)
      |> assign(:has_more_past_events, has_more_past_events)
+     |> assign(:async_data_loaded, true)
      |> stream(:past_events, past_events, reset: true)}
+  end
+
+  def handle_async(:load_events_data, {:exit, reason}, socket) do
+    require Logger
+    Logger.error("Failed to load events data async: #{inspect(reason)}")
+    {:noreply, assign(socket, :async_data_loaded, true)}
   end
 
   @impl true

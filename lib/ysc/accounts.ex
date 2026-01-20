@@ -180,6 +180,44 @@ defmodule Ysc.Accounts do
   end
 
   @doc """
+  Searches for users by name or email.
+
+  Returns a list of active users matching the search query.
+  The search is case-insensitive and matches partial strings
+  in first_name, last_name, or email fields.
+
+  ## Options
+    - `:limit` - Maximum number of results (default: 10)
+    - `:state` - User state to filter by (default: :active)
+
+  ## Examples
+
+      iex> search_users("john")
+      [%User{first_name: "John", ...}, %User{last_name: "Johnson", ...}]
+
+      iex> search_users("john@example.com")
+      [%User{email: "john@example.com", ...}]
+
+  """
+  def search_users(query, opts \\ []) when is_binary(query) do
+    limit = Keyword.get(opts, :limit, 10)
+    state = Keyword.get(opts, :state, :active)
+    search_term = "%#{query}%"
+
+    from(u in User,
+      where: u.state == ^state,
+      where:
+        ilike(u.first_name, ^search_term) or
+          ilike(u.last_name, ^search_term) or
+          ilike(u.email, ^search_term) or
+          ilike(fragment("? || ' ' || ?", u.first_name, u.last_name), ^search_term),
+      order_by: [asc: u.last_name, asc: u.first_name],
+      limit: ^limit
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Checks if a user has an active membership.
   Includes lifetime membership which never expires.
 

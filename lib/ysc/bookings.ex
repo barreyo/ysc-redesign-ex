@@ -3192,6 +3192,22 @@ defmodule Ysc.Bookings do
     0
   end
 
+  @doc """
+  Creates a refund in Stripe for a payment intent (public version for admin use).
+
+  ## Parameters
+  - `payment_intent_id`: The Stripe payment intent ID
+  - `amount_cents`: The refund amount in cents
+  - `reason`: Reason for the refund
+
+  ## Returns
+  - `{:ok, %Stripe.Refund{}}` on success
+  - `{:error, reason}` on failure
+  """
+  def create_stripe_refund_for_admin(payment_intent_id, amount_cents, reason) do
+    create_stripe_refund(payment_intent_id, amount_cents, reason)
+  end
+
   # Creates a refund in Stripe for a payment intent.
   #
   # ## Parameters

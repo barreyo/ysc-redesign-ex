@@ -356,7 +356,18 @@ defmodule Ysc.Bookings.BookingLocker do
         days = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
 
         # Get all rooms to determine property (must all be same property)
-        rooms = Enum.map(room_ids, &Repo.get!(Room, &1))
+        # Batch load all rooms in a single query to avoid N+1
+        rooms =
+          from(r in Room, where: r.id in ^room_ids)
+          |> Repo.all()
+
+        # Verify all requested rooms were found (matching Repo.get! behavior)
+        if length(rooms) != length(room_ids) do
+          found_ids = Enum.map(rooms, & &1.id)
+          missing_ids = room_ids -- found_ids
+          Repo.rollback({:error, {:rooms_not_found, missing_ids}})
+        end
+
         property = rooms |> List.first() |> Map.get(:property)
 
         # Verify all rooms are from the same property
@@ -906,6 +917,179 @@ defmodule Ysc.Bookings.BookingLocker do
       error ->
         error
     end
+  end
+
+  @doc """
+  Creates and confirms a booking directly (for admin use).
+
+  This bypasses the normal hold → payment → confirm flow and directly:
+  1. Creates the booking with :complete status
+  2. Updates inventory to mark as booked
+  3. Sends confirmation email to the user
+  4. Schedules check-in and checkout reminders
+
+  ## Parameters:
+  - `attrs`: Booking attributes (user_id, property, checkin_date, checkout_date, guests_count, booking_mode, etc.)
+  - `opts`: Additional options:
+    - `:rooms` - List of Room structs to associate with the booking
+    - `:skip_email` - If true, doesn't send confirmation email (default: false)
+    - `:skip_reminders` - If true, doesn't schedule reminders (default: false)
+
+  ## Returns:
+  - `{:ok, %Booking{}}` on success
+  - `{:error, reason}` on failure
+  """
+  def create_admin_booking(attrs, opts \\ []) do
+    rooms = Keyword.get(opts, :rooms, [])
+    skip_email = Keyword.get(opts, :skip_email, false)
+    skip_reminders = Keyword.get(opts, :skip_reminders, false)
+
+    # Ensure status is :complete for admin bookings
+    attrs = Map.put(attrs, :status, :complete)
+
+    Repo.transaction(fn ->
+      # Create the booking
+      changeset =
+        %Booking{}
+        |> Booking.changeset(attrs, rooms: rooms, skip_validation: true)
+
+      case Repo.insert(changeset) do
+        {:ok, booking} ->
+          # Reload with associations
+          booking = Repo.preload(booking, [:rooms, :user])
+
+          # Update inventory based on booking mode
+          update_inventory_for_admin_booking(booking)
+
+          booking
+
+        {:error, changeset} ->
+          Repo.rollback({:error, changeset})
+      end
+    end)
+    |> case do
+      {:ok, booking} ->
+        # Send confirmation email (outside transaction)
+        unless skip_email do
+          send_booking_confirmation_email(booking)
+        end
+
+        # Schedule reminders (outside transaction)
+        unless skip_reminders do
+          schedule_checkin_reminder(booking)
+          schedule_checkout_reminder(booking)
+        end
+
+        {:ok, booking}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Updates inventory to mark dates as booked for an admin-created booking
+  defp update_inventory_for_admin_booking(booking) do
+    case booking.booking_mode do
+      :buyout ->
+        # Set buyout_booked = true for all days
+        {count, _} =
+          Repo.update_all(
+            from(pi in PropertyInventory,
+              where:
+                pi.property == ^booking.property and
+                  pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+            ),
+            set: [
+              buyout_booked: true,
+              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+            ]
+          )
+
+        # Ensure inventory rows exist first if count is 0
+        if count == 0 do
+          ensure_inventory_exists_and_book(booking)
+        else
+          :ok
+        end
+
+      :room ->
+        room_ids = Enum.map(booking.rooms, & &1.id)
+
+        if length(room_ids) > 0 do
+          {count, _} =
+            Repo.update_all(
+              from(ri in RoomInventory,
+                where:
+                  ri.room_id in ^room_ids and
+                    ri.day >= ^booking.checkin_date and ri.day < ^booking.checkout_date
+              ),
+              set: [
+                booked: true,
+                held: false,
+                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+              ]
+            )
+
+          # Ensure inventory rows exist first if count is 0
+          if count == 0 do
+            ensure_room_inventory_exists_and_book(booking, room_ids)
+          else
+            :ok
+          end
+        else
+          :ok
+        end
+
+      _ ->
+        :ok
+    end
+  end
+
+  # Ensures property inventory rows exist for the date range and marks as booked
+  defp ensure_inventory_exists_and_book(booking) do
+    dates = Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
+
+    Enum.each(dates, fn date ->
+      Repo.insert(
+        %PropertyInventory{
+          property: booking.property,
+          day: date,
+          buyout_booked: true,
+          buyout_held: false,
+          capacity_total:
+            if(booking.property == :clear_lake,
+              do: @default_capacity_clear_lake,
+              else: @default_capacity_tahoe
+            ),
+          capacity_held: 0,
+          capacity_booked: 0
+        },
+        on_conflict: {:replace, [:buyout_booked, :updated_at]},
+        conflict_target: [:property, :day]
+      )
+    end)
+
+    :ok
+  end
+
+  # Ensures room inventory rows exist for the date range and marks as booked
+  defp ensure_room_inventory_exists_and_book(booking, room_ids) do
+    dates = Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
+
+    for room_id <- room_ids, date <- dates do
+      Repo.insert(
+        %RoomInventory{
+          room_id: room_id,
+          day: date,
+          booked: true,
+          held: false
+        },
+        on_conflict: {:replace, [:booked, :held, :updated_at]},
+        conflict_target: [:room_id, :day]
+      )
+    end
+
+    :ok
   end
 
   defp schedule_checkin_reminder(booking) do

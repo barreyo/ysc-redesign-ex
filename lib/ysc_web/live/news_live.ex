@@ -19,6 +19,7 @@ defmodule YscWeb.NewsLive do
     membership_director: "Membership Director"
   }
 
+  @impl true
   def render(assigns) do
     ~H"""
     <div class="py-6 md:py-12">
@@ -31,8 +32,31 @@ defmodule YscWeb.NewsLive do
         </div>
       </div>
 
+      <%!-- Loading skeleton for featured post --%>
+      <div :if={!@async_data_loaded} class="max-w-screen-xl mx-auto px-4 mb-16">
+        <div class="animate-pulse">
+          <div class="relative aspect-[16/10] rounded-xl overflow-hidden bg-zinc-200">
+            <div class="absolute inset-0 flex flex-col justify-end p-8 lg:p-12">
+              <div class="max-w-3xl space-y-4">
+                <div class="w-24 h-6 bg-zinc-300 rounded-lg"></div>
+                <div class="w-32 h-4 bg-zinc-300 rounded"></div>
+                <div class="w-3/4 h-12 bg-zinc-300 rounded"></div>
+                <div class="w-full h-6 bg-zinc-300 rounded"></div>
+                <div class="flex items-center gap-3 pt-4">
+                  <div class="w-10 h-10 bg-zinc-300 rounded-full"></div>
+                  <div class="space-y-2">
+                    <div class="w-24 h-3 bg-zinc-300 rounded"></div>
+                    <div class="w-16 h-2 bg-zinc-300 rounded"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <%!-- Modernized Featured Post - Impact Hero --%>
-      <div :if={@featured != nil} class="max-w-screen-xl mx-auto px-4 mb-16">
+      <div :if={@async_data_loaded && @featured != nil} class="max-w-screen-xl mx-auto px-4 mb-16">
         <div id="featured" class="group">
           <.link
             navigate={~p"/posts/#{@featured.url_name}"}
@@ -124,8 +148,34 @@ defmodule YscWeb.NewsLive do
 
       <%!-- Balanced Masonry Grid --%>
       <div class="max-w-screen-xl mx-auto px-4">
+        <%!-- Loading skeleton for posts grid --%>
+        <div :if={!@async_data_loaded} class="grid grid-cols-1 md:grid-cols-2 py-4 gap-8">
+          <%= for _i <- 1..4 do %>
+            <div class="flex flex-col bg-white rounded-xl p-4 ring-1 ring-zinc-100 shadow-sm animate-pulse">
+              <div class="aspect-[16/10] rounded-lg mb-8 bg-zinc-200"></div>
+              <div class="px-4 pb-4 space-y-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-16 h-3 bg-zinc-200 rounded"></div>
+                  <div class="w-px h-3 bg-zinc-200"></div>
+                  <div class="w-20 h-3 bg-zinc-200 rounded"></div>
+                </div>
+                <div class="w-3/4 h-8 bg-zinc-200 rounded"></div>
+                <div class="w-full h-4 bg-zinc-200 rounded"></div>
+                <div class="w-2/3 h-4 bg-zinc-200 rounded"></div>
+                <div class="pt-6 border-t border-zinc-50 flex items-center gap-3">
+                  <div class="w-8 h-8 bg-zinc-200 rounded-full"></div>
+                  <div class="space-y-1">
+                    <div class="w-20 h-3 bg-zinc-200 rounded"></div>
+                    <div class="w-16 h-2 bg-zinc-200 rounded"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+
         <div
-          :if={@post_count > 0}
+          :if={@async_data_loaded && @post_count > 0}
           id="news-grid"
           class="grid grid-cols-1 md:grid-cols-2 py-4 gap-8"
           phx-viewport-top={@page > 1 && "prev-page"}
@@ -219,20 +269,67 @@ defmodule YscWeb.NewsLive do
     """
   end
 
+  @impl true
   def mount(_params, _session, socket) do
-    featured_post = Posts.get_featured_post() |> Ysc.Repo.preload([:author, :featured_image])
-    post_count = Posts.count_published_posts()
+    # Minimal assigns for fast initial static render
+    socket =
+      socket
+      |> assign(:page_title, "News")
+      |> assign(:featured, nil)
+      |> assign(:post_count, 0)
+      |> assign(:posts, [])
+      |> assign(:page, 1)
+      |> assign(:per_page, 10)
+      |> assign(:end_of_timeline?, false)
+      |> assign(:async_data_loaded, false)
 
-    {:ok,
-     socket
-     |> assign(:post_count, post_count)
-     |> assign(:page_title, "News")
-     |> assign(:featured, featured_post)
-     |> assign(:posts, [])
-     |> assign(page: 1, per_page: 10)
-     |> paginate_posts(1)}
+    if connected?(socket) do
+      # Load all data asynchronously after WebSocket connection
+      {:ok, load_news_data_async(socket)}
+    else
+      {:ok, socket}
+    end
   end
 
+  # Load news data asynchronously
+  defp load_news_data_async(socket) do
+    start_async(socket, :load_news_data, fn ->
+      # Run queries in parallel
+      tasks = [
+        {:featured,
+         fn -> Posts.get_featured_post() |> Ysc.Repo.preload([:author, :featured_image]) end},
+        {:post_count, fn -> Posts.count_published_posts() end},
+        {:posts, fn -> Posts.list_posts(0, 10) end}
+      ]
+
+      tasks
+      |> Task.async_stream(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
+      |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
+    end)
+  end
+
+  @impl true
+  def handle_async(:load_news_data, {:ok, results}, socket) do
+    featured = Map.get(results, :featured)
+    post_count = Map.get(results, :post_count, 0)
+    posts = Map.get(results, :posts, [])
+
+    {:noreply,
+     socket
+     |> assign(:featured, featured)
+     |> assign(:post_count, post_count)
+     |> assign(:posts, posts)
+     |> assign(:end_of_timeline?, length(posts) < socket.assigns.per_page)
+     |> assign(:async_data_loaded, true)}
+  end
+
+  def handle_async(:load_news_data, {:exit, reason}, socket) do
+    require Logger
+    Logger.error("Failed to load news data async: #{inspect(reason)}")
+    {:noreply, assign(socket, :async_data_loaded, true)}
+  end
+
+  @impl true
   def handle_event("next-page", _, socket) do
     {:noreply, paginate_posts(socket, socket.assigns.page + 1)}
   end

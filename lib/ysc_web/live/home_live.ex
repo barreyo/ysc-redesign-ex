@@ -12,6 +12,7 @@ defmodule YscWeb.HomeLive do
   @impl true
   def mount(params, _session, socket) do
     if Map.get(params, "_format") == "swiftui" do
+      # SwiftUI/native format - load minimal data synchronously
       upcoming_events =
         Events.list_upcoming_events(3)
         |> Enum.reject(&(&1.state == :cancelled))
@@ -22,75 +23,163 @@ defmodule YscWeb.HomeLive do
          upcoming_events: upcoming_events
        )}
     else
-      user = socket.assigns.current_user
+      # Web format - use async loading pattern for performance
+      socket = mount_minimal_assigns(socket)
 
-      socket =
-        if user do
-          # Load user with subscriptions and get membership info
-          user_with_subs =
-            Accounts.get_user!(user.id)
-            |> Ysc.Repo.preload(subscriptions: :subscription_items)
-            |> Accounts.User.populate_virtual_fields()
+      if connected?(socket) do
+        # Load all data asynchronously after WebSocket connection
+        {:ok, load_home_data_async(socket)}
+      else
+        {:ok, socket}
+      end
+    end
+  end
 
-          # Check if user is a sub-account and get primary user
-          is_sub_account = Accounts.is_sub_account?(user_with_subs)
+  # Minimal assigns for fast initial static render
+  defp mount_minimal_assigns(socket) do
+    user = socket.assigns.current_user
 
-          primary_user =
-            if is_sub_account, do: Accounts.get_primary_user(user_with_subs), else: nil
+    if user do
+      # Logged-in user: show skeleton UI while data loads
+      assign(socket,
+        page_title: "Home",
+        # Will be populated after async load
+        is_sub_account: false,
+        primary_user: nil,
+        upcoming_tickets: [],
+        future_bookings: [],
+        upcoming_events: [],
+        latest_news: [],
+        newsletter_email: "",
+        newsletter_submitted: false,
+        newsletter_error: nil,
+        # Track async loading state
+        async_data_loaded: false
+      )
+    else
+      # Guest user: determine hero video based on season (no DB query)
+      {hero_video, hero_poster} =
+        case Season.for_date(:tahoe, Date.utc_today()) do
+          %{name: "Summer"} ->
+            {~p"/video/clear_lake_hero.mp4", ~p"/images/clear_lake_hero_poster.jpg"}
 
-          upcoming_tickets = get_upcoming_tickets(user.id)
-          future_bookings = get_future_active_bookings(user.id)
-
-          upcoming_events =
-            Events.list_upcoming_events(3)
-            |> Enum.reject(&(&1.state == :cancelled))
-
-          latest_news = Posts.list_posts(3)
-
-          assign(socket,
-            page_title: "Home",
-            is_sub_account: is_sub_account,
-            primary_user: primary_user,
-            upcoming_tickets: upcoming_tickets,
-            future_bookings: future_bookings,
-            upcoming_events: upcoming_events,
-            latest_news: latest_news,
-            newsletter_email: "",
-            newsletter_submitted: false,
-            newsletter_error: nil
-          )
-        else
-          upcoming_events =
-            Events.list_upcoming_events(3)
-            |> Enum.reject(&(&1.state == :cancelled))
-
-          latest_news = Posts.list_posts(3)
-
-          # Determine hero video and poster image based on current Tahoe season
-          # Use Clear Lake video during summer, Tahoe video otherwise
-          {hero_video, hero_poster} =
-            case Season.for_date(:tahoe, Date.utc_today()) do
-              %{name: "Summer"} ->
-                {~p"/video/clear_lake_hero.mp4", ~p"/images/clear_lake_hero_poster.jpg"}
-
-              _ ->
-                {~p"/video/tahoe_hero.mp4", ~p"/images/tahoe_hero_poster.jpg"}
-            end
-
-          assign(socket,
-            page_title: "Home",
-            upcoming_events: upcoming_events,
-            latest_news: latest_news,
-            hero_video: hero_video,
-            hero_poster: hero_poster,
-            newsletter_email: "",
-            newsletter_submitted: false,
-            newsletter_error: nil
-          )
+          _ ->
+            {~p"/video/tahoe_hero.mp4", ~p"/images/tahoe_hero_poster.jpg"}
         end
 
-      {:ok, socket}
+      assign(socket,
+        page_title: "Home",
+        upcoming_events: [],
+        latest_news: [],
+        hero_video: hero_video,
+        hero_poster: hero_poster,
+        newsletter_email: "",
+        newsletter_submitted: false,
+        newsletter_error: nil,
+        async_data_loaded: false
+      )
     end
+  end
+
+  # Load all home page data asynchronously
+  defp load_home_data_async(socket) do
+    user = socket.assigns.current_user
+
+    if user do
+      start_async(socket, :load_home_data, fn ->
+        load_logged_in_user_data(user.id)
+      end)
+    else
+      start_async(socket, :load_home_data, fn ->
+        load_guest_data()
+      end)
+    end
+  end
+
+  # Background task to load logged-in user's home page data in parallel
+  defp load_logged_in_user_data(user_id) do
+    tasks = [
+      {:user_data, fn -> load_user_with_subscriptions(user_id) end},
+      {:tickets, fn -> get_upcoming_tickets(user_id) end},
+      {:bookings, fn -> get_future_active_bookings(user_id) end},
+      {:events,
+       fn -> Events.list_upcoming_events(3) |> Enum.reject(&(&1.state == :cancelled)) end},
+      {:news, fn -> Posts.list_posts(3) end}
+    ]
+
+    tasks
+    |> Task.async_stream(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
+    |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
+  end
+
+  # Load user with subscriptions and virtual fields
+  defp load_user_with_subscriptions(user_id) do
+    user_with_subs =
+      Accounts.get_user!(user_id)
+      |> Ysc.Repo.preload(subscriptions: :subscription_items)
+      |> Accounts.User.populate_virtual_fields()
+
+    is_sub_account = Accounts.is_sub_account?(user_with_subs)
+    primary_user = if is_sub_account, do: Accounts.get_primary_user(user_with_subs), else: nil
+
+    {is_sub_account, primary_user}
+  end
+
+  # Background task to load guest home page data
+  defp load_guest_data do
+    tasks = [
+      {:events,
+       fn -> Events.list_upcoming_events(3) |> Enum.reject(&(&1.state == :cancelled)) end},
+      {:news, fn -> Posts.list_posts(3) end}
+    ]
+
+    tasks
+    |> Task.async_stream(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
+    |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
+  end
+
+  @impl true
+  def handle_async(:load_home_data, {:ok, results}, socket) do
+    user = socket.assigns.current_user
+
+    socket =
+      if user do
+        # Logged-in user results
+        {is_sub_account, primary_user} = Map.get(results, :user_data, {false, nil})
+        upcoming_tickets = Map.get(results, :tickets, [])
+        future_bookings = Map.get(results, :bookings, [])
+        upcoming_events = Map.get(results, :events, [])
+        latest_news = Map.get(results, :news, [])
+
+        assign(socket,
+          is_sub_account: is_sub_account,
+          primary_user: primary_user,
+          upcoming_tickets: upcoming_tickets,
+          future_bookings: future_bookings,
+          upcoming_events: upcoming_events,
+          latest_news: latest_news,
+          async_data_loaded: true
+        )
+      else
+        # Guest user results
+        upcoming_events = Map.get(results, :events, [])
+        latest_news = Map.get(results, :news, [])
+
+        assign(socket,
+          upcoming_events: upcoming_events,
+          latest_news: latest_news,
+          async_data_loaded: true
+        )
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:load_home_data, {:exit, reason}, socket) do
+    require Logger
+    Logger.error("Failed to load home data async: #{inspect(reason)}")
+    # Mark as loaded to avoid infinite loading state
+    {:noreply, assign(socket, :async_data_loaded, true)}
   end
 
   @impl true
@@ -412,7 +501,10 @@ defmodule YscWeb.HomeLive do
 
     <%!-- Happening Now Bar --%>
     <div
-      :if={@current_user == nil && (length(@upcoming_events) > 0 || length(@latest_news) > 0)}
+      :if={
+        @current_user == nil && @async_data_loaded &&
+          (length(@upcoming_events) > 0 || length(@latest_news) > 0)
+      }
       class="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-4 border-b border-blue-500/20"
     >
       <div class="max-w-screen-xl mx-auto px-4">
@@ -466,7 +558,7 @@ defmodule YscWeb.HomeLive do
 
     <%!-- Upcoming Events Section --%>
     <section
-      :if={@current_user == nil && length(@upcoming_events) > 0}
+      :if={@current_user == nil && (@async_data_loaded == false || length(@upcoming_events) > 0)}
       class="py-20 lg:py-32 bg-zinc-900 relative overflow-hidden"
     >
       <div class="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none">
@@ -494,7 +586,22 @@ defmodule YscWeb.HomeLive do
           </.link>
         </div>
 
-        <div class="flex flex-wrap justify-center gap-8 lg:gap-10">
+        <%!-- Loading skeleton for guest events --%>
+        <div :if={!@async_data_loaded} class="flex flex-wrap justify-center gap-8 lg:gap-10">
+          <%= for _i <- 1..3 do %>
+            <div class="flex flex-col bg-white/5 backdrop-blur-sm rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl w-full md:max-w-md lg:max-w-[calc(33.333%-2rem)] animate-pulse">
+              <div class="aspect-[16/11] bg-zinc-700"></div>
+              <div class="p-8 space-y-4">
+                <div class="h-4 bg-zinc-700 rounded w-1/3"></div>
+                <div class="h-8 bg-zinc-700 rounded w-3/4"></div>
+                <div class="h-4 bg-zinc-700 rounded w-full"></div>
+                <div class="h-4 bg-zinc-700 rounded w-2/3"></div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+
+        <div :if={@async_data_loaded} class="flex flex-wrap justify-center gap-8 lg:gap-10">
           <%= for event <- @upcoming_events do %>
             <div class="group flex flex-col bg-white/5 backdrop-blur-sm rounded-[2.5rem] border border-white/10 hover:border-blue-500/50 transition-all duration-500 overflow-hidden shadow-2xl w-full md:max-w-md lg:max-w-[calc(33.333%-2rem)]">
               <.link
@@ -586,7 +693,10 @@ defmodule YscWeb.HomeLive do
     </section>
 
     <%!-- Latest News Section --%>
-    <section :if={@current_user == nil && length(@latest_news) > 0} class="py-24 lg:py-32 bg-zinc-50">
+    <section
+      :if={@current_user == nil && (@async_data_loaded == false || length(@latest_news) > 0)}
+      class="py-24 lg:py-32 bg-zinc-50"
+    >
       <div class="max-w-screen-xl mx-auto px-4">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-20 border-b border-zinc-200 pb-10">
           <div class="max-w-2xl">
@@ -602,7 +712,19 @@ defmodule YscWeb.HomeLive do
           </p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
+        <%!-- Loading skeleton for guest news --%>
+        <div :if={!@async_data_loaded} class="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
+          <%= for i <- 0..2 do %>
+            <div class={["animate-pulse", if(rem(i, 2) == 1, do: "md:mt-20", else: "")]}>
+              <div class="rounded-[2.5rem] mb-8 aspect-square bg-zinc-200"></div>
+              <div class="h-3 bg-zinc-200 rounded w-1/4 mb-4"></div>
+              <div class="h-6 bg-zinc-200 rounded w-3/4 mb-2"></div>
+              <div class="h-4 bg-zinc-200 rounded w-full"></div>
+            </div>
+          <% end %>
+        </div>
+
+        <div :if={@async_data_loaded} class="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
           <%= for {post, index} <- Enum.with_index(@latest_news) do %>
             <.link
               navigate={~p"/posts/#{post.url_name}"}
@@ -911,8 +1033,23 @@ defmodule YscWeb.HomeLive do
                 </.link>
               </div>
 
+              <%!-- Loading skeleton for bookings --%>
               <div
-                :if={Enum.empty?(@future_bookings)}
+                :if={!@async_data_loaded}
+                class="bg-white rounded shadow-sm border border-zinc-200 p-6 animate-pulse"
+              >
+                <div class="flex gap-4">
+                  <div class="w-24 h-20 bg-zinc-200 rounded"></div>
+                  <div class="flex-1 space-y-3">
+                    <div class="h-4 bg-zinc-200 rounded w-1/3"></div>
+                    <div class="h-3 bg-zinc-200 rounded w-1/2"></div>
+                    <div class="h-3 bg-zinc-200 rounded w-1/4"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                :if={@async_data_loaded && Enum.empty?(@future_bookings)}
                 class="bg-white rounded shadow-lg border border-zinc-200 p-12 text-center"
               >
                 <div class="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -936,7 +1073,7 @@ defmodule YscWeb.HomeLive do
                 </div>
               </div>
 
-              <div :if={!Enum.empty?(@future_bookings)} class="space-y-4">
+              <div :if={@async_data_loaded && !Enum.empty?(@future_bookings)} class="space-y-4">
                 <%= for booking <- @future_bookings do %>
                   <% is_active =
                     days_until_booking(booking) == :started || days_until_booking(booking) == 0 %>
@@ -1032,8 +1169,21 @@ defmodule YscWeb.HomeLive do
                 <.icon name="hero-ticket" class="w-5 h-5 text-purple-600" /> Event Tickets
               </h3>
 
+              <%!-- Loading skeleton for tickets --%>
+              <div :if={!@async_data_loaded} class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white/50 border-2 border-dashed border-zinc-200 rounded-lg p-8 animate-pulse">
+                  <div class="flex justify-between items-start mb-4">
+                    <div class="w-16 h-5 bg-zinc-200 rounded"></div>
+                    <div class="w-8 h-8 bg-zinc-200 rounded"></div>
+                  </div>
+                  <div class="h-5 bg-zinc-200 rounded w-3/4 mb-2"></div>
+                  <div class="h-3 bg-zinc-200 rounded w-1/2 mb-4"></div>
+                  <div class="h-3 bg-zinc-200 rounded w-2/3"></div>
+                </div>
+              </div>
+
               <div
-                :if={Enum.empty?(@upcoming_tickets)}
+                :if={@async_data_loaded && Enum.empty?(@upcoming_tickets)}
                 class="bg-white border border-zinc-200 rounded shadow-lg p-12 text-center"
               >
                 <div class="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1049,7 +1199,10 @@ defmodule YscWeb.HomeLive do
                 </.link>
               </div>
 
-              <div :if={!Enum.empty?(@upcoming_tickets)} class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div
+                :if={@async_data_loaded && !Enum.empty?(@upcoming_tickets)}
+                class="grid grid-cols-1 md:grid-cols-2 gap-6"
+              >
                 <%= for {event, grouped_tiers} <- group_tickets_by_event_and_tier(@upcoming_tickets) do %>
                   <% order_id =
                     case grouped_tiers do
@@ -1297,8 +1450,25 @@ defmodule YscWeb.HomeLive do
               </.link>
             </div>
 
+            <%!-- Loading skeleton for events --%>
             <div
-              :if={Enum.empty?(@upcoming_events)}
+              :if={!@async_data_loaded}
+              class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+            >
+              <%= for _i <- 1..3 do %>
+                <div class="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden animate-pulse">
+                  <div class="h-48 bg-zinc-200"></div>
+                  <div class="p-6 space-y-3">
+                    <div class="h-4 bg-zinc-200 rounded w-1/4"></div>
+                    <div class="h-6 bg-zinc-200 rounded w-3/4"></div>
+                    <div class="h-4 bg-zinc-200 rounded w-1/2"></div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+
+            <div
+              :if={@async_data_loaded && Enum.empty?(@upcoming_events)}
               class="bg-white rounded shadow-lg p-12 text-center border border-zinc-200"
             >
               <div class="w-12 h-12 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -1309,7 +1479,7 @@ defmodule YscWeb.HomeLive do
             </div>
 
             <div
-              :if={!Enum.empty?(@upcoming_events)}
+              :if={@async_data_loaded && !Enum.empty?(@upcoming_events)}
               class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
             >
               <%= for event <- Enum.take(@upcoming_events, 3) do %>

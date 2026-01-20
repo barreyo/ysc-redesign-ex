@@ -87,6 +87,7 @@ defmodule YscWeb do
       import Phoenix.HTML
       # Core UI components and translation
       import YscWeb.CoreComponents
+      import YscWeb.Components.Autocomplete
       import YscWeb.Gettext
 
       # Shortcut for generating JS commands

@@ -62,7 +62,7 @@ defmodule YscWeb.EventDetailsLive do
                   </div>
                 <% end %>
 
-                <div :if={@event.state != :cancelled && @event_at_capacity}>
+                <div :if={@event.state != :cancelled && @async_data_loaded && @event_at_capacity}>
                   <.badge type="red">SOLD OUT</.badge>
                 </div>
 
@@ -631,14 +631,25 @@ defmodule YscWeb.EventDetailsLive do
 
                     <div class="space-y-3">
                       <%= if @has_ticket_tiers do %>
+                        <%!-- Loading skeleton for availability --%>
                         <div
-                          :if={@available_capacity != :unlimited && !@event_at_capacity}
+                          :if={!@async_data_loaded}
+                          class="flex items-center gap-3 text-sm text-zinc-400 font-medium animate-pulse"
+                        >
+                          <div class="w-5 h-5 bg-zinc-200 rounded"></div>
+                          <div class="h-4 bg-zinc-200 rounded w-32"></div>
+                        </div>
+                        <div
+                          :if={
+                            @async_data_loaded && @available_capacity != :unlimited &&
+                              !@event_at_capacity
+                          }
                           class="flex items-center gap-3 text-sm text-zinc-600 font-medium"
                         >
                           <.icon name="hero-users" class="w-5 h-5 text-blue-500" />
                           <%= @available_capacity %> Spots Available
                         </div>
-                        <%= if @active_membership? && @attendees_count != nil && @attendees_count >= 5 && @attendees_list != nil && length(@attendees_list) > 0 do %>
+                        <%= if @async_data_loaded && @active_membership? && @attendees_count != nil && @attendees_count >= 5 && @attendees_list != nil && length(@attendees_list) > 0 do %>
                           <% attendees_to_show = Enum.take(@attendees_list, 5) %>
                           <% remaining_count = length(@attendees_list) - length(attendees_to_show) %>
                           <% names_to_show = Enum.take(@attendees_list, 3) %>
@@ -2500,6 +2511,7 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def mount(%{"id" => event_id}, _session, socket) do
+    # Fetch only essential event data for initial static render (SEO & fast first paint)
     case Repo.get(Event, event_id) do
       nil ->
         {:ok,
@@ -2508,14 +2520,16 @@ defmodule YscWeb.EventDetailsLive do
          |> redirect(to: ~p"/events")}
 
       event ->
-        event = Repo.preload(event, :ticket_tiers)
+        # For disconnected mount: minimal data for fast static HTML
+        # For connected mount: full data loading via assign_async
+        socket = mount_minimal_assigns(socket, event, event_id)
 
         if connected?(socket) do
+          # Subscribe to real-time updates only when connected
           Events.subscribe()
           Agendas.subscribe(event_id)
-          # Subscribe to event-level ticket updates for real-time availability
           Ysc.Tickets.subscribe_event(event_id)
-          # Subscribe to ticket events for the current user
+
           if socket.assigns.current_user != nil do
             require Logger
 
@@ -2527,134 +2541,233 @@ defmodule YscWeb.EventDetailsLive do
 
             Ysc.Tickets.subscribe(socket.assigns.current_user.id)
           end
+
+          # Load all heavy data asynchronously after connection
+          {:ok, load_async_data(socket, event_id)}
+        else
+          {:ok, socket}
+        end
+    end
+  end
+
+  # Minimal assigns for fast initial static render (SEO-friendly)
+  defp mount_minimal_assigns(socket, event, _event_id) do
+    # Preload only ticket_tiers for pricing display (single query)
+    event = Repo.preload(event, :ticket_tiers)
+
+    # Convert preloaded tiers to map format expected by pricing functions
+    # Add sold_tickets_count: 0 as placeholder (will be updated after async load)
+    ticket_tiers_as_maps =
+      Enum.map(event.ticket_tiers, fn tier ->
+        %{
+          id: tier.id,
+          name: tier.name,
+          description: tier.description,
+          type: tier.type,
+          price: tier.price,
+          quantity: tier.quantity,
+          requires_registration: tier.requires_registration,
+          start_date: tier.start_date,
+          end_date: tier.end_date,
+          event_id: tier.event_id,
+          lock_version: tier.lock_version,
+          inserted_at: tier.inserted_at,
+          updated_at: tier.updated_at,
+          sold_tickets_count: 0
+        }
+      end)
+
+    event_with_pricing = add_pricing_info_from_tiers(event, ticket_tiers_as_maps)
+    has_ticket_tiers = length(event.ticket_tiers) > 0
+
+    # Check if we're on the tickets route (live_action == :tickets)
+    show_ticket_modal = socket.assigns.live_action == :tickets
+
+    socket
+    |> assign(:page_title, event.title)
+    |> assign(:event, event_with_pricing)
+    # Async data - will be populated after connection
+    |> assign(:agendas, [])
+    |> assign(:active_agenda, nil)
+    |> assign(:user_tickets, [])
+    |> assign(:all_tickets_by_order, %{})
+    |> assign(:ticket_tiers, ticket_tiers_as_maps)
+    # Availability data - loading state until async completes
+    |> assign(:availability_data, nil)
+    |> assign(:event_at_capacity, false)
+    |> assign(:event_selling_fast, false)
+    |> assign(:available_capacity, :unlimited)
+    |> assign(:sold_percentage, nil)
+    |> assign(:has_ticket_tiers, has_ticket_tiers)
+    # Attendees - will be loaded async if user has membership
+    |> assign(:attendees_count, nil)
+    |> assign(:attendees_list, nil)
+    |> assign(:ticket_counts_per_user, %{})
+    # UI state
+    |> assign(:show_ticket_modal, show_ticket_modal)
+    |> assign(:show_payment_modal, false)
+    |> assign(:show_free_ticket_confirmation, false)
+    |> assign(:show_order_completion, false)
+    |> assign(:payment_intent, nil)
+    |> assign(:public_key, Application.get_env(:stripity_stripe, :public_key))
+    |> assign(:ticket_order, nil)
+    |> assign(:selected_tickets, %{})
+    |> assign(:checkout_expired, false)
+    |> assign(:show_registration_modal, false)
+    |> assign(:ticket_details_form, %{})
+    |> assign(:tickets_for_me, %{})
+    |> assign(:selected_family_members, %{})
+    |> assign(:show_attendees_modal, false)
+    |> assign(:load_radar, true)
+    |> assign(:load_stripe, true)
+    |> assign(:load_calendar, true)
+    |> assign(:payment_redirect_in_progress, false)
+    # Track async loading state
+    |> assign(:async_data_loaded, false)
+  end
+
+  # Load expensive data asynchronously after WebSocket connection
+  defp load_async_data(socket, event_id) do
+    current_user = socket.assigns.current_user
+    active_membership? = socket.assigns.active_membership?
+
+    socket
+    |> start_async(:load_event_data, fn ->
+      load_event_data_async(event_id, current_user, active_membership?)
+    end)
+  end
+
+  # Background task to load all event data in parallel
+  defp load_event_data_async(event_id, current_user, active_membership?) do
+    # Run queries in parallel using Task.async_stream
+    tasks = [
+      {:agendas, fn -> Agendas.list_agendas_for_event(event_id) end},
+      {:ticket_tiers, fn -> Events.list_ticket_tiers_for_event(event_id) end},
+      {:availability,
+       fn ->
+         case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
+           {:ok, availability} -> availability
+           {:error, _} -> nil
+         end
+       end},
+      {:selling_fast, fn -> Events.event_selling_fast?(event_id) end},
+      {:user_tickets, fn -> load_user_tickets(current_user, event_id) end},
+      {:attendees, fn -> load_attendees(active_membership?, current_user, event_id) end}
+    ]
+
+    results =
+      tasks
+      |> Task.async_stream(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
+      |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
+
+    results
+  end
+
+  defp load_user_tickets(nil, _event_id), do: {[], %{}}
+
+  defp load_user_tickets(current_user, event_id) do
+    import Ecto.Query
+    alias Ysc.Events.Ticket
+
+    confirmed_tickets =
+      Ysc.Tickets.list_user_tickets_for_event(current_user.id, event_id)
+
+    order_ids =
+      confirmed_tickets
+      |> Enum.filter(&(&1.ticket_order_id != nil))
+      |> Enum.map(& &1.ticket_order_id)
+      |> Enum.uniq()
+
+    all_tickets_by_order =
+      if Enum.empty?(order_ids) do
+        %{}
+      else
+        Ticket
+        |> where([t], t.ticket_order_id in ^order_ids)
+        |> preload([:ticket_tier, :ticket_order])
+        |> Repo.all()
+        |> Enum.group_by(& &1.ticket_order_id)
+      end
+
+    {confirmed_tickets, all_tickets_by_order}
+  end
+
+  defp load_attendees(false, _current_user, _event_id), do: {nil, nil, %{}}
+
+  defp load_attendees(true, current_user, event_id) do
+    ticket_count = Events.count_tickets_sold_excluding_donations(event_id)
+
+    if ticket_count >= 5 do
+      attendees = Events.list_unique_attendees_for_event(event_id)
+
+      filtered_attendees =
+        if current_user do
+          Enum.reject(attendees, fn attendee ->
+            attendee.id == current_user.id
+          end)
+        else
+          attendees
         end
 
-        agendas = Agendas.list_agendas_for_event(event_id)
-
-        # Load ticket tiers once with sold counts (reuse for all calculations)
-        ticket_tiers_with_counts = Events.list_ticket_tiers_for_event(event_id)
-        ticket_tiers = get_ticket_tiers_from_list(ticket_tiers_with_counts)
-
-        # Cache availability data (used for real-time availability checks)
-        availability_data =
-          case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
-            {:ok, availability} -> availability
-            {:error, _} -> nil
-          end
-
-        # Pre-compute all expensive values once to avoid duplicate queries during render
-        event_at_capacity =
-          compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
-
-        event_selling_fast = Events.event_selling_fast?(event_id)
-        available_capacity = get_available_capacity_from_data(availability_data)
-        sold_percentage = compute_sold_percentage(event, availability_data)
-        has_ticket_tiers = length(ticket_tiers_with_counts) > 0
-
-        # Add pricing info to the event using cached ticket tiers
-        event_with_pricing = add_pricing_info_from_tiers(event, ticket_tiers_with_counts)
-
-        # Get user's tickets for this event if user is signed in
-        {user_tickets, all_tickets_by_order} =
-          if socket.assigns.current_user do
-            # Load confirmed tickets for display
-            confirmed_tickets =
-              Ysc.Tickets.list_user_tickets_for_event(socket.assigns.current_user.id, event_id)
-
-            # Get all unique order IDs from confirmed tickets
-            order_ids =
-              confirmed_tickets
-              |> Enum.filter(&(&1.ticket_order_id != nil))
-              |> Enum.map(& &1.ticket_order_id)
-              |> Enum.uniq()
-
-            # Preload ALL tickets (including cancelled/refunded) for all orders in one query
-            # This eliminates N+1 queries in render
-            all_tickets_by_order =
-              if Enum.empty?(order_ids) do
-                %{}
-              else
-                import Ecto.Query
-                alias Ysc.Events.Ticket
-
-                Ticket
-                |> where([t], t.ticket_order_id in ^order_ids)
-                |> preload([:ticket_tier, :ticket_order])
-                |> Repo.all()
-                |> Enum.group_by(& &1.ticket_order_id)
-              end
-
-            {confirmed_tickets, all_tickets_by_order}
-          else
-            {[], %{}}
-          end
-
-        # Check if we're on the tickets route (live_action == :tickets)
-        show_ticket_modal = socket.assigns.live_action == :tickets
-
-        # Load attendees list if user has active membership and event has 5+ tickets sold
-        {attendees_count, attendees_list, ticket_counts_per_user} =
-          if socket.assigns.active_membership? do
-            ticket_count = Events.count_tickets_sold_excluding_donations(event_id)
-
-            if ticket_count >= 5 do
-              attendees = Events.list_unique_attendees_for_event(event_id)
-              # Filter out the current user from the attendees list
-              filtered_attendees =
-                if socket.assigns.current_user do
-                  Enum.reject(attendees, fn attendee ->
-                    attendee.id == socket.assigns.current_user.id
-                  end)
-                else
-                  attendees
-                end
-
-              ticket_counts = Events.get_ticket_counts_per_user(event_id)
-              {ticket_count, filtered_attendees, ticket_counts}
-            else
-              {nil, nil, %{}}
-            end
-          else
-            {nil, nil, %{}}
-          end
-
-        {:ok,
-         socket
-         |> assign(:page_title, event.title)
-         |> assign(:event, event_with_pricing)
-         |> assign(:agendas, agendas)
-         |> assign(:active_agenda, default_active_agenda(agendas))
-         |> assign(:user_tickets, user_tickets)
-         |> assign(:all_tickets_by_order, all_tickets_by_order)
-         |> assign(:show_ticket_modal, show_ticket_modal)
-         |> assign(:show_payment_modal, false)
-         |> assign(:show_free_ticket_confirmation, false)
-         |> assign(:show_order_completion, false)
-         |> assign(:payment_intent, nil)
-         |> assign(:public_key, Application.get_env(:stripity_stripe, :public_key))
-         |> assign(:ticket_order, nil)
-         |> assign(:selected_tickets, %{})
-         |> assign(:checkout_expired, false)
-         |> assign(:show_registration_modal, false)
-         |> assign(:ticket_details_form, %{})
-         |> assign(:tickets_for_me, %{})
-         |> assign(:selected_family_members, %{})
-         |> assign(:ticket_tiers, ticket_tiers)
-         |> assign(:availability_data, availability_data)
-         |> assign(:event_at_capacity, event_at_capacity)
-         |> assign(:event_selling_fast, event_selling_fast)
-         |> assign(:available_capacity, available_capacity)
-         |> assign(:sold_percentage, sold_percentage)
-         |> assign(:has_ticket_tiers, has_ticket_tiers)
-         |> assign(:attendees_count, attendees_count)
-         |> assign(:attendees_list, attendees_list)
-         |> assign(:ticket_counts_per_user, ticket_counts_per_user)
-         |> assign(:show_attendees_modal, false)
-         |> assign(:load_radar, true)
-         |> assign(:load_stripe, true)
-         |> assign(:load_calendar, true)
-         |> assign(:payment_redirect_in_progress, false)}
+      ticket_counts = Events.get_ticket_counts_per_user(event_id)
+      {ticket_count, filtered_attendees, ticket_counts}
+    else
+      {nil, nil, %{}}
     end
+  end
+
+  @impl true
+  def handle_async(:load_event_data, {:ok, results}, socket) do
+    event = socket.assigns.event
+
+    # Extract results
+    agendas = Map.get(results, :agendas, [])
+    ticket_tiers_with_counts = Map.get(results, :ticket_tiers, [])
+    availability_data = Map.get(results, :availability, nil)
+    event_selling_fast = Map.get(results, :selling_fast, false)
+    {user_tickets, all_tickets_by_order} = Map.get(results, :user_tickets, {[], %{}})
+
+    {attendees_count, attendees_list, ticket_counts_per_user} =
+      Map.get(results, :attendees, {nil, nil, %{}})
+
+    # Compute derived values
+    ticket_tiers = get_ticket_tiers_from_list(ticket_tiers_with_counts)
+
+    event_at_capacity =
+      compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
+
+    available_capacity = get_available_capacity_from_data(availability_data)
+    sold_percentage = compute_sold_percentage(event, availability_data)
+    has_ticket_tiers = length(ticket_tiers_with_counts) > 0
+
+    # Update event with accurate pricing info
+    event_with_pricing = add_pricing_info_from_tiers(event, ticket_tiers_with_counts)
+
+    {:noreply,
+     socket
+     |> assign(:event, event_with_pricing)
+     |> assign(:agendas, agendas)
+     |> assign(:active_agenda, default_active_agenda(agendas))
+     |> assign(:user_tickets, user_tickets)
+     |> assign(:all_tickets_by_order, all_tickets_by_order)
+     |> assign(:ticket_tiers, ticket_tiers)
+     |> assign(:availability_data, availability_data)
+     |> assign(:event_at_capacity, event_at_capacity)
+     |> assign(:event_selling_fast, event_selling_fast)
+     |> assign(:available_capacity, available_capacity)
+     |> assign(:sold_percentage, sold_percentage)
+     |> assign(:has_ticket_tiers, has_ticket_tiers)
+     |> assign(:attendees_count, attendees_count)
+     |> assign(:attendees_list, attendees_list)
+     |> assign(:ticket_counts_per_user, ticket_counts_per_user)
+     |> assign(:async_data_loaded, true)}
+  end
+
+  def handle_async(:load_event_data, {:exit, reason}, socket) do
+    require Logger
+    Logger.error("Failed to load event data async: #{inspect(reason)}")
+    # Keep showing the page with minimal data, mark as loaded to avoid infinite loading
+    {:noreply, assign(socket, :async_data_loaded, true)}
   end
 
   @impl true

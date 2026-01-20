@@ -11,52 +11,61 @@ defmodule Ysc.PropertyOutages.Queries do
 
   @doc """
   Returns all outages.
+  Note: Consider using `recent/1` with a limit for better performance.
   """
   def all do
-    from(o in OutageTracker, order_by: [desc: o.inserted_at])
+    from(o in OutageTracker, order_by: [desc: o.inserted_at], limit: 1000)
     |> Repo.all()
   end
 
   @doc """
   Returns outages for a specific property.
+  Limited to 1000 most recent to prevent unbounded queries.
   """
   def by_property(property) do
     from(o in OutageTracker,
       where: o.property == ^property,
-      order_by: [desc: o.inserted_at]
+      order_by: [desc: o.inserted_at],
+      limit: 1000
     )
     |> Repo.all()
   end
 
   @doc """
   Returns outages of a specific type.
+  Limited to 1000 most recent to prevent unbounded queries.
   """
   def by_incident_type(incident_type) do
     from(o in OutageTracker,
       where: o.incident_type == ^incident_type,
-      order_by: [desc: o.inserted_at]
+      order_by: [desc: o.inserted_at],
+      limit: 1000
     )
     |> Repo.all()
   end
 
   @doc """
   Returns outages for a specific property and incident type.
+  Limited to 1000 most recent to prevent unbounded queries.
   """
   def by_property_and_type(property, incident_type) do
     from(o in OutageTracker,
       where: o.property == ^property and o.incident_type == ^incident_type,
-      order_by: [desc: o.inserted_at]
+      order_by: [desc: o.inserted_at],
+      limit: 1000
     )
     |> Repo.all()
   end
 
   @doc """
   Returns outages for a specific company.
+  Limited to 1000 most recent to prevent unbounded queries.
   """
   def by_company(company_name) do
     from(o in OutageTracker,
       where: o.company_name == ^company_name,
-      order_by: [desc: o.inserted_at]
+      order_by: [desc: o.inserted_at],
+      limit: 1000
     )
     |> Repo.all()
   end
@@ -74,33 +83,39 @@ defmodule Ysc.PropertyOutages.Queries do
 
   @doc """
   Returns outages on or after the given date.
+  Limited to 1000 most recent to prevent unbounded queries.
   """
   def since_date(date) do
     from(o in OutageTracker,
       where: o.incident_date >= ^date,
-      order_by: [desc: o.incident_date]
+      order_by: [desc: o.incident_date],
+      limit: 1000
     )
     |> Repo.all()
   end
 
   @doc """
   Returns outages between two dates (inclusive).
+  Limited to 1000 most recent to prevent unbounded queries.
   """
   def between_dates(start_date, end_date) do
     from(o in OutageTracker,
       where: o.incident_date >= ^start_date and o.incident_date <= ^end_date,
-      order_by: [desc: o.incident_date]
+      order_by: [desc: o.incident_date],
+      limit: 1000
     )
     |> Repo.all()
   end
 
   @doc """
   Returns outages created on or after the given datetime.
+  Limited to 1000 most recent to prevent unbounded queries.
   """
   def created_since(datetime) do
     from(o in OutageTracker,
       where: o.inserted_at >= ^datetime,
-      order_by: [desc: o.inserted_at]
+      order_by: [desc: o.inserted_at],
+      limit: 1000
     )
     |> Repo.all()
   end
@@ -165,6 +180,7 @@ defmodule Ysc.PropertyOutages.Queries do
 
   @doc """
   Returns all active outages for a property (within the last N days).
+  Limited to 1000 most recent to prevent unbounded queries.
   """
   def active_outages_for_property(property, days \\ 7) do
     cutoff_date = Date.add(Date.utc_today(), -days)
@@ -172,13 +188,15 @@ defmodule Ysc.PropertyOutages.Queries do
 
     from(o in OutageTracker,
       where: o.property == ^property and o.inserted_at >= ^cutoff_datetime,
-      order_by: [desc: o.inserted_at]
+      order_by: [desc: o.inserted_at],
+      limit: 1000
     )
     |> Repo.all()
   end
 
   @doc """
   Returns active outages for a property filtered by incident type.
+  Limited to 1000 most recent to prevent unbounded queries.
   """
   def active_outages_for_property_and_type(property, incident_type, days \\ 7) do
     cutoff_date = Date.add(Date.utc_today(), -days)
@@ -188,7 +206,8 @@ defmodule Ysc.PropertyOutages.Queries do
       where:
         o.property == ^property and o.incident_type == ^incident_type and
           o.inserted_at >= ^cutoff_datetime,
-      order_by: [desc: o.inserted_at]
+      order_by: [desc: o.inserted_at],
+      limit: 1000
     )
     |> Repo.all()
   end

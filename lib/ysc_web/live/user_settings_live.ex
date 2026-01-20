@@ -1364,21 +1364,35 @@ defmodule YscWeb.UserSettingsLive do
                       </th>
                     </tr>
                   </thead>
-                  <tbody class="bg-white divide-y divide-zinc-200">
-                    <%= for payment_info <- @payments do %>
-                      <%= render_payment_table_row(payment_info) %>
+                  <tbody
+                    id="payments-list"
+                    phx-update="stream"
+                    class="bg-white divide-y divide-zinc-200"
+                  >
+                    <%= for {id, payment_info} <- @streams.payments do %>
+                      <%= render_payment_table_row(payment_info, id: id) %>
                     <% end %>
                   </tbody>
                 </table>
               </div>
               <!-- Mobile Card View -->
-              <div :if={length(@payments) > 0} class="md:hidden space-y-4">
-                <%= for payment_info <- @payments do %>
-                  <%= render_payment_card(payment_info) %>
+              <div
+                :if={@filtered_payments_count > 0}
+                id="payments-cards"
+                phx-update="stream"
+                class="md:hidden space-y-4"
+              >
+                <%= for {id, payment_info} <- @streams.payments do %>
+                  <div id={id}>
+                    <%= render_payment_card(payment_info) %>
+                  </div>
                 <% end %>
               </div>
 
-              <div :if={length(@payments) == 0 && @payments_total > 0} class="text-center py-12">
+              <div
+                :if={@filtered_payments_count == 0 && @payments_total > 0}
+                class="text-center py-12"
+              >
                 <p class="text-zinc-500 text-sm">
                   No payments match the selected filter.
                 </p>
@@ -1552,8 +1566,9 @@ defmodule YscWeb.UserSettingsLive do
         |> assign(:payments_total, total_count)
         |> assign(:payments_total_pages, total_pages)
         |> assign(:all_payments, all_payments)
-        |> assign(:payments, all_payments)
+        |> stream(:payments, all_payments, reset: true, dom_id: &payment_dom_id/1)
         |> assign(:payment_filter, :all)
+        |> assign(:filtered_payments_count, length(all_payments))
         |> assign(:yearly_stats, yearly_stats)
       else
         socket
@@ -2681,7 +2696,8 @@ defmodule YscWeb.UserSettingsLive do
     {:noreply,
      socket
      |> assign(:payment_filter, filter_atom)
-     |> assign(:payments, filtered_payments)}
+     |> assign(:filtered_payments_count, length(filtered_payments))
+     |> stream(:payments, filtered_payments, reset: true, dom_id: &payment_dom_id/1)}
   end
 
   def handle_event("change-membership", params, socket) do
@@ -2972,7 +2988,8 @@ defmodule YscWeb.UserSettingsLive do
     |> assign(:payments_page, new_page)
     |> assign(:payments_total_pages, total_pages)
     |> assign(:all_payments, all_payments)
-    |> assign(:payments, filtered_payments)
+    |> assign(:filtered_payments_count, length(filtered_payments))
+    |> stream(:payments, filtered_payments, reset: true, dom_id: &payment_dom_id/1)
   end
 
   defp apply_payment_filter(payments, :all), do: payments
@@ -3485,11 +3502,12 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   # Render payment table row for desktop view
-  defp render_payment_table_row(payment_info) do
-    assigns = %{payment_info: payment_info}
+  defp render_payment_table_row(payment_info, opts) do
+    id = Keyword.get(opts, :id)
+    assigns = %{payment_info: payment_info, id: id}
 
     ~H"""
-    <tr class="hover:bg-zinc-50 transition-colors">
+    <tr id={@id} class="hover:bg-zinc-50 transition-colors">
       <td class="px-6 py-4 whitespace-nowrap">
         <div class="flex items-center gap-4">
           <div class={[
@@ -4034,5 +4052,32 @@ defmodule YscWeb.UserSettingsLive do
     Enum.any?(subscription_items, fn item ->
       item.stripe_price_id == price_id
     end)
+  end
+
+  # Generate unique DOM ID for payment stream items
+  defp payment_dom_id(%{type: :booking, booking: booking}) when not is_nil(booking) do
+    "payment-booking-#{booking.id}"
+  end
+
+  defp payment_dom_id(%{type: :ticket, ticket_order: ticket_order})
+       when not is_nil(ticket_order) do
+    "payment-ticket-#{ticket_order.id}"
+  end
+
+  defp payment_dom_id(%{type: :membership, subscription: subscription})
+       when not is_nil(subscription) do
+    "payment-membership-#{subscription.id}"
+  end
+
+  defp payment_dom_id(%{type: :donation, payment: payment}) when not is_nil(payment) do
+    "payment-donation-#{payment.id}"
+  end
+
+  defp payment_dom_id(%{payment: payment}) when not is_nil(payment) do
+    "payment-#{payment.id}"
+  end
+
+  defp payment_dom_id(_) do
+    "payment-#{System.unique_integer([:positive])}"
   end
 end
