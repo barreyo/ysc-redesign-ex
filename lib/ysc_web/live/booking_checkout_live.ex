@@ -339,12 +339,31 @@ defmodule YscWeb.BookingCheckoutLive do
                     |> Enum.map(fn {_order_index, {index_str, guest_data}} ->
                       {index_str, guest_data}
                     end) %>
-                  <%!-- Filter out booking user from guest list (shown in header) --%>
-                  <% non_booking_guests =
-                    guest_entries
-                    |> Enum.reject(fn {_, guest_data} ->
+                  <%!-- Separate booking user from other guests --%>
+                  <% {booking_user_entries, non_booking_guests} =
+                    Enum.split_with(guest_entries, fn {_, guest_data} ->
                       Map.get(guest_data, "is_booking_user") == true
                     end) %>
+                  <%!-- Hidden inputs for booking user (shown in header, but data still needs to be submitted) --%>
+                  <%= for {index_str, guest_data} <- booking_user_entries do %>
+                    <input
+                      type="hidden"
+                      name={"guests[#{index_str}][first_name]"}
+                      value={Map.get(guest_data, "first_name", "")}
+                    />
+                    <input
+                      type="hidden"
+                      name={"guests[#{index_str}][last_name]"}
+                      value={Map.get(guest_data, "last_name", "")}
+                    />
+                    <input type="hidden" name={"guests[#{index_str}][is_child]"} value="false" />
+                    <input type="hidden" name={"guests[#{index_str}][is_booking_user]"} value="true" />
+                    <input
+                      type="hidden"
+                      name={"guests[#{index_str}][order_index]"}
+                      value={Map.get(guest_data, "order_index", 0)}
+                    />
+                  <% end %>
                   <%= for {index_str, guest_data} <- non_booking_guests do %>
                     <% index = String.to_integer(index_str) %>
                     <% is_booking_user = Map.get(guest_data, "is_booking_user") == true %>

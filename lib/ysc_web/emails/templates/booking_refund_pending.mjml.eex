@@ -93,7 +93,7 @@
       <strong>Note:</strong> The estimated refund amount shown above is based on our refund policy. The final refund amount may be adjusted during the review process.
     </mj-text>
     <mj-spacer height="36px"></mj-spacer>
-    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">If you have any questions about your refund request, please reply to this email or contact us.</mj-text>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">If you have any questions about your refund request, please contact the Cabin Master or reach out to us at <a href="mailto:info@ysc.org">info@ysc.org</a>.</mj-text>
     <mj-spacer height="24px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">The Young Scandinavians Club</mj-text>
     <mj-spacer height="12px"></mj-spacer>

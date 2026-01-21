@@ -1482,30 +1482,34 @@ defmodule YscWeb.AdminBookingsLive do
       <!-- Property Tabs -->
       <div class="border-b border-zinc-200 mb-6">
         <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-          <button
-            phx-click={JS.navigate(~p"/admin/bookings?property=tahoe")}
-            class={[
-              "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
-              if(@selected_property == :tahoe,
-                do: "border-blue-500 text-blue-600",
-                else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
-              )
-            ]}
-          >
-            Lake Tahoe
-          </button>
-          <button
-            phx-click={JS.navigate(~p"/admin/bookings?property=clear_lake")}
-            class={[
-              "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
-              if(@selected_property == :clear_lake,
-                do: "border-blue-500 text-blue-600",
-                else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
-              )
-            ]}
-          >
-            Clear Lake
-          </button>
+          <.notification_badge count={@tahoe_pending_refunds_count} badge_color="red">
+            <button
+              phx-click={JS.navigate(~p"/admin/bookings?property=tahoe")}
+              class={[
+                "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
+                if(@selected_property == :tahoe,
+                  do: "border-blue-500 text-blue-600",
+                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                )
+              ]}
+            >
+              Lake Tahoe
+            </button>
+          </.notification_badge>
+          <.notification_badge count={@clear_lake_pending_refunds_count} badge_color="red">
+            <button
+              phx-click={JS.navigate(~p"/admin/bookings?property=clear_lake")}
+              class={[
+                "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
+                if(@selected_property == :clear_lake,
+                  do: "border-blue-500 text-blue-600",
+                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                )
+              ]}
+            >
+              Clear Lake
+            </button>
+          </.notification_badge>
         </nav>
       </div>
       <!-- Section Tabs -->
@@ -2883,6 +2887,8 @@ defmodule YscWeb.AdminBookingsLive do
       |> assign(:door_code_form, door_code_form)
       |> assign(:pending_refunds, [])
       |> assign(:pending_refunds_count, 0)
+      |> assign(:tahoe_pending_refunds_count, 0)
+      |> assign(:clear_lake_pending_refunds_count, 0)
       |> assign(:selected_pending_refund, nil)
       |> assign(:approve_refund_form, nil)
       |> assign(:reject_refund_form, nil)
@@ -3091,6 +3097,9 @@ defmodule YscWeb.AdminBookingsLive do
 
         assign(socket, :pending_refunds_count, pending_refunds_count || 0)
       end
+
+    # Load pending refunds counts per property for tab badges
+    socket = load_property_pending_refunds_counts(socket)
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
@@ -5951,6 +5960,23 @@ defmodule YscWeb.AdminBookingsLive do
     socket
     |> assign(:pending_refunds, pending_refunds)
     |> assign(:pending_refunds_count, length(pending_refunds))
+  end
+
+  # Load pending refunds counts for each property (for tab badges)
+  defp load_property_pending_refunds_counts(socket) do
+    counts =
+      from(pr in Ysc.Bookings.PendingRefund,
+        join: b in assoc(pr, :booking),
+        where: pr.status == :pending,
+        group_by: b.property,
+        select: {b.property, count(pr.id)}
+      )
+      |> Repo.all()
+      |> Map.new()
+
+    socket
+    |> assign(:tahoe_pending_refunds_count, Map.get(counts, :tahoe, 0))
+    |> assign(:clear_lake_pending_refunds_count, Map.get(counts, :clear_lake, 0))
   end
 
   # Helper to format property name

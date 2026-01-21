@@ -28,7 +28,7 @@
     <mj-spacer height="24px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">Don't miss out on all the exciting opportunities waiting for you as a member of the Young Scandinavians Club!</mj-text>
     <mj-spacer height="24px"></mj-spacer>
-    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">If you have any questions or need assistance, please don't hesitate to reply to this email.</mj-text>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">If you have any questions or need assistance, please don't hesitate to contact the Membership Coordinator or reach out to us at <a href="mailto:memberships@ysc.org">memberships@ysc.org</a>.</mj-text>
     <mj-spacer height="24px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">Vi ses snart! (See you soon!) 👋</mj-text>
     <mj-spacer height="24px"></mj-spacer>

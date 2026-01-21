@@ -774,7 +774,7 @@ defmodule YscWeb.AdminUsersLive do
 
           #{YscWeb.Endpoint.url()}/users/membership
 
-          If you have any questions, please don't hesitate to reply to this email.
+          If you have any questions, please don't hesitate to contact the Membership Coordinator or reach out to us at memberships@ysc.org.
 
 
           Velkommen!
@@ -820,7 +820,7 @@ defmodule YscWeb.AdminUsersLive do
 
           We regret to inform you that your application has been rejected.
 
-          If you have any questions, please don't hesitate to reply to this email.
+          If you have any questions, please don't hesitate to contact the Membership Coordinator or reach out to us at memberships@ysc.org.
 
           ==============================
           """,

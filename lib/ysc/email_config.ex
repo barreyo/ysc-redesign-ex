@@ -8,7 +8,7 @@ defmodule Ysc.EmailConfig do
   Returns the from email address for outgoing emails.
   """
   def from_email do
-    Application.get_env(:ysc, :emails)[:from_email] || "info@ysc.org"
+    Application.get_env(:ysc, :emails)[:from_email] || "noreply@ysc.org"
   end
 
   @doc """

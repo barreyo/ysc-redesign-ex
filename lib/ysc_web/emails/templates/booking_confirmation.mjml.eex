@@ -87,7 +87,7 @@
     <mj-spacer height="12px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">• You will receive a separate email before your check-in date with your door code and important check-in information</mj-text>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">• Check-in time is 3:00 PM and check-out time is 11:00 AM</mj-text>
-    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">• If you have any questions, reply to this email or contact us</mj-text>
+    <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">• If you have any questions, contact the Cabin Master or reach out to us at <a href="mailto:info@ysc.org">info@ysc.org</a>.</mj-text>
     <mj-spacer height="36px"></mj-spacer>
     <mj-text align="left" font-size="18px" line-height="1.5" padding="0px">We look forward to hosting you!</mj-text>
     <mj-spacer height="24px"></mj-spacer>

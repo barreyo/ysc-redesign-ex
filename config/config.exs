@@ -132,7 +132,7 @@ config :ysc, :radar,
 # Email configuration defaults for dev/test environments
 # Production runtime configuration is in config/runtime.exs
 config :ysc, :emails,
-  from_email: "info@ysc.org",
+  from_email: "noreply@ysc.org",
   from_name: "YSC",
   contact_email: "info@ysc.org",
   admin_email: "admin@ysc.org",

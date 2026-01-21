@@ -31,7 +31,7 @@ config :ysc, :flowroute,
 # These can be set via environment variables at runtime for all environments.
 # All values are optional and will fall back to defaults from config.exs if not set.
 config :ysc, :emails,
-  from_email: System.get_env("EMAIL_FROM") || "info@ysc.org",
+  from_email: System.get_env("EMAIL_FROM") || "noreply@ysc.org",
   from_name: System.get_env("EMAIL_FROM_NAME") || "YSC",
   contact_email: System.get_env("EMAIL_CONTACT") || "info@ysc.org",
   admin_email: System.get_env("EMAIL_ADMIN") || "admin@ysc.org",
