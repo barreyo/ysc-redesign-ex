@@ -5,6 +5,9 @@ defmodule Ysc.Application do
 
   use Application
 
+  # Capture Mix.env at compile time since Mix is not available at runtime
+  @env Mix.env()
+
   @impl true
   def start(_type, _args) do
     :logger.add_handler(:ysc_sentry_handler, Sentry.LoggerHandler, %{
@@ -45,7 +48,7 @@ defmodule Ysc.Application do
         end
 
     # Attach telemetry handlers (development only)
-    if Mix.env() == :dev do
+    if @env == :dev do
       ElixirDashboard.PerformanceMonitor.TelemetryHandler.attach()
     end
 
