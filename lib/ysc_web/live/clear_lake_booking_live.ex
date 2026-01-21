@@ -40,49 +40,87 @@ defmodule YscWeb.ClearLakeBookingLive do
         as: "booking_dates"
       )
 
-    # Check if user can book
-    {can_book, booking_disabled_reason} = check_booking_eligibility(user)
+    # For initial static render, defer heavy operations until socket is connected
+    # This ensures fast time-to-paint for the initial HTML response
+    {user_with_subs, can_book, booking_disabled_reason, active_tab, membership_type,
+     day_booking_allowed, buyout_booking_allowed, booking_mode, active_bookings} =
+      if connected?(socket) do
+        # Load user with subscriptions and subscription_items FIRST (to avoid multiple fetches)
+        # Preloading subscription_items prevents duplicate queries in get_membership_plan_type
+        user_with_subs =
+          if user do
+            # Check if subscriptions are already preloaded from auth
+            if Ecto.assoc_loaded?(user.subscriptions) do
+              # Check if subscription_items are also preloaded
+              subscriptions_with_items_loaded? =
+                Enum.all?(user.subscriptions, fn sub ->
+                  Ecto.assoc_loaded?(sub.subscription_items)
+                end)
 
-    # If user can't book, default to information tab
-    active_tab =
-      if !can_book do
-        :information
+              if subscriptions_with_items_loaded? do
+                user
+              else
+                # Preload subscription_items if subscriptions are loaded but items are not
+                user
+                |> Ysc.Repo.preload(subscriptions: :subscription_items)
+              end
+            else
+              # Load subscriptions with subscription_items to avoid duplicate queries
+              Accounts.get_user!(user.id)
+              |> Ysc.Repo.preload(subscriptions: :subscription_items)
+            end
+          else
+            nil
+          end
+
+        # Check if user can book (pass user_with_subs to avoid re-fetching)
+        {can_book, booking_disabled_reason} = check_booking_eligibility(user_with_subs)
+
+        # If user can't book, default to information tab
+        active_tab =
+          if !can_book do
+            :information
+          else
+            requested_tab
+          end
+
+        # Calculate membership type once and cache it (if user exists)
+        # user_with_subs already has subscriptions and subscription_items loaded
+        membership_type =
+          if user_with_subs do
+            get_membership_type(user_with_subs)
+          else
+            :none
+          end
+
+        # Check which booking modes are allowed based on selected dates
+        {day_booking_allowed, buyout_booking_allowed} =
+          allowed_booking_modes(:clear_lake, checkin_date, checkout_date, current_season)
+
+        # Resolve booking mode based on allowed modes (handles defaults and invalid selections)
+        booking_mode =
+          resolve_booking_mode(booking_mode, day_booking_allowed, buyout_booking_allowed)
+
+        # Load active bookings for the user
+        active_bookings = if user_with_subs, do: get_active_bookings(user_with_subs.id), else: []
+
+        {user_with_subs, can_book, booking_disabled_reason, active_tab, membership_type,
+         day_booking_allowed, buyout_booking_allowed, booking_mode, active_bookings}
       else
-        requested_tab
+        # Static render: use minimal data for fast initial paint
+        user_with_subs = user
+        can_book = true
+        booking_disabled_reason = nil
+        active_tab = requested_tab
+        membership_type = if user, do: :none, else: :none
+        day_booking_allowed = true
+        buyout_booking_allowed = true
+        booking_mode = booking_mode || :day
+        active_bookings = []
+
+        {user_with_subs, can_book, booking_disabled_reason, active_tab, membership_type,
+         day_booking_allowed, buyout_booking_allowed, booking_mode, active_bookings}
       end
-
-    # Use preloaded subscriptions from auth if available, otherwise load them
-    user_with_subs =
-      if user do
-        # Check if subscriptions are already preloaded from auth
-        if Ecto.assoc_loaded?(user.subscriptions) do
-          user
-        else
-          # Only load if not already preloaded
-          Accounts.get_user!(user.id)
-          |> Ysc.Repo.preload(:subscriptions)
-        end
-      else
-        nil
-      end
-
-    # Calculate membership type once and cache it (if user exists)
-    membership_type =
-      if user_with_subs do
-        get_membership_type(user_with_subs)
-      else
-        :none
-      end
-
-    # Check which booking modes are allowed based on selected dates
-    {day_booking_allowed, buyout_booking_allowed} =
-      allowed_booking_modes(:clear_lake, checkin_date, checkout_date, current_season)
-
-    # Resolve booking mode based on allowed modes (handles defaults and invalid selections)
-    booking_mode = resolve_booking_mode(booking_mode, day_booking_allowed, buyout_booking_allowed)
-
-    # Load active bookings for the user
-    active_bookings = if user_with_subs, do: get_active_bookings(user_with_subs.id), else: []
 
     socket =
       assign(socket,
@@ -117,24 +155,29 @@ defmodule YscWeb.ClearLakeBookingLive do
       )
 
     # Validate all conditions (availability, booking mode, guests, etc.)
+    # Only run heavy validation when connected (availability checks run queries)
     socket =
-      socket
-      |> validate_all_conditions(
-        checkin_date,
-        checkout_date,
-        booking_mode,
-        guests_count,
-        current_season
-      )
-      |> then(fn s ->
-        # If dates are present and user can book, initialize price calculation
-        if checkin_date && checkout_date && can_book do
-          s
-          |> calculate_price_if_ready()
-        else
-          s
-        end
-      end)
+      if connected?(socket) do
+        socket
+        |> validate_all_conditions(
+          checkin_date,
+          checkout_date,
+          booking_mode,
+          guests_count,
+          current_season
+        )
+        |> then(fn s ->
+          # If dates are present and user can book, initialize price calculation
+          if checkin_date && checkout_date && can_book do
+            s
+            |> calculate_price_if_ready()
+          else
+            s
+          end
+        end)
+      else
+        socket
+      end
 
     {:ok, socket}
   end
@@ -150,14 +193,23 @@ defmodule YscWeb.ClearLakeBookingLive do
     requested_tab = parse_tab_from_params(params)
     booking_mode = parse_booking_mode_from_params(params)
 
-    # Check if user can book (re-check in case user state changed)
-    user = socket.assigns.current_user
-    {can_book, booking_disabled_reason} = check_booking_eligibility(user)
+    # Reuse eligibility data from mount if already computed (avoid duplicate queries)
+    # Use the user with subscriptions preloaded if available
+    user_for_check = socket.assigns[:user] || socket.assigns.current_user
+
+    {can_book, booking_disabled_reason} =
+      if socket.assigns[:can_book] != nil do
+        # Already computed in mount - reuse it
+        {socket.assigns.can_book, socket.assigns.booking_disabled_reason}
+      else
+        # First time (shouldn't happen normally since mount runs first)
+        check_booking_eligibility(user_for_check)
+      end
 
     # Load active bookings for the user (only if not already loaded in mount)
     active_bookings =
-      if user && !socket.assigns[:active_bookings] do
-        get_active_bookings(user.id)
+      if user_for_check && !socket.assigns[:active_bookings] do
+        get_active_bookings(user_for_check.id)
       else
         socket.assigns[:active_bookings] || []
       end
@@ -1127,8 +1179,101 @@ defmodule YscWeb.ClearLakeBookingLive do
         </div>
       </div>
     </section>
-    <!-- Main Content Grid: 2-column layout -->
-    <section class="max-w-screen-xl mx-auto px-4 py-20">
+    <!-- Main Content for Non-Logged-In Users -->
+    <section :if={!@user} class="max-w-screen-xl mx-auto px-4 py-20">
+      <div class="space-y-12">
+        <!-- Welcome Header -->
+        <div class="text-center max-w-3xl mx-auto">
+          <h1 class="text-4xl md:text-5xl font-bold text-zinc-900 mb-4">
+            Experience Clear Lake
+          </h1>
+          <p class="text-lg text-zinc-600 leading-relaxed">
+            Welcome to the <strong class="text-zinc-900">YSC Clear Lake Cabin</strong>
+            — your year-round gateway to California's oldest natural lake. Since <strong class="text-zinc-900">1963</strong>, the YSC has proudly owned this beautiful cabin, located in the heart of
+            <strong class="text-zinc-900">Kelseyville</strong>
+            on the shores of <strong class="text-zinc-900">Clear Lake</strong>.
+          </p>
+        </div>
+        <!-- Experience Clear Lake Feature Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+          <!-- Private Dock Access -->
+          <div
+            class="bg-gradient-to-br from-teal-50 via-teal-50 to-cyan-50 border-2 border-teal-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
+            style="background: linear-gradient(to bottom right, rgb(240 253 250), rgb(207 250 254));"
+          >
+            <div class="flex items-start gap-4">
+              <div class="text-4xl flex-shrink-0">⚓</div>
+              <div class="flex-1">
+                <h3 class="text-xl font-black text-zinc-900 mb-2">Private Dock Access</h3>
+                <p class="text-zinc-700 leading-relaxed">
+                  Swim, boat, and unwind at our private dock. Perfect for mooring your boat, enjoying morning coffee over the water, or taking a refreshing dip in California's largest natural lake.
+                </p>
+              </div>
+            </div>
+          </div>
+          <!-- Year-Round Access -->
+          <div class="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="text-4xl flex-shrink-0">🌅</div>
+              <div class="flex-1">
+                <h3 class="text-xl font-black text-zinc-900 mb-2">Year-Round Access</h3>
+                <p class="text-zinc-700 leading-relaxed">
+                  <strong class="text-amber-700">Summer (May–Sept):</strong>
+                  Legendary dock parties, community meals, and boat tie-ups.
+                  <strong class="text-amber-700">Winter (Oct–April):</strong>
+                  Perfect for hikers and wine enthusiasts seeking quiet lakeside retreats.
+                </p>
+              </div>
+            </div>
+          </div>
+          <!-- The Dugnad Spirit -->
+          <div class="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="text-4xl flex-shrink-0">🤝</div>
+              <div class="flex-1">
+                <h3 class="text-xl font-black text-zinc-900 mb-2">The Dugnad Spirit</h3>
+                <p class="text-zinc-700 leading-relaxed">
+                  Low rates are possible because members steward the cabin together. This is <strong class="text-purple-700">your cabin — not a hotel</strong>. Members share responsibility for cleaning and maintenance, keeping costs affordable for everyone.
+                </p>
+              </div>
+            </div>
+          </div>
+          <!-- California's Oldest Lake -->
+          <div class="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="text-4xl flex-shrink-0">🏞️</div>
+              <div class="flex-1">
+                <h3 class="text-xl font-black text-zinc-900 mb-2">California's Oldest Lake</h3>
+                <p class="text-zinc-700 leading-relaxed">
+                  Clear Lake is <strong class="text-green-700">2.5 million years old</strong>—the oldest natural lake in North America. Experience a unique ecosystem perfect for bird watching, fishing, and connecting with nature year-round.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- CTA Card for Non-Logged-In Users -->
+        <div class="mt-12 max-w-2xl mx-auto">
+          <div class="p-8 rounded-2xl bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow-2xl">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div class="flex-1 text-center md:text-left">
+                <h4 class="text-2xl font-black mb-2">Ready to Experience Clear Lake?</h4>
+                <p class="text-teal-100">
+                  <%= raw(@booking_disabled_reason) %>
+                </p>
+              </div>
+              <.link
+                navigate={~p"/users/log-in?#{%{redirect_to: ~p"/bookings/clear-lake"}}"}
+                class="px-8 py-3 bg-white text-teal-600 font-bold rounded-lg hover:bg-teal-50 transition shadow-lg whitespace-nowrap"
+              >
+                Sign In to Book
+              </.link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- Main Content Grid: 2-column layout (For logged-in users) -->
+    <section :if={@user} class="max-w-screen-xl mx-auto px-4 py-20">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Left Column: Main Content (2 columns on large screens) -->
         <div class="lg:col-span-2 space-y-20">
@@ -1192,7 +1337,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 <p class="text-teal-700"><%= raw(@booking_disabled_reason) %></p>
               </div>
               <.link
-                navigate={~p"/users/log-in"}
+                navigate={~p"/users/log-in?#{%{redirect_to: ~p"/bookings/clear-lake"}}"}
                 class="px-8 py-3 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 transition shadow-lg shadow-teal-200"
               >
                 Sign In to Book
@@ -1201,6 +1346,25 @@ defmodule YscWeb.ClearLakeBookingLive do
           </article>
           <!-- Arrival Section -->
           <article id="arrival-section" class="pt-10 border-t border-zinc-100">
+            <!-- Door Code & Access (for linking from booking receipt) -->
+            <div id="door-code-access" class="mb-8 p-6 bg-teal-50 border border-teal-200 rounded-lg">
+              <h3 class="font-bold text-teal-900 mb-3 flex items-center gap-2">
+                <.icon name="hero-key" class="w-5 h-5" /> Door Code & Access
+              </h3>
+              <p class="text-sm text-teal-800 mb-2">
+                Your door code will be sent via email <strong>24 hours before your check-in</strong>.
+                The code is also displayed on your booking confirmation page when your stay is within 48 hours of check-in or currently active.
+              </p>
+              <ul class="text-sm text-teal-800 list-disc list-inside space-y-1">
+                <li>
+                  Save the door code before you arrive — cell service can be limited in the area
+                </li>
+                <li>The door code is unique to your booking period</li>
+                <li>
+                  If you don't receive the code, check your spam folder or contact the Cabin Master
+                </li>
+              </ul>
+            </div>
             <h2 class="text-3xl font-bold text-zinc-900 mb-8">Journey to the Lake</h2>
             <div class="space-y-4">
               <div class="p-6 bg-zinc-50 border border-zinc-200 rounded flex items-center justify-between">
@@ -1491,7 +1655,7 @@ defmodule YscWeb.ClearLakeBookingLive do
             </div>
           </section>
           <!-- Living the Nordic Way Section -->
-          <section id="etiquette" class="bg-zinc-50 rounded-3xl p-8 lg:p-12 mb-4">
+          <section id="cabin-rules" class="bg-zinc-50 rounded-3xl p-8 lg:p-12 mb-4">
             <div class="max-w-3xl">
               <h2 class="text-3xl font-bold text-zinc-900 mb-4">Living the Nordic Way</h2>
               <p class="text-zinc-600 mb-10 leading-relaxed">
@@ -2507,10 +2671,10 @@ defmodule YscWeb.ClearLakeBookingLive do
   end
 
   defp check_booking_eligibility(nil) do
-    sign_in_path = ~p"/users/log-in"
+    sign_in_path = ~p"/users/log-in?#{%{redirect_to: ~p"/bookings/clear-lake"}}"
 
     sign_in_link =
-      ~s(<a href="#{sign_in_path}" class="font-semibold text-amber-900 hover:text-amber-950 underline">sign in</a>)
+      ~s(<a href="#{sign_in_path}" class="font-semibold text-white hover:text-blue-200 underline">sign in</a>)
 
     {
       false,
@@ -2527,17 +2691,9 @@ defmodule YscWeb.ClearLakeBookingLive do
       }
     else
       # Check if user has active membership
-      user_with_subs =
-        case user.subscriptions do
-          %Ecto.Association.NotLoaded{} ->
-            Accounts.get_user!(user.id)
-            |> Ysc.Repo.preload(:subscriptions)
-
-          _ ->
-            user
-        end
-
-      if Accounts.has_active_membership?(user_with_subs) do
+      # user should already have subscriptions preloaded (with subscription_items)
+      # to avoid duplicate queries
+      if Accounts.has_active_membership?(user) do
         {true, nil}
       else
         {

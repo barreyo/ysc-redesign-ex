@@ -79,7 +79,14 @@ defmodule YscWeb.PageController do
   end
 
   def board(conn, _params) do
-    bod_members = Ysc.Accounts.list_bod_members()
+    bod_members =
+      Ysc.Accounts.list_bod_members()
+      |> Enum.map(fn member ->
+        Map.merge(member, %{
+          first_name: String.capitalize(member.first_name || ""),
+          last_name: String.capitalize(member.last_name || "")
+        })
+      end)
 
     existing_filled = MapSet.new(Enum.map(bod_members, fn member -> member.board_position end))
 

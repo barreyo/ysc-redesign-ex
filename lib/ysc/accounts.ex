@@ -719,6 +719,14 @@ defmodule Ysc.Accounts do
   def list_bod_members() do
     from(u in User,
       where: not is_nil(u.board_position),
+      select: %{
+        id: u.id,
+        email: u.email,
+        first_name: u.first_name,
+        last_name: u.last_name,
+        board_position: u.board_position,
+        most_connected_country: u.most_connected_country
+      },
       order_by: [
         desc: fragment("CASE
           WHEN board_position = 'president' THEN 10

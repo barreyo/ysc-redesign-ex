@@ -581,10 +581,10 @@ defmodule YscWeb.BookingReceiptLive do
                   Door codes and key instructions are sent via email 24 hours before your check-in.
                 </p>
                 <a
-                  href={get_cabin_guide_url(@booking.property)}
+                  href={get_cabin_access_url(@booking.property)}
                   class="text-sm font-semibold text-blue-600 hover:underline"
                 >
-                  View Arrival Guide →
+                  View Door Code Info →
                 </a>
               </div>
               <!-- Cabin Rules -->
@@ -596,10 +596,10 @@ defmodule YscWeb.BookingReceiptLive do
                   Reminder: Bring your own bed sheets and comforters and ensure the kitchen is cleaned before departure.
                 </p>
                 <a
-                  href={get_cabin_guide_url(@booking.property)}
+                  href={get_cabin_rules_url(@booking.property)}
                   class="text-sm font-semibold text-blue-600 hover:underline"
                 >
-                  Read House Rules →
+                  Read Cabin Rules →
                 </a>
               </div>
             </div>
@@ -1457,10 +1457,18 @@ defmodule YscWeb.BookingReceiptLive do
     end
   end
 
-  defp get_cabin_guide_url(property) do
+  defp get_cabin_access_url(property) do
     case property do
-      :tahoe -> ~p"/bookings/tahoe?tab=information"
-      :clear_lake -> ~p"/bookings/clear-lake?tab=information"
+      :tahoe -> ~p"/bookings/tahoe?tab=information&info_tab=general#door-code-access"
+      :clear_lake -> ~p"/bookings/clear-lake?tab=information#door-code-access"
+      _ -> ~p"/"
+    end
+  end
+
+  defp get_cabin_rules_url(property) do
+    case property do
+      :tahoe -> ~p"/bookings/tahoe?tab=information&info_tab=rules#cabin-rules"
+      :clear_lake -> ~p"/bookings/clear-lake?tab=information#cabin-rules"
       _ -> ~p"/"
     end
   end

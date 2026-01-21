@@ -59,6 +59,7 @@ import TimelineFilter from "./timeline_filter";
 import PathTracker from "./path_tracker";
 import Autocomplete from "./autocomplete";
 import ReceiptLightbox from "./receipt_lightbox";
+import ScrollToSection from "./scroll_to_section";
 
 let Hooks = {
     StickyNavbar,
@@ -96,6 +97,7 @@ let Hooks = {
     PathTracker,
     Autocomplete,
     ReceiptLightbox,
+    ScrollToSection,
 };
 Hooks.LivePhone = LivePhone;
 

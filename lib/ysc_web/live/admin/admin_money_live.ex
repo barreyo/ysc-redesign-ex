@@ -63,6 +63,14 @@ defmodule YscWeb.AdminMoneyLive do
         webhooks: true,
         expense_reports: true
       })
+      |> assign(:sections_loaded, %{
+        accounts: false,
+        quick_actions: false,
+        payments: false,
+        ledger_entries: false,
+        webhooks: false,
+        expense_reports: false
+      })
       |> assign(:payments_page, 1)
       |> assign(:ledger_entries_page, 1)
       |> assign(:webhooks_page, 1)
@@ -97,15 +105,29 @@ defmodule YscWeb.AdminMoneyLive do
     accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
     ledger_accounts = Ledgers.list_accounts()
 
-    {:noreply,
-     socket
-     |> assign(:loading_money_data, false)
-     |> assign(:accounts_with_balances, accounts_with_balances)
-     |> assign(:ledger_accounts, ledger_accounts)
-     |> paginate_payments(1)
-     |> paginate_ledger_entries(1)
-     |> paginate_webhooks(1)
-     |> paginate_expense_reports(1)}
+    sections_loaded = Map.put(socket.assigns.sections_loaded, :accounts, true)
+
+    socket =
+      socket
+      |> assign(:loading_money_data, false)
+      |> assign(:accounts_with_balances, accounts_with_balances)
+      |> assign(:ledger_accounts, ledger_accounts)
+      |> assign(:sections_loaded, sections_loaded)
+
+    # Only load data for sections that start expanded (payments)
+    # Collapsed sections (ledger_entries, webhooks, expense_reports) will load on demand
+    socket =
+      if not socket.assigns.sections_collapsed[:payments] do
+        updated_sections_loaded = Map.put(sections_loaded, :payments, true)
+
+        socket
+        |> paginate_payments(1)
+        |> assign(:sections_loaded, updated_sections_loaded)
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -749,11 +771,29 @@ defmodule YscWeb.AdminMoneyLive do
   def handle_event("toggle_section", %{"section" => section}, socket) do
     section_atom = String.to_existing_atom(section)
     current_state = socket.assigns.sections_collapsed[section_atom]
+    is_expanding = current_state == true
+    was_loaded = socket.assigns.sections_loaded[section_atom]
 
     updated_sections =
       Map.update!(socket.assigns.sections_collapsed, section_atom, fn _ -> !current_state end)
 
-    {:noreply, assign(socket, :sections_collapsed, updated_sections)}
+    socket =
+      socket
+      |> assign(:sections_collapsed, updated_sections)
+
+    # Load data when expanding a section for the first time
+    socket =
+      if is_expanding and not was_loaded do
+        sections_loaded = Map.put(socket.assigns.sections_loaded, section_atom, true)
+
+        socket
+        |> load_section_data(section_atom)
+        |> assign(:sections_loaded, sections_loaded)
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -1013,6 +1053,26 @@ defmodule YscWeb.AdminMoneyLive do
     |> assign(:expense_reports, expense_reports)
     |> assign(:expense_reports_page, page)
     |> assign(:expense_reports_end?, length(expense_reports) < per_page)
+  end
+
+  defp load_section_data(socket, :ledger_entries) do
+    paginate_ledger_entries(socket, 1)
+  end
+
+  defp load_section_data(socket, :webhooks) do
+    paginate_webhooks(socket, 1)
+  end
+
+  defp load_section_data(socket, :expense_reports) do
+    paginate_expense_reports(socket, 1)
+  end
+
+  defp load_section_data(socket, :payments) do
+    paginate_payments(socket, 1)
+  end
+
+  defp load_section_data(socket, _section) do
+    socket
   end
 
   @impl true

@@ -35,9 +35,7 @@
               />
               <div class="flex-1">
                 <h3 class="text-xl font-bold text-zinc-900">
-                  <%= String.capitalize(member.first_name) %> <%= String.capitalize(
-                    member.last_name
-                  ) %>
+                  {member.first_name} {member.last_name}
                 </h3>
                 <p class="text-blue-600 font-medium mt-1">
                   <%= atom_to_readable(member.board_position) %>
@@ -98,7 +96,10 @@
                   navigate={~p"/contact?subject=#{URI.encode(atom_to_readable(position))}"}
                   class="text-sm font-bold text-blue-600 hover:text-blue-700 hover:underline whitespace-nowrap flex-shrink-0 ml-4"
                 >
-                  Inquire →
+                  Inquire<.icon
+                    name="hero-arrow-right-solid"
+                    class="w-4 h-4 -mt-0.5 inline-block ms-1"
+                  />
                 </.link>
               </div>
             </div>
@@ -125,9 +126,7 @@
               />
               <div class="flex-1">
                 <h3 class="text-xl font-bold text-zinc-900">
-                  <%= String.capitalize(member.first_name) %> <%= String.capitalize(
-                    member.last_name
-                  ) %>
+                  {member.first_name} {member.last_name}
                 </h3>
                 <p class="text-blue-600 font-medium mt-1">
                   <%= atom_to_readable(member.board_position) %>
