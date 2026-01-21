@@ -81,10 +81,10 @@ defmodule YscWeb.TahoeBookingLive do
 
     # If user can't book, default to information tab
     active_tab =
-      if !can_book do
-        :information
-      else
+      if can_book do
         requested_tab
+      else
+        :information
       end
 
     # Calculate membership type once and cache it (if user exists)
@@ -98,7 +98,7 @@ defmodule YscWeb.TahoeBookingLive do
 
     # Calculate restricted date range for family/lifetime members with 1 room booking
     {restricted_min_date, restricted_max_date} =
-      if membership_type in [:family, :lifetime] && length(active_bookings) > 0 do
+      if membership_type in [:family, :lifetime] && active_bookings != [] do
         total_rooms = count_rooms_in_active_bookings(active_bookings)
 
         if total_rooms == 1 do
@@ -268,7 +268,7 @@ defmodule YscWeb.TahoeBookingLive do
       active_bookings = socket.assigns[:active_bookings] || []
 
       {restricted_min_date, restricted_max_date} =
-        if membership_type in [:family, :lifetime] && length(active_bookings) > 0 do
+        if membership_type in [:family, :lifetime] && active_bookings != [] do
           total_rooms = count_rooms_in_active_bookings(active_bookings)
 
           if total_rooms == 1 do
@@ -411,7 +411,7 @@ defmodule YscWeb.TahoeBookingLive do
     max_booking_date = socket.assigns.max_booking_date
 
     {restricted_min_date, restricted_max_date} =
-      if membership_type in [:family, :lifetime] && length(active_bookings) > 0 do
+      if membership_type in [:family, :lifetime] && active_bookings != [] do
         total_rooms = count_rooms_in_active_bookings(active_bookings)
 
         if total_rooms == 1 do
@@ -3432,7 +3432,7 @@ defmodule YscWeb.TahoeBookingLive do
             children_count = parse_children_count(socket.assigns.children_count) || 0
             total_people = guests_count + children_count
 
-            if total_people == 1 && length(current_ids) > 0 do
+            if total_people == 1 && current_ids != [] do
               # Can't add a second room with only 1 person total
               current_ids
             else
@@ -4022,13 +4022,13 @@ defmodule YscWeb.TahoeBookingLive do
           only_one_person = total_people == 1
 
           trying_to_add_second_room =
-            can_select_multiple && length(selected_room_ids) > 0 && not room_already_selected
+            can_select_multiple && selected_room_ids != [] && not room_already_selected
 
           # Check if user has already selected a room and can't select multiple
           # This applies to both single membership users and family/lifetime members with existing bookings
           cannot_select_another_room =
             not can_select_multiple &&
-              length(selected_room_ids) > 0 &&
+              selected_room_ids != [] &&
               not room_already_selected
 
           # Check if user has an existing booking (for better error message)
@@ -4239,7 +4239,7 @@ defmodule YscWeb.TahoeBookingLive do
     has_rooms? =
       case room_ids_or_id do
         room_id when is_binary(room_id) -> not is_nil(room_id)
-        room_ids when is_list(room_ids) -> length(room_ids) > 0
+        room_ids when is_list(room_ids) -> room_ids != []
         _ -> false
       end
 
@@ -4665,7 +4665,9 @@ defmodule YscWeb.TahoeBookingLive do
     booking_mode = socket.assigns.selected_booking_mode
 
     if checkin_date && booking_mode == :buyout do
-      if !can_select_booking_mode?(socket.assigns.seasons, checkin_date) do
+      if can_select_booking_mode?(socket.assigns.seasons, checkin_date) do
+        socket
+      else
         # Force booking mode to room if buyout not allowed
         socket
         |> assign(
@@ -4675,8 +4677,6 @@ defmodule YscWeb.TahoeBookingLive do
           calculated_price: nil,
           price_error: nil
         )
-      else
-        socket
       end
     else
       socket
@@ -4730,14 +4730,14 @@ defmodule YscWeb.TahoeBookingLive do
 
   defp validate_season_booking_mode(errors, socket) do
     if socket.assigns.checkin_date && socket.assigns.selected_booking_mode == :buyout do
-      if !can_select_booking_mode?(socket.assigns.seasons, socket.assigns.checkin_date) do
+      if can_select_booking_mode?(socket.assigns.seasons, socket.assigns.checkin_date) do
+        errors
+      else
         Map.put(
           errors,
           :season_booking_mode,
           "Full buyout is not available for the selected dates"
         )
-      else
-        errors
       end
     else
       errors
@@ -4804,14 +4804,14 @@ defmodule YscWeb.TahoeBookingLive do
           Date.day_of_week(date) == 7
         end)
 
-      if not has_sunday do
+      if has_sunday do
+        errors
+      else
         Map.put(
           errors,
           :weekend,
           "Bookings containing Saturday must also include Sunday (full weekend required)"
         )
-      else
-        errors
       end
     else
       errors
@@ -5402,7 +5402,7 @@ defmodule YscWeb.TahoeBookingLive do
     # Only validate if rooms are selected and we're in room booking mode
     if socket.assigns.selected_booking_mode == :room &&
          (socket.assigns.selected_room_id ||
-            (socket.assigns.selected_room_ids && length(socket.assigns.selected_room_ids) > 0)) do
+            (socket.assigns.selected_room_ids && socket.assigns.selected_room_ids != [])) do
       guests_count = parse_guests_count(socket.assigns.guests_count) || 1
       children_count = parse_children_count(socket.assigns.children_count) || 0
       total_guests = guests_count + children_count
@@ -5415,11 +5415,11 @@ defmodule YscWeb.TahoeBookingLive do
           if socket.assigns.selected_room_id, do: [socket.assigns.selected_room_id], else: []
         end
 
-      if length(selected_room_ids) > 0 do
+      if selected_room_ids != [] do
         # Reuse rooms from available_rooms if available (already loaded in update_available_rooms)
         # Otherwise fall back to loading them
         all_rooms =
-          if socket.assigns[:available_rooms] && length(socket.assigns.available_rooms) > 0 do
+          if socket.assigns[:available_rooms] && socket.assigns.available_rooms != [] do
             socket.assigns.available_rooms
           else
             Bookings.list_rooms(socket.assigns.property)
@@ -5782,10 +5782,10 @@ defmodule YscWeb.TahoeBookingLive do
         # We need to check if there's at least one room available for a single night stay
         date_available = check_date_availability_for_rooms(date, all_rooms, bookings)
 
-        if not date_available do
-          "All rooms are booked"
-        else
+        if date_available do
           nil
+        else
+          "All rooms are booked"
         end
     end
   end
@@ -5827,7 +5827,7 @@ defmodule YscWeb.TahoeBookingLive do
       available_rooms =
         Enum.filter(all_rooms, fn room -> not MapSet.member?(booked_room_ids, room.id) end)
 
-      length(available_rooms) > 0
+      available_rooms != []
     end
   end
 end

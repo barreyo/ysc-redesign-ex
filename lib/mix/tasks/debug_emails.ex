@@ -59,7 +59,7 @@ defmodule Mix.Tasks.DebugEmails do
 
     queues = Oban.check_all_queues()
 
-    if is_list(queues) and length(queues) > 0 do
+    if is_list(queues) and queues != [] do
       Logger.info("Oban is running with #{length(queues)} queue(s)")
 
       Enum.each(queues, fn queue_status ->

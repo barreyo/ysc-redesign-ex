@@ -169,7 +169,7 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
         |> where([b], b.status == :hold and b.hold_expires_at < ^DateTime.utc_now())
         |> Repo.all()
 
-      assert length(expired_holds) == 0
+      assert expired_holds == []
 
       canceled_bookings =
         Booking

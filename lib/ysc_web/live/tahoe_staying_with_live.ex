@@ -29,7 +29,7 @@ defmodule YscWeb.TahoeStayingWithLive do
       end)
       |> Enum.filter(fn booking ->
         # Only include room bookings (not buyout bookings)
-        Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0
+        Ecto.assoc_loaded?(booking.rooms) && booking.rooms != []
       end)
 
     # Group bookings by room
@@ -136,7 +136,7 @@ defmodule YscWeb.TahoeStayingWithLive do
   defp format_car_info(check_ins) when is_list(check_ins) do
     check_ins
     |> Enum.filter(fn check_in ->
-      Ecto.assoc_loaded?(check_in.check_in_vehicles) && length(check_in.check_in_vehicles) > 0
+      Ecto.assoc_loaded?(check_in.check_in_vehicles) && check_in.check_in_vehicles != []
     end)
     |> Enum.flat_map(fn check_in ->
       Enum.map(check_in.check_in_vehicles, fn vehicle ->

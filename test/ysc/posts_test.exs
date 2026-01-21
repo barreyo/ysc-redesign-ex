@@ -152,7 +152,7 @@ defmodule Ysc.PostsTest do
       |> Repo.update!()
 
       result = Posts.list_posts(10)
-      assert length(result) >= 1
+      assert result != []
     end
   end
 

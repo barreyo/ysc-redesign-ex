@@ -190,7 +190,7 @@ defmodule Ysc.Accounts.AuthService do
         threat_indicators
       end
 
-    if length(threat_indicators) > 0 do
+    if threat_indicators != [] do
       # Update the auth event with threat indicators
       auth_event
       |> Ecto.Changeset.change(%{

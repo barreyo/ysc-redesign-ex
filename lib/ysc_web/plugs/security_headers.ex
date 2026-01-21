@@ -315,7 +315,7 @@ defmodule YscWeb.Plugs.SecurityHeaders do
   defp put_hsts_header(conn, is_dev) do
     # Only set HSTS in production (not in development)
     # HSTS should only be set on HTTPS connections
-    if not is_dev do
+    unless is_dev do
       # Check if the connection is HTTPS (either directly or via proxy)
       is_https =
         case get_req_header(conn, "x-forwarded-proto") do

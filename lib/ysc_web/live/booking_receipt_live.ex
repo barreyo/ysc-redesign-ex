@@ -1167,7 +1167,7 @@ defmodule YscWeb.BookingReceiptLive do
 
         # Or get it from the first charge (charges is a List struct with data field)
         payment_intent.charges && payment_intent.charges.data &&
-            length(payment_intent.charges.data) > 0 ->
+            payment_intent.charges.data != [] ->
           first_charge = List.first(payment_intent.charges.data)
           # Payment method might be a string ID or an expanded object
           cond do
@@ -1348,7 +1348,7 @@ defmodule YscWeb.BookingReceiptLive do
         # If there are room items, extract breakdown from first room
         # Otherwise use top-level fields
         breakdown =
-          if length(rooms) > 0 do
+          if rooms != [] do
             first_room = List.first(rooms)
 
             base_breakdown = %{

@@ -69,7 +69,7 @@ defmodule Mix.Tasks.ExpireCheckoutSessions do
     IO.puts("Generated at: #{DateTime.to_string(stats.generated_at)}")
     IO.puts("")
 
-    if length(stats.by_event) > 0 do
+    if stats.by_event != [] do
       IO.puts("📅 By Event:")
 
       Enum.each(stats.by_event, fn event_stat ->
@@ -83,7 +83,7 @@ defmodule Mix.Tasks.ExpireCheckoutSessions do
       IO.puts("")
     end
 
-    if length(stats.by_user) > 0 do
+    if stats.by_user != [] do
       IO.puts("👤 By User:")
 
       Enum.each(stats.by_user, fn user_stat ->

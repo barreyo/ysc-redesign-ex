@@ -148,7 +148,7 @@ defmodule Ysc.Bookings.BookingLocker do
         blocked_days =
           Enum.filter(room_inv, fn ri -> ri.held == true or ri.booked == true end)
 
-        if length(blocked_days) > 0 do
+        if blocked_days != [] do
           Repo.rollback({:error, :rooms_already_booked})
         end
       end
@@ -166,7 +166,7 @@ defmodule Ysc.Bookings.BookingLocker do
             (property == :clear_lake and (pi.capacity_held > 0 or pi.capacity_booked > 0))
         end)
 
-      if length(invalid_days) > 0 do
+      if invalid_days != [] do
         Repo.rollback({:error, :property_unavailable})
       end
 
@@ -207,7 +207,7 @@ defmodule Ysc.Bookings.BookingLocker do
       # Check if all updates succeeded
       failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
 
-      if length(failed_updates) > 0 do
+      if failed_updates != [] do
         # At least one update failed - this means another transaction modified the inventory
         # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
         raise Ecto.StaleEntryError, struct: List.first(prop_inv), action: :update
@@ -454,7 +454,7 @@ defmodule Ysc.Bookings.BookingLocker do
         # Check if all updates succeeded
         failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
 
-        if length(failed_updates) > 0 do
+        if failed_updates != [] do
           # At least one update failed - this means another transaction modified the inventory
           # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
           raise Ecto.StaleEntryError, struct: List.first(room_inv), action: :update
@@ -681,7 +681,7 @@ defmodule Ysc.Bookings.BookingLocker do
             pi.capacity_booked + pi.capacity_held + guests_count > pi.capacity_total
         end)
 
-      if length(invalid_days) > 0 do
+      if invalid_days != [] do
         Repo.rollback({:error, :insufficient_capacity})
       end
 
@@ -720,7 +720,7 @@ defmodule Ysc.Bookings.BookingLocker do
       # Check if all updates succeeded
       failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
 
-      if length(failed_updates) > 0 do
+      if failed_updates != [] do
         # At least one update failed - this means another transaction modified the inventory
         # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
         raise Ecto.StaleEntryError, struct: List.first(prop_inv), action: :update
@@ -836,7 +836,7 @@ defmodule Ysc.Bookings.BookingLocker do
           # Set booked = true, clear held for all rooms
           room_ids = Enum.map(booking.rooms, & &1.id)
 
-          if length(room_ids) > 0 do
+          if room_ids != [] do
             {count, _} =
               Repo.update_all(
                 from(ri in RoomInventory,
@@ -1015,7 +1015,7 @@ defmodule Ysc.Bookings.BookingLocker do
       :room ->
         room_ids = Enum.map(booking.rooms, & &1.id)
 
-        if length(room_ids) > 0 do
+        if room_ids != [] do
           {count, _} =
             Repo.update_all(
               from(ri in RoomInventory,
@@ -1270,7 +1270,7 @@ defmodule Ysc.Bookings.BookingLocker do
           # Clear held for all rooms
           room_ids = Enum.map(booking.rooms, & &1.id)
 
-          if length(room_ids) > 0 do
+          if room_ids != [] do
             {count, _} =
               Repo.update_all(
                 from(ri in RoomInventory,
@@ -1438,7 +1438,7 @@ defmodule Ysc.Bookings.BookingLocker do
           # Clear booked for all rooms
           room_ids = Enum.map(booking.rooms, & &1.id)
 
-          if length(room_ids) > 0 do
+          if room_ids != [] do
             {count, _} =
               Repo.update_all(
                 from(ri in RoomInventory,
@@ -1537,7 +1537,7 @@ defmodule Ysc.Bookings.BookingLocker do
             # Clear booked for all rooms
             room_ids = Enum.map(booking.rooms, & &1.id)
 
-            if length(room_ids) > 0 do
+            if room_ids != [] do
               {count, _} =
                 Repo.update_all(
                   from(ri in RoomInventory,

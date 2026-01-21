@@ -2578,7 +2578,7 @@ defmodule YscWeb.EventDetailsLive do
       end)
 
     event_with_pricing = add_pricing_info_from_tiers(event, ticket_tiers_as_maps)
-    has_ticket_tiers = length(event.ticket_tiers) > 0
+    has_ticket_tiers = event.ticket_tiers != []
 
     # Check if we're on the tickets route (live_action == :tickets)
     show_ticket_modal = socket.assigns.live_action == :tickets
@@ -2807,7 +2807,7 @@ defmodule YscWeb.EventDetailsLive do
 
     available_capacity = get_available_capacity_from_data(availability_data)
     sold_percentage = compute_sold_percentage(event, availability_data)
-    has_ticket_tiers = length(ticket_tiers_with_counts) > 0
+    has_ticket_tiers = ticket_tiers_with_counts != []
 
     # Update event with accurate pricing info
     event_with_pricing = add_pricing_info_from_tiers(event, ticket_tiers_with_counts)
@@ -3154,7 +3154,7 @@ defmodule YscWeb.EventDetailsLive do
 
     # Initialize active_ticket_index for progressive disclosure (first ticket is active by default)
     active_ticket_index =
-      if length(tickets_requiring_registration) > 0, do: 0, else: nil
+      if tickets_requiring_registration != [], do: 0, else: nil
 
     # Use cached ticket tiers from assigns instead of querying again
     ticket_tiers = socket.assigns.ticket_tiers
@@ -3260,7 +3260,7 @@ defmodule YscWeb.EventDetailsLive do
   # For regular tickets: tier_id => quantity
   # For donation tickets: tier_id => amount_cents (total donation amount in cents)
   defp build_selected_tickets_from_order(ticket_order) do
-    if ticket_order.tickets && length(ticket_order.tickets) > 0 do
+    if ticket_order.tickets && ticket_order.tickets != [] do
       # Group tickets by tier_id
       tickets_by_tier =
         ticket_order.tickets
@@ -4024,10 +4024,9 @@ defmodule YscWeb.EventDetailsLive do
 
         failing_info =
           failing_details
-          |> Enum.map(fn f ->
+          |> Enum.map_join("; ", fn f ->
             "Ticket #{f.ticket_id}: is_for_me=#{f.is_for_me}, detail=#{inspect(f.detail)}, form_data=#{inspect(f.form_data)}"
           end)
-          |> Enum.join("; ")
 
         Logger.warning(
           "Registration validation failed. Failing tickets: #{failing_info}. All form_data: #{inspect(socket.assigns.ticket_details_form)}. Tickets_for_me: #{inspect(tickets_for_me)}"
@@ -4214,10 +4213,9 @@ defmodule YscWeb.EventDetailsLive do
 
         failing_info =
           failing_details
-          |> Enum.map(fn f ->
+          |> Enum.map_join("; ", fn f ->
             "Ticket #{f.ticket_id}: is_for_me=#{f.is_for_me}, detail=#{inspect(f.detail)}, form_data=#{inspect(f.form_data)}"
           end)
-          |> Enum.join("; ")
 
         Logger.warning(
           "Registration validation failed for payment. Failing tickets: #{failing_info}. All form_data: #{inspect(socket.assigns.ticket_details_form)}. Tickets_for_me: #{inspect(tickets_for_me)}"
@@ -5624,7 +5622,7 @@ defmodule YscWeb.EventDetailsLive do
 
     # Initialize active_ticket_index for progressive disclosure (first ticket is active by default)
     active_ticket_index =
-      if length(tickets_requiring_registration) > 0, do: 0, else: nil
+      if tickets_requiring_registration != [], do: 0, else: nil
 
     # Check if this is a free order (zero amount)
     if Money.zero?(ticket_order_with_tickets.total_amount) do

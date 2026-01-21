@@ -67,7 +67,7 @@ defmodule Ysc.Payments do
         if was_default do
           remaining_payment_methods = list_payment_methods(user)
 
-          if length(remaining_payment_methods) > 0 do
+          if remaining_payment_methods != [] do
             # Set the oldest remaining payment method as default
             new_default = Enum.min_by(remaining_payment_methods, & &1.inserted_at)
             set_default_payment_method(user, new_default)
@@ -296,7 +296,7 @@ defmodule Ysc.Payments do
       Enum.map(users_without_default, fn user ->
         payment_methods = list_payment_methods(user)
 
-        if length(payment_methods) > 0 do
+        if payment_methods != [] do
           # Set the first (oldest) payment method as default
           first_payment_method = Enum.min_by(payment_methods, & &1.inserted_at)
           set_default_payment_method(user, first_payment_method)

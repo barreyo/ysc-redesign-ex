@@ -98,10 +98,9 @@ defmodule Ysc.Ledgers.BalanceCheckWorker do
 
     # Format account type summary
     type_summary =
-      Enum.map(accounts_by_type, fn {type, count, total} ->
+      Enum.map_join(accounts_by_type, "\n", fn {type, count, total} ->
         "#{type}: #{count} accounts, total: #{Money.to_string!(total)}"
       end)
-      |> Enum.join("\n")
 
     # Format top 5 accounts by absolute value
     top_accounts =
@@ -113,10 +112,9 @@ defmodule Ysc.Ledgers.BalanceCheckWorker do
         :desc
       )
       |> Enum.take(5)
-      |> Enum.map(fn {account, balance} ->
+      |> Enum.map_join("\n", fn {account, balance} ->
         "  #{account.name}: #{Money.to_string!(balance)}"
       end)
-      |> Enum.join("\n")
 
     alert_message = """
     🚨 CRITICAL: Ledger Imbalance Detected

@@ -112,21 +112,19 @@ defmodule YscWeb.AdminMoneyLive do
   def handle_params(params, _uri, socket) do
     # Preserve date range from params if provided
     socket =
-      cond do
-        params["start_date"] && params["end_date"] ->
-          try do
-            start_date = parse_date_to_datetime(params["start_date"], ~T[00:00:00])
-            end_date = parse_date_to_datetime(params["end_date"], ~T[23:59:59])
+      if params["start_date"] && params["end_date"] do
+        try do
+          start_date = parse_date_to_datetime(params["start_date"], ~T[00:00:00])
+          end_date = parse_date_to_datetime(params["end_date"], ~T[23:59:59])
 
-            socket
-            |> assign(:start_date, start_date)
-            |> assign(:end_date, end_date)
-          rescue
-            _ -> socket
-          end
-
-        true ->
           socket
+          |> assign(:start_date, start_date)
+          |> assign(:end_date, end_date)
+        rescue
+          _ -> socket
+        end
+      else
+        socket
       end
 
     # Ensure live_action is set
@@ -470,7 +468,7 @@ defmodule YscWeb.AdminMoneyLive do
     ticket_ids = if refund_params["ticket_ids"], do: refund_params["ticket_ids"], else: []
 
     # If ticket IDs are provided, refund individual tickets
-    if ticket_order && length(ticket_ids) > 0 do
+    if ticket_order && ticket_ids != [] do
       case Tickets.refund_tickets(ticket_order, ticket_ids, refund_params["reason"]) do
         {:ok, %{refund_amount: calculated_refund_amount}} ->
           # Process the ledger refund with the calculated amount
@@ -662,15 +660,16 @@ defmodule YscWeb.AdminMoneyLive do
 
     # If this is a ticket order and tickets are selected, calculate the refund amount
     refund_params =
-      if ticket_order && refund_params["ticket_ids"] && length(refund_params["ticket_ids"]) > 0 do
+      if ticket_order && refund_params["ticket_ids"] && refund_params["ticket_ids"] != [] do
         # Convert ticket_ids from strings to proper format for comparison
         ticket_ids = refund_params["ticket_ids"]
 
         # Calculate refund amount based on selected tickets
         refund_amount =
           ticket_order.tickets
-          |> Enum.filter(fn ticket -> to_string(ticket.id) in ticket_ids end)
-          |> Enum.filter(&(&1.status in [:confirmed, :pending]))
+          |> Enum.filter(fn ticket ->
+            to_string(ticket.id) in ticket_ids && ticket.status in [:confirmed, :pending]
+          end)
           |> Enum.reduce(Money.new(0, :USD), fn ticket, acc ->
             case ticket.ticket_tier.type do
               :free ->

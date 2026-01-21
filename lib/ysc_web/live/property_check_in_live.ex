@@ -491,7 +491,7 @@ defmodule YscWeb.PropertyCheckInLive do
         # Find which room this guest is assigned to (if any)
         # For now, we'll use the first room if booking has rooms
         room_name =
-          if booking.rooms && length(booking.rooms) > 0 do
+          if booking.rooms && booking.rooms != [] do
             Enum.at(booking.rooms, 0).name
           else
             nil
@@ -509,7 +509,7 @@ defmodule YscWeb.PropertyCheckInLive do
 
     # Build rooms list - just room names that are part of the booking
     rooms =
-      if booking.rooms && length(booking.rooms) > 0 do
+      if booking.rooms && booking.rooms != [] do
         Enum.map(booking.rooms, & &1.name)
       else
         []

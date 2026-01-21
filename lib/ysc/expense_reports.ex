@@ -198,7 +198,7 @@ defmodule Ysc.ExpenseReports do
           # Check if user has any bank accounts
           bank_accounts = list_bank_accounts(user)
 
-          if length(bank_accounts) == 0 do
+          if bank_accounts == [] do
             Ecto.Changeset.add_error(
               changeset,
               :reimbursement_method,

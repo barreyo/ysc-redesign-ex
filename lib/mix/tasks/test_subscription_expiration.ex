@@ -406,10 +406,10 @@ defmodule Mix.Tasks.TestSubscriptionExpiration do
           %Ecto.Association.NotLoaded{} ->
             # Fetch subscriptions if not loaded
             subscriptions = Subscriptions.list_subscriptions(user)
-            length(subscriptions) > 0
+            subscriptions != []
 
           subscriptions when is_list(subscriptions) ->
-            length(subscriptions) > 0
+            subscriptions != []
 
           _ ->
             false

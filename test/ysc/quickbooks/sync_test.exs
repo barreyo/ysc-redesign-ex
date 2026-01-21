@@ -1764,7 +1764,7 @@ defmodule Ysc.Quickbooks.SyncTest do
           args: %{"payment_id" => to_string(payment.id)}
         )
 
-      if length(jobs) > 0 do
+      if jobs != [] do
         # Perform the enqueued payment sync job (it will use the mocks we set up)
         perform_job(YscWeb.Workers.QuickbooksSyncPaymentWorker, %{
           "payment_id" => to_string(payment.id)
@@ -1807,7 +1807,7 @@ defmodule Ysc.Quickbooks.SyncTest do
       # If no job was enqueued, manually trigger the check (this happens in sync_payment)
       # The sync_payment function should have called check_and_enqueue_payout_syncs_for_payment
       # But if it didn't, we can manually sync the payment again to trigger it, or just proceed
-      if length(jobs) == 0 do
+      if jobs == [] do
         # Manually trigger payout sync check by calling sync_payment again (it will skip actual sync but check payouts)
         # Or we can just proceed with manual payout sync
         # For now, let's just proceed with manual payout sync
@@ -1831,7 +1831,7 @@ defmodule Ysc.Quickbooks.SyncTest do
           args: %{"payout_id" => to_string(payout.id)}
         )
 
-      if length(jobs) > 0 do
+      if jobs != [] do
         # Perform the enqueued payout sync job
         perform_job(YscWeb.Workers.QuickbooksSyncPayoutWorker, %{
           "payout_id" => to_string(payout.id)
@@ -1921,7 +1921,7 @@ defmodule Ysc.Quickbooks.SyncTest do
       # If job was enqueued, verify it
       # If not enqueued, it might have been executed immediately (Oban :inline mode)
       # In that case, the refund might already be synced or pending
-      if length(jobs) > 0 do
+      if jobs != [] do
         assert_enqueued(
           worker: YscWeb.Workers.QuickbooksSyncRefundWorker,
           args: %{"refund_id" => to_string(refund.id)}
@@ -2005,7 +2005,7 @@ defmodule Ysc.Quickbooks.SyncTest do
         {:ok, %{"Id" => "qb_deposit_123", "TotalAmt" => "70.00"}}
       end)
 
-      if length(jobs) > 0 do
+      if jobs != [] do
         # Perform the enqueued payout sync job
         perform_job(YscWeb.Workers.QuickbooksSyncPayoutWorker, %{
           "payout_id" => to_string(payout.id)

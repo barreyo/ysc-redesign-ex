@@ -794,7 +794,7 @@ defmodule Ysc.Ledgers.Reconciliation do
               entity_issues
             end
 
-          if length(entity_issues) > 0 do
+          if entity_issues != [] do
             Sentry.capture_message("Entity total reconciliation mismatches found",
               level: :error,
               extra: %{

@@ -314,7 +314,7 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
     end
   end
 
-  defp prepare_agenda_data(agendas) when is_list(agendas) and length(agendas) > 0 do
+  defp prepare_agenda_data(agendas) when is_list(agendas) and agendas != [] do
     agendas
     |> Enum.sort_by(& &1.position)
     |> Enum.map(fn agenda ->

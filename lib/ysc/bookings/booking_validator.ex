@@ -57,7 +57,7 @@ defmodule Ysc.Bookings.BookingValidator do
     checkin_date = Ecto.Changeset.get_field(changeset, :checkin_date)
     booking_mode = Ecto.Changeset.get_field(changeset, :booking_mode)
     rooms = Ecto.Changeset.get_field(changeset, :rooms) || []
-    has_rooms = is_list(rooms) && length(rooms) > 0
+    has_rooms = is_list(rooms) && rooms != []
 
     if checkin_date do
       season = Season.for_date(:tahoe, checkin_date)
@@ -454,7 +454,7 @@ defmodule Ysc.Bookings.BookingValidator do
     rooms = Ecto.Changeset.get_field(changeset, :rooms) || []
     guests_count = Ecto.Changeset.get_field(changeset, :guests_count)
 
-    if length(rooms) > 0 && guests_count do
+    if rooms != [] && guests_count do
       # For multiple rooms, sum the capacities
       total_capacity =
         Enum.reduce(rooms, 0, fn room, acc ->

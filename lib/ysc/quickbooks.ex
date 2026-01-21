@@ -68,6 +68,30 @@ defmodule Ysc.Quickbooks do
   """
   @spec create_purchase_sales_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
   def create_purchase_sales_receipt(params) do
+    # Validate required parameters early to provide better error messages
+    cond do
+      is_nil(params[:customer_id]) or params[:customer_id] == "" ->
+        Logger.error(
+          "[QB] create_purchase_sales_receipt: CRITICAL - customer_id is nil or empty! Cannot create sales receipt without a customer.",
+          params: inspect(params, limit: :infinity)
+        )
+
+        {:error, :missing_customer_id}
+
+      is_nil(params[:item_id]) or params[:item_id] == "" ->
+        Logger.error(
+          "[QB] create_purchase_sales_receipt: CRITICAL - item_id is nil or empty! Cannot create sales receipt without an item.",
+          params: inspect(params, limit: :infinity)
+        )
+
+        {:error, :missing_item_id}
+
+      true ->
+        do_create_purchase_sales_receipt(params)
+    end
+  end
+
+  defp do_create_purchase_sales_receipt(params) do
     total_amt = Decimal.mult(Decimal.new(params.quantity), params.unit_price)
 
     # Convert quantity to Decimal if it's not already

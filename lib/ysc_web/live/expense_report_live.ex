@@ -985,14 +985,14 @@ defmodule YscWeb.ExpenseReportLive do
         bank_accounts = ExpenseReports.list_bank_accounts(user)
 
         cond do
-          is_nil(bank_account_id) && length(bank_accounts) == 0 ->
+          is_nil(bank_account_id) && bank_accounts == [] ->
             Ecto.Changeset.add_error(
               changeset,
               :reimbursement_method,
               "requires a bank account. Please add a bank account before submitting."
             )
 
-          is_nil(bank_account_id) && length(bank_accounts) > 0 ->
+          is_nil(bank_account_id) && bank_accounts != [] ->
             Ecto.Changeset.add_error(
               changeset,
               :bank_account_id,
@@ -2826,7 +2826,7 @@ defmodule YscWeb.ExpenseReportLive do
       case method do
         "bank_transfer" ->
           bank_account_id = form[:bank_account_id].value
-          length(bank_accounts) > 0 && !is_nil(bank_account_id) && bank_account_id != ""
+          bank_accounts != [] && !is_nil(bank_account_id) && bank_account_id != ""
 
         "check" ->
           !is_nil(billing_address)
@@ -2869,12 +2869,12 @@ defmodule YscWeb.ExpenseReportLive do
     purpose_errors = form[:purpose].errors || []
 
     purpose_has_error =
-      (length(purpose_errors) > 0 && !purpose_complete) ||
+      (purpose_errors != [] && !purpose_complete) ||
         (form.source.action == :validate && !purpose_complete)
 
     # Check expense items exist and are valid
     expense_items_complete =
-      length(expense_items) > 0 &&
+      expense_items != [] &&
         Enum.all?(expense_items, fn item ->
           date = get_field_from_item(item, :date)
           vendor = get_field_from_item(item, :vendor)
@@ -2885,7 +2885,7 @@ defmodule YscWeb.ExpenseReportLive do
             description != "" && !is_nil(amount)
         end)
 
-    expense_items_has_error = length(expense_items) == 0 && form.source.action == :validate
+    expense_items_has_error = expense_items == [] && form.source.action == :validate
 
     # Check all expense items have receipts
     all_receipts_attached =
@@ -2896,7 +2896,7 @@ defmodule YscWeb.ExpenseReportLive do
       end)
 
     receipts_has_error =
-      length(expense_items) > 0 && !all_receipts_attached && form.source.action == :validate
+      expense_items != [] && !all_receipts_attached && form.source.action == :validate
 
     # Check reimbursement method
     method = form[:reimbursement_method].value
@@ -2905,7 +2905,7 @@ defmodule YscWeb.ExpenseReportLive do
       case method do
         "bank_transfer" ->
           bank_account_id = form[:bank_account_id].value
-          length(bank_accounts) > 0 && !is_nil(bank_account_id) && bank_account_id != ""
+          bank_accounts != [] && !is_nil(bank_account_id) && bank_account_id != ""
 
         "check" ->
           !is_nil(billing_address)
@@ -2976,7 +2976,7 @@ defmodule YscWeb.ExpenseReportLive do
         "bank_transfer" ->
           bank_account_id = form[:bank_account_id].value
 
-          if length(bank_accounts) == 0 do
+          if bank_accounts == [] do
             "Please add a bank account before submitting."
           else
             if is_nil(bank_account_id) || bank_account_id == "" do

@@ -2850,7 +2850,7 @@ defmodule YscWeb.UserSettingsLive do
                 if direction == :downgrade do
                   sub_accounts = Accounts.get_sub_accounts(user)
 
-                  if length(sub_accounts) > 0 do
+                  if sub_accounts != [] do
                     {:noreply,
                      put_flash(
                        socket,

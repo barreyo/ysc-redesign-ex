@@ -26,7 +26,7 @@ defmodule Ysc.LedgersTest do
       accounts_with_balances = Ledgers.get_accounts_with_balances()
 
       assert is_list(accounts_with_balances)
-      assert length(accounts_with_balances) > 0
+      assert accounts_with_balances != []
 
       # Check structure
       [first_account | _] = accounts_with_balances

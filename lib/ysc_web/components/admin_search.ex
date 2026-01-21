@@ -208,10 +208,10 @@ defmodule YscWeb.AdminSearchComponent do
   end
 
   defp has_results?(results) do
-    length(results.events) > 0 ||
-      length(results.posts) > 0 ||
-      length(results.tickets) > 0 ||
-      length(results.users) > 0 ||
-      length(results.bookings) > 0
+    results.events != [] ||
+      results.posts != [] ||
+      results.tickets != [] ||
+      results.users != [] ||
+      results.bookings != []
   end
 end

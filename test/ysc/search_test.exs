@@ -80,25 +80,25 @@ defmodule Ysc.SearchTest do
 
     test "finds events by title", %{event: event} do
       result = Search.global_search("Searchable Event")
-      assert length(result.events) >= 1
+      assert result.events != []
       assert Enum.any?(result.events, fn e -> e.id == event.id end)
     end
 
     test "finds posts by title", %{post: post} do
       result = Search.global_search("Searchable Post")
-      assert length(result.posts) >= 1
+      assert result.posts != []
       assert Enum.any?(result.posts, fn p -> p.id == post.id end)
     end
 
     test "finds users by name", %{user: user} do
       result = Search.global_search("SearchTest")
-      assert length(result.users) >= 1
+      assert result.users != []
       assert Enum.any?(result.users, fn u -> u.id == user.id end)
     end
 
     test "finds bookings by reference_id", %{booking: booking} do
       result = Search.global_search(booking.reference_id)
-      assert length(result.bookings) >= 1
+      assert result.bookings != []
       assert Enum.any?(result.bookings, fn b -> b.id == booking.id end)
     end
 

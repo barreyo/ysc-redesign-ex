@@ -2804,19 +2804,17 @@ defmodule YscWeb.AdminBookingsLive do
 
     # Read calendar dates from params if available, otherwise default to current month
     {calendar_start, calendar_end} =
-      cond do
-        parsed_params["from_date"] && parsed_params["to_date"] ->
-          try do
-            start = Date.from_iso8601!(parsed_params["from_date"])
-            ending = Date.from_iso8601!(parsed_params["to_date"])
-            {start, ending}
-          rescue
-            _ ->
-              {Date.beginning_of_month(today), Date.end_of_month(today)}
-          end
-
-        true ->
-          {Date.beginning_of_month(today), Date.end_of_month(today)}
+      if parsed_params["from_date"] && parsed_params["to_date"] do
+        try do
+          start = Date.from_iso8601!(parsed_params["from_date"])
+          ending = Date.from_iso8601!(parsed_params["to_date"])
+          {start, ending}
+        rescue
+          _ ->
+            {Date.beginning_of_month(today), Date.end_of_month(today)}
+        end
+      else
+        {Date.beginning_of_month(today), Date.end_of_month(today)}
       end
 
     form_data = %{
@@ -3434,7 +3432,7 @@ defmodule YscWeb.AdminBookingsLive do
     booking = Ysc.Repo.preload(booking, [:user, rooms: :room_category])
 
     # Determine booking type from existing booking
-    has_rooms = Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0
+    has_rooms = Ecto.assoc_loaded?(booking.rooms) && booking.rooms != []
     booking_type = if has_rooms, do: :room, else: :buyout
 
     # Get room_id if it's a room booking
@@ -5366,8 +5364,7 @@ defmodule YscWeb.AdminBookingsLive do
         String.replace(acc, "%{#{key}}", to_string(value))
       end)
     end)
-    |> Enum.map(fn {field, errors} -> "#{field}: #{Enum.join(errors, ", ")}" end)
-    |> Enum.join("; ")
+    |> Enum.map_join("; ", fn {field, errors} -> "#{field}: #{Enum.join(errors, ", ")}" end)
   end
 
   defp maybe_convert_atom(params, key) do
@@ -5689,7 +5686,7 @@ defmodule YscWeb.AdminBookingsLive do
     {:safe, escaped_checkout_str} = Phoenix.HTML.html_escape(checkout_str)
 
     # Determine if this is a buyout booking (no rooms or booking_mode is :buyout)
-    has_rooms = Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0
+    has_rooms = Ecto.assoc_loaded?(booking.rooms) && booking.rooms != []
     is_buyout = !has_rooms || booking.booking_mode == :buyout
 
     # Use green colors for buyout bookings, blue for regular room bookings
@@ -5735,7 +5732,7 @@ defmodule YscWeb.AdminBookingsLive do
 
     # Add checkmark if checked in (to the right of the name)
     checked_in_indicator =
-      if Ecto.assoc_loaded?(booking.check_ins) && length(booking.check_ins) > 0 do
+      if Ecto.assoc_loaded?(booking.check_ins) && booking.check_ins != [] do
         "<svg class=\"w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5\" fill=\"currentColor\" viewBox=\"0 0 20 20\">
           <path fill-rule=\"evenodd\" d=\"M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z\" clip-rule=\"evenodd\" />
         </svg>"
@@ -5794,7 +5791,7 @@ defmodule YscWeb.AdminBookingsLive do
     # Room bookings have rooms associated, buyout bookings have no rooms
     room_bookings =
       Enum.filter(active_bookings, fn booking ->
-        Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0
+        Ecto.assoc_loaded?(booking.rooms) && booking.rooms != []
       end)
 
     buyout_bookings =

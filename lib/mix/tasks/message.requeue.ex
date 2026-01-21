@@ -85,7 +85,7 @@ defmodule Mix.Tasks.Message.Requeue do
         Logger.info("  Failed At: #{format_datetime(job.discarded_at || job.inserted_at)}")
         Logger.info("  Created At: #{format_datetime(job.inserted_at)}")
 
-        if job.errors && length(job.errors) > 0 do
+        if job.errors && job.errors != [] do
           last_error = List.last(job.errors)
           Logger.info("  Last Error: #{inspect(last_error.message)}")
         end

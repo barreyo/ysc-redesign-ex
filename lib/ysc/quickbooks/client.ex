@@ -413,6 +413,17 @@ defmodule Ysc.Quickbooks.Client do
         idempotency_key: idempotency_key
       )
 
+      # Print the full request body in a readable JSON format for debugging
+      body_json = Jason.encode!(body, pretty: true)
+
+      Logger.info(
+        "[QB Client] create_deposit: Full request body being sent to QuickBooks:\n#{body_json}"
+      )
+
+      Logger.debug("[QB Client] create_deposit: Request body (structured)",
+        body: inspect(body, limit: :infinity, pretty: true)
+      )
+
       request = Finch.build(:post, url, headers, Jason.encode!(body))
 
       case Finch.request(request, Ysc.Finch) do
@@ -722,7 +733,7 @@ defmodule Ysc.Quickbooks.Client do
         {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Item" => items}}}
-            when is_list(items) and length(items) > 0 ->
+            when is_list(items) and items != [] ->
               item = List.first(items)
               item_id = Map.get(item, "Id")
 
@@ -782,7 +793,7 @@ defmodule Ysc.Quickbooks.Client do
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, %{"QueryResponse" => %{"Item" => items}}}
-                    when is_list(items) and length(items) > 0 ->
+                    when is_list(items) and items != [] ->
                       item_id = List.first(items) |> Map.get("Id")
                       {:ok, item_id}
 
@@ -1025,11 +1036,28 @@ defmodule Ysc.Quickbooks.Client do
       end
 
     # Ensure CustomerRef has both value and name if available
+    # CRITICAL: Log a warning if customer_ref is nil or invalid
     customer_ref =
       case params.customer_ref do
-        %{value: value, name: name} -> %{value: value, name: name}
-        %{value: value} -> %{value: value}
-        _ -> params.customer_ref
+        %{value: value, name: name} when not is_nil(value) and value != "" ->
+          %{"value" => to_string(value), "name" => name}
+
+        %{value: value} when not is_nil(value) and value != "" ->
+          %{"value" => to_string(value)}
+
+        nil ->
+          Logger.error(
+            "[QB Client] build_sales_receipt_body: CRITICAL - customer_ref is nil! This will cause a 2020 error."
+          )
+
+          nil
+
+        invalid ->
+          Logger.error(
+            "[QB Client] build_sales_receipt_body: CRITICAL - customer_ref has invalid format: #{inspect(invalid)}"
+          )
+
+          invalid
       end
 
     # Ensure DepositToAccountRef has both value and name if available
@@ -1080,11 +1108,28 @@ defmodule Ysc.Quickbooks.Client do
       end
 
     # Ensure CustomerRef has both value and name if available
+    # CRITICAL: Log a warning if customer_ref is nil or invalid
     customer_ref =
       case params.customer_ref do
-        %{value: value, name: name} -> %{value: value, name: name}
-        %{value: value} -> %{value: value}
-        _ -> params.customer_ref
+        %{value: value, name: name} when not is_nil(value) and value != "" ->
+          %{"value" => to_string(value), "name" => name}
+
+        %{value: value} when not is_nil(value) and value != "" ->
+          %{"value" => to_string(value)}
+
+        nil ->
+          Logger.error(
+            "[QB Client] build_refund_receipt_body: CRITICAL - customer_ref is nil! This will cause a 2020 error."
+          )
+
+          nil
+
+        invalid ->
+          Logger.error(
+            "[QB Client] build_refund_receipt_body: CRITICAL - customer_ref has invalid format: #{inspect(invalid)}"
+          )
+
+          invalid
       end
 
     # Refund Receipts use positive amounts - the transaction type determines the direction
@@ -1295,8 +1340,16 @@ defmodule Ysc.Quickbooks.Client do
   end
 
   defp normalize_deposit_line_item(item) do
+    # Convert Amount to float if it's a Decimal
+    amount_value =
+      case item.amount do
+        %Decimal{} = amt -> Decimal.to_float(amt)
+        amt when is_number(amt) -> amt
+        _ -> 0
+      end
+
     base = %{
-      "Amount" => item.amount,
+      "Amount" => amount_value,
       "DetailType" => item.detail_type
     }
 
@@ -1304,13 +1357,6 @@ defmodule Ysc.Quickbooks.Client do
       "DepositLineDetail" ->
         detail = item.deposit_line_detail
         detail_map = %{}
-
-        detail_map =
-          if detail[:entity_ref] do
-            Map.put(detail_map, "Entity", detail.entity_ref)
-          else
-            detail_map
-          end
 
         detail_map =
           if detail[:account_ref] do
@@ -1321,7 +1367,30 @@ defmodule Ysc.Quickbooks.Client do
 
         detail_map =
           if detail[:class_ref] do
-            Map.put(detail_map, "ClassRef", detail.class_ref)
+            # Normalize class_ref to proper format
+            class_ref_map =
+              case detail.class_ref do
+                %{value: value, name: name} when is_binary(value) ->
+                  %{"value" => value, "name" => name}
+
+                %{value: value} when is_binary(value) ->
+                  %{"value" => value}
+
+                ref when is_binary(ref) ->
+                  %{"value" => ref}
+
+                other ->
+                  case other do
+                    %{value: v} when is_binary(v) -> %{"value" => v}
+                    _ -> nil
+                  end
+              end
+
+            if class_ref_map do
+              Map.put(detail_map, "ClassRef", class_ref_map)
+            else
+              detail_map
+            end
           else
             detail_map
           end
@@ -1333,8 +1402,28 @@ defmodule Ysc.Quickbooks.Client do
             detail_map
           end
 
-        Map.put(base, "DepositLineDetail", detail_map)
-        |> maybe_put("Description", item[:description])
+        result = Map.put(base, "DepositLineDetail", detail_map)
+
+        # Add LinkedTxn at the line level (not inside DepositLineDetail)
+        # This is the correct way to link deposits to SalesReceipts/RefundReceipts
+        result =
+          case item[:linked_txn] do
+            [_ | _] = linked_txns ->
+              linked_txn_list =
+                Enum.map(linked_txns, fn txn ->
+                  %{
+                    "TxnId" => txn.txn_id,
+                    "TxnType" => txn.txn_type
+                  }
+                end)
+
+              Map.put(result, "LinkedTxn", linked_txn_list)
+
+            _ ->
+              result
+          end
+
+        maybe_put(result, "Description", item[:description])
 
       _ ->
         base
@@ -1389,7 +1478,7 @@ defmodule Ysc.Quickbooks.Client do
         {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Class" => classes}}}
-            when is_list(classes) and length(classes) > 0 ->
+            when is_list(classes) and classes != [] ->
               class = List.first(classes)
               class_id = Map.get(class, "Id")
 
@@ -1455,7 +1544,7 @@ defmodule Ysc.Quickbooks.Client do
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, %{"QueryResponse" => %{"Class" => classes}}}
-                    when is_list(classes) and length(classes) > 0 ->
+                    when is_list(classes) and classes != [] ->
                       class = List.first(classes)
                       class_id = Map.get(class, "Id")
                       # Cache the result (aggressive caching - these don't change)
@@ -1716,7 +1805,7 @@ defmodule Ysc.Quickbooks.Client do
         {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Account" => accounts}}}
-            when is_list(accounts) and length(accounts) > 0 ->
+            when is_list(accounts) and accounts != [] ->
               account = List.first(accounts)
               account_id = Map.get(account, "Id")
 
@@ -1782,7 +1871,7 @@ defmodule Ysc.Quickbooks.Client do
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, %{"QueryResponse" => %{"Account" => accounts}}}
-                    when is_list(accounts) and length(accounts) > 0 ->
+                    when is_list(accounts) and accounts != [] ->
                       account = List.first(accounts)
                       account_id = Map.get(account, "Id")
                       # Cache the result (aggressive caching - these don't change)
@@ -2539,7 +2628,7 @@ defmodule Ysc.Quickbooks.Client do
         {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}}
-            when is_list(vendors) and length(vendors) > 0 ->
+            when is_list(vendors) and vendors != [] ->
               vendor = List.first(vendors)
               vendor_id = Map.get(vendor, "Id")
               found_display_name = Map.get(vendor, "DisplayName")
@@ -2682,7 +2771,7 @@ defmodule Ysc.Quickbooks.Client do
         {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}}
-            when is_list(vendors) and length(vendors) > 0 ->
+            when is_list(vendors) and vendors != [] ->
               vendor = List.first(vendors)
               vendor_id = Map.get(vendor, "Id")
               found_display_name = Map.get(vendor, "DisplayName")
@@ -2733,7 +2822,7 @@ defmodule Ysc.Quickbooks.Client do
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}}
-                    when is_list(vendors) and length(vendors) > 0 ->
+                    when is_list(vendors) and vendors != [] ->
                       vendor_id = List.first(vendors) |> Map.get("Id")
                       {:ok, vendor_id}
 
@@ -2999,7 +3088,7 @@ defmodule Ysc.Quickbooks.Client do
         {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}}
-            when is_list(vendors) and length(vendors) > 0 ->
+            when is_list(vendors) and vendors != [] ->
               {:ok, vendor_id}
 
             {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}} when is_map(vendor) ->
@@ -3338,7 +3427,7 @@ defmodule Ysc.Quickbooks.Client do
                             else: :not_list
                           ),
                         first_element:
-                          if(is_list(attachable_response) and length(attachable_response) > 0,
+                          if(is_list(attachable_response) and attachable_response != [],
                             do: inspect(List.first(attachable_response), limit: 200),
                             else: :empty
                           )

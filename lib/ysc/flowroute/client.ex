@@ -386,9 +386,7 @@ defmodule Ysc.Flowroute.Client do
         detail
 
       {:ok, %{"errors" => errors}} when is_list(errors) ->
-        errors
-        |> Enum.map(&Map.get(&1, "detail", "Unknown error"))
-        |> Enum.join(", ")
+        Enum.map_join(errors, ", ", &Map.get(&1, "detail", "Unknown error"))
 
       {:ok, data} ->
         inspect(data)

@@ -77,7 +77,7 @@ defmodule YscWeb.BookingCheckoutLive do
                       if booking.booking_mode == :room do
                         existing_guests = booking.booking_guests || []
 
-                        if length(existing_guests) > 0 do
+                        if existing_guests != [] do
                           # Guests already saved, go to payment
                           {:payment, nil}
                         else
@@ -851,26 +851,24 @@ defmodule YscWeb.BookingCheckoutLive do
         selected_family_member_id = Map.get(selected_family_members, index_str)
 
         updated_guest_data =
-          cond do
-            selected_family_member_id ->
-              # Use selected family member's details
-              selected_family_member =
-                Enum.find(other_family_members, fn u ->
-                  to_string(u.id) == to_string(selected_family_member_id)
-                end)
+          if selected_family_member_id do
+            # Use selected family member's details
+            selected_family_member =
+              Enum.find(other_family_members, fn u ->
+                to_string(u.id) == to_string(selected_family_member_id)
+              end)
 
-              if selected_family_member do
-                Map.merge(guest_data, %{
-                  "first_name" => selected_family_member.first_name || "",
-                  "last_name" => selected_family_member.last_name || ""
-                })
-              else
-                guest_data
-              end
-
-            true ->
-              # Use form data as-is
+            if selected_family_member do
+              Map.merge(guest_data, %{
+                "first_name" => selected_family_member.first_name || "",
+                "last_name" => selected_family_member.last_name || ""
+              })
+            else
               guest_data
+            end
+          else
+            # Use form data as-is
+            guest_data
           end
 
         {index_str, updated_guest_data}
@@ -1083,20 +1081,18 @@ defmodule YscWeb.BookingCheckoutLive do
     # Get the selected value directly from the select field
     # The select field name is "guest-#{guest_index}-attendee-select"
     selected_value =
-      cond do
-        guest_index ->
-          select_field_name = "guest-#{guest_index}-attendee-select"
-          params[select_field_name]
-
-        true ->
-          # Try to find any attendee-select field in params
-          params
-          |> Map.keys()
-          |> Enum.find(&String.contains?(&1, "attendee-select"))
-          |> case do
-            nil -> nil
-            field_name -> params[field_name]
-          end
+      if guest_index do
+        select_field_name = "guest-#{guest_index}-attendee-select"
+        params[select_field_name]
+      else
+        # Try to find any attendee-select field in params
+        params
+        |> Map.keys()
+        |> Enum.find(&String.contains?(&1, "attendee-select"))
+        |> case do
+          nil -> nil
+          field_name -> params[field_name]
+        end
       end
 
     Logger.debug(
@@ -1282,26 +1278,24 @@ defmodule YscWeb.BookingCheckoutLive do
         selected_family_member_id = Map.get(selected_family_members, index_str)
 
         updated_guest_data =
-          cond do
-            selected_family_member_id ->
-              # Use selected family member's details
-              selected_family_member =
-                Enum.find(other_family_members, fn u ->
-                  to_string(u.id) == to_string(selected_family_member_id)
-                end)
+          if selected_family_member_id do
+            # Use selected family member's details
+            selected_family_member =
+              Enum.find(other_family_members, fn u ->
+                to_string(u.id) == to_string(selected_family_member_id)
+              end)
 
-              if selected_family_member do
-                Map.merge(guest_data, %{
-                  "first_name" => selected_family_member.first_name || "",
-                  "last_name" => selected_family_member.last_name || ""
-                })
-              else
-                guest_data
-              end
-
-            true ->
-              # Use form data as-is
+            if selected_family_member do
+              Map.merge(guest_data, %{
+                "first_name" => selected_family_member.first_name || "",
+                "last_name" => selected_family_member.last_name || ""
+              })
+            else
               guest_data
+            end
+          else
+            # Use form data as-is
+            guest_data
           end
 
         {index_str, updated_guest_data}
@@ -1592,7 +1586,7 @@ defmodule YscWeb.BookingCheckoutLive do
         children_count = booking.children_count || 0
 
         room_ids =
-          if Ecto.assoc_loaded?(booking.rooms) && length(booking.rooms) > 0 do
+          if Ecto.assoc_loaded?(booking.rooms) && booking.rooms != [] do
             Enum.map(booking.rooms, & &1.id)
           else
             []
@@ -1836,7 +1830,7 @@ defmodule YscWeb.BookingCheckoutLive do
   defp extract_price_breakdown_from_pricing_items(pricing_items, nights)
        when is_map(pricing_items) do
     case pricing_items do
-      %{"type" => "room", "rooms" => rooms} when is_list(rooms) and length(rooms) > 0 ->
+      %{"type" => "room", "rooms" => rooms} when is_list(rooms) and rooms != [] ->
         # Multiple rooms - for per-guest pricing, show single aggregated line item
         guests_count = pricing_items["guests_count"] || 0
         children_count = pricing_items["children_count"] || 0
@@ -2035,7 +2029,7 @@ defmodule YscWeb.BookingCheckoutLive do
 
         # Or get it from the first charge (charges is a List struct with data field)
         payment_intent.charges && payment_intent.charges.data &&
-            length(payment_intent.charges.data) > 0 ->
+            payment_intent.charges.data != [] ->
           first_charge = List.first(payment_intent.charges.data)
           # Payment method might be a string ID or an expanded object
           cond do
@@ -2589,7 +2583,7 @@ defmodule YscWeb.BookingCheckoutLive do
           invalid_changesets =
             Enum.filter(changesets, fn changeset -> not changeset.valid? end)
 
-          if length(invalid_changesets) > 0 do
+          if invalid_changesets != [] do
             Logger.error(
               "[build_guest_changesets] Found #{length(invalid_changesets)} invalid changesets"
             )

@@ -2210,9 +2210,8 @@ defmodule YscWeb.AdminUserDetailsLive do
         String.replace(acc, "%{#{key}}", to_string(value))
       end)
     end)
-    |> Enum.map(fn {field, messages} ->
+    |> Enum.map_join("; ", fn {field, messages} ->
       "#{field}: #{Enum.join(messages, ", ")}"
     end)
-    |> Enum.join("; ")
   end
 end

@@ -2148,18 +2148,17 @@ defmodule Ysc.Ledgers do
   defp build_ticket_order_description(ticket_order) do
     event_title = if ticket_order.event, do: ticket_order.event.title, else: "Event"
 
-    if ticket_order.tickets && length(ticket_order.tickets) > 0 do
+    if ticket_order.tickets && ticket_order.tickets != [] do
       tickets = ticket_order.tickets
 
       ticket_summary =
         tickets
         |> Enum.group_by(fn t -> t.ticket_tier && t.ticket_tier.name end)
-        |> Enum.map(fn {tier_name, tier_tickets} ->
+        |> Enum.map_join(", ", fn {tier_name, tier_tickets} ->
           count = length(tier_tickets)
           tier_display = tier_name || "General Admission"
           "#{count}x #{tier_display}"
         end)
-        |> Enum.join(", ")
 
       "Free Tickets: #{event_title} (#{ticket_summary})"
     else

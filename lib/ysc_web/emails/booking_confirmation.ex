@@ -77,8 +77,8 @@ defmodule YscWeb.Emails.BookingConfirmation do
 
     # Get room names if applicable
     room_names =
-      if booking.rooms && length(booking.rooms) > 0 do
-        Enum.map(booking.rooms, & &1.name) |> Enum.join(", ")
+      if booking.rooms && booking.rooms != [] do
+        Enum.map_join(booking.rooms, ", ", & &1.name)
       else
         nil
       end

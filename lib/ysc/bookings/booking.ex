@@ -159,8 +159,8 @@ defmodule Ysc.Bookings.Booking do
       rooms = get_field(changeset, :rooms) || []
 
       has_rooms =
-        (is_list(rooms) && length(rooms) > 0) ||
-          (is_map(rooms) && Map.has_key?(rooms, :rooms) && length(Map.get(rooms, :rooms, [])) > 0)
+        (is_list(rooms) && rooms != []) ||
+          (is_map(rooms) && Map.has_key?(rooms, :rooms) && Map.get(rooms, :rooms, []) != [])
 
       if has_rooms do
         # Has rooms = room booking

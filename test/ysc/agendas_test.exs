@@ -149,7 +149,7 @@ defmodule Ysc.AgendasTest do
       {:ok, _} = Agendas.delete_agenda_item(event.id, item)
 
       updated_agenda = Agendas.get_agenda!(agenda.id)
-      assert length(updated_agenda.agenda_items) == 0
+      assert updated_agenda.agenda_items == []
     end
   end
 

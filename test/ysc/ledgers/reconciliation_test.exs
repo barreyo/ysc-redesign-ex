@@ -1323,7 +1323,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       payment_disc = List.first(report.checks.payments.discrepancies)
       assert payment_disc.payment_id == bad_payment.id
       assert is_list(payment_disc.issues)
-      assert length(payment_disc.issues) > 0
+      assert payment_disc.issues != []
     end
 
     test "tracks reconciliation performance over time" do

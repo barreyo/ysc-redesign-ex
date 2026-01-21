@@ -554,8 +554,7 @@ defmodule YscWeb.UserAuth do
         plan_id
         |> Atom.to_string()
         |> String.split("_")
-        |> Enum.map(&String.capitalize/1)
-        |> Enum.join(" ")
+        |> Enum.map_join(" ", &String.capitalize/1)
         |> then(&"#{&1} Membership")
     end
   end
@@ -564,8 +563,7 @@ defmodule YscWeb.UserAuth do
     plan_id
     |> Atom.to_string()
     |> String.split("_")
-    |> Enum.map(&String.capitalize/1)
-    |> Enum.join(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
     |> then(&"#{&1} Membership")
   end
 
@@ -621,8 +619,7 @@ defmodule YscWeb.UserAuth do
         plan_id
         |> Atom.to_string()
         |> String.split("_")
-        |> Enum.map(&String.capitalize/1)
-        |> Enum.join(" ")
+        |> Enum.map_join(" ", &String.capitalize/1)
     end
   end
 

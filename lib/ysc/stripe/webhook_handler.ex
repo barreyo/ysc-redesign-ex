@@ -821,7 +821,7 @@ defmodule Ysc.Stripe.WebhookHandler do
 
     # Process each refund individually to ensure proper idempotency
     case charge.refunds do
-      %Stripe.List{data: refunds} when is_list(refunds) and length(refunds) > 0 ->
+      %Stripe.List{data: refunds} when is_list(refunds) and refunds != [] ->
         Enum.each(refunds, fn refund ->
           result = process_refund_from_refund_object(refund)
 
@@ -2867,7 +2867,7 @@ defmodule Ysc.Stripe.WebhookHandler do
 
     # Check if we have at least one payment or refund linked (or none expected)
     # If we have payments/refunds, they must all be synced
-    has_transactions = length(payout.payments) > 0 || length(payout.refunds) > 0
+    has_transactions = payout.payments != [] || payout.refunds != []
 
     linking_complete =
       if has_transactions, do: all_payments_synced && all_refunds_synced, else: true

@@ -2016,12 +2016,15 @@ defmodule Ysc.Quickbooks.Sync do
             amount: amount,
             detail_type: "DepositLineDetail",
             deposit_line_detail: %{
-              entity_ref: %{
-                value: payment.quickbooks_sales_receipt_id,
-                type: "SalesReceipt"
-              },
               class_ref: administration_class_ref
             },
+            # LinkedTxn is required to link a Deposit to a SalesReceipt in QuickBooks
+            linked_txn: [
+              %{
+                txn_id: payment.quickbooks_sales_receipt_id,
+                txn_type: "SalesReceipt"
+              }
+            ],
             description: "Payment #{payment.reference_id}"
           }
         else
@@ -2043,7 +2046,7 @@ defmodule Ysc.Quickbooks.Sync do
           %{
             amount: Decimal.to_string(line.amount),
             description: line.description,
-            entity_ref: line.deposit_line_detail.entity_ref.value
+            linked_txn_id: List.first(line.linked_txn).txn_id
           }
         end)
     )
@@ -2080,12 +2083,15 @@ defmodule Ysc.Quickbooks.Sync do
             amount: amount,
             detail_type: "DepositLineDetail",
             deposit_line_detail: %{
-              entity_ref: %{
-                value: refund.quickbooks_sales_receipt_id,
-                type: "SalesReceipt"
-              },
               class_ref: administration_class_ref
             },
+            # LinkedTxn is required to link a Deposit to a RefundReceipt in QuickBooks
+            linked_txn: [
+              %{
+                txn_id: refund.quickbooks_sales_receipt_id,
+                txn_type: "RefundReceipt"
+              }
+            ],
             description: "Refund #{refund.reference_id}"
           }
         else
@@ -2107,7 +2113,7 @@ defmodule Ysc.Quickbooks.Sync do
           %{
             amount: Decimal.to_string(line.amount),
             description: line.description,
-            entity_ref: line.deposit_line_detail.entity_ref.value
+            linked_txn_id: List.first(line.linked_txn).txn_id
           }
         end)
     )
@@ -2416,7 +2422,7 @@ defmodule Ysc.Quickbooks.Sync do
 
     # Only enqueue if we have transactions and they're all synced
     if all_payments_synced && all_refunds_synced &&
-         (length(payout.payments) > 0 || length(payout.refunds) > 0) do
+         (payout.payments != [] || payout.refunds != []) do
       Logger.info(
         "[QB Sync] All payments and refunds synced, enqueueing QuickBooks sync for payout",
         payout_id: payout.id,
@@ -2452,7 +2458,7 @@ defmodule Ysc.Quickbooks.Sync do
         payout_id: payout.id,
         all_payments_synced: all_payments_synced,
         all_refunds_synced: all_refunds_synced,
-        has_transactions: length(payout.payments) > 0 || length(payout.refunds) > 0
+        has_transactions: payout.payments != [] || payout.refunds != []
       )
     end
   end

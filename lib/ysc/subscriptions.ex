@@ -660,7 +660,7 @@ defmodule Ysc.Subscriptions do
       user = Repo.preload(subscription, :user).user
       sub_accounts = Ysc.Accounts.get_sub_accounts(user)
 
-      if length(sub_accounts) > 0 do
+      if sub_accounts != [] do
         {:error,
          "Cannot downgrade membership while you have sub-accounts. Please remove all sub-accounts first."}
       else
