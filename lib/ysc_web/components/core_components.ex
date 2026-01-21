@@ -2655,7 +2655,10 @@ defmodule YscWeb.CoreComponents do
         </div>
       </div>
 
-      <div :if={!membership_cancelled?(@current_membership)}>
+      <div :if={
+        !membership_cancelled?(@current_membership) &&
+          !membership_scheduled_for_cancellation?(@current_membership)
+      }>
         <div class="bg-green-50 border border-green-200 rounded-md p-4">
           <p class="text-sm text-green-800 font-semibold">
             <.icon name="hero-check-circle" class="w-5 h-5 text-green-600 inline-block -mt-0.5 me-2" />
@@ -2695,6 +2698,44 @@ defmodule YscWeb.CoreComponents do
               The lifetime membership never expires and includes all Family membership perks.
             <% else %>
               Your lifetime membership never expires and includes all Family membership perks.
+            <% end %>
+          </p>
+        </div>
+      </div>
+
+      <div :if={
+        !membership_cancelled?(@current_membership) &&
+          membership_scheduled_for_cancellation?(@current_membership)
+      }>
+        <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+          <p class="text-sm text-yellow-800 font-semibold">
+            <.icon name="hero-clock" class="w-5 h-5 text-yellow-600 inline-block -mt-0.5 me-2" />
+            <%= if @is_sub_account do %>
+              <%= if @primary_user do %>
+                The membership from
+                <strong><%= @primary_user.first_name %> <%= @primary_user.last_name %></strong>
+                is scheduled for cancellation.
+              <% else %>
+                The primary account membership is scheduled for cancellation.
+              <% end %>
+            <% else %>
+              Your <strong><%= get_membership_type(@current_membership) %></strong>
+              membership is scheduled for cancellation.
+            <% end %>
+          </p>
+
+          <p
+            :if={get_membership_ends_at(@current_membership) != nil}
+            class="text-sm text-yellow-900 mt-2"
+          >
+            <%= if @is_sub_account do %>
+              You will still have access to membership benefits until <strong>
+              <%= Timex.format!(get_membership_ends_at(@current_membership), "{Mshort} {D}, {YYYY}") %>
+              </strong>. The membership will not automatically renew.
+            <% else %>
+              You are still an active member until <strong>
+              <%= Timex.format!(get_membership_ends_at(@current_membership), "{Mshort} {D}, {YYYY}") %>
+              </strong>. Your membership will not automatically renew.
             <% end %>
           </p>
         </div>
@@ -2761,6 +2802,19 @@ defmodule YscWeb.CoreComponents do
   end
 
   defp membership_cancelled?(_), do: false
+
+  defp membership_scheduled_for_cancellation?(%{type: :lifetime}), do: false
+
+  defp membership_scheduled_for_cancellation?(%{subscription: subscription})
+       when is_map(subscription) do
+    Ysc.Subscriptions.scheduled_for_cancellation?(subscription)
+  end
+
+  defp membership_scheduled_for_cancellation?(subscription) when is_struct(subscription) do
+    Ysc.Subscriptions.scheduled_for_cancellation?(subscription)
+  end
+
+  defp membership_scheduled_for_cancellation?(_), do: false
 
   defp get_membership_ends_at(%{type: :lifetime}), do: nil
 

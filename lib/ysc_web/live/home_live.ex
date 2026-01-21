@@ -23,77 +23,88 @@ defmodule YscWeb.HomeLive do
          upcoming_events: upcoming_events
        )}
     else
-      # Web format - use async loading pattern for performance
-      socket = mount_minimal_assigns(socket)
+      user = socket.assigns.current_user
 
-      if connected?(socket) do
-        # Load all data asynchronously after WebSocket connection
-        {:ok, load_home_data_async(socket)}
+      if user do
+        # Logged-in user: use async loading for performance
+        socket = mount_minimal_assigns(socket)
+
+        if connected?(socket) do
+          {:ok, load_home_data_async(socket)}
+        else
+          {:ok, socket}
+        end
       else
+        # Guest user: load data synchronously for SEO
+        # Search engines need to see content in the initial HTML response
+        socket = mount_guest_with_data(socket)
         {:ok, socket}
       end
     end
   end
 
-  # Minimal assigns for fast initial static render
+  # Minimal assigns for fast initial static render (logged-in users only)
   defp mount_minimal_assigns(socket) do
-    user = socket.assigns.current_user
-
-    if user do
-      # Logged-in user: show skeleton UI while data loads
-      assign(socket,
-        page_title: "Home",
-        # Will be populated after async load
-        is_sub_account: false,
-        primary_user: nil,
-        upcoming_tickets: [],
-        future_bookings: [],
-        upcoming_events: [],
-        latest_news: [],
-        newsletter_email: "",
-        newsletter_submitted: false,
-        newsletter_error: nil,
-        # Track async loading state
-        async_data_loaded: false
-      )
-    else
-      # Guest user: determine hero video based on season (no DB query)
-      {hero_video, hero_poster} =
-        case Season.for_date(:tahoe, Date.utc_today()) do
-          %{name: "Summer"} ->
-            {~p"/video/clear_lake_hero.mp4", ~p"/images/clear_lake_hero_poster.jpg"}
-
-          _ ->
-            {~p"/video/tahoe_hero.mp4", ~p"/images/tahoe_hero_poster.jpg"}
-        end
-
-      assign(socket,
-        page_title: "Home",
-        upcoming_events: [],
-        latest_news: [],
-        hero_video: hero_video,
-        hero_poster: hero_poster,
-        newsletter_email: "",
-        newsletter_submitted: false,
-        newsletter_error: nil,
-        async_data_loaded: false
-      )
-    end
+    # Logged-in user: show skeleton UI while data loads
+    assign(socket,
+      page_title: "Home",
+      # Will be populated after async load
+      is_sub_account: false,
+      primary_user: nil,
+      upcoming_tickets: [],
+      future_bookings: [],
+      upcoming_events: [],
+      latest_news: [],
+      newsletter_email: "",
+      newsletter_submitted: false,
+      newsletter_error: nil,
+      # Track async loading state
+      async_data_loaded: false
+    )
   end
 
-  # Load all home page data asynchronously
+  # Guest user: load data synchronously for SEO-friendly initial render
+  # Search engines and social media crawlers need to see actual content
+  defp mount_guest_with_data(socket) do
+    # Determine hero video based on season (no DB query)
+    {hero_video, hero_poster} =
+      case Season.for_date(:tahoe, Date.utc_today()) do
+        %{name: "Summer"} ->
+          {~p"/video/clear_lake_hero.mp4", ~p"/images/clear_lake_hero_poster.jpg"}
+
+        _ ->
+          {~p"/video/tahoe_hero.mp4", ~p"/images/tahoe_hero_poster.jpg"}
+      end
+
+    # Load events and news synchronously for SEO
+    # These queries are lightweight and essential for crawlers to index the page
+    upcoming_events =
+      Events.list_upcoming_events(3)
+      |> Enum.reject(&(&1.state == :cancelled))
+
+    latest_news = Posts.list_posts(3)
+
+    assign(socket,
+      page_title: "Home",
+      upcoming_events: upcoming_events,
+      latest_news: latest_news,
+      hero_video: hero_video,
+      hero_poster: hero_poster,
+      newsletter_email: "",
+      newsletter_submitted: false,
+      newsletter_error: nil,
+      # Data is already loaded
+      async_data_loaded: true
+    )
+  end
+
+  # Load all home page data asynchronously (logged-in users only)
   defp load_home_data_async(socket) do
     user = socket.assigns.current_user
 
-    if user do
-      start_async(socket, :load_home_data, fn ->
-        load_logged_in_user_data(user.id)
-      end)
-    else
-      start_async(socket, :load_home_data, fn ->
-        load_guest_data()
-      end)
-    end
+    start_async(socket, :load_home_data, fn ->
+      load_logged_in_user_data(user.id)
+    end)
   end
 
   # Background task to load logged-in user's home page data in parallel
@@ -125,52 +136,25 @@ defmodule YscWeb.HomeLive do
     {is_sub_account, primary_user}
   end
 
-  # Background task to load guest home page data
-  defp load_guest_data do
-    tasks = [
-      {:events,
-       fn -> Events.list_upcoming_events(3) |> Enum.reject(&(&1.state == :cancelled)) end},
-      {:news, fn -> Posts.list_posts(3) end}
-    ]
-
-    tasks
-    |> Task.async_stream(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
-    |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
-  end
-
   @impl true
   def handle_async(:load_home_data, {:ok, results}, socket) do
-    user = socket.assigns.current_user
+    # Handle logged-in user async results
+    {is_sub_account, primary_user} = Map.get(results, :user_data, {false, nil})
+    upcoming_tickets = Map.get(results, :tickets, [])
+    future_bookings = Map.get(results, :bookings, [])
+    upcoming_events = Map.get(results, :events, [])
+    latest_news = Map.get(results, :news, [])
 
     socket =
-      if user do
-        # Logged-in user results
-        {is_sub_account, primary_user} = Map.get(results, :user_data, {false, nil})
-        upcoming_tickets = Map.get(results, :tickets, [])
-        future_bookings = Map.get(results, :bookings, [])
-        upcoming_events = Map.get(results, :events, [])
-        latest_news = Map.get(results, :news, [])
-
-        assign(socket,
-          is_sub_account: is_sub_account,
-          primary_user: primary_user,
-          upcoming_tickets: upcoming_tickets,
-          future_bookings: future_bookings,
-          upcoming_events: upcoming_events,
-          latest_news: latest_news,
-          async_data_loaded: true
-        )
-      else
-        # Guest user results
-        upcoming_events = Map.get(results, :events, [])
-        latest_news = Map.get(results, :news, [])
-
-        assign(socket,
-          upcoming_events: upcoming_events,
-          latest_news: latest_news,
-          async_data_loaded: true
-        )
-      end
+      assign(socket,
+        is_sub_account: is_sub_account,
+        primary_user: primary_user,
+        upcoming_tickets: upcoming_tickets,
+        future_bookings: future_bookings,
+        upcoming_events: upcoming_events,
+        latest_news: latest_news,
+        async_data_loaded: true
+      )
 
     {:noreply, socket}
   end
@@ -1509,6 +1493,7 @@ defmodule YscWeb.HomeLive do
   defp get_membership_description(membership, is_sub_account, primary_user) do
     plan_type = YscWeb.UserAuth.get_membership_plan_type(membership)
     renewal_date = YscWeb.UserAuth.get_membership_renewal_date(membership)
+    scheduled_for_cancellation? = membership_scheduled_for_cancellation?(membership)
 
     case plan_type do
       :lifetime ->
@@ -1530,10 +1515,15 @@ defmodule YscWeb.HomeLive do
         if is_sub_account do
           "You have access to a #{membership_type} membership through #{if primary_user, do: "#{primary_user.first_name} #{primary_user.last_name}", else: "the primary account"}. Your membership benefits are shared from the primary account."
         else
-          if renewal_date do
-            "You have an active #{membership_type} membership. Your membership will renew on #{Timex.format!(renewal_date, "{Mshort} {D}, {YYYY}")}."
-          else
-            "You have an active #{membership_type} membership."
+          cond do
+            scheduled_for_cancellation? && renewal_date ->
+              "Your #{membership_type} membership is scheduled for cancellation. You are still an active member until #{Timex.format!(renewal_date, "{Mshort} {D}, {YYYY}")}. Your membership will not automatically renew."
+
+            renewal_date ->
+              "You have an active #{membership_type} membership. Your membership will renew on #{Timex.format!(renewal_date, "{Mshort} {D}, {YYYY}")}."
+
+            true ->
+              "You have an active #{membership_type} membership."
           end
         end
 
@@ -1541,6 +1531,19 @@ defmodule YscWeb.HomeLive do
         "You have an active membership with access to all club properties and events."
     end
   end
+
+  defp membership_scheduled_for_cancellation?(%{type: :lifetime}), do: false
+
+  defp membership_scheduled_for_cancellation?(%{subscription: subscription})
+       when is_map(subscription) do
+    Ysc.Subscriptions.scheduled_for_cancellation?(subscription)
+  end
+
+  defp membership_scheduled_for_cancellation?(subscription) when is_struct(subscription) do
+    Ysc.Subscriptions.scheduled_for_cancellation?(subscription)
+  end
+
+  defp membership_scheduled_for_cancellation?(_), do: false
 
   defp get_upcoming_tickets(user_id, event_limit \\ 10) do
     # Get all confirmed tickets for the user
