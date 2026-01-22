@@ -2707,9 +2707,10 @@ defmodule YscWeb.EventDetailsLive do
         total_qty = tier.quantity
 
         available =
-          cond do
-            total_qty == nil or total_qty == 0 -> :unlimited
-            true -> max(0, total_qty - sold)
+          if total_qty == nil or total_qty == 0 do
+            :unlimited
+          else
+            max(0, total_qty - sold)
           end
 
         on_sale = tier_on_sale?(tier)
@@ -5267,61 +5268,89 @@ defmodule YscWeb.EventDetailsLive do
          availability_data,
          ticket_tiers
        ) do
-    # Can't increase if not on sale
     if tier_on_sale?(ticket_tier) do
-      # Donations don't count toward capacity
-      if ticket_tier.type == "donation" || ticket_tier.type == :donation do
+      if is_donation_tier?(ticket_tier) do
         true
       else
-        # Use cached availability data if available, otherwise fall back to query
-        case availability_data do
-          nil ->
-            # Fallback to query if cache is not available
-            can_increase_quantity?(
-              ticket_tier,
-              current_quantity,
-              selected_tickets,
-              event,
-              ticket_tiers
-            )
-
-          availability ->
-            tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
-            event_capacity = availability.event_capacity
-
-            # Check tier availability first
-            tier_available =
-              cond do
-                tier_info == nil -> false
-                tier_info.available == :unlimited -> true
-                true -> current_quantity < tier_info.available
-              end
-
-            # Check event global capacity
-            event_available =
-              case event_capacity.available do
-                :unlimited ->
-                  true
-
-                available ->
-                  # Calculate total selected tickets (excluding donations)
-                  # Use cached ticket_tiers
-                  total_selected =
-                    calculate_total_selected_tickets(
-                      selected_tickets,
-                      event.id,
-                      ticket_tiers
-                    )
-
-                  # Check if adding one more ticket would exceed capacity
-                  total_selected + 1 <= available
-              end
-
-            tier_available && event_available
-        end
+        check_availability_cached(
+          availability_data,
+          ticket_tier,
+          current_quantity,
+          selected_tickets,
+          event,
+          ticket_tiers
+        )
       end
     else
       false
+    end
+  end
+
+  defp is_donation_tier?(ticket_tier) do
+    ticket_tier.type == "donation" || ticket_tier.type == :donation
+  end
+
+  defp check_availability_cached(
+         nil,
+         ticket_tier,
+         current_quantity,
+         selected_tickets,
+         event,
+         ticket_tiers
+       ) do
+    # Fallback to query if cache is not available
+    can_increase_quantity?(
+      ticket_tier,
+      current_quantity,
+      selected_tickets,
+      event,
+      ticket_tiers
+    )
+  end
+
+  defp check_availability_cached(
+         availability,
+         ticket_tier,
+         current_quantity,
+         selected_tickets,
+         event,
+         ticket_tiers
+       ) do
+    tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
+    event_capacity = availability.event_capacity
+
+    tier_available = check_tier_availability(tier_info, current_quantity)
+
+    event_available =
+      check_event_capacity(event_capacity, selected_tickets, event.id, ticket_tiers)
+
+    tier_available && event_available
+  end
+
+  defp check_tier_availability(nil, _current_quantity), do: false
+
+  defp check_tier_availability(tier_info, current_quantity) do
+    if tier_info.available == :unlimited do
+      true
+    else
+      current_quantity < tier_info.available
+    end
+  end
+
+  defp check_event_capacity(event_capacity, selected_tickets, event_id, ticket_tiers) do
+    case event_capacity.available do
+      :unlimited ->
+        true
+
+      available ->
+        total_selected =
+          calculate_total_selected_tickets(
+            selected_tickets,
+            event_id,
+            ticket_tiers
+          )
+
+        total_selected + 1 <= available
     end
   end
 
@@ -5333,51 +5362,44 @@ defmodule YscWeb.EventDetailsLive do
          event,
          ticket_tiers
        ) do
-    # Can't increase if not on sale
     if tier_on_sale?(ticket_tier) do
-      # Donations don't count toward capacity
-      if ticket_tier.type == "donation" || ticket_tier.type == :donation do
+      if is_donation_tier?(ticket_tier) do
         true
       else
-        # Use the atomic booking locker for real-time availability
-        case Ysc.Tickets.BookingLocker.check_availability_with_lock(event.id) do
-          {:ok, availability} ->
-            tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
-            event_capacity = availability.event_capacity
-
-            # Check tier availability first
-            tier_available =
-              if tier_info.available == :unlimited do
-                true
-              else
-                current_quantity < tier_info.available
-              end
-
-            # Check event global capacity
-            event_available =
-              case event_capacity.available do
-                :unlimited ->
-                  true
-
-                available ->
-                  # Calculate total selected tickets (excluding donations)
-                  total_selected =
-                    calculate_total_selected_tickets(
-                      selected_tickets,
-                      event.id,
-                      ticket_tiers
-                    )
-
-                  # Check if adding one more ticket would exceed capacity
-                  total_selected + 1 <= available
-              end
-
-            tier_available && event_available
-
-          {:error, _} ->
-            false
-        end
+        check_availability_with_lock(
+          ticket_tier,
+          current_quantity,
+          selected_tickets,
+          event,
+          ticket_tiers
+        )
       end
+    else
+      false
+    end
+  end
+
+  defp check_availability_with_lock(
+         ticket_tier,
+         current_quantity,
+         selected_tickets,
+         event,
+         ticket_tiers
+       ) do
+    case Ysc.Tickets.BookingLocker.check_availability_with_lock(event.id) do
+      {:ok, availability} ->
+        tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
+        event_capacity = availability.event_capacity
+
+        tier_available = check_tier_availability(tier_info, current_quantity)
+
+        event_available =
+          check_event_capacity(event_capacity, selected_tickets, event.id, ticket_tiers)
+
+        tier_available && event_available
+
+      {:error, _} ->
+        false
     end
   end
 

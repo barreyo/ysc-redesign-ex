@@ -270,7 +270,7 @@ defmodule YscWeb.Workers.UserExporter do
 
   defp get_membership_inherited_status(user, membership_type) do
     # Check if user is a sub-account and has inherited membership
-    if Accounts.is_sub_account?(user) do
+    if Accounts.sub_account?(user) do
       # If they have membership, it's inherited from primary user
       if membership_type != nil, do: "Yes", else: "No"
     else
@@ -280,7 +280,7 @@ defmodule YscWeb.Workers.UserExporter do
 
   defp get_primary_user_email(user) do
     # Get primary user email if user is a sub-account
-    if Accounts.is_sub_account?(user) do
+    if Accounts.sub_account?(user) do
       primary_user = get_primary_user(user)
 
       if primary_user do
@@ -295,7 +295,7 @@ defmodule YscWeb.Workers.UserExporter do
 
   defp get_primary_user_id(user) do
     # Get primary user ID if user is a sub-account
-    if Accounts.is_sub_account?(user) do
+    if Accounts.sub_account?(user) do
       primary_user = get_primary_user(user)
 
       if primary_user do

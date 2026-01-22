@@ -117,34 +117,7 @@ defmodule YscWeb.Workers.EmailNotifier do
 
     # Check user notification preferences if user_id is provided
     {should_send, final_user_id} =
-      if user_id do
-        case Ysc.Repo.get(Ysc.Accounts.User, user_id) do
-          nil ->
-            Logger.warning("User not found for email notification",
-              user_id: user_id,
-              template: template
-            )
-
-            {true, nil}
-
-          user ->
-            should_send = Ysc.Accounts.EmailCategories.should_send_email?(user, template)
-
-            if not should_send do
-              Logger.info("Email skipped due to user notification preferences",
-                user_id: user_id,
-                template: template,
-                category: category,
-                recipient: recipient
-              )
-            end
-
-            {should_send, user_id}
-        end
-      else
-        # No user_id - send email (e.g., board notifications)
-        {true, nil}
-      end
+      check_user_email_preferences(user_id, template, category, recipient)
 
     if should_send do
       try do
@@ -340,6 +313,39 @@ defmodule YscWeb.Workers.EmailNotifier do
 
       _ ->
         inspect(recipient)
+    end
+  end
+
+  defp check_user_email_preferences(nil, _template, _category, _recipient) do
+    # No user_id - send email (e.g., board notifications)
+    {true, nil}
+  end
+
+  defp check_user_email_preferences(user_id, template, category, recipient) do
+    case Ysc.Repo.get(Ysc.Accounts.User, user_id) do
+      nil ->
+        Logger.warning("User not found for email notification",
+          user_id: user_id,
+          template: template
+        )
+
+        {true, nil}
+
+      user ->
+        should_send = Ysc.Accounts.EmailCategories.should_send_email?(user, template)
+
+        if should_send do
+          {true, user_id}
+        else
+          Logger.info("Email skipped due to user notification preferences",
+            user_id: user_id,
+            template: template,
+            category: category,
+            recipient: recipient
+          )
+
+          {false, user_id}
+        end
     end
   end
 end

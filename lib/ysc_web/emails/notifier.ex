@@ -91,27 +91,11 @@ defmodule YscWeb.Emails.Notifier do
           template: template,
           idempotency_key: idempotency_key,
           error: inspect(reason, limit: :infinity),
-          error_type:
-            if(is_atom(reason),
-              do: reason,
-              else:
-                if(is_map(reason) && Map.has_key?(reason, :__struct__),
-                  do: inspect(reason.__struct__),
-                  else: :unknown
-                )
-            )
+          error_type: determine_error_type(reason)
         )
 
         # Report to Sentry with detailed context
-        error_type =
-          if(is_atom(reason),
-            do: reason,
-            else:
-              if(is_map(reason) && Map.has_key?(reason, :__struct__),
-                do: inspect(reason.__struct__),
-                else: :unknown
-              )
-          )
+        error_type = determine_error_type(reason)
 
         # If reason is a changeset, capture it as an exception
         if match?(%Ecto.Changeset{}, reason) do
@@ -236,5 +220,17 @@ defmodule YscWeb.Emails.Notifier do
 
   def get_template_module(template_name) do
     @template_mappings[template_name]
+  end
+
+  defp determine_error_type(reason) do
+    if is_atom(reason) do
+      reason
+    else
+      if is_map(reason) && Map.has_key?(reason, :__struct__) do
+        inspect(reason.__struct__)
+      else
+        :unknown
+      end
+    end
   end
 end

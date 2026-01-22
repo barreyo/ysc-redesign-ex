@@ -303,13 +303,13 @@ defmodule Ysc.Ledgers.Reconciliation do
         ["No ledger transaction found" | issues]
       else
         # Check if transaction amount matches refund amount
-        if !Money.equal?(transaction.total_amount, refund.amount) do
+        if Money.equal?(transaction.total_amount, refund.amount) do
+          issues
+        else
           [
             "Transaction amount (#{Money.to_string!(transaction.total_amount)}) doesn't match refund amount (#{Money.to_string!(refund.amount)})"
             | issues
           ]
-        else
-          issues
         end
       end
 

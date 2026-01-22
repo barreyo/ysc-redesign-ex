@@ -6080,44 +6080,7 @@ defmodule YscWeb.AdminBookingsLive do
     # Preserve search and filter parameters from reservation_params if on reservations tab
     query_params =
       if current_section == :reservations && reservation_params do
-        # Preserve search query if it exists
-        query_params =
-          if reservation_params["search"] do
-            Map.put(query_params, "search", reservation_params["search"])
-          else
-            query_params
-          end
-
-        # Preserve date range filters if they exist
-        query_params =
-          if reservation_params["filter"] do
-            filter_params = reservation_params["filter"]
-            filter_map = %{}
-
-            filter_map =
-              if filter_params["filter_start_date"] do
-                Map.put(filter_map, "filter_start_date", filter_params["filter_start_date"])
-              else
-                filter_map
-              end
-
-            filter_map =
-              if filter_params["filter_end_date"] do
-                Map.put(filter_map, "filter_end_date", filter_params["filter_end_date"])
-              else
-                filter_map
-              end
-
-            if map_size(filter_map) > 0 do
-              Map.put(query_params, "filter", filter_map)
-            else
-              query_params
-            end
-          else
-            query_params
-          end
-
-        query_params
+        preserve_reservation_params(query_params, reservation_params)
       else
         query_params
       end
@@ -6275,4 +6238,49 @@ defmodule YscWeb.AdminBookingsLive do
   end
 
   defp parse_integer(_, default), do: default
+
+  defp preserve_reservation_params(query_params, reservation_params) do
+    query_params
+    |> preserve_search_param(reservation_params)
+    |> preserve_filter_params(reservation_params)
+  end
+
+  defp preserve_search_param(query_params, reservation_params) do
+    if reservation_params["search"] do
+      Map.put(query_params, "search", reservation_params["search"])
+    else
+      query_params
+    end
+  end
+
+  defp preserve_filter_params(query_params, reservation_params) do
+    if reservation_params["filter"] do
+      filter_map = build_filter_map(reservation_params["filter"])
+
+      if map_size(filter_map) > 0 do
+        Map.put(query_params, "filter", filter_map)
+      else
+        query_params
+      end
+    else
+      query_params
+    end
+  end
+
+  defp build_filter_map(filter_params) do
+    filter_map = %{}
+
+    filter_map =
+      if filter_params["filter_start_date"] do
+        Map.put(filter_map, "filter_start_date", filter_params["filter_start_date"])
+      else
+        filter_map
+      end
+
+    if filter_params["filter_end_date"] do
+      Map.put(filter_map, "filter_end_date", filter_params["filter_end_date"])
+    else
+      filter_map
+    end
+  end
 end

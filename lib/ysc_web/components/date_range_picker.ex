@@ -385,7 +385,7 @@ defmodule YscWeb.Components.DateRangePicker do
       hover_range_end =
         case socket.assigns.state do
           :set_end ->
-            if not date_disabled?(
+            if date_disabled?(
                  day,
                  socket.assigns.min,
                  socket.assigns.range_start,
@@ -395,9 +395,9 @@ defmodule YscWeb.Components.DateRangePicker do
                  socket.assigns[:today],
                  socket.assigns[:allow_saturdays] || false
                ) do
-              date
-            else
               nil
+            else
+              date
             end
 
           _ ->
@@ -576,81 +576,83 @@ defmodule YscWeb.Components.DateRangePicker do
 
   # Check if a date should be disabled based on booking rules
   defp date_disabled?(day, min, range_start, state, max, property, today, allow_saturdays) do
-    # Always disable dates before minimum
-    if Date.compare(day, min) == :lt do
+    if before_min_date?(day, min) do
       true
     else
-      # Check if date is after maximum (if max is set)
-      if max && Date.compare(day, max) == :gt do
+      if after_max_date?(day, max) do
         true
       else
-        # Check season restrictions if property is provided
-        if property && today do
-          alias Ysc.Bookings.SeasonHelpers
-
-          if SeasonHelpers.date_selectable?(property, day, today) do
-            # Continue with other checks
-            check_other_rules(day, range_start, state, allow_saturdays)
-          else
-            true
-          end
-        else
-          # Continue with other checks
-          check_other_rules(day, range_start, state, allow_saturdays)
-        end
+        check_season_and_other_rules(day, range_start, state, property, today, allow_saturdays)
       end
+    end
+  end
+
+  defp after_max_date?(day, max) do
+    max && Date.compare(day, max) == :gt
+  end
+
+  defp check_season_and_other_rules(day, range_start, state, property, today, allow_saturdays) do
+    if property && today do
+      alias Ysc.Bookings.SeasonHelpers
+
+      if SeasonHelpers.date_selectable?(property, day, today) do
+        check_other_rules(day, range_start, state, allow_saturdays)
+      else
+        true
+      end
+    else
+      check_other_rules(day, range_start, state, allow_saturdays)
     end
   end
 
   # Check other date rules (Saturday, range validation, etc.)
   defp check_other_rules(day, range_start, state, allow_saturdays) do
-    # Cannot check in on Saturday (day 6) unless allow_saturdays is true
-    if Date.day_of_week(day) == 6 && !allow_saturdays do
+    if is_saturday?(day) && !allow_saturdays do
       true
     else
-      # When selecting end date (state is :set_end), validate against start date
-      case state do
-        :set_end when not is_nil(range_start) ->
-          start_date = DateTime.to_date(range_start)
-          nights = Date.diff(day, start_date)
+      check_end_date_rules(day, range_start, state, allow_saturdays)
+    end
+  end
 
-          # Disable if:
-          # 1. More than 4 nights
-          # 2. Less than 1 night (end date before or same as start)
-          # 3. Ends on Saturday (can never end on Saturday) unless allow_saturdays is true
-          # 4. If range includes Saturday, must end on Sunday or later (unless allow_saturdays is true)
-          cond do
-            nights > 4 ->
-              true
+  defp is_saturday?(day) do
+    Date.day_of_week(day) == 6
+  end
 
-            nights < 1 ->
-              true
+  defp check_end_date_rules(day, range_start, state, allow_saturdays) do
+    case state do
+      :set_end when not is_nil(range_start) ->
+        validate_end_date_range(day, range_start, allow_saturdays)
 
-            # Cannot end on Saturday unless allow_saturdays is true
-            Date.day_of_week(day) == 6 && !allow_saturdays ->
-              true
+      _ ->
+        false
+    end
+  end
 
-            true ->
-              # Check if range includes Saturday - if so, must also include Sunday (unless allow_saturdays is true)
-              if allow_saturdays do
-                false
-              else
-                date_range = Date.range(start_date, day) |> Enum.to_list()
-                day_of_weeks = Enum.map(date_range, &Date.day_of_week/1)
-                has_saturday = 6 in day_of_weeks
-                has_sunday = 7 in day_of_weeks
+  defp validate_end_date_range(day, range_start, allow_saturdays) do
+    start_date = DateTime.to_date(range_start)
+    nights = Date.diff(day, start_date)
 
-                if has_saturday && not has_sunday do
-                  # Range includes Saturday but not Sunday - invalid
-                  true
-                else
-                  false
-                end
-              end
-          end
+    cond do
+      nights > 4 -> true
+      nights < 1 -> true
+      is_saturday?(day) && !allow_saturdays -> true
+      true -> check_saturday_sunday_range(start_date, day, allow_saturdays)
+    end
+  end
 
-        _ ->
-          false
+  defp check_saturday_sunday_range(start_date, day, allow_saturdays) do
+    if allow_saturdays do
+      false
+    else
+      date_range = Date.range(start_date, day) |> Enum.to_list()
+      day_of_weeks = Enum.map(date_range, &Date.day_of_week/1)
+      has_saturday = 6 in day_of_weeks
+      has_sunday = 7 in day_of_weeks
+
+      if has_saturday && not has_sunday do
+        true
+      else
+        false
       end
     end
   end

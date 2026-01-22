@@ -30,86 +30,87 @@ defmodule YscWeb.ExpenseReportFileController do
       |> put_view(html: YscWeb.ErrorHTML)
       |> render(:"403")
     else
-      case Base.url_decode64(encoded_path, padding: false) do
-        {:ok, s3_path} ->
-          case ExpenseReports.can_access_file?(user, s3_path) do
-            {:ok, expense_report} ->
-              # Generate presigned URL with 1 hour expiration
-              bucket_name = S3Config.expense_reports_bucket_name()
-              # 1 hour in seconds
-              expires_in = 3600
+      handle_expense_report_file_request(conn, user, encoded_path)
+    end
+  end
 
-              # Normalize the S3 path - use the key without bucket prefix for presigned URL
-              normalized_path = normalize_s3_path_for_presigned_url(s3_path)
+  defp handle_expense_report_file_request(conn, user, encoded_path) do
+    case Base.url_decode64(encoded_path, padding: false) do
+      {:ok, s3_path} ->
+        handle_decoded_path(conn, user, s3_path)
 
-              # Generate presigned URL using ExAws with configured S3 settings
-              # ExAws will use the config from runtime.exs which includes endpoint settings
-              config = ExAws.Config.new(:s3)
+      :error ->
+        Logger.warning("Invalid base64 encoded path in expense report file request",
+          user_id: user.id,
+          encoded_path: encoded_path
+        )
 
-              case ExAws.S3.presigned_url(
-                     config,
-                     :get,
-                     bucket_name,
-                     normalized_path,
-                     expires_in: expires_in
-                   ) do
-                {:ok, presigned_url} ->
-                  Logger.debug("Generated presigned URL for expense report file",
-                    user_id: user.id,
-                    s3_path: normalized_path,
-                    expense_report_id: if(expense_report, do: expense_report.id, else: "unsaved"),
-                    expires_in: expires_in
-                  )
+        conn
+        |> put_status(:bad_request)
+        |> put_view(html: YscWeb.ErrorHTML)
+        |> render(:"400")
+    end
+  end
 
-                  redirect(conn, external: presigned_url)
+  defp handle_decoded_path(conn, user, s3_path) do
+    case ExpenseReports.can_access_file?(user, s3_path) do
+      {:ok, expense_report} ->
+        generate_and_redirect_to_presigned_url(conn, user, s3_path, expense_report)
 
-                {:error, reason} ->
-                  Logger.error("Failed to generate presigned URL for expense report file",
-                    user_id: user.id,
-                    s3_path: s3_path,
-                    error: inspect(reason)
-                  )
+      {:error, :not_found} ->
+        Logger.warning("User attempted to access file not found in any expense report",
+          user_id: user.id,
+          s3_path: s3_path
+        )
 
-                  conn
-                  |> put_status(:internal_server_error)
-                  |> put_view(html: YscWeb.ErrorHTML)
-                  |> render(:"500")
-              end
+        conn
+        |> put_status(:not_found)
+        |> put_view(html: YscWeb.ErrorHTML)
+        |> render(:"404")
 
-            {:error, :not_found} ->
-              Logger.warning("User attempted to access file not found in any expense report",
-                user_id: user.id,
-                s3_path: s3_path
-              )
+      {:error, :unauthorized} ->
+        Logger.warning("User attempted to access file from expense report they don't own",
+          user_id: user.id,
+          s3_path: s3_path
+        )
 
-              conn
-              |> put_status(:not_found)
-              |> put_view(html: YscWeb.ErrorHTML)
-              |> render(:"404")
+        conn
+        |> put_status(:forbidden)
+        |> put_view(html: YscWeb.ErrorHTML)
+        |> render(:"403")
+    end
+  end
 
-            {:error, :unauthorized} ->
-              Logger.warning("User attempted to access file from expense report they don't own",
-                user_id: user.id,
-                s3_path: s3_path
-              )
+  defp generate_and_redirect_to_presigned_url(conn, user, s3_path, expense_report) do
+    bucket_name = S3Config.expense_reports_bucket_name()
+    expires_in = 3600
+    normalized_path = normalize_s3_path_for_presigned_url(s3_path)
+    config = ExAws.Config.new(:s3)
 
-              conn
-              |> put_status(:forbidden)
-              |> put_view(html: YscWeb.ErrorHTML)
-              |> render(:"403")
-          end
+    case ExAws.S3.presigned_url(config, :get, bucket_name, normalized_path,
+           expires_in: expires_in
+         ) do
+      {:ok, presigned_url} ->
+        Logger.debug("Generated presigned URL for expense report file",
+          user_id: user.id,
+          s3_path: normalized_path,
+          expense_report_id: if(expense_report, do: expense_report.id, else: "unsaved"),
+          expires_in: expires_in
+        )
 
-        :error ->
-          Logger.warning("Invalid base64 encoded path in expense report file request",
-            user_id: user.id,
-            encoded_path: encoded_path
-          )
+        redirect(conn, external: presigned_url)
 
-          conn
-          |> put_status(:bad_request)
-          |> put_view(html: YscWeb.ErrorHTML)
-          |> render(:"400")
-      end
+      {:error, reason} ->
+        Logger.error("Failed to generate presigned URL for expense report file",
+          user_id: user.id,
+          s3_path: s3_path,
+          error: inspect(reason)
+        )
+
+        conn
+        |> put_status(:internal_server_error)
+        |> put_view(html: YscWeb.ErrorHTML)
+        |> render(:"500")
     end
   end
 

@@ -1191,15 +1191,7 @@ defmodule Ysc.Quickbooks.Client do
       item: inspect(item, limit: :infinity)
     )
 
-    # Do not include Id field for create operations (QuickBooks will assign it)
-    # Convert Amount to number if it's a Decimal
-    # For refund receipts, amounts should be positive (transaction type determines direction)
-    amount_value =
-      case item.amount do
-        %Decimal{} = amt -> Decimal.to_float(Decimal.abs(amt))
-        amt when is_number(amt) -> abs(amt)
-        _ -> 0
-      end
+    amount_value = normalize_amount_value(item.amount)
 
     base = %{
       "Amount" => amount_value,
@@ -1209,129 +1201,156 @@ defmodule Ysc.Quickbooks.Client do
     result =
       case item.detail_type do
         "SalesItemLineDetail" ->
-          detail = item.sales_item_line_detail
-
-          Logger.debug("[QB Client] normalize_line_item: SalesItemLineDetail",
-            detail: inspect(detail, limit: :infinity)
-          )
-
-          # Convert quantity to number if it's a Decimal
-          qty_value =
-            case detail.quantity do
-              %Decimal{} = qty -> Decimal.to_float(qty)
-              qty when is_number(qty) -> qty
-              _ -> 1
-            end
-
-          # Convert unit_price to number if it's a Decimal
-          # For refund receipts, unit_price should be positive (transaction type determines direction)
-          unit_price_value =
-            case detail.unit_price do
-              %Decimal{} = price -> Decimal.to_float(Decimal.abs(price))
-              price when is_number(price) -> abs(price)
-              _ -> 0
-            end
-
-          Logger.debug("[QB Client] normalize_line_item: Converted values",
-            qty_value: qty_value,
-            unit_price_value: unit_price_value,
-            qty_type: inspect(qty_value),
-            unit_price_type: inspect(unit_price_value)
-          )
-
-          # Ensure ItemRef has both value and name if available
-          item_ref =
-            case detail.item_ref do
-              %{value: value, name: name} -> %{value: value, name: name}
-              %{value: value} -> %{value: value}
-              _ -> detail.item_ref
-            end
-
-          sales_detail = %{
-            "ItemRef" => item_ref,
-            "Qty" => qty_value,
-            "UnitPrice" => unit_price_value
-          }
-
-          sales_detail =
-            if detail[:tax_code_ref],
-              do: Map.put(sales_detail, "TaxCodeRef", detail.tax_code_ref),
-              else: sales_detail
-
-          sales_detail =
-            if detail[:class_ref] do
-              class_ref_value = detail.class_ref
-
-              Logger.debug("[QB Client] normalize_line_item: Adding ClassRef",
-                class_ref: inspect(class_ref_value)
-              )
-
-              # ClassRef must be flat: {value: "id", name: "name"}
-              # value and name are sibling properties, not nested
-              class_ref_map =
-                case class_ref_value do
-                  # Already in correct format - use directly
-                  %{value: value, name: name} when is_binary(value) ->
-                    %{"value" => value, "name" => name}
-
-                  # Has value but no name
-                  %{value: value} when is_binary(value) ->
-                    %{"value" => value}
-
-                  # String - treat as ID
-                  ref when is_binary(ref) ->
-                    %{"value" => ref}
-
-                  # Any other format - try to extract value
-                  other ->
-                    Logger.warning(
-                      "[QB Client] normalize_line_item: Unexpected class_ref format",
-                      class_ref: inspect(other)
-                    )
-
-                    case other do
-                      %{value: v} when is_binary(v) -> %{"value" => v}
-                      _ -> %{"value" => to_string(other)}
-                    end
-                end
-
-              Map.put(sales_detail, "ClassRef", class_ref_map)
-            else
-              sales_detail
-            end
-
-          Map.put(base, "SalesItemLineDetail", sales_detail)
+          normalize_sales_item_line_detail(base, item.sales_item_line_detail)
 
         "DiscountLineDetail" ->
-          detail = item.discount_line_detail
-          discount_detail = %{}
-
-          discount_detail =
-            if detail[:class_ref],
-              do: Map.put(discount_detail, "ClassRef", detail.class_ref),
-              else: discount_detail
-
-          discount_detail =
-            if detail[:percent_based],
-              do: Map.put(discount_detail, "PercentBased", detail.percent_based),
-              else: discount_detail
-
-          discount_detail =
-            if detail[:discount_percent],
-              do: Map.put(discount_detail, "DiscountPercent", detail.discount_percent),
-              else: discount_detail
-
-          discount_detail =
-            if detail[:discount_account_ref],
-              do: Map.put(discount_detail, "DiscountAccountRef", detail.discount_account_ref),
-              else: discount_detail
-
-          Map.put(base, "DiscountLineDetail", discount_detail)
+          normalize_discount_line_detail(base, item.discount_line_detail)
 
         _ ->
           base
       end
 
+    add_description_if_present(result, item)
+  end
+
+  defp normalize_amount_value(amount) do
+    case amount do
+      %Decimal{} = amt -> Decimal.to_float(Decimal.abs(amt))
+      amt when is_number(amt) -> abs(amt)
+      _ -> 0
+    end
+  end
+
+  defp normalize_sales_item_line_detail(base, detail) do
+    Logger.debug("[QB Client] normalize_line_item: SalesItemLineDetail",
+      detail: inspect(detail, limit: :infinity)
+    )
+
+    qty_value = normalize_quantity_value(detail.quantity)
+    unit_price_value = normalize_unit_price_value(detail.unit_price)
+
+    Logger.debug("[QB Client] normalize_line_item: Converted values",
+      qty_value: qty_value,
+      unit_price_value: unit_price_value,
+      qty_type: inspect(qty_value),
+      unit_price_type: inspect(unit_price_value)
+    )
+
+    item_ref = normalize_item_ref(detail.item_ref)
+
+    sales_detail = %{
+      "ItemRef" => item_ref,
+      "Qty" => qty_value,
+      "UnitPrice" => unit_price_value
+    }
+
+    sales_detail = add_tax_code_ref_if_present(sales_detail, detail)
+    sales_detail = add_class_ref_if_present(sales_detail, detail)
+
+    Map.put(base, "SalesItemLineDetail", sales_detail)
+  end
+
+  defp normalize_quantity_value(quantity) do
+    case quantity do
+      %Decimal{} = qty -> Decimal.to_float(qty)
+      qty when is_number(qty) -> qty
+      _ -> 1
+    end
+  end
+
+  defp normalize_unit_price_value(unit_price) do
+    case unit_price do
+      %Decimal{} = price -> Decimal.to_float(Decimal.abs(price))
+      price when is_number(price) -> abs(price)
+      _ -> 0
+    end
+  end
+
+  defp normalize_item_ref(item_ref) do
+    case item_ref do
+      %{value: value, name: name} -> %{value: value, name: name}
+      %{value: value} -> %{value: value}
+      _ -> item_ref
+    end
+  end
+
+  defp add_tax_code_ref_if_present(sales_detail, detail) do
+    if detail[:tax_code_ref] do
+      Map.put(sales_detail, "TaxCodeRef", detail.tax_code_ref)
+    else
+      sales_detail
+    end
+  end
+
+  defp add_class_ref_if_present(sales_detail, detail) do
+    if detail[:class_ref] do
+      class_ref_map = normalize_class_ref_for_sales_detail(detail.class_ref)
+      Map.put(sales_detail, "ClassRef", class_ref_map)
+    else
+      sales_detail
+    end
+  end
+
+  defp normalize_class_ref_for_sales_detail(class_ref_value) do
+    Logger.debug("[QB Client] normalize_line_item: Adding ClassRef",
+      class_ref: inspect(class_ref_value)
+    )
+
+    case class_ref_value do
+      %{value: value, name: name} when is_binary(value) ->
+        %{"value" => value, "name" => name}
+
+      %{value: value} when is_binary(value) ->
+        %{"value" => value}
+
+      ref when is_binary(ref) ->
+        %{"value" => ref}
+
+      other ->
+        Logger.warning(
+          "[QB Client] normalize_line_item: Unexpected class_ref format",
+          class_ref: inspect(other)
+        )
+
+        case other do
+          %{value: v} when is_binary(v) -> %{"value" => v}
+          _ -> %{"value" => to_string(other)}
+        end
+    end
+  end
+
+  defp normalize_discount_line_detail(base, detail) do
+    discount_detail = %{}
+
+    discount_detail =
+      add_discount_field_if_present(discount_detail, detail, :class_ref, "ClassRef")
+
+    discount_detail =
+      add_discount_field_if_present(discount_detail, detail, :percent_based, "PercentBased")
+
+    discount_detail =
+      add_discount_field_if_present(discount_detail, detail, :discount_percent, "DiscountPercent")
+
+    discount_detail =
+      add_discount_field_if_present(
+        discount_detail,
+        detail,
+        :discount_account_ref,
+        "DiscountAccountRef"
+      )
+
+    Map.put(base, "DiscountLineDetail", discount_detail)
+  end
+
+  defp add_discount_field_if_present(discount_detail, detail, field_key, map_key) do
+    if detail[field_key] do
+      Map.put(discount_detail, map_key, detail[field_key])
+    else
+      discount_detail
+    end
+  end
+
+  defp add_description_if_present(result, item) do
     if item[:description] do
       Map.put(result, "Description", item.description)
     else
@@ -3408,7 +3427,7 @@ defmodule Ysc.Quickbooks.Client do
     {request, content_type_header, url, body}
   end
 
-  defp handle_upload_success_response(response_body, file_name) do
+  defp handle_upload_success_response(response_body, _file_name) do
     case Jason.decode(response_body) do
       {:ok, data} ->
         # Log response data directly in message for visibility

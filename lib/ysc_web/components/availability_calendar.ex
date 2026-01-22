@@ -694,78 +694,108 @@ defmodule YscWeb.Components.AvailabilityCalendar do
   end
 
   defp unavailability_reason(day, assigns) do
+    case check_date_boundaries(day, assigns) do
+      {:boundary, reason} -> reason
+      :ok -> get_unavailability_reason_for_date(day, assigns)
+    end
+  end
+
+  defp check_date_boundaries(day, assigns) do
     cond do
       Date.compare(day, assigns.min) == :lt ->
-        "Past date"
+        {:boundary, "Past date"}
 
       assigns.max && Date.compare(day, assigns.max) == :gt ->
-        "Too far in future"
+        {:boundary, "Too far in future"}
 
       assigns[:property] && assigns[:today] &&
           !date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) ->
-        "Season closed"
+        {:boundary, "Season closed"}
 
       true ->
-        # Check if this is a blackout start/end date to provide more specific messaging
-        yesterday = Date.add(day, -1)
-        morning_blocked = date_unavailable_for_stay?(yesterday, assigns)
-        afternoon_blocked = date_unavailable_for_stay?(day, assigns)
+        :ok
+    end
+  end
 
-        day_info = Map.get(assigns.availability, day)
-        yesterday_info = Map.get(assigns.availability, yesterday)
+  defp get_unavailability_reason_for_date(day, assigns) do
+    {is_blackout_start, is_blackout_end, morning_blocked, afternoon_blocked} =
+      determine_blackout_start_end(day, assigns)
 
-        # Determine if this is a blackout start or end date
-        is_blackout_start =
-          day_info && day_info.is_blacked_out &&
-            (!yesterday_info || !yesterday_info.is_blacked_out)
+    type = unavailability_type(day, assigns)
 
-        is_blackout_end =
-          day_info && day_info.is_blacked_out && (yesterday_info && yesterday_info.is_blacked_out) &&
-            !afternoon_blocked
+    case type do
+      :blackout ->
+        get_blackout_reason(
+          is_blackout_start,
+          is_blackout_end,
+          morning_blocked,
+          afternoon_blocked
+        )
 
-        type = unavailability_type(day, assigns)
+      :bookings ->
+        get_bookings_reason(day, assigns)
 
-        case type do
-          :blackout ->
-            cond do
-              # Blackout starts today: morning available (checkout allowed), afternoon blocked (check-in not allowed)
-              # User can checkout on this day, so show "check-in allowed" (meaning they can end a stay/checkout)
-              is_blackout_start && !morning_blocked && afternoon_blocked ->
-                "Check-in allowed"
+      :other ->
+        get_other_reason(day, assigns)
+    end
+  end
 
-              # Blackout ends today: morning blocked (checkout not allowed), afternoon available (check-in allowed)
-              is_blackout_end && morning_blocked && !afternoon_blocked ->
-                "Check-in allowed"
+  defp determine_blackout_start_end(day, assigns) do
+    yesterday = Date.add(day, -1)
+    morning_blocked = date_unavailable_for_stay?(yesterday, assigns)
+    afternoon_blocked = date_unavailable_for_stay?(day, assigns)
 
-              true ->
-                "Blackout date"
-            end
+    day_info = Map.get(assigns.availability, day)
+    yesterday_info = Map.get(assigns.availability, yesterday)
 
-          :bookings ->
-            day_info = Map.get(assigns.availability, day)
+    is_blackout_start =
+      day_info && day_info.is_blacked_out &&
+        (!yesterday_info || !yesterday_info.is_blacked_out)
 
-            if assigns.selected_booking_mode == :day && day_info &&
-                 day_info.spots_available < (assigns[:guests_count] || 1) do
-              "Not enough spots"
-            else
-              "Booking already exists"
-            end
+    is_blackout_end =
+      day_info && day_info.is_blacked_out && (yesterday_info && yesterday_info.is_blacked_out) &&
+        !afternoon_blocked
 
-          :other ->
-            if check_other_rules(
-                 day,
-                 assigns.checkin_date,
-                 assigns.state,
-                 assigns[:property],
-                 assigns[:availability],
-                 assigns[:selected_booking_mode],
-                 assigns[:seasons]
-               ) do
-              "Restricted (e.g. min/max stay)"
-            else
-              "Unavailable"
-            end
-        end
+    {is_blackout_start, is_blackout_end, morning_blocked, afternoon_blocked}
+  end
+
+  defp get_blackout_reason(is_blackout_start, is_blackout_end, morning_blocked, afternoon_blocked) do
+    cond do
+      is_blackout_start && !morning_blocked && afternoon_blocked ->
+        "Check-in allowed"
+
+      is_blackout_end && morning_blocked && !afternoon_blocked ->
+        "Check-in allowed"
+
+      true ->
+        "Blackout date"
+    end
+  end
+
+  defp get_bookings_reason(day, assigns) do
+    day_info = Map.get(assigns.availability, day)
+
+    if assigns.selected_booking_mode == :day && day_info &&
+         day_info.spots_available < (assigns[:guests_count] || 1) do
+      "Not enough spots"
+    else
+      "Booking already exists"
+    end
+  end
+
+  defp get_other_reason(day, assigns) do
+    if check_other_rules(
+         day,
+         assigns.checkin_date,
+         assigns.state,
+         assigns[:property],
+         assigns[:availability],
+         assigns[:selected_booking_mode],
+         assigns[:seasons]
+       ) do
+      "Restricted (e.g. min/max stay)"
+    else
+      "Unavailable"
     end
   end
 
@@ -798,27 +828,41 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
   defp check_other_rules(day, checkin_date, state, property, _availability, _mode, seasons) do
     # Saturday check-in rule (Tahoe only)
-    if Date.day_of_week(day) == 6 && property == :tahoe && state != :set_end do
+    if is_saturday_checkin?(day, property, state) do
       true
     else
-      case state do
-        :set_end when not is_nil(checkin_date) ->
-          # Rules for checkout date
-          nights = Date.diff(day, checkin_date)
-          max_nights = get_max_nights(property, checkin_date, seasons)
-
-          cond do
-            nights < 1 -> true
-            nights > max_nights -> true
-            # No Sat checkout for Tahoe
-            Date.day_of_week(day) == 6 && property == :tahoe -> true
-            true -> false
-          end
-
-        _ ->
-          false
-      end
+      check_end_date_rules(day, checkin_date, state, property, seasons)
     end
+  end
+
+  defp is_saturday_checkin?(day, property, state) do
+    Date.day_of_week(day) == 6 && property == :tahoe && state != :set_end
+  end
+
+  defp check_end_date_rules(day, checkin_date, state, property, seasons) do
+    case state do
+      :set_end when not is_nil(checkin_date) ->
+        validate_checkout_date(day, checkin_date, property, seasons)
+
+      _ ->
+        false
+    end
+  end
+
+  defp validate_checkout_date(day, checkin_date, property, seasons) do
+    nights = Date.diff(day, checkin_date)
+    max_nights = get_max_nights(property, checkin_date, seasons)
+
+    cond do
+      nights < 1 -> true
+      nights > max_nights -> true
+      is_saturday_checkout?(day, property) -> true
+      true -> false
+    end
+  end
+
+  defp is_saturday_checkout?(day, property) do
+    Date.day_of_week(day) == 6 && property == :tahoe
   end
 
   defp get_max_nights(property, date, seasons) do

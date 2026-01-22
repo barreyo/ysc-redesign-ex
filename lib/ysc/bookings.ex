@@ -1554,7 +1554,7 @@ defmodule Ysc.Bookings do
          room_category_id,
          billable_people,
          children_count,
-         {acc, base_acc, children_acc, adult_price, children_price, found_any}
+         {acc, base_acc, children_acc, adult_price, children_price, _found_any}
        ) do
     # Store per-person-per-night price (use first one found)
     adult_price = adult_price || pricing_rule.amount

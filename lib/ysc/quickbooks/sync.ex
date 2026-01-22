@@ -924,18 +924,7 @@ defmodule Ysc.Quickbooks.Sync do
       property: property
     )
 
-    # Map entity type to item name and get or create the item
-    item_name =
-      case {entity_type, property} do
-        {:event, _} -> "Event Tickets"
-        {:donation, _} -> "Donations"
-        {:booking, :tahoe} -> "Tahoe Bookings"
-        {:booking, :clear_lake} -> "Clear Lake Bookings"
-        {:membership, :family} -> "Family Membership"
-        {:membership, :single} -> "Single Membership"
-        {:membership, _} -> "Single Membership"
-        _ -> "General Revenue"
-      end
+    item_name = determine_item_name(entity_type, property)
 
     Logger.debug("[QB Sync] get_quickbooks_item_id: Item name determined",
       entity_type: entity_type,
@@ -943,99 +932,118 @@ defmodule Ysc.Quickbooks.Sync do
       item_name: item_name
     )
 
-    # Check if there's a configured override (for custom item names)
-    config_key =
-      case {entity_type, property} do
-        {:event, _} -> :event_item_id
-        {:donation, _} -> :donation_item_id
-        {:booking, :tahoe} -> :tahoe_booking_item_id
-        {:booking, :clear_lake} -> :clear_lake_booking_item_id
-        {:membership, :family} -> :family_membership_item_id
-        {:membership, :single} -> :single_membership_item_id
-        {:membership, _} -> :single_membership_item_id
-        _ -> :default_item_id
-      end
+    config_key = determine_config_key(entity_type, property)
 
-    # First check if there's a configured item ID (override)
     case Application.get_env(:ysc, :quickbooks, [])[config_key] do
       nil ->
-        # No override, get or create via API
-        Logger.debug(
-          "[QB Sync] get_quickbooks_item_id: No config override, getting/creating via API",
-          item_name: item_name
-        )
-
-        # Get the income account for this item type
-        income_account_name =
-          case {entity_type, property} do
-            {:event, _} -> "Events Inc"
-            {:donation, _} -> "Donations"
-            {:booking, :tahoe} -> "Tahoe Inc"
-            {:booking, :clear_lake} -> "Clear Lake Inc"
-            {:membership, _} -> "Membership Revenue"
-            _ -> "General Revenue"
-          end
-
-        Logger.debug("[QB Sync] get_quickbooks_item_id: Getting income account",
-          income_account_name: income_account_name
-        )
-
-        income_account_ref =
-          case client_module().query_account_by_name(income_account_name) do
-            {:ok, account_id} ->
-              Logger.debug("[QB Sync] get_quickbooks_item_id: Found income account",
-                account_name: income_account_name,
-                account_id: account_id
-              )
-
-              %{value: account_id}
-
-            {:error, :not_found} ->
-              Logger.warning(
-                "[QB Sync] get_quickbooks_item_id: Income account not found, item creation may fail",
-                account_name: income_account_name
-              )
-
-              nil
-
-            error ->
-              Logger.warning(
-                "[QB Sync] get_quickbooks_item_id: Failed to query income account, item creation may fail",
-                account_name: income_account_name,
-                error: inspect(error)
-              )
-
-              nil
-          end
-
-        case Quickbooks.Client.get_or_create_item(item_name,
-               income_account_ref: income_account_ref
-             ) do
-          {:ok, item_id} ->
-            Logger.debug("[QB Sync] get_quickbooks_item_id: Item ID obtained via API",
-              item_name: item_name,
-              item_id: item_id
-            )
-
-            {:ok, item_id}
-
-          error ->
-            Logger.error("[QB Sync] get_quickbooks_item_id: Failed to get or create item",
-              item_name: item_name,
-              error: inspect(error)
-            )
-
-            error
-        end
+        get_or_create_item_via_api(item_name, entity_type, property)
 
       configured_item_id ->
-        # Use configured override
         Logger.debug("[QB Sync] get_quickbooks_item_id: Using configured item ID override",
           item_name: item_name,
           item_id: configured_item_id
         )
 
         {:ok, configured_item_id}
+    end
+  end
+
+  defp determine_item_name(entity_type, property) do
+    case {entity_type, property} do
+      {:event, _} -> "Event Tickets"
+      {:donation, _} -> "Donations"
+      {:booking, :tahoe} -> "Tahoe Bookings"
+      {:booking, :clear_lake} -> "Clear Lake Bookings"
+      {:membership, :family} -> "Family Membership"
+      {:membership, :single} -> "Single Membership"
+      {:membership, _} -> "Single Membership"
+      _ -> "General Revenue"
+    end
+  end
+
+  defp determine_config_key(entity_type, property) do
+    case {entity_type, property} do
+      {:event, _} -> :event_item_id
+      {:donation, _} -> :donation_item_id
+      {:booking, :tahoe} -> :tahoe_booking_item_id
+      {:booking, :clear_lake} -> :clear_lake_booking_item_id
+      {:membership, :family} -> :family_membership_item_id
+      {:membership, :single} -> :single_membership_item_id
+      {:membership, _} -> :single_membership_item_id
+      _ -> :default_item_id
+    end
+  end
+
+  defp get_or_create_item_via_api(item_name, entity_type, property) do
+    Logger.debug(
+      "[QB Sync] get_quickbooks_item_id: No config override, getting/creating via API",
+      item_name: item_name
+    )
+
+    income_account_name = determine_income_account_name(entity_type, property)
+
+    Logger.debug("[QB Sync] get_quickbooks_item_id: Getting income account",
+      income_account_name: income_account_name
+    )
+
+    income_account_ref = query_income_account(income_account_name)
+
+    case Quickbooks.Client.get_or_create_item(item_name, income_account_ref: income_account_ref) do
+      {:ok, item_id} ->
+        Logger.debug("[QB Sync] get_quickbooks_item_id: Item ID obtained via API",
+          item_name: item_name,
+          item_id: item_id
+        )
+
+        {:ok, item_id}
+
+      error ->
+        Logger.error("[QB Sync] get_quickbooks_item_id: Failed to get or create item",
+          item_name: item_name,
+          error: inspect(error)
+        )
+
+        error
+    end
+  end
+
+  defp determine_income_account_name(entity_type, property) do
+    case {entity_type, property} do
+      {:event, _} -> "Events Inc"
+      {:donation, _} -> "Donations"
+      {:booking, :tahoe} -> "Tahoe Inc"
+      {:booking, :clear_lake} -> "Clear Lake Inc"
+      {:membership, _} -> "Membership Revenue"
+      _ -> "General Revenue"
+    end
+  end
+
+  defp query_income_account(income_account_name) do
+    case client_module().query_account_by_name(income_account_name) do
+      {:ok, account_id} ->
+        Logger.debug("[QB Sync] get_quickbooks_item_id: Found income account",
+          account_name: income_account_name,
+          account_id: account_id
+        )
+
+        %{value: account_id}
+
+      {:error, :not_found} ->
+        Logger.warning(
+          "[QB Sync] get_quickbooks_item_id: Income account not found, item creation may fail",
+          account_name: income_account_name
+        )
+
+        nil
+
+      error ->
+        Logger.warning(
+          "[QB Sync] get_quickbooks_item_id: Failed to query income account, item creation may fail",
+          account_name: income_account_name,
+          error: inspect(error)
+        )
+
+        nil
     end
   end
 

@@ -3817,116 +3817,135 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   def handle_event("room-changed", params, socket) do
-    # Handle radio button or single checkbox toggle
-    # Phoenix converts phx-value-room-id to "room-id" in params
-    # Also handle nested value structure from checkbox events
+    room_id = extract_room_id_from_params(params)
+
+    if should_allow_room_selection?(socket, room_id) do
+      handle_room_selection(socket, room_id)
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp extract_room_id_from_params(params) do
     room_id_str =
       cond do
-        Map.has_key?(params, "room_id") ->
-          Map.get(params, "room_id")
-
-        Map.has_key?(params, "room-id") ->
-          Map.get(params, "room-id")
-
-        Map.has_key?(params, "value") ->
-          # Value might be a nested map or a string
-          value = Map.get(params, "value")
-
-          cond do
-            is_map(value) -> Map.get(value, "room-id") || Map.get(value, "value")
-            is_binary(value) -> value
-            true -> nil
-          end
-
-        true ->
-          nil
+        Map.has_key?(params, "room_id") -> Map.get(params, "room_id")
+        Map.has_key?(params, "room-id") -> Map.get(params, "room-id")
+        Map.has_key?(params, "value") -> extract_room_id_from_value(params["value"])
+        true -> nil
       end
 
-    room_id = if room_id_str && room_id_str != "", do: room_id_str, else: nil
+    if room_id_str && room_id_str != "", do: room_id_str, else: nil
+  end
 
-    # Check if this is a deselection attempt (clicking an already selected room)
+  defp extract_room_id_from_value(value) do
+    cond do
+      is_map(value) -> Map.get(value, "room-id") || Map.get(value, "value")
+      is_binary(value) -> value
+      true -> nil
+    end
+  end
+
+  defp should_allow_room_selection?(socket, room_id) do
+    is_deselection = is_room_deselection?(socket, room_id)
+    {availability, _reason} = get_room_availability(socket, room_id)
+
+    availability == :available || is_deselection
+  end
+
+  defp is_room_deselection?(socket, room_id) do
     current_selected_id = socket.assigns.selected_room_id
     current_selected_ids = socket.assigns.selected_room_ids || []
-    is_deselection = room_id == current_selected_id || room_id in current_selected_ids
 
-    # Check if room is available before allowing selection (but allow deselection)
+    room_id == current_selected_id || room_id in current_selected_ids
+  end
+
+  defp get_room_availability(socket, room_id) do
     room = Enum.find(socket.assigns.available_rooms || [], &(&1.id == room_id))
 
-    {availability, _reason} =
-      if room,
-        do: room.availability_status || {:available, nil},
-        else: {:unavailable, "Room not found"}
-
-    # Prevent selection of unavailable rooms, but allow deselection
-    if availability == :unavailable && !is_deselection do
-      {:noreply, socket}
+    if room do
+      room.availability_status || {:available, nil}
     else
-      # Determine if this is a checkbox toggle (family members) or radio selection
-      if can_select_multiple_rooms?(socket.assigns) do
-        # Checkbox: toggle the room in the selected list
-        current_ids = socket.assigns.selected_room_ids || []
-        room_id_to_toggle = room_id
-        guests_count = parse_guests_count(socket.assigns.guests_count) || 1
-
-        selected_room_ids =
-          if room_id_to_toggle in current_ids do
-            # Uncheck: remove from list
-            List.delete(current_ids, room_id_to_toggle)
-          else
-            # Check: add to list (but respect max limit and minimum guests requirement)
-            max_rooms = max_rooms_for_user(socket.assigns)
-
-            # Prevent selecting multiple rooms when only 1 person total (adults + children) is selected
-            children_count = parse_children_count(socket.assigns.children_count) || 0
-            total_people = guests_count + children_count
-
-            if total_people == 1 && current_ids != [] do
-              # Can't add a second room with only 1 person total
-              current_ids
-            else
-              if length(current_ids) < max_rooms do
-                [room_id_to_toggle | current_ids]
-              else
-                current_ids
-              end
-            end
-          end
-
-        socket =
-          socket
-          |> assign(
-            selected_room_ids: selected_room_ids,
-            selected_room_id:
-              if(length(selected_room_ids) == 1, do: List.first(selected_room_ids), else: nil),
-            calculated_price: nil,
-            price_error: nil
-          )
-          |> validate_guest_capacity()
-          |> update_available_rooms()
-          |> calculate_price_if_ready()
-
-        {:noreply, socket}
-      else
-        # Radio button: single selection
-        # Allow deselection by clicking the same room again
-        current_selected_id = socket.assigns.selected_room_id
-        new_selected_id = if room_id == current_selected_id, do: nil, else: room_id
-
-        socket =
-          socket
-          |> assign(
-            selected_room_id: new_selected_id,
-            selected_room_ids: if(new_selected_id, do: [new_selected_id], else: []),
-            calculated_price: nil,
-            price_error: nil
-          )
-          |> validate_guest_capacity()
-          |> update_available_rooms()
-          |> calculate_price_if_ready()
-
-        {:noreply, socket}
-      end
+      {:unavailable, "Room not found"}
     end
+  end
+
+  defp handle_room_selection(socket, room_id) do
+    if can_select_multiple_rooms?(socket.assigns) do
+      handle_multiple_room_selection(socket, room_id)
+    else
+      handle_single_room_selection(socket, room_id)
+    end
+  end
+
+  defp handle_multiple_room_selection(socket, room_id) do
+    current_ids = socket.assigns.selected_room_ids || []
+    selected_room_ids = toggle_room_in_list(socket, current_ids, room_id)
+
+    socket =
+      socket
+      |> assign(
+        selected_room_ids: selected_room_ids,
+        selected_room_id: get_single_selected_room_id(selected_room_ids),
+        calculated_price: nil,
+        price_error: nil
+      )
+      |> validate_guest_capacity()
+      |> update_available_rooms()
+      |> calculate_price_if_ready()
+
+    {:noreply, socket}
+  end
+
+  defp toggle_room_in_list(socket, current_ids, room_id) do
+    if room_id in current_ids do
+      List.delete(current_ids, room_id)
+    else
+      add_room_to_list_if_allowed(socket, current_ids, room_id)
+    end
+  end
+
+  defp add_room_to_list_if_allowed(socket, current_ids, room_id) do
+    if can_add_room_to_list?(socket, current_ids) do
+      [room_id | current_ids]
+    else
+      current_ids
+    end
+  end
+
+  defp can_add_room_to_list?(socket, current_ids) do
+    max_rooms = max_rooms_for_user(socket.assigns)
+    guests_count = parse_guests_count(socket.assigns.guests_count) || 1
+    children_count = parse_children_count(socket.assigns.children_count) || 0
+    total_people = guests_count + children_count
+
+    has_enough_people = total_people > 1 || current_ids == []
+    within_max_rooms = length(current_ids) < max_rooms
+
+    has_enough_people && within_max_rooms
+  end
+
+  defp handle_single_room_selection(socket, room_id) do
+    current_selected_id = socket.assigns.selected_room_id
+    new_selected_id = if room_id == current_selected_id, do: nil, else: room_id
+
+    socket =
+      socket
+      |> assign(
+        selected_room_id: new_selected_id,
+        selected_room_ids: if(new_selected_id, do: [new_selected_id], else: []),
+        calculated_price: nil,
+        price_error: nil
+      )
+      |> validate_guest_capacity()
+      |> update_available_rooms()
+      |> calculate_price_if_ready()
+
+    {:noreply, socket}
+  end
+
+  defp get_single_selected_room_id(selected_room_ids) do
+    if length(selected_room_ids) == 1, do: List.first(selected_room_ids), else: nil
   end
 
   def handle_event("remove-room", %{"room-id" => room_id}, socket) do
@@ -4375,291 +4394,388 @@ defmodule YscWeb.TahoeBookingLive do
   defp parse_integer(_), do: nil
 
   defp update_available_rooms(socket) do
-    if socket.assigns.checkin_date && socket.assigns.checkout_date &&
-         socket.assigns.selected_booking_mode == :room do
-      Logger.info(
-        "[TahoeBookingLive] update_available_rooms called. " <>
-          "Check-in: #{socket.assigns.checkin_date}, " <>
-          "Check-out: #{socket.assigns.checkout_date}, " <>
-          "Property: #{socket.assigns.property}"
-      )
+    if should_update_available_rooms?(socket) do
+      log_update_available_rooms_start(socket)
 
-      # Ensure valid guest/children counts for filtering
-      # Get values from assigns with fallback, then parse to ensure valid integers
-      raw_guests = Map.get(socket.assigns, :guests_count, 1)
-      raw_children = Map.get(socket.assigns, :children_count, 0)
-
-      # Parse and validate - these functions always return valid integers
-      guests_count = parse_guests_count(raw_guests)
-      children_count = parse_children_count(raw_children)
-
-      Logger.info(
-        "[TahoeBookingLive] Guest counts - Raw: guests=#{inspect(raw_guests)}, children=#{inspect(raw_children)}. " <>
-          "Parsed: guests=#{guests_count}, children=#{children_count}"
-      )
-
-      # Final safety check - ensure we have valid integers before using
-      guests_count =
-        if is_integer(guests_count) && guests_count > 0 do
-          guests_count
-        else
-          1
-        end
-
-      children_count =
-        if is_integer(children_count) && children_count >= 0 do
-          children_count
-        else
-          0
-        end
-
-      total_people = guests_count + children_count
-
-      # Get ALL rooms for the property, not just available ones
-      # Preload images for all rooms
-      all_rooms =
-        from(r in Room,
-          where: r.property == ^socket.assigns.property,
-          order_by: [asc: r.property, asc: r.name],
-          preload: [:room_category, :image]
-        )
-        |> Repo.all()
-
-      Logger.info(
-        "[TahoeBookingLive] Found #{length(all_rooms)} rooms for property #{socket.assigns.property}"
-      )
-
-      # Batch check availability for all rooms at once (much more efficient)
-      all_room_ids = Enum.map(all_rooms, & &1.id)
-
-      available_room_ids =
-        Bookings.batch_check_room_availability(
-          all_room_ids,
-          socket.assigns.property,
-          socket.assigns.checkin_date,
-          socket.assigns.checkout_date
-        )
-
-      # Check if user can select multiple rooms (family/lifetime members)
+      {guests_count, children_count, total_people} = parse_and_validate_guest_counts(socket)
+      all_rooms = fetch_all_rooms_for_property(socket.assigns.property)
+      available_room_ids = check_room_availability(all_rooms, socket)
       can_select_multiple = can_select_multiple_rooms?(socket.assigns)
-
-      # Calculate total capacity of already selected rooms
       selected_room_ids = socket.assigns.selected_room_ids || []
-
-      total_selected_capacity =
-        selected_room_ids
-        |> Enum.map(fn room_id ->
-          case Enum.find(all_rooms, &(&1.id == room_id)) do
-            nil -> 0
-            selected_room -> selected_room.capacity_max
-          end
-        end)
-        |> Enum.sum()
+      total_selected_capacity = calculate_total_selected_capacity(all_rooms, selected_room_ids)
 
       rooms_with_status =
         all_rooms
-        |> Enum.map(fn room ->
-          # Determine availability status and reason
-          is_available = MapSet.member?(available_room_ids, room.id)
-          is_active = room.is_active
-          room_already_selected = room.id in selected_room_ids
-
-          # Check capacity based on selection mode
-          capacity_ok =
-            if can_select_multiple do
-              # Multiple room selection: guests can be spread across multiple rooms
-              if room_already_selected do
-                # If room is already selected, allow it (user can unselect it)
-                true
-              else
-                # Room is not selected yet
-                if total_selected_capacity == 0 do
-                  # First room selection: allow any room (guests can be spread across multiple rooms)
-                  true
-                else
-                  # Subsequent room selection: check if adding it would satisfy total capacity
-                  # Total capacity after adding this room must be >= total_people
-                  total_selected_capacity + room.capacity_max >= total_people
-                end
-              end
-            else
-              # Single room selection: capacity must accommodate all guests
-              if total_people > 0, do: room.capacity_max >= total_people, else: true
-            end
-
-          # Check if trying to add second room with only 1 person total (adults + children)
-          guests_count = parse_guests_count(socket.assigns.guests_count) || 1
-          children_count = parse_children_count(socket.assigns.children_count) || 0
-          total_people = guests_count + children_count
-          only_one_person = total_people == 1
-
-          trying_to_add_second_room =
-            can_select_multiple && selected_room_ids != [] && not room_already_selected
-
-          # Check if user has already selected a room and can't select multiple
-          # This applies to both single membership users and family/lifetime members with existing bookings
-          cannot_select_another_room =
-            not can_select_multiple &&
-              selected_room_ids != [] &&
-              not room_already_selected
-
-          # Check if user has an existing booking (for better error message)
-          has_existing_booking =
-            if socket.assigns[:active_bookings] do
-              active_bookings = socket.assigns[:active_bookings] || []
-              count_rooms_in_active_bookings(active_bookings) > 0
-            else
-              false
-            end
-
-          # Determine membership type for error message
-          membership_type = socket.assigns[:membership_type] || :none
-
-          availability_status =
-            cond do
-              not is_active ->
-                {:unavailable, "Room is not active"}
-
-              not is_available ->
-                {:unavailable, "Already booked for selected dates"}
-
-              cannot_select_another_room ->
-                error_message =
-                  if has_existing_booking && membership_type in [:family, :lifetime] do
-                    "You already have a room reserved. You can only select one room for your second booking. Please deselect the current room to select a different one."
-                  else
-                    "Single membership allows only one room per booking. Please deselect the current room to select a different one."
-                  end
-
-                {:unavailable, error_message}
-
-              only_one_person && trying_to_add_second_room ->
-                {:unavailable,
-                 "Cannot book multiple rooms with only 1 person. Please select more guests to book additional rooms."}
-
-              not capacity_ok ->
-                if can_select_multiple do
-                  {:unavailable,
-                   "Adding this room would not provide enough total capacity. Selected rooms: #{total_selected_capacity} guests, need #{total_people} total. This room: #{room.capacity_max} guests."}
-                else
-                  {:unavailable,
-                   "Room capacity (#{room.capacity_max}) is less than number of guests (#{total_people})"}
-                end
-
-              true ->
-                {:available, nil}
-            end
-
-          Map.put(room, :availability_status, availability_status)
-        end)
-        |> then(fn rooms ->
-          # Batch load pricing rules for all rooms at once
-          # Get season once for all rooms
-          season =
-            if socket.assigns.checkin_date do
-              Season.find_season_for_date(socket.assigns.seasons, socket.assigns.checkin_date)
-            else
-              nil
-            end
-
-          season_id = if season, do: season.id, else: nil
-
-          # Pre-fetch pricing rules for all rooms and categories
-          # This avoids N+1 queries by using the cache efficiently
-          # The cache will handle batching internally
-          Enum.map(rooms, fn room ->
-            # Get adult price per person per night
-            # Try room-specific pricing first, then fall back to category pricing
-            pricing_rule =
-              PricingRule.find_most_specific(
-                socket.assigns.property,
-                season_id,
-                room.id,
-                nil,
-                :room,
-                :per_person_per_night
-              ) ||
-                PricingRule.find_most_specific(
-                  socket.assigns.property,
-                  season_id,
-                  nil,
-                  room.room_category_id,
-                  :room,
-                  :per_person_per_night
-                )
-
-            adult_price =
-              if pricing_rule && pricing_rule.amount do
-                pricing_rule.amount
-              else
-                # Fallback to property-level default pricing rule
-                get_default_adult_price(socket.assigns.property, season_id)
-              end
-
-            # Look up children pricing using same hierarchy
-            children_pricing_rule =
-              PricingRule.find_children_pricing_rule(
-                socket.assigns.property,
-                season_id,
-                room.id,
-                nil,
-                :room,
-                :per_person_per_night
-              ) ||
-                PricingRule.find_children_pricing_rule(
-                  socket.assigns.property,
-                  season_id,
-                  nil,
-                  room.room_category_id,
-                  :room,
-                  :per_person_per_night
-                ) ||
-                PricingRule.find_children_pricing_rule(
-                  socket.assigns.property,
-                  season_id,
-                  nil,
-                  nil,
-                  :room,
-                  :per_person_per_night
-                )
-
-            children_price =
-              if children_pricing_rule && children_pricing_rule.children_amount do
-                children_pricing_rule.children_amount
-              else
-                # Fallback to property-level default children pricing rule
-                get_default_children_price(socket.assigns.property, season_id)
-              end
-
-            {room, adult_price, children_price}
-          end)
-        end)
-        |> Enum.map(fn {room, adult_price, children_price} ->
-          # Calculate minimum price if room has min_billable_occupancy > 1
-          min_occupancy = room.min_billable_occupancy || 1
-
-          minimum_price =
-            if min_occupancy > 1 do
-              # Calculate minimum price: adult_price * min_occupancy
-              case Money.mult(adult_price, min_occupancy) do
-                {:ok, total} -> total
-                {:error, _} -> adult_price
-              end
-            else
-              nil
-            end
-
-          room
-          |> Map.put(:adult_price_per_night, adult_price)
-          |> Map.put(:children_price_per_night, children_price)
-          |> Map.put(:minimum_price, minimum_price)
-          |> Map.put(:min_billable_occupancy, min_occupancy)
-        end)
+        |> determine_room_availability_status(
+          available_room_ids,
+          selected_room_ids,
+          can_select_multiple,
+          total_selected_capacity,
+          total_people,
+          socket
+        )
+        |> enrich_rooms_with_pricing(socket)
+        |> calculate_minimum_prices()
 
       assign(socket, available_rooms: rooms_with_status)
     else
       assign(socket, available_rooms: [])
     end
+  end
+
+  defp should_update_available_rooms?(socket) do
+    socket.assigns.checkin_date && socket.assigns.checkout_date &&
+      socket.assigns.selected_booking_mode == :room
+  end
+
+  defp log_update_available_rooms_start(socket) do
+    Logger.info(
+      "[TahoeBookingLive] update_available_rooms called. " <>
+        "Check-in: #{socket.assigns.checkin_date}, " <>
+        "Check-out: #{socket.assigns.checkout_date}, " <>
+        "Property: #{socket.assigns.property}"
+    )
+  end
+
+  defp parse_and_validate_guest_counts(socket) do
+    raw_guests = Map.get(socket.assigns, :guests_count, 1)
+    raw_children = Map.get(socket.assigns, :children_count, 0)
+
+    guests_count = parse_guests_count(raw_guests)
+    children_count = parse_children_count(raw_children)
+
+    Logger.info(
+      "[TahoeBookingLive] Guest counts - Raw: guests=#{inspect(raw_guests)}, children=#{inspect(raw_children)}. " <>
+        "Parsed: guests=#{guests_count}, children=#{children_count}"
+    )
+
+    validated_guests = if is_integer(guests_count) && guests_count > 0, do: guests_count, else: 1
+
+    validated_children =
+      if is_integer(children_count) && children_count >= 0, do: children_count, else: 0
+
+    total_people = validated_guests + validated_children
+
+    {validated_guests, validated_children, total_people}
+  end
+
+  defp fetch_all_rooms_for_property(property) do
+    rooms =
+      from(r in Room,
+        where: r.property == ^property,
+        order_by: [asc: r.property, asc: r.name],
+        preload: [:room_category, :image]
+      )
+      |> Repo.all()
+
+    Logger.info("[TahoeBookingLive] Found #{length(rooms)} rooms for property #{property}")
+
+    rooms
+  end
+
+  defp check_room_availability(all_rooms, socket) do
+    all_room_ids = Enum.map(all_rooms, & &1.id)
+
+    Bookings.batch_check_room_availability(
+      all_room_ids,
+      socket.assigns.property,
+      socket.assigns.checkin_date,
+      socket.assigns.checkout_date
+    )
+  end
+
+  defp calculate_total_selected_capacity(all_rooms, selected_room_ids) do
+    selected_room_ids
+    |> Enum.map(fn room_id ->
+      case Enum.find(all_rooms, &(&1.id == room_id)) do
+        nil -> 0
+        selected_room -> selected_room.capacity_max
+      end
+    end)
+    |> Enum.sum()
+  end
+
+  defp determine_room_availability_status(
+         rooms,
+         available_room_ids,
+         selected_room_ids,
+         can_select_multiple,
+         total_selected_capacity,
+         total_people,
+         socket
+       ) do
+    Enum.map(rooms, fn room ->
+      availability_status =
+        calculate_room_availability_status(
+          room,
+          available_room_ids,
+          selected_room_ids,
+          can_select_multiple,
+          total_selected_capacity,
+          total_people,
+          socket
+        )
+
+      Map.put(room, :availability_status, availability_status)
+    end)
+  end
+
+  defp calculate_room_availability_status(
+         room,
+         available_room_ids,
+         selected_room_ids,
+         can_select_multiple,
+         total_selected_capacity,
+         total_people,
+         socket
+       ) do
+    is_available = MapSet.member?(available_room_ids, room.id)
+    is_active = room.is_active
+    room_already_selected = room.id in selected_room_ids
+
+    capacity_ok =
+      check_room_capacity(
+        room,
+        can_select_multiple,
+        room_already_selected,
+        total_selected_capacity,
+        total_people
+      )
+
+    {guests_count, children_count, total_people} = parse_and_validate_guest_counts(socket)
+    only_one_person = total_people == 1
+
+    trying_to_add_second_room =
+      can_select_multiple && selected_room_ids != [] && not room_already_selected
+
+    cannot_select_another_room =
+      not can_select_multiple && selected_room_ids != [] && not room_already_selected
+
+    has_existing_booking = check_has_existing_booking(socket)
+    membership_type = socket.assigns[:membership_type] || :none
+
+    determine_availability_status(
+      is_active,
+      is_available,
+      cannot_select_another_room,
+      has_existing_booking,
+      membership_type,
+      only_one_person,
+      trying_to_add_second_room,
+      capacity_ok,
+      can_select_multiple,
+      room,
+      total_selected_capacity,
+      total_people
+    )
+  end
+
+  defp check_room_capacity(
+         room,
+         can_select_multiple,
+         room_already_selected,
+         total_selected_capacity,
+         total_people
+       ) do
+    if can_select_multiple do
+      check_multiple_room_capacity(
+        room,
+        room_already_selected,
+        total_selected_capacity,
+        total_people
+      )
+    else
+      check_single_room_capacity(room, total_people)
+    end
+  end
+
+  defp check_multiple_room_capacity(
+         room,
+         room_already_selected,
+         total_selected_capacity,
+         total_people
+       ) do
+    if room_already_selected do
+      true
+    else
+      if total_selected_capacity == 0 do
+        true
+      else
+        total_selected_capacity + room.capacity_max >= total_people
+      end
+    end
+  end
+
+  defp check_single_room_capacity(room, total_people) do
+    if total_people > 0, do: room.capacity_max >= total_people, else: true
+  end
+
+  defp check_has_existing_booking(socket) do
+    if socket.assigns[:active_bookings] do
+      active_bookings = socket.assigns[:active_bookings] || []
+      count_rooms_in_active_bookings(active_bookings) > 0
+    else
+      false
+    end
+  end
+
+  defp determine_availability_status(
+         is_active,
+         is_available,
+         cannot_select_another_room,
+         has_existing_booking,
+         membership_type,
+         only_one_person,
+         trying_to_add_second_room,
+         capacity_ok,
+         can_select_multiple,
+         room,
+         total_selected_capacity,
+         total_people
+       ) do
+    cond do
+      not is_active ->
+        {:unavailable, "Room is not active"}
+
+      not is_available ->
+        {:unavailable, "Already booked for selected dates"}
+
+      cannot_select_another_room ->
+        build_cannot_select_another_room_error(has_existing_booking, membership_type)
+
+      only_one_person && trying_to_add_second_room ->
+        {:unavailable,
+         "Cannot book multiple rooms with only 1 person. Please select more guests to book additional rooms."}
+
+      not capacity_ok ->
+        build_capacity_error(can_select_multiple, total_selected_capacity, total_people, room)
+
+      true ->
+        {:available, nil}
+    end
+  end
+
+  defp build_cannot_select_another_room_error(has_existing_booking, membership_type) do
+    error_message =
+      if has_existing_booking && membership_type in [:family, :lifetime] do
+        "You already have a room reserved. You can only select one room for your second booking. Please deselect the current room to select a different one."
+      else
+        "Single membership allows only one room per booking. Please deselect the current room to select a different one."
+      end
+
+    {:unavailable, error_message}
+  end
+
+  defp build_capacity_error(can_select_multiple, total_selected_capacity, total_people, room) do
+    if can_select_multiple do
+      {:unavailable,
+       "Adding this room would not provide enough total capacity. Selected rooms: #{total_selected_capacity} guests, need #{total_people} total. This room: #{room.capacity_max} guests."}
+    else
+      {:unavailable,
+       "Room capacity (#{room.capacity_max}) is less than number of guests (#{total_people})"}
+    end
+  end
+
+  defp enrich_rooms_with_pricing(rooms, socket) do
+    season_id = get_season_id(socket)
+
+    Enum.map(rooms, fn room ->
+      adult_price = get_adult_price_for_room(socket.assigns.property, season_id, room)
+      children_price = get_children_price_for_room(socket.assigns.property, season_id, room)
+
+      {room, adult_price, children_price}
+    end)
+  end
+
+  defp get_season_id(socket) do
+    if socket.assigns.checkin_date do
+      season = Season.find_season_for_date(socket.assigns.seasons, socket.assigns.checkin_date)
+      if season, do: season.id, else: nil
+    else
+      nil
+    end
+  end
+
+  defp get_adult_price_for_room(property, season_id, room) do
+    pricing_rule =
+      PricingRule.find_most_specific(
+        property,
+        season_id,
+        room.id,
+        nil,
+        :room,
+        :per_person_per_night
+      ) ||
+        PricingRule.find_most_specific(
+          property,
+          season_id,
+          nil,
+          room.room_category_id,
+          :room,
+          :per_person_per_night
+        )
+
+    if pricing_rule && pricing_rule.amount do
+      pricing_rule.amount
+    else
+      get_default_adult_price(property, season_id)
+    end
+  end
+
+  defp get_children_price_for_room(property, season_id, room) do
+    children_pricing_rule =
+      PricingRule.find_children_pricing_rule(
+        property,
+        season_id,
+        room.id,
+        nil,
+        :room,
+        :per_person_per_night
+      ) ||
+        PricingRule.find_children_pricing_rule(
+          property,
+          season_id,
+          nil,
+          room.room_category_id,
+          :room,
+          :per_person_per_night
+        ) ||
+        PricingRule.find_children_pricing_rule(
+          property,
+          season_id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
+
+    if children_pricing_rule && children_pricing_rule.children_amount do
+      children_pricing_rule.children_amount
+    else
+      get_default_children_price(property, season_id)
+    end
+  end
+
+  defp calculate_minimum_prices(rooms_with_pricing) do
+    Enum.map(rooms_with_pricing, fn {room, adult_price, children_price} ->
+      min_occupancy = room.min_billable_occupancy || 1
+
+      minimum_price =
+        if min_occupancy > 1 do
+          case Money.mult(adult_price, min_occupancy) do
+            {:ok, total} -> total
+            {:error, _} -> adult_price
+          end
+        else
+          nil
+        end
+
+      room
+      |> Map.put(:adult_price_per_night, adult_price)
+      |> Map.put(:children_price_per_night, children_price)
+      |> Map.put(:minimum_price, minimum_price)
+      |> Map.put(:min_billable_occupancy, min_occupancy)
+    end)
   end
 
   defp calculate_price_if_ready(socket) do
@@ -4708,22 +4824,33 @@ defmodule YscWeb.TahoeBookingLive do
          form_errors,
          date_validation_errors
        ) do
-    has_rooms? =
-      case room_ids_or_id do
-        room_id when is_binary(room_id) -> not is_nil(room_id)
-        room_ids when is_list(room_ids) -> room_ids != []
-        _ -> false
-      end
+    dates_present? = checkin_date && checkout_date
+    rooms_selected? = has_rooms_selected?(room_ids_or_id)
+    booking_mode_valid? = is_booking_mode_valid?(booking_mode, rooms_selected?)
 
-    has_errors? =
-      (capacity_error && capacity_error != "") ||
-        (price_error && price_error != "") ||
-        (form_errors && map_size(form_errors) > 0) ||
-        (date_validation_errors && map_size(date_validation_errors) > 0)
+    no_errors? =
+      !has_any_errors?(capacity_error, price_error, form_errors, date_validation_errors)
 
-    checkin_date && checkout_date &&
-      (booking_mode == :buyout || (booking_mode == :room && has_rooms?)) &&
-      !has_errors?
+    dates_present? && booking_mode_valid? && no_errors?
+  end
+
+  defp has_rooms_selected?(room_ids_or_id) do
+    case room_ids_or_id do
+      room_id when is_binary(room_id) -> not is_nil(room_id)
+      room_ids when is_list(room_ids) -> room_ids != []
+      _ -> false
+    end
+  end
+
+  defp is_booking_mode_valid?(booking_mode, rooms_selected?) do
+    booking_mode == :buyout || (booking_mode == :room && rooms_selected?)
+  end
+
+  defp has_any_errors?(capacity_error, price_error, form_errors, date_validation_errors) do
+    (capacity_error && capacity_error != "") ||
+      (price_error && price_error != "") ||
+      (form_errors && map_size(form_errors) > 0) ||
+      (date_validation_errors && map_size(date_validation_errors) > 0)
   end
 
   defp validate_and_create_booking(socket) do
@@ -5431,102 +5558,122 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   defp check_booking_eligibility(user, active_bookings, _redirect_to) do
-    # Check if user account is approved
     if user.state != :active do
+      membership_pending_approval_error()
+    else
+      check_eligibility_with_active_membership(user, active_bookings)
+    end
+  end
+
+  defp membership_pending_approval_error do
+    {
+      false,
+      "Membership Pending Approval",
+      "Your membership application is pending approval. You will be able to make bookings once your application has been approved."
+    }
+  end
+
+  defp check_eligibility_with_active_membership(user, active_bookings) do
+    user_with_subs = ensure_user_with_subscriptions(user)
+
+    if Accounts.has_active_membership?(user_with_subs) do
+      check_booking_limits(user, user_with_subs, active_bookings)
+    else
+      membership_required_error()
+    end
+  end
+
+  defp ensure_user_with_subscriptions(user) do
+    case user.subscriptions do
+      %Ecto.Association.NotLoaded{} ->
+        Accounts.get_user!(user.id)
+        |> Ysc.Repo.preload(:subscriptions)
+
+      _ ->
+        user
+    end
+  end
+
+  defp membership_required_error do
+    {
+      false,
+      "Membership Required",
+      "You need an active membership to make bookings. Please activate or renew your membership to continue."
+    }
+  end
+
+  defp check_booking_limits(user, user_with_subs, active_bookings) do
+    active_bookings_list = active_bookings || get_family_group_active_bookings(user)
+    membership_type = get_membership_type(user_with_subs)
+
+    if membership_type in [:family, :lifetime] do
+      check_family_lifetime_booking_limits(user_with_subs, active_bookings_list, membership_type)
+    else
+      check_single_membership_booking_limits(user, active_bookings_list)
+    end
+  end
+
+  defp check_family_lifetime_booking_limits(
+         _user_with_subs,
+         active_bookings_list,
+         membership_type
+       ) do
+    total_rooms = count_rooms_in_active_bookings(active_bookings_list)
+
+    if total_rooms >= 2 do
+      check_family_max_rooms_reached(active_bookings_list, membership_type)
+    else
+      {true, nil, nil}
+    end
+  end
+
+  defp check_family_max_rooms_reached(active_bookings_list, membership_type) do
+    latest_checkout_date = get_latest_checkout_date(active_bookings_list)
+
+    if latest_checkout_date && is_booking_still_active?(latest_checkout_date) do
+      formatted_date = format_date(latest_checkout_date)
+
       {
         false,
-        "Membership Pending Approval",
-        "Your membership application is pending approval. You will be able to make bookings once your application has been approved."
+        "Maximum rooms reached",
+        "Your family group has reached the maximum of 2 rooms for your #{String.capitalize("#{membership_type}")} membership. You can make a new reservation once the current stay is complete (after #{formatted_date}) or if the existing booking is cancelled."
       }
     else
-      # Check if user has active membership
-      user_with_subs =
-        case user.subscriptions do
-          %Ecto.Association.NotLoaded{} ->
-            Accounts.get_user!(user.id)
-            |> Ysc.Repo.preload(:subscriptions)
+      {true, nil, nil}
+    end
+  end
 
-          _ ->
-            user
-        end
+  defp is_booking_still_active?(checkout_date) do
+    today = Date.utc_today()
 
-      if Accounts.has_active_membership?(user_with_subs) do
-        # Check if any family member has an active booking (use provided active_bookings if available)
-        active_bookings_list = active_bookings || get_family_group_active_bookings(user)
+    Date.compare(checkout_date, today) == :gt or
+      (Date.compare(checkout_date, today) == :eq and not past_checkout_time?())
+  end
 
-        # Get membership type to check if user can have multiple bookings
-        membership_type = get_membership_type(user_with_subs)
+  defp check_single_membership_booking_limits(user, active_bookings_list) do
+    case get_active_booking_from_family_group(user, active_bookings_list) do
+      nil ->
+        {true, nil, nil}
 
-        # For family/lifetime members, check room count instead of just booking existence
-        # Check across entire family group
-        if membership_type in [:family, :lifetime] do
-          # Count total rooms in active bookings across family group
-          total_rooms = count_rooms_in_active_bookings(active_bookings_list)
+      active_booking ->
+        check_single_booking_active_status(user, active_booking)
+    end
+  end
 
-          if total_rooms >= 2 do
-            # Family group has 2 rooms already, check if any booking is still active
-            # Get the latest checkout date from all active bookings
-            latest_checkout_date = get_latest_checkout_date(active_bookings_list)
+  defp check_single_booking_active_status(user, active_booking) do
+    checkout_date = active_booking.checkout_date
 
-            if latest_checkout_date do
-              today = Date.utc_today()
+    if is_booking_still_active?(checkout_date) do
+      formatted_date = format_date(checkout_date)
+      booking_owner = if active_booking.user_id == user.id, do: "you", else: "a family member"
 
-              # Check if booking is still active
-              if Date.compare(latest_checkout_date, today) == :gt or
-                   (Date.compare(latest_checkout_date, today) == :eq and not past_checkout_time?()) do
-                formatted_date = format_date(latest_checkout_date)
-
-                {
-                  false,
-                  "Maximum rooms reached",
-                  "Your family group has reached the maximum of 2 rooms for your #{String.capitalize("#{membership_type}")} membership. You can make a new reservation once the current stay is complete (after #{formatted_date}) or if the existing booking is cancelled."
-                }
-              else
-                {true, nil, nil}
-              end
-            else
-              {true, nil, nil}
-            end
-          else
-            # Family group has less than 2 rooms, allow booking (validation will ensure dates overlap)
-            {true, nil, nil}
-          end
-        else
-          # Single membership: only one booking at a time (check entire family group)
-          case get_active_booking_from_family_group(user, active_bookings_list) do
-            nil ->
-              {true, nil, nil}
-
-            active_booking ->
-              checkout_date = active_booking.checkout_date
-              today = Date.utc_today()
-
-              # Check if booking is still active (checkout date is in the future, or today but checkout time hasn't passed)
-              if Date.compare(checkout_date, today) == :gt or
-                   (Date.compare(checkout_date, today) == :eq and not past_checkout_time?()) do
-                formatted_date = format_date(checkout_date)
-
-                # Determine who has the booking for better error message
-                booking_owner =
-                  if active_booking.user_id == user.id, do: "you", else: "a family member"
-
-                {
-                  false,
-                  "Looks like #{booking_owner} already have a booking!",
-                  "You can make a new reservation once the current stay is complete (after #{formatted_date}) or if the existing booking is cancelled."
-                }
-              else
-                {true, nil, nil}
-              end
-          end
-        end
-      else
-        {
-          false,
-          "Membership Required",
-          "You need an active membership to make bookings. Please activate or renew your membership to continue."
-        }
-      end
+      {
+        false,
+        "Looks like #{booking_owner} already have a booking!",
+        "You can make a new reservation once the current stay is complete (after #{formatted_date}) or if the existing booking is cancelled."
+      }
+    else
+      {true, nil, nil}
     end
   end
 

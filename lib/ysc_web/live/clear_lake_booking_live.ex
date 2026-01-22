@@ -3092,7 +3092,7 @@ defmodule YscWeb.ClearLakeBookingLive do
               if day_availability.spots_available < guests_count, do: date, else: nil
             else
               # For buyout, check if buyout is possible
-              if not day_availability.can_book_buyout, do: date, else: nil
+              if day_availability.can_book_buyout, do: nil, else: date
             end
           end
         else
@@ -3137,75 +3137,125 @@ defmodule YscWeb.ClearLakeBookingLive do
          guests_count,
          current_season
        ) do
-    # First, check if booking mode is allowed for the selected dates
     {day_booking_allowed, buyout_booking_allowed} =
       allowed_booking_modes(socket.assigns.property, checkin_date, checkout_date, current_season)
 
-    # Validate and normalize guest count (ensure it's within limits)
-    guests_count = if guests_count, do: min(max(guests_count, 1), @max_guests), else: 1
+    validated_guests_count = normalize_guests_count(guests_count)
+    validated_booking_mode = normalize_booking_mode(booking_mode)
 
-    # Validate booking mode is valid
-    booking_mode = if booking_mode in [:day, :buyout], do: booking_mode, else: :day
+    {validated_checkin_date, validated_checkout_date} =
+      normalize_dates(checkin_date, checkout_date, socket.assigns.today)
 
-    # Validate dates are in correct order and not in the past
-    {checkin_date, checkout_date} =
-      if checkin_date && checkout_date do
-        today = socket.assigns.today || Date.utc_today()
-
-        # Ensure checkin_date is not in the past
-        checkin_date = if Date.compare(checkin_date, today) == :lt, do: today, else: checkin_date
-
-        # Ensure checkout_date is after checkin_date
-        checkout_date =
-          if Date.compare(checkout_date, checkin_date) != :gt do
-            Date.add(checkin_date, 1)
-          else
-            checkout_date
-          end
-
-        {checkin_date, checkout_date}
-      else
-        {checkin_date, checkout_date}
-      end
-
-    # If booking mode is not allowed for the selected dates, set an error
     booking_mode_error =
-      cond do
-        booking_mode == :day && !day_booking_allowed ->
-          "A La Carte bookings are not available for the selected dates based on season settings."
+      check_booking_mode_allowed(
+        validated_booking_mode,
+        day_booking_allowed,
+        buyout_booking_allowed
+      )
 
-        booking_mode == :buyout && !buyout_booking_allowed ->
-          "Full Buyout bookings are not available for the selected dates based on season settings."
-
-        true ->
-          nil
-      end
-
-    # Validate availability for the selected booking mode and dates
     availability_error =
-      if checkin_date && checkout_date && is_nil(booking_mode_error) do
-        validate_date_range_for_booking_mode(
-          checkin_date,
-          checkout_date,
-          booking_mode,
-          guests_count,
-          socket.assigns
-        )
-      else
-        nil
-      end
+      check_availability_error(
+        validated_checkin_date,
+        validated_checkout_date,
+        booking_mode_error,
+        validated_booking_mode,
+        validated_guests_count,
+        socket.assigns
+      )
 
-    # Combine errors (booking mode error takes precedence)
     final_error = booking_mode_error || availability_error
 
-    # Update socket with validated values and errors
+    update_socket_with_validation(
+      socket,
+      validated_checkin_date,
+      validated_checkout_date,
+      validated_guests_count,
+      validated_booking_mode,
+      final_error,
+      day_booking_allowed,
+      buyout_booking_allowed
+    )
+  end
+
+  defp normalize_guests_count(guests_count) do
+    if guests_count, do: min(max(guests_count, 1), @max_guests), else: 1
+  end
+
+  defp normalize_booking_mode(booking_mode) do
+    if booking_mode in [:day, :buyout], do: booking_mode, else: :day
+  end
+
+  defp normalize_dates(checkin_date, checkout_date, today_assign) do
+    if checkin_date && checkout_date do
+      today = today_assign || Date.utc_today()
+
+      validated_checkin_date =
+        if Date.compare(checkin_date, today) == :lt, do: today, else: checkin_date
+
+      validated_checkout_date =
+        if Date.compare(checkout_date, validated_checkin_date) != :gt do
+          Date.add(validated_checkin_date, 1)
+        else
+          checkout_date
+        end
+
+      {validated_checkin_date, validated_checkout_date}
+    else
+      {checkin_date, checkout_date}
+    end
+  end
+
+  defp check_booking_mode_allowed(booking_mode, day_booking_allowed, buyout_booking_allowed) do
+    cond do
+      booking_mode == :day && !day_booking_allowed ->
+        "A La Carte bookings are not available for the selected dates based on season settings."
+
+      booking_mode == :buyout && !buyout_booking_allowed ->
+        "Full Buyout bookings are not available for the selected dates based on season settings."
+
+      true ->
+        nil
+    end
+  end
+
+  defp check_availability_error(
+         checkin_date,
+         checkout_date,
+         booking_mode_error,
+         booking_mode,
+         guests_count,
+         assigns
+       ) do
+    if checkin_date && checkout_date && is_nil(booking_mode_error) do
+      validate_date_range_for_booking_mode(
+        checkin_date,
+        checkout_date,
+        booking_mode,
+        guests_count,
+        assigns
+      )
+    else
+      nil
+    end
+  end
+
+  defp update_socket_with_validation(
+         socket,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         booking_mode,
+         availability_error,
+         day_booking_allowed,
+         buyout_booking_allowed
+       ) do
     socket
     |> assign(
       checkin_date: checkin_date,
       checkout_date: checkout_date,
       guests_count: guests_count,
       selected_booking_mode: booking_mode,
-      availability_error: final_error,
+      availability_error: availability_error,
       day_booking_allowed: day_booking_allowed,
       buyout_booking_allowed: buyout_booking_allowed
     )

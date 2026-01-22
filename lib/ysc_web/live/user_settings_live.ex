@@ -3969,7 +3969,13 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   defp render_payment_status_badge(payment_info) do
-    if not is_nil(payment_info.payment) do
+    if is_nil(payment_info.payment) do
+      assigns = %{}
+
+      ~H"""
+      <.badge type="green" class="text-xs">Completed</.badge>
+      """
+    else
       assigns = %{payment: payment_info.payment}
 
       ~H"""
@@ -3984,12 +3990,6 @@ defmodule YscWeb.UserSettingsLive do
           <% end %>
         <% end %>
       <% end %>
-      """
-    else
-      assigns = %{}
-
-      ~H"""
-      <.badge type="green" class="text-xs">Completed</.badge>
       """
     end
   end

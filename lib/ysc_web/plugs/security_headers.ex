@@ -188,54 +188,17 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     base_url = S3Config.base_url()
     sources = []
 
-    # Add the base URL if it's set
     sources =
       if base_url && base_url != "" do
-        # Extract the hostname from the URL
-        case URI.parse(base_url) do
-          %URI{scheme: scheme, host: host, port: port} when not is_nil(host) ->
-            # Build the source string
-            source =
-              case {scheme, port} do
-                {"http", 4566} ->
-                  # Localstack dev: http://media.s3.localhost.localstack.cloud:4566
-                  "#{scheme}://#{host}:#{port}"
-
-                {"https", nil} ->
-                  # Production Tigris: https://*.fly.storage.tigris.dev
-                  if String.contains?(host, "tigris.dev") do
-                    # Allow all Tigris subdomains for different buckets
-                    "https://*.fly.storage.tigris.dev"
-                  else
-                    "#{scheme}://#{host}"
-                  end
-
-                {scheme, nil} when scheme in ["http", "https"] ->
-                  "#{scheme}://#{host}"
-
-                {scheme, port} when scheme in ["http", "https"] and not is_nil(port) ->
-                  "#{scheme}://#{host}:#{port}"
-
-                _ ->
-                  nil
-              end
-
-            if source, do: [source | sources], else: sources
-
-          _ ->
-            sources
-        end
+        add_base_url_source(sources, base_url)
       else
         sources
       end
 
-    # Always allow Tigris production domains (wildcard for all buckets)
-    # This covers all bucket subdomains like ysc-sandbox-media.fly.storage.tigris.dev
     sources =
       ["https://*.fly.storage.tigris.dev" | sources]
       |> Enum.uniq()
 
-    # Also allow HTTP for local development (localstack with specific port)
     sources =
       if Application.get_env(:ysc, YscWeb.Endpoint)[:code_reloader] == true do
         ["http://*.localhost.localstack.cloud:4566" | sources]
@@ -246,61 +209,57 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     Enum.uniq(sources)
   end
 
+  defp add_base_url_source(sources, base_url) do
+    case URI.parse(base_url) do
+      %URI{scheme: scheme, host: host, port: port} when not is_nil(host) ->
+        source = build_source_from_uri(scheme, host, port)
+
+        if source, do: [source | sources], else: sources
+
+      _ ->
+        sources
+    end
+  end
+
+  defp build_source_from_uri("http", host, 4566) do
+    "http://#{host}:#{4566}"
+  end
+
+  defp build_source_from_uri("https", host, nil) do
+    if String.contains?(host, "tigris.dev") do
+      "https://*.fly.storage.tigris.dev"
+    else
+      "https://#{host}"
+    end
+  end
+
+  defp build_source_from_uri(scheme, host, nil) when scheme in ["http", "https"] do
+    "#{scheme}://#{host}"
+  end
+
+  defp build_source_from_uri(scheme, host, port)
+       when scheme in ["http", "https"] and not is_nil(port) do
+    "#{scheme}://#{host}:#{port}"
+  end
+
+  defp build_source_from_uri(_, _, _), do: nil
+
   # Get S3 storage URLs that should be allowed for images
   defp get_s3_image_sources do
     base_url = S3Config.base_url()
     sources = []
 
-    # Add the base URL if it's set
     sources =
       if base_url && base_url != "" do
-        # Extract the hostname from the URL
-        case URI.parse(base_url) do
-          %URI{scheme: scheme, host: host, port: port} when not is_nil(host) ->
-            # Build the source string
-            source =
-              case {scheme, port} do
-                {"http", 4566} ->
-                  # Localstack dev: http://media.s3.localhost.localstack.cloud:4566
-                  # CSP doesn't support port wildcards, so we need to specify the exact port
-                  "#{scheme}://#{host}:#{port}"
-
-                {"https", nil} ->
-                  # Production Tigris: https://*.fly.storage.tigris.dev
-                  if String.contains?(host, "tigris.dev") do
-                    # Allow all Tigris subdomains for different buckets
-                    "https://*.fly.storage.tigris.dev"
-                  else
-                    "#{scheme}://#{host}"
-                  end
-
-                {scheme, nil} when scheme in ["http", "https"] ->
-                  "#{scheme}://#{host}"
-
-                {scheme, port} when scheme in ["http", "https"] and not is_nil(port) ->
-                  "#{scheme}://#{host}:#{port}"
-
-                _ ->
-                  nil
-              end
-
-            if source, do: [source | sources], else: sources
-
-          _ ->
-            sources
-        end
+        add_base_url_source(sources, base_url)
       else
         sources
       end
 
-    # Always allow Tigris production domains (wildcard for all buckets)
-    # This covers all bucket subdomains like ysc-sandbox-media.fly.storage.tigris.dev
     sources =
       ["https://*.fly.storage.tigris.dev" | sources]
       |> Enum.uniq()
 
-    # Also allow HTTP for local development (localstack with specific port)
-    # CSP doesn't support port wildcards, so we specify the exact port
     sources =
       if Application.get_env(:ysc, YscWeb.Endpoint)[:code_reloader] == true do
         ["http://*.localhost.localstack.cloud:4566" | sources]

@@ -1902,102 +1902,14 @@ defmodule YscWeb.BookingCheckoutLive do
            children_count
          ) do
       {:ok, total, breakdown} when is_map(breakdown) ->
-        # Extract all pricing details from breakdown for detailed display
-        base_total = breakdown[:base]
-        children_total = breakdown[:children]
-        billable_people = breakdown[:billable_people] || guests_count
-        adult_price_per_night = breakdown[:adult_price_per_night]
-        children_price_per_night = breakdown[:children_price_per_night]
-
-        # Calculate per-night rates if not already provided
-        base_per_night =
-          if base_total && nights > 0 do
-            case Money.div(base_total, nights) do
-              {:ok, per_night} -> per_night
-              _ -> adult_price_per_night
-            end
-          else
-            adult_price_per_night
-          end
-
-        children_per_night =
-          if children_total && nights > 0 && children_count > 0 do
-            # Calculate per-child-per-night price
-            case Money.div(children_total, children_count * nights) do
-              {:ok, per_night} -> per_night
-              _ -> children_price_per_night
-            end
-          else
-            children_price_per_night
-          end
-
-        # Return complete breakdown for detailed display
-        breakdown_map = %{
-          nights: nights,
-          guests_count: guests_count,
-          children_count: children_count,
-          billable_people: billable_people,
-          multi_room: true,
-          room_count: length(room_ids)
-        }
-
         breakdown_map =
-          if base_total do
-            Map.put(breakdown_map, :base, base_total)
-          else
-            breakdown_map
-          end
-
-        breakdown_map =
-          if children_total do
-            Map.put(breakdown_map, :children, children_total)
-          else
-            breakdown_map
-          end
-
-        breakdown_map =
-          if base_per_night do
-            Map.put(breakdown_map, :base_per_night, base_per_night)
-          else
-            breakdown_map
-          end
-
-        breakdown_map =
-          if adult_price_per_night do
-            Map.put(breakdown_map, :adult_price_per_night, adult_price_per_night)
-          else
-            breakdown_map
-          end
-
-        breakdown_map =
-          if children_per_night && Money.positive?(children_per_night) do
-            Map.put(breakdown_map, :children_per_night, children_per_night)
-          else
-            breakdown_map
-          end
+          build_multi_room_breakdown(breakdown, nights, guests_count, children_count, room_ids)
 
         {:ok, total, breakdown_map}
 
       {:ok, total, breakdown} ->
-        # Use breakdown if available, otherwise create a simple one
         final_breakdown =
-          if breakdown && is_map(breakdown) do
-            Map.merge(breakdown, %{
-              nights: nights,
-              guests_count: guests_count,
-              children_count: children_count,
-              multi_room: true,
-              room_count: length(room_ids)
-            })
-          else
-            %{
-              nights: nights,
-              guests_count: guests_count,
-              children_count: children_count,
-              multi_room: true,
-              room_count: length(room_ids)
-            }
-          end
+          build_simple_breakdown(breakdown, nights, guests_count, children_count, room_ids)
 
         {:ok, total, final_breakdown}
 
@@ -2006,7 +1918,7 @@ defmodule YscWeb.BookingCheckoutLive do
     end
   end
 
-  defp build_multi_room_breakdown(breakdown, room_ids, guests_count, children_count, nights) do
+  defp build_multi_room_breakdown(breakdown, nights, guests_count, children_count, room_ids) do
     base_total = breakdown[:base]
     children_total = breakdown[:children]
     billable_people = breakdown[:billable_people] || guests_count
@@ -2018,12 +1930,12 @@ defmodule YscWeb.BookingCheckoutLive do
     children_per_night =
       calculate_children_per_night(
         children_total,
-        children_count,
         nights,
+        children_count,
         children_price_per_night
       )
 
-    %{
+    base_breakdown = %{
       nights: nights,
       guests_count: guests_count,
       children_count: children_count,
@@ -2031,11 +1943,13 @@ defmodule YscWeb.BookingCheckoutLive do
       multi_room: true,
       room_count: length(room_ids)
     }
-    |> maybe_put(:base, base_total)
-    |> maybe_put(:children, children_total)
-    |> maybe_put(:base_per_night, base_per_night)
-    |> maybe_put(:adult_price_per_night, adult_price_per_night)
-    |> maybe_put(:children_per_night, children_per_night)
+
+    base_breakdown
+    |> add_if_present(:base, base_total)
+    |> add_if_present(:children, children_total)
+    |> add_if_present(:base_per_night, base_per_night)
+    |> add_if_present(:adult_price_per_night, adult_price_per_night)
+    |> add_if_positive(:children_per_night, children_per_night)
   end
 
   defp calculate_base_per_night(base_total, nights, adult_price_per_night) do
@@ -2051,8 +1965,8 @@ defmodule YscWeb.BookingCheckoutLive do
 
   defp calculate_children_per_night(
          children_total,
-         children_count,
          nights,
+         children_count,
          children_price_per_night
        ) do
     if children_total && nights > 0 && children_count > 0 do
@@ -2065,8 +1979,37 @@ defmodule YscWeb.BookingCheckoutLive do
     end
   end
 
-  defp maybe_put(map, _key, nil), do: map
-  defp maybe_put(map, key, value) when is_map(map), do: Map.put(map, key, value)
+  defp add_if_present(map, key, value) do
+    if value do
+      Map.put(map, key, value)
+    else
+      map
+    end
+  end
+
+  defp add_if_positive(map, key, value) do
+    if value && Money.positive?(value) do
+      Map.put(map, key, value)
+    else
+      map
+    end
+  end
+
+  defp build_simple_breakdown(breakdown, nights, guests_count, children_count, room_ids) do
+    base_data = %{
+      nights: nights,
+      guests_count: guests_count,
+      children_count: children_count,
+      multi_room: true,
+      room_count: length(room_ids)
+    }
+
+    if breakdown && is_map(breakdown) do
+      Map.merge(breakdown, base_data)
+    else
+      base_data
+    end
+  end
 
   # Helper functions for money conversion
   defp money_to_cents(%Money{amount: amount, currency: :USD}) do

@@ -628,7 +628,7 @@ defmodule YscWeb.AccountSetupLive do
         {:ok, updated_user} = Accounts.mark_email_verified(socket.assigns.user)
 
         # Determine next step, skipping password if already set
-        next_step = if not is_nil(updated_user.password_set_at), do: 4, else: 1
+        next_step = if is_nil(updated_user.password_set_at), do: 1, else: 4
 
         # Create session token and log the user in
         token = Accounts.generate_user_session_token(updated_user)
