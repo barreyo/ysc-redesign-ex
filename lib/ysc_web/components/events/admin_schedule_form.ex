@@ -115,8 +115,7 @@ defmodule YscWeb.AdminEventsLive.ScheduleEventForm do
       {:error, changeset} ->
         error_details =
           changeset.errors
-          |> Enum.map(fn {field, {message, _}} -> "#{field}: #{message}" end)
-          |> Enum.join(", ")
+          |> Enum.map_join(", ", fn {field, {message, _}} -> "#{field}: #{message}" end)
 
         Logger.error("Failed to schedule event",
           event_id: socket.assigns.event.id,

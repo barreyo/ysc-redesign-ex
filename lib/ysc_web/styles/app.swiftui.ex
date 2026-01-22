@@ -1,4 +1,10 @@
 defmodule YscWeb.Styles.App.SwiftUI do
+  @moduledoc """
+  SwiftUI stylesheet for the YSC application.
+
+  Defines reusable style classes for SwiftUI components used in the LiveView Native
+  iOS application, including kiosk screens, buttons, cards, and color schemes.
+  """
   use LiveViewNative.Stylesheet, :swiftui
 
   # Add your styles here

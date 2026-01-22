@@ -445,7 +445,7 @@ defmodule YscWeb.AdminUsersLive do
                           <.badge type="sky">
                             <%= String.capitalize("#{membership_type}") %>
                           </.badge>
-                          <%= if is_membership_inherited?(user) do %>
+                          <%= if membership_inherited?(user) do %>
                             <.tooltip tooltip_text="Membership inherited from parent account">
                               <.icon name="hero-users" class="w-4 h-4 text-zinc-500" />
                             </.tooltip>
@@ -555,7 +555,7 @@ defmodule YscWeb.AdminUsersLive do
                       <.badge type="sky">
                         <%= String.capitalize("#{membership_type}") %>
                       </.badge>
-                      <%= if is_membership_inherited?(user) do %>
+                      <%= if membership_inherited?(user) do %>
                         <.tooltip tooltip_text="Membership inherited from parent account">
                           <.icon name="hero-users" class="w-4 h-4 text-zinc-500" />
                         </.tooltip>
@@ -923,7 +923,7 @@ defmodule YscWeb.AdminUsersLive do
     YscWeb.UserAuth.get_user_membership_plan_type(user)
   end
 
-  defp is_membership_inherited?(user) do
-    Accounts.is_sub_account?(user) && get_active_membership_type(user) != nil
+  defp membership_inherited?(user) do
+    Accounts.sub_account?(user) && get_active_membership_type(user) != nil
   end
 end

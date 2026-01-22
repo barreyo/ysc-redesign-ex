@@ -46,7 +46,7 @@ defmodule Ysc.Bookings.SeasonHelpers do
   OR up to the next season's advance booking limit (whichever is later), so users can
   start booking the next season when within the advance booking window.
   Individual date validation (checking if dates fall into restricted seasons) is handled
-  by is_date_selectable?/3, which will disable dates in restricted seasons.
+  by date_selectable?/3, which will disable dates in restricted seasons.
   """
   def calculate_max_booking_date(property, today \\ Date.utc_today()) do
     current_season = Season.for_date(property, today)
@@ -91,7 +91,7 @@ defmodule Ysc.Bookings.SeasonHelpers do
   - It's in a season with no advance booking limit, OR
   - It's in a season with a limit AND it's within the advance booking window
   """
-  def is_date_selectable?(property, date, today \\ Date.utc_today()) do
+  def date_selectable?(property, date, today \\ Date.utc_today()) do
     season = Season.for_date(property, date)
 
     if season && season.advance_booking_days && season.advance_booking_days > 0 do

@@ -837,7 +837,7 @@ defmodule Ysc.ExpenseReports do
         # File not found in any submitted expense report
         # Check if it's a recently uploaded file (for preview during form editing)
         # Files uploaded via LiveView have timestamps in their names like: receipts/1767121378_filename
-        if is_recently_uploaded_file?(normalized_path) do
+        if recently_uploaded_file?(normalized_path) do
           # Allow access to recently uploaded files (within 24 hours)
           # This allows users to preview their uploads before submitting the form
           {:ok, nil}
@@ -865,7 +865,7 @@ defmodule Ysc.ExpenseReports do
 
   # Checks if a file was recently uploaded (within 24 hours) based on timestamp in filename
   # LiveView uploads have format: receipts/TIMESTAMP_filename
-  defp is_recently_uploaded_file?(s3_path) do
+  defp recently_uploaded_file?(s3_path) do
     # Extract timestamp from path like "receipts/1767121378_filename" or "receipts/1767121378_live_view_upload-..."
     case Regex.run(~r/receipts\/(\d+)_/, s3_path) || Regex.run(~r/proofs\/(\d+)_/, s3_path) do
       [_full_match, timestamp_str] ->

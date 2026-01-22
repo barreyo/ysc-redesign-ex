@@ -177,7 +177,7 @@ defmodule YscWeb.Workers.UserExporter do
   defp get_membership_info(user) do
     # If user is a sub-account, check primary user's membership
     user_to_check =
-      if Accounts.is_sub_account?(user) do
+      if Accounts.sub_account?(user) do
         # Use preloaded primary_user if available
         primary_user =
           cond do

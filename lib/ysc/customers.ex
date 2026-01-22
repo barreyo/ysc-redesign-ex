@@ -208,7 +208,7 @@ defmodule Ysc.Customers do
   """
   def create_subscription(%User{} = user, params) do
     # Prevent sub-accounts from creating subscriptions
-    if Ysc.Accounts.is_sub_account?(user) do
+    if Ysc.Accounts.sub_account?(user) do
       {:error, :sub_accounts_cannot_create_subscriptions}
     else
       # Ensure user has a Stripe ID

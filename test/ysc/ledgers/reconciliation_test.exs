@@ -60,7 +60,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {_payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_test_success",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -94,7 +94,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_test_discrep",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -131,7 +131,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {_payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_test_multi",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -196,7 +196,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       for i <- 1..3 do
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000 + i * 1000, :USD),
+          amount: Money.new(10_000 + i * 1_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_test_#{i}",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -215,9 +215,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert result.total_payments == 3
       assert result.discrepancies_count == 0
       assert result.totals.match == true
-      # Payments: i=1: 10000+1000=11000, i=2: 10000+2000=12000, i=3: 10000+3000=13000
-      # Total = 11000 + 12000 + 13000 = 36000 cents = $360.00
-      total_cents = 11000 + 12000 + 13000
+      # Payments: i=1: 10_000+1_000=11_000, i=2: 10_000+2_000=12_000, i=3: 10_000+3_000=13_000
+      # Total = 11_000 + 12_000 + 13_000 = 36_000 cents = $360.00
+      total_cents = 11_000 + 12_000 + 13_000
       expected = Money.new(total_cents, :USD)
       assert Money.equal?(result.totals.payments_table, expected)
     end
@@ -227,7 +227,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       payment =
         Repo.insert!(%Payment{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_no_transaction",
           status: :completed,
@@ -249,7 +249,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       payment =
         Repo.insert!(%Payment{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_no_entries",
           status: :completed,
@@ -275,7 +275,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       payment =
         Repo.insert!(%Payment{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_mismatch",
           status: :completed,
@@ -301,7 +301,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       payment =
         Repo.insert!(%Payment{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_unbalanced",
           status: :completed,
@@ -334,7 +334,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
     end
 
     test "calculates correct payment totals", %{user: user} do
-      amounts = [10000, 25000, 50000]
+      amounts = [10_000, 25_000, 50_000]
 
       for amount <- amounts do
         Ledgers.process_payment(%{
@@ -367,7 +367,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_for_refund",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -403,7 +403,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       payment =
         Repo.insert!(%Payment{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_for_bad_refund",
           status: :completed,
@@ -437,7 +437,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_to_delete",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -544,7 +544,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       payment =
         Repo.insert!(%Payment{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_for_refund_no_entries",
           status: :completed,
@@ -583,7 +583,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(50000, :USD),
+          amount: Money.new(50_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_for_multiple_refunds",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -619,7 +619,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       # Note: Ledger entries calculation has a known issue with duplicate counting (3x)
       # The refunds table total is correct, which is what matters for business logic
-      # TODO: Fix calculate_refund_total_from_ledger to avoid duplicate counting in joins
+      # NOTE: Fix calculate_refund_total_from_ledger to avoid duplicate counting in joins
     end
   end
 
@@ -652,7 +652,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_before_imbalance",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -714,7 +714,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_payment_id: "pi_to_be_deleted",
           entity_type: :membership,
           entity_id: Ecto.ULID.generate(),
@@ -786,7 +786,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_payment_id: "pi_orphan_transaction",
           entity_type: :membership,
           entity_id: Ecto.ULID.generate(),
@@ -828,7 +828,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       # Manually insert an orphaned transaction with the deleted payment's ID
       Ecto.Adapters.SQL.query!(
         Repo,
-        "INSERT INTO ledger_transactions (id, type, payment_id, total_amount, status, inserted_at, updated_at) VALUES (gen_random_uuid(), 'payment', $1, ROW('USD', 10000), 'completed', NOW(), NOW())",
+        "INSERT INTO ledger_transactions (id, type, payment_id, total_amount, status, inserted_at, updated_at) VALUES (gen_random_uuid(), 'payment', $1, ROW('USD', 10_000), 'completed', NOW(), NOW())",
         [payment_uuid]
       )
 
@@ -856,7 +856,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_payment_id: "pi_for_fake_refund",
           entity_type: :membership,
           entity_id: Ecto.ULID.generate(),
@@ -944,7 +944,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       # Create booking payment (must specify property for bookings)
       Ledgers.process_payment(%{
         user_id: user.id,
-        amount: Money.new(15000, :USD),
+        amount: Money.new(15_000, :USD),
         external_payment_id: "pi_booking",
         entity_type: :booking,
         entity_id: Ecto.ULID.generate(),
@@ -983,7 +983,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_entity_mismatch",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -1051,7 +1051,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_fail_report",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -1100,7 +1100,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       for i <- 1..50 do
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000 + i * 100, :USD),
+          amount: Money.new(10_000 + i * 100, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_stress_#{i}",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -1132,7 +1132,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       for i <- 1..3 do
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_mixed_good_#{i}",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -1169,7 +1169,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(50000, :USD),
+          amount: Money.new(50_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_concurrent",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),
@@ -1186,7 +1186,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
         Ledgers.process_refund(%{
           user_id: user.id,
           payment_id: payment.id,
-          refund_amount: Money.new(10000, :USD),
+          refund_amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_refund_id: "re_concurrent_#{i}",
           reason: "customer_request"
@@ -1228,7 +1228,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
         })
 
       # Create partial refunds
-      partial_amounts = [10000, 25000, 15000]
+      partial_amounts = [10_000, 25_000, 15_000]
 
       for {amount, i} <- Enum.with_index(partial_amounts) do
         Ledgers.process_refund(%{
@@ -1261,7 +1261,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
     test "detects rounding errors in money calculations", %{user: user} do
       # Create payments with amounts that might cause rounding issues
       # Cents that don't divide evenly
-      amounts = [3333, 6667, 10001]
+      amounts = [3333, 6667, 10_001]
 
       for {amount, i} <- Enum.with_index(amounts) do
         Ledgers.process_payment(%{
@@ -1294,7 +1294,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, {_payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           external_provider: :stripe,
           external_payment_id: "pi_for_correction",
           payment_date: DateTime.truncate(DateTime.utc_now(), :second),

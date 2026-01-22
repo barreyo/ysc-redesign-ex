@@ -372,20 +372,15 @@ defmodule YscWeb.AccountSetupLive do
     # 2. Email verification step: always allow (for signup flow)
     # 3. Password/Phone steps: require ownership (authentication)
     can_access =
-      if not needs_any_setup do
-        # User has everything set up already
-        false
-      else
+      if needs_any_setup do
         # User needs some setup - check specific access rules
         true
+      else
+        # User has everything set up already
+        false
       end
 
-    if not can_access do
-      {:ok,
-       socket
-       |> put_flash(:error, "Your account setup is already complete.")
-       |> redirect(to: ~p"/")}
-    else
+    if can_access do
       # Determine which steps the user needs (don't skip, just don't show unnecessary ones)
       user_needs = %{
         email_verification: not email_verified,
@@ -521,12 +516,7 @@ defmodule YscWeb.AccountSetupLive do
             true
         end
 
-      if not can_access_step do
-        {:noreply,
-         socket
-         |> put_flash(:error, "Please verify your email first to continue account setup.")
-         |> redirect(to: ~p"/users/log-in")}
-      else
+      if can_access_step do
         user_needs = socket.assigns.user_needs
 
         # Update socket assigns with fresh user data
@@ -918,13 +908,13 @@ defmodule YscWeb.AccountSetupLive do
           false
       end
 
-    if not can_access_step do
+    if can_access_step do
+      {:noreply, assign(socket, :current_step, requested_step)}
+    else
       {:noreply,
        socket
        |> put_flash(:error, "Please complete the required steps in order.")
        |> redirect(to: ~p"/account/setup/#{socket.assigns.user.id}")}
-    else
-      {:noreply, assign(socket, :current_step, requested_step)}
     end
   end
 

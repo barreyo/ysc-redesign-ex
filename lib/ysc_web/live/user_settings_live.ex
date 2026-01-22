@@ -387,7 +387,7 @@ defmodule YscWeb.UserSettingsLive do
               <.icon name="hero-wallet" class="w-5 h-5 me-2" /> Payments
             </.link>
           </li>
-          <%= if @current_user && (Accounts.is_primary_user?(@current_user) || Accounts.is_sub_account?(@current_user)) && (@active_plan_type == :family || @active_plan_type == :lifetime) do %>
+          <%= if @current_user && (Accounts.primary_user?(@current_user) || Accounts.sub_account?(@current_user)) && (@active_plan_type == :family || @active_plan_type == :lifetime) do %>
             <li>
               <.link
                 navigate={~p"/users/settings/family"}
@@ -1492,7 +1492,7 @@ defmodule YscWeb.UserSettingsLive do
     user_is_active = user.state == :active
 
     # Check if user is a sub-account and get primary user info
-    is_sub_account = Accounts.is_sub_account?(user)
+    is_sub_account = Accounts.sub_account?(user)
 
     membership_plans = Application.get_env(:ysc, :membership_plans)
     public_key = Application.get_env(:stripity_stripe, :public_key)
@@ -2251,7 +2251,7 @@ defmodule YscWeb.UserSettingsLive do
          "You must have an approved account to manage your membership plan."
        )}
     else
-      if Accounts.is_sub_account?(user) do
+      if Accounts.sub_account?(user) do
         {:noreply,
          put_flash(
            socket,
@@ -3969,30 +3969,28 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   defp render_payment_status_badge(payment_info) do
-    cond do
-      not is_nil(payment_info.payment) ->
-        assigns = %{payment: payment_info.payment}
+    if not is_nil(payment_info.payment) do
+      assigns = %{payment: payment_info.payment}
 
-        ~H"""
-        <%= if @payment.status == :completed do %>
-          <.badge type="green" class="text-xs">Completed</.badge>
+      ~H"""
+      <%= if @payment.status == :completed do %>
+        <.badge type="green" class="text-xs">Completed</.badge>
+      <% else %>
+        <%= if @payment.status == :pending do %>
+          <.badge type="yellow" class="text-xs">Pending</.badge>
         <% else %>
-          <%= if @payment.status == :pending do %>
-            <.badge type="yellow" class="text-xs">Pending</.badge>
-          <% else %>
-            <%= if @payment.status == :refunded do %>
-              <.badge type="red" class="text-xs">Refunded</.badge>
-            <% end %>
+          <%= if @payment.status == :refunded do %>
+            <.badge type="red" class="text-xs">Refunded</.badge>
           <% end %>
         <% end %>
-        """
+      <% end %>
+      """
+    else
+      assigns = %{}
 
-      true ->
-        assigns = %{}
-
-        ~H"""
-        <.badge type="green" class="text-xs">Completed</.badge>
-        """
+      ~H"""
+      <.badge type="green" class="text-xs">Completed</.badge>
+      """
     end
   end
 

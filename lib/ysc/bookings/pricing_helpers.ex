@@ -28,9 +28,7 @@ defmodule Ysc.Bookings.PricingHelpers do
     checkout_date = Map.get(socket.assigns, :checkout_date)
     has_dates = !is_nil(checkin_date) && !is_nil(checkout_date)
 
-    if not has_dates do
-      false
-    else
+    if has_dates do
       booking_mode = Map.get(socket.assigns, :selected_booking_mode)
 
       case booking_mode do
@@ -54,6 +52,8 @@ defmodule Ysc.Bookings.PricingHelpers do
         _ ->
           false
       end
+    else
+      false
     end
   end
 
@@ -146,99 +146,13 @@ defmodule Ysc.Bookings.PricingHelpers do
          children_count,
          can_select_multiple_rooms_fn
        ) do
-    room_ids =
-      if can_select_multiple_rooms_fn.(socket.assigns) do
-        socket.assigns.selected_room_ids || []
-      else
-        if socket.assigns.selected_room_id, do: [socket.assigns.selected_room_id], else: []
-      end
+    room_ids = get_selected_room_ids(socket, can_select_multiple_rooms_fn)
 
     if room_ids == [] do
       assign_error(socket, "Please select at least one room")
     else
-      # For multiple rooms, calculate price once for total guests (not per room)
-      # Use the first room to get pricing rules, but calculate for total guests
       room_count = length(room_ids)
-
-      # Calculate minimum billable people across all selected rooms
-      # This ensures we charge for at least the sum of minimum occupancies
-      # Children count towards minimum occupancy, so we need to account for them
-      billable_people =
-        if room_count > 1 do
-          # Multiple rooms: sum the min_billable_occupancy of all rooms
-          # Use available_rooms from socket assigns if available, otherwise query
-          available_rooms = socket.assigns[:available_rooms] || []
-
-          room_minimums =
-            room_ids
-            |> Enum.map(fn room_id ->
-              # Try to find room in available_rooms first (already loaded)
-              # Convert both to strings for comparison to handle binary_id vs string mismatches
-              room =
-                Enum.find(available_rooms, fn r ->
-                  to_string(r.id) == to_string(room_id)
-                end) ||
-                  try do
-                    Bookings.get_room!(room_id)
-                  rescue
-                    _ -> nil
-                  end
-
-              case room do
-                nil ->
-                  # Default to 1 if room not found
-                  1
-
-                r ->
-                  # Get min_billable_occupancy, defaulting to 1
-                  Map.get(r, :min_billable_occupancy) || 1
-              end
-            end)
-
-          # For multiple rooms, sum the individual room minimums
-          # Each room must satisfy its own minimum, so we need enough people for all rooms combined
-          total_min_occupancy =
-            if Enum.empty?(room_minimums) do
-              1
-            else
-              Enum.sum(room_minimums)
-            end
-
-          # Check if total people (adults + children) meets the total minimum across all rooms
-          # If yes, charge only for actual adults. If no, charge for enough adults to meet minimum.
-          total_people = guests_count + children_count
-
-          if total_people >= total_min_occupancy do
-            # Total people meets minimum, charge only for actual adults
-            guests_count
-          else
-            # Total people doesn't meet minimum, need to charge for more adults
-            min_adults_needed = max(0, total_min_occupancy - children_count)
-            max(guests_count, min_adults_needed)
-          end
-        else
-          # Single room: calculate billable people accounting for children
-          room_id = List.first(room_ids)
-          available_rooms = socket.assigns[:available_rooms] || []
-
-          room =
-            Enum.find(available_rooms, &(&1.id == room_id)) ||
-              try do
-                Bookings.get_room!(room_id)
-              rescue
-                _ -> nil
-              end
-
-          if room do
-            min_occupancy = room.min_billable_occupancy || 1
-            # If total people (adults + children) is less than minimum,
-            # we need to charge for more adults to meet the minimum
-            min_adults_needed = max(0, min_occupancy - children_count)
-            max(guests_count, min_adults_needed)
-          else
-            guests_count
-          end
-        end
+      billable_people = calculate_billable_people(socket, room_ids, guests_count, children_count)
 
       case Bookings.calculate_booking_price(
              property,
@@ -314,5 +228,80 @@ defmodule Ysc.Bookings.PricingHelpers do
       price_breakdown: nil,
       price_error: error_message
     )
+  end
+
+  defp get_selected_room_ids(socket, can_select_multiple_rooms_fn) do
+    if can_select_multiple_rooms_fn.(socket.assigns) do
+      socket.assigns.selected_room_ids || []
+    else
+      if socket.assigns.selected_room_id, do: [socket.assigns.selected_room_id], else: []
+    end
+  end
+
+  defp calculate_billable_people(socket, room_ids, guests_count, children_count) do
+    room_count = length(room_ids)
+
+    if room_count > 1 do
+      calculate_billable_people_multiple_rooms(socket, room_ids, guests_count, children_count)
+    else
+      calculate_billable_people_single_room(
+        socket,
+        List.first(room_ids),
+        guests_count,
+        children_count
+      )
+    end
+  end
+
+  defp calculate_billable_people_multiple_rooms(socket, room_ids, guests_count, children_count) do
+    available_rooms = socket.assigns[:available_rooms] || []
+
+    room_minimums =
+      room_ids
+      |> Enum.map(fn room_id ->
+        room = find_room_in_available(available_rooms, room_id) || fetch_room_safely(room_id)
+
+        case room do
+          nil -> 1
+          r -> Map.get(r, :min_billable_occupancy) || 1
+        end
+      end)
+
+    total_min_occupancy = if Enum.empty?(room_minimums), do: 1, else: Enum.sum(room_minimums)
+    total_people = guests_count + children_count
+
+    if total_people >= total_min_occupancy do
+      guests_count
+    else
+      min_adults_needed = max(0, total_min_occupancy - children_count)
+      max(guests_count, min_adults_needed)
+    end
+  end
+
+  defp calculate_billable_people_single_room(socket, room_id, guests_count, children_count) do
+    available_rooms = socket.assigns[:available_rooms] || []
+    room = Enum.find(available_rooms, &(&1.id == room_id)) || fetch_room_safely(room_id)
+
+    if room do
+      min_occupancy = room.min_billable_occupancy || 1
+      min_adults_needed = max(0, min_occupancy - children_count)
+      max(guests_count, min_adults_needed)
+    else
+      guests_count
+    end
+  end
+
+  defp find_room_in_available(available_rooms, room_id) do
+    Enum.find(available_rooms, fn r ->
+      to_string(r.id) == to_string(room_id)
+    end)
+  end
+
+  defp fetch_room_safely(room_id) do
+    try do
+      Bookings.get_room!(room_id)
+    rescue
+      _ -> nil
+    end
   end
 end

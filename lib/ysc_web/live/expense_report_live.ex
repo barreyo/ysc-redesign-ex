@@ -1207,7 +1207,7 @@ defmodule YscWeb.ExpenseReportLive do
                         <% end %>
                       </p>
                       <%= if item.receipt_s3_path do %>
-                        <%= if is_pdf?(item.receipt_s3_path) do %>
+                        <%= if pdf?(item.receipt_s3_path) do %>
                           <a
                             href={ExpenseReports.receipt_url(item.receipt_s3_path)}
                             target="_blank"
@@ -1265,7 +1265,7 @@ defmodule YscWeb.ExpenseReportLive do
                         <% end %>
                       </p>
                       <%= if item.proof_s3_path do %>
-                        <%= if is_pdf?(item.proof_s3_path) do %>
+                        <%= if pdf?(item.proof_s3_path) do %>
                           <a
                             href={ExpenseReports.receipt_url(item.proof_s3_path)}
                             target="_blank"
@@ -1677,14 +1677,14 @@ defmodule YscWeb.ExpenseReportLive do
                         />
                         <%= if expense_f[:date].value do %>
                           <%= cond do %>
-                            <% is_date_older_than_30_days(expense_f[:date].value) -> %>
+                            <% date_older_than_30_days?(expense_f[:date].value) -> %>
                               <div class="mt-1 flex items-center gap-1 text-sm text-amber-600">
                                 <.icon name="hero-exclamation-triangle" class="w-4 h-4" />
                                 <span>
                                   This date is more than 30 days ago. Please contact the treasurer if you need to submit older expenses.
                                 </span>
                               </div>
-                            <% is_date_close_to_30_day_limit(expense_f[:date].value) -> %>
+                            <% date_close_to_30_day_limit?(expense_f[:date].value) -> %>
                               <div class="mt-1 flex items-center gap-1 text-sm text-amber-600">
                                 <.icon name="hero-information-circle" class="w-4 h-4" />
                                 <span>
@@ -1784,7 +1784,7 @@ defmodule YscWeb.ExpenseReportLive do
                       >
                         <div class="flex items-start gap-4">
                           <div class="flex-shrink-0">
-                            <%= if is_pdf?(expense_f[:receipt_s3_path].value) do %>
+                            <%= if pdf?(expense_f[:receipt_s3_path].value) do %>
                               <a
                                 href={ExpenseReports.receipt_url(expense_f[:receipt_s3_path].value)}
                                 target="_blank"
@@ -1817,7 +1817,7 @@ defmodule YscWeb.ExpenseReportLive do
                               <span class="text-sm font-medium text-green-800">Receipt attached</span>
                             </div>
                             <div class="flex items-center gap-3">
-                              <%= if is_pdf?(expense_f[:receipt_s3_path].value) do %>
+                              <%= if pdf?(expense_f[:receipt_s3_path].value) do %>
                                 <a
                                   href={ExpenseReports.receipt_url(expense_f[:receipt_s3_path].value)}
                                   target="_blank"
@@ -1872,7 +1872,7 @@ defmodule YscWeb.ExpenseReportLive do
                             <div class="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
                               <div class="flex items-start gap-4">
                                 <div class="flex-shrink-0">
-                                  <%= if is_pdf?(entry.client_name) do %>
+                                  <%= if pdf?(entry.client_name) do %>
                                     <div class="w-20 h-20 bg-red-50 border-2 border-red-300 rounded-lg flex items-center justify-center">
                                       <.icon name="hero-document-text" class="w-10 h-10 text-red-600" />
                                     </div>
@@ -2070,7 +2070,7 @@ defmodule YscWeb.ExpenseReportLive do
                       >
                         <div class="flex items-start gap-4">
                           <div class="flex-shrink-0">
-                            <%= if is_pdf?(income_f[:proof_s3_path].value) do %>
+                            <%= if pdf?(income_f[:proof_s3_path].value) do %>
                               <a
                                 href={ExpenseReports.receipt_url(income_f[:proof_s3_path].value)}
                                 target="_blank"
@@ -2105,7 +2105,7 @@ defmodule YscWeb.ExpenseReportLive do
                               </span>
                             </div>
                             <div class="flex items-center gap-3">
-                              <%= if is_pdf?(income_f[:proof_s3_path].value) do %>
+                              <%= if pdf?(income_f[:proof_s3_path].value) do %>
                                 <a
                                   href={ExpenseReports.receipt_url(income_f[:proof_s3_path].value)}
                                   target="_blank"
@@ -2160,7 +2160,7 @@ defmodule YscWeb.ExpenseReportLive do
                             <div class="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
                               <div class="flex items-start gap-4">
                                 <div class="flex-shrink-0">
-                                  <%= if is_pdf?(entry.client_name) do %>
+                                  <%= if pdf?(entry.client_name) do %>
                                     <div class="w-20 h-20 bg-red-50 border-2 border-red-300 rounded-lg flex items-center justify-center">
                                       <.icon name="hero-document-text" class="w-10 h-10 text-red-600" />
                                     </div>
@@ -2781,7 +2781,7 @@ defmodule YscWeb.ExpenseReportLive do
     |> Date.to_string()
   end
 
-  defp is_date_older_than_30_days(date_string) when is_binary(date_string) do
+  defp date_older_than_30_days?(date_string) when is_binary(date_string) do
     case Date.from_iso8601(date_string) do
       {:ok, date} ->
         days_ago = Date.diff(Date.utc_today(), date)
@@ -2792,9 +2792,9 @@ defmodule YscWeb.ExpenseReportLive do
     end
   end
 
-  defp is_date_older_than_30_days(_), do: false
+  defp date_older_than_30_days?(_), do: false
 
-  defp is_date_close_to_30_day_limit(date_string) when is_binary(date_string) do
+  defp date_close_to_30_day_limit?(date_string) when is_binary(date_string) do
     case Date.from_iso8601(date_string) do
       {:ok, date} ->
         days_ago = Date.diff(Date.utc_today(), date)
@@ -2805,13 +2805,13 @@ defmodule YscWeb.ExpenseReportLive do
     end
   end
 
-  defp is_date_close_to_30_day_limit(_), do: false
+  defp date_close_to_30_day_limit?(_), do: false
 
-  defp is_pdf?(filename) when is_binary(filename) do
+  defp pdf?(filename) when is_binary(filename) do
     String.downcase(filename) |> String.ends_with?(".pdf")
   end
 
-  defp is_pdf?(_), do: false
+  defp pdf?(_), do: false
 
   defp can_submit?(form, bank_accounts, billing_address, _user) do
     # Check certification
@@ -2962,10 +2962,10 @@ defmodule YscWeb.ExpenseReportLive do
         form[:certification_accepted].value == "true"
 
     errors =
-      if !certification_accepted do
-        errors ++ ["You must accept the certification to submit"]
-      else
+      if certification_accepted do
         errors
+      else
+        errors ++ ["You must accept the certification to submit"]
       end
 
     # Check reimbursement method requirements

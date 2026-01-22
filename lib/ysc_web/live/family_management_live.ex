@@ -7,7 +7,7 @@ defmodule YscWeb.FamilyManagementLive do
   @impl true
   def mount(_params, _session, socket) do
     user = socket.assigns.current_user
-    is_sub_account = Accounts.is_sub_account?(user)
+    is_sub_account = Accounts.sub_account?(user)
 
     if is_sub_account do
       # For sub-accounts, get the primary user and family group
@@ -216,7 +216,7 @@ defmodule YscWeb.FamilyManagementLive do
               <.icon name="hero-wallet" class="w-5 h-5 me-2" /> Payments
             </.link>
           </li>
-          <%= if @current_user && (Accounts.is_primary_user?(@current_user) || Accounts.is_sub_account?(@current_user)) do %>
+          <%= if @current_user && (Accounts.primary_user?(@current_user) || Accounts.sub_account?(@current_user)) do %>
             <li>
               <.link
                 navigate={~p"/users/settings/family"}

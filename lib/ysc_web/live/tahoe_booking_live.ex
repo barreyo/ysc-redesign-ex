@@ -694,7 +694,7 @@ defmodule YscWeb.TahoeBookingLive do
           <!-- Active Bookings -->
           <div :if={length(@active_bookings) > 0} class="space-y-4">
             <h3 class="text-sm font-bold text-zinc-400 uppercase tracking-widest">
-              <%= if Accounts.is_sub_account?(@user) || Accounts.is_primary_user?(@user) do %>
+              <%= if Accounts.sub_account?(@user) || Accounts.primary_user?(@user) do %>
                 Family Active Bookings
               <% else %>
                 Your Active Bookings
@@ -4149,11 +4149,9 @@ defmodule YscWeb.TahoeBookingLive do
 
   def handle_event("create-booking", _params, socket) do
     # Check if confirmation modal checkboxes are checked
-    unless Map.get(socket.assigns, :linens_confirmed, false) &&
-             Map.get(socket.assigns, :chores_confirmed, false) &&
-             Map.get(socket.assigns, :party_size_confirmed, false) do
-      {:noreply, assign(socket, show_confirm_modal: true)}
-    else
+    if Map.get(socket.assigns, :linens_confirmed, false) &&
+         Map.get(socket.assigns, :chores_confirmed, false) &&
+         Map.get(socket.assigns, :party_size_confirmed, false) do
       case validate_and_create_booking(socket) do
         {:ok, booking} ->
           # Redirect to checkout page for payment
@@ -4272,6 +4270,8 @@ defmodule YscWeb.TahoeBookingLive do
              show_confirm_modal: false
            )}
       end
+    else
+      {:noreply, assign(socket, show_confirm_modal: true)}
     end
   end
 
@@ -4400,15 +4400,17 @@ defmodule YscWeb.TahoeBookingLive do
 
       # Final safety check - ensure we have valid integers before using
       guests_count =
-        cond do
-          is_integer(guests_count) && guests_count > 0 -> guests_count
-          true -> 1
+        if is_integer(guests_count) && guests_count > 0 do
+          guests_count
+        else
+          1
         end
 
       children_count =
-        cond do
-          is_integer(children_count) && children_count >= 0 -> children_count
-          true -> 0
+        if is_integer(children_count) && children_count >= 0 do
+          children_count
+        else
+          0
         end
 
       total_people = guests_count + children_count
@@ -6225,7 +6227,7 @@ defmodule YscWeb.TahoeBookingLive do
         "Reservations are not open for this date yet"
 
       # Season restrictions (check if date is selectable based on season rules)
-      not SeasonHelpers.is_date_selectable?(property, date, today) ->
+      not SeasonHelpers.date_selectable?(property, date, today) ->
         "Bookings for this season are not yet open"
 
       # Saturday check-in (Tahoe rule)

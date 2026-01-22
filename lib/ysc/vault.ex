@@ -1,4 +1,11 @@
 defmodule Ysc.Vault do
+  @moduledoc """
+  Encryption vault for the YSC application using Cloak.
+
+  Configures AES-256-GCM encryption for sensitive data. The encryption key
+  is read from the CLOAK_ENCRYPTION_KEY environment variable, with a fallback
+  development key for local development.
+  """
   use Cloak.Vault, otp_app: :ysc
 
   @impl GenServer

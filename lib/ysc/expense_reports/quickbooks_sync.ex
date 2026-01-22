@@ -343,7 +343,7 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
       |> Enum.map(fn item ->
         amount = Money.to_decimal(item.amount) |> Decimal.to_float()
 
-        # TODO: When classification field is added to ExpenseReportItem schema,
+        # NOTE: When classification field is added to ExpenseReportItem schema,
         # query for Class ID and set class_ref here instead of nil
         # Example:
         #   class_ref = case item.classification do
@@ -630,74 +630,78 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
     )
 
     # Download file from S3 to temporary location
-    with {:ok, temp_file_path} <- download_from_s3_to_temp(s3_path) do
-      Logger.info(
-        "[QB Expense Sync] upload_receipt_to_quickbooks: File downloaded, uploading to QuickBooks",
-        s3_path: s3_path,
-        temp_file: temp_file_path,
-        bill_id: bill_id,
-        file_exists: File.exists?(temp_file_path),
-        file_size:
-          if(File.exists?(temp_file_path), do: File.stat!(temp_file_path).size, else: :not_found)
-      )
+    case download_from_s3_to_temp(s3_path) do
+      {:ok, temp_file_path} ->
+        Logger.info(
+          "[QB Expense Sync] upload_receipt_to_quickbooks: File downloaded, uploading to QuickBooks",
+          s3_path: s3_path,
+          temp_file: temp_file_path,
+          bill_id: bill_id,
+          file_exists: File.exists?(temp_file_path),
+          file_size:
+            if(File.exists?(temp_file_path),
+              do: File.stat!(temp_file_path).size,
+              else: :not_found
+            )
+        )
 
-      Logger.info(
-        "[QB Expense Sync] upload_receipt_to_quickbooks: About to call upload_to_quickbooks",
-        temp_file: temp_file_path,
-        s3_path: s3_path
-      )
+        Logger.info(
+          "[QB Expense Sync] upload_receipt_to_quickbooks: About to call upload_to_quickbooks",
+          temp_file: temp_file_path,
+          s3_path: s3_path
+        )
 
-      case upload_to_quickbooks(temp_file_path, s3_path) do
-        {:ok, attachable_id} ->
-          Logger.info(
-            "[QB Expense Sync] upload_receipt_to_quickbooks: File uploaded, linking to bill",
-            s3_path: s3_path,
-            attachable_id: attachable_id,
-            bill_id: bill_id
-          )
+        case upload_to_quickbooks(temp_file_path, s3_path) do
+          {:ok, attachable_id} ->
+            Logger.info(
+              "[QB Expense Sync] upload_receipt_to_quickbooks: File uploaded, linking to bill",
+              s3_path: s3_path,
+              attachable_id: attachable_id,
+              bill_id: bill_id
+            )
 
-          case link_attachment_to_bill(attachable_id, bill_id) do
-            {:ok, _} ->
-              # Clean up temp file
-              File.rm(temp_file_path)
+            case link_attachment_to_bill(attachable_id, bill_id) do
+              {:ok, _} ->
+                # Clean up temp file
+                File.rm(temp_file_path)
 
-              Logger.info(
-                "[QB Expense Sync] upload_receipt_to_quickbooks: Successfully uploaded and linked receipt",
-                s3_path: s3_path,
-                attachable_id: attachable_id,
-                bill_id: bill_id
-              )
+                Logger.info(
+                  "[QB Expense Sync] upload_receipt_to_quickbooks: Successfully uploaded and linked receipt",
+                  s3_path: s3_path,
+                  attachable_id: attachable_id,
+                  bill_id: bill_id
+                )
 
-              {:ok, attachable_id}
+                {:ok, attachable_id}
 
-            {:error, link_error} = error ->
-              Logger.error(
-                "[QB Expense Sync] upload_receipt_to_quickbooks: Failed to link attachment to bill",
-                s3_path: s3_path,
-                attachable_id: attachable_id,
-                bill_id: bill_id,
-                error: inspect(link_error)
-              )
+              {:error, link_error} = error ->
+                Logger.error(
+                  "[QB Expense Sync] upload_receipt_to_quickbooks: Failed to link attachment to bill",
+                  s3_path: s3_path,
+                  attachable_id: attachable_id,
+                  bill_id: bill_id,
+                  error: inspect(link_error)
+                )
 
-              # Clean up temp file even on error
-              File.rm(temp_file_path)
-              error
-          end
+                # Clean up temp file even on error
+                File.rm(temp_file_path)
+                error
+            end
 
-        {:error, upload_error} = error ->
-          Logger.error(
-            "[QB Expense Sync] upload_receipt_to_quickbooks: Failed to upload file to QuickBooks",
-            s3_path: s3_path,
-            temp_file: temp_file_path,
-            bill_id: bill_id,
-            error: inspect(upload_error)
-          )
+          {:error, upload_error} = error ->
+            Logger.error(
+              "[QB Expense Sync] upload_receipt_to_quickbooks: Failed to upload file to QuickBooks",
+              s3_path: s3_path,
+              temp_file: temp_file_path,
+              bill_id: bill_id,
+              error: inspect(upload_error)
+            )
 
-          # Clean up temp file on error
-          File.rm(temp_file_path)
-          error
-      end
-    else
+            # Clean up temp file on error
+            File.rm(temp_file_path)
+            error
+        end
+
       {:error, reason} = error ->
         Logger.error(
           "[QB Expense Sync] upload_receipt_to_quickbooks: Failed to download file from S3",
@@ -833,14 +837,7 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
         file_size: file_size
       )
 
-      if not file_exists do
-        Logger.error(
-          "[QB Expense Sync] upload_to_quickbooks: File does not exist!",
-          file_path: file_path
-        )
-
-        {:error, "File does not exist: #{file_path}"}
-      else
+      if file_exists do
         Logger.info(
           "[QB Expense Sync] upload_to_quickbooks: Calling client_module().upload_attachment",
           file_path: file_path,

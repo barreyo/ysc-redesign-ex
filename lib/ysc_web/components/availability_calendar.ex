@@ -562,7 +562,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         :gray
 
       assigns[:property] && assigns[:today] &&
-          !is_date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) ->
+          !date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) ->
         :gray
 
       true ->
@@ -585,7 +585,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     else
       # Season check
       if assigns[:property] && assigns[:today] &&
-           !is_date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) do
+           !date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) do
         true
       else
         # Availability Check
@@ -702,7 +702,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         "Too far in future"
 
       assigns[:property] && assigns[:today] &&
-          !is_date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) ->
+          !date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) ->
         "Season closed"
 
       true ->
@@ -912,7 +912,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
   defp in_hover_range?(day, start, hover),
     do: start && hover && Date.compare(day, start) != :lt && Date.compare(day, hover) != :gt
 
-  defp is_date_selectable_cached?(property, date, today, seasons) do
+  defp date_selectable_cached?(property, date, today, seasons) do
     season =
       if seasons,
         do: Ysc.Bookings.Season.find_season_for_date(seasons, date),

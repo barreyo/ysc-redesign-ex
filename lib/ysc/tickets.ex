@@ -57,19 +57,20 @@ defmodule Ysc.Tickets do
       ticket_selections: ticket_selections
     )
 
-    with {:ok, _} <- validate_user_membership(user_id) do
-      # Note: Ticket bookings don't update tiers/events, so optimistic locking isn't used here
-      # Capacity is checked by counting existing tickets within the transaction
-      case BookingLocker.atomic_booking(user_id, event_id, ticket_selections) do
-        {:ok, ticket_order} ->
-          # Broadcast ticket availability update to all users viewing this event
-          broadcast_ticket_availability_update(event_id)
-          {:ok, ticket_order}
+    case validate_user_membership(user_id) do
+      {:ok, _} ->
+        # Note: Ticket bookings don't update tiers/events, so optimistic locking isn't used here
+        # Capacity is checked by counting existing tickets within the transaction
+        case BookingLocker.atomic_booking(user_id, event_id, ticket_selections) do
+          {:ok, ticket_order} ->
+            # Broadcast ticket availability update to all users viewing this event
+            broadcast_ticket_availability_update(event_id)
+            {:ok, ticket_order}
 
-        error ->
-          error
-      end
-    else
+          error ->
+            error
+        end
+
       error ->
         require Logger
 

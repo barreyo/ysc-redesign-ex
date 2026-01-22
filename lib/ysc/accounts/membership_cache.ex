@@ -155,7 +155,7 @@ defmodule Ysc.Accounts.MembershipCache do
   defp get_active_membership_db(user) do
     # For sub-accounts, check the primary user's membership
     user_to_check =
-      if Accounts.is_sub_account?(user) do
+      if Accounts.sub_account?(user) do
         Accounts.get_primary_user(user) || user
       else
         user

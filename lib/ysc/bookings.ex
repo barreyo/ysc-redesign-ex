@@ -1031,9 +1031,7 @@ defmodule Ysc.Bookings do
   def room_available?(room_id, checkin_date, checkout_date, exclude_booking_id \\ nil) do
     room = get_room!(room_id)
 
-    if not room.is_active do
-      false
-    else
+    if room.is_active do
       # Check for overlapping bookings using the booking_rooms join table
       # ULIDs are stored as binary UUIDs in PostgreSQL, but have different string representations
       # We need to compare the binary UUID column with the ULID string
@@ -1079,6 +1077,8 @@ defmodule Ysc.Bookings do
         # Check for blackouts
         not has_blackout?(room.property, checkin_date, checkout_date)
       end
+    else
+      false
     end
   end
 
@@ -1239,7 +1239,34 @@ defmodule Ysc.Bookings do
         _exclude_booking_id \\ nil,
         use_actual_guests \\ false
       ) do
-    # Validate dates before using Date.diff
+    with {:ok, nights} <- validate_booking_dates(checkin_date, checkout_date),
+         {:ok, _} <- validate_booking_mode(booking_mode, room_id) do
+      case booking_mode do
+        :buyout ->
+          calculate_buyout_price(property, checkin_date, checkout_date, nights)
+
+        :room ->
+          calculate_room_price(
+            property,
+            checkin_date,
+            checkout_date,
+            room_id,
+            guests_count,
+            children_count,
+            nights,
+            use_actual_guests
+          )
+
+        :day ->
+          calculate_day_price(property, checkin_date, checkout_date, guests_count, nights)
+
+        _ ->
+          {:error, :invalid_booking_mode}
+      end
+    end
+  end
+
+  defp validate_booking_dates(checkin_date, checkout_date) do
     cond do
       not is_struct(checkin_date, Date) ->
         Logger.error(
@@ -1261,35 +1288,13 @@ defmodule Ysc.Bookings do
         if nights <= 0 do
           {:error, :invalid_date_range}
         else
-          case booking_mode do
-            :buyout ->
-              calculate_buyout_price(property, checkin_date, checkout_date, nights)
-
-            :room ->
-              if room_id do
-                calculate_room_price(
-                  property,
-                  checkin_date,
-                  checkout_date,
-                  room_id,
-                  guests_count,
-                  children_count,
-                  nights,
-                  use_actual_guests
-                )
-              else
-                {:error, :room_id_required}
-              end
-
-            :day ->
-              calculate_day_price(property, checkin_date, checkout_date, guests_count, nights)
-
-            _ ->
-              {:error, :invalid_booking_mode}
-          end
+          {:ok, nights}
         end
     end
   end
+
+  defp validate_booking_mode(:room, nil), do: {:error, :room_id_required}
+  defp validate_booking_mode(_booking_mode, _room_id), do: {:ok, :valid}
 
   defp calculate_buyout_price(property, checkin_date, checkout_date, _nights) do
     # For buyouts, we need to check the season for each night
@@ -1345,6 +1350,37 @@ defmodule Ysc.Bookings do
          use_actual_guests
        ) do
     # Basic validation
+    case validate_room_price_params(
+           property,
+           checkin_date,
+           checkout_date,
+           guests_count,
+           children_count
+         ) do
+      :ok ->
+        calculate_room_price_impl(
+          property,
+          checkin_date,
+          checkout_date,
+          room_id,
+          guests_count,
+          children_count,
+          nights,
+          use_actual_guests
+        )
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp validate_room_price_params(
+         property,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         children_count
+       ) do
     cond do
       not is_atom(property) ->
         {:error, :invalid_property}
@@ -1365,16 +1401,7 @@ defmodule Ysc.Bookings do
         {:error, :invalid_date_range}
 
       true ->
-        calculate_room_price_impl(
-          property,
-          checkin_date,
-          checkout_date,
-          room_id,
-          guests_count,
-          children_count,
-          nights,
-          use_actual_guests
-        )
+        :ok
     end
   end
 
@@ -1391,12 +1418,7 @@ defmodule Ysc.Bookings do
     room = get_room!(room_id)
 
     # For multiple rooms, use actual guests_count; for single room, use billable_people (capped by capacity)
-    billable_people =
-      if use_actual_guests do
-        guests_count
-      else
-        Room.billable_people(room, guests_count) || guests_count
-      end
+    billable_people = calculate_billable_people(use_actual_guests, room, guests_count)
 
     if is_nil(billable_people) or billable_people <= 0 do
       {:error, :invalid_guests_count}
@@ -1405,148 +1427,244 @@ defmodule Ysc.Bookings do
 
       {total, base_total, children_total, adult_price_per_night, children_price_per_night,
        found_pricing_rules} =
-        Enum.reduce(
+        calculate_room_price_for_date_range(
           date_range,
-          {Money.new(0, :USD), Money.new(0, :USD), Money.new(0, :USD), nil, nil, false},
-          fn date, {acc, base_acc, children_acc, adult_price, children_price, found_any} ->
-            season = Season.for_date(property, date)
-            season_id = if season, do: season.id, else: nil
-
-            # Simple fallback hierarchy:
-            # 1. Try room-specific pricing rule (booking_mode = :room)
-            # 2. Try category-level pricing rule (booking_mode = :room)
-            # 3. Try property-level buyout pricing (as fallback)
-            pricing_rule =
-              PricingRule.find_most_specific(
-                property,
-                season_id,
-                room_id,
-                room.room_category_id,
-                :room,
-                :per_person_per_night
-              ) ||
-                PricingRule.find_most_specific(
-                  property,
-                  season_id,
-                  nil,
-                  room.room_category_id,
-                  :room,
-                  :per_person_per_night
-                ) ||
-                PricingRule.find_most_specific(
-                  property,
-                  season_id,
-                  nil,
-                  nil,
-                  :buyout,
-                  :buyout_fixed
-                )
-
-            if pricing_rule do
-              # Store per-person-per-night price (use first one found)
-              adult_price = adult_price || pricing_rule.amount
-
-              # Calculate base price
-              {:ok, base_price} = Money.mult(pricing_rule.amount, billable_people)
-
-              # Look up children pricing rule using same hierarchy
-              # Falls back to $25 if no children pricing rule found
-              children_pricing_rule =
-                PricingRule.find_children_pricing_rule(
-                  property,
-                  season_id,
-                  room_id,
-                  room.room_category_id,
-                  :room,
-                  :per_person_per_night
-                ) ||
-                  PricingRule.find_children_pricing_rule(
-                    property,
-                    season_id,
-                    nil,
-                    room.room_category_id,
-                    :room,
-                    :per_person_per_night
-                  ) ||
-                  PricingRule.find_children_pricing_rule(
-                    property,
-                    season_id,
-                    nil,
-                    nil,
-                    :room,
-                    :per_person_per_night
-                  )
-
-              # Use children_amount from rule if found, otherwise fallback to $25
-              children_price_per_person =
-                if children_pricing_rule && children_pricing_rule.children_amount do
-                  children_pricing_rule.children_amount
-                else
-                  Money.new(25, :USD)
-                end
-
-              # Store children price per night (use first one found)
-              children_price = children_price || children_price_per_person
-
-              # Add children pricing for Tahoe
-              children_price_for_night =
-                if property == :tahoe && children_count > 0 do
-                  {:ok, price} = Money.mult(children_price_per_person, children_count)
-                  price
-                else
-                  Money.new(0, :USD)
-                end
-
-              {:ok, night_total} = Money.add(base_price, children_price_for_night)
-              {:ok, new_total} = Money.add(acc, night_total)
-              {:ok, new_base_total} = Money.add(base_acc, base_price)
-              {:ok, new_children_total} = Money.add(children_acc, children_price_for_night)
-              {new_total, new_base_total, new_children_total, adult_price, children_price, true}
-            else
-              {acc, base_acc, children_acc, adult_price, children_price, found_any}
-            end
-          end
+          property,
+          room_id,
+          room.room_category_id,
+          billable_people,
+          children_count
         )
 
-      if not found_pricing_rules do
-        {:error, :pricing_rule_not_found}
-      else
-        nights = length(date_range)
-
-        base_per_night =
-          if nights > 0 do
-            {:ok, price} = Money.div(base_total, nights)
-            price
-          else
-            Money.new(0, :USD)
-          end
-
-        children_per_night =
-          if nights > 0 do
-            {:ok, price} = Money.div(children_total, nights)
-            price
-          else
-            Money.new(0, :USD)
-          end
-
-        # Ensure children_price_per_night has a fallback value
-        children_price_per_night =
-          children_price_per_night || Money.new(25, :USD)
-
-        {:ok, total,
-         %{
-           base: base_total,
-           children: children_total,
-           base_per_night: base_per_night,
-           children_per_night: children_per_night,
-           nights: nights,
-           billable_people: billable_people,
-           guests_count: guests_count,
-           children_count: children_count,
-           adult_price_per_night: adult_price_per_night,
-           children_price_per_night: children_price_per_night
-         }}
+      if found_pricing_rules do
+        build_room_price_result(
+          date_range,
+          total,
+          base_total,
+          children_total,
+          adult_price_per_night,
+          children_price_per_night,
+          billable_people,
+          guests_count,
+          children_count
+        )
       end
+    end
+  end
+
+  defp calculate_billable_people(use_actual_guests, room, guests_count) do
+    if use_actual_guests do
+      guests_count
+    else
+      Room.billable_people(room, guests_count) || guests_count
+    end
+  end
+
+  defp calculate_room_price_for_date_range(
+         date_range,
+         property,
+         room_id,
+         room_category_id,
+         billable_people,
+         children_count
+       ) do
+    Enum.reduce(
+      date_range,
+      {Money.new(0, :USD), Money.new(0, :USD), Money.new(0, :USD), nil, nil, false},
+      fn date, {acc, base_acc, children_acc, adult_price, children_price, found_any} ->
+        calculate_room_price_for_date(
+          date,
+          property,
+          room_id,
+          room_category_id,
+          billable_people,
+          children_count,
+          {acc, base_acc, children_acc, adult_price, children_price, found_any}
+        )
+      end
+    )
+  end
+
+  defp calculate_room_price_for_date(
+         date,
+         property,
+         room_id,
+         room_category_id,
+         billable_people,
+         children_count,
+         {acc, base_acc, children_acc, adult_price, children_price, found_any}
+       ) do
+    season = Season.for_date(property, date)
+    season_id = if season, do: season.id, else: nil
+
+    pricing_rule = find_pricing_rule_for_room(property, season_id, room_id, room_category_id)
+
+    if pricing_rule do
+      process_pricing_rule_for_date(
+        pricing_rule,
+        property,
+        season_id,
+        room_id,
+        room_category_id,
+        billable_people,
+        children_count,
+        {acc, base_acc, children_acc, adult_price, children_price, found_any}
+      )
+    else
+      {acc, base_acc, children_acc, adult_price, children_price, found_any}
+    end
+  end
+
+  defp find_pricing_rule_for_room(property, season_id, room_id, room_category_id) do
+    # Simple fallback hierarchy:
+    # 1. Try room-specific pricing rule (booking_mode = :room)
+    # 2. Try category-level pricing rule (booking_mode = :room)
+    # 3. Try property-level buyout pricing (as fallback)
+    PricingRule.find_most_specific(
+      property,
+      season_id,
+      room_id,
+      room_category_id,
+      :room,
+      :per_person_per_night
+    ) ||
+      PricingRule.find_most_specific(
+        property,
+        season_id,
+        nil,
+        room_category_id,
+        :room,
+        :per_person_per_night
+      ) ||
+      PricingRule.find_most_specific(
+        property,
+        season_id,
+        nil,
+        nil,
+        :buyout,
+        :buyout_fixed
+      )
+  end
+
+  defp process_pricing_rule_for_date(
+         pricing_rule,
+         property,
+         season_id,
+         room_id,
+         room_category_id,
+         billable_people,
+         children_count,
+         {acc, base_acc, children_acc, adult_price, children_price, found_any}
+       ) do
+    # Store per-person-per-night price (use first one found)
+    adult_price = adult_price || pricing_rule.amount
+
+    # Calculate base price
+    {:ok, base_price} = Money.mult(pricing_rule.amount, billable_people)
+
+    # Look up children pricing rule using same hierarchy
+    children_price_per_person =
+      find_children_pricing(property, season_id, room_id, room_category_id)
+
+    # Store children price per night (use first one found)
+    children_price = children_price || children_price_per_person
+
+    # Add children pricing for Tahoe
+    children_price_for_night =
+      calculate_children_price_for_night(property, children_count, children_price_per_person)
+
+    {:ok, night_total} = Money.add(base_price, children_price_for_night)
+    {:ok, new_total} = Money.add(acc, night_total)
+    {:ok, new_base_total} = Money.add(base_acc, base_price)
+    {:ok, new_children_total} = Money.add(children_acc, children_price_for_night)
+    {new_total, new_base_total, new_children_total, adult_price, children_price, true}
+  end
+
+  defp find_children_pricing(property, season_id, room_id, room_category_id) do
+    # Falls back to $25 if no children pricing rule found
+    children_pricing_rule =
+      PricingRule.find_children_pricing_rule(
+        property,
+        season_id,
+        room_id,
+        room_category_id,
+        :room,
+        :per_person_per_night
+      ) ||
+        PricingRule.find_children_pricing_rule(
+          property,
+          season_id,
+          nil,
+          room_category_id,
+          :room,
+          :per_person_per_night
+        ) ||
+        PricingRule.find_children_pricing_rule(
+          property,
+          season_id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
+
+    # Use children_amount from rule if found, otherwise fallback to $25
+    if children_pricing_rule && children_pricing_rule.children_amount do
+      children_pricing_rule.children_amount
+    else
+      Money.new(25, :USD)
+    end
+  end
+
+  defp calculate_children_price_for_night(property, children_count, children_price_per_person) do
+    if property == :tahoe && children_count > 0 do
+      {:ok, price} = Money.mult(children_price_per_person, children_count)
+      price
+    else
+      Money.new(0, :USD)
+    end
+  end
+
+  defp build_room_price_result(
+         date_range,
+         total,
+         base_total,
+         children_total,
+         adult_price_per_night,
+         children_price_per_night,
+         billable_people,
+         guests_count,
+         children_count
+       ) do
+    nights = length(date_range)
+
+    base_per_night = calculate_per_night_price(base_total, nights)
+    children_per_night = calculate_per_night_price(children_total, nights)
+
+    # Ensure children_price_per_night has a fallback value
+    children_price_per_night = children_price_per_night || Money.new(25, :USD)
+
+    {:ok, total,
+     %{
+       base: base_total,
+       children: children_total,
+       base_per_night: base_per_night,
+       children_per_night: children_per_night,
+       nights: nights,
+       billable_people: billable_people,
+       guests_count: guests_count,
+       children_count: children_count,
+       adult_price_per_night: adult_price_per_night,
+       children_price_per_night: children_price_per_night
+     }}
+  end
+
+  defp calculate_per_night_price(total, nights) do
+    if nights > 0 do
+      {:ok, price} = Money.div(total, nights)
+      price
+    else
+      Money.new(0, :USD)
     end
   end
 

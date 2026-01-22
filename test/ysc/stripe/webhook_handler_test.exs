@@ -250,7 +250,7 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         "id" => invoice_id,
         "customer" => user.stripe_id,
         "subscription" => subscription.stripe_id,
-        "amount_paid" => 10000,
+        "amount_paid" => 10_000,
         "charge" => nil
       }
 
@@ -310,7 +310,7 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       charge_struct = %Stripe.Charge{
         id: "ch_test",
         payment_intent: payment.external_payment_id,
-        amount: 10000,
+        amount: 10_000,
         refunds: %Stripe.List{
           data: [refund_struct],
           has_more: false,
@@ -399,7 +399,7 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         id: refund_id,
         charge: "ch_test",
         # Full amount
-        amount: 10000,
+        amount: 10_000,
         status: "succeeded",
         payment_intent: payment.external_payment_id
       }
@@ -625,7 +625,7 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         "id" => "in_balance_#{System.unique_integer()}",
         "customer" => user.stripe_id,
         "subscription" => subscription.stripe_id,
-        "amount_paid" => 10000,
+        "amount_paid" => 10_000,
         "charge" => nil
       }
 
@@ -646,7 +646,7 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         "id" => "in_refund_balance_#{System.unique_integer()}",
         "customer" => user.stripe_id,
         "subscription" => subscription.stripe_id,
-        "amount_paid" => 10000,
+        "amount_paid" => 10_000,
         "charge" => nil
       }
 
@@ -680,7 +680,7 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         "id" => "in_multi_refund_#{System.unique_integer()}",
         "customer" => user.stripe_id,
         "subscription" => subscription.stripe_id,
-        "amount_paid" => 10000,
+        "amount_paid" => 10_000,
         "charge" => nil
       }
 
@@ -802,7 +802,7 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         id: "pi_test_#{System.unique_integer()}",
         status: "succeeded",
         customer: "cus_test",
-        amount: 10000,
+        amount: 10_000,
         description: "Test payment"
       }
 

@@ -126,7 +126,7 @@ defmodule Ysc.PropertyOutages.Scraper do
   # Private functions
 
   defp get_providers do
-    # TODO: Make this configurable via environment variables or database
+    # NOTE: Make this configurable via environment variables or database
     # For now, return a list of providers to scrape
     [:optimum, :liberty]
   end
@@ -155,13 +155,13 @@ defmodule Ysc.PropertyOutages.Scraper do
   end
 
   defp fetch_outages_from_provider(:pge) do
-    # TODO: Implement PG&E API scraping
+    # NOTE: Implement PG&E API scraping
     Logger.info("Fetching outages from PG&E")
     []
   end
 
   defp fetch_outages_from_provider(:scg) do
-    # TODO: Implement SCG (Southwest Gas) API scraping
+    # NOTE: Implement SCG (Southwest Gas) API scraping
     Logger.info("Fetching outages from SCG")
     []
   end

@@ -25,11 +25,10 @@ defmodule YscWeb.TahoeStayingWithLive do
         preload: [:rooms, :user, check_ins: :check_in_vehicles]
       )
       |> Enum.filter(fn booking ->
-        booking.status != :canceled && booking.status != :refunded
-      end)
-      |> Enum.filter(fn booking ->
         # Only include room bookings (not buyout bookings)
-        Ecto.assoc_loaded?(booking.rooms) && booking.rooms != []
+        booking.status != :canceled &&
+          booking.status != :refunded &&
+          Ecto.assoc_loaded?(booking.rooms) && booking.rooms != []
       end)
 
     # Group bookings by room

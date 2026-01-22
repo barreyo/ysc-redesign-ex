@@ -133,23 +133,8 @@ defmodule YscWeb.Sms.Notifier do
           end
 
         user ->
-          unless Ysc.Accounts.SmsCategories.should_send_sms?(user, template) do
-            Logger.info("SMS not scheduled - user has disabled notifications",
-              user_id: user_id,
-              template: template,
-              category: category
-            )
-
-            {:error, :notifications_disabled}
-          else
-            unless Ysc.Accounts.SmsCategories.has_phone_number?(user) do
-              Logger.info("SMS not scheduled - user has no phone number",
-                user_id: user_id,
-                template: template
-              )
-
-              {:error, :no_phone_number}
-            else
+          if Ysc.Accounts.SmsCategories.should_send_sms?(user, template) do
+            if Ysc.Accounts.SmsCategories.has_phone_number?(user) do
               # Use user's phone number if not provided
               validated_phone = phone_number || user.phone_number
               normalized = normalize_phone_number(validated_phone)
@@ -174,7 +159,22 @@ defmodule YscWeb.Sms.Notifier do
 
                 {:error, :invalid_phone_number}
               end
+            else
+              Logger.info("SMS not scheduled - user has no phone number",
+                user_id: user_id,
+                template: template
+              )
+
+              {:error, :no_phone_number}
             end
+          else
+            Logger.info("SMS not scheduled - user has disabled notifications",
+              user_id: user_id,
+              template: template,
+              category: category
+            )
+
+            {:error, :notifications_disabled}
           end
       end
     else
@@ -213,51 +213,49 @@ defmodule YscWeb.Sms.Notifier do
     # Get template module
     template_module = get_template_module(template)
 
-    cond do
-      is_nil(template_module) ->
-        error_message = "Template module not found for template: #{template}"
+    if is_nil(template_module) do
+      error_message = "Template module not found for template: #{template}"
 
-        Logger.error(error_message)
+      Logger.error(error_message)
 
-        Sentry.capture_message(error_message,
-          level: :error,
-          extra: %{
-            phone_number: phone_number,
+      Sentry.capture_message(error_message,
+        level: :error,
+        extra: %{
+          phone_number: phone_number,
+          idempotency_key: idempotency_key,
+          template: template,
+          user_id: user_id
+        },
+        tags: %{
+          sms_template: template,
+          error_type: "missing_template_module"
+        }
+      )
+
+      {:error, error_message}
+    else
+      # Check user preferences and validate phone number
+      case validate_and_get_phone_number(phone_number, template, user_id, nil) do
+        {:ok, validated_phone_number} ->
+          # Render SMS message
+          body = template_module.render(variables)
+          template_name = template_module.get_template_name()
+
+          attrs = %{
+            message_type: :sms,
             idempotency_key: idempotency_key,
-            template: template,
+            message_template: template_name,
+            params: variables,
+            phone_number: validated_phone_number,
+            rendered_message: body,
             user_id: user_id
-          },
-          tags: %{
-            sms_template: template,
-            error_type: "missing_template_module"
           }
-        )
 
-        {:error, error_message}
+          Ysc.Messages.run_send_sms_idempotent(validated_phone_number, body, attrs)
 
-      true ->
-        # Check user preferences and validate phone number
-        case validate_and_get_phone_number(phone_number, template, user_id, nil) do
-          {:ok, validated_phone_number} ->
-            # Render SMS message
-            body = template_module.render(variables)
-            template_name = template_module.get_template_name()
-
-            attrs = %{
-              message_type: :sms,
-              idempotency_key: idempotency_key,
-              message_template: template_name,
-              params: variables,
-              phone_number: validated_phone_number,
-              rendered_message: body,
-              user_id: user_id
-            }
-
-            Ysc.Messages.run_send_sms_idempotent(validated_phone_number, body, attrs)
-
-          {:error, _reason} = error ->
-            error
-        end
+        {:error, _reason} = error ->
+          error
+      end
     end
   end
 

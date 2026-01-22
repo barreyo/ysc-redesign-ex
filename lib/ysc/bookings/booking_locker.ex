@@ -120,157 +120,201 @@ defmodule Ysc.Bookings.BookingLocker do
       days = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
 
       # Ensure property_inventory rows exist
-      for day <- days do
-        capacity_total = get_property_capacity_for_date(property, day)
-        ensure_property_inventory_row(property, day, capacity_total)
-      end
+      ensure_property_inventory_for_days(property, days)
 
       # Fetch property_inventory rows for all days (optimistic locking - no FOR UPDATE)
-      prop_inv =
-        Repo.all(
-          from pi in PropertyInventory,
-            where:
-              pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date
-        )
+      prop_inv = fetch_property_inventory(property, checkin_date, checkout_date)
 
-      # If Tahoe has rooms, check room activity
-      if property == :tahoe do
-        room_inv =
-          Repo.all(
-            from ri in RoomInventory,
-              join: r in Room,
-              on: ri.room_id == r.id,
-              where:
-                r.property == ^property and ri.day >= ^checkin_date and ri.day < ^checkout_date
-          )
-
-        # Validate no held/booked rooms for any day
-        blocked_days =
-          Enum.filter(room_inv, fn ri -> ri.held == true or ri.booked == true end)
-
-        if blocked_days != [] do
-          Repo.rollback({:error, :rooms_already_booked})
-        end
-      end
-
-      # Validate no blackout overlap
-      if Bookings.has_blackout?(property, checkin_date, checkout_date) do
-        Repo.rollback({:error, :blackout_conflict})
-      end
-
-      # Validate no buyout held/booked and no per-guest counts (Clear Lake)
-      invalid_days =
-        Enum.filter(prop_inv, fn pi ->
-          pi.buyout_held == true or
-            pi.buyout_booked == true or
-            (property == :clear_lake and (pi.capacity_held > 0 or pi.capacity_booked > 0))
-        end)
-
-      if invalid_days != [] do
-        Repo.rollback({:error, :property_unavailable})
-      end
+      # Validate buyout availability
+      validate_buyout_availability(property, checkin_date, checkout_date, prop_inv)
 
       # Update all property_inventory rows using optimistic locking
-      # IMPORTANT: We must update ALL rows or the booking fails (no partial bookings)
-      # For composite primary keys, we manually check lock_version in the WHERE clause
-      # AND include availability checks to ensure optimistic locking works correctly
-      update_results =
-        Enum.map(prop_inv, fn pi ->
-          # Use update_all with explicit lock_version check AND availability validation
-          # This ensures optimistic locking works correctly - if lock_version changed or
-          # availability changed, the update will affect 0 rows
-          {count, _} =
-            Repo.update_all(
-              from(pi2 in PropertyInventory,
-                where:
-                  pi2.property == type(^property, Ysc.Bookings.BookingProperty) and
-                    pi2.day == ^pi.day and
-                    pi2.lock_version == ^pi.lock_version and
-                    pi2.buyout_held == false and pi2.buyout_booked == false and
-                    (type(^property, Ysc.Bookings.BookingProperty) != :clear_lake or
-                       (pi2.capacity_held == 0 and pi2.capacity_booked == 0))
-              ),
-              set: [
-                buyout_held: true,
-                lock_version: pi.lock_version + 1,
-                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-              ]
-            )
-
-          if count == 1 do
-            {:ok, :updated}
-          else
-            {:error, :stale_inventory}
-          end
-        end)
-
-      # Check if all updates succeeded
-      failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
-
-      if failed_updates != [] do
-        # At least one update failed - this means another transaction modified the inventory
-        # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
-        raise Ecto.StaleEntryError, struct: List.first(prop_inv), action: :update
-      end
+      update_property_inventory_for_buyout(prop_inv, property)
 
       # Calculate pricing
       {total_price, pricing_items} =
-        case Bookings.calculate_booking_price(
-               property,
-               checkin_date,
-               checkout_date,
-               :buyout,
-               nil,
-               guests_count,
-               0
-             ) do
-          {:ok, total, _breakdown} ->
-            nights = Date.diff(checkout_date, checkin_date)
-            price_per_night = if nights > 0, do: Money.div(total, nights) |> elem(1), else: total
-
-            items = %{
-              "type" => "buyout",
-              "nights" => nights,
-              "price_per_night" => %{
-                "amount" => Decimal.to_string(price_per_night.amount),
-                "currency" => to_string(price_per_night.currency)
-              },
-              "total" => %{
-                "amount" => Decimal.to_string(total.amount),
-                "currency" => to_string(total.currency)
-              }
-            }
-
-            {total, items}
-
-          {:error, _reason} ->
-            {nil, nil}
-        end
+        calculate_buyout_pricing(property, checkin_date, checkout_date, guests_count)
 
       # Create booking in :hold
-      attrs = %{
-        property: property,
-        checkin_date: checkin_date,
-        checkout_date: checkout_date,
-        booking_mode: :buyout,
-        guests_count: guests_count,
-        user_id: user_id,
-        status: :hold,
-        hold_expires_at: hold_expires_at,
-        total_price: total_price,
-        pricing_items: pricing_items
-      }
-
-      case %Booking{}
-           |> Booking.changeset(attrs, skip_validation: true)
-           |> Repo.insert() do
-        {:ok, booking} ->
-          booking
-
-        {:error, changeset} ->
-          Repo.rollback({:error, changeset})
-      end
+      create_buyout_booking_hold(
+        user_id,
+        property,
+        checkin_date,
+        checkout_date,
+        guests_count,
+        hold_expires_at,
+        total_price,
+        pricing_items
+      )
     end)
+  end
+
+  defp ensure_property_inventory_for_days(property, days) do
+    for day <- days do
+      capacity_total = get_property_capacity_for_date(property, day)
+      ensure_property_inventory_row(property, day, capacity_total)
+    end
+  end
+
+  defp fetch_property_inventory(property, checkin_date, checkout_date) do
+    Repo.all(
+      from pi in PropertyInventory,
+        where: pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date
+    )
+  end
+
+  defp validate_buyout_availability(property, checkin_date, checkout_date, prop_inv) do
+    # If Tahoe has rooms, check room activity
+    if property == :tahoe do
+      validate_tahoe_rooms_available(property, checkin_date, checkout_date)
+    end
+
+    # Validate no blackout overlap
+    if Bookings.has_blackout?(property, checkin_date, checkout_date) do
+      Repo.rollback({:error, :blackout_conflict})
+    end
+
+    # Validate no buyout held/booked and no per-guest counts (Clear Lake)
+    invalid_days =
+      Enum.filter(prop_inv, fn pi ->
+        pi.buyout_held == true or
+          pi.buyout_booked == true or
+          (property == :clear_lake and (pi.capacity_held > 0 or pi.capacity_booked > 0))
+      end)
+
+    if invalid_days != [] do
+      Repo.rollback({:error, :property_unavailable})
+    end
+  end
+
+  defp validate_tahoe_rooms_available(property, checkin_date, checkout_date) do
+    room_inv =
+      Repo.all(
+        from ri in RoomInventory,
+          join: r in Room,
+          on: ri.room_id == r.id,
+          where: r.property == ^property and ri.day >= ^checkin_date and ri.day < ^checkout_date
+      )
+
+    # Validate no held/booked rooms for any day
+    blocked_days =
+      Enum.filter(room_inv, fn ri -> ri.held == true or ri.booked == true end)
+
+    if blocked_days != [] do
+      Repo.rollback({:error, :rooms_already_booked})
+    end
+  end
+
+  defp update_property_inventory_for_buyout(prop_inv, property) do
+    # IMPORTANT: We must update ALL rows or the booking fails (no partial bookings)
+    # For composite primary keys, we manually check lock_version in the WHERE clause
+    # AND include availability checks to ensure optimistic locking works correctly
+    update_results =
+      Enum.map(prop_inv, fn pi ->
+        # Use update_all with explicit lock_version check AND availability validation
+        # This ensures optimistic locking works correctly - if lock_version changed or
+        # availability changed, the update will affect 0 rows
+        {count, _} =
+          Repo.update_all(
+            from(pi2 in PropertyInventory,
+              where:
+                pi2.property == type(^property, Ysc.Bookings.BookingProperty) and
+                  pi2.day == ^pi.day and
+                  pi2.lock_version == ^pi.lock_version and
+                  pi2.buyout_held == false and pi2.buyout_booked == false and
+                  (type(^property, Ysc.Bookings.BookingProperty) != :clear_lake or
+                     (pi2.capacity_held == 0 and pi2.capacity_booked == 0))
+            ),
+            set: [
+              buyout_held: true,
+              lock_version: pi.lock_version + 1,
+              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+            ]
+          )
+
+        if count == 1 do
+          {:ok, :updated}
+        else
+          {:error, :stale_inventory}
+        end
+      end)
+
+    # Check if all updates succeeded
+    failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
+
+    if failed_updates != [] do
+      # At least one update failed - this means another transaction modified the inventory
+      # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
+      raise Ecto.StaleEntryError, struct: List.first(prop_inv), action: :update
+    end
+  end
+
+  defp calculate_buyout_pricing(property, checkin_date, checkout_date, guests_count) do
+    case Bookings.calculate_booking_price(
+           property,
+           checkin_date,
+           checkout_date,
+           :buyout,
+           nil,
+           guests_count,
+           0
+         ) do
+      {:ok, total, _breakdown} ->
+        nights = Date.diff(checkout_date, checkin_date)
+        price_per_night = if nights > 0, do: Money.div(total, nights) |> elem(1), else: total
+
+        items = %{
+          "type" => "buyout",
+          "nights" => nights,
+          "price_per_night" => %{
+            "amount" => Decimal.to_string(price_per_night.amount),
+            "currency" => to_string(price_per_night.currency)
+          },
+          "total" => %{
+            "amount" => Decimal.to_string(total.amount),
+            "currency" => to_string(total.currency)
+          }
+        }
+
+        {total, items}
+
+      {:error, _reason} ->
+        {nil, nil}
+    end
+  end
+
+  defp create_buyout_booking_hold(
+         user_id,
+         property,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         hold_expires_at,
+         total_price,
+         pricing_items
+       ) do
+    attrs = %{
+      property: property,
+      checkin_date: checkin_date,
+      checkout_date: checkout_date,
+      booking_mode: :buyout,
+      guests_count: guests_count,
+      user_id: user_id,
+      status: :hold,
+      hold_expires_at: hold_expires_at,
+      total_price: total_price,
+      pricing_items: pricing_items
+    }
+
+    case %Booking{}
+         |> Booking.changeset(attrs, skip_validation: true)
+         |> Repo.insert() do
+      {:ok, booking} ->
+        booking
+
+      {:error, changeset} ->
+        Repo.rollback({:error, changeset})
+    end
   end
 
   @doc """
@@ -356,153 +400,210 @@ defmodule Ysc.Bookings.BookingLocker do
         days = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
 
         # Get all rooms to determine property (must all be same property)
-        # Batch load all rooms in a single query to avoid N+1
-        rooms =
-          from(r in Room, where: r.id in ^room_ids)
-          |> Repo.all()
-
-        # Verify all requested rooms were found (matching Repo.get! behavior)
-        if length(rooms) != length(room_ids) do
-          found_ids = Enum.map(rooms, & &1.id)
-          missing_ids = room_ids -- found_ids
-          Repo.rollback({:error, {:rooms_not_found, missing_ids}})
-        end
-
+        rooms = fetch_and_validate_rooms(room_ids)
         property = rooms |> List.first() |> Map.get(:property)
 
-        # Verify all rooms are from the same property
-        if Enum.any?(rooms, &(&1.property != property)) do
-          Repo.rollback({:error, :rooms_must_be_same_property})
-        end
+        # Ensure inventory rows exist
+        ensure_room_booking_inventory(property, room_ids, days)
 
-        # Ensure property_inventory rows exist (for buyout check)
-        for day <- days do
-          capacity_total = get_property_capacity_for_date(property, day)
-          ensure_property_inventory_row(property, day, capacity_total)
-        end
+        # Fetch inventory rows (optimistic locking - no FOR UPDATE)
+        room_inv = fetch_room_inventory(room_ids, checkin_date, checkout_date)
+        prop_inv = fetch_property_inventory(property, checkin_date, checkout_date)
 
-        # Ensure room_inventory rows exist for all rooms
-        for day <- days, room_id <- room_ids do
-          ensure_room_inventory_row(room_id, day)
-        end
-
-        # Fetch room_inventory and property_inventory rows (optimistic locking - no FOR UPDATE)
-        room_inv =
-          Repo.all(
-            from ri in RoomInventory,
-              where:
-                ri.room_id in ^room_ids and ri.day >= ^checkin_date and ri.day < ^checkout_date
-          )
-
-        prop_inv =
-          Repo.all(
-            from pi in PropertyInventory,
-              where:
-                pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date
-          )
-
-        # Validate (no buyout; all rooms free)
-        # Check buyout flags
-        buyout_blocked =
-          Enum.any?(prop_inv, fn pi ->
-            pi.buyout_held == true or pi.buyout_booked == true
-          end)
-
-        if buyout_blocked do
-          Repo.rollback({:error, :property_buyout_active})
-        end
-
-        # Check all rooms are available
-        room_blocked =
-          Enum.any?(room_inv, fn ri -> ri.held == true or ri.booked == true end)
-
-        if room_blocked do
-          Repo.rollback({:error, :room_unavailable})
-        end
+        # Validate availability
+        validate_room_booking_availability(prop_inv, room_inv)
 
         # Update all room_inventory rows using optimistic locking
-        # IMPORTANT: We must update ALL rows or the booking fails (no partial bookings)
-        # For composite primary keys, we manually check lock_version in the WHERE clause
-        # AND include availability checks to ensure optimistic locking works correctly
-        update_results =
-          Enum.map(room_inv, fn ri ->
-            # Use update_all with explicit lock_version check AND availability validation
-            # This ensures optimistic locking works correctly - if lock_version changed or
-            # availability changed, the update will affect 0 rows
-            {count, _} =
-              Repo.update_all(
-                from(ri2 in RoomInventory,
-                  where:
-                    ri2.room_id == ^ri.room_id and ri2.day == ^ri.day and
-                      ri2.lock_version == ^ri.lock_version and
-                      ri2.held == false and ri2.booked == false
-                ),
-                set: [
-                  held: true,
-                  lock_version: ri.lock_version + 1,
-                  updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-                ]
-              )
-
-            if count == 1 do
-              {:ok, :updated}
-            else
-              {:error, :stale_inventory}
-            end
-          end)
-
-        # Check if all updates succeeded
-        failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
-
-        if failed_updates != [] do
-          # At least one update failed - this means another transaction modified the inventory
-          # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
-          raise Ecto.StaleEntryError, struct: List.first(room_inv), action: :update
-        end
+        update_room_inventory_for_booking(room_inv)
 
         # Calculate pricing for all rooms combined
-        # For multiple rooms, we sum the prices
         {total_price, pricing_items} =
-          case calculate_multi_room_price(
-                 rooms,
-                 checkin_date,
-                 checkout_date,
-                 guests_count,
-                 children_count
-               ) do
-            {:ok, total, items} ->
-              {total, items}
-
-            {:error, _reason} ->
-              {nil, nil}
-          end
+          calculate_room_booking_pricing(
+            rooms,
+            checkin_date,
+            checkout_date,
+            guests_count,
+            children_count
+          )
 
         # Create booking :hold with all rooms
-        attrs = %{
-          property: property,
-          checkin_date: checkin_date,
-          checkout_date: checkout_date,
-          booking_mode: :room,
-          guests_count: guests_count,
-          children_count: children_count,
-          user_id: user_id,
-          status: :hold,
-          hold_expires_at: hold_expires_at,
-          total_price: total_price,
-          pricing_items: pricing_items
-        }
+        create_room_booking_hold(
+          user_id,
+          property,
+          checkin_date,
+          checkout_date,
+          guests_count,
+          children_count,
+          hold_expires_at,
+          total_price,
+          pricing_items,
+          rooms
+        )
+      end)
+    end
+  end
 
-        case %Booking{}
-             |> Booking.changeset(attrs, rooms: rooms, skip_validation: true)
-             |> Repo.insert() do
-          {:ok, booking} ->
-            # Preload rooms for return
-            Repo.preload(booking, :rooms)
+  defp fetch_and_validate_rooms(room_ids) do
+    # Batch load all rooms in a single query to avoid N+1
+    rooms =
+      from(r in Room, where: r.id in ^room_ids)
+      |> Repo.all()
 
-          {:error, changeset} ->
-            Repo.rollback({:error, changeset})
+    # Verify all requested rooms were found (matching Repo.get! behavior)
+    if length(rooms) != length(room_ids) do
+      found_ids = Enum.map(rooms, & &1.id)
+      missing_ids = room_ids -- found_ids
+      Repo.rollback({:error, {:rooms_not_found, missing_ids}})
+    end
+
+    # Verify all rooms are from the same property
+    property = rooms |> List.first() |> Map.get(:property)
+
+    if Enum.any?(rooms, &(&1.property != property)) do
+      Repo.rollback({:error, :rooms_must_be_same_property})
+    end
+
+    rooms
+  end
+
+  defp ensure_room_booking_inventory(property, room_ids, days) do
+    # Ensure property_inventory rows exist (for buyout check)
+    for day <- days do
+      capacity_total = get_property_capacity_for_date(property, day)
+      ensure_property_inventory_row(property, day, capacity_total)
+    end
+
+    # Ensure room_inventory rows exist for all rooms
+    for day <- days, room_id <- room_ids do
+      ensure_room_inventory_row(room_id, day)
+    end
+  end
+
+  defp fetch_room_inventory(room_ids, checkin_date, checkout_date) do
+    Repo.all(
+      from ri in RoomInventory,
+        where: ri.room_id in ^room_ids and ri.day >= ^checkin_date and ri.day < ^checkout_date
+    )
+  end
+
+  defp validate_room_booking_availability(prop_inv, room_inv) do
+    # Check buyout flags
+    buyout_blocked =
+      Enum.any?(prop_inv, fn pi ->
+        pi.buyout_held == true or pi.buyout_booked == true
+      end)
+
+    if buyout_blocked do
+      Repo.rollback({:error, :property_buyout_active})
+    end
+
+    # Check all rooms are available
+    room_blocked =
+      Enum.any?(room_inv, fn ri -> ri.held == true or ri.booked == true end)
+
+    if room_blocked do
+      Repo.rollback({:error, :room_unavailable})
+    end
+  end
+
+  defp update_room_inventory_for_booking(room_inv) do
+    # IMPORTANT: We must update ALL rows or the booking fails (no partial bookings)
+    # For composite primary keys, we manually check lock_version in the WHERE clause
+    # AND include availability checks to ensure optimistic locking works correctly
+    update_results =
+      Enum.map(room_inv, fn ri ->
+        # Use update_all with explicit lock_version check AND availability validation
+        # This ensures optimistic locking works correctly - if lock_version changed or
+        # availability changed, the update will affect 0 rows
+        {count, _} =
+          Repo.update_all(
+            from(ri2 in RoomInventory,
+              where:
+                ri2.room_id == ^ri.room_id and ri2.day == ^ri.day and
+                  ri2.lock_version == ^ri.lock_version and
+                  ri2.held == false and ri2.booked == false
+            ),
+            set: [
+              held: true,
+              lock_version: ri.lock_version + 1,
+              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+            ]
+          )
+
+        if count == 1 do
+          {:ok, :updated}
+        else
+          {:error, :stale_inventory}
         end
       end)
+
+    # Check if all updates succeeded
+    failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
+
+    if failed_updates != [] do
+      # At least one update failed - this means another transaction modified the inventory
+      # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
+      raise Ecto.StaleEntryError, struct: List.first(room_inv), action: :update
+    end
+  end
+
+  defp calculate_room_booking_pricing(
+         rooms,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         children_count
+       ) do
+    case calculate_multi_room_price(
+           rooms,
+           checkin_date,
+           checkout_date,
+           guests_count,
+           children_count
+         ) do
+      {:ok, total, items} ->
+        {total, items}
+
+      {:error, _reason} ->
+        {nil, nil}
+    end
+  end
+
+  defp create_room_booking_hold(
+         user_id,
+         property,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         children_count,
+         hold_expires_at,
+         total_price,
+         pricing_items,
+         rooms
+       ) do
+    attrs = %{
+      property: property,
+      checkin_date: checkin_date,
+      checkout_date: checkout_date,
+      booking_mode: :room,
+      guests_count: guests_count,
+      children_count: children_count,
+      user_id: user_id,
+      status: :hold,
+      hold_expires_at: hold_expires_at,
+      total_price: total_price,
+      pricing_items: pricing_items
+    }
+
+    case %Booking{}
+         |> Booking.changeset(attrs, rooms: rooms, skip_validation: true)
+         |> Repo.insert() do
+      {:ok, booking} ->
+        # Preload rooms for return
+        Repo.preload(booking, :rooms)
+
+      {:error, changeset} ->
+        Repo.rollback({:error, changeset})
     end
   end
 
@@ -519,59 +620,105 @@ defmodule Ysc.Bookings.BookingLocker do
 
     results =
       Enum.reduce(rooms, {:ok, Money.new(0, :USD), []}, fn room, acc ->
-        case acc do
-          {:ok, total_acc, items_acc} ->
-            # Ensure total_acc is a Money struct, not a tuple (defensive check)
-            actual_total_acc =
-              case total_acc do
-                {:ok, money} when is_struct(money, Money) -> money
-                %Money{} = money -> money
-                _ -> Money.new(0, :USD)
-              end
+        process_room_pricing(
+          acc,
+          room,
+          property,
+          checkin_date,
+          checkout_date,
+          guests_count,
+          children_count,
+          nights
+        )
+      end)
 
-            case Bookings.calculate_booking_price(
-                   property,
-                   checkin_date,
-                   checkout_date,
-                   :room,
-                   room.id,
-                   guests_count,
-                   children_count
-                 ) do
-              {:ok, room_total, breakdown} ->
-                # Convert breakdown map (with atom keys) to JSON-safe format
-                # build_room_pricing_items creates a proper map with string keys
-                room_items =
-                  build_room_pricing_items(
-                    room,
-                    room_total,
-                    nights,
-                    guests_count,
-                    children_count,
-                    breakdown
-                  )
+    build_combined_pricing_items(results, nights, guests_count, children_count)
+  end
 
-                # Money.add returns {:ok, result} or {:error, reason}
-                case Money.add(actual_total_acc, room_total) do
-                  {:ok, new_total} ->
-                    {:ok, new_total, [room_items | items_acc]}
+  defp process_room_pricing(
+         acc,
+         room,
+         property,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         children_count,
+         nights
+       ) do
+    case acc do
+      {:ok, total_acc, items_acc} ->
+        actual_total_acc = normalize_money_struct(total_acc)
 
-                  {:error, reason} ->
-                    {:error, reason}
-                end
-
-              error ->
-                error
-            end
+        case Bookings.calculate_booking_price(
+               property,
+               checkin_date,
+               checkout_date,
+               :room,
+               room.id,
+               guests_count,
+               children_count
+             ) do
+          {:ok, room_total, breakdown} ->
+            add_room_to_pricing(
+              actual_total_acc,
+              items_acc,
+              room,
+              room_total,
+              breakdown,
+              nights,
+              guests_count,
+              children_count
+            )
 
           error ->
             error
         end
-      end)
 
+      error ->
+        error
+    end
+  end
+
+  defp normalize_money_struct(total_acc) do
+    case total_acc do
+      {:ok, money} when is_struct(money, Money) -> money
+      %Money{} = money -> money
+      _ -> Money.new(0, :USD)
+    end
+  end
+
+  defp add_room_to_pricing(
+         actual_total_acc,
+         items_acc,
+         room,
+         room_total,
+         breakdown,
+         nights,
+         guests_count,
+         children_count
+       ) do
+    room_items =
+      build_room_pricing_items(
+        room,
+        room_total,
+        nights,
+        guests_count,
+        children_count,
+        breakdown
+      )
+
+    case Money.add(actual_total_acc, room_total) do
+      {:ok, new_total} ->
+        {:ok, new_total, [room_items | items_acc]}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp build_combined_pricing_items(results, nights, guests_count, children_count) do
     case results do
       {:ok, total, items} ->
-        # Combine items into a single pricing_items structure
         combined_items = %{
           "type" => "room",
           "rooms" => Enum.reverse(items),
@@ -655,142 +802,181 @@ defmodule Ysc.Bookings.BookingLocker do
       days = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
 
       # Ensure property_inventory rows exist with capacity_total = season cap (e.g., 12)
-      for day <- days do
-        capacity_total = get_property_capacity_for_date(property, day)
-        ensure_property_inventory_row(property, day, capacity_total)
-      end
+      ensure_property_inventory_for_days(property, days)
 
       # Fetch property_inventory rows (optimistic locking - no FOR UPDATE)
-      prop_inv =
-        Repo.all(
-          from pi in PropertyInventory,
-            where:
-              pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date
-        )
+      prop_inv = fetch_property_inventory(property, checkin_date, checkout_date)
 
-      # Validate no blackout overlap
-      if Bookings.has_blackout?(property, checkin_date, checkout_date) do
-        Repo.rollback({:error, :blackout_conflict})
-      end
-
-      # Validate for each day: buyout flags false and capacity_booked + capacity_held + guests <= capacity_total
-      invalid_days =
-        Enum.filter(prop_inv, fn pi ->
-          pi.buyout_held == true or
-            pi.buyout_booked == true or
-            pi.capacity_booked + pi.capacity_held + guests_count > pi.capacity_total
-        end)
-
-      if invalid_days != [] do
-        Repo.rollback({:error, :insufficient_capacity})
-      end
+      # Validate per-guest availability
+      validate_per_guest_availability(
+        property,
+        checkin_date,
+        checkout_date,
+        prop_inv,
+        guests_count
+      )
 
       # Increment capacity_held using optimistic locking
-      # IMPORTANT: We must update ALL rows or the booking fails (no partial bookings)
-      # For composite primary keys, we manually check lock_version in the WHERE clause
-      # AND include availability checks to ensure optimistic locking works correctly
-      update_results =
-        Enum.map(prop_inv, fn pi ->
-          # Use update_all with explicit lock_version check AND availability validation
-          # This ensures optimistic locking works correctly - if lock_version changed or
-          # capacity changed, the update will affect 0 rows
-          {count, _} =
-            Repo.update_all(
-              from(pi2 in PropertyInventory,
-                where:
-                  pi2.property == ^property and pi2.day == ^pi.day and
-                    pi2.lock_version == ^pi.lock_version and
-                    pi2.buyout_held == false and pi2.buyout_booked == false and
-                    pi2.capacity_booked + pi2.capacity_held + ^guests_count <= pi2.capacity_total
-              ),
-              set: [
-                capacity_held: pi.capacity_held + guests_count,
-                lock_version: pi.lock_version + 1,
-                updated_at: DateTime.truncate(DateTime.utc_now(), :second)
-              ]
-            )
+      update_property_inventory_for_per_guest(prop_inv, property, guests_count)
 
-          if count == 1 do
-            {:ok, :updated}
-          else
-            {:error, :stale_inventory}
-          end
-        end)
-
-      # Check if all updates succeeded
-      failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
-
-      if failed_updates != [] do
-        # At least one update failed - this means another transaction modified the inventory
-        # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
-        raise Ecto.StaleEntryError, struct: List.first(prop_inv), action: :update
-      end
-
-      # Create booking :hold
       # Calculate pricing
       {total_price, pricing_items} =
-        case Bookings.calculate_booking_price(
-               property,
-               checkin_date,
-               checkout_date,
-               :day,
-               nil,
-               guests_count,
-               0
-             ) do
-          {:ok, total, _breakdown} ->
-            nights = Date.diff(checkout_date, checkin_date)
+        calculate_per_guest_pricing(property, checkin_date, checkout_date, guests_count)
 
-            price_per_guest_per_night =
-              if nights > 0 and guests_count > 0 do
-                Money.div(total, nights * guests_count) |> elem(1)
-              else
-                Money.new(0, :USD)
-              end
-
-            items = %{
-              "type" => "per_guest",
-              "nights" => nights,
-              "guests_count" => guests_count,
-              "price_per_guest_per_night" => %{
-                "amount" => Decimal.to_string(price_per_guest_per_night.amount),
-                "currency" => to_string(price_per_guest_per_night.currency)
-              },
-              "total" => %{
-                "amount" => Decimal.to_string(total.amount),
-                "currency" => to_string(total.currency)
-              }
-            }
-
-            {total, items}
-
-          {:error, _reason} ->
-            {nil, nil}
-        end
-
-      attrs = %{
-        property: property,
-        checkin_date: checkin_date,
-        checkout_date: checkout_date,
-        booking_mode: :day,
-        guests_count: guests_count,
-        user_id: user_id,
-        status: :hold,
-        hold_expires_at: hold_expires_at,
-        total_price: total_price,
-        pricing_items: pricing_items
-      }
-
-      case %Booking{}
-           |> Booking.changeset(attrs, skip_validation: true)
-           |> Repo.insert() do
-        {:ok, booking} ->
-          booking
-
-        {:error, changeset} ->
-          Repo.rollback({:error, changeset})
-      end
+      # Create booking :hold
+      create_per_guest_booking_hold(
+        user_id,
+        property,
+        checkin_date,
+        checkout_date,
+        guests_count,
+        hold_expires_at,
+        total_price,
+        pricing_items
+      )
     end)
+  end
+
+  defp validate_per_guest_availability(
+         property,
+         checkin_date,
+         checkout_date,
+         prop_inv,
+         guests_count
+       ) do
+    # Validate no blackout overlap
+    if Bookings.has_blackout?(property, checkin_date, checkout_date) do
+      Repo.rollback({:error, :blackout_conflict})
+    end
+
+    # Validate for each day: buyout flags false and capacity_booked + capacity_held + guests <= capacity_total
+    invalid_days =
+      Enum.filter(prop_inv, fn pi ->
+        pi.buyout_held == true or
+          pi.buyout_booked == true or
+          pi.capacity_booked + pi.capacity_held + guests_count > pi.capacity_total
+      end)
+
+    if invalid_days != [] do
+      Repo.rollback({:error, :insufficient_capacity})
+    end
+  end
+
+  defp update_property_inventory_for_per_guest(prop_inv, property, guests_count) do
+    # IMPORTANT: We must update ALL rows or the booking fails (no partial bookings)
+    # For composite primary keys, we manually check lock_version in the WHERE clause
+    # AND include availability checks to ensure optimistic locking works correctly
+    update_results =
+      Enum.map(prop_inv, fn pi ->
+        # Use update_all with explicit lock_version check AND availability validation
+        # This ensures optimistic locking works correctly - if lock_version changed or
+        # capacity changed, the update will affect 0 rows
+        {count, _} =
+          Repo.update_all(
+            from(pi2 in PropertyInventory,
+              where:
+                pi2.property == ^property and pi2.day == ^pi.day and
+                  pi2.lock_version == ^pi.lock_version and
+                  pi2.buyout_held == false and pi2.buyout_booked == false and
+                  pi2.capacity_booked + pi2.capacity_held + ^guests_count <= pi2.capacity_total
+            ),
+            set: [
+              capacity_held: pi.capacity_held + guests_count,
+              lock_version: pi.lock_version + 1,
+              updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+            ]
+          )
+
+        if count == 1 do
+          {:ok, :updated}
+        else
+          {:error, :stale_inventory}
+        end
+      end)
+
+    # Check if all updates succeeded
+    failed_updates = Enum.filter(update_results, &match?({:error, _}, &1))
+
+    if failed_updates != [] do
+      # At least one update failed - this means another transaction modified the inventory
+      # Raise Ecto.StaleEntryError so retry_on_stale can catch it and retry
+      raise Ecto.StaleEntryError, struct: List.first(prop_inv), action: :update
+    end
+  end
+
+  defp calculate_per_guest_pricing(property, checkin_date, checkout_date, guests_count) do
+    case Bookings.calculate_booking_price(
+           property,
+           checkin_date,
+           checkout_date,
+           :day,
+           nil,
+           guests_count,
+           0
+         ) do
+      {:ok, total, _breakdown} ->
+        nights = Date.diff(checkout_date, checkin_date)
+
+        price_per_guest_per_night =
+          if nights > 0 and guests_count > 0 do
+            Money.div(total, nights * guests_count) |> elem(1)
+          else
+            Money.new(0, :USD)
+          end
+
+        items = %{
+          "type" => "per_guest",
+          "nights" => nights,
+          "guests_count" => guests_count,
+          "price_per_guest_per_night" => %{
+            "amount" => Decimal.to_string(price_per_guest_per_night.amount),
+            "currency" => to_string(price_per_guest_per_night.currency)
+          },
+          "total" => %{
+            "amount" => Decimal.to_string(total.amount),
+            "currency" => to_string(total.currency)
+          }
+        }
+
+        {total, items}
+
+      {:error, _reason} ->
+        {nil, nil}
+    end
+  end
+
+  defp create_per_guest_booking_hold(
+         user_id,
+         property,
+         checkin_date,
+         checkout_date,
+         guests_count,
+         hold_expires_at,
+         total_price,
+         pricing_items
+       ) do
+    attrs = %{
+      property: property,
+      checkin_date: checkin_date,
+      checkout_date: checkout_date,
+      booking_mode: :day,
+      guests_count: guests_count,
+      user_id: user_id,
+      status: :hold,
+      hold_expires_at: hold_expires_at,
+      total_price: total_price,
+      pricing_items: pricing_items
+    }
+
+    case %Booking{}
+         |> Booking.changeset(attrs, skip_validation: true)
+         |> Repo.insert() do
+      {:ok, booking} ->
+        booking
+
+      {:error, changeset} ->
+        Repo.rollback({:error, changeset})
+    end
   end
 
   @doc """
@@ -1690,7 +1876,7 @@ defmodule Ysc.Bookings.BookingLocker do
   defp convert_money_to_map(value), do: value
 
   defp get_property_capacity_for_date(property, _date) do
-    # TODO: Get from season policy if available
+    # NOTE: Get from season policy if available
     # For now, use defaults
     case property do
       :clear_lake -> @default_capacity_clear_lake

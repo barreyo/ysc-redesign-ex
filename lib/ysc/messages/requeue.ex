@@ -121,7 +121,7 @@ defmodule Ysc.Messages.Requeue do
         {:error, :not_found}
 
       job ->
-        if is_email_job?(job) do
+        if email_job?(job) do
           requeue_job(job)
         else
           {:error, :not_an_email_job}
@@ -169,7 +169,7 @@ defmodule Ysc.Messages.Requeue do
     }
   end
 
-  defp is_email_job?(job) do
+  defp email_job?(job) do
     job.queue == "mailers" && job.worker == "YscWeb.Workers.EmailNotifier"
   end
 

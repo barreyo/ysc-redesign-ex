@@ -588,11 +588,11 @@ defmodule YscWeb.Components.DateRangePicker do
         if property && today do
           alias Ysc.Bookings.SeasonHelpers
 
-          unless SeasonHelpers.is_date_selectable?(property, day, today) do
-            true
-          else
+          if SeasonHelpers.date_selectable?(property, day, today) do
             # Continue with other checks
             check_other_rules(day, range_start, state, allow_saturdays)
+          else
+            true
           end
         else
           # Continue with other checks
@@ -665,15 +665,15 @@ defmodule YscWeb.Components.DateRangePicker do
       if socket.assigns[:property] && socket.assigns[:today] do
         alias Ysc.Bookings.SeasonHelpers
 
-        unless SeasonHelpers.is_date_selectable?(
-                 socket.assigns[:property],
-                 date,
-                 socket.assigns[:today]
-               ) do
-          false
-        else
+        if SeasonHelpers.date_selectable?(
+             socket.assigns[:property],
+             date,
+             socket.assigns[:today]
+           ) do
           # Continue with other checks
           check_other_selection_rules(socket, date)
+        else
+          false
         end
       else
         # Continue with other checks

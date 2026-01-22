@@ -166,7 +166,9 @@ defmodule Ysc.Ledgers.ReconciliationWorker do
   end
 
   defp maybe_add_balance_alert(sections, report) do
-    if !report.checks.ledger_balance.balanced do
+    if report.checks.ledger_balance.balanced do
+      sections
+    else
       balance_alert = """
       **LEDGER IMBALANCE**
       - Difference: #{Money.to_string!(report.checks.ledger_balance.difference)}
@@ -174,8 +176,6 @@ defmodule Ysc.Ledgers.ReconciliationWorker do
       """
 
       [balance_alert | sections]
-    else
-      sections
     end
   end
 

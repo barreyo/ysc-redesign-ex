@@ -130,7 +130,7 @@ defmodule YscWeb.HomeLive do
       |> Ysc.Repo.preload(subscriptions: :subscription_items)
       |> Accounts.User.populate_virtual_fields()
 
-    is_sub_account = Accounts.is_sub_account?(user_with_subs)
+    is_sub_account = Accounts.sub_account?(user_with_subs)
     primary_user = if is_sub_account, do: Accounts.get_primary_user(user_with_subs), else: nil
 
     {is_sub_account, primary_user}

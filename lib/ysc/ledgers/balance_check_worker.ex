@@ -150,7 +150,7 @@ defmodule Ysc.Ledgers.BalanceCheckWorker do
 
     Logger.error(alert_message)
 
-    # TODO: Integrate with your alerting system
+    # NOTE: Integrate with your alerting system
     # Examples:
     # - send_slack_alert(alert_message)
     # - send_pagerduty_alert(alert_message)

@@ -78,10 +78,10 @@ defmodule YscWeb.ClearLakeBookingLive do
 
         # If user can't book, default to information tab
         active_tab =
-          if !can_book do
-            :information
-          else
+          if can_book do
             requested_tab
+          else
+            :information
           end
 
         # Calculate membership type once and cache it (if user exists)

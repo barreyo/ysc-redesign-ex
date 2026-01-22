@@ -3332,328 +3332,17 @@ defmodule Ysc.Quickbooks.Client do
   def upload_attachment(file_path, file_name, content_type, opts \\ []) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
-      # Support idempotency via requestid parameter
-      idempotency_key =
-        case Keyword.get(opts, :idempotency_key) do
-          nil -> Keyword.get(opts, :requestid)
-          key -> key
-        end
-
-      url_opts = if idempotency_key, do: [requestid: idempotency_key], else: []
-      url = build_url(company_id, "upload", url_opts)
-
-      headers = [
-        {"Authorization", "Bearer #{access_token}"},
-        {"Accept", "application/json"}
-      ]
-
-      # Read file content
-      file_content = File.read!(file_path)
-
-      # Create multipart form data
-      boundary = "----WebKitFormBoundary#{:rand.uniform(1_000_000_000)}"
-      content_type_header = "multipart/form-data; boundary=#{boundary}"
-
-      body =
-        "--#{boundary}\r\n" <>
-          "Content-Disposition: form-data; name=\"file_content_0\"; filename=\"#{file_name}\"\r\n" <>
-          "Content-Type: #{content_type}\r\n\r\n" <>
-          file_content <>
-          "\r\n--#{boundary}--\r\n"
-
-      headers = [{"Content-Type", content_type_header} | headers]
+      {request, content_type_header, url, body} =
+        build_upload_request(file_path, file_name, content_type, company_id, access_token, opts)
 
       Logger.info("Uploading attachment to QuickBooks", file_name: file_name)
 
-      # Log multipart body structure (without file content for size)
-      Logger.info(
-        "[QB Client] upload_attachment: Request details",
-        file_name: file_name,
-        content_type: content_type,
-        file_size: byte_size(file_content),
-        boundary: boundary
-      )
-
-      request = Finch.build(:post, url, headers, body)
-
       case Finch.request(request, Ysc.Finch) do
         {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
-          case Jason.decode(response_body) do
-            {:ok, data} ->
-              # Log response data directly in message for visibility
-              Logger.info(
-                "[QB Client] upload_attachment: Response data - Keys: #{inspect(Map.keys(data))}, Structure: #{inspect(data, limit: 1000)}"
-              )
-
-              Logger.info(
-                "[QB Client] upload_attachment: Full response body: #{inspect(response_body, limit: 1000)}"
-              )
-
-              # Check for Fault errors first
-              fault = extract_fault_from_response(data)
-
-              if fault do
-                error_message = format_fault_error(fault)
-
-                Logger.error(
-                  "[QB Client] upload_attachment: QuickBooks returned a fault error: #{error_message}"
-                )
-
-                {:error, error_message}
-              else
-                # Try multiple ways to extract the attachable ID
-                # The upload endpoint may return the attachable in different structures
-                attachable_id =
-                  cond do
-                    # Try direct Id field first
-                    Map.has_key?(data, "Id") ->
-                      Map.get(data, "Id")
-
-                    Map.has_key?(data, :Id) ->
-                      Map.get(data, :Id)
-
-                    # Check for AttachableResponse structure FIRST (before get_response_entity)
-                    # This is the most common structure for upload responses:
-                    # %{"AttachableResponse" => [%{"Attachable" => %{"Id" => "..."}}]}
-                    Map.has_key?(data, "AttachableResponse") ->
-                      attachable_response = data["AttachableResponse"]
-
-                      Logger.debug(
-                        "[QB Client] upload_attachment: Checking AttachableResponse structure",
-                        is_list: is_list(attachable_response),
-                        length:
-                          if(is_list(attachable_response),
-                            do: length(attachable_response),
-                            else: :not_list
-                          ),
-                        first_element:
-                          if(is_list(attachable_response) and attachable_response != [],
-                            do: inspect(List.first(attachable_response), limit: 200),
-                            else: :empty
-                          )
-                      )
-
-                      case attachable_response do
-                        # Pattern: [%{"Attachable" => %{"Id" => id}} | _]
-                        [%{"Attachable" => %{"Id" => id}} | _] ->
-                          Logger.debug(
-                            "[QB Client] upload_attachment: Matched pattern with direct Id extraction",
-                            id: id
-                          )
-
-                          id
-
-                        # Pattern: [%{"Attachable" => attachable_map} | _] where attachable_map is a map
-                        [%{"Attachable" => attachable_map} | _] when is_map(attachable_map) ->
-                          id = Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
-
-                          Logger.debug(
-                            "[QB Client] upload_attachment: Matched pattern with map extraction",
-                            id: id,
-                            attachable_map_keys: Map.keys(attachable_map)
-                          )
-
-                          id
-
-                        # Fallback: try to extract from first element directly
-                        [first_element | _] when is_map(first_element) ->
-                          Logger.debug(
-                            "[QB Client] upload_attachment: Trying to extract from first element",
-                            first_element_keys: Map.keys(first_element)
-                          )
-
-                          # Try nested Attachable key
-                          case Map.get(first_element, "Attachable") do
-                            %{"Id" => id} when is_binary(id) ->
-                              Logger.debug(
-                                "[QB Client] upload_attachment: Found Id in nested Attachable",
-                                id: id
-                              )
-
-                              id
-
-                            attachable_map when is_map(attachable_map) ->
-                              id = Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
-
-                              Logger.debug(
-                                "[QB Client] upload_attachment: Extracted Id from attachable_map",
-                                id: id
-                              )
-
-                              id
-
-                            _ ->
-                              nil
-                          end
-
-                        _ ->
-                          Logger.warning(
-                            "[QB Client] upload_attachment: AttachableResponse structure not recognized",
-                            attachable_response_type: inspect(attachable_response, limit: 200)
-                          )
-
-                          nil
-                      end
-
-                    # Try get_response_entity (standard structure)
-                    true ->
-                      attachable = get_response_entity(data, "Attachable")
-
-                      cond do
-                        # Check if attachable is a map with Id
-                        is_map(attachable) ->
-                          Map.get(attachable, "Id") || Map.get(attachable, :Id)
-
-                        # Check if attachable is a list
-                        is_list(attachable) ->
-                          case attachable do
-                            [%{"Id" => id} | _] -> id
-                            [%{Id: id} | _] -> id
-                            _ -> nil
-                          end
-
-                        # Try other nested structures
-                        true ->
-                          case data do
-                            # AttachableResponse is a map (not a list)
-                            %{"AttachableResponse" => %{"Attachable" => %{"Id" => id}}} ->
-                              id
-
-                            %{"AttachableResponse" => %{"Attachable" => [%{"Id" => id} | _]}} ->
-                              id
-
-                            %{"AttachableResponse" => %{"Attachable" => attachable_map}}
-                            when is_map(attachable_map) ->
-                              Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
-
-                            # AttachableResponse is a map (not a list)
-                            %{"AttachableResponse" => %{"Attachable" => %{"Id" => id}}} ->
-                              id
-
-                            %{"AttachableResponse" => %{"Attachable" => [%{"Id" => id} | _]}} ->
-                              id
-
-                            %{"AttachableResponse" => %{"Attachable" => attachable_map}}
-                            when is_map(attachable_map) ->
-                              Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
-
-                            # Direct Attachable (no AttachableResponse wrapper)
-                            %{"Attachable" => %{"Id" => id}} ->
-                              id
-
-                            %{"Attachable" => [%{"Id" => id} | _]} ->
-                              id
-
-                            %{"Attachable" => attachable_map} when is_map(attachable_map) ->
-                              Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
-
-                            # Check for case-insensitive keys
-                            _ ->
-                              # Try to find any key that contains "id" (case-insensitive)
-                              data
-                              |> Map.to_list()
-                              |> Enum.find_value(fn
-                                {key, value} when is_binary(key) ->
-                                  if String.downcase(key) == "id" do
-                                    value
-                                  else
-                                    nil
-                                  end
-
-                                {key, value} when is_atom(key) ->
-                                  if Atom.to_string(key) |> String.downcase() == "id" do
-                                    value
-                                  else
-                                    nil
-                                  end
-
-                                _ ->
-                                  nil
-                              end)
-                          end
-                      end
-                  end
-
-                Logger.info(
-                  "[QB Client] upload_attachment: Extracted attachable ID: #{inspect(attachable_id)}, Response keys: #{inspect(Map.keys(data))}"
-                )
-
-                if is_nil(attachable_id) do
-                  Logger.error(
-                    "[QB Client] upload_attachment: Attachable ID is nil. Response data: #{inspect(data, limit: 2000)}, Response body: #{inspect(response_body, limit: 2000)}, Keys: #{inspect(Map.keys(data))}"
-                  )
-
-                  {:error, "Attachable ID not found in upload response"}
-                else
-                  Logger.info("Successfully uploaded attachment to QuickBooks",
-                    attachable_id: attachable_id
-                  )
-
-                  {:ok, attachable_id}
-                end
-              end
-
-            {:error, error} ->
-              Logger.error("Failed to parse QuickBooks response", error: inspect(error))
-              {:error, :invalid_response}
-          end
+          handle_upload_success_response(response_body, file_name)
 
         {:ok, %Finch.Response{status: 401, body: _response_body}} ->
-          Logger.warning("QuickBooks authentication failed, attempting token refresh")
-
-          case refresh_access_token() do
-            {:ok, new_access_token} ->
-              headers = [
-                {"Authorization", "Bearer #{new_access_token}"},
-                {"Accept", "application/json"},
-                {"Content-Type", content_type_header}
-              ]
-
-              request = Finch.build(:post, url, headers, body)
-
-              case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
-                when status in 200..299 ->
-                  case Jason.decode(retry_response_body) do
-                    {:ok, data} ->
-                      attachable = get_response_entity(data, "Attachable")
-                      attachable_id = Map.get(attachable, "Id")
-
-                      if is_nil(attachable_id) do
-                        Logger.error(
-                          "[QB Client] upload_attachment: Attachable ID is nil in retry response",
-                          response_data: inspect(data, limit: 100)
-                        )
-
-                        {:error, "Attachable ID not found in upload response"}
-                      else
-                        {:ok, attachable_id}
-                      end
-
-                    _error ->
-                      {:error, :invalid_response}
-                  end
-
-                {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
-                  error = parse_error_response(retry_response_body)
-
-                  Logger.error(
-                    "[QB Client] upload_attachment: QuickBooks API error after token refresh - Full response body:\n#{retry_response_body}",
-                    status: status,
-                    parsed_error: error
-                  )
-
-                  {:error, error}
-
-                {:error, error} ->
-                  Logger.error("Request failed after token refresh", error: inspect(error))
-                  {:error, :request_failed}
-              end
-
-            error ->
-              Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
-              {:error, :authentication_failed}
-          end
+          retry_upload_with_refresh(url, body, content_type_header, file_name)
 
         {:ok, %Finch.Response{status: status, body: response_body}} ->
           error = parse_error_response(response_body)
@@ -3671,6 +3360,311 @@ defmodule Ysc.Quickbooks.Client do
           Logger.error("Failed to upload attachment to QuickBooks", error: inspect(error))
           {:error, :request_failed}
       end
+    end
+  end
+
+  defp build_upload_request(file_path, file_name, content_type, company_id, access_token, opts) do
+    # Support idempotency via requestid parameter
+    idempotency_key =
+      case Keyword.get(opts, :idempotency_key) do
+        nil -> Keyword.get(opts, :requestid)
+        key -> key
+      end
+
+    url_opts = if idempotency_key, do: [requestid: idempotency_key], else: []
+    url = build_url(company_id, "upload", url_opts)
+
+    headers = [
+      {"Authorization", "Bearer #{access_token}"},
+      {"Accept", "application/json"}
+    ]
+
+    # Read file content
+    file_content = File.read!(file_path)
+
+    # Create multipart form data
+    boundary = "----WebKitFormBoundary#{:rand.uniform(1_000_000_000)}"
+    content_type_header = "multipart/form-data; boundary=#{boundary}"
+
+    body =
+      "--#{boundary}\r\n" <>
+        "Content-Disposition: form-data; name=\"file_content_0\"; filename=\"#{file_name}\"\r\n" <>
+        "Content-Type: #{content_type}\r\n\r\n" <>
+        file_content <>
+        "\r\n--#{boundary}--\r\n"
+
+    headers = [{"Content-Type", content_type_header} | headers]
+
+    # Log multipart body structure (without file content for size)
+    Logger.info(
+      "[QB Client] upload_attachment: Request details",
+      file_name: file_name,
+      content_type: content_type,
+      file_size: byte_size(file_content),
+      boundary: boundary
+    )
+
+    request = Finch.build(:post, url, headers, body)
+    {request, content_type_header, url, body}
+  end
+
+  defp handle_upload_success_response(response_body, file_name) do
+    case Jason.decode(response_body) do
+      {:ok, data} ->
+        # Log response data directly in message for visibility
+        Logger.info(
+          "[QB Client] upload_attachment: Response data - Keys: #{inspect(Map.keys(data))}, Structure: #{inspect(data, limit: 1000)}"
+        )
+
+        Logger.info(
+          "[QB Client] upload_attachment: Full response body: #{inspect(response_body, limit: 1000)}"
+        )
+
+        # Check for Fault errors first
+        fault = extract_fault_from_response(data)
+
+        if fault do
+          error_message = format_fault_error(fault)
+
+          Logger.error(
+            "[QB Client] upload_attachment: QuickBooks returned a fault error: #{error_message}"
+          )
+
+          {:error, error_message}
+        else
+          attachable_id = extract_attachable_id_from_response(data)
+
+          Logger.info(
+            "[QB Client] upload_attachment: Extracted attachable ID: #{inspect(attachable_id)}, Response keys: #{inspect(Map.keys(data))}"
+          )
+
+          if is_nil(attachable_id) do
+            Logger.error(
+              "[QB Client] upload_attachment: Attachable ID is nil. Response data: #{inspect(data, limit: 2000)}, Response body: #{inspect(response_body, limit: 2000)}, Keys: #{inspect(Map.keys(data))}"
+            )
+
+            {:error, "Attachable ID not found in upload response"}
+          else
+            Logger.info("Successfully uploaded attachment to QuickBooks",
+              attachable_id: attachable_id
+            )
+
+            {:ok, attachable_id}
+          end
+        end
+
+      {:error, error} ->
+        Logger.error("Failed to parse QuickBooks response", error: inspect(error))
+        {:error, :invalid_response}
+    end
+  end
+
+  defp extract_attachable_id_from_response(data) do
+    cond do
+      # Try direct Id field first
+      Map.has_key?(data, "Id") ->
+        Map.get(data, "Id")
+
+      Map.has_key?(data, :Id) ->
+        Map.get(data, :Id)
+
+      # Check for AttachableResponse structure FIRST (before get_response_entity)
+      Map.has_key?(data, "AttachableResponse") ->
+        extract_id_from_attachable_response(data["AttachableResponse"])
+
+      # Try get_response_entity (standard structure)
+      true ->
+        attachable = get_response_entity(data, "Attachable")
+        extract_id_from_attachable(attachable, data)
+    end
+  end
+
+  defp extract_id_from_attachable_response(attachable_response) do
+    Logger.debug(
+      "[QB Client] upload_attachment: Checking AttachableResponse structure",
+      is_list: is_list(attachable_response),
+      length:
+        if(is_list(attachable_response),
+          do: length(attachable_response),
+          else: :not_list
+        ),
+      first_element:
+        if(is_list(attachable_response) and attachable_response != [],
+          do: inspect(List.first(attachable_response), limit: 200),
+          else: :empty
+        )
+    )
+
+    case attachable_response do
+      # Pattern: [%{"Attachable" => %{"Id" => id}} | _]
+      [%{"Attachable" => %{"Id" => id}} | _] ->
+        Logger.debug(
+          "[QB Client] upload_attachment: Matched pattern with direct Id extraction",
+          id: id
+        )
+
+        id
+
+      # Pattern: [%{"Attachable" => attachable_map} | _] where attachable_map is a map
+      [%{"Attachable" => attachable_map} | _] when is_map(attachable_map) ->
+        id = Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
+
+        Logger.debug(
+          "[QB Client] upload_attachment: Matched pattern with map extraction",
+          id: id,
+          attachable_map_keys: Map.keys(attachable_map)
+        )
+
+        id
+
+      # Fallback: try to extract from first element directly
+      [first_element | _] when is_map(first_element) ->
+        Logger.debug(
+          "[QB Client] upload_attachment: Trying to extract from first element",
+          first_element_keys: Map.keys(first_element)
+        )
+
+        # Try nested Attachable key
+        case Map.get(first_element, "Attachable") do
+          %{"Id" => id} when is_binary(id) ->
+            Logger.debug(
+              "[QB Client] upload_attachment: Found Id in nested Attachable",
+              id: id
+            )
+
+            id
+
+          attachable_map when is_map(attachable_map) ->
+            id = Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
+
+            Logger.debug(
+              "[QB Client] upload_attachment: Extracted Id from attachable_map",
+              id: id
+            )
+
+            id
+
+          _ ->
+            nil
+        end
+
+      _ ->
+        Logger.warning(
+          "[QB Client] upload_attachment: AttachableResponse structure not recognized",
+          attachable_response_type: inspect(attachable_response, limit: 200)
+        )
+
+        nil
+    end
+  end
+
+  defp extract_id_from_attachable(attachable, data) do
+    cond do
+      # Check if attachable is a map with Id
+      is_map(attachable) ->
+        Map.get(attachable, "Id") || Map.get(attachable, :Id)
+
+      # Check if attachable is a list
+      is_list(attachable) ->
+        case attachable do
+          [%{"Id" => id} | _] -> id
+          [%{Id: id} | _] -> id
+          _ -> nil
+        end
+
+      # Try other nested structures
+      true ->
+        extract_id_from_nested_structures(data)
+    end
+  end
+
+  defp extract_id_from_nested_structures(data) do
+    case data do
+      # AttachableResponse is a map (not a list)
+      %{"AttachableResponse" => %{"Attachable" => %{"Id" => id}}} ->
+        id
+
+      %{"AttachableResponse" => %{"Attachable" => [%{"Id" => id} | _]}} ->
+        id
+
+      %{"AttachableResponse" => %{"Attachable" => attachable_map}}
+      when is_map(attachable_map) ->
+        Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
+
+      # Direct Attachable (no AttachableResponse wrapper)
+      %{"Attachable" => %{"Id" => id}} ->
+        id
+
+      %{"Attachable" => [%{"Id" => id} | _]} ->
+        id
+
+      %{"Attachable" => attachable_map} when is_map(attachable_map) ->
+        Map.get(attachable_map, "Id") || Map.get(attachable_map, :Id)
+
+      # Check for case-insensitive keys
+      _ ->
+        # Try to find any key that contains "id" (case-insensitive)
+        data
+        |> Map.to_list()
+        |> Enum.find_value(fn
+          {key, value} when is_binary(key) ->
+            if String.downcase(key) == "id" do
+              value
+            else
+              nil
+            end
+
+          {key, value} when is_atom(key) ->
+            if Atom.to_string(key) |> String.downcase() == "id" do
+              value
+            else
+              nil
+            end
+
+          _ ->
+            nil
+        end)
+    end
+  end
+
+  defp retry_upload_with_refresh(url, body, content_type_header, file_name) do
+    Logger.warning("QuickBooks authentication failed, attempting token refresh")
+
+    case refresh_access_token() do
+      {:ok, new_access_token} ->
+        # Rebuild request with new token
+        headers = [
+          {"Authorization", "Bearer #{new_access_token}"},
+          {"Accept", "application/json"},
+          {"Content-Type", content_type_header}
+        ]
+
+        request = Finch.build(:post, url, headers, body)
+
+        case Finch.request(request, Ysc.Finch) do
+          {:ok, %Finch.Response{status: status, body: retry_response_body}}
+          when status in 200..299 ->
+            handle_upload_success_response(retry_response_body, file_name)
+
+          {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+            error = parse_error_response(retry_response_body)
+
+            Logger.error(
+              "[QB Client] upload_attachment: QuickBooks API error after token refresh - Full response body:\n#{retry_response_body}",
+              status: status,
+              parsed_error: error
+            )
+
+            {:error, error}
+
+          {:error, error} ->
+            Logger.error("Request failed after token refresh", error: inspect(error))
+            {:error, :request_failed}
+        end
+
+      error ->
+        Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+        {:error, :authentication_failed}
     end
   end
 

@@ -152,9 +152,7 @@ defmodule Ysc.Bookings.Booking do
   defp infer_booking_mode(changeset) do
     booking_mode = get_field(changeset, :booking_mode)
 
-    if not is_nil(booking_mode) do
-      changeset
-    else
+    if is_nil(booking_mode) do
       # Check if rooms are provided (via changeset or preloaded)
       rooms = get_field(changeset, :rooms) || []
 
@@ -169,6 +167,9 @@ defmodule Ysc.Bookings.Booking do
         # No rooms = buyout
         put_change(changeset, :booking_mode, :buyout)
       end
+    else
+      # booking_mode already set, return changeset unchanged
+      changeset
     end
   end
 

@@ -225,7 +225,7 @@ defmodule Ysc.Accounts do
   """
   def has_active_membership?(user) do
     # If user is a sub-account, check primary user's membership
-    if is_sub_account?(user) do
+    if sub_account?(user) do
       primary_user = get_primary_user(user)
       if primary_user, do: has_active_membership?(primary_user), else: false
     else
@@ -1728,7 +1728,7 @@ defmodule Ysc.Accounts do
   Gets all users in a family group (primary user + all sub-accounts).
   """
   def get_family_group(user) do
-    primary_user = if is_sub_account?(user), do: get_primary_user(user), else: user
+    primary_user = if sub_account?(user), do: get_primary_user(user), else: user
 
     if primary_user do
       sub_accounts = get_sub_accounts(primary_user)
@@ -1750,14 +1750,14 @@ defmodule Ysc.Accounts do
   @doc """
   Checks if a user is a primary user (not a sub-account).
   """
-  def is_primary_user?(user) do
+  def primary_user?(user) do
     is_nil(user.primary_user_id)
   end
 
   @doc """
   Checks if a user is a sub-account.
   """
-  def is_sub_account?(user) do
+  def sub_account?(user) do
     not is_nil(user.primary_user_id)
   end
 
@@ -1766,7 +1766,7 @@ defmodule Ysc.Accounts do
   Returns nil if user is not a sub-account.
   """
   def get_primary_user(user) do
-    if is_sub_account?(user) do
+    if sub_account?(user) do
       case user.primary_user do
         %Ecto.Association.NotLoaded{} ->
           Repo.get(User, user.primary_user_id)

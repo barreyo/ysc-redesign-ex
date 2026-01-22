@@ -21,8 +21,8 @@ defmodule Ysc.Events.EventPublishWorkerTest do
         reference_id: "EVT-PAST",
         state: :scheduled,
         publish_at: DateTime.add(now, -3600, :second),
-        start_date: DateTime.add(now, 86400, :second),
-        end_date: DateTime.add(now, 90000, :second),
+        start_date: DateTime.add(now, 86_400, :second),
+        end_date: DateTime.add(now, 90_000, :second),
         organizer_id: organizer.id
       })
 
@@ -33,8 +33,8 @@ defmodule Ysc.Events.EventPublishWorkerTest do
         reference_id: "EVT-FUTURE",
         state: :scheduled,
         publish_at: DateTime.add(now, 3600, :second),
-        start_date: DateTime.add(now, 86400, :second),
-        end_date: DateTime.add(now, 90000, :second),
+        start_date: DateTime.add(now, 86_400, :second),
+        end_date: DateTime.add(now, 90_000, :second),
         organizer_id: organizer.id
       })
 

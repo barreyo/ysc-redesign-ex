@@ -124,25 +124,14 @@ defmodule YscWeb.Workers.SmsNotifier do
           send_sms(job, phone_number, idempotency_key, template, params, user_id, category)
 
         user ->
-          unless Ysc.Accounts.SmsCategories.should_send_sms?(user, template) do
-            Logger.info("SMS not sent - user has disabled notifications",
-              job_id: job.id,
-              user_id: user_id,
-              template: template,
-              category: category
-            )
-
-            :ok
-          else
-            unless Ysc.Accounts.SmsCategories.has_phone_number?(user) do
+          if Ysc.Accounts.SmsCategories.should_send_sms?(user, template) do
+            if Ysc.Accounts.SmsCategories.has_phone_number?(user) do
               Logger.info("SMS not sent - user has no phone number",
                 job_id: job.id,
                 user_id: user_id,
                 template: template
               )
 
-              :ok
-            else
               # Use user's phone number if different
               final_phone_number = phone_number || user.phone_number
 
@@ -172,7 +161,24 @@ defmodule YscWeb.Workers.SmsNotifier do
                 user_id,
                 category
               )
+            else
+              Logger.info("SMS not sent - user has no phone number",
+                job_id: job.id,
+                user_id: user_id,
+                template: template
+              )
+
+              :ok
             end
+          else
+            Logger.info("SMS not sent - user has disabled notifications",
+              job_id: job.id,
+              user_id: user_id,
+              template: template,
+              category: category
+            )
+
+            :ok
           end
       end
     else

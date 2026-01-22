@@ -107,7 +107,7 @@ defmodule Ysc.Events.Ticket do
         user ->
           # Preload user's subscriptions and primary_user (with their subscriptions if sub-account)
           user =
-            if Accounts.is_sub_account?(user) do
+            if Accounts.sub_account?(user) do
               # For sub-accounts, also preload primary user with their subscriptions
               Ysc.Repo.preload(user, [:subscriptions, primary_user: :subscriptions])
             else
@@ -138,7 +138,7 @@ defmodule Ysc.Events.Ticket do
   defp get_active_membership(user) do
     # If user is a sub-account, check primary user's membership
     user_to_check =
-      if Accounts.is_sub_account?(user) do
+      if Accounts.sub_account?(user) do
         # Use preloaded primary_user if available, otherwise fetch it
         case user.primary_user do
           %Ecto.Association.NotLoaded{} ->

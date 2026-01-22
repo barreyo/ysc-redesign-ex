@@ -1038,7 +1038,9 @@ defmodule YscWeb.BookingCheckoutLive do
         errors =
           Enum.with_index(invalid_changesets)
           |> Enum.reduce(%{}, fn {changeset, index}, acc ->
-            if not changeset.valid? do
+            if changeset.valid? do
+              acc
+            else
               changeset_errors =
                 Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
                   if is_binary(msg) do
@@ -1051,8 +1053,6 @@ defmodule YscWeb.BookingCheckoutLive do
                 end)
 
               Map.put(acc, Integer.to_string(index), changeset_errors)
-            else
-              acc
             end
           end)
 
@@ -1454,7 +1454,9 @@ defmodule YscWeb.BookingCheckoutLive do
         errors =
           Enum.with_index(invalid_changesets)
           |> Enum.reduce(%{}, fn {changeset, index}, acc ->
-            if not changeset.valid? do
+            if changeset.valid? do
+              acc
+            else
               changeset_errors =
                 Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
                   if is_binary(msg) do
@@ -1467,8 +1469,6 @@ defmodule YscWeb.BookingCheckoutLive do
                 end)
 
               Map.put(acc, Integer.to_string(index), changeset_errors)
-            else
-              acc
             end
           end)
 
@@ -2005,6 +2005,68 @@ defmodule YscWeb.BookingCheckoutLive do
         error
     end
   end
+
+  defp build_multi_room_breakdown(breakdown, room_ids, guests_count, children_count, nights) do
+    base_total = breakdown[:base]
+    children_total = breakdown[:children]
+    billable_people = breakdown[:billable_people] || guests_count
+    adult_price_per_night = breakdown[:adult_price_per_night]
+    children_price_per_night = breakdown[:children_price_per_night]
+
+    base_per_night = calculate_base_per_night(base_total, nights, adult_price_per_night)
+
+    children_per_night =
+      calculate_children_per_night(
+        children_total,
+        children_count,
+        nights,
+        children_price_per_night
+      )
+
+    %{
+      nights: nights,
+      guests_count: guests_count,
+      children_count: children_count,
+      billable_people: billable_people,
+      multi_room: true,
+      room_count: length(room_ids)
+    }
+    |> maybe_put(:base, base_total)
+    |> maybe_put(:children, children_total)
+    |> maybe_put(:base_per_night, base_per_night)
+    |> maybe_put(:adult_price_per_night, adult_price_per_night)
+    |> maybe_put(:children_per_night, children_per_night)
+  end
+
+  defp calculate_base_per_night(base_total, nights, adult_price_per_night) do
+    if base_total && nights > 0 do
+      case Money.div(base_total, nights) do
+        {:ok, per_night} -> per_night
+        _ -> adult_price_per_night
+      end
+    else
+      adult_price_per_night
+    end
+  end
+
+  defp calculate_children_per_night(
+         children_total,
+         children_count,
+         nights,
+         children_price_per_night
+       ) do
+    if children_total && nights > 0 && children_count > 0 do
+      case Money.div(children_total, children_count * nights) do
+        {:ok, per_night} -> per_night
+        _ -> children_price_per_night
+      end
+    else
+      children_price_per_night
+    end
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value) when is_map(map), do: Map.put(map, key, value)
 
   # Helper functions for money conversion
   defp money_to_cents(%Money{amount: amount, currency: :USD}) do

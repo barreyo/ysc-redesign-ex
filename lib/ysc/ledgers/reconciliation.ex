@@ -258,13 +258,13 @@ defmodule Ysc.Ledgers.Reconciliation do
         ["No ledger transaction found" | issues]
       else
         # Check if transaction amount matches payment amount
-        if !Money.equal?(transaction.total_amount, payment.amount) do
+        if Money.equal?(transaction.total_amount, payment.amount) do
+          issues
+        else
           [
             "Transaction amount (#{Money.to_string!(transaction.total_amount)}) doesn't match payment amount (#{Money.to_string!(payment.amount)})"
             | issues
           ]
-        else
-          issues
         end
       end
 
@@ -278,10 +278,10 @@ defmodule Ysc.Ledgers.Reconciliation do
         # Check if ledger entries balance
         total = calculate_entries_total(entries)
 
-        if !Money.equal?(total, Money.new(0, :USD)) do
-          ["Ledger entries don't balance (total: #{Money.to_string!(total)})" | issues]
-        else
+        if Money.equal?(total, Money.new(0, :USD)) do
           issues
+        else
+          ["Ledger entries don't balance (total: #{Money.to_string!(total)})" | issues]
         end
       end
 
@@ -747,7 +747,9 @@ defmodule Ysc.Ledgers.Reconciliation do
           entity_issues = []
 
           entity_issues =
-            if !report.checks.entity_totals.memberships.match do
+            if report.checks.entity_totals.memberships.match do
+              entity_issues
+            else
               [
                 %{
                   type: "membership",
@@ -758,12 +760,12 @@ defmodule Ysc.Ledgers.Reconciliation do
                 }
                 | entity_issues
               ]
-            else
-              entity_issues
             end
 
           entity_issues =
-            if !report.checks.entity_totals.bookings.match do
+            if report.checks.entity_totals.bookings.match do
+              entity_issues
+            else
               [
                 %{
                   type: "booking",
@@ -774,12 +776,12 @@ defmodule Ysc.Ledgers.Reconciliation do
                 }
                 | entity_issues
               ]
-            else
-              entity_issues
             end
 
           entity_issues =
-            if !report.checks.entity_totals.events.match do
+            if report.checks.entity_totals.events.match do
+              entity_issues
+            else
               [
                 %{
                   type: "event",
@@ -790,8 +792,6 @@ defmodule Ysc.Ledgers.Reconciliation do
                 }
                 | entity_issues
               ]
-            else
-              entity_issues
             end
 
           if entity_issues != [] do
@@ -844,10 +844,10 @@ defmodule Ysc.Ledgers.Reconciliation do
     ║ LEDGER BALANCE
     ╠══════════════════════════════════════════════════════════════════
     ║ Balanced: #{format_boolean(report.checks.ledger_balance.balanced)}
-    #{if !report.checks.ledger_balance.balanced do
-      "║ Difference: #{Money.to_string!(report.checks.ledger_balance.difference)}"
-    else
+    #{if report.checks.ledger_balance.balanced do
       ""
+    else
+      "║ Difference: #{Money.to_string!(report.checks.ledger_balance.difference)}"
     end}
     ╠══════════════════════════════════════════════════════════════════
     ║ ORPHANED ENTRIES

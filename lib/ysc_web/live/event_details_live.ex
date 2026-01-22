@@ -5268,9 +5268,7 @@ defmodule YscWeb.EventDetailsLive do
          ticket_tiers
        ) do
     # Can't increase if not on sale
-    if !tier_on_sale?(ticket_tier) do
-      false
-    else
+    if tier_on_sale?(ticket_tier) do
       # Donations don't count toward capacity
       if ticket_tier.type == "donation" || ticket_tier.type == :donation do
         true
@@ -5322,6 +5320,8 @@ defmodule YscWeb.EventDetailsLive do
             tier_available && event_available
         end
       end
+    else
+      false
     end
   end
 
@@ -5334,9 +5334,7 @@ defmodule YscWeb.EventDetailsLive do
          ticket_tiers
        ) do
     # Can't increase if not on sale
-    if !tier_on_sale?(ticket_tier) do
-      false
-    else
+    if tier_on_sale?(ticket_tier) do
       # Donations don't count toward capacity
       if ticket_tier.type == "donation" || ticket_tier.type == :donation do
         true
@@ -5349,9 +5347,10 @@ defmodule YscWeb.EventDetailsLive do
 
             # Check tier availability first
             tier_available =
-              cond do
-                tier_info.available == :unlimited -> true
-                true -> current_quantity < tier_info.available
+              if tier_info.available == :unlimited do
+                true
+              else
+                current_quantity < tier_info.available
               end
 
             # Check event global capacity

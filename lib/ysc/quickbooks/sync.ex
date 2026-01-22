@@ -1905,34 +1905,35 @@ defmodule Ysc.Quickbooks.Sync do
 
           line_items =
             if stripe_fees && Money.positive?(stripe_fees) do
-              with {:ok, stripe_fee_item_id} <- get_or_create_stripe_fee_item() do
-                # Fees are expenses, so they should be negative in the deposit
-                # Money.to_decimal returns dollars (database stores amounts in dollars)
-                fee_amount =
-                  Money.to_decimal(stripe_fees)
-                  |> Decimal.round(2)
-                  |> Decimal.negate()
+              case get_or_create_stripe_fee_item() do
+                {:ok, stripe_fee_item_id} ->
+                  # Fees are expenses, so they should be negative in the deposit
+                  # Money.to_decimal returns dollars (database stores amounts in dollars)
+                  fee_amount =
+                    Money.to_decimal(stripe_fees)
+                    |> Decimal.round(2)
+                    |> Decimal.negate()
 
-                fee_line_item = %{
-                  amount: fee_amount,
-                  detail_type: "SalesItemLineDetail",
-                  sales_item_line_detail: %{
-                    item_ref: %{value: stripe_fee_item_id},
-                    quantity: Decimal.new(1),
-                    unit_price: fee_amount,
-                    class_ref: administration_class_ref
-                  },
-                  description: "Stripe processing fees for payout #{payout.stripe_payout_id}"
-                }
+                  fee_line_item = %{
+                    amount: fee_amount,
+                    detail_type: "SalesItemLineDetail",
+                    sales_item_line_detail: %{
+                      item_ref: %{value: stripe_fee_item_id},
+                      quantity: Decimal.new(1),
+                      unit_price: fee_amount,
+                      class_ref: administration_class_ref
+                    },
+                    description: "Stripe processing fees for payout #{payout.stripe_payout_id}"
+                  }
 
-                Logger.debug("[QB Sync] create_payout_deposit: Added Stripe fees line item",
-                  payout_id: payout.id,
-                  fee_amount: Decimal.to_string(fee_amount),
-                  item_id: stripe_fee_item_id
-                )
+                  Logger.debug("[QB Sync] create_payout_deposit: Added Stripe fees line item",
+                    payout_id: payout.id,
+                    fee_amount: Decimal.to_string(fee_amount),
+                    item_id: stripe_fee_item_id
+                  )
 
-                [fee_line_item | line_items]
-              else
+                  [fee_line_item | line_items]
+
                 error ->
                   Logger.warning(
                     "[QB Sync] create_payout_deposit: Failed to get/create Stripe fee item, continuing without fee line item",

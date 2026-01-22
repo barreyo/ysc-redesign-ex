@@ -146,16 +146,7 @@ defmodule YscWeb.Workers.EmailNotifier do
         {true, nil}
       end
 
-    if not should_send do
-      Logger.info("Email notification skipped",
-        job_id: job.id,
-        user_id: user_id,
-        template: template,
-        category: category
-      )
-
-      :ok
-    else
+    if should_send do
       try do
         template_module = YscWeb.Emails.Notifier.get_template_module(template)
 
@@ -283,6 +274,15 @@ defmodule YscWeb.Workers.EmailNotifier do
 
           {:error, error}
       end
+    else
+      Logger.info("Email notification skipped",
+        job_id: job.id,
+        user_id: user_id,
+        template: template,
+        category: category
+      )
+
+      :ok
     end
   end
 

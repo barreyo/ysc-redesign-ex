@@ -117,14 +117,14 @@ defmodule YscWeb.AdminMoneyLive do
     # Only load data for sections that start expanded (payments)
     # Collapsed sections (ledger_entries, webhooks, expense_reports) will load on demand
     socket =
-      if not socket.assigns.sections_collapsed[:payments] do
+      if socket.assigns.sections_collapsed[:payments] do
+        socket
+      else
         updated_sections_loaded = Map.put(sections_loaded, :payments, true)
 
         socket
         |> paginate_payments(1)
         |> assign(:sections_loaded, updated_sections_loaded)
-      else
-        socket
       end
 
     {:noreply, socket}

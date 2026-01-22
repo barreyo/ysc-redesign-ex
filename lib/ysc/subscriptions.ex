@@ -251,9 +251,7 @@ defmodule Ysc.Subscriptions do
         _ -> false
       end
 
-    if not status_valid? do
-      false
-    else
+    if status_valid? do
       # Check if current_period_end has passed
       period_expired? =
         case subscription.current_period_end do
@@ -278,6 +276,8 @@ defmodule Ysc.Subscriptions do
 
       # Subscription is active only if status is valid AND neither date has expired
       status_valid? and not period_expired? and not ends_at_expired?
+    else
+      false
     end
   end
 

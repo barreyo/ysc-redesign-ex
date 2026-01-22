@@ -142,14 +142,14 @@ defmodule Ysc.Bookings.BookingValidator do
             day_of_week(date) == 7
           end)
 
-        if not has_sunday do
+        if has_sunday do
+          changeset
+        else
           Ecto.Changeset.add_error(
             changeset,
             :checkout_date,
             "Bookings containing Saturday must also include Sunday (full weekend required)"
           )
-        else
-          changeset
         end
       else
         changeset
@@ -269,7 +269,7 @@ defmodule Ysc.Bookings.BookingValidator do
   defp validate_single_active_booking(changeset, _user, _property), do: changeset
 
   defp get_primary_user_for_booking(user) do
-    if Ysc.Accounts.is_sub_account?(user) do
+    if Ysc.Accounts.sub_account?(user) do
       Ysc.Accounts.get_primary_user(user) || user
     else
       user
