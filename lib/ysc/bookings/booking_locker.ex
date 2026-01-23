@@ -427,18 +427,20 @@ defmodule Ysc.Bookings.BookingLocker do
           )
 
         # Create booking :hold with all rooms
-        create_room_booking_hold(
-          user_id,
-          property,
-          checkin_date,
-          checkout_date,
-          guests_count,
-          children_count,
-          hold_expires_at,
-          total_price,
-          pricing_items,
-          rooms
-        )
+        hold_params = %{
+          user_id: user_id,
+          property: property,
+          checkin_date: checkin_date,
+          checkout_date: checkout_date,
+          guests_count: guests_count,
+          children_count: children_count,
+          hold_expires_at: hold_expires_at,
+          total_price: total_price,
+          pricing_items: pricing_items,
+          rooms: rooms
+        }
+
+        create_room_booking_hold(hold_params)
       end)
     end
   end
@@ -569,34 +571,23 @@ defmodule Ysc.Bookings.BookingLocker do
     end
   end
 
-  defp create_room_booking_hold(
-         user_id,
-         property,
-         checkin_date,
-         checkout_date,
-         guests_count,
-         children_count,
-         hold_expires_at,
-         total_price,
-         pricing_items,
-         rooms
-       ) do
+  defp create_room_booking_hold(params) do
     attrs = %{
-      property: property,
-      checkin_date: checkin_date,
-      checkout_date: checkout_date,
+      property: params.property,
+      checkin_date: params.checkin_date,
+      checkout_date: params.checkout_date,
       booking_mode: :room,
-      guests_count: guests_count,
-      children_count: children_count,
-      user_id: user_id,
+      guests_count: params.guests_count,
+      children_count: params.children_count,
+      user_id: params.user_id,
       status: :hold,
-      hold_expires_at: hold_expires_at,
-      total_price: total_price,
-      pricing_items: pricing_items
+      hold_expires_at: params.hold_expires_at,
+      total_price: params.total_price,
+      pricing_items: params.pricing_items
     }
 
     case %Booking{}
-         |> Booking.changeset(attrs, rooms: rooms, skip_validation: true)
+         |> Booking.changeset(attrs, rooms: params.rooms, skip_validation: true)
          |> Repo.insert() do
       {:ok, booking} ->
         # Preload rooms for return

@@ -607,14 +607,14 @@ defmodule YscWeb.Components.DateRangePicker do
 
   # Check other date rules (Saturday, range validation, etc.)
   defp check_other_rules(day, range_start, state, allow_saturdays) do
-    if is_saturday?(day) && !allow_saturdays do
+    if saturday?(day) && !allow_saturdays do
       true
     else
       check_end_date_rules(day, range_start, state, allow_saturdays)
     end
   end
 
-  defp is_saturday?(day) do
+  defp saturday?(day) do
     Date.day_of_week(day) == 6
   end
 
@@ -635,7 +635,7 @@ defmodule YscWeb.Components.DateRangePicker do
     cond do
       nights > 4 -> true
       nights < 1 -> true
-      is_saturday?(day) && !allow_saturdays -> true
+      saturday?(day) && !allow_saturdays -> true
       true -> check_saturday_sunday_range(start_date, day, allow_saturdays)
     end
   end

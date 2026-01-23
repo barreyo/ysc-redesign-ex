@@ -251,83 +251,19 @@ defmodule YscWeb.TahoeBookingLive do
     # Parse query parameters, handling malformed/double-encoded URLs
     params = parse_query_params(params, uri)
 
-    # Parse dates and guest counts from URL params
-    {checkin_date, checkout_date} = parse_dates_from_params(params)
-    guests_count = parse_guests_from_params(params)
-    children_count = parse_children_from_params(params)
-    requested_tab = parse_tab_from_params(params)
-    booking_mode = parse_booking_mode_from_params(params)
-    requested_info_tab = parse_info_tab_from_params(params)
+    # Parse all params from URI
+    parsed_params = parse_all_params_from_uri(params, uri)
 
-    # Extract section hash from URI for scrolling
-    scroll_to_section =
-      if uri do
-        parsed_uri = URI.parse(uri)
-
-        if parsed_uri.fragment && parsed_uri.fragment != "" do
-          parsed_uri.fragment
-        else
-          nil
-        end
-      else
-        nil
-      end
-
-    redirect_to =
-      tahoe_redirect_to(
-        checkin_date,
-        checkout_date,
-        guests_count,
-        children_count,
-        requested_tab,
-        booking_mode || :room
-      )
-
-    # Reuse eligibility data from mount if already computed (avoid duplicate queries)
-    # Only re-check if we don't have the data yet (should be rare)
+    # Get booking eligibility
     {can_book, booking_error_title, booking_disabled_reason} =
-      if socket.assigns[:can_book] != nil do
-        # Already computed in mount - reuse it
-        {
-          socket.assigns.can_book,
-          socket.assigns.booking_error_title,
-          socket.assigns.booking_disabled_reason
-        }
-      else
-        # First time (shouldn't happen normally since mount runs first)
-        user = socket.assigns.current_user
+      get_booking_eligibility(socket, parsed_params)
 
-        active_bookings_loaded =
-          if user && !socket.assigns[:active_bookings] do
-            get_family_group_active_bookings(user)
-          else
-            socket.assigns[:active_bookings] || []
-          end
-
-        # Use the user with subscriptions preloaded if available
-        user_for_check = socket.assigns[:user] || user
-
-        check_booking_eligibility(user_for_check, active_bookings_loaded, redirect_to)
-      end
-
-    # If user can't book and requested booking tab, switch to information tab
-    active_tab =
-      if requested_tab == :booking && !can_book do
-        :information
-      else
-        requested_tab
-      end
-
-    # Check if tab changed (but nothing else)
+    # Determine active tab
+    active_tab = determine_active_tab(parsed_params.requested_tab, can_book)
     tab_changed = active_tab != socket.assigns.active_tab
 
     # Update if dates, guest counts, or tab have changed
-    if checkin_date != socket.assigns.checkin_date ||
-         checkout_date != socket.assigns.checkout_date ||
-         guests_count != socket.assigns.guests_count ||
-         children_count != socket.assigns.children_count ||
-         booking_mode != socket.assigns.selected_booking_mode ||
-         tab_changed do
+    if should_update_availability(socket, parsed_params, tab_changed) do
       today = Date.utc_today()
       seasons = socket.assigns.seasons
 
@@ -337,100 +273,38 @@ defmodule YscWeb.TahoeBookingLive do
       max_booking_date = calculate_max_booking_date_cached(seasons, today)
 
       # Calculate restricted date range for family/lifetime members with 1 room booking
-      membership_type = socket.assigns.membership_type || :none
-      active_bookings = socket.assigns[:active_bookings] || []
-
-      {restricted_min_date, restricted_max_date} =
-        if membership_type in [:family, :lifetime] && active_bookings != [] do
-          total_rooms = count_rooms_in_active_bookings(active_bookings)
-
-          if total_rooms == 1 do
-            calculate_restricted_date_range(active_bookings, max_booking_date)
-          else
-            {today, max_booking_date}
-          end
-        else
-          {today, max_booking_date}
-        end
-
-      # Check if dates are actually restricted
-      dates_restricted =
-        dates_are_restricted?(restricted_min_date, restricted_max_date, today, max_booking_date)
+      {restricted_min_date, restricted_max_date, dates_restricted} =
+        calculate_restricted_dates(socket, today, max_booking_date)
 
       # Only regenerate date tooltips if the date range actually changed
-      # This avoids expensive queries when only the tab or other non-date params change
-      # Load date tooltips asynchronously to avoid blocking
       socket =
-        if restricted_min_date != socket.assigns[:restricted_min_date] ||
-             restricted_max_date != socket.assigns[:restricted_max_date] ||
-             !socket.assigns[:date_tooltips] || socket.assigns[:date_tooltips] == %{} do
-          start_async(socket, :load_date_tooltips, fn ->
-            generate_date_tooltips(
-              restricted_min_date,
-              restricted_max_date,
-              today,
-              :tahoe,
-              seasons
-            )
-          end)
-        else
-          socket
-        end
+        maybe_load_date_tooltips(socket, restricted_min_date, restricted_max_date, today, seasons)
 
       date_tooltips = socket.assigns[:date_tooltips] || %{}
 
-      date_form =
-        to_form(
-          %{
-            "checkin_date" => date_to_datetime_string(checkin_date),
-            "checkout_date" => date_to_datetime_string(checkout_date)
-          },
-          as: "booking_dates"
-        )
-
       socket =
-        socket
-        |> assign(
-          page_title: "Tahoe Cabin",
-          checkin_date: checkin_date,
-          checkout_date: checkout_date,
-          today: today,
-          max_booking_date: max_booking_date,
-          restricted_min_date: restricted_min_date,
-          restricted_max_date: restricted_max_date,
-          dates_restricted: dates_restricted,
-          current_season: current_season,
-          season_start_date: season_start_date,
-          season_end_date: season_end_date,
-          guests_count: guests_count,
-          children_count: children_count,
-          selected_booking_mode: booking_mode || :room,
-          selected_room_id: nil,
-          selected_room_ids: [],
-          guests_dropdown_open: socket.assigns[:guests_dropdown_open] || false,
-          available_rooms: [],
-          calculated_price: nil,
-          price_error: nil,
-          form_errors: %{},
-          date_form: date_form,
-          date_validation_errors: %{},
-          active_tab: active_tab,
-          can_book: can_book,
-          booking_error_title: booking_error_title,
-          booking_disabled_reason: booking_disabled_reason,
-          active_bookings: active_bookings,
-          date_tooltips: date_tooltips,
-          booking_step: if(booking_mode, do: :details, else: :mode_selection),
-          info_tab: requested_info_tab || socket.assigns[:info_tab] || :general,
-          scroll_to_section: scroll_to_section
+        update_socket_with_parsed_params(
+          socket,
+          parsed_params,
+          %{
+            today: today,
+            max_booking_date: max_booking_date,
+            restricted_min_date: restricted_min_date,
+            restricted_max_date: restricted_max_date,
+            dates_restricted: dates_restricted,
+            current_season: current_season,
+            season_start_date: season_start_date,
+            season_end_date: season_end_date,
+            can_book: can_book,
+            booking_error_title: booking_error_title,
+            booking_disabled_reason: booking_disabled_reason,
+            active_tab: active_tab,
+            date_tooltips: date_tooltips
+          }
         )
         |> then(fn s ->
           # Only run validation/room updates if dates changed, not just tab
-          if checkin_date != socket.assigns.checkin_date ||
-               checkout_date != socket.assigns.checkout_date ||
-               guests_count != socket.assigns.guests_count ||
-               children_count != socket.assigns.children_count ||
-               booking_mode != socket.assigns.selected_booking_mode do
+          if should_update_rooms(socket, parsed_params) do
             s
             |> enforce_season_booking_mode()
             |> validate_dates()
@@ -444,20 +318,198 @@ defmodule YscWeb.TahoeBookingLive do
       {:noreply, socket}
     else
       # Even if nothing changed, update scroll_to_section if hash is present
-      socket =
-        if uri do
-          parsed_uri = URI.parse(uri)
+      socket = update_scroll_section(socket, uri)
+      {:noreply, socket}
+    end
+  end
 
-          if parsed_uri.fragment && parsed_uri.fragment != "" do
-            assign(socket, scroll_to_section: parsed_uri.fragment)
-          else
-            assign(socket, scroll_to_section: nil)
-          end
+  # Helper function to parse all params from URI
+  defp parse_all_params_from_uri(params, uri) do
+    {checkin_date, checkout_date} = parse_dates_from_params(params)
+    guests_count = parse_guests_from_params(params)
+    children_count = parse_children_from_params(params)
+    requested_tab = parse_tab_from_params(params)
+    booking_mode = parse_booking_mode_from_params(params)
+    requested_info_tab = parse_info_tab_from_params(params)
+
+    scroll_to_section =
+      if uri do
+        parsed_uri = URI.parse(uri)
+        if parsed_uri.fragment && parsed_uri.fragment != "", do: parsed_uri.fragment, else: nil
+      else
+        nil
+      end
+
+    %{
+      checkin_date: checkin_date,
+      checkout_date: checkout_date,
+      guests_count: guests_count,
+      children_count: children_count,
+      requested_tab: requested_tab,
+      booking_mode: booking_mode,
+      requested_info_tab: requested_info_tab,
+      scroll_to_section: scroll_to_section
+    }
+  end
+
+  # Helper function to get booking eligibility
+  defp get_booking_eligibility(socket, parsed_params) do
+    if socket.assigns[:can_book] != nil do
+      # Already computed in mount - reuse it
+      {
+        socket.assigns.can_book,
+        socket.assigns.booking_error_title,
+        socket.assigns.booking_disabled_reason
+      }
+    else
+      # First time (shouldn't happen normally since mount runs first)
+      user = socket.assigns.current_user
+
+      active_bookings_loaded =
+        if user && !socket.assigns[:active_bookings] do
+          get_family_group_active_bookings(user)
         else
-          assign(socket, scroll_to_section: nil)
+          socket.assigns[:active_bookings] || []
         end
 
-      {:noreply, socket}
+      # Use the user with subscriptions preloaded if available
+      user_for_check = socket.assigns[:user] || user
+
+      redirect_to =
+        tahoe_redirect_to(
+          parsed_params.checkin_date,
+          parsed_params.checkout_date,
+          parsed_params.guests_count,
+          parsed_params.children_count,
+          parsed_params.requested_tab,
+          parsed_params.booking_mode || :room
+        )
+
+      check_booking_eligibility(user_for_check, active_bookings_loaded, redirect_to)
+    end
+  end
+
+  # Helper function to determine active tab
+  defp determine_active_tab(requested_tab, can_book) do
+    if requested_tab == :booking && !can_book do
+      :information
+    else
+      requested_tab
+    end
+  end
+
+  # Helper function to check if we should update availability
+  defp should_update_availability(socket, parsed_params, tab_changed) do
+    parsed_params.checkin_date != socket.assigns.checkin_date ||
+      parsed_params.checkout_date != socket.assigns.checkout_date ||
+      parsed_params.guests_count != socket.assigns.guests_count ||
+      parsed_params.children_count != socket.assigns.children_count ||
+      parsed_params.booking_mode != socket.assigns.selected_booking_mode ||
+      tab_changed
+  end
+
+  # Helper function to check if we should update rooms
+  defp should_update_rooms(socket, parsed_params) do
+    parsed_params.checkin_date != socket.assigns.checkin_date ||
+      parsed_params.checkout_date != socket.assigns.checkout_date ||
+      parsed_params.guests_count != socket.assigns.guests_count ||
+      parsed_params.children_count != socket.assigns.children_count ||
+      parsed_params.booking_mode != socket.assigns.selected_booking_mode
+  end
+
+  # Helper function to calculate restricted dates
+  defp calculate_restricted_dates(socket, today, max_booking_date) do
+    membership_type = socket.assigns.membership_type || :none
+    active_bookings = socket.assigns[:active_bookings] || []
+
+    {restricted_min_date, restricted_max_date} =
+      if membership_type in [:family, :lifetime] && active_bookings != [] do
+        total_rooms = count_rooms_in_active_bookings(active_bookings)
+
+        if total_rooms == 1 do
+          calculate_restricted_date_range(active_bookings, max_booking_date)
+        else
+          {today, max_booking_date}
+        end
+      else
+        {today, max_booking_date}
+      end
+
+    dates_restricted =
+      dates_are_restricted?(restricted_min_date, restricted_max_date, today, max_booking_date)
+
+    {restricted_min_date, restricted_max_date, dates_restricted}
+  end
+
+  # Helper function to maybe load date tooltips
+  defp maybe_load_date_tooltips(socket, restricted_min_date, restricted_max_date, today, seasons) do
+    if restricted_min_date != socket.assigns[:restricted_min_date] ||
+         restricted_max_date != socket.assigns[:restricted_max_date] ||
+         !socket.assigns[:date_tooltips] || socket.assigns[:date_tooltips] == %{} do
+      start_async(socket, :load_date_tooltips, fn ->
+        generate_date_tooltips(
+          restricted_min_date,
+          restricted_max_date,
+          today,
+          :tahoe,
+          seasons
+        )
+      end)
+    else
+      socket
+    end
+  end
+
+  # Helper function to update socket with parsed params
+  defp update_socket_with_parsed_params(socket, parsed_params, additional_assigns) do
+    date_form =
+      to_form(
+        %{
+          "checkin_date" => date_to_datetime_string(parsed_params.checkin_date),
+          "checkout_date" => date_to_datetime_string(parsed_params.checkout_date)
+        },
+        as: "booking_dates"
+      )
+
+    active_bookings = socket.assigns[:active_bookings] || []
+
+    socket
+    |> assign(
+      page_title: "Tahoe Cabin",
+      checkin_date: parsed_params.checkin_date,
+      checkout_date: parsed_params.checkout_date,
+      guests_count: parsed_params.guests_count,
+      children_count: parsed_params.children_count,
+      selected_booking_mode: parsed_params.booking_mode || :room,
+      selected_room_id: nil,
+      selected_room_ids: [],
+      guests_dropdown_open: socket.assigns[:guests_dropdown_open] || false,
+      available_rooms: [],
+      calculated_price: nil,
+      price_error: nil,
+      form_errors: %{},
+      date_form: date_form,
+      date_validation_errors: %{},
+      active_bookings: active_bookings,
+      booking_step: if(parsed_params.booking_mode, do: :details, else: :mode_selection),
+      info_tab: parsed_params.requested_info_tab || socket.assigns[:info_tab] || :general,
+      scroll_to_section: parsed_params.scroll_to_section
+    )
+    |> assign(additional_assigns)
+  end
+
+  # Helper function to update scroll section
+  defp update_scroll_section(socket, uri) do
+    if uri do
+      parsed_uri = URI.parse(uri)
+
+      if parsed_uri.fragment && parsed_uri.fragment != "" do
+        assign(socket, scroll_to_section: parsed_uri.fragment)
+      else
+        assign(socket, scroll_to_section: nil)
+      end
+    else
+      assign(socket, scroll_to_section: nil)
     end
   end
 
@@ -3826,128 +3878,6 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
-  defp extract_room_id_from_params(params) do
-    room_id_str =
-      cond do
-        Map.has_key?(params, "room_id") -> Map.get(params, "room_id")
-        Map.has_key?(params, "room-id") -> Map.get(params, "room-id")
-        Map.has_key?(params, "value") -> extract_room_id_from_value(params["value"])
-        true -> nil
-      end
-
-    if room_id_str && room_id_str != "", do: room_id_str, else: nil
-  end
-
-  defp extract_room_id_from_value(value) do
-    cond do
-      is_map(value) -> Map.get(value, "room-id") || Map.get(value, "value")
-      is_binary(value) -> value
-      true -> nil
-    end
-  end
-
-  defp should_allow_room_selection?(socket, room_id) do
-    is_deselection = is_room_deselection?(socket, room_id)
-    {availability, _reason} = get_room_availability(socket, room_id)
-
-    availability == :available || is_deselection
-  end
-
-  defp is_room_deselection?(socket, room_id) do
-    current_selected_id = socket.assigns.selected_room_id
-    current_selected_ids = socket.assigns.selected_room_ids || []
-
-    room_id == current_selected_id || room_id in current_selected_ids
-  end
-
-  defp get_room_availability(socket, room_id) do
-    room = Enum.find(socket.assigns.available_rooms || [], &(&1.id == room_id))
-
-    if room do
-      room.availability_status || {:available, nil}
-    else
-      {:unavailable, "Room not found"}
-    end
-  end
-
-  defp handle_room_selection(socket, room_id) do
-    if can_select_multiple_rooms?(socket.assigns) do
-      handle_multiple_room_selection(socket, room_id)
-    else
-      handle_single_room_selection(socket, room_id)
-    end
-  end
-
-  defp handle_multiple_room_selection(socket, room_id) do
-    current_ids = socket.assigns.selected_room_ids || []
-    selected_room_ids = toggle_room_in_list(socket, current_ids, room_id)
-
-    socket =
-      socket
-      |> assign(
-        selected_room_ids: selected_room_ids,
-        selected_room_id: get_single_selected_room_id(selected_room_ids),
-        calculated_price: nil,
-        price_error: nil
-      )
-      |> validate_guest_capacity()
-      |> update_available_rooms()
-      |> calculate_price_if_ready()
-
-    {:noreply, socket}
-  end
-
-  defp toggle_room_in_list(socket, current_ids, room_id) do
-    if room_id in current_ids do
-      List.delete(current_ids, room_id)
-    else
-      add_room_to_list_if_allowed(socket, current_ids, room_id)
-    end
-  end
-
-  defp add_room_to_list_if_allowed(socket, current_ids, room_id) do
-    if can_add_room_to_list?(socket, current_ids) do
-      [room_id | current_ids]
-    else
-      current_ids
-    end
-  end
-
-  defp can_add_room_to_list?(socket, current_ids) do
-    max_rooms = max_rooms_for_user(socket.assigns)
-    guests_count = parse_guests_count(socket.assigns.guests_count) || 1
-    children_count = parse_children_count(socket.assigns.children_count) || 0
-    total_people = guests_count + children_count
-
-    has_enough_people = total_people > 1 || current_ids == []
-    within_max_rooms = length(current_ids) < max_rooms
-
-    has_enough_people && within_max_rooms
-  end
-
-  defp handle_single_room_selection(socket, room_id) do
-    current_selected_id = socket.assigns.selected_room_id
-    new_selected_id = if room_id == current_selected_id, do: nil, else: room_id
-
-    socket =
-      socket
-      |> assign(
-        selected_room_id: new_selected_id,
-        selected_room_ids: if(new_selected_id, do: [new_selected_id], else: []),
-        calculated_price: nil,
-        price_error: nil
-      )
-      |> validate_guest_capacity()
-      |> update_available_rooms()
-      |> calculate_price_if_ready()
-
-    {:noreply, socket}
-  end
-
-  defp get_single_selected_room_id(selected_room_ids) do
-    if length(selected_room_ids) == 1, do: List.first(selected_room_ids), else: nil
-  end
-
   def handle_event("remove-room", %{"room-id" => room_id}, socket) do
     # Remove room from selected list
     current_ids = socket.assigns.selected_room_ids || []
@@ -4359,28 +4289,152 @@ defmodule YscWeb.TahoeBookingLive do
       end
 
     # Only update if tab actually changed
-    if active_tab != socket.assigns.active_tab do
-      # Update URL with the new tab
-      query_params =
-        build_query_params(
-          socket.assigns.checkin_date,
-          socket.assigns.checkout_date,
-          socket.assigns.guests_count,
-          socket.assigns.children_count,
-          active_tab,
-          socket.assigns.selected_booking_mode,
-          socket.assigns[:info_tab]
-        )
+    socket =
+      if active_tab != socket.assigns.active_tab do
+        # Update URL with the new tab
+        query_params =
+          build_query_params(
+            socket.assigns.checkin_date,
+            socket.assigns.checkout_date,
+            socket.assigns.guests_count,
+            socket.assigns.children_count,
+            active_tab,
+            socket.assigns.selected_booking_mode,
+            socket.assigns[:info_tab]
+          )
 
-      socket =
         socket
         |> assign(active_tab: active_tab)
         |> push_patch(to: ~p"/bookings/tahoe?#{URI.encode_query(query_params)}")
+      else
+        socket
+      end
 
-      {:noreply, socket}
-    else
-      {:noreply, socket}
+    {:noreply, socket}
+  end
+
+  # Helper functions for handle_event("room-changed", ...)
+
+  defp extract_room_id_from_params(params) do
+    room_id_str =
+      cond do
+        Map.has_key?(params, "room_id") -> Map.get(params, "room_id")
+        Map.has_key?(params, "room-id") -> Map.get(params, "room-id")
+        Map.has_key?(params, "value") -> extract_room_id_from_value(params["value"])
+        true -> nil
+      end
+
+    if room_id_str && room_id_str != "", do: room_id_str, else: nil
+  end
+
+  defp extract_room_id_from_value(value) do
+    cond do
+      is_map(value) -> Map.get(value, "room-id") || Map.get(value, "value")
+      is_binary(value) -> value
+      true -> nil
     end
+  end
+
+  defp should_allow_room_selection?(socket, room_id) do
+    is_deselection = room_deselection?(socket, room_id)
+    {availability, _reason} = get_room_availability(socket, room_id)
+
+    availability == :available || is_deselection
+  end
+
+  defp room_deselection?(socket, room_id) do
+    current_selected_id = socket.assigns.selected_room_id
+    current_selected_ids = socket.assigns.selected_room_ids || []
+
+    room_id == current_selected_id || room_id in current_selected_ids
+  end
+
+  defp get_room_availability(socket, room_id) do
+    room = Enum.find(socket.assigns.available_rooms || [], &(&1.id == room_id))
+
+    if room do
+      room.availability_status || {:available, nil}
+    else
+      {:unavailable, "Room not found"}
+    end
+  end
+
+  defp handle_room_selection(socket, room_id) do
+    if can_select_multiple_rooms?(socket.assigns) do
+      handle_multiple_room_selection(socket, room_id)
+    else
+      handle_single_room_selection(socket, room_id)
+    end
+  end
+
+  defp handle_multiple_room_selection(socket, room_id) do
+    current_ids = socket.assigns.selected_room_ids || []
+    selected_room_ids = toggle_room_in_list(socket, current_ids, room_id)
+
+    socket =
+      socket
+      |> assign(
+        selected_room_ids: selected_room_ids,
+        selected_room_id: get_single_selected_room_id(selected_room_ids),
+        calculated_price: nil,
+        price_error: nil
+      )
+      |> validate_guest_capacity()
+      |> update_available_rooms()
+      |> calculate_price_if_ready()
+
+    {:noreply, socket}
+  end
+
+  defp toggle_room_in_list(socket, current_ids, room_id) do
+    if room_id in current_ids do
+      List.delete(current_ids, room_id)
+    else
+      add_room_to_list_if_allowed(socket, current_ids, room_id)
+    end
+  end
+
+  defp add_room_to_list_if_allowed(socket, current_ids, room_id) do
+    if can_add_room_to_list?(socket, current_ids) do
+      [room_id | current_ids]
+    else
+      current_ids
+    end
+  end
+
+  defp can_add_room_to_list?(socket, current_ids) do
+    max_rooms = max_rooms_for_user(socket.assigns)
+    guests_count = parse_guests_count(socket.assigns.guests_count) || 1
+    children_count = parse_children_count(socket.assigns.children_count) || 0
+    total_people = guests_count + children_count
+
+    has_enough_people = total_people > 1 || current_ids == []
+    within_max_rooms = length(current_ids) < max_rooms
+
+    has_enough_people && within_max_rooms
+  end
+
+  defp handle_single_room_selection(socket, room_id) do
+    current_selected_id = socket.assigns.selected_room_id
+    new_selected_id = if room_id == current_selected_id, do: nil, else: room_id
+
+    socket =
+      socket
+      |> assign(
+        selected_room_id: new_selected_id,
+        selected_room_ids: if(new_selected_id, do: [new_selected_id], else: []),
+        calculated_price: nil,
+        price_error: nil
+      )
+      |> validate_guest_capacity()
+      |> update_available_rooms()
+      |> calculate_price_if_ready()
+
+    {:noreply, socket}
+  end
+
+  defp get_single_selected_room_id(selected_room_ids) do
+    if length(selected_room_ids) == 1, do: List.first(selected_room_ids), else: nil
   end
 
   # Helper functions
@@ -4397,7 +4451,7 @@ defmodule YscWeb.TahoeBookingLive do
     if should_update_available_rooms?(socket) do
       log_update_available_rooms_start(socket)
 
-      {guests_count, children_count, total_people} = parse_and_validate_guest_counts(socket)
+      {_guests_count, _children_count, total_people} = parse_and_validate_guest_counts(socket)
       all_rooms = fetch_all_rooms_for_property(socket.assigns.property)
       available_room_ids = check_room_availability(all_rooms, socket)
       can_select_multiple = can_select_multiple_rooms?(socket.assigns)
@@ -4542,7 +4596,7 @@ defmodule YscWeb.TahoeBookingLive do
         total_people
       )
 
-    {guests_count, children_count, total_people} = parse_and_validate_guest_counts(socket)
+    {_guests_count, _children_count, total_people} = parse_and_validate_guest_counts(socket)
     only_one_person = total_people == 1
 
     trying_to_add_second_room =
@@ -4554,20 +4608,22 @@ defmodule YscWeb.TahoeBookingLive do
     has_existing_booking = check_has_existing_booking(socket)
     membership_type = socket.assigns[:membership_type] || :none
 
-    determine_availability_status(
-      is_active,
-      is_available,
-      cannot_select_another_room,
-      has_existing_booking,
-      membership_type,
-      only_one_person,
-      trying_to_add_second_room,
-      capacity_ok,
-      can_select_multiple,
-      room,
-      total_selected_capacity,
-      total_people
-    )
+    availability_context = %{
+      is_active: is_active,
+      is_available: is_available,
+      cannot_select_another_room: cannot_select_another_room,
+      has_existing_booking: has_existing_booking,
+      membership_type: membership_type,
+      only_one_person: only_one_person,
+      trying_to_add_second_room: trying_to_add_second_room,
+      capacity_ok: capacity_ok,
+      can_select_multiple: can_select_multiple,
+      room: room,
+      total_selected_capacity: total_selected_capacity,
+      total_people: total_people
+    }
+
+    determine_availability_status(availability_context)
   end
 
   defp check_room_capacity(
@@ -4619,36 +4675,31 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
-  defp determine_availability_status(
-         is_active,
-         is_available,
-         cannot_select_another_room,
-         has_existing_booking,
-         membership_type,
-         only_one_person,
-         trying_to_add_second_room,
-         capacity_ok,
-         can_select_multiple,
-         room,
-         total_selected_capacity,
-         total_people
-       ) do
+  defp determine_availability_status(context) do
     cond do
-      not is_active ->
+      not context.is_active ->
         {:unavailable, "Room is not active"}
 
-      not is_available ->
+      not context.is_available ->
         {:unavailable, "Already booked for selected dates"}
 
-      cannot_select_another_room ->
-        build_cannot_select_another_room_error(has_existing_booking, membership_type)
+      context.cannot_select_another_room ->
+        build_cannot_select_another_room_error(
+          context.has_existing_booking,
+          context.membership_type
+        )
 
-      only_one_person && trying_to_add_second_room ->
+      context.only_one_person && context.trying_to_add_second_room ->
         {:unavailable,
          "Cannot book multiple rooms with only 1 person. Please select more guests to book additional rooms."}
 
-      not capacity_ok ->
-        build_capacity_error(can_select_multiple, total_selected_capacity, total_people, room)
+      not context.capacity_ok ->
+        build_capacity_error(
+          context.can_select_multiple,
+          context.total_selected_capacity,
+          context.total_people,
+          context.room
+        )
 
       true ->
         {:available, nil}
@@ -4826,7 +4877,7 @@ defmodule YscWeb.TahoeBookingLive do
        ) do
     dates_present? = checkin_date && checkout_date
     rooms_selected? = has_rooms_selected?(room_ids_or_id)
-    booking_mode_valid? = is_booking_mode_valid?(booking_mode, rooms_selected?)
+    booking_mode_valid? = booking_mode_valid?(booking_mode, rooms_selected?)
 
     no_errors? =
       !has_any_errors?(capacity_error, price_error, form_errors, date_validation_errors)
@@ -4842,7 +4893,7 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
-  defp is_booking_mode_valid?(booking_mode, rooms_selected?) do
+  defp booking_mode_valid?(booking_mode, rooms_selected?) do
     booking_mode == :buyout || (booking_mode == :room && rooms_selected?)
   end
 
@@ -5218,61 +5269,54 @@ defmodule YscWeb.TahoeBookingLive do
          booking_mode,
          info_tab
        ) do
-    params = %{}
-
-    params =
-      if checkin_date do
-        Map.put(params, "checkin_date", Date.to_string(checkin_date))
-      else
-        params
-      end
-
-    params =
-      if checkout_date do
-        Map.put(params, "checkout_date", Date.to_string(checkout_date))
-      else
-        params
-      end
-
-    params =
-      if guests_count && guests_count > 0 do
-        # Always include guests_count in URL, even if it's the default value of 1
-        Map.put(params, "guests_count", Integer.to_string(guests_count))
-      else
-        params
-      end
-
-    params =
-      if children_count && children_count >= 0 do
-        # Always include children_count in URL, even if it's 0
-        Map.put(params, "children_count", Integer.to_string(children_count))
-      else
-        params
-      end
-
-    params =
-      if active_tab && active_tab != :booking do
-        Map.put(params, "tab", Atom.to_string(active_tab))
-      else
-        params
-      end
-
-    params =
-      if booking_mode && booking_mode != :room do
-        Map.put(params, "booking_mode", Atom.to_string(booking_mode))
-      else
-        params
-      end
-
-    params =
-      if info_tab && info_tab != :general do
-        Map.put(params, "info_tab", Atom.to_string(info_tab))
-      else
-        params
-      end
-
-    params
+    %{}
+    |> add_date_param("checkin_date", checkin_date)
+    |> add_date_param("checkout_date", checkout_date)
+    |> add_guests_count_param(guests_count)
+    |> add_children_count_param(children_count)
+    |> add_tab_param(active_tab)
+    |> add_booking_mode_param(booking_mode)
+    |> add_info_tab_param(info_tab)
   end
+
+  defp add_date_param(params, key, date) when not is_nil(date) do
+    Map.put(params, key, Date.to_string(date))
+  end
+
+  defp add_date_param(params, _key, _date), do: params
+
+  defp add_guests_count_param(params, guests_count)
+       when is_integer(guests_count) and guests_count > 0 do
+    Map.put(params, "guests_count", Integer.to_string(guests_count))
+  end
+
+  defp add_guests_count_param(params, _guests_count), do: params
+
+  defp add_children_count_param(params, children_count)
+       when is_integer(children_count) and children_count >= 0 do
+    Map.put(params, "children_count", Integer.to_string(children_count))
+  end
+
+  defp add_children_count_param(params, _children_count), do: params
+
+  defp add_tab_param(params, active_tab) when not is_nil(active_tab) and active_tab != :booking do
+    Map.put(params, "tab", Atom.to_string(active_tab))
+  end
+
+  defp add_tab_param(params, _active_tab), do: params
+
+  defp add_booking_mode_param(params, booking_mode)
+       when not is_nil(booking_mode) and booking_mode != :room do
+    Map.put(params, "booking_mode", Atom.to_string(booking_mode))
+  end
+
+  defp add_booking_mode_param(params, _booking_mode), do: params
+
+  defp add_info_tab_param(params, info_tab) when not is_nil(info_tab) and info_tab != :general do
+    Map.put(params, "info_tab", Atom.to_string(info_tab))
+  end
+
+  defp add_info_tab_param(params, _info_tab), do: params
 
   # Real-time validation functions
 
@@ -5630,7 +5674,7 @@ defmodule YscWeb.TahoeBookingLive do
   defp check_family_max_rooms_reached(active_bookings_list, membership_type) do
     latest_checkout_date = get_latest_checkout_date(active_bookings_list)
 
-    if latest_checkout_date && is_booking_still_active?(latest_checkout_date) do
+    if latest_checkout_date && booking_still_active?(latest_checkout_date) do
       formatted_date = format_date(latest_checkout_date)
 
       {
@@ -5643,7 +5687,7 @@ defmodule YscWeb.TahoeBookingLive do
     end
   end
 
-  defp is_booking_still_active?(checkout_date) do
+  defp booking_still_active?(checkout_date) do
     today = Date.utc_today()
 
     Date.compare(checkout_date, today) == :gt or
@@ -5663,7 +5707,7 @@ defmodule YscWeb.TahoeBookingLive do
   defp check_single_booking_active_status(user, active_booking) do
     checkout_date = active_booking.checkout_date
 
-    if is_booking_still_active?(checkout_date) do
+    if booking_still_active?(checkout_date) do
       formatted_date = format_date(checkout_date)
       booking_owner = if active_booking.user_id == user.id, do: "you", else: "a family member"
 
@@ -6332,17 +6376,19 @@ defmodule YscWeb.TahoeBookingLive do
     date_range
     |> Enum.reduce(%{}, fn date, acc ->
       tooltip =
-        get_date_unavailability_reason(
-          date,
-          min_date,
-          max_date,
-          today,
-          property,
-          all_rooms,
-          bookings,
-          blackout_dates,
-          buyout_dates
-        )
+        availability_context = %{
+          date: date,
+          min_date: min_date,
+          max_date: max_date,
+          today: today,
+          property: property,
+          all_rooms: all_rooms,
+          bookings: bookings,
+          blackout_dates: blackout_dates,
+          buyout_dates: buyout_dates
+        }
+
+      get_date_unavailability_reason(availability_context)
 
       if tooltip do
         Map.put(acc, Date.to_iso8601(date), tooltip)
@@ -6353,47 +6399,38 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   # Get the reason why a date is unavailable (returns nil if available)
-  defp get_date_unavailability_reason(
-         date,
-         min_date,
-         max_date,
-         today,
-         property,
-         all_rooms,
-         bookings,
-         blackout_dates,
-         buyout_dates
-       ) do
+  defp get_date_unavailability_reason(context) do
     cond do
       # Past dates
-      Date.compare(date, min_date) == :lt ->
+      Date.compare(context.date, context.min_date) == :lt ->
         "Past dates cannot be booked"
 
       # Too far in future
-      Date.compare(date, max_date) == :gt ->
+      Date.compare(context.date, context.max_date) == :gt ->
         "Reservations are not open for this date yet"
 
       # Season restrictions (check if date is selectable based on season rules)
-      not SeasonHelpers.date_selectable?(property, date, today) ->
+      not SeasonHelpers.date_selectable?(context.property, context.date, context.today) ->
         "Bookings for this season are not yet open"
 
       # Saturday check-in (Tahoe rule)
-      Date.day_of_week(date) == 6 && property == :tahoe ->
+      Date.day_of_week(context.date) == 6 && context.property == :tahoe ->
         "Check-ins are not permitted on Saturdays"
 
       # Blackout
-      MapSet.member?(blackout_dates, date) ->
+      MapSet.member?(context.blackout_dates, context.date) ->
         "This date is unavailable"
 
       # Buyout
-      MapSet.member?(buyout_dates, date) ->
+      MapSet.member?(context.buyout_dates, context.date) ->
         "Full cabin buyout is already reserved on this date"
 
       # Check if all rooms are booked (for room booking mode)
       true ->
         # Check if all active rooms are booked for this date
         # We need to check if there's at least one room available for a single night stay
-        date_available = check_date_availability_for_rooms(date, all_rooms, bookings)
+        date_available =
+          check_date_availability_for_rooms(context.date, context.all_rooms, context.bookings)
 
         if date_available do
           nil

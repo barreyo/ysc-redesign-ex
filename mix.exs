@@ -47,7 +47,6 @@ defmodule Ysc.MixProject do
       {:ecto_psql_extras, "~> 0.6"},
       {:ecto_sql, "~> 3.11"},
       {:ecto_ulid, "~> 0.3"},
-      {:elixir_dashboard, "~> 0.2"},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
       {:ex_aws_s3, "~> 2.0"},
       {:ex_aws, "~> 2.1"},
@@ -102,8 +101,8 @@ defmodule Ysc.MixProject do
       {:stripity_stripe, "~> 2.17"},
       {:swoosh, "~> 1.14"},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
-      {:telemetry_metrics, "~> 0.6"},
-      {:telemetry_poller, "~> 1.0"},
+      {:telemetry_metrics, "~> 1.1"},
+      {:telemetry_poller, "~> 1.3"},
       {:timex, "~> 3.7"},
       {:uuid, "~> 1.1"}
     ]

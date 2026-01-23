@@ -34,17 +34,19 @@ defmodule YscWeb.Workers.EmailNotifier do
         "user_id" => user_id,
         "category" => category
       } ->
-        perform_with_args(
-          job,
-          recipient,
-          idempotency_key,
-          subject,
-          template,
-          params,
-          text_body,
-          user_id,
-          category
-        )
+        email_params = %{
+          job: job,
+          recipient: recipient,
+          idempotency_key: idempotency_key,
+          subject: subject,
+          template: template,
+          params: params,
+          text_body: text_body,
+          user_id: user_id,
+          category: category
+        }
+
+        perform_with_args(email_params)
 
       args ->
         # Try to handle legacy jobs without category
@@ -61,17 +63,19 @@ defmodule YscWeb.Workers.EmailNotifier do
             # Legacy job - get category from template
             category = Ysc.Accounts.EmailCategories.get_category(template)
 
-            perform_with_args(
-              job,
-              recipient,
-              idempotency_key,
-              subject,
-              template,
-              params,
-              text_body,
-              user_id,
-              category
-            )
+            email_params = %{
+              job: job,
+              recipient: recipient,
+              idempotency_key: idempotency_key,
+              subject: subject,
+              template: template,
+              params: params,
+              text_body: text_body,
+              user_id: user_id,
+              category: category
+            }
+
+            perform_with_args(email_params)
 
           _ ->
             Logger.error("EmailNotifier job received invalid args",
@@ -94,58 +98,53 @@ defmodule YscWeb.Workers.EmailNotifier do
     end
   end
 
-  defp perform_with_args(
-         job,
-         recipient,
-         idempotency_key,
-         subject,
-         template,
-         params,
-         text_body,
-         user_id,
-         category
-       ) do
+  defp perform_with_args(params) do
     Logger.info("EmailNotifier job started",
-      job_id: job.id,
-      recipient: recipient,
-      idempotency_key: idempotency_key,
-      subject: subject,
-      template: template,
-      user_id: user_id,
-      category: category
+      job_id: params.job.id,
+      recipient: params.recipient,
+      idempotency_key: params.idempotency_key,
+      subject: params.subject,
+      template: params.template,
+      user_id: params.user_id,
+      category: params.category
     )
 
     # Check user notification preferences if user_id is provided
     {should_send, final_user_id} =
-      check_user_email_preferences(user_id, template, category, recipient)
+      check_user_email_preferences(
+        params.user_id,
+        params.template,
+        params.category,
+        params.recipient
+      )
 
     if should_send do
       try do
-        template_module = YscWeb.Emails.Notifier.get_template_module(template)
+        template_module = YscWeb.Emails.Notifier.get_template_module(params.template)
 
         if template_module do
           Logger.info("Template module found: #{inspect(template_module)}")
         else
-          error_message = "Template module not found for template: #{template}"
+          error_message = "Template module not found for template: #{params.template}"
 
-          Logger.error("Template module not found for template: #{template}")
+          Logger.error("Template module not found for template: #{params.template}")
 
           # Report to Sentry
           Sentry.capture_message(error_message,
             level: :error,
             extra: %{
-              job_id: job.id,
-              recipient: recipient,
-              idempotency_key: idempotency_key,
-              template: template,
-              subject: subject,
-              user_id: user_id,
-              category: category
+              job_id: params.job.id,
+              recipient: params.recipient,
+              idempotency_key: params.idempotency_key,
+              template: params.template,
+              subject: params.subject,
+              user_id: params.user_id,
+              category: params.category
             },
             tags: %{
-              email_template: template,
-              email_category: to_string(category),
-              has_user_id: !is_nil(user_id),
+              email_template: params.template,
+              email_category: to_string(params.category),
+              has_user_id: !is_nil(params.user_id),
               error_type: "missing_template_module"
             }
           )
@@ -153,38 +152,38 @@ defmodule YscWeb.Workers.EmailNotifier do
           raise error_message
         end
 
-        atomized_params = atomize_keys(params)
+        atomized_params = atomize_keys(params.params)
         Logger.info("Atomized params: #{inspect(atomized_params)}")
 
         # Normalize recipient to ensure it's a string (Swoosh can handle tuples/lists, but we want consistency)
-        normalized_recipient = normalize_recipient(recipient)
+        normalized_recipient = normalize_recipient(params.recipient)
 
         result =
           YscWeb.Emails.Notifier.send_email_idempotent(
             normalized_recipient,
-            idempotency_key,
-            subject,
+            params.idempotency_key,
+            params.subject,
             template_module,
             atomized_params,
-            text_body,
+            params.text_body,
             final_user_id
           )
 
         case result do
           {:ok, _email} ->
             Logger.info("Email sent successfully",
-              job_id: job.id,
-              recipient: recipient,
-              idempotency_key: idempotency_key
+              job_id: params.job.id,
+              recipient: params.recipient,
+              idempotency_key: params.idempotency_key
             )
 
             :ok
 
           {:error, reason} ->
             Logger.error("Failed to send email",
-              job_id: job.id,
-              recipient: recipient,
-              idempotency_key: idempotency_key,
+              job_id: params.job.id,
+              recipient: params.recipient,
+              idempotency_key: params.idempotency_key,
               error: reason
             )
 
@@ -192,19 +191,19 @@ defmodule YscWeb.Workers.EmailNotifier do
             Sentry.capture_message("Email sending failed",
               level: :error,
               extra: %{
-                job_id: job.id,
-                recipient: recipient,
-                idempotency_key: idempotency_key,
-                template: template,
-                subject: subject,
-                user_id: user_id,
-                category: category,
+                job_id: params.job.id,
+                recipient: params.recipient,
+                idempotency_key: params.idempotency_key,
+                template: params.template,
+                subject: params.subject,
+                user_id: params.user_id,
+                category: params.category,
                 error: inspect(reason)
               },
               tags: %{
-                email_template: template,
-                email_category: to_string(category),
-                has_user_id: !is_nil(user_id)
+                email_template: params.template,
+                email_category: to_string(params.category),
+                has_user_id: !is_nil(params.user_id)
               }
             )
 
@@ -213,10 +212,10 @@ defmodule YscWeb.Workers.EmailNotifier do
       rescue
         error ->
           Logger.error("EmailNotifier job failed",
-            job_id: job.id,
-            recipient: recipient,
-            idempotency_key: idempotency_key,
-            template: template,
+            job_id: params.job.id,
+            recipient: params.recipient,
+            idempotency_key: params.idempotency_key,
+            template: params.template,
             error: inspect(error),
             error_type: inspect(error.__struct__),
             error_message: Exception.message(error),
@@ -227,20 +226,20 @@ defmodule YscWeb.Workers.EmailNotifier do
           Sentry.capture_exception(error,
             stacktrace: __STACKTRACE__,
             extra: %{
-              job_id: job.id,
-              recipient: recipient,
-              idempotency_key: idempotency_key,
-              template: template,
-              subject: subject,
-              user_id: user_id,
-              category: category,
+              job_id: params.job.id,
+              recipient: params.recipient,
+              idempotency_key: params.idempotency_key,
+              template: params.template,
+              subject: params.subject,
+              user_id: params.user_id,
+              category: params.category,
               error_type: inspect(error.__struct__),
               error_message: Exception.message(error)
             },
             tags: %{
-              email_template: template,
-              email_category: to_string(category),
-              has_user_id: !is_nil(user_id),
+              email_template: params.template,
+              email_category: to_string(params.category),
+              has_user_id: !is_nil(params.user_id),
               worker: "EmailNotifier"
             }
           )
@@ -249,10 +248,10 @@ defmodule YscWeb.Workers.EmailNotifier do
       end
     else
       Logger.info("Email notification skipped",
-        job_id: job.id,
-        user_id: user_id,
-        template: template,
-        category: category
+        job_id: params.job.id,
+        user_id: params.user_id,
+        template: params.template,
+        category: params.category
       )
 
       :ok

@@ -3883,162 +3883,40 @@ defmodule YscWeb.EventDetailsLive do
     tickets_requiring_registration = socket.assigns.tickets_requiring_registration || []
 
     if Enum.any?(tickets_requiring_registration) do
-      # Extract registration data from form or use user's details if "for me" is checked
       tickets_for_me = socket.assigns.tickets_for_me || %{}
+      ticket_details_form = socket.assigns.ticket_details_form || %{}
+      current_user = socket.assigns.current_user
 
       ticket_details_list =
-        tickets_requiring_registration
-        |> Enum.map(fn ticket ->
-          # Check both string and atom keys for tickets_for_me
-          is_for_me =
-            Map.get(tickets_for_me, ticket.id, false) ||
-              Map.get(tickets_for_me, to_string(ticket.id), false)
-
-          if is_for_me do
-            # Use current user's details (use actual values, not empty strings)
-            %{
-              ticket_id: ticket.id,
-              first_name: socket.assigns.current_user.first_name,
-              last_name: socket.assigns.current_user.last_name,
-              email: socket.assigns.current_user.email
-            }
-          else
-            # Use form data - ensure we convert ticket.id to string for consistent key lookup
-            ticket_id_str = to_string(ticket.id)
-
-            form_data =
-              Map.get(socket.assigns.ticket_details_form, ticket_id_str, %{}) ||
-                Map.get(socket.assigns.ticket_details_form, ticket.id, %{})
-
-            %{
-              ticket_id: ticket.id,
-              first_name: get_form_value(form_data, :first_name) || "",
-              last_name: get_form_value(form_data, :last_name) || "",
-              email: get_form_value(form_data, :email) || ""
-            }
-          end
-        end)
-
-      # Validate that all fields are filled
-      # For tickets marked as "for me", validate against user's account fields
-      all_valid =
-        tickets_requiring_registration
-        |> Enum.with_index()
-        |> Enum.all?(fn {ticket, index} ->
-          detail = Enum.at(ticket_details_list, index)
-          # Check both string and atom keys for tickets_for_me
-          is_for_me =
-            Map.get(tickets_for_me, ticket.id, false) ||
-              Map.get(tickets_for_me, to_string(ticket.id), false)
-
-          if is_for_me do
-            # For "for me" tickets, validate user's account has required fields
-            # Check the user's fields directly, not the detail map (which may have nil values)
-            user = socket.assigns.current_user
-
-            user.first_name != nil &&
-              user.first_name != "" &&
-              user.last_name != nil &&
-              user.last_name != "" &&
-              user.email != nil &&
-              user.email != ""
-          else
-            # For form-filled tickets, validate form fields
-            # Check that fields are not nil, not empty string, and not just whitespace
-            first_name = detail.first_name || ""
-            last_name = detail.last_name || ""
-            email = detail.email || ""
-
-            first_name_valid = first_name != "" && String.trim(first_name) != ""
-            last_name_valid = last_name != "" && String.trim(last_name) != ""
-            email_valid = email != "" && String.trim(email) != ""
-
-            first_name_valid && last_name_valid && email_valid
-          end
-        end)
-
-      if all_valid do
-        # Save ticket details
-        case Ysc.Events.create_ticket_details(ticket_details_list) do
-          {:ok, _ticket_details} ->
-            # Continue with free ticket processing
-            process_free_tickets(socket)
-
-          {:error, _reason} ->
-            {:noreply,
-             socket
-             |> put_flash(
-               :error,
-               "Failed to save registration details. Please try again."
-             )}
-        end
-      else
-        # Debug: Log what's failing
-        require Logger
-
-        failing_tickets =
-          tickets_requiring_registration
-          |> Enum.with_index()
-          |> Enum.filter(fn {ticket, index} ->
-            detail = Enum.at(ticket_details_list, index)
-            is_for_me = Map.get(tickets_for_me, ticket.id, false)
-
-            if is_for_me do
-              user = socket.assigns.current_user
-
-              !(user.first_name != nil &&
-                  user.first_name != "" &&
-                  user.last_name != nil &&
-                  user.last_name != "" &&
-                  user.email != nil &&
-                  user.email != "")
-            else
-              first_name = detail.first_name || ""
-              last_name = detail.last_name || ""
-              email = detail.email || ""
-
-              !(first_name != "" && String.trim(first_name) != "" &&
-                  last_name != "" && String.trim(last_name) != "" &&
-                  email != "" && String.trim(email) != "")
-            end
-          end)
-
-        failing_details =
-          failing_tickets
-          |> Enum.map(fn {ticket, index} ->
-            detail = Enum.at(ticket_details_list, index)
-            is_for_me = Map.get(tickets_for_me, ticket.id, false)
-            ticket_id_str = to_string(ticket.id)
-
-            form_data =
-              Map.get(socket.assigns.ticket_details_form, ticket_id_str, %{}) ||
-                Map.get(socket.assigns.ticket_details_form, ticket.id, %{})
-
-            %{
-              ticket_id: ticket.id,
-              is_for_me: is_for_me,
-              detail: detail,
-              form_data: form_data,
-              user: if(is_for_me, do: socket.assigns.current_user, else: nil)
-            }
-          end)
-
-        failing_info =
-          failing_details
-          |> Enum.map_join("; ", fn f ->
-            "Ticket #{f.ticket_id}: is_for_me=#{f.is_for_me}, detail=#{inspect(f.detail)}, form_data=#{inspect(f.form_data)}"
-          end)
-
-        Logger.warning(
-          "Registration validation failed. Failing tickets: #{failing_info}. All form_data: #{inspect(socket.assigns.ticket_details_form)}. Tickets_for_me: #{inspect(tickets_for_me)}"
+        build_ticket_details_list(
+          tickets_requiring_registration,
+          tickets_for_me,
+          ticket_details_form,
+          current_user
         )
 
-        {:noreply,
-         socket
-         |> put_flash(
-           :error,
-           "Please fill in all required registration fields before confirming."
-         )}
+      all_valid =
+        validate_ticket_details(
+          tickets_requiring_registration,
+          ticket_details_list,
+          tickets_for_me,
+          current_user
+        )
+
+      if all_valid do
+        save_ticket_details_and_process(ticket_details_list, socket, fn ->
+          process_free_tickets(socket)
+        end)
+      else
+        handle_registration_validation_failure(
+          tickets_requiring_registration,
+          ticket_details_list,
+          tickets_for_me,
+          ticket_details_form,
+          current_user,
+          socket,
+          "Please fill in all required registration fields before confirming."
+        )
       end
     else
       # No registration required, proceed with free ticket processing
@@ -4078,156 +3956,40 @@ defmodule YscWeb.EventDetailsLive do
     tickets_requiring_registration = socket.assigns.tickets_requiring_registration || []
 
     if Enum.any?(tickets_requiring_registration) do
-      # Extract registration data from form or use user's details if "for me" is checked
       tickets_for_me = socket.assigns.tickets_for_me || %{}
+      ticket_details_form = socket.assigns.ticket_details_form || %{}
+      current_user = socket.assigns.current_user
 
       ticket_details_list =
-        tickets_requiring_registration
-        |> Enum.map(fn ticket ->
-          is_for_me = Map.get(tickets_for_me, ticket.id, false)
-
-          if is_for_me do
-            # Use current user's details (use actual values, not empty strings)
-            %{
-              ticket_id: ticket.id,
-              first_name: socket.assigns.current_user.first_name,
-              last_name: socket.assigns.current_user.last_name,
-              email: socket.assigns.current_user.email
-            }
-          else
-            # Use form data - ensure we convert ticket.id to string for consistent key lookup
-            ticket_id_str = to_string(ticket.id)
-
-            form_data =
-              Map.get(socket.assigns.ticket_details_form, ticket_id_str, %{}) ||
-                Map.get(socket.assigns.ticket_details_form, ticket.id, %{})
-
-            %{
-              ticket_id: ticket.id,
-              first_name: get_form_value(form_data, :first_name) || "",
-              last_name: get_form_value(form_data, :last_name) || "",
-              email: get_form_value(form_data, :email) || ""
-            }
-          end
-        end)
-
-      # Validate that all fields are filled
-      # For tickets marked as "for me", validate against user's account fields
-      all_valid =
-        tickets_requiring_registration
-        |> Enum.with_index()
-        |> Enum.all?(fn {ticket, index} ->
-          detail = Enum.at(ticket_details_list, index)
-          is_for_me = Map.get(tickets_for_me, ticket.id, false)
-
-          if is_for_me do
-            # For "for me" tickets, validate user's account has required fields
-            # Check the user's fields directly, not the detail map (which may have nil values)
-            user = socket.assigns.current_user
-
-            user.first_name != nil &&
-              user.first_name != "" &&
-              user.last_name != nil &&
-              user.last_name != "" &&
-              user.email != nil &&
-              user.email != ""
-          else
-            # For form-filled tickets, validate form fields
-            # Check that fields are not nil, not empty string, and not just whitespace
-            first_name = detail.first_name || ""
-            last_name = detail.last_name || ""
-            email = detail.email || ""
-
-            first_name_valid = first_name != "" && String.trim(first_name) != ""
-            last_name_valid = last_name != "" && String.trim(last_name) != ""
-            email_valid = email != "" && String.trim(email) != ""
-
-            first_name_valid && last_name_valid && email_valid
-          end
-        end)
-
-      if all_valid do
-        # Save ticket details
-        case Ysc.Events.create_ticket_details(ticket_details_list) do
-          {:ok, _ticket_details} ->
-            # Continue with payment processing
-            process_payment_success(socket, payment_intent_id)
-
-          {:error, _reason} ->
-            {:noreply,
-             socket
-             |> put_flash(
-               :error,
-               "Failed to save registration details. Please try again."
-             )}
-        end
-      else
-        # Debug: Log what's failing
-        require Logger
-
-        failing_tickets =
-          tickets_requiring_registration
-          |> Enum.with_index()
-          |> Enum.filter(fn {ticket, index} ->
-            detail = Enum.at(ticket_details_list, index)
-            is_for_me = Map.get(tickets_for_me, ticket.id, false)
-
-            if is_for_me do
-              user = socket.assigns.current_user
-
-              !(user.first_name != nil &&
-                  user.first_name != "" &&
-                  user.last_name != nil &&
-                  user.last_name != "" &&
-                  user.email != nil &&
-                  user.email != "")
-            else
-              first_name = detail.first_name || ""
-              last_name = detail.last_name || ""
-              email = detail.email || ""
-
-              !(first_name != "" && String.trim(first_name) != "" &&
-                  last_name != "" && String.trim(last_name) != "" &&
-                  email != "" && String.trim(email) != "")
-            end
-          end)
-
-        failing_details =
-          failing_tickets
-          |> Enum.map(fn {ticket, index} ->
-            detail = Enum.at(ticket_details_list, index)
-            is_for_me = Map.get(tickets_for_me, ticket.id, false)
-            ticket_id_str = to_string(ticket.id)
-
-            form_data =
-              Map.get(socket.assigns.ticket_details_form, ticket_id_str, %{}) ||
-                Map.get(socket.assigns.ticket_details_form, ticket.id, %{})
-
-            %{
-              ticket_id: ticket.id,
-              is_for_me: is_for_me,
-              detail: detail,
-              form_data: form_data,
-              user: if(is_for_me, do: socket.assigns.current_user, else: nil)
-            }
-          end)
-
-        failing_info =
-          failing_details
-          |> Enum.map_join("; ", fn f ->
-            "Ticket #{f.ticket_id}: is_for_me=#{f.is_for_me}, detail=#{inspect(f.detail)}, form_data=#{inspect(f.form_data)}"
-          end)
-
-        Logger.warning(
-          "Registration validation failed for payment. Failing tickets: #{failing_info}. All form_data: #{inspect(socket.assigns.ticket_details_form)}. Tickets_for_me: #{inspect(tickets_for_me)}"
+        build_ticket_details_list(
+          tickets_requiring_registration,
+          tickets_for_me,
+          ticket_details_form,
+          current_user
         )
 
-        {:noreply,
-         socket
-         |> put_flash(
-           :error,
-           "Please fill in all required registration fields before completing payment."
-         )}
+      all_valid =
+        validate_ticket_details(
+          tickets_requiring_registration,
+          ticket_details_list,
+          tickets_for_me,
+          current_user
+        )
+
+      if all_valid do
+        save_ticket_details_and_process(ticket_details_list, socket, fn ->
+          process_payment_success(socket, payment_intent_id)
+        end)
+      else
+        handle_registration_validation_failure(
+          tickets_requiring_registration,
+          ticket_details_list,
+          tickets_for_me,
+          ticket_details_form,
+          current_user,
+          socket,
+          "Please fill in all required registration fields before completing payment."
+        )
       end
     else
       # No registration required, proceed with payment
@@ -5122,6 +4884,232 @@ defmodule YscWeb.EventDetailsLive do
     end
   end
 
+  # Helper function to build ticket details list from registration data
+  defp build_ticket_details_list(
+         tickets_requiring_registration,
+         tickets_for_me,
+         ticket_details_form,
+         current_user
+       ) do
+    tickets_requiring_registration
+    |> Enum.map(fn ticket ->
+      # Check both string and atom keys for tickets_for_me
+      is_for_me =
+        Map.get(tickets_for_me, ticket.id, false) ||
+          Map.get(tickets_for_me, to_string(ticket.id), false)
+
+      if is_for_me do
+        # Use current user's details
+        %{
+          ticket_id: ticket.id,
+          first_name: current_user.first_name,
+          last_name: current_user.last_name,
+          email: current_user.email
+        }
+      else
+        # Use form data - ensure we convert ticket.id to string for consistent key lookup
+        ticket_id_str = to_string(ticket.id)
+
+        form_data =
+          Map.get(ticket_details_form, ticket_id_str, %{}) ||
+            Map.get(ticket_details_form, ticket.id, %{})
+
+        %{
+          ticket_id: ticket.id,
+          first_name: get_form_value(form_data, :first_name) || "",
+          last_name: get_form_value(form_data, :last_name) || "",
+          email: get_form_value(form_data, :email) || ""
+        }
+      end
+    end)
+  end
+
+  # Helper function to validate ticket details
+  defp validate_ticket_details(
+         tickets_requiring_registration,
+         ticket_details_list,
+         tickets_for_me,
+         current_user
+       ) do
+    tickets_requiring_registration
+    |> Enum.with_index()
+    |> Enum.all?(fn {ticket, index} ->
+      detail = Enum.at(ticket_details_list, index)
+      # Check both string and atom keys for tickets_for_me
+      is_for_me =
+        Map.get(tickets_for_me, ticket.id, false) ||
+          Map.get(tickets_for_me, to_string(ticket.id), false)
+
+      if is_for_me do
+        # For "for me" tickets, validate user's account has required fields
+        user = current_user
+
+        user.first_name != nil &&
+          user.first_name != "" &&
+          user.last_name != nil &&
+          user.last_name != "" &&
+          user.email != nil &&
+          user.email != ""
+      else
+        # For form-filled tickets, validate form fields
+        first_name = detail.first_name || ""
+        last_name = detail.last_name || ""
+        email = detail.email || ""
+
+        first_name_valid = first_name != "" && String.trim(first_name) != ""
+        last_name_valid = last_name != "" && String.trim(last_name) != ""
+        email_valid = email != "" && String.trim(email) != ""
+
+        first_name_valid && last_name_valid && email_valid
+      end
+    end)
+  end
+
+  # Helper function to save ticket details and process (free or paid)
+  defp save_ticket_details_and_process(ticket_details_list, socket, on_success_fn) do
+    case Ysc.Events.create_ticket_details(ticket_details_list) do
+      {:ok, _ticket_details} ->
+        on_success_fn.()
+
+      {:error, _reason} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Failed to save registration details. Please try again."
+         )}
+    end
+  end
+
+  # Helper function to check if ticket detail is invalid
+  defp ticket_detail_invalid?(detail, is_for_me, current_user) do
+    if is_for_me do
+      !user_fields_valid?(current_user)
+    else
+      !form_fields_valid?(detail)
+    end
+  end
+
+  # Helper function to check if user fields are valid
+  defp user_fields_valid?(user) do
+    user.first_name != nil &&
+      user.first_name != "" &&
+      user.last_name != nil &&
+      user.last_name != "" &&
+      user.email != nil &&
+      user.email != ""
+  end
+
+  # Helper function to check if form fields are valid
+  defp form_fields_valid?(detail) do
+    first_name = detail.first_name || ""
+    last_name = detail.last_name || ""
+    email = detail.email || ""
+
+    first_name_valid = first_name != "" && String.trim(first_name) != ""
+    last_name_valid = last_name != "" && String.trim(last_name) != ""
+    email_valid = email != "" && String.trim(email) != ""
+
+    first_name_valid && last_name_valid && email_valid
+  end
+
+  # Helper function to get is_for_me flag
+  defp get_is_for_me_flag(tickets_for_me, ticket_id) do
+    Map.get(tickets_for_me, ticket_id, false) ||
+      Map.get(tickets_for_me, to_string(ticket_id), false)
+  end
+
+  # Helper function to find failing tickets
+  defp find_failing_tickets(
+         tickets_requiring_registration,
+         ticket_details_list,
+         tickets_for_me,
+         current_user
+       ) do
+    tickets_requiring_registration
+    |> Enum.with_index()
+    |> Enum.filter(fn {ticket, index} ->
+      detail = Enum.at(ticket_details_list, index)
+      is_for_me = get_is_for_me_flag(tickets_for_me, ticket.id)
+      ticket_detail_invalid?(detail, is_for_me, current_user)
+    end)
+  end
+
+  # Helper function to build failing details
+  defp build_failing_details(
+         failing_tickets,
+         ticket_details_list,
+         tickets_for_me,
+         ticket_details_form,
+         current_user
+       ) do
+    failing_tickets
+    |> Enum.map(fn {ticket, index} ->
+      detail = Enum.at(ticket_details_list, index)
+      is_for_me = Map.get(tickets_for_me, ticket.id, false)
+      ticket_id_str = to_string(ticket.id)
+
+      form_data =
+        Map.get(ticket_details_form, ticket_id_str, %{}) ||
+          Map.get(ticket_details_form, ticket.id, %{})
+
+      %{
+        ticket_id: ticket.id,
+        is_for_me: is_for_me,
+        detail: detail,
+        form_data: form_data,
+        user: if(is_for_me, do: current_user, else: nil)
+      }
+    end)
+  end
+
+  # Helper function to handle registration validation failure
+  defp handle_registration_validation_failure(
+         tickets_requiring_registration,
+         ticket_details_list,
+         tickets_for_me,
+         ticket_details_form,
+         current_user,
+         socket,
+         error_message
+       ) do
+    require Logger
+
+    failing_tickets =
+      find_failing_tickets(
+        tickets_requiring_registration,
+        ticket_details_list,
+        tickets_for_me,
+        current_user
+      )
+
+    failing_details =
+      build_failing_details(
+        failing_tickets,
+        ticket_details_list,
+        tickets_for_me,
+        ticket_details_form,
+        current_user
+      )
+
+    failing_info =
+      failing_details
+      |> Enum.map_join("; ", fn f ->
+        "Ticket #{f.ticket_id}: is_for_me=#{f.is_for_me}, detail=#{inspect(f.detail)}, form_data=#{inspect(f.form_data)}"
+      end)
+
+    Logger.warning(
+      "Registration validation failed. Failing tickets: #{failing_info}. All form_data: #{inspect(ticket_details_form)}. Tickets_for_me: #{inspect(tickets_for_me)}"
+    )
+
+    {:noreply,
+     socket
+     |> put_flash(
+       :error,
+       error_message
+     )}
+  end
+
   # Helper function to process free tickets
   defp process_free_tickets(socket) do
     # Process the free ticket order directly without payment
@@ -5269,7 +5257,7 @@ defmodule YscWeb.EventDetailsLive do
          ticket_tiers
        ) do
     if tier_on_sale?(ticket_tier) do
-      if is_donation_tier?(ticket_tier) do
+      if donation_tier?(ticket_tier) do
         true
       else
         check_availability_cached(
@@ -5286,7 +5274,7 @@ defmodule YscWeb.EventDetailsLive do
     end
   end
 
-  defp is_donation_tier?(ticket_tier) do
+  defp donation_tier?(ticket_tier) do
     ticket_tier.type == "donation" || ticket_tier.type == :donation
   end
 
@@ -5363,7 +5351,7 @@ defmodule YscWeb.EventDetailsLive do
          ticket_tiers
        ) do
     if tier_on_sale?(ticket_tier) do
-      if is_donation_tier?(ticket_tier) do
+      if donation_tier?(ticket_tier) do
         true
       else
         check_availability_with_lock(

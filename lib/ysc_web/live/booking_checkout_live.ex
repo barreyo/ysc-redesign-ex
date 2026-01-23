@@ -9,157 +9,169 @@ defmodule YscWeb.BookingCheckoutLive do
 
   @impl true
   def mount(%{"booking_id" => booking_id}, _session, socket) do
-    # Schedule periodic expiration check
+    schedule_expiration_check(socket)
+    user = socket.assigns.current_user
+    timezone = get_timezone_from_connect_params(socket)
+
+    result =
+      with :ok <- validate_user_signed_in(user),
+           {:ok, booking} <- load_booking(booking_id),
+           :ok <- validate_booking_ownership(booking, user),
+           booking <- preload_booking_rooms(booking),
+           :ok <- validate_booking_status(booking),
+           :ok <- validate_booking_not_expired(booking) do
+        initialize_checkout(socket, booking, user, timezone)
+      end
+
+    case result do
+      {:ok, _socket} = reply ->
+        reply
+
+      {:error, {:redirect, path, message}} ->
+        {:ok, socket |> put_flash(:error, message) |> redirect(to: path)}
+    end
+  end
+
+  defp schedule_expiration_check(socket) do
     if connected?(socket) do
       Process.send_after(self(), :check_booking_expiration, 5_000)
     end
+  end
 
-    user = socket.assigns.current_user
-
-    # Get user timezone from connect params
+  defp get_timezone_from_connect_params(socket) do
     connect_params = get_connect_params(socket) || %{}
-    timezone = Map.get(connect_params, "timezone", "America/Los_Angeles")
+    Map.get(connect_params, "timezone", "America/Los_Angeles")
+  end
 
-    if is_nil(user) do
-      {:ok,
-       socket
-       |> put_flash(:error, "You must be signed in to complete your booking.")
-       |> redirect(to: ~p"/")}
-    else
-      case Repo.get(Booking, booking_id) do
-        nil ->
-          {:ok,
-           socket
-           |> put_flash(:error, "Booking not found.")
-           |> redirect(to: ~p"/")}
+  defp validate_user_signed_in(nil) do
+    {:error, {:redirect, ~p"/", "You must be signed in to complete your booking."}}
+  end
 
-        booking ->
-          # Verify booking belongs to user
-          if booking.user_id != user.id do
-            {:ok,
-             socket
-             |> put_flash(:error, "You don't have permission to view this booking.")
-             |> redirect(to: get_property_redirect_path(booking.property))}
-          else
-            # Preload room before calculating price (needed for room bookings)
-            booking = Repo.preload(booking, [:rooms, rooms: :room_category])
+  defp validate_user_signed_in(_user), do: :ok
 
-            # Check if booking is still in hold status
-            if booking.status != :hold do
-              {:ok,
-               socket
-               |> put_flash(:error, "This booking is no longer available for payment.")
-               |> redirect(to: get_property_redirect_path(booking.property))}
-            else
-              # Check if booking has expired
-              is_expired = booking_expired?(booking)
-
-              if is_expired do
-                {:ok,
-                 socket
-                 |> put_flash(
-                   :error,
-                   "This booking has expired and is no longer available for payment."
-                 )
-                 |> redirect(to: get_property_redirect_path(booking.property))}
-              else
-                # Calculate price
-                case calculate_booking_price(booking) do
-                  {:ok, total_price, price_breakdown} ->
-                    # Preload user association and booking guests
-                    booking = Repo.preload(booking, [:user, :booking_guests])
-
-                    # Re-check expiration after price calculation
-                    is_expired = booking_expired?(booking)
-
-                    # Determine checkout step based on booking mode and existing guests
-                    {checkout_step, guest_info_form} =
-                      if booking.booking_mode == :room do
-                        existing_guests = booking.booking_guests || []
-
-                        if existing_guests != [] do
-                          # Guests already saved, go to payment
-                          {:payment, nil}
-                        else
-                          # Need to collect guest info
-                          form = initialize_guest_forms(booking, user)
-                          {:guest_info, form}
-                        end
-                      else
-                        # Buyout bookings skip guest info
-                        {:payment, nil}
-                      end
-
-                    # Load family members for guest selection
-                    family_members = Ysc.Accounts.get_family_group(user)
-                    # Exclude the current user from family members list
-                    other_family_members =
-                      Enum.reject(family_members, fn member -> member.id == user.id end)
-
-                    # Initialize show_price_details for mobile (default to false on mobile)
-                    show_price_details = false
-
-                    socket =
-                      assign(socket,
-                        booking: booking,
-                        total_price: total_price,
-                        price_breakdown: price_breakdown,
-                        payment_intent: nil,
-                        payment_error: nil,
-                        show_payment_form: false,
-                        is_expired: is_expired,
-                        timezone: timezone,
-                        checkout_step: checkout_step,
-                        guest_info_form: guest_info_form,
-                        guest_info_errors: %{},
-                        family_members: family_members,
-                        other_family_members: other_family_members,
-                        guests_for_me: %{},
-                        selected_family_members_for_guests: %{},
-                        show_price_details: show_price_details
-                      )
-
-                    if is_expired do
-                      {:ok,
-                       assign(socket,
-                         payment_error:
-                           "This booking has expired and is no longer available for payment."
-                       )}
-                    else
-                      # Only create payment intent if we're on the payment step
-                      if checkout_step == :payment do
-                        # Create Stripe payment intent
-                        case create_payment_intent(booking, total_price, user) do
-                          {:ok, payment_intent} ->
-                            {:ok,
-                             assign(socket,
-                               payment_intent: payment_intent,
-                               show_payment_form: true
-                             )}
-
-                          {:error, reason} ->
-                            {:ok,
-                             assign(socket,
-                               payment_error: "Failed to initialize payment: #{reason}"
-                             )}
-                        end
-                      else
-                        # On guest info step, don't create payment intent yet
-                        {:ok, socket}
-                      end
-                    end
-
-                  {:error, reason} ->
-                    {:ok,
-                     socket
-                     |> put_flash(:error, "Failed to calculate price: #{inspect(reason)}")
-                     |> redirect(to: get_property_redirect_path(booking.property))}
-                end
-              end
-            end
-          end
-      end
+  defp load_booking(booking_id) do
+    case Repo.get(Booking, booking_id) do
+      nil -> {:error, {:redirect, ~p"/", "Booking not found."}}
+      booking -> {:ok, booking}
     end
+  end
+
+  defp validate_booking_ownership(booking, user) do
+    if booking.user_id == user.id do
+      :ok
+    else
+      {:error,
+       {:redirect, get_property_redirect_path(booking.property),
+        "You don't have permission to view this booking."}}
+    end
+  end
+
+  defp preload_booking_rooms(booking) do
+    Repo.preload(booking, [:rooms, rooms: :room_category])
+  end
+
+  defp validate_booking_status(booking) do
+    if booking.status == :hold do
+      :ok
+    else
+      {:error,
+       {:redirect, get_property_redirect_path(booking.property),
+        "This booking is no longer available for payment."}}
+    end
+  end
+
+  defp validate_booking_not_expired(booking) do
+    if booking_expired?(booking) do
+      {:error,
+       {:redirect, get_property_redirect_path(booking.property),
+        "This booking has expired and is no longer available for payment."}}
+    else
+      :ok
+    end
+  end
+
+  defp initialize_checkout(socket, booking, user, timezone) do
+    case calculate_booking_price(booking) do
+      {:ok, total_price, price_breakdown} ->
+        setup_checkout_socket(socket, booking, user, total_price, price_breakdown, timezone)
+
+      {:error, reason} ->
+        {:ok,
+         socket
+         |> put_flash(:error, "Failed to calculate price: #{inspect(reason)}")
+         |> redirect(to: get_property_redirect_path(booking.property))}
+    end
+  end
+
+  defp setup_checkout_socket(socket, booking, user, total_price, price_breakdown, timezone) do
+    booking = Repo.preload(booking, [:user, :booking_guests])
+    is_expired = booking_expired?(booking)
+    {checkout_step, guest_info_form} = determine_checkout_step(booking, user)
+    {family_members, other_family_members} = load_family_members(user)
+
+    socket =
+      assign(socket,
+        booking: booking,
+        total_price: total_price,
+        price_breakdown: price_breakdown,
+        payment_intent: nil,
+        payment_error: nil,
+        show_payment_form: false,
+        is_expired: is_expired,
+        timezone: timezone,
+        checkout_step: checkout_step,
+        guest_info_form: guest_info_form,
+        guest_info_errors: %{},
+        family_members: family_members,
+        other_family_members: other_family_members,
+        guests_for_me: %{},
+        selected_family_members_for_guests: %{},
+        show_price_details: false
+      )
+
+    if is_expired do
+      {:ok,
+       assign(socket,
+         payment_error: "This booking has expired and is no longer available for payment."
+       )}
+    else
+      create_payment_intent_if_needed(socket, booking, total_price, user, checkout_step)
+    end
+  end
+
+  defp determine_checkout_step(booking, user) do
+    if booking.booking_mode == :room do
+      existing_guests = booking.booking_guests || []
+
+      if existing_guests != [] do
+        {:payment, nil}
+      else
+        form = initialize_guest_forms(booking, user)
+        {:guest_info, form}
+      end
+    else
+      {:payment, nil}
+    end
+  end
+
+  defp load_family_members(user) do
+    family_members = Ysc.Accounts.get_family_group(user)
+    other_family_members = Enum.reject(family_members, fn member -> member.id == user.id end)
+    {family_members, other_family_members}
+  end
+
+  defp create_payment_intent_if_needed(socket, booking, total_price, user, :payment) do
+    case create_payment_intent(booking, total_price, user) do
+      {:ok, payment_intent} ->
+        {:ok, assign(socket, payment_intent: payment_intent, show_payment_form: true)}
+
+      {:error, reason} ->
+        {:ok, assign(socket, payment_error: "Failed to initialize payment: #{reason}")}
+    end
+  end
+
+  defp create_payment_intent_if_needed(socket, _booking, _total_price, _user, _checkout_step) do
+    {:ok, socket}
   end
 
   @impl true

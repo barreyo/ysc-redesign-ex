@@ -828,14 +828,14 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
   defp check_other_rules(day, checkin_date, state, property, _availability, _mode, seasons) do
     # Saturday check-in rule (Tahoe only)
-    if is_saturday_checkin?(day, property, state) do
+    if saturday_checkin?(day, property, state) do
       true
     else
       check_end_date_rules(day, checkin_date, state, property, seasons)
     end
   end
 
-  defp is_saturday_checkin?(day, property, state) do
+  defp saturday_checkin?(day, property, state) do
     Date.day_of_week(day) == 6 && property == :tahoe && state != :set_end
   end
 
@@ -856,12 +856,12 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     cond do
       nights < 1 -> true
       nights > max_nights -> true
-      is_saturday_checkout?(day, property) -> true
+      saturday_checkout?(day, property) -> true
       true -> false
     end
   end
 
-  defp is_saturday_checkout?(day, property) do
+  defp saturday_checkout?(day, property) do
     Date.day_of_week(day) == 6 && property == :tahoe
   end
 

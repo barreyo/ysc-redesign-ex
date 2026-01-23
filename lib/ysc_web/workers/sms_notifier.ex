@@ -295,17 +295,19 @@ defmodule YscWeb.Workers.SmsNotifier do
       )
     rescue
       error ->
-        handle_send_sms_error(
-          error,
-          __STACKTRACE__,
-          job,
-          phone_number,
-          idempotency_key,
-          template,
-          params,
-          user_id,
-          category
-        )
+        error_params = %{
+          error: error,
+          stacktrace: __STACKTRACE__,
+          job: job,
+          phone_number: phone_number,
+          idempotency_key: idempotency_key,
+          template: template,
+          params: params,
+          user_id: user_id,
+          category: category
+        }
+
+        handle_send_sms_error(error_params)
     end
   end
 
@@ -490,67 +492,57 @@ defmodule YscWeb.Workers.SmsNotifier do
     {:error, reason}
   end
 
-  defp handle_send_sms_error(
-         error,
-         stacktrace,
-         job,
-         phone_number,
-         idempotency_key,
-         template,
-         params,
-         user_id,
-         category
-       ) do
-    error_type = inspect(error.__struct__)
-    error_message = Exception.message(error)
-    formatted_stacktrace = Exception.format_stacktrace(stacktrace)
+  defp handle_send_sms_error(params) do
+    error_type = inspect(params.error.__struct__)
+    error_message = Exception.message(params.error)
+    formatted_stacktrace = Exception.format_stacktrace(params.stacktrace)
 
-    phone_number_type_error = get_phone_number_type_string(phone_number)
-    params_type_error = get_params_type_string(params)
+    phone_number_type_error = get_phone_number_type_string(params.phone_number)
+    params_type_error = get_params_type_string(params.params)
 
     Logger.error(
-      "SmsNotifier EXCEPTION: #{error_type} - #{error_message} | Job: #{job.id} | Template: #{template} | Phone: #{inspect(phone_number)}"
+      "SmsNotifier EXCEPTION: #{error_type} - #{error_message} | Job: #{params.job.id} | Template: #{params.template} | Phone: #{inspect(params.phone_number)}"
     )
 
     Logger.error("SmsNotifier exception details",
-      job_id: job.id,
-      phone_number: phone_number,
+      job_id: params.job.id,
+      phone_number: params.phone_number,
       phone_number_type: phone_number_type_error,
-      phone_number_inspect: inspect(phone_number),
-      idempotency_key: idempotency_key,
-      template: template,
-      params_raw: inspect(params, limit: :infinity),
+      phone_number_inspect: inspect(params.phone_number),
+      idempotency_key: params.idempotency_key,
+      template: params.template,
+      params_raw: inspect(params.params, limit: :infinity),
       params_type: params_type_error,
-      user_id: user_id,
-      category: category,
+      user_id: params.user_id,
+      category: params.category,
       error_type: error_type,
       error_message: error_message,
-      error_full: inspect(error, limit: :infinity)
+      error_full: inspect(params.error, limit: :infinity)
     )
 
     Logger.error("SmsNotifier exception stacktrace:\n#{formatted_stacktrace}")
 
-    Sentry.capture_exception(error,
-      stacktrace: stacktrace,
+    Sentry.capture_exception(params.error,
+      stacktrace: params.stacktrace,
       extra: %{
-        job_id: job.id,
-        phone_number: phone_number,
-        idempotency_key: idempotency_key,
-        template: template,
-        user_id: user_id,
-        category: category,
-        error_type: inspect(error.__struct__),
-        error_message: Exception.message(error)
+        job_id: params.job.id,
+        phone_number: params.phone_number,
+        idempotency_key: params.idempotency_key,
+        template: params.template,
+        user_id: params.user_id,
+        category: params.category,
+        error_type: error_type,
+        error_message: error_message
       },
       tags: %{
-        sms_template: template,
-        sms_category: to_string(category),
+        sms_template: params.template,
+        sms_category: to_string(params.category),
         error_type: "sms_notifier_exception",
-        has_user_id: !is_nil(user_id)
+        has_user_id: !is_nil(params.user_id)
       }
     )
 
-    {:error, Exception.message(error)}
+    {:error, error_message}
   end
 
   # Helper function to convert string keys to atoms

@@ -180,49 +180,10 @@ defmodule Ysc.Bookings.PricingRule do
     alias Ysc.Bookings.PricingRule
     require Logger
 
-    base_query =
-      from pr in PricingRule,
-        where: pr.booking_mode == ^booking_mode,
-        where: pr.price_unit == ^price_unit,
-        where: pr.property == ^property or is_nil(pr.property)
-
-    # Add season filter if provided
-    query =
-      if season_id do
-        from pr in base_query,
-          where: is_nil(pr.season_id) or pr.season_id == ^season_id
-      else
-        from pr in base_query, where: is_nil(pr.season_id)
-      end
-
-    # Add room/category filters
-    query =
-      cond do
-        room_id ->
-          # Most specific: room_id match
-          from pr in query,
-            where: pr.room_id == ^room_id
-
-        room_category_id ->
-          # Medium specificity: category match (no room_id set)
-          from pr in query,
-            where: is_nil(pr.room_id) and pr.room_category_id == ^room_category_id
-
-        true ->
-          # Least specific: property only (no room_id or category_id)
-          from pr in query,
-            where: is_nil(pr.room_id) and is_nil(pr.room_category_id)
-      end
-
-    # Order by specificity (room_id > category_id > season_id)
-    query =
-      from pr in query,
-        order_by: [
-          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_id),
-          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_category_id),
-          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.season_id)
-        ],
-        limit: 1
+    base_query = build_base_query(property, booking_mode, price_unit)
+    query = apply_season_filter(base_query, season_id)
+    query = apply_room_category_filters(query, room_id, room_category_id)
+    query = apply_ordering(query)
 
     result = Ysc.Repo.one(query)
 
@@ -266,6 +227,64 @@ defmodule Ysc.Bookings.PricingRule do
     end
 
     result
+  end
+
+  defp build_base_query(property, booking_mode, price_unit) do
+    alias Ysc.Bookings.PricingRule
+
+    from pr in PricingRule,
+      where: pr.booking_mode == ^booking_mode,
+      where: pr.price_unit == ^price_unit,
+      where: pr.property == ^property or is_nil(pr.property)
+  end
+
+  defp apply_season_filter(base_query, season_id) do
+    if season_id do
+      from pr in base_query,
+        where: is_nil(pr.season_id) or pr.season_id == ^season_id
+    else
+      from pr in base_query, where: is_nil(pr.season_id)
+    end
+  end
+
+  defp apply_room_category_filters(query, room_id, room_category_id) do
+    cond do
+      room_id ->
+        # Most specific: room_id match
+        from pr in query,
+          where: pr.room_id == ^room_id
+
+      room_category_id ->
+        # Medium specificity: category match (no room_id set)
+        from pr in query,
+          where: is_nil(pr.room_id) and pr.room_category_id == ^room_category_id
+
+      true ->
+        # Least specific: property only (no room_id or category_id)
+        from pr in query,
+          where: is_nil(pr.room_id) and is_nil(pr.room_category_id)
+    end
+  end
+
+  defp build_children_base_query(property, booking_mode, price_unit) do
+    alias Ysc.Bookings.PricingRule
+
+    from pr in PricingRule,
+      where: pr.booking_mode == ^booking_mode,
+      where: pr.price_unit == ^price_unit,
+      where: pr.property == ^property or is_nil(pr.property),
+      where: not is_nil(pr.children_amount)
+  end
+
+  defp apply_ordering(query) do
+    # Order by specificity (room_id > category_id > season_id)
+    from pr in query,
+      order_by: [
+        desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_id),
+        desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_category_id),
+        desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.season_id)
+      ],
+      limit: 1
   end
 
   @doc """
@@ -339,50 +358,10 @@ defmodule Ysc.Bookings.PricingRule do
         "Booking Mode: #{booking_mode}, Price Unit: #{price_unit}"
     )
 
-    base_query =
-      from pr in PricingRule,
-        where: pr.booking_mode == ^booking_mode,
-        where: pr.price_unit == ^price_unit,
-        where: pr.property == ^property or is_nil(pr.property),
-        where: not is_nil(pr.children_amount)
-
-    # Add season filter if provided
-    query =
-      if season_id do
-        from pr in base_query,
-          where: is_nil(pr.season_id) or pr.season_id == ^season_id
-      else
-        from pr in base_query, where: is_nil(pr.season_id)
-      end
-
-    # Add room/category filters
-    query =
-      cond do
-        room_id ->
-          # Most specific: room_id match
-          from pr in query,
-            where: pr.room_id == ^room_id
-
-        room_category_id ->
-          # Medium specificity: category match (no room_id set)
-          from pr in query,
-            where: is_nil(pr.room_id) and pr.room_category_id == ^room_category_id
-
-        true ->
-          # Least specific: property only (no room_id or category_id)
-          from pr in query,
-            where: is_nil(pr.room_id) and is_nil(pr.room_category_id)
-      end
-
-    # Order by specificity (room_id > category_id > season_id)
-    query =
-      from pr in query,
-        order_by: [
-          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_id),
-          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_category_id),
-          desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.season_id)
-        ],
-        limit: 1
+    base_query = build_children_base_query(property, booking_mode, price_unit)
+    query = apply_season_filter(base_query, season_id)
+    query = apply_room_category_filters(query, room_id, room_category_id)
+    query = apply_ordering(query)
 
     result = Ysc.Repo.one(query)
 

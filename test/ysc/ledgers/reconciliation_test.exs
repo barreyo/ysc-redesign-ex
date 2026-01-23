@@ -320,7 +320,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       Repo.insert!(%LedgerEntry{
         account_id: stripe_account.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         description: "Debit without credit",
         payment_id: payment.id,
         debit_credit: :debit
@@ -596,7 +596,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
         })
 
       # Create multiple refunds
-      refund_amounts = [10000, 15000, 20000]
+      refund_amounts = [10_000, 15_000, 20_000]
 
       for {amount, index} <- Enum.with_index(refund_amounts) do
         Ledgers.process_refund(%{
@@ -628,7 +628,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       # Create balanced payment
       Ledgers.process_payment(%{
         user_id: user.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         external_provider: :stripe,
         external_payment_id: "pi_balanced",
         payment_date: DateTime.utc_now(),
@@ -690,7 +690,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       # Create valid payment
       Ledgers.process_payment(%{
         user_id: user.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         external_provider: :stripe,
         external_payment_id: "pi_no_orphans",
         payment_date: DateTime.utc_now(),
@@ -929,7 +929,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       # Create membership payment
       Ledgers.process_payment(%{
         user_id: user.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         external_provider: :stripe,
         external_payment_id: "pi_membership",
         payment_date: DateTime.utc_now(),
@@ -1021,7 +1021,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       # Create valid payment
       Ledgers.process_payment(%{
         user_id: user.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         external_provider: :stripe,
         external_payment_id: "pi_report",
         payment_date: DateTime.utc_now(),

@@ -1390,11 +1390,11 @@ defmodule YscWeb.UserSettingsLive do
                 <div
                   :if={@filtered_payments_count > 0}
                   id="payments-cards"
-                  phx-update="stream"
                   class="md:hidden space-y-4"
                 >
-                  <%= for {id, payment_info} <- @streams.payments do %>
-                    <div id={id}>
+                  <%= for payment_info <- @filtered_payments_list do %>
+                    <% card_id = "mobile-card-#{payment_dom_id(payment_info)}" %>
+                    <div id={card_id}>
                       <%= render_payment_card(payment_info) %>
                     </div>
                   <% end %>
@@ -1560,6 +1560,7 @@ defmodule YscWeb.UserSettingsLive do
         |> stream(:payments, [], dom_id: &payment_dom_id/1)
         |> assign(:payment_filter, :all)
         |> assign(:filtered_payments_count, 0)
+        |> assign(:filtered_payments_list, [])
         |> assign(:yearly_stats, nil)
         |> assign(:loading_payments, true)
       else
@@ -1639,6 +1640,7 @@ defmodule YscWeb.UserSettingsLive do
      |> assign(:all_payments, all_payments)
      |> stream(:payments, all_payments, reset: true, dom_id: &payment_dom_id/1)
      |> assign(:filtered_payments_count, length(all_payments))
+     |> assign(:filtered_payments_list, all_payments)
      |> assign(:yearly_stats, yearly_stats)
      |> assign(:loading_payments, false)}
   end
@@ -2792,207 +2794,175 @@ defmodule YscWeb.UserSettingsLive do
      socket
      |> assign(:payment_filter, filter_atom)
      |> assign(:filtered_payments_count, length(filtered_payments))
+     |> assign(:filtered_payments_list, filtered_payments)
      |> stream(:payments, filtered_payments, reset: true, dom_id: &payment_dom_id/1)}
   end
 
   def handle_event("change-membership", params, socket) do
     user = socket.assigns.user
 
-    if user.state != :active do
-      {:noreply,
-       put_flash(
-         socket,
-         :error,
-         "You must have an approved account to change your membership plan."
-       )}
-    else
-      current_membership = socket.assigns.current_membership
-
-      new_type =
-        params["membership_type"] || socket.assigns.membership_form.params["membership_type"]
-
-      cond do
-        is_nil(new_type) or new_type == "" ->
-          {:noreply, put_flash(socket, :error, "Please select a membership type first.")}
-
-        is_nil(current_membership) ->
-          {:noreply, put_flash(socket, :error, "You do not have an active membership to change.")}
-
-        true ->
-          # Determine current and new plan info
-          current_type = get_membership_plan(current_membership)
-          new_atom = String.to_existing_atom(new_type)
-
-          if current_type == :lifetime do
-            {:noreply, put_flash(socket, :error, "Lifetime memberships cannot be changed.")}
-          else
-            if new_atom == :lifetime do
-              {:noreply,
-               put_flash(
-                 socket,
-                 :error,
-                 "Lifetime membership can only be awarded by an administrator."
-               )}
-            else
-              if current_type == new_atom do
-                {:noreply, put_flash(socket, :info, "You are already on that plan.")}
-              else
-                plans = Application.get_env(:ysc, :membership_plans)
-                current_plan = Enum.find(plans, &(&1.id == current_type))
-                new_plan = Enum.find(plans, &(&1.id == new_atom))
-
-                new_price_id = new_plan[:stripe_price_id]
-
-                direction =
-                  if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
-
-                # Check for sub-accounts before downgrade
-                if direction == :downgrade do
-                  sub_accounts = Accounts.get_sub_accounts(user)
-
-                  if sub_accounts != [] do
-                    {:noreply,
-                     put_flash(
-                       socket,
-                       :error,
-                       "Cannot downgrade membership while you have sub-accounts. Please remove all sub-accounts first."
-                     )}
-                  else
-                    case Subscriptions.change_membership_plan(
-                           current_membership,
-                           new_price_id,
-                           direction
-                         ) do
-                      {:ok, updated_subscription} ->
-                        # Reload subscription with items to get updated data from Stripe
-                        updated_membership =
-                          updated_subscription
-                          |> Repo.preload(:subscription_items)
-
-                        # Cache invalidation is handled in Subscriptions.change_membership_plan (via update_subscription)
-                        # Also invalidate for sub-accounts since they inherit from primary user
-                        sub_accounts = Accounts.get_sub_accounts(user)
-
-                        Enum.each(sub_accounts, fn sub_account ->
-                          MembershipCache.invalidate_user(sub_account.id)
-                        end)
-
-                        # Determine success message based on direction
-                        success_message =
-                          case direction do
-                            :upgrade ->
-                              "Your membership plan has been upgraded. You have been charged the prorated difference."
-
-                            :downgrade ->
-                              "Your membership plan change has been scheduled. The new price will take effect at your next renewal."
-                          end
-
-                        {:noreply,
-                         socket
-                         |> assign(:current_membership, updated_membership)
-                         |> assign(:active_plan_type, new_atom)
-                         |> assign(:change_membership_button, false)
-                         |> assign(:membership_change_info, nil)
-                         |> assign(
-                           :membership_form,
-                           to_form(%{"membership_type" => Atom.to_string(new_atom)})
-                         )
-                         |> put_flash(:info, success_message)
-                         |> redirect(to: ~p"/users/membership")}
-
-                      {:scheduled, _schedule} ->
-                        # Invalidate cache even for scheduled changes
-                        MembershipCache.invalidate_user(user.id)
-                        sub_accounts = Accounts.get_sub_accounts(user)
-
-                        Enum.each(sub_accounts, fn sub_account ->
-                          MembershipCache.invalidate_user(sub_account.id)
-                        end)
-
-                        {:noreply,
-                         put_flash(
-                           socket,
-                           :info,
-                           "Your membership plan will switch at your next renewal."
-                         )
-                         |> redirect(to: ~p"/users/membership")}
-
-                      {:error, reason} ->
-                        {:noreply,
-                         put_flash(
-                           socket,
-                           :error,
-                           "Failed to change membership: #{inspect(reason)}"
-                         )}
-                    end
-                  end
-                else
-                  # Handle upgrade case
-                  case Subscriptions.change_membership_plan(
-                         current_membership,
-                         new_price_id,
-                         direction
-                       ) do
-                    {:ok, updated_subscription} ->
-                      # Reload subscription with items to get updated data from Stripe
-                      updated_membership =
-                        updated_subscription
-                        |> Repo.preload(:subscription_items)
-
-                      # Cache invalidation is handled in Subscriptions.change_membership_plan (via update_subscription)
-                      # Also invalidate for sub-accounts since they inherit from primary user
-                      sub_accounts = Accounts.get_sub_accounts(user)
-
-                      Enum.each(sub_accounts, fn sub_account ->
-                        MembershipCache.invalidate_user(sub_account.id)
-                      end)
-
-                      # Determine success message based on direction
-                      success_message =
-                        case direction do
-                          :upgrade ->
-                            "Your membership plan has been upgraded. You have been charged the prorated difference."
-
-                          :downgrade ->
-                            "Your membership plan change has been scheduled. The new price will take effect at your next renewal."
-                        end
-
-                      {:noreply,
-                       socket
-                       |> assign(:current_membership, updated_membership)
-                       |> assign(:active_plan_type, new_atom)
-                       |> assign(:change_membership_button, false)
-                       |> assign(:membership_change_info, nil)
-                       |> assign(
-                         :membership_form,
-                         to_form(%{"membership_type" => Atom.to_string(new_atom)})
-                       )
-                       |> put_flash(:info, success_message)
-                       |> redirect(to: ~p"/users/membership")}
-
-                    {:scheduled, _schedule} ->
-                      {:noreply,
-                       put_flash(
-                         socket,
-                         :info,
-                         "Your membership plan will switch at your next renewal."
-                       )
-                       |> redirect(to: ~p"/users/membership")}
-
-                    {:error, reason} ->
-                      {:noreply,
-                       put_flash(
-                         socket,
-                         :error,
-                         "Failed to change membership: #{inspect(reason)}"
-                       )}
-                  end
-                end
-              end
-            end
-          end
+    result =
+      with :ok <- validate_user_active(user),
+           :ok <- validate_membership_type(params, socket),
+           current_membership <- socket.assigns.current_membership,
+           :ok <- validate_current_membership_exists(current_membership),
+           new_type <- get_new_membership_type(params, socket),
+           current_type <- get_membership_plan(current_membership),
+           new_atom <- String.to_existing_atom(new_type),
+           :ok <- validate_membership_change_allowed(current_type, new_atom),
+           :ok <- validate_not_same_plan(current_type, new_atom) do
+        handle_membership_change(socket, user, current_membership, current_type, new_atom)
       end
+
+    case result do
+      {:noreply, _socket} = reply ->
+        reply
+
+      {:error, error_message} when is_binary(error_message) ->
+        {:noreply, put_flash(socket, :error, error_message)}
     end
+  end
+
+  defp validate_user_active(user) do
+    if user.state == :active do
+      :ok
+    else
+      {:error, "You must have an approved account to change your membership plan."}
+    end
+  end
+
+  defp validate_membership_type(params, socket) do
+    new_type =
+      params["membership_type"] || socket.assigns.membership_form.params["membership_type"]
+
+    if is_nil(new_type) or new_type == "" do
+      {:error, "Please select a membership type first."}
+    else
+      :ok
+    end
+  end
+
+  defp validate_current_membership_exists(nil) do
+    {:error, "You do not have an active membership to change."}
+  end
+
+  defp validate_current_membership_exists(_), do: :ok
+
+  defp get_new_membership_type(params, socket) do
+    params["membership_type"] || socket.assigns.membership_form.params["membership_type"]
+  end
+
+  defp validate_membership_change_allowed(:lifetime, _new_atom) do
+    {:error, "Lifetime memberships cannot be changed."}
+  end
+
+  defp validate_membership_change_allowed(_current_type, :lifetime) do
+    {:error, "Lifetime membership can only be awarded by an administrator."}
+  end
+
+  defp validate_membership_change_allowed(_current_type, _new_atom), do: :ok
+
+  defp validate_not_same_plan(current_type, new_atom) when current_type == new_atom do
+    {:error, "You are already on that plan."}
+  end
+
+  defp validate_not_same_plan(_current_type, _new_atom), do: :ok
+
+  defp handle_membership_change(socket, user, current_membership, current_type, new_atom) do
+    plans = Application.get_env(:ysc, :membership_plans)
+    current_plan = Enum.find(plans, &(&1.id == current_type))
+    new_plan = Enum.find(plans, &(&1.id == new_atom))
+    new_price_id = new_plan[:stripe_price_id]
+    direction = if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
+
+    with :ok <- validate_downgrade_with_sub_accounts(user, direction) do
+      process_membership_change(
+        socket,
+        user,
+        current_membership,
+        new_price_id,
+        direction,
+        new_atom
+      )
+    end
+  end
+
+  defp validate_downgrade_with_sub_accounts(user, :downgrade) do
+    sub_accounts = Accounts.get_sub_accounts(user)
+
+    if sub_accounts != [] do
+      {:error,
+       "Cannot downgrade membership while you have sub-accounts. Please remove all sub-accounts first."}
+    else
+      :ok
+    end
+  end
+
+  defp validate_downgrade_with_sub_accounts(_user, _direction), do: :ok
+
+  defp process_membership_change(
+         socket,
+         user,
+         current_membership,
+         new_price_id,
+         direction,
+         new_atom
+       ) do
+    case Subscriptions.change_membership_plan(current_membership, new_price_id, direction) do
+      {:ok, updated_subscription} ->
+        handle_membership_change_success(socket, user, updated_subscription, direction, new_atom)
+
+      {:scheduled, _schedule} ->
+        handle_membership_change_scheduled(socket, user, direction)
+
+      {:error, reason} ->
+        handle_membership_change_error(socket, reason)
+    end
+  end
+
+  defp handle_membership_change_success(socket, user, updated_subscription, direction, new_atom) do
+    updated_membership = updated_subscription |> Repo.preload(:subscription_items)
+    invalidate_membership_cache(user)
+    success_message = get_success_message(direction)
+
+    {:noreply,
+     socket
+     |> assign(:current_membership, updated_membership)
+     |> assign(:active_plan_type, new_atom)
+     |> assign(:change_membership_button, false)
+     |> assign(:membership_change_info, nil)
+     |> assign(:membership_form, to_form(%{"membership_type" => Atom.to_string(new_atom)}))
+     |> put_flash(:info, success_message)
+     |> redirect(to: ~p"/users/membership")}
+  end
+
+  defp handle_membership_change_scheduled(socket, user, _direction) do
+    invalidate_membership_cache(user)
+
+    {:noreply,
+     put_flash(socket, :info, "Your membership plan will switch at your next renewal.")
+     |> redirect(to: ~p"/users/membership")}
+  end
+
+  defp handle_membership_change_error(socket, reason) do
+    {:noreply, put_flash(socket, :error, "Failed to change membership: #{inspect(reason)}")}
+  end
+
+  defp invalidate_membership_cache(user) do
+    MembershipCache.invalidate_user(user.id)
+    sub_accounts = Accounts.get_sub_accounts(user)
+
+    Enum.each(sub_accounts, fn sub_account ->
+      MembershipCache.invalidate_user(sub_account.id)
+    end)
+  end
+
+  defp get_success_message(:upgrade) do
+    "Your membership plan has been upgraded. You have been charged the prorated difference."
+  end
+
+  defp get_success_message(:downgrade) do
+    "Your membership plan change has been scheduled. The new price will take effect at your next renewal."
   end
 
   # Helper functions for resend rate limiting - delegate to ResendRateLimiter
@@ -3054,6 +3024,7 @@ defmodule YscWeb.UserSettingsLive do
     |> assign(:payments_total_pages, total_pages)
     |> assign(:all_payments, all_payments)
     |> assign(:filtered_payments_count, length(filtered_payments))
+    |> assign(:filtered_payments_list, filtered_payments)
     |> stream(:payments, filtered_payments, reset: true, dom_id: &payment_dom_id/1)
   end
 

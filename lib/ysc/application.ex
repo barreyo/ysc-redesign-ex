@@ -5,9 +5,6 @@ defmodule Ysc.Application do
 
   use Application
 
-  # Capture Mix.env at compile time since Mix is not available at runtime
-  @env Mix.env()
-
   @impl true
   def start(_type, _args) do
     :logger.add_handler(:ysc_sentry_handler, Sentry.LoggerHandler, %{
@@ -33,8 +30,6 @@ defmodule Ysc.Application do
         {Cachex, name: :ysc_cache},
         # Start verification code cache
         Ysc.VerificationCache,
-        # Start the Elixir Dashboard performance monitor
-        ElixirDashboard.PerformanceMonitor.Supervisor,
         # Start the Endpoint (http/https)
         YscWeb.Endpoint,
         # Start a worker by calling: Ysc.Worker.start_link(arg)
@@ -46,11 +41,6 @@ defmodule Ysc.Application do
         else
           []
         end
-
-    # Attach telemetry handlers (development only)
-    if @env == :dev do
-      ElixirDashboard.PerformanceMonitor.TelemetryHandler.attach()
-    end
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

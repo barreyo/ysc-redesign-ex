@@ -1239,26 +1239,52 @@ defmodule Ysc.Bookings do
         _exclude_booking_id \\ nil,
         use_actual_guests \\ false
       ) do
-    with {:ok, nights} <- validate_booking_dates(checkin_date, checkout_date),
-         {:ok, _} <- validate_booking_mode(booking_mode, room_id) do
-      case booking_mode do
+    params = %{
+      property: property,
+      checkin_date: checkin_date,
+      checkout_date: checkout_date,
+      booking_mode: booking_mode,
+      room_id: room_id,
+      guests_count: guests_count,
+      children_count: children_count,
+      use_actual_guests: use_actual_guests
+    }
+
+    calculate_booking_price_impl(params)
+  end
+
+  defp calculate_booking_price_impl(params) do
+    with {:ok, nights} <- validate_booking_dates(params.checkin_date, params.checkout_date),
+         {:ok, _} <- validate_booking_mode(params.booking_mode, params.room_id) do
+      case params.booking_mode do
         :buyout ->
-          calculate_buyout_price(property, checkin_date, checkout_date, nights)
+          calculate_buyout_price(
+            params.property,
+            params.checkin_date,
+            params.checkout_date,
+            nights
+          )
 
         :room ->
           calculate_room_price(
-            property,
-            checkin_date,
-            checkout_date,
-            room_id,
-            guests_count,
-            children_count,
+            params.property,
+            params.checkin_date,
+            params.checkout_date,
+            params.room_id,
+            params.guests_count,
+            params.children_count,
             nights,
-            use_actual_guests
+            params.use_actual_guests
           )
 
         :day ->
-          calculate_day_price(property, checkin_date, checkout_date, guests_count, nights)
+          calculate_day_price(
+            params.property,
+            params.checkin_date,
+            params.checkout_date,
+            params.guests_count,
+            nights
+          )
 
         _ ->
           {:error, :invalid_booking_mode}
@@ -1381,27 +1407,39 @@ defmodule Ysc.Bookings do
          guests_count,
          children_count
        ) do
-    cond do
-      not is_atom(property) ->
-        {:error, :invalid_property}
+    with :ok <- validate_property(property),
+         :ok <- validate_guests_count(guests_count),
+         :ok <- validate_children_count(children_count),
+         :ok <- validate_checkin_date(checkin_date),
+         :ok <- validate_checkout_date(checkout_date) do
+      validate_date_range(checkin_date, checkout_date)
+    end
+  end
 
-      not (is_integer(guests_count) && guests_count > 0) ->
-        {:error, :invalid_guests_count}
+  defp validate_property(property) when is_atom(property), do: :ok
+  defp validate_property(_), do: {:error, :invalid_property}
 
-      not (is_integer(children_count) && children_count >= 0) ->
-        {:error, :invalid_children_count}
+  defp validate_guests_count(guests_count) when is_integer(guests_count) and guests_count > 0,
+    do: :ok
 
-      not is_struct(checkin_date, Date) ->
-        {:error, :invalid_checkin_date}
+  defp validate_guests_count(_), do: {:error, :invalid_guests_count}
 
-      not is_struct(checkout_date, Date) ->
-        {:error, :invalid_checkout_date}
+  defp validate_children_count(children_count)
+       when is_integer(children_count) and children_count >= 0, do: :ok
 
-      Date.compare(checkout_date, checkin_date) != :gt ->
-        {:error, :invalid_date_range}
+  defp validate_children_count(_), do: {:error, :invalid_children_count}
 
-      true ->
-        :ok
+  defp validate_checkin_date(checkin_date) when is_struct(checkin_date, Date), do: :ok
+  defp validate_checkin_date(_), do: {:error, :invalid_checkin_date}
+
+  defp validate_checkout_date(checkout_date) when is_struct(checkout_date, Date), do: :ok
+  defp validate_checkout_date(_), do: {:error, :invalid_checkout_date}
+
+  defp validate_date_range(checkin_date, checkout_date) do
+    if Date.compare(checkout_date, checkin_date) == :gt do
+      :ok
+    else
+      {:error, :invalid_date_range}
     end
   end
 
@@ -1437,17 +1475,19 @@ defmodule Ysc.Bookings do
         )
 
       if found_pricing_rules do
-        build_room_price_result(
-          date_range,
-          total,
-          base_total,
-          children_total,
-          adult_price_per_night,
-          children_price_per_night,
-          billable_people,
-          guests_count,
-          children_count
-        )
+        price_result_params = %{
+          date_range: date_range,
+          total: total,
+          base_total: base_total,
+          children_total: children_total,
+          adult_price_per_night: adult_price_per_night,
+          children_price_per_night: children_price_per_night,
+          billable_people: billable_people,
+          guests_count: guests_count,
+          children_count: children_count
+        }
+
+        build_room_price_result(price_result_params)
       end
     end
   end
@@ -1625,36 +1665,26 @@ defmodule Ysc.Bookings do
     end
   end
 
-  defp build_room_price_result(
-         date_range,
-         total,
-         base_total,
-         children_total,
-         adult_price_per_night,
-         children_price_per_night,
-         billable_people,
-         guests_count,
-         children_count
-       ) do
-    nights = length(date_range)
+  defp build_room_price_result(params) do
+    nights = length(params.date_range)
 
-    base_per_night = calculate_per_night_price(base_total, nights)
-    children_per_night = calculate_per_night_price(children_total, nights)
+    base_per_night = calculate_per_night_price(params.base_total, nights)
+    children_per_night = calculate_per_night_price(params.children_total, nights)
 
     # Ensure children_price_per_night has a fallback value
-    children_price_per_night = children_price_per_night || Money.new(25, :USD)
+    children_price_per_night = params.children_price_per_night || Money.new(25, :USD)
 
-    {:ok, total,
+    {:ok, params.total,
      %{
-       base: base_total,
-       children: children_total,
+       base: params.base_total,
+       children: params.children_total,
        base_per_night: base_per_night,
        children_per_night: children_per_night,
        nights: nights,
-       billable_people: billable_people,
-       guests_count: guests_count,
-       children_count: children_count,
-       adult_price_per_night: adult_price_per_night,
+       billable_people: params.billable_people,
+       guests_count: params.guests_count,
+       children_count: params.children_count,
+       adult_price_per_night: params.adult_price_per_night,
        children_price_per_night: children_price_per_night
      }}
   end

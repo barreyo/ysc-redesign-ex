@@ -146,8 +146,6 @@ defmodule YscWeb.Router do
       pipe_through :browser
 
       forward "/mailbox", Plug.Swoosh.MailboxPreview
-      live "/performance/endpoints", ElixirDashboard.PerformanceLive.Endpoints, :index
-      live "/performance/queries", ElixirDashboard.PerformanceLive.Queries, :index
     end
   end
 
