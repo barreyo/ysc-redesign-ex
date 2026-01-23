@@ -834,8 +834,60 @@ defmodule YscWeb.Components.DateRangePicker do
   defp get_date_tooltip(day, tooltips) when is_map(tooltips) do
     # Try to find tooltip by date string key (ISO format)
     date_str = Date.to_iso8601(day)
-    Map.get(tooltips, date_str) || Map.get(tooltips, day)
+    tooltip_data = Map.get(tooltips, date_str) || Map.get(tooltips, day)
+    format_tooltip_data(tooltip_data)
   end
 
   defp get_date_tooltip(_day, _tooltips), do: nil
+
+  # Format tooltip data into a safe string for rendering
+  defp format_tooltip_data(nil), do: nil
+  defp format_tooltip_data(tooltip) when is_binary(tooltip), do: tooltip
+
+  defp format_tooltip_data(tooltip) when is_map(tooltip) do
+    # If tooltip is a map (e.g., from tahoe_booking_live with bookings data),
+    # format it into a readable string
+    bookings = tooltip[:bookings] || tooltip["bookings"]
+
+    cond do
+      is_list(bookings) and length(bookings) > 0 ->
+        format_bookings_tooltip(tooltip)
+
+      Map.has_key?(tooltip, :reason) ->
+        to_string(tooltip.reason)
+
+      Map.has_key?(tooltip, "reason") ->
+        to_string(tooltip["reason"])
+
+      true ->
+        # Fallback: try to extract any meaningful string from the map
+        inspect(tooltip, limit: :infinity)
+    end
+  end
+
+  defp format_tooltip_data(other), do: to_string(other)
+
+  defp format_bookings_tooltip(tooltip) do
+    bookings = tooltip[:bookings] || tooltip["bookings"] || []
+    bookings_count = length(bookings)
+
+    cond do
+      bookings_count == 0 ->
+        "No availability"
+
+      bookings_count == 1 ->
+        booking = List.first(bookings)
+        room_names = get_room_names(booking)
+        "Booked: #{room_names}"
+
+      true ->
+        "Multiple bookings (#{bookings_count} rooms booked)"
+    end
+  end
+
+  defp get_room_names(booking) do
+    rooms = booking[:rooms] || booking["rooms"] || []
+    room_names = Enum.map(rooms, fn room -> room[:name] || room["name"] || "Room" end)
+    Enum.join(room_names, ", ")
+  end
 end

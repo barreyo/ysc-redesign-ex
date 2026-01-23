@@ -229,27 +229,35 @@ defmodule Ysc.Accounts do
       primary_user = get_primary_user(user)
       if primary_user, do: has_active_membership?(primary_user), else: false
     else
-      # Check for lifetime membership first
-      if has_lifetime_membership?(user) do
-        true
-      else
-        # Get all subscriptions for the user and check if any are valid (active or trialing)
-        case user.subscriptions do
-          %Ecto.Association.NotLoaded{} ->
-            # If subscriptions aren't loaded, fetch them
-            user_with_subscriptions = get_user!(user.id, [:subscriptions])
+      check_primary_user_membership(user)
+    end
+  end
 
-            user_with_subscriptions.subscriptions
-            |> Enum.any?(&Ysc.Subscriptions.valid?/1)
+  defp check_primary_user_membership(user) do
+    # Check for lifetime membership first
+    if has_lifetime_membership?(user) do
+      true
+    else
+      # Get all subscriptions for the user and check if any are valid (active or trialing)
+      check_user_subscriptions(user)
+    end
+  end
 
-          subscriptions when is_list(subscriptions) ->
-            subscriptions
-            |> Enum.any?(&Ysc.Subscriptions.valid?/1)
+  defp check_user_subscriptions(user) do
+    case user.subscriptions do
+      %Ecto.Association.NotLoaded{} ->
+        # If subscriptions aren't loaded, fetch them
+        user_with_subscriptions = get_user!(user.id, [:subscriptions])
 
-          _ ->
-            false
-        end
-      end
+        user_with_subscriptions.subscriptions
+        |> Enum.any?(&Ysc.Subscriptions.valid?/1)
+
+      subscriptions when is_list(subscriptions) ->
+        subscriptions
+        |> Enum.any?(&Ysc.Subscriptions.valid?/1)
+
+      _ ->
+        false
     end
   end
 

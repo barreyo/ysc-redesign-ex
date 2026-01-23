@@ -647,7 +647,7 @@ defmodule YscWeb.TahoeBookingLive do
     ~H"""
     <div
       id="tahoe-booking-page"
-      phx-hook="ScrollToSection"
+      phx-hook={if assigns[:scroll_to_section], do: "ScrollToSection", else: nil}
       data-section={if assigns[:scroll_to_section], do: assigns.scroll_to_section, else: nil}
     >
       <!-- Hero Section with Carousel (For logged-in users) -->
@@ -788,7 +788,7 @@ defmodule YscWeb.TahoeBookingLive do
                     navigate={~p"/bookings/#{booking.id}/receipt"}
                     class="inline-block mt-4 text-sm font-semibold text-blue-600 hover:underline"
                   >
-                    View Booking →
+                    View Booking<.icon name="hero-arrow-right-solid" class="w-4 h-4 ms-1" />
                   </.link>
                 </div>
               <% end %>
@@ -1267,7 +1267,7 @@ defmodule YscWeb.TahoeBookingLive do
                     checkout_date={@checkout_date}
                     selected_booking_mode={:buyout}
                     min={@restricted_min_date}
-                    max={@restricted_max_date}
+                    max={@max_booking_date}
                     property={:tahoe}
                     today={@today}
                   />
@@ -5411,40 +5411,67 @@ defmodule YscWeb.TahoeBookingLive do
       checkin = socket.assigns.checkin_date
       checkout = socket.assigns.checkout_date
 
-      # 1. Check for blackouts
-      # has_blackout? uses inclusive overlap, which is safer for availability checks
-      if Bookings.has_blackout?(:tahoe, checkin, checkout) do
-        Map.put(
-          errors,
-          :availability,
-          "Selected dates are not available due to blackout dates."
-        )
-      else
-        # 2. Check for ANY existing active bookings (rooms or buyouts)
-        # list_bookings returns potentially overlapping bookings (inclusive)
-        # We filter for status and strict overlap to be precise
-        overlaps = Bookings.list_bookings(:tahoe, checkin, checkout)
+      # 1. Check if user has ANY active or future bookings (stricter rule for buyout)
+      if socket.assigns.user do
+        user = socket.assigns.user
+        family_user_ids = get_family_group_user_ids(user)
+        today = Date.utc_today()
 
-        has_conflict =
-          Enum.any?(overlaps, fn booking ->
-            booking.status in [:hold, :complete] &&
-              Bookings.bookings_overlap?(
-                checkin,
-                checkout,
-                booking.checkin_date,
-                booking.checkout_date
-              )
-          end)
+        # Check for any active bookings (status = :complete) with checkout_date >= today
+        has_active_booking =
+          Repo.exists?(
+            from b in Booking,
+              where: b.user_id in ^family_user_ids,
+              where: b.property == :tahoe,
+              where: b.status == :complete,
+              where: b.checkout_date >= ^today
+          )
 
-        if has_conflict do
+        if has_active_booking do
           Map.put(
             errors,
             :availability,
-            "Selected dates are not available due to existing bookings."
+            "You cannot book a full buyout while you have an active or future reservation. Please complete or cancel your existing reservation first."
           )
         else
-          errors
+          # 2. Check for blackouts
+          # has_blackout? uses inclusive overlap, which is safer for availability checks
+          if Bookings.has_blackout?(:tahoe, checkin, checkout) do
+            Map.put(
+              errors,
+              :availability,
+              "Selected dates are not available due to blackout dates."
+            )
+          else
+            # 3. Check for ANY existing active bookings on the selected dates (rooms or buyouts)
+            # list_bookings returns potentially overlapping bookings (inclusive)
+            # We filter for status and strict overlap to be precise
+            overlaps = Bookings.list_bookings(:tahoe, checkin, checkout)
+
+            has_conflict =
+              Enum.any?(overlaps, fn booking ->
+                booking.status in [:hold, :complete] &&
+                  Bookings.bookings_overlap?(
+                    checkin,
+                    checkout,
+                    booking.checkin_date,
+                    booking.checkout_date
+                  )
+              end)
+
+            if has_conflict do
+              Map.put(
+                errors,
+                :availability,
+                "Selected dates are not available due to existing bookings."
+              )
+            else
+              errors
+            end
+          end
         end
+      else
+        errors
       end
     else
       errors
@@ -6375,20 +6402,19 @@ defmodule YscWeb.TahoeBookingLive do
     # Build tooltip map
     date_range
     |> Enum.reduce(%{}, fn date, acc ->
-      tooltip =
-        availability_context = %{
-          date: date,
-          min_date: min_date,
-          max_date: max_date,
-          today: today,
-          property: property,
-          all_rooms: all_rooms,
-          bookings: bookings,
-          blackout_dates: blackout_dates,
-          buyout_dates: buyout_dates
-        }
+      availability_context = %{
+        date: date,
+        min_date: min_date,
+        max_date: max_date,
+        today: today,
+        property: property,
+        all_rooms: all_rooms,
+        bookings: bookings,
+        blackout_dates: blackout_dates,
+        buyout_dates: buyout_dates
+      }
 
-      get_date_unavailability_reason(availability_context)
+      tooltip = get_date_unavailability_reason(availability_context)
 
       if tooltip do
         Map.put(acc, Date.to_iso8601(date), tooltip)

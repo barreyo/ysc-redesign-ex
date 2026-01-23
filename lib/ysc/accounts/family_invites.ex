@@ -362,17 +362,29 @@ defmodule Ysc.Accounts.FamilyInvites do
       end
 
     if Ecto.assoc_loaded?(user.family_members) do
-      case Enum.find(user.family_members, &(&1.id == family_member_id)) do
-        %Ysc.Accounts.FamilyMember{first_name: first_name, last_name: last_name}
-        when not is_nil(first_name) ->
-          name = "#{first_name}#{if last_name, do: " #{last_name}", else: ""}"
-          {:ok, name}
-
-        _ ->
-          {:error, :not_found}
-      end
+      find_and_format_family_member_name(user.family_members, family_member_id)
     else
       {:error, :family_members_not_loaded}
+    end
+  end
+
+  defp find_and_format_family_member_name(family_members, family_member_id) do
+    case Enum.find(family_members, &(&1.id == family_member_id)) do
+      %Ysc.Accounts.FamilyMember{first_name: first_name, last_name: last_name}
+      when not is_nil(first_name) ->
+        name = format_family_member_name(first_name, last_name)
+        {:ok, name}
+
+      _ ->
+        {:error, :not_found}
+    end
+  end
+
+  defp format_family_member_name(first_name, last_name) do
+    if last_name do
+      "#{first_name} #{last_name}"
+    else
+      first_name
     end
   end
 
@@ -387,32 +399,7 @@ defmodule Ysc.Accounts.FamilyInvites do
         if existing_address do
           {:ok, existing_address}
         else
-          # Copy address fields from primary user
-          address_attrs = %{
-            address: primary_address.address,
-            city: primary_address.city,
-            region: primary_address.region,
-            postal_code: primary_address.postal_code,
-            country: primary_address.country,
-            user_id: sub_account.id
-          }
-
-          case Ysc.Accounts.Address.changeset(%Ysc.Accounts.Address{}, address_attrs)
-               |> Ysc.Repo.insert() do
-            {:ok, address} ->
-              {:ok, address}
-
-            {:error, changeset} ->
-              require Logger
-
-              Logger.warning("Failed to copy billing address for sub-account",
-                user_id: sub_account.id,
-                primary_user_id: primary_user_id,
-                errors: inspect(changeset.errors)
-              )
-
-              {:ok, nil}
-          end
+          create_billing_address_for_sub_account(sub_account, primary_user_id, primary_address)
         end
 
       _ ->
@@ -432,6 +419,35 @@ defmodule Ysc.Accounts.FamilyInvites do
       |> Repo.update!()
     else
       sub_account
+    end
+  end
+
+  defp create_billing_address_for_sub_account(sub_account, primary_user_id, primary_address) do
+    # Copy address fields from primary user
+    address_attrs = %{
+      address: primary_address.address,
+      city: primary_address.city,
+      region: primary_address.region,
+      postal_code: primary_address.postal_code,
+      country: primary_address.country,
+      user_id: sub_account.id
+    }
+
+    case Ysc.Accounts.Address.changeset(%Ysc.Accounts.Address{}, address_attrs)
+         |> Ysc.Repo.insert() do
+      {:ok, address} ->
+        {:ok, address}
+
+      {:error, changeset} ->
+        require Logger
+
+        Logger.warning("Failed to copy billing address for sub-account",
+          user_id: sub_account.id,
+          primary_user_id: primary_user_id,
+          errors: inspect(changeset.errors)
+        )
+
+        {:ok, nil}
     end
   end
 end

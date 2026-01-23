@@ -97,37 +97,46 @@ defmodule Ysc.Events.Ticket do
     user_id = get_field(changeset, :user_id)
 
     if user_id do
-      # Preload primary_user and subscriptions associations to avoid N+1 queries for sub-accounts
-      user = Ysc.Repo.get(Ysc.Accounts.User, user_id)
+      validate_active_membership_for_user(changeset, user_id)
+    else
+      changeset
+    end
+  end
 
-      case user do
-        nil ->
-          changeset
+  defp validate_active_membership_for_user(changeset, user_id) do
+    # Preload primary_user and subscriptions associations to avoid N+1 queries for sub-accounts
+    user = Ysc.Repo.get(Ysc.Accounts.User, user_id)
 
-        user ->
-          # Preload user's subscriptions and primary_user (with their subscriptions if sub-account)
-          user =
-            if Accounts.sub_account?(user) do
-              # For sub-accounts, also preload primary user with their subscriptions
-              Ysc.Repo.preload(user, [:subscriptions, primary_user: :subscriptions])
-            else
-              # For primary users, just preload their subscriptions
-              Ysc.Repo.preload(user, [:subscriptions])
-            end
+    case user do
+      nil ->
+        changeset
 
-          # Check if user has an active membership (handles inherited memberships for sub-accounts)
-          active_membership = get_active_membership(user)
+      user ->
+        user = preload_user_subscriptions(user)
+        check_active_membership(changeset, user)
+    end
+  end
 
-          if active_membership == nil do
-            add_error(
-              changeset,
-              :user_id,
-              "active membership required to purchase tickets"
-            )
-          else
-            changeset
-          end
-      end
+  defp preload_user_subscriptions(user) do
+    if Accounts.sub_account?(user) do
+      # For sub-accounts, also preload primary user with their subscriptions
+      Ysc.Repo.preload(user, [:subscriptions, primary_user: :subscriptions])
+    else
+      # For primary users, just preload their subscriptions
+      Ysc.Repo.preload(user, [:subscriptions])
+    end
+  end
+
+  defp check_active_membership(changeset, user) do
+    # Check if user has an active membership (handles inherited memberships for sub-accounts)
+    active_membership = get_active_membership(user)
+
+    if active_membership == nil do
+      add_error(
+        changeset,
+        :user_id,
+        "active membership required to purchase tickets"
+      )
     else
       changeset
     end
@@ -228,45 +237,50 @@ defmodule Ysc.Events.Ticket do
     event_id = get_field(changeset, :event_id)
 
     if event_id do
-      case Ysc.Repo.get(Ysc.Events.Event, event_id) do
-        nil ->
-          changeset
-
-        event ->
-          now = DateTime.utc_now()
-
-          # Combine the date and time properly
-          event_datetime =
-            case {event.start_date, event.start_time} do
-              {%DateTime{} = date, %Time{} = time} ->
-                # Convert DateTime to NaiveDateTime, then combine with time
-                naive_date = DateTime.to_naive(date)
-                date_part = NaiveDateTime.to_date(naive_date)
-                naive_datetime = NaiveDateTime.new!(date_part, time)
-                DateTime.from_naive!(naive_datetime, "Etc/UTC")
-
-              {date, time} when not is_nil(date) and not is_nil(time) ->
-                # Handle other date/time combinations
-                NaiveDateTime.new!(date, time)
-                |> DateTime.from_naive!("Etc/UTC")
-
-              _ ->
-                # Fallback to just the date if time is nil
-                event.start_date
-            end
-
-          if DateTime.compare(now, event_datetime) == :gt do
-            add_error(
-              changeset,
-              :event_id,
-              "cannot purchase tickets for events that have already ended"
-            )
-          else
-            changeset
-          end
-      end
+      validate_event_not_ended(changeset, event_id)
     else
       changeset
+    end
+  end
+
+  defp validate_event_not_ended(changeset, event_id) do
+    case Ysc.Repo.get(Ysc.Events.Event, event_id) do
+      nil ->
+        changeset
+
+      event ->
+        now = DateTime.utc_now()
+        event_datetime = build_event_datetime(event)
+
+        if DateTime.compare(now, event_datetime) == :gt do
+          add_error(
+            changeset,
+            :event_id,
+            "cannot purchase tickets for events that have already ended"
+          )
+        else
+          changeset
+        end
+    end
+  end
+
+  defp build_event_datetime(event) do
+    case {event.start_date, event.start_time} do
+      {%DateTime{} = date, %Time{} = time} ->
+        # Convert DateTime to NaiveDateTime, then combine with time
+        naive_date = DateTime.to_naive(date)
+        date_part = NaiveDateTime.to_date(naive_date)
+        naive_datetime = NaiveDateTime.new!(date_part, time)
+        DateTime.from_naive!(naive_datetime, "Etc/UTC")
+
+      {date, time} when not is_nil(date) and not is_nil(time) ->
+        # Handle other date/time combinations
+        NaiveDateTime.new!(date, time)
+        |> DateTime.from_naive!("Etc/UTC")
+
+      _ ->
+        # Fallback to just the date if time is nil
+        event.start_date
     end
   end
 end

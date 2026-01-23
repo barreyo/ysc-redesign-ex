@@ -34,341 +34,312 @@ defmodule Ysc.Messages do
     )
 
     try do
-      result =
-        Ecto.Multi.new()
-        |> Ecto.Multi.insert(
-          :message_idempotency,
-          MessageIdempotency.changeset(%MessageIdempotency{}, attrs)
-        )
-        |> Ecto.Multi.run(:send_email, fn repo, _result ->
-          Logger.debug("Sending email via Mailer.deliver",
-            recipient: email.to,
-            idempotency_key: attrs[:idempotency_key]
-          )
-
-          case Mailer.deliver(email) do
-            {:ok, _metadata} ->
-              Logger.debug("Mailer.deliver succeeded",
-                recipient: email.to,
-                idempotency_key: attrs[:idempotency_key]
-              )
-
-              {:ok, email}
-
-            error ->
-              Logger.error("Mailer.deliver failed",
-                recipient: email.to,
-                idempotency_key: attrs[:idempotency_key],
-                error: inspect(error)
-              )
-
-              # Report to Sentry with detailed context
-              Sentry.capture_message("Mailer.deliver failed",
-                level: :error,
-                extra: %{
-                  recipient: email_recipient_to_string(email.to),
-                  idempotency_key: attrs[:idempotency_key],
-                  message_template: attrs[:message_template],
-                  user_id: attrs[:user_id],
-                  email_subject: email.subject,
-                  error: inspect(error, limit: :infinity)
-                },
-                tags: %{
-                  email_template: attrs[:message_template] || "unknown",
-                  error_type: "mailer_deliver_failed",
-                  has_user_id: !is_nil(attrs[:user_id])
-                }
-              )
-
-              repo.rollback({:error, "failed to send email"})
-              {:error, "failed to send email"}
-          end
-        end)
-        |> Repo.transaction()
-
-      case result do
-        {:ok, %{send_email: email}} ->
-          Logger.debug("Email transaction succeeded",
-            recipient: email.to,
-            idempotency_key: attrs[:idempotency_key]
-          )
-
-          # Emit telemetry event for successful email send
-          :telemetry.execute(
-            [:ysc, :email, :sent],
-            %{count: 1},
-            %{
-              template: attrs[:message_template] || "unknown",
-              recipient: email_recipient_to_string(email.to),
-              idempotency_key: attrs[:idempotency_key] || nil
-            }
-          )
-
-          {:ok, email}
-
-        {:error, :message_idempotency, changeset, _} ->
-          Logger.info("Duplicate message detected (idempotency), treating as success",
-            recipient: email.to,
-            idempotency_key: attrs[:idempotency_key],
-            errors: inspect(changeset.errors)
-          )
-
-          # Emit telemetry event for duplicate email (idempotency - treat as success)
-          :telemetry.execute(
-            [:ysc, :email, :sent],
-            %{count: 1},
-            %{
-              template: attrs[:message_template] || "unknown",
-              recipient: email_recipient_to_string(email.to),
-              idempotency_key: attrs[:idempotency_key] || nil,
-              duplicate: true
-            }
-          )
-
-          {:ok, email}
-
-        {:error, operation, reason, _changes} ->
-          Logger.error("Email transaction failed",
-            recipient: email.to,
-            idempotency_key: attrs[:idempotency_key],
-            operation: operation,
-            reason: inspect(reason)
-          )
-
-          # Report to Sentry with detailed context
-          Sentry.capture_message("Email transaction failed",
-            level: :error,
-            extra: %{
-              recipient: email_recipient_to_string(email.to),
-              idempotency_key: attrs[:idempotency_key],
-              message_template: attrs[:message_template],
-              user_id: attrs[:user_id],
-              email_subject: email.subject,
-              operation: to_string(operation),
-              reason: inspect(reason, limit: :infinity)
-            },
-            tags: %{
-              email_template: attrs[:message_template] || "unknown",
-              error_type: "email_transaction_failed",
-              operation: to_string(operation),
-              has_user_id: !is_nil(attrs[:user_id])
-            }
-          )
-
-          # Emit telemetry event for email send failure
-          :telemetry.execute(
-            [:ysc, :email, :send_failed],
-            %{count: 1},
-            %{
-              template: attrs[:message_template] || "unknown",
-              recipient: email_recipient_to_string(email.to),
-              idempotency_key: attrs[:idempotency_key] || nil,
-              operation: to_string(operation),
-              reason: inspect(reason)
-            }
-          )
-
-          {:error, "failed to send email"}
-
-        error ->
-          Logger.error("Email transaction failed with unexpected error",
-            recipient: email.to,
-            idempotency_key: attrs[:idempotency_key],
-            error: inspect(error)
-          )
-
-          # Report to Sentry with detailed context
-          Sentry.capture_message("Email transaction failed with unexpected error",
-            level: :error,
-            extra: %{
-              recipient: email_recipient_to_string(email.to),
-              idempotency_key: attrs[:idempotency_key],
-              message_template: attrs[:message_template],
-              user_id: attrs[:user_id],
-              email_subject: email.subject,
-              error: inspect(error, limit: :infinity)
-            },
-            tags: %{
-              email_template: attrs[:message_template] || "unknown",
-              error_type: "email_transaction_unexpected_error",
-              has_user_id: !is_nil(attrs[:user_id])
-            }
-          )
-
-          # Emit telemetry event for email send failure
-          :telemetry.execute(
-            [:ysc, :email, :send_failed],
-            %{count: 1},
-            %{
-              template: attrs[:message_template] || "unknown",
-              recipient: email_recipient_to_string(email.to),
-              idempotency_key: attrs[:idempotency_key] || nil,
-              error: inspect(error)
-            }
-          )
-
-          {:error, "failed to send email"}
-      end
+      result = build_and_run_email_transaction(email, attrs)
+      handle_email_transaction_result(result, email, attrs)
     rescue
       error in [Ecto.ConstraintError] ->
-        # Check if this is the idempotency constraint violation
-        if error.type == :unique do
-          # Normalize constraint name to string for comparison
-          constraint_string = to_string(error.constraint)
-
-          idempotency_constraint_names = [
-            "message_idempotency_entries_unique_index",
-            "message_idempotency_entries_message_type_idempotency_key_messag"
-          ]
-
-          if constraint_string in idempotency_constraint_names do
-            Logger.info(
-              "Duplicate message detected (idempotency constraint), treating as success",
-              recipient: email.to,
-              idempotency_key: attrs[:idempotency_key],
-              constraint: constraint_string
-            )
-
-            # Emit telemetry event for duplicate email (idempotency - treat as success)
-            :telemetry.execute(
-              [:ysc, :email, :sent],
-              %{count: 1},
-              %{
-                template: attrs[:message_template] || "unknown",
-                recipient: email_recipient_to_string(email.to),
-                idempotency_key: attrs[:idempotency_key] || nil,
-                duplicate: true
-              }
-            )
-
-            {:ok, email}
-          else
-            Logger.error("Email transaction raised unique constraint error (not idempotency)",
-              recipient: email.to,
-              idempotency_key: attrs[:idempotency_key],
-              constraint: constraint_string,
-              error: inspect(error)
-            )
-
-            # Report to Sentry with detailed context
-            Sentry.capture_exception(error,
-              extra: %{
-                recipient: email_recipient_to_string(email.to),
-                idempotency_key: attrs[:idempotency_key],
-                message_template: attrs[:message_template],
-                user_id: attrs[:user_id],
-                email_subject: email.subject,
-                constraint: constraint_string,
-                constraint_type: error.type
-              },
-              tags: %{
-                email_template: attrs[:message_template] || "unknown",
-                error_type: "unique_constraint_error",
-                constraint: constraint_string,
-                has_user_id: !is_nil(attrs[:user_id])
-              }
-            )
-
-            # Emit telemetry event for email send failure
-            :telemetry.execute(
-              [:ysc, :email, :send_failed],
-              %{count: 1},
-              %{
-                template: attrs[:message_template] || "unknown",
-                recipient: email_recipient_to_string(email.to),
-                idempotency_key: attrs[:idempotency_key] || nil,
-                constraint: constraint_string,
-                error: inspect(error)
-              }
-            )
-
-            {:error, "failed to send email"}
-          end
-        else
-          Logger.error("Email transaction raised constraint error (not unique)",
-            recipient: email.to,
-            idempotency_key: attrs[:idempotency_key],
-            constraint: error.constraint,
-            type: error.type,
-            error: inspect(error)
-          )
-
-          # Report to Sentry with detailed context
-          Sentry.capture_exception(error,
-            extra: %{
-              recipient: email_recipient_to_string(email.to),
-              idempotency_key: attrs[:idempotency_key],
-              message_template: attrs[:message_template],
-              user_id: attrs[:user_id],
-              email_subject: email.subject,
-              constraint: to_string(error.constraint),
-              constraint_type: error.type
-            },
-            tags: %{
-              email_template: attrs[:message_template] || "unknown",
-              error_type: "constraint_error",
-              constraint: to_string(error.constraint),
-              has_user_id: !is_nil(attrs[:user_id])
-            }
-          )
-
-          # Emit telemetry event for email send failure
-          :telemetry.execute(
-            [:ysc, :email, :send_failed],
-            %{count: 1},
-            %{
-              template: attrs[:message_template] || "unknown",
-              recipient: email_recipient_to_string(email.to),
-              idempotency_key: attrs[:idempotency_key] || nil,
-              constraint: to_string(error.constraint),
-              error: inspect(error)
-            }
-          )
-
-          {:error, "failed to send email"}
-        end
+        handle_email_constraint_error(error, email, attrs)
 
       error ->
-        Logger.error("Email transaction raised exception",
-          recipient: email.to,
-          idempotency_key: attrs[:idempotency_key],
-          error: inspect(error),
-          stacktrace: Exception.format_stacktrace(__STACKTRACE__)
-        )
-
-        # Report exception to Sentry with full context
-        Sentry.capture_exception(error,
-          stacktrace: __STACKTRACE__,
-          extra: %{
-            recipient: email_recipient_to_string(email.to),
-            idempotency_key: attrs[:idempotency_key],
-            message_template: attrs[:message_template],
-            user_id: attrs[:user_id],
-            email_subject: email.subject,
-            error_type: inspect(error.__struct__),
-            error_message: Exception.message(error)
-          },
-          tags: %{
-            email_template: attrs[:message_template] || "unknown",
-            error_type: "email_transaction_exception",
-            has_user_id: !is_nil(attrs[:user_id])
-          }
-        )
-
-        # Emit telemetry event for email send failure
-        :telemetry.execute(
-          [:ysc, :email, :send_failed],
-          %{count: 1},
-          %{
-            template: attrs[:message_template] || "unknown",
-            recipient: email_recipient_to_string(email.to),
-            idempotency_key: attrs[:idempotency_key] || nil,
-            error: inspect(error)
-          }
-        )
-
-        {:error, "failed to send email"}
+        handle_email_transaction_exception(error, email, attrs, __STACKTRACE__)
     end
+  end
+
+  defp build_and_run_email_transaction(email, attrs) do
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(
+      :message_idempotency,
+      MessageIdempotency.changeset(%MessageIdempotency{}, attrs)
+    )
+    |> Ecto.Multi.run(:send_email, fn repo, _result ->
+      send_email_via_mailer(email, attrs, repo)
+    end)
+    |> Repo.transaction()
+  end
+
+  defp send_email_via_mailer(email, attrs, repo) do
+    Logger.debug("Sending email via Mailer.deliver",
+      recipient: email.to,
+      idempotency_key: attrs[:idempotency_key]
+    )
+
+    case Mailer.deliver(email) do
+      {:ok, _metadata} ->
+        Logger.debug("Mailer.deliver succeeded",
+          recipient: email.to,
+          idempotency_key: attrs[:idempotency_key]
+        )
+
+        {:ok, email}
+
+      error ->
+        handle_mailer_deliver_error(error, email, attrs, repo)
+    end
+  end
+
+  defp handle_mailer_deliver_error(error, email, attrs, repo) do
+    Logger.error("Mailer.deliver failed",
+      recipient: email.to,
+      idempotency_key: attrs[:idempotency_key],
+      error: inspect(error)
+    )
+
+    Sentry.capture_message("Mailer.deliver failed",
+      level: :error,
+      extra: build_email_sentry_extra(email, attrs, %{error: inspect(error, limit: :infinity)}),
+      tags: build_email_sentry_tags(attrs, "mailer_deliver_failed")
+    )
+
+    repo.rollback({:error, "failed to send email"})
+    {:error, "failed to send email"}
+  end
+
+  defp handle_email_transaction_result(result, email, attrs) do
+    case result do
+      {:ok, %{send_email: email}} ->
+        handle_successful_email(email, attrs)
+
+      {:error, :message_idempotency, changeset, _} ->
+        handle_email_idempotency_duplicate(email, attrs, changeset)
+
+      {:error, operation, reason, _changes} ->
+        handle_email_transaction_error(email, attrs, operation, reason)
+
+      error ->
+        handle_unexpected_email_error(email, attrs, error)
+    end
+  end
+
+  defp handle_successful_email(email, attrs) do
+    Logger.debug("Email transaction succeeded",
+      recipient: email.to,
+      idempotency_key: attrs[:idempotency_key]
+    )
+
+    emit_email_sent_telemetry(email, attrs, %{})
+    {:ok, email}
+  end
+
+  defp handle_email_idempotency_duplicate(email, attrs, changeset) do
+    Logger.info("Duplicate message detected (idempotency), treating as success",
+      recipient: email.to,
+      idempotency_key: attrs[:idempotency_key],
+      errors: inspect(changeset.errors)
+    )
+
+    emit_email_sent_telemetry(email, attrs, %{duplicate: true})
+    {:ok, email}
+  end
+
+  defp handle_email_transaction_error(email, attrs, operation, reason) do
+    Logger.error("Email transaction failed",
+      recipient: email.to,
+      idempotency_key: attrs[:idempotency_key],
+      operation: operation,
+      reason: inspect(reason)
+    )
+
+    Sentry.capture_message("Email transaction failed",
+      level: :error,
+      extra:
+        build_email_sentry_extra(email, attrs, %{
+          operation: to_string(operation),
+          reason: inspect(reason, limit: :infinity)
+        }),
+      tags:
+        build_email_sentry_tags(attrs, "email_transaction_failed", %{
+          operation: to_string(operation)
+        })
+    )
+
+    emit_email_send_failed_telemetry(email, attrs, %{
+      operation: to_string(operation),
+      reason: inspect(reason)
+    })
+
+    {:error, "failed to send email"}
+  end
+
+  defp handle_unexpected_email_error(email, attrs, error) do
+    Logger.error("Email transaction failed with unexpected error",
+      recipient: email.to,
+      idempotency_key: attrs[:idempotency_key],
+      error: inspect(error)
+    )
+
+    Sentry.capture_message("Email transaction failed with unexpected error",
+      level: :error,
+      extra: build_email_sentry_extra(email, attrs, %{error: inspect(error, limit: :infinity)}),
+      tags: build_email_sentry_tags(attrs, "email_transaction_unexpected_error")
+    )
+
+    emit_email_send_failed_telemetry(email, attrs, %{error: inspect(error)})
+    {:error, "failed to send email"}
+  end
+
+  defp handle_email_constraint_error(error, email, attrs) do
+    if error.type == :unique do
+      handle_email_unique_constraint_error(error, email, attrs)
+    else
+      handle_email_non_unique_constraint_error(error, email, attrs)
+    end
+  end
+
+  defp handle_email_unique_constraint_error(error, email, attrs) do
+    constraint_string = to_string(error.constraint)
+
+    idempotency_constraint_names = [
+      "message_idempotency_entries_unique_index",
+      "message_idempotency_entries_message_type_idempotency_key_messag"
+    ]
+
+    if constraint_string in idempotency_constraint_names do
+      handle_email_idempotency_constraint_duplicate(email, attrs, constraint_string)
+    else
+      handle_email_non_idempotency_unique_constraint(error, email, attrs, constraint_string)
+    end
+  end
+
+  defp handle_email_idempotency_constraint_duplicate(email, attrs, constraint_string) do
+    Logger.info(
+      "Duplicate message detected (idempotency constraint), treating as success",
+      recipient: email.to,
+      idempotency_key: attrs[:idempotency_key],
+      constraint: constraint_string
+    )
+
+    emit_email_sent_telemetry(email, attrs, %{duplicate: true})
+    {:ok, email}
+  end
+
+  defp handle_email_non_idempotency_unique_constraint(error, email, attrs, constraint_string) do
+    Logger.error("Email transaction raised unique constraint error (not idempotency)",
+      recipient: email.to,
+      idempotency_key: attrs[:idempotency_key],
+      constraint: constraint_string,
+      error: inspect(error)
+    )
+
+    Sentry.capture_exception(error,
+      extra:
+        build_email_sentry_extra(email, attrs, %{
+          constraint: constraint_string,
+          constraint_type: error.type
+        }),
+      tags:
+        build_email_sentry_tags(attrs, "unique_constraint_error", %{
+          constraint: constraint_string
+        })
+    )
+
+    emit_email_send_failed_telemetry(email, attrs, %{
+      constraint: constraint_string,
+      error: inspect(error)
+    })
+
+    {:error, "failed to send email"}
+  end
+
+  defp handle_email_non_unique_constraint_error(error, email, attrs) do
+    Logger.error("Email transaction raised constraint error (not unique)",
+      recipient: email.to,
+      idempotency_key: attrs[:idempotency_key],
+      constraint: error.constraint,
+      type: error.type,
+      error: inspect(error)
+    )
+
+    Sentry.capture_exception(error,
+      extra:
+        build_email_sentry_extra(email, attrs, %{
+          constraint: to_string(error.constraint),
+          constraint_type: error.type
+        }),
+      tags:
+        build_email_sentry_tags(attrs, "constraint_error", %{
+          constraint: to_string(error.constraint)
+        })
+    )
+
+    emit_email_send_failed_telemetry(email, attrs, %{
+      constraint: to_string(error.constraint),
+      error: inspect(error)
+    })
+
+    {:error, "failed to send email"}
+  end
+
+  defp handle_email_transaction_exception(error, email, attrs, stacktrace) do
+    Logger.error("Email transaction raised exception",
+      recipient: email.to,
+      idempotency_key: attrs[:idempotency_key],
+      error: inspect(error),
+      stacktrace: Exception.format_stacktrace(stacktrace)
+    )
+
+    Sentry.capture_exception(error,
+      stacktrace: stacktrace,
+      extra:
+        build_email_sentry_extra(email, attrs, %{
+          error_type: inspect(error.__struct__),
+          error_message: Exception.message(error)
+        }),
+      tags: build_email_sentry_tags(attrs, "email_transaction_exception")
+    )
+
+    emit_email_send_failed_telemetry(email, attrs, %{error: inspect(error)})
+    {:error, "failed to send email"}
+  end
+
+  defp build_email_sentry_extra(email, attrs, additional) do
+    Map.merge(
+      %{
+        recipient: email_recipient_to_string(email.to),
+        idempotency_key: attrs[:idempotency_key],
+        message_template: attrs[:message_template],
+        user_id: attrs[:user_id],
+        email_subject: email.subject
+      },
+      additional
+    )
+  end
+
+  defp build_email_sentry_tags(attrs, error_type, additional \\ %{}) do
+    Map.merge(
+      %{
+        email_template: attrs[:message_template] || "unknown",
+        error_type: error_type,
+        has_user_id: !is_nil(attrs[:user_id])
+      },
+      additional
+    )
+  end
+
+  defp build_email_telemetry_metadata(email, attrs, additional) do
+    Map.merge(
+      %{
+        template: attrs[:message_template] || "unknown",
+        recipient: email_recipient_to_string(email.to),
+        idempotency_key: attrs[:idempotency_key] || nil
+      },
+      additional
+    )
+  end
+
+  defp emit_email_sent_telemetry(email, attrs, additional) do
+    :telemetry.execute(
+      [:ysc, :email, :sent],
+      %{count: 1},
+      build_email_telemetry_metadata(email, attrs, additional)
+    )
+  end
+
+  defp emit_email_send_failed_telemetry(email, attrs, additional) do
+    :telemetry.execute(
+      [:ysc, :email, :send_failed],
+      %{count: 1},
+      build_email_telemetry_metadata(email, attrs, additional)
+    )
   end
 
   @doc """
@@ -442,415 +413,389 @@ defmodule Ysc.Messages do
       message_template: attrs[:message_template]
     )
 
-    # Check rate limits before attempting to send
+    with {:ok, :allowed} <- check_rate_limit(phone_number, attrs) do
+      execute_sms_transaction(phone_number, body, attrs)
+    end
+  end
+
+  defp check_rate_limit(phone_number, attrs) do
     case SmsRateLimit.check_rate_limit(phone_number) do
       {:error, :rate_limit_exceeded, reason} ->
-        Logger.warning("SMS rate limit check failed",
-          recipient: phone_number,
-          idempotency_key: attrs[:idempotency_key],
-          reason: reason
-        )
-
-        # Report to Sentry
-        Sentry.capture_message("SMS rate limit exceeded",
-          level: :warning,
-          extra: %{
-            recipient: phone_number,
-            idempotency_key: attrs[:idempotency_key],
-            message_template: attrs[:message_template],
-            user_id: attrs[:user_id],
-            reason: reason
-          },
-          tags: %{
-            sms_template: attrs[:message_template] || "unknown",
-            error_type: "sms_rate_limit_exceeded",
-            has_user_id: !is_nil(attrs[:user_id])
-          }
-        )
-
-        # Emit telemetry event for rate limit exceeded
-        :telemetry.execute(
-          [:ysc, :sms, :rate_limit_exceeded],
-          %{count: 1},
-          %{
-            template: attrs[:message_template] || "unknown",
-            recipient: phone_number,
-            idempotency_key: attrs[:idempotency_key] || nil,
-            reason: reason
-          }
-        )
-
+        handle_rate_limit_exceeded(phone_number, attrs, reason)
         {:error, reason}
 
       {:ok, :allowed} ->
-        try do
-          result =
-            Ecto.Multi.new()
-            |> Ecto.Multi.insert(
-              :message_idempotency,
-              MessageIdempotency.changeset(%MessageIdempotency{}, %{
-                message_type: "sms",
-                idempotency_key: attrs[:idempotency_key],
-                message_template: attrs[:message_template],
-                phone_number: phone_number,
-                user_id: attrs[:user_id],
-                params: attrs[:params],
-                rendered_message: body
-              })
-            )
-            |> Ecto.Multi.run(:send_sms, fn _repo, _result ->
-              Logger.debug("Sending SMS via FlowRoute Client",
-                recipient: phone_number,
-                idempotency_key: attrs[:idempotency_key]
-              )
-
-              sms_opts = [
-                to: phone_number,
-                body: body
-              ]
-
-              sms_opts =
-                if attrs[:from] do
-                  Keyword.put(sms_opts, :from, attrs[:from])
-                else
-                  sms_opts
-                end
-
-              case Client.send_sms(sms_opts) do
-                {:ok, %{id: message_id}} = result ->
-                  Logger.debug("FlowRoute Client.send_sms succeeded",
-                    recipient: phone_number,
-                    idempotency_key: attrs[:idempotency_key],
-                    message_id: message_id
-                  )
-
-                  result
-
-                error ->
-                  Logger.error("FlowRoute Client.send_sms failed",
-                    recipient: phone_number,
-                    idempotency_key: attrs[:idempotency_key],
-                    error: inspect(error)
-                  )
-
-                  # Report to Sentry with detailed context
-                  Sentry.capture_message("FlowRoute Client.send_sms failed",
-                    level: :error,
-                    extra: %{
-                      recipient: phone_number,
-                      idempotency_key: attrs[:idempotency_key],
-                      message_template: attrs[:message_template],
-                      user_id: attrs[:user_id],
-                      message_body: body,
-                      error: inspect(error, limit: :infinity)
-                    },
-                    tags: %{
-                      sms_template: attrs[:message_template] || "unknown",
-                      error_type: "flowroute_send_sms_failed",
-                      has_user_id: !is_nil(attrs[:user_id])
-                    }
-                  )
-
-                  {:error, "failed to send SMS"}
-              end
-            end)
-            |> Repo.transaction()
-
-          case result do
-            {:ok, %{send_sms: %{id: message_id}, message_idempotency: _message_idempotency}} ->
-              Logger.debug("SMS transaction succeeded",
-                recipient: phone_number,
-                idempotency_key: attrs[:idempotency_key],
-                message_id: message_id
-              )
-
-              # Record SMS send for rate limiting (in-memory cache)
-              SmsRateLimit.record_sms_send(phone_number)
-
-              # Emit telemetry event for successful SMS send
-              :telemetry.execute(
-                [:ysc, :sms, :sent],
-                %{count: 1},
-                %{
-                  template: attrs[:message_template] || "unknown",
-                  recipient: phone_number,
-                  idempotency_key: attrs[:idempotency_key] || nil,
-                  message_id: message_id
-                }
-              )
-
-              {:ok, %{id: message_id}}
-
-            {:error, :message_idempotency, changeset, _} ->
-              Logger.info("Duplicate SMS detected (idempotency), treating as success",
-                recipient: phone_number,
-                idempotency_key: attrs[:idempotency_key],
-                errors: inspect(changeset.errors)
-              )
-
-              # Note: We don't record this in rate limits because no new SMS was actually sent
-              # The rate limit check already happened before the transaction, which is correct
-              # behavior to prevent rapid-fire duplicate attempts
-
-              # Emit telemetry event for duplicate SMS (idempotency - treat as success)
-              :telemetry.execute(
-                [:ysc, :sms, :sent],
-                %{count: 1},
-                %{
-                  template: attrs[:message_template] || "unknown",
-                  recipient: phone_number,
-                  idempotency_key: attrs[:idempotency_key] || nil,
-                  duplicate: true
-                }
-              )
-
-              # Return a fake success response for idempotency
-              {:ok, %{id: "mdr2-idempotent"}}
-
-            {:error, operation, reason, _changes} ->
-              Logger.error("SMS transaction failed",
-                recipient: phone_number,
-                idempotency_key: attrs[:idempotency_key],
-                operation: operation,
-                reason: inspect(reason)
-              )
-
-              # Report to Sentry with detailed context
-              Sentry.capture_message("SMS transaction failed",
-                level: :error,
-                extra: %{
-                  recipient: phone_number,
-                  idempotency_key: attrs[:idempotency_key],
-                  message_template: attrs[:message_template],
-                  user_id: attrs[:user_id],
-                  message_body: body,
-                  operation: to_string(operation),
-                  reason: inspect(reason, limit: :infinity)
-                },
-                tags: %{
-                  sms_template: attrs[:message_template] || "unknown",
-                  error_type: "sms_transaction_failed",
-                  operation: to_string(operation),
-                  has_user_id: !is_nil(attrs[:user_id])
-                }
-              )
-
-              # Emit telemetry event for SMS send failure
-              :telemetry.execute(
-                [:ysc, :sms, :send_failed],
-                %{count: 1},
-                %{
-                  template: attrs[:message_template] || "unknown",
-                  recipient: phone_number,
-                  idempotency_key: attrs[:idempotency_key] || nil,
-                  operation: to_string(operation),
-                  reason: inspect(reason)
-                }
-              )
-
-              {:error, "failed to send SMS"}
-
-            error ->
-              Logger.error("SMS transaction failed with unexpected error",
-                recipient: phone_number,
-                idempotency_key: attrs[:idempotency_key],
-                error: inspect(error)
-              )
-
-              # Report to Sentry with detailed context
-              Sentry.capture_message("SMS transaction failed with unexpected error",
-                level: :error,
-                extra: %{
-                  recipient: phone_number,
-                  idempotency_key: attrs[:idempotency_key],
-                  message_template: attrs[:message_template],
-                  user_id: attrs[:user_id],
-                  message_body: body,
-                  error: inspect(error, limit: :infinity)
-                },
-                tags: %{
-                  sms_template: attrs[:message_template] || "unknown",
-                  error_type: "sms_transaction_unexpected_error",
-                  has_user_id: !is_nil(attrs[:user_id])
-                }
-              )
-
-              # Emit telemetry event for SMS send failure
-              :telemetry.execute(
-                [:ysc, :sms, :send_failed],
-                %{count: 1},
-                %{
-                  template: attrs[:message_template] || "unknown",
-                  recipient: phone_number,
-                  idempotency_key: attrs[:idempotency_key] || nil,
-                  error: inspect(error)
-                }
-              )
-
-              {:error, "failed to send SMS"}
-          end
-        rescue
-          error in [Ecto.ConstraintError] ->
-            # Check if this is the idempotency constraint violation
-            if error.type == :unique do
-              # Normalize constraint name to string for comparison
-              constraint_string = to_string(error.constraint)
-
-              idempotency_constraint_names = [
-                "message_idempotency_entries_unique_index",
-                "message_idempotency_entries_message_type_idempotency_key_messag"
-              ]
-
-              if constraint_string in idempotency_constraint_names do
-                Logger.info(
-                  "Duplicate SMS detected (idempotency constraint), treating as success",
-                  recipient: phone_number,
-                  idempotency_key: attrs[:idempotency_key],
-                  constraint: constraint_string
-                )
-
-                # Note: We don't record this in rate limits because no new SMS was actually sent
-
-                # Emit telemetry event for duplicate SMS (idempotency - treat as success)
-                :telemetry.execute(
-                  [:ysc, :sms, :sent],
-                  %{count: 1},
-                  %{
-                    template: attrs[:message_template] || "unknown",
-                    recipient: phone_number,
-                    idempotency_key: attrs[:idempotency_key] || nil,
-                    duplicate: true
-                  }
-                )
-
-                {:ok, %{id: "mdr2-idempotent"}}
-              else
-                Logger.error("SMS transaction raised unique constraint error (not idempotency)",
-                  recipient: phone_number,
-                  idempotency_key: attrs[:idempotency_key],
-                  constraint: constraint_string,
-                  error: inspect(error)
-                )
-
-                # Report to Sentry with detailed context
-                Sentry.capture_exception(error,
-                  extra: %{
-                    recipient: phone_number,
-                    idempotency_key: attrs[:idempotency_key],
-                    message_template: attrs[:message_template],
-                    user_id: attrs[:user_id],
-                    message_body: body,
-                    constraint: constraint_string,
-                    constraint_type: error.type
-                  },
-                  tags: %{
-                    sms_template: attrs[:message_template] || "unknown",
-                    error_type: "unique_constraint_error",
-                    constraint: constraint_string,
-                    has_user_id: !is_nil(attrs[:user_id])
-                  }
-                )
-
-                # Emit telemetry event for SMS send failure
-                :telemetry.execute(
-                  [:ysc, :sms, :send_failed],
-                  %{count: 1},
-                  %{
-                    template: attrs[:message_template] || "unknown",
-                    recipient: phone_number,
-                    idempotency_key: attrs[:idempotency_key] || nil,
-                    constraint: constraint_string,
-                    error: inspect(error)
-                  }
-                )
-
-                {:error, "failed to send SMS"}
-              end
-            else
-              Logger.error("SMS transaction raised constraint error (not unique)",
-                recipient: phone_number,
-                idempotency_key: attrs[:idempotency_key],
-                constraint: error.constraint,
-                type: error.type,
-                error: inspect(error)
-              )
-
-              # Report to Sentry with detailed context
-              Sentry.capture_exception(error,
-                extra: %{
-                  recipient: phone_number,
-                  idempotency_key: attrs[:idempotency_key],
-                  message_template: attrs[:message_template],
-                  user_id: attrs[:user_id],
-                  message_body: body,
-                  constraint: to_string(error.constraint),
-                  constraint_type: error.type
-                },
-                tags: %{
-                  sms_template: attrs[:message_template] || "unknown",
-                  error_type: "constraint_error",
-                  constraint: to_string(error.constraint),
-                  has_user_id: !is_nil(attrs[:user_id])
-                }
-              )
-
-              # Emit telemetry event for SMS send failure
-              :telemetry.execute(
-                [:ysc, :sms, :send_failed],
-                %{count: 1},
-                %{
-                  template: attrs[:message_template] || "unknown",
-                  recipient: phone_number,
-                  idempotency_key: attrs[:idempotency_key] || nil,
-                  constraint: to_string(error.constraint),
-                  error: inspect(error)
-                }
-              )
-
-              {:error, "failed to send SMS"}
-            end
-
-          error ->
-            Logger.error("SMS transaction raised exception",
-              recipient: phone_number,
-              idempotency_key: attrs[:idempotency_key],
-              error: inspect(error),
-              stacktrace: Exception.format_stacktrace(__STACKTRACE__)
-            )
-
-            # Report exception to Sentry with full context
-            Sentry.capture_exception(error,
-              stacktrace: __STACKTRACE__,
-              extra: %{
-                recipient: phone_number,
-                idempotency_key: attrs[:idempotency_key],
-                message_template: attrs[:message_template],
-                user_id: attrs[:user_id],
-                message_body: body,
-                error_type: inspect(error.__struct__),
-                error_message: Exception.message(error)
-              },
-              tags: %{
-                sms_template: attrs[:message_template] || "unknown",
-                error_type: "sms_transaction_exception",
-                has_user_id: !is_nil(attrs[:user_id])
-              }
-            )
-
-            # Emit telemetry event for SMS send failure
-            :telemetry.execute(
-              [:ysc, :sms, :send_failed],
-              %{count: 1},
-              %{
-                template: attrs[:message_template] || "unknown",
-                recipient: phone_number,
-                idempotency_key: attrs[:idempotency_key] || nil,
-                error: inspect(error)
-              }
-            )
-
-            {:error, "failed to send SMS"}
-        end
+        {:ok, :allowed}
     end
+  end
+
+  defp handle_rate_limit_exceeded(phone_number, attrs, reason) do
+    Logger.warning("SMS rate limit check failed",
+      recipient: phone_number,
+      idempotency_key: attrs[:idempotency_key],
+      reason: reason
+    )
+
+    Sentry.capture_message("SMS rate limit exceeded",
+      level: :warning,
+      extra: build_sentry_extra(phone_number, attrs, %{reason: reason}),
+      tags: build_sentry_tags(attrs, "sms_rate_limit_exceeded")
+    )
+
+    :telemetry.execute(
+      [:ysc, :sms, :rate_limit_exceeded],
+      %{count: 1},
+      build_telemetry_metadata(phone_number, attrs, %{reason: reason})
+    )
+  end
+
+  defp execute_sms_transaction(phone_number, body, attrs) do
+    try do
+      result = build_and_run_sms_transaction(phone_number, body, attrs)
+      handle_transaction_result(result, phone_number, attrs, body)
+    rescue
+      error in [Ecto.ConstraintError] ->
+        handle_constraint_error(error, phone_number, attrs, body)
+
+      error ->
+        handle_transaction_exception(error, phone_number, attrs, body, __STACKTRACE__)
+    end
+  end
+
+  defp handle_transaction_exception(error, phone_number, attrs, body, stacktrace) do
+    Logger.error("SMS transaction raised exception",
+      recipient: phone_number,
+      idempotency_key: attrs[:idempotency_key],
+      error: inspect(error),
+      stacktrace: Exception.format_stacktrace(stacktrace)
+    )
+
+    Sentry.capture_exception(error,
+      stacktrace: stacktrace,
+      extra:
+        build_sentry_extra(phone_number, attrs, %{
+          message_body: body,
+          error_type: inspect(error.__struct__),
+          error_message: Exception.message(error)
+        }),
+      tags: build_sentry_tags(attrs, "sms_transaction_exception")
+    )
+
+    emit_send_failed_telemetry(phone_number, attrs, %{error: inspect(error)})
+
+    {:error, "failed to send SMS"}
+  end
+
+  defp build_and_run_sms_transaction(phone_number, body, attrs) do
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(
+      :message_idempotency,
+      MessageIdempotency.changeset(%MessageIdempotency{}, %{
+        message_type: "sms",
+        idempotency_key: attrs[:idempotency_key],
+        message_template: attrs[:message_template],
+        phone_number: phone_number,
+        user_id: attrs[:user_id],
+        params: attrs[:params],
+        rendered_message: body
+      })
+    )
+    |> Ecto.Multi.run(:send_sms, fn _repo, _result ->
+      send_sms_via_client(phone_number, body, attrs)
+    end)
+    |> Repo.transaction()
+  end
+
+  defp send_sms_via_client(phone_number, body, attrs) do
+    Logger.debug("Sending SMS via FlowRoute Client",
+      recipient: phone_number,
+      idempotency_key: attrs[:idempotency_key]
+    )
+
+    sms_opts = build_sms_opts(phone_number, body, attrs)
+
+    case Client.send_sms(sms_opts) do
+      {:ok, %{id: message_id}} = result ->
+        Logger.debug("FlowRoute Client.send_sms succeeded",
+          recipient: phone_number,
+          idempotency_key: attrs[:idempotency_key],
+          message_id: message_id
+        )
+
+        result
+
+      error ->
+        handle_send_sms_error(error, phone_number, attrs, body)
+    end
+  end
+
+  defp build_sms_opts(phone_number, body, attrs) do
+    base_opts = [to: phone_number, body: body]
+
+    if attrs[:from] do
+      Keyword.put(base_opts, :from, attrs[:from])
+    else
+      base_opts
+    end
+  end
+
+  defp handle_send_sms_error(error, phone_number, attrs, body) do
+    Logger.error("FlowRoute Client.send_sms failed",
+      recipient: phone_number,
+      idempotency_key: attrs[:idempotency_key],
+      error: inspect(error)
+    )
+
+    Sentry.capture_message("FlowRoute Client.send_sms failed",
+      level: :error,
+      extra:
+        build_sentry_extra(phone_number, attrs, %{
+          message_body: body,
+          error: inspect(error, limit: :infinity)
+        }),
+      tags: build_sentry_tags(attrs, "flowroute_send_sms_failed")
+    )
+
+    {:error, "failed to send SMS"}
+  end
+
+  defp handle_transaction_result(result, phone_number, attrs, _body) do
+    case result do
+      {:ok, %{send_sms: %{id: message_id}, message_idempotency: _message_idempotency}} ->
+        handle_successful_sms(phone_number, attrs, message_id)
+
+      {:error, :message_idempotency, changeset, _} ->
+        handle_idempotency_duplicate(phone_number, attrs, changeset)
+
+      {:error, operation, reason, _changes} ->
+        handle_transaction_error(phone_number, attrs, operation, reason)
+
+      error ->
+        handle_unexpected_transaction_error(phone_number, attrs, error)
+    end
+  end
+
+  defp handle_successful_sms(phone_number, attrs, message_id) do
+    Logger.debug("SMS transaction succeeded",
+      recipient: phone_number,
+      idempotency_key: attrs[:idempotency_key],
+      message_id: message_id
+    )
+
+    SmsRateLimit.record_sms_send(phone_number)
+
+    :telemetry.execute(
+      [:ysc, :sms, :sent],
+      %{count: 1},
+      build_telemetry_metadata(phone_number, attrs, %{message_id: message_id})
+    )
+
+    {:ok, %{id: message_id}}
+  end
+
+  defp handle_idempotency_duplicate(phone_number, attrs, changeset) do
+    Logger.info("Duplicate SMS detected (idempotency), treating as success",
+      recipient: phone_number,
+      idempotency_key: attrs[:idempotency_key],
+      errors: inspect(changeset.errors)
+    )
+
+    :telemetry.execute(
+      [:ysc, :sms, :sent],
+      %{count: 1},
+      build_telemetry_metadata(phone_number, attrs, %{duplicate: true})
+    )
+
+    {:ok, %{id: "mdr2-idempotent"}}
+  end
+
+  defp handle_transaction_error(phone_number, attrs, operation, reason) do
+    Logger.error("SMS transaction failed",
+      recipient: phone_number,
+      idempotency_key: attrs[:idempotency_key],
+      operation: operation,
+      reason: inspect(reason)
+    )
+
+    Sentry.capture_message("SMS transaction failed",
+      level: :error,
+      extra:
+        build_sentry_extra(phone_number, attrs, %{
+          operation: to_string(operation),
+          reason: inspect(reason, limit: :infinity)
+        }),
+      tags:
+        build_sentry_tags(attrs, "sms_transaction_failed", %{
+          operation: to_string(operation)
+        })
+    )
+
+    emit_send_failed_telemetry(phone_number, attrs, %{
+      operation: to_string(operation),
+      reason: inspect(reason)
+    })
+
+    {:error, "failed to send SMS"}
+  end
+
+  defp handle_unexpected_transaction_error(phone_number, attrs, error) do
+    Logger.error("SMS transaction failed with unexpected error",
+      recipient: phone_number,
+      idempotency_key: attrs[:idempotency_key],
+      error: inspect(error)
+    )
+
+    Sentry.capture_message("SMS transaction failed with unexpected error",
+      level: :error,
+      extra:
+        build_sentry_extra(phone_number, attrs, %{
+          error: inspect(error, limit: :infinity)
+        }),
+      tags: build_sentry_tags(attrs, "sms_transaction_unexpected_error")
+    )
+
+    emit_send_failed_telemetry(phone_number, attrs, %{error: inspect(error)})
+
+    {:error, "failed to send SMS"}
+  end
+
+  defp handle_constraint_error(error, phone_number, attrs, body) do
+    if error.type == :unique do
+      handle_unique_constraint_error(error, phone_number, attrs, body)
+    else
+      handle_non_unique_constraint_error(error, phone_number, attrs, body)
+    end
+  end
+
+  defp handle_unique_constraint_error(error, phone_number, attrs, _body) do
+    constraint_string = to_string(error.constraint)
+
+    idempotency_constraint_names = [
+      "message_idempotency_entries_unique_index",
+      "message_idempotency_entries_message_type_idempotency_key_messag"
+    ]
+
+    if constraint_string in idempotency_constraint_names do
+      handle_idempotency_constraint_duplicate(phone_number, attrs, constraint_string)
+    else
+      handle_non_idempotency_unique_constraint(error, phone_number, attrs, constraint_string)
+    end
+  end
+
+  defp handle_idempotency_constraint_duplicate(phone_number, attrs, constraint_string) do
+    Logger.info(
+      "Duplicate SMS detected (idempotency constraint), treating as success",
+      recipient: phone_number,
+      idempotency_key: attrs[:idempotency_key],
+      constraint: constraint_string
+    )
+
+    :telemetry.execute(
+      [:ysc, :sms, :sent],
+      %{count: 1},
+      build_telemetry_metadata(phone_number, attrs, %{duplicate: true})
+    )
+
+    {:ok, %{id: "mdr2-idempotent"}}
+  end
+
+  defp handle_non_idempotency_unique_constraint(error, phone_number, attrs, constraint_string) do
+    Logger.error("SMS transaction raised unique constraint error (not idempotency)",
+      recipient: phone_number,
+      idempotency_key: attrs[:idempotency_key],
+      constraint: constraint_string,
+      error: inspect(error)
+    )
+
+    Sentry.capture_exception(error,
+      extra:
+        build_sentry_extra(phone_number, attrs, %{
+          constraint: constraint_string,
+          constraint_type: error.type
+        }),
+      tags:
+        build_sentry_tags(attrs, "unique_constraint_error", %{
+          constraint: constraint_string
+        })
+    )
+
+    emit_send_failed_telemetry(phone_number, attrs, %{
+      constraint: constraint_string,
+      error: inspect(error)
+    })
+
+    {:error, "failed to send SMS"}
+  end
+
+  defp handle_non_unique_constraint_error(error, phone_number, attrs, body) do
+    Logger.error("SMS transaction raised constraint error (not unique)",
+      recipient: phone_number,
+      idempotency_key: attrs[:idempotency_key],
+      constraint: error.constraint,
+      type: error.type,
+      error: inspect(error)
+    )
+
+    Sentry.capture_exception(error,
+      extra:
+        build_sentry_extra(phone_number, attrs, %{
+          message_body: body,
+          constraint: to_string(error.constraint),
+          constraint_type: error.type
+        }),
+      tags:
+        build_sentry_tags(attrs, "constraint_error", %{
+          constraint: to_string(error.constraint)
+        })
+    )
+
+    emit_send_failed_telemetry(phone_number, attrs, %{
+      constraint: to_string(error.constraint),
+      error: inspect(error)
+    })
+
+    {:error, "failed to send SMS"}
+  end
+
+  defp build_sentry_extra(phone_number, attrs, additional) do
+    Map.merge(
+      %{
+        recipient: phone_number,
+        idempotency_key: attrs[:idempotency_key],
+        message_template: attrs[:message_template],
+        user_id: attrs[:user_id]
+      },
+      additional
+    )
+  end
+
+  defp build_sentry_tags(attrs, error_type, additional \\ %{}) do
+    Map.merge(
+      %{
+        sms_template: attrs[:message_template] || "unknown",
+        error_type: error_type,
+        has_user_id: !is_nil(attrs[:user_id])
+      },
+      additional
+    )
+  end
+
+  defp build_telemetry_metadata(phone_number, attrs, additional) do
+    Map.merge(
+      %{
+        template: attrs[:message_template] || "unknown",
+        recipient: phone_number,
+        idempotency_key: attrs[:idempotency_key] || nil
+      },
+      additional
+    )
+  end
+
+  defp emit_send_failed_telemetry(phone_number, attrs, additional) do
+    :telemetry.execute(
+      [:ysc, :sms, :send_failed],
+      %{count: 1},
+      build_telemetry_metadata(phone_number, attrs, additional)
+    )
   end
 end

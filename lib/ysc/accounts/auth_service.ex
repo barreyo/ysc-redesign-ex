@@ -378,30 +378,7 @@ defmodule Ysc.Accounts.AuthService do
     case conn_or_socket do
       %Plug.Conn{} = conn ->
         # Check for forwarded IP first (for load balancers/proxies)
-        case get_header(conn, "x-forwarded-for") do
-          nil ->
-            case get_header(conn, "x-real-ip") do
-              nil ->
-                # Fall back to remote_ip
-                conn.remote_ip
-                |> :inet.ntoa()
-                |> to_string()
-
-              real_ip ->
-                # Take the first IP from comma-separated list
-                real_ip
-                |> String.split(",")
-                |> List.first()
-                |> String.trim()
-            end
-
-          forwarded_for ->
-            # Take the first IP from comma-separated list
-            forwarded_for
-            |> String.split(",")
-            |> List.first()
-            |> String.trim()
-        end
+        get_conn_client_ip(conn)
 
       %Phoenix.LiveView.Socket{} ->
         # For LiveView sockets, we don't have direct access to IP
@@ -410,6 +387,37 @@ defmodule Ysc.Accounts.AuthService do
 
       _ ->
         "127.0.0.1"
+    end
+  end
+
+  defp get_conn_client_ip(conn) do
+    case get_header(conn, "x-forwarded-for") do
+      nil ->
+        get_real_ip_or_fallback(conn)
+
+      forwarded_for ->
+        # Take the first IP from comma-separated list
+        forwarded_for
+        |> String.split(",")
+        |> List.first()
+        |> String.trim()
+    end
+  end
+
+  defp get_real_ip_or_fallback(conn) do
+    case get_header(conn, "x-real-ip") do
+      nil ->
+        # Fall back to remote_ip
+        conn.remote_ip
+        |> :inet.ntoa()
+        |> to_string()
+
+      real_ip ->
+        # Take the first IP from comma-separated list
+        real_ip
+        |> String.split(",")
+        |> List.first()
+        |> String.trim()
     end
   end
 

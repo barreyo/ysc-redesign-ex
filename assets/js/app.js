@@ -101,6 +101,13 @@ let Hooks = {
 };
 Hooks.LivePhone = LivePhone;
 
+// Verify ScrollToSection hook is registered
+if (!Hooks.ScrollToSection) {
+    console.error("ScrollToSection hook not found in Hooks object");
+} else {
+    console.log("ScrollToSection hook registered successfully");
+}
+
 let csrfToken = document
     .querySelector("meta[name='csrf-token']")
     .getAttribute("content");

@@ -440,9 +440,9 @@ calculate_booking_pricing = fn booking_attrs ->
          checkin_date,
          checkout_date,
          booking_mode,
-         room_id,
-         guests_count,
-         children_count
+         room_id: room_id,
+         guests_count: guests_count,
+         children_count: children_count
        ) do
     {:ok, total, breakdown} when is_map(breakdown) ->
       # Handle room booking with breakdown

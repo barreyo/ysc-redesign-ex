@@ -37,24 +37,10 @@ defmodule Ysc.Bookings.SeasonCache do
         now = System.system_time(:millisecond)
 
         if now < ttl_expires_at do
-          # Check if cache version is still valid
-          case Cachex.get(@cache_name, @cache_version_key) do
-            {:ok, current_version} when current_version == version ->
-              season
-
-            _ ->
-              # Version mismatch - invalidate and refetch
-              Cachex.del(@cache_name, cache_key)
-              season = Season.for_date_db(property, date)
-              cache_with_version_and_ttl(cache_key, season)
-              season
-          end
+          validate_cached_season_version(cache_key, version, season, property, date)
         else
           # TTL expired - refetch
-          Cachex.del(@cache_name, cache_key)
-          season = Season.for_date_db(property, date)
-          cache_with_version_and_ttl(cache_key, season)
-          season
+          refetch_and_cache_season(cache_key, property, date)
         end
 
       {:ok, season} ->
@@ -122,24 +108,10 @@ defmodule Ysc.Bookings.SeasonCache do
         now = System.system_time(:millisecond)
 
         if now < ttl_expires_at do
-          # Check if cache version is still valid
-          case Cachex.get(@cache_name, @cache_version_key) do
-            {:ok, current_version} when current_version == version ->
-              seasons
-
-            _ ->
-              # Version mismatch - invalidate and refetch
-              Cachex.del(@cache_name, cache_key)
-              seasons = Season.list_all_for_property_db(property)
-              cache_with_version_and_ttl(cache_key, seasons)
-              seasons
-          end
+          validate_cached_seasons_version(cache_key, version, seasons, property)
         else
           # TTL expired - refetch
-          Cachex.del(@cache_name, cache_key)
-          seasons = Season.list_all_for_property_db(property)
-          cache_with_version_and_ttl(cache_key, seasons)
-          seasons
+          refetch_and_cache_seasons(cache_key, property)
         end
 
       {:ok, seasons} ->
@@ -180,5 +152,43 @@ defmodule Ysc.Bookings.SeasonCache do
   defp get_ttl do
     # Use 10 minutes as default, but can be configured
     Application.get_env(:ysc, :season_cache_ttl_ms, @default_ttl)
+  end
+
+  defp validate_cached_season_version(cache_key, version, season, property, date) do
+    # Check if cache version is still valid
+    case Cachex.get(@cache_name, @cache_version_key) do
+      {:ok, current_version} when current_version == version ->
+        season
+
+      _ ->
+        # Version mismatch - invalidate and refetch
+        refetch_and_cache_season(cache_key, property, date)
+    end
+  end
+
+  defp refetch_and_cache_season(cache_key, property, date) do
+    Cachex.del(@cache_name, cache_key)
+    season = Season.for_date_db(property, date)
+    cache_with_version_and_ttl(cache_key, season)
+    season
+  end
+
+  defp validate_cached_seasons_version(cache_key, version, seasons, property) do
+    # Check if cache version is still valid
+    case Cachex.get(@cache_name, @cache_version_key) do
+      {:ok, current_version} when current_version == version ->
+        seasons
+
+      _ ->
+        # Version mismatch - invalidate and refetch
+        refetch_and_cache_seasons(cache_key, property)
+    end
+  end
+
+  defp refetch_and_cache_seasons(cache_key, property) do
+    Cachex.del(@cache_name, cache_key)
+    seasons = Season.list_all_for_property_db(property)
+    cache_with_version_and_ttl(cache_key, seasons)
+    seasons
   end
 end

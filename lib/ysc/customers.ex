@@ -87,21 +87,7 @@ defmodule Ysc.Customers do
       # Add address if billing_address exists
       customer_params =
         if user.billing_address do
-          address = %{
-            line1: user.billing_address.address,
-            city: user.billing_address.city,
-            postal_code: user.billing_address.postal_code,
-            country: user.billing_address.country
-          }
-
-          # Add state/region if available
-          address =
-            if user.billing_address.region && user.billing_address.region != "" do
-              Map.put(address, :state, user.billing_address.region)
-            else
-              address
-            end
-
+          address = build_customer_address(user.billing_address)
           Map.put(customer_params, :address, address)
         else
           customer_params
@@ -344,4 +330,20 @@ defmodule Ysc.Customers do
   end
 
   defp ensure_stripe_customer(%User{} = user), do: user
+
+  defp build_customer_address(billing_address) do
+    address = %{
+      line1: billing_address.address,
+      city: billing_address.city,
+      postal_code: billing_address.postal_code,
+      country: billing_address.country
+    }
+
+    # Add state/region if available
+    if billing_address.region && billing_address.region != "" do
+      Map.put(address, :state, billing_address.region)
+    else
+      address
+    end
+  end
 end

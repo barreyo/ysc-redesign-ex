@@ -497,17 +497,21 @@ defmodule Ysc.Bookings do
         Map.delete(map, key)
 
       [next_key | remaining] ->
-        if is_map(map[key]) do
-          Map.update(map, key, %{}, fn nested_map ->
-            delete_in(nested_map, [next_key | remaining])
-          end)
-        else
-          map
-        end
+        delete_nested_key(map, key, next_key, remaining)
     end
   end
 
   defp delete_in(map, _), do: map
+
+  defp delete_nested_key(map, key, next_key, remaining) do
+    if is_map(map[key]) do
+      Map.update(map, key, %{}, fn nested_map ->
+        delete_in(nested_map, [next_key | remaining])
+      end)
+    else
+      map
+    end
+  end
 
   @doc """
   Gets a single booking.
@@ -1127,12 +1131,7 @@ defmodule Ysc.Bookings do
       # Convert room_ids to binary format for comparison with booking_rooms.room_id (which is binary)
       room_ids_binary =
         room_ids
-        |> Enum.map(fn room_id ->
-          case Ecto.ULID.dump(room_id) do
-            {:ok, binary} -> binary
-            _ -> room_id
-          end
-        end)
+        |> Enum.map(&convert_room_id_to_binary/1)
 
       # Check for overlapping bookings for all rooms at once
       # booking_rooms.room_id is stored as binary UUID, so we use the binary format
@@ -1165,12 +1164,7 @@ defmodule Ysc.Bookings do
       # Convert active_room_ids to binary for comparison with booked_room_ids_binary
       active_room_ids_binary =
         active_room_ids
-        |> Enum.map(fn room_id ->
-          case Ecto.ULID.dump(room_id) do
-            {:ok, binary} -> binary
-            _ -> room_id
-          end
-        end)
+        |> Enum.map(&convert_room_id_to_binary/1)
         |> MapSet.new()
 
       # Available rooms = active rooms (binary) - booked rooms (binary)
@@ -1182,10 +1176,7 @@ defmodule Ysc.Bookings do
       available_room_ids =
         room_ids
         |> Enum.filter(fn room_id ->
-          case Ecto.ULID.dump(room_id) do
-            {:ok, binary} -> MapSet.member?(available_room_ids_binary, binary)
-            _ -> false
-          end
+          is_room_available(room_id, available_room_ids_binary)
         end)
         |> MapSet.new()
 
@@ -1220,9 +1211,12 @@ defmodule Ysc.Bookings do
   - `checkin_date`: Check-in date
   - `checkout_date`: Check-out date
   - `booking_mode`: Booking mode (:room, :day, or :buyout)
-  - `room_id`: Optional room ID (for room bookings)
-  - `guests_count`: Number of guests/people
-  - `exclude_booking_id`: Optional booking ID to exclude (for updates)
+  - `opts`: Optional keyword list with:
+    - `:room_id` - Optional room ID (for room bookings)
+    - `:guests_count` - Number of guests/people (default: 1)
+    - `:children_count` - Number of children (default: 0)
+    - `:exclude_booking_id` - Optional booking ID to exclude (for updates)
+    - `:use_actual_guests` - Whether to use actual guests count (default: false)
 
   ## Returns
   - `{:ok, %Money{}}` with the total price
@@ -1233,21 +1227,17 @@ defmodule Ysc.Bookings do
         checkin_date,
         checkout_date,
         booking_mode,
-        room_id \\ nil,
-        guests_count \\ 1,
-        children_count \\ 0,
-        _exclude_booking_id \\ nil,
-        use_actual_guests \\ false
+        opts \\ []
       ) do
     params = %{
       property: property,
       checkin_date: checkin_date,
       checkout_date: checkout_date,
       booking_mode: booking_mode,
-      room_id: room_id,
-      guests_count: guests_count,
-      children_count: children_count,
-      use_actual_guests: use_actual_guests
+      room_id: Keyword.get(opts, :room_id),
+      guests_count: Keyword.get(opts, :guests_count, 1),
+      children_count: Keyword.get(opts, :children_count, 0),
+      use_actual_guests: Keyword.get(opts, :use_actual_guests, false)
     }
 
     calculate_booking_price_impl(params)
@@ -1345,11 +1335,7 @@ defmodule Ysc.Bookings do
         if pricing_rule do
           # Capture price per night if not yet captured
           new_price_acc = price_acc || pricing_rule.amount
-
-          case Money.add(acc, pricing_rule.amount) do
-            {:ok, new_total} -> {new_total, new_price_acc}
-            {:error, _} -> {acc, new_price_acc}
-          end
+          add_pricing_rule_amount(acc, pricing_rule.amount, new_price_acc)
         else
           {acc, price_acc}
         end
@@ -2911,31 +2897,7 @@ defmodule Ysc.Bookings do
             |> Repo.update!()
 
           # Log if ledger processing had issues (but don't fail - refund was created in Stripe)
-          case ledger_result do
-            {:ok, _} ->
-              Logger.info("Refund processed successfully in ledger",
-                pending_refund_id: pending_refund.id,
-                payment_id: payment.id,
-                stripe_refund_id: stripe_refund.id
-              )
-
-            {:error, {:already_processed, _, _}} ->
-              # Refund was already processed (likely by webhook) - this is fine
-              Logger.info("Refund already processed in ledger (idempotency)",
-                pending_refund_id: pending_refund.id,
-                payment_id: payment.id,
-                stripe_refund_id: stripe_refund.id
-              )
-
-            {:error, reason} ->
-              # Log error but don't fail - refund was created in Stripe
-              Logger.error("Failed to process refund in ledger (refund created in Stripe)",
-                pending_refund_id: pending_refund.id,
-                payment_id: payment.id,
-                stripe_refund_id: stripe_refund.id,
-                error: inspect(reason)
-              )
-          end
+          log_ledger_result(ledger_result, pending_refund, payment, stripe_refund)
 
           {:ok, updated_pending_refund, stripe_refund.id}
 
@@ -3400,32 +3362,7 @@ defmodule Ysc.Bookings do
             }
           }
 
-          case Stripe.Refund.create(refund_params) do
-            {:ok, refund} ->
-              Logger.info("Stripe refund created successfully",
-                refund_id: refund.id,
-                payment_intent_id: payment_intent_id,
-                amount_cents: amount_cents
-              )
-
-              {:ok, refund}
-
-            {:error, %Stripe.Error{} = error} ->
-              Logger.error("Stripe refund creation failed",
-                payment_intent_id: payment_intent_id,
-                error: error.message
-              )
-
-              {:error, error.message}
-
-            {:error, reason} ->
-              Logger.error("Stripe refund creation failed",
-                payment_intent_id: payment_intent_id,
-                error: inspect(reason)
-              )
-
-              {:error, "Failed to create refund in Stripe"}
-          end
+          handle_stripe_refund_creation(refund_params, payment_intent_id, amount_cents)
         else
           Logger.error("No charge found in payment intent",
             payment_intent_id: payment_intent_id
@@ -3449,6 +3386,84 @@ defmodule Ysc.Bookings do
         )
 
         {:error, "Failed to retrieve payment intent"}
+    end
+  end
+
+  defp is_room_available(room_id, available_room_ids_binary) do
+    case Ecto.ULID.dump(room_id) do
+      {:ok, binary} -> MapSet.member?(available_room_ids_binary, binary)
+      _ -> false
+    end
+  end
+
+  defp convert_room_id_to_binary(room_id) do
+    case Ecto.ULID.dump(room_id) do
+      {:ok, binary} -> binary
+      _ -> room_id
+    end
+  end
+
+  defp add_pricing_rule_amount(acc, amount, new_price_acc) do
+    case Money.add(acc, amount) do
+      {:ok, new_total} -> {new_total, new_price_acc}
+      {:error, _} -> {acc, new_price_acc}
+    end
+  end
+
+  defp log_ledger_result(ledger_result, pending_refund, payment, stripe_refund) do
+    case ledger_result do
+      {:ok, _} ->
+        Logger.info("Refund processed successfully in ledger",
+          pending_refund_id: pending_refund.id,
+          payment_id: payment.id,
+          stripe_refund_id: stripe_refund.id
+        )
+
+      {:error, {:already_processed, _, _}} ->
+        # Refund was already processed (likely by webhook) - this is fine
+        Logger.info("Refund already processed in ledger (idempotency)",
+          pending_refund_id: pending_refund.id,
+          payment_id: payment.id,
+          stripe_refund_id: stripe_refund.id
+        )
+
+      {:error, reason} ->
+        # Log error but don't fail - refund was created in Stripe
+        Logger.error("Failed to process refund in ledger (refund created in Stripe)",
+          pending_refund_id: pending_refund.id,
+          payment_id: payment.id,
+          stripe_refund_id: stripe_refund.id,
+          error: inspect(reason)
+        )
+    end
+  end
+
+  defp handle_stripe_refund_creation(refund_params, payment_intent_id, amount_cents) do
+    case Stripe.Refund.create(refund_params) do
+      {:ok, refund} ->
+        Logger.info("Stripe refund created successfully",
+          refund_id: refund.id,
+          payment_intent_id: payment_intent_id,
+          amount_cents: amount_cents
+        )
+
+        {:ok, refund}
+
+      {:error, %Stripe.Error{} = error} ->
+        Logger.error("Stripe refund creation failed",
+          payment_intent_id: payment_intent_id,
+          error: error.message
+        )
+
+        {:error, error.message}
+
+      {:error, reason} ->
+        Logger.error("Stripe refund creation failed",
+          payment_intent_id: payment_intent_id,
+          error: inspect(reason)
+        )
+
+        {:error, "Failed to create refund in Stripe"}
     end
   end
 end

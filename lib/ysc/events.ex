@@ -297,36 +297,52 @@ defmodule Ysc.Events do
     if events == [] do
       []
     else
-      event_ids = Enum.map(events, & &1.id)
+      enrich_events_with_pricing_info(events)
+    end
+  end
 
-      # Batch load all ticket tiers for all events
-      ticket_tiers_by_event = batch_load_ticket_tiers(event_ids)
+  defp enrich_events_with_pricing_info(events) do
+    event_ids = Enum.map(events, & &1.id)
 
-      # Batch load ticket counts for all events
-      ticket_counts_by_event = batch_load_ticket_counts(event_ids)
+    # Batch load all ticket tiers for all events
+    ticket_tiers_by_event = batch_load_ticket_tiers(event_ids)
 
-      # Batch load images for all events (extract unique image_ids)
-      image_ids =
-        events
-        |> Enum.map(& &1.image_id)
-        |> Enum.filter(&(&1 != nil))
-        |> Enum.uniq()
+    # Batch load ticket counts for all events
+    ticket_counts_by_event = batch_load_ticket_counts(event_ids)
 
-      images_by_id = batch_load_images(image_ids)
+    # Batch load images for all events (extract unique image_ids)
+    image_ids =
+      events
+      |> Enum.map(& &1.image_id)
+      |> Enum.filter(&(&1 != nil))
+      |> Enum.uniq()
 
-      # Add pricing info, ticket counts, and images to each event
-      Enum.map(events, fn event ->
-        ticket_tiers = Map.get(ticket_tiers_by_event, event.id, [])
-        ticket_count = Map.get(ticket_counts_by_event, event.id, 0)
-        pricing_info = calculate_event_pricing(ticket_tiers)
-        image = if event.image_id, do: Map.get(images_by_id, event.image_id), else: nil
+    images_by_id = batch_load_images(image_ids)
 
-        event
-        |> Map.put(:pricing_info, pricing_info)
-        |> Map.put(:ticket_tiers, ticket_tiers)
-        |> Map.put(:ticket_count, ticket_count)
-        |> Map.put(:image, image)
-      end)
+    # Add pricing info, ticket counts, and images to each event
+    Enum.map(events, fn event ->
+      enrich_event_with_data(event, ticket_tiers_by_event, ticket_counts_by_event, images_by_id)
+    end)
+  end
+
+  defp enrich_event_with_data(event, ticket_tiers_by_event, ticket_counts_by_event, images_by_id) do
+    ticket_tiers = Map.get(ticket_tiers_by_event, event.id, [])
+    ticket_count = Map.get(ticket_counts_by_event, event.id, 0)
+    pricing_info = calculate_event_pricing(ticket_tiers)
+    image = get_event_image(event, images_by_id)
+
+    event
+    |> Map.put(:pricing_info, pricing_info)
+    |> Map.put(:ticket_tiers, ticket_tiers)
+    |> Map.put(:ticket_count, ticket_count)
+    |> Map.put(:image, image)
+  end
+
+  defp get_event_image(event, images_by_id) do
+    if event.image_id do
+      Map.get(images_by_id, event.image_id)
+    else
+      nil
     end
   end
 
@@ -1074,15 +1090,17 @@ defmodule Ysc.Events do
   def create_ticket_details(ticket_details_list) when is_list(ticket_details_list) do
     Repo.transaction(fn ->
       ticket_details_list
-      |> Enum.map(fn attrs ->
-        case %TicketDetail{}
-             |> TicketDetail.changeset(attrs)
-             |> Repo.insert() do
-          {:ok, ticket_detail} -> ticket_detail
-          {:error, changeset} -> Repo.rollback(changeset)
-        end
-      end)
+      |> Enum.map(&insert_ticket_detail/1)
     end)
+  end
+
+  defp insert_ticket_detail(attrs) do
+    case %TicketDetail{}
+         |> TicketDetail.changeset(attrs)
+         |> Repo.insert() do
+      {:ok, ticket_detail} -> ticket_detail
+      {:error, changeset} -> Repo.rollback(changeset)
+    end
   end
 
   @doc """

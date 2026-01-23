@@ -118,9 +118,8 @@ defmodule Ysc.Bookings.PricingHelpers do
            socket.assigns.checkin_date,
            socket.assigns.checkout_date,
            :buyout,
-           nil,
-           guests_count,
-           children_count
+           guests_count: guests_count,
+           children_count: children_count
          ) do
       {:ok, price, breakdown} ->
         assign(socket,
@@ -159,11 +158,10 @@ defmodule Ysc.Bookings.PricingHelpers do
              socket.assigns.checkin_date,
              socket.assigns.checkout_date,
              :room,
-             List.first(room_ids),
-             billable_people,
-             children_count,
-             nil,
-             true
+             room_id: List.first(room_ids),
+             guests_count: billable_people,
+             children_count: children_count,
+             use_actual_guests: true
            ) do
         {:ok, price, breakdown} ->
           # Ensure billable_people is set correctly in the breakdown
@@ -203,8 +201,7 @@ defmodule Ysc.Bookings.PricingHelpers do
            socket.assigns.checkin_date,
            socket.assigns.checkout_date,
            :day,
-           nil,
-           guests_count
+           guests_count: guests_count
          ) do
       {:ok, price, breakdown} ->
         assign(socket,

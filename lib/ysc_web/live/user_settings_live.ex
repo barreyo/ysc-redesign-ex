@@ -2462,146 +2462,36 @@ defmodule YscWeb.UserSettingsLive do
   def handle_event("select-payment-method", %{"payment_method_id" => payment_method_id}, socket) do
     user = socket.assigns.user
 
-    if user.state != :active do
-      {:noreply,
-       put_flash(
-         socket,
-         :error,
-         "You must have an approved account to update your payment method."
-       )}
-    else
-      # Prevent multiple clicks
-      if socket.assigns.selecting_payment_method do
-        {:noreply, socket}
-      else
-        # Find the payment method in the current list
-        selected_payment_method =
-          Enum.find(socket.assigns.all_payment_methods, &(&1.id == payment_method_id))
-
-        if selected_payment_method do
-          # Optimistically update the UI first
-          updated_payment_methods =
-            Enum.map(socket.assigns.all_payment_methods, fn pm ->
-              if pm.id == payment_method_id do
-                # Use Ecto.Changeset to properly update the struct
-                pm
-                |> Ysc.Payments.PaymentMethod.changeset(%{is_default: true})
-                |> Ecto.Changeset.apply_changes()
-              else
-                # Use Ecto.Changeset to properly update the struct
-                pm
-                |> Ysc.Payments.PaymentMethod.changeset(%{is_default: false})
-                |> Ecto.Changeset.apply_changes()
-              end
-            end)
-
-          socket =
-            socket
-            |> assign(:selecting_payment_method, true)
-            |> assign(:all_payment_methods, updated_payment_methods)
-            |> assign(:default_payment_method, selected_payment_method)
-
-          # Then perform the actual database operations
-          require Logger
-
-          Logger.info("Setting payment method as default",
-            user_id: user.id,
-            payment_method_id: selected_payment_method.id,
-            provider_id: selected_payment_method.provider_id
-          )
-
-          case Ysc.Payments.set_default_payment_method(user, selected_payment_method) do
-            {:ok, _} ->
-              Logger.info("Successfully set payment method as default in database",
-                user_id: user.id,
-                payment_method_id: selected_payment_method.id
-              )
-
-              # Update Stripe customer to use this payment method as default
-              Logger.info("Updating Stripe customer default payment method",
-                user_id: user.id,
-                stripe_customer_id: user.stripe_id,
-                default_payment_method_id: selected_payment_method.provider_id
-              )
-
-              case Stripe.Customer.update(user.stripe_id, %{
-                     invoice_settings: %{
-                       default_payment_method: selected_payment_method.provider_id
-                     }
-                   }) do
-                {:ok, _stripe_customer} ->
-                  Logger.info("Successfully updated Stripe customer default payment method",
-                    user_id: user.id,
-                    stripe_customer_id: user.stripe_id
-                  )
-
-                  # Don't reload from database immediately to avoid race conditions with webhooks
-                  # The optimistic update should be sufficient for the UI
-                  # Skip the delayed refresh for now to prevent overriding our optimistic update
-
-                  {:noreply,
-                   socket
-                   |> assign(:selecting_payment_method, false)
-                   |> put_flash(:info, "Payment method set as default")}
-
-                {:error, stripe_error} ->
-                  # Revert optimistic update on error
-                  original_payment_methods =
-                    Enum.map(socket.assigns.all_payment_methods, fn pm ->
-                      if pm.id == socket.assigns.default_payment_method.id do
-                        pm
-                        |> Ysc.Payments.PaymentMethod.changeset(%{is_default: true})
-                        |> Ecto.Changeset.apply_changes()
-                      else
-                        pm
-                        |> Ysc.Payments.PaymentMethod.changeset(%{is_default: false})
-                        |> Ecto.Changeset.apply_changes()
-                      end
-                    end)
-
-                  {:noreply,
-                   socket
-                   |> assign(:all_payment_methods, original_payment_methods)
-                   |> assign(:selecting_payment_method, false)
-                   |> put_flash(
-                     :error,
-                     "Failed to update default payment method in Stripe: #{stripe_error.message}"
-                   )}
-              end
-
-            {:error, _reason} ->
-              # Revert optimistic update on error
-              original_payment_methods =
-                Enum.map(socket.assigns.all_payment_methods, fn pm ->
-                  if pm.id == socket.assigns.default_payment_method.id do
-                    pm
-                    |> Ysc.Payments.PaymentMethod.changeset(%{is_default: true})
-                    |> Ecto.Changeset.apply_changes()
-                  else
-                    pm
-                    |> Ysc.Payments.PaymentMethod.changeset(%{is_default: false})
-                    |> Ecto.Changeset.apply_changes()
-                  end
-                end)
-
-              {:noreply,
-               socket
-               |> assign(:all_payment_methods, original_payment_methods)
-               |> assign(:selecting_payment_method, false)
-               |> put_flash(
-                 :error,
-                 "Failed to set payment method as default"
-               )}
-          end
-        else
-          {:noreply,
-           put_flash(
-             socket,
-             :error,
-             "Payment method not found"
-           )}
-        end
+    result =
+      with :ok <- validate_user_active(user),
+           :ok <- validate_not_selecting(socket),
+           selected_payment_method <- find_payment_method(socket, payment_method_id),
+           :ok <- validate_payment_method_exists(selected_payment_method) do
+        process_payment_method_selection(socket, user, selected_payment_method, payment_method_id)
       end
+
+    case result do
+      {:noreply, _socket} = reply ->
+        reply
+
+      {:error, :user_not_active} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "You must have an approved account to update your payment method."
+         )}
+
+      {:error, :already_selecting} ->
+        {:noreply, socket}
+
+      {:error, :payment_method_not_found} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Payment method not found"
+         )}
     end
   end
 
@@ -2802,7 +2692,7 @@ defmodule YscWeb.UserSettingsLive do
     user = socket.assigns.user
 
     result =
-      with :ok <- validate_user_active(user),
+      with :ok <- validate_user_active_for_membership(user),
            :ok <- validate_membership_type(params, socket),
            current_membership <- socket.assigns.current_membership,
            :ok <- validate_current_membership_exists(current_membership),
@@ -2818,17 +2708,211 @@ defmodule YscWeb.UserSettingsLive do
       {:noreply, _socket} = reply ->
         reply
 
-      {:error, error_message} when is_binary(error_message) ->
-        {:noreply, put_flash(socket, :error, error_message)}
+      {:error, :user_not_active} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "You must have an approved account to change your membership plan."
+         )}
+
+      {:error, :invalid_membership_type} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Invalid membership type selected"
+         )}
+
+      {:error, :membership_not_found} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Current membership not found"
+         )}
+
+      {:error, :change_not_allowed} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "This membership change is not allowed"
+         )}
+
+      {:error, :same_plan} ->
+        {:noreply, socket}
+
+      {:error, reason} when is_binary(reason) ->
+        {:noreply, put_flash(socket, :error, reason)}
+
+      {:error, _reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Failed to change membership plan. Please try again."
+         )}
     end
   end
 
   defp validate_user_active(user) do
+    if user.state == :active, do: :ok, else: {:error, :user_not_active}
+  end
+
+  defp validate_user_active_for_membership(user) do
     if user.state == :active do
       :ok
     else
       {:error, "You must have an approved account to change your membership plan."}
     end
+  end
+
+  defp validate_not_selecting(socket) do
+    if socket.assigns.selecting_payment_method, do: {:error, :already_selecting}, else: :ok
+  end
+
+  defp find_payment_method(socket, payment_method_id) do
+    Enum.find(socket.assigns.all_payment_methods, &(&1.id == payment_method_id))
+  end
+
+  defp validate_payment_method_exists(nil), do: {:error, :payment_method_not_found}
+  defp validate_payment_method_exists(_payment_method), do: :ok
+
+  defp process_payment_method_selection(socket, user, selected_payment_method, payment_method_id) do
+    require Logger
+
+    socket = apply_optimistic_update(socket, selected_payment_method, payment_method_id)
+
+    Logger.info("Setting payment method as default",
+      user_id: user.id,
+      payment_method_id: selected_payment_method.id,
+      provider_id: selected_payment_method.provider_id
+    )
+
+    result =
+      with {:ok, _} <- set_default_in_database(user, selected_payment_method),
+           {:ok, _} <- update_stripe_default(user, selected_payment_method) do
+        {:ok, socket}
+      end
+
+    case result do
+      {:ok, socket} ->
+        {:noreply,
+         socket
+         |> assign(:selecting_payment_method, false)
+         |> put_flash(:info, "Payment method set as default")}
+
+      {:error, :database_error} ->
+        handle_database_error(socket)
+
+      {:error, :stripe_error, stripe_error} ->
+        handle_stripe_error(socket, stripe_error)
+    end
+  end
+
+  defp apply_optimistic_update(socket, selected_payment_method, payment_method_id) do
+    updated_payment_methods =
+      Enum.map(socket.assigns.all_payment_methods, fn pm ->
+        if pm.id == payment_method_id do
+          pm
+          |> Ysc.Payments.PaymentMethod.changeset(%{is_default: true})
+          |> Ecto.Changeset.apply_changes()
+        else
+          pm
+          |> Ysc.Payments.PaymentMethod.changeset(%{is_default: false})
+          |> Ecto.Changeset.apply_changes()
+        end
+      end)
+
+    socket
+    |> assign(:selecting_payment_method, true)
+    |> assign(:all_payment_methods, updated_payment_methods)
+    |> assign(:default_payment_method, selected_payment_method)
+  end
+
+  defp set_default_in_database(user, selected_payment_method) do
+    require Logger
+
+    case Ysc.Payments.set_default_payment_method(user, selected_payment_method) do
+      {:ok, _} ->
+        Logger.info("Successfully set payment method as default in database",
+          user_id: user.id,
+          payment_method_id: selected_payment_method.id
+        )
+
+        {:ok, :success}
+
+      {:error, reason} ->
+        Logger.error("Failed to set payment method as default in database",
+          user_id: user.id,
+          payment_method_id: selected_payment_method.id,
+          reason: inspect(reason)
+        )
+
+        {:error, :database_error}
+    end
+  end
+
+  defp update_stripe_default(user, selected_payment_method) do
+    require Logger
+
+    Logger.info("Updating Stripe customer default payment method",
+      user_id: user.id,
+      stripe_customer_id: user.stripe_id,
+      default_payment_method_id: selected_payment_method.provider_id
+    )
+
+    case Stripe.Customer.update(user.stripe_id, %{
+           invoice_settings: %{
+             default_payment_method: selected_payment_method.provider_id
+           }
+         }) do
+      {:ok, _stripe_customer} ->
+        Logger.info("Successfully updated Stripe customer default payment method",
+          user_id: user.id,
+          stripe_customer_id: user.stripe_id
+        )
+
+        {:ok, :success}
+
+      {:error, stripe_error} ->
+        {:error, :stripe_error, stripe_error}
+    end
+  end
+
+  defp revert_optimistic_update(socket) do
+    original_payment_methods =
+      Enum.map(socket.assigns.all_payment_methods, fn pm ->
+        if pm.id == socket.assigns.default_payment_method.id do
+          pm
+          |> Ysc.Payments.PaymentMethod.changeset(%{is_default: true})
+          |> Ecto.Changeset.apply_changes()
+        else
+          pm
+          |> Ysc.Payments.PaymentMethod.changeset(%{is_default: false})
+          |> Ecto.Changeset.apply_changes()
+        end
+      end)
+
+    socket
+    |> assign(:all_payment_methods, original_payment_methods)
+    |> assign(:selecting_payment_method, false)
+  end
+
+  defp handle_database_error(socket) do
+    {:noreply,
+     revert_optimistic_update(socket)
+     |> put_flash(:error, "Failed to set payment method as default")}
+  end
+
+  defp handle_stripe_error(socket, stripe_error) do
+    {:noreply,
+     revert_optimistic_update(socket)
+     |> put_flash(
+       :error,
+       "Failed to update default payment method in Stripe: #{stripe_error.message}"
+     )}
   end
 
   defp validate_membership_type(params, socket) do

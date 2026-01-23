@@ -255,9 +255,8 @@ defmodule Ysc.Bookings.BookingLocker do
            checkin_date,
            checkout_date,
            :buyout,
-           nil,
-           guests_count,
-           0
+           guests_count: guests_count,
+           children_count: 0
          ) do
       {:ok, total, _breakdown} ->
         nights = Date.diff(checkout_date, checkin_date)
@@ -645,9 +644,9 @@ defmodule Ysc.Bookings.BookingLocker do
                checkin_date,
                checkout_date,
                :room,
-               room.id,
-               guests_count,
-               children_count
+               room_id: room.id,
+               guests_count: guests_count,
+               children_count: children_count
              ) do
           {:ok, room_total, breakdown} ->
             add_room_to_pricing(
@@ -901,9 +900,8 @@ defmodule Ysc.Bookings.BookingLocker do
            checkin_date,
            checkout_date,
            :day,
-           nil,
-           guests_count,
-           0
+           guests_count: guests_count,
+           children_count: 0
          ) do
       {:ok, total, _breakdown} ->
         nights = Date.diff(checkout_date, checkin_date)

@@ -46,6 +46,7 @@ defmodule Ysc.Bookings.BookingValidator do
       |> validate_weekend_requirement()
       |> validate_max_nights()
       |> validate_single_active_booking(user, property)
+      |> validate_buyout_no_active_bookings(user, property)
       |> validate_membership_room_limits(user, property)
       |> validate_clear_lake_guest_limits(property)
       |> validate_room_capacity()
@@ -68,15 +69,7 @@ defmodule Ysc.Bookings.BookingValidator do
 
         season.name == "Winter" ->
           # Winter: only rooms allowed (no buyouts)
-          if !has_rooms or booking_mode == :buyout do
-            Ecto.Changeset.add_error(
-              changeset,
-              :booking_mode,
-              "Winter season only allows individual room bookings, not buyouts"
-            )
-          else
-            changeset
-          end
+          validate_winter_booking_mode(changeset, has_rooms, booking_mode)
 
         season.name == "Summer" ->
           # Summer: rooms or buyout allowed - validation passes if either rooms are set or booking_mode is buyout
@@ -137,20 +130,7 @@ defmodule Ysc.Bookings.BookingValidator do
 
       if has_saturday do
         # Check if Sunday is included
-        has_sunday =
-          Enum.any?(date_range, fn date ->
-            day_of_week(date) == 7
-          end)
-
-        if has_sunday do
-          changeset
-        else
-          Ecto.Changeset.add_error(
-            changeset,
-            :checkout_date,
-            "Bookings containing Saturday must also include Sunday (full weekend required)"
-          )
-        end
+        validate_sunday_included(changeset, date_range)
       else
         changeset
       end
@@ -175,11 +155,7 @@ defmodule Ysc.Bookings.BookingValidator do
           Season.get_max_nights(season, property)
         else
           # Fallback to property defaults
-          case property do
-            :tahoe -> 4
-            :clear_lake -> 30
-            _ -> 4
-          end
+          get_default_max_nights(property)
         end
 
       if nights > max_nights do
@@ -246,12 +222,7 @@ defmodule Ysc.Bookings.BookingValidator do
       overlapping_count = Repo.aggregate(overlapping_query, :count, :id)
 
       if overlapping_count > max_overlapping_bookings do
-        error_message =
-          if membership_type in [:family, :lifetime] do
-            "Your family can only have up to 2 bookings in the same time period. Please complete your existing booking first or book within the same time period as your existing booking."
-          else
-            "You can only have one active booking at a time. Please complete your existing booking first."
-          end
+        error_message = build_overlapping_booking_error_message(membership_type)
 
         Ecto.Changeset.add_error(
           changeset,
@@ -267,6 +238,43 @@ defmodule Ysc.Bookings.BookingValidator do
   end
 
   defp validate_single_active_booking(changeset, _user, _property), do: changeset
+
+  # Prevent buyout bookings if user has any active or future bookings
+  defp validate_buyout_no_active_bookings(changeset, user, :tahoe) do
+    booking_mode = Ecto.Changeset.get_field(changeset, :booking_mode)
+    user_id = Ecto.Changeset.get_field(changeset, :user_id) || (user && user.id)
+
+    if booking_mode == :buyout && user_id && not is_nil(user) do
+      # Get primary user for family group check
+      primary_user = get_primary_user_for_booking(user)
+      family_user_ids = Ysc.Accounts.get_family_group_user_ids(primary_user)
+      today = Date.utc_today()
+
+      # Check for any active bookings (status = :complete) with checkout_date >= today
+      has_active_booking =
+        Repo.exists?(
+          from b in Booking,
+            where: b.user_id in ^family_user_ids,
+            where: b.property == :tahoe,
+            where: b.status == :complete,
+            where: b.checkout_date >= ^today
+        )
+
+      if has_active_booking do
+        Ecto.Changeset.add_error(
+          changeset,
+          :booking_mode,
+          "You cannot book a full buyout while you have an active or future reservation. Please complete or cancel your existing reservation first."
+        )
+      else
+        changeset
+      end
+    else
+      changeset
+    end
+  end
+
+  defp validate_buyout_no_active_bookings(changeset, _user, _property), do: changeset
 
   defp get_primary_user_for_booking(user) do
     if Ysc.Accounts.sub_account?(user) do
@@ -347,12 +355,7 @@ defmodule Ysc.Bookings.BookingValidator do
       existing_room_count = Repo.one(room_count_query) || 0
 
       if existing_room_count >= max_rooms do
-        error_message =
-          if membership_type in [:family, :lifetime] do
-            "Your family membership allows maximum #{max_rooms} room(s) in the same time period"
-          else
-            "#{String.capitalize("#{membership_type}")} membership allows maximum #{max_rooms} room(s) in the same time period"
-          end
+        error_message = build_room_limit_error_message(membership_type, max_rooms)
 
         Ecto.Changeset.add_error(
           changeset,
@@ -568,5 +571,59 @@ defmodule Ysc.Bookings.BookingValidator do
   defp day_of_week(date) do
     # Returns 1-7 where 1 = Monday, 6 = Saturday, 7 = Sunday
     Date.day_of_week(date, :monday)
+  end
+
+  defp validate_winter_booking_mode(changeset, has_rooms, booking_mode) do
+    if !has_rooms or booking_mode == :buyout do
+      Ecto.Changeset.add_error(
+        changeset,
+        :booking_mode,
+        "Winter season only allows individual room bookings, not buyouts"
+      )
+    else
+      changeset
+    end
+  end
+
+  defp validate_sunday_included(changeset, date_range) do
+    # Check if Sunday is included
+    has_sunday =
+      Enum.any?(date_range, fn date ->
+        day_of_week(date) == 7
+      end)
+
+    if has_sunday do
+      changeset
+    else
+      Ecto.Changeset.add_error(
+        changeset,
+        :checkout_date,
+        "Bookings containing Saturday must also include Sunday (full weekend required)"
+      )
+    end
+  end
+
+  defp get_default_max_nights(property) do
+    case property do
+      :tahoe -> 4
+      :clear_lake -> 30
+      _ -> 4
+    end
+  end
+
+  defp build_overlapping_booking_error_message(membership_type) do
+    if membership_type in [:family, :lifetime] do
+      "Your family can only have up to 2 bookings in the same time period. Please complete your existing booking first or book within the same time period as your existing booking."
+    else
+      "You can only have one active booking at a time. Please complete your existing booking first."
+    end
+  end
+
+  defp build_room_limit_error_message(membership_type, max_rooms) do
+    if membership_type in [:family, :lifetime] do
+      "Your family membership allows maximum #{max_rooms} room(s) in the same time period"
+    else
+      "#{String.capitalize("#{membership_type}")} membership allows maximum #{max_rooms} room(s) in the same time period"
+    end
   end
 end

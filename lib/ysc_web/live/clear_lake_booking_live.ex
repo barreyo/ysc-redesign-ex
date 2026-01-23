@@ -389,24 +389,26 @@ defmodule YscWeb.ClearLakeBookingLive do
         />
         <div class="absolute inset-0 z-[5] bg-black/30 pointer-events-none" aria-hidden="true"></div>
       </div>
+      <!-- Title Text Section -->
+      <div class="absolute bottom-0 left-0 right-0 z-[10] px-4 py-12 lg:py-16 pointer-events-none">
+        <div class="max-w-screen-xl mx-auto pointer-events-auto">
+          <div class="flex items-center gap-3 px-4 mb-2">
+            <h1 class="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight drop-shadow-lg">
+              Clear Lake Portal
+            </h1>
+            <span class="px-2 py-1 bg-teal-700/90 mt-1 text-white text-[10px] font-bold uppercase tracking-widest rounded-full border border-teal-500/50 backdrop-blur-sm">
+              Member Access
+            </span>
+          </div>
+          <p class="text-sm sm:text-base text-zinc-100 px-4 max-w-2xl drop-shadow-md">
+            Velkommen back! Manage your stay or reserve new dates below.
+          </p>
+        </div>
+      </div>
     </section>
     <!-- Booking Dashboard Section -->
     <section :if={@user} class="border-b-2 border-zinc-900 py-12">
       <div class="max-w-screen-xl mx-auto px-4 space-y-10">
-        <!-- Dashboard Header -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 pb-6">
-          <div>
-            <div class="flex items-center gap-3 mb-1">
-              <h1 class="text-3xl font-black text-zinc-900 tracking-tight">Clear Lake Portal</h1>
-              <span class="px-2 py-0.5 bg-teal-100 text-teal-700 text-[10px] font-bold uppercase tracking-widest rounded-full border border-teal-200">
-                Member Access
-              </span>
-            </div>
-            <p class="text-zinc-500 text-sm">
-              Velkommen back! Manage your stay or reserve new dates below.
-            </p>
-          </div>
-        </div>
         <!-- Active Bookings -->
         <div :if={length(@active_bookings) > 0} class="space-y-4">
           <h3 class="text-sm font-bold text-zinc-400 uppercase tracking-widest">Upcoming Trips</h3>

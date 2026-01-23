@@ -162,10 +162,9 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     # Frame ancestors - allow localhost in dev for dev inbox, deny otherwise
     frame_ancestors = if is_dev, do: "'self' http://localhost:*", else: "'none'"
 
-    # Upgrade insecure requests
-    upgrade_insecure_requests = "upgrade-insecure-requests"
-
-    [
+    # Upgrade insecure requests - only in production
+    # In development, we need to allow HTTP for LocalStack
+    base_policy = [
       "default-src #{default_src}",
       "script-src #{script_src}",
       "style-src #{style_src}",
@@ -177,10 +176,18 @@ defmodule YscWeb.Plugs.SecurityHeaders do
       "object-src #{object_src}",
       "base-uri #{base_uri}",
       "form-action #{form_action}",
-      "frame-ancestors #{frame_ancestors}",
-      upgrade_insecure_requests
+      "frame-ancestors #{frame_ancestors}"
     ]
-    |> Enum.join("; ")
+
+    # Only add upgrade-insecure-requests in production
+    policy =
+      if is_dev do
+        base_policy
+      else
+        base_policy ++ ["upgrade-insecure-requests"]
+      end
+
+    policy |> Enum.join("; ")
   end
 
   # Get S3 storage URLs that should be allowed for connect operations (uploads)

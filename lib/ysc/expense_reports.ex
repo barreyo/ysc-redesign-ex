@@ -216,23 +216,7 @@ defmodule Ysc.ExpenseReports do
         end
 
       "check" ->
-        address_id = Ecto.Changeset.get_field(changeset, :address_id)
-        billing_address = Ysc.Accounts.get_billing_address(user)
-
-        if is_nil(address_id) do
-          if is_nil(billing_address) do
-            Ecto.Changeset.add_error(
-              changeset,
-              :reimbursement_method,
-              "requires a billing address. Please add an address in your user settings before submitting."
-            )
-          else
-            # Auto-set the billing address if available
-            Ecto.Changeset.put_change(changeset, :address_id, billing_address.id)
-          end
-        else
-          changeset
-        end
+        validate_check_reimbursement_method(changeset, user)
 
       _ ->
         changeset
@@ -362,16 +346,7 @@ defmodule Ysc.ExpenseReports do
           :ok
 
         loaded_report ->
-          # Validate that we have required associations
-          if is_nil(loaded_report.user) do
-            Logger.error("Cannot send emails: expense report missing user association",
-              expense_report_id: loaded_report.id
-            )
-
-            :ok
-          else
-            send_expense_report_emails_impl(loaded_report)
-          end
+          validate_and_send_expense_report_emails(loaded_report)
       end
     end
   end
@@ -883,6 +858,43 @@ defmodule Ysc.ExpenseReports do
 
       _ ->
         false
+    end
+  end
+
+  defp validate_check_reimbursement_method(changeset, user) do
+    address_id = Ecto.Changeset.get_field(changeset, :address_id)
+    billing_address = Ysc.Accounts.get_billing_address(user)
+
+    if is_nil(address_id) do
+      handle_missing_address_id(changeset, billing_address)
+    else
+      changeset
+    end
+  end
+
+  defp handle_missing_address_id(changeset, billing_address) do
+    if is_nil(billing_address) do
+      Ecto.Changeset.add_error(
+        changeset,
+        :reimbursement_method,
+        "requires a billing address. Please add an address in your user settings before submitting."
+      )
+    else
+      # Auto-set the billing address if available
+      Ecto.Changeset.put_change(changeset, :address_id, billing_address.id)
+    end
+  end
+
+  defp validate_and_send_expense_report_emails(loaded_report) do
+    # Validate that we have required associations
+    if is_nil(loaded_report.user) do
+      Logger.error("Cannot send emails: expense report missing user association",
+        expense_report_id: loaded_report.id
+      )
+
+      :ok
+    else
+      send_expense_report_emails_impl(loaded_report)
     end
   end
 end

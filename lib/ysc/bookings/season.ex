@@ -87,21 +87,29 @@ defmodule Ysc.Bookings.Season do
     end_date = get_field(changeset, :end_date)
 
     if start_date && end_date do
-      # Check if it's a year-spanning range (e.g., winter: Nov 1 to Apr 30)
-      start_month = start_date.month
-      end_month = end_date.month
+      validate_date_range_with_dates(changeset, start_date, end_date)
+    else
+      changeset
+    end
+  end
 
-      if start_month > end_month do
-        # Year-spanning range (e.g., Nov to Apr) - this is valid
-        changeset
-      else
-        # Same-year range - end must be after start
-        if Date.compare(end_date, start_date) != :gt do
-          add_error(changeset, :end_date, "must be after start date")
-        else
-          changeset
-        end
-      end
+  defp validate_date_range_with_dates(changeset, start_date, end_date) do
+    # Check if it's a year-spanning range (e.g., winter: Nov 1 to Apr 30)
+    start_month = start_date.month
+    end_month = end_date.month
+
+    if start_month > end_month do
+      # Year-spanning range (e.g., Nov to Apr) - this is valid
+      changeset
+    else
+      # Same-year range - end must be after start
+      validate_same_year_date_range(changeset, start_date, end_date)
+    end
+  end
+
+  defp validate_same_year_date_range(changeset, start_date, end_date) do
+    if Date.compare(end_date, start_date) != :gt do
+      add_error(changeset, :end_date, "must be after start date")
     else
       changeset
     end

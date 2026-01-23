@@ -1592,9 +1592,8 @@ defmodule YscWeb.BookingCheckoutLive do
                booking.checkin_date,
                booking.checkout_date,
                :buyout,
-               nil,
-               booking.guests_count,
-               0
+               guests_count: booking.guests_count,
+               children_count: 0
              ) do
           {:ok, total, breakdown} ->
             # Use breakdown if available, otherwise create a simple one
@@ -1657,9 +1656,8 @@ defmodule YscWeb.BookingCheckoutLive do
                booking.checkin_date,
                booking.checkout_date,
                :day,
-               nil,
-               booking.guests_count,
-               0
+               guests_count: booking.guests_count,
+               children_count: 0
              ) do
           {:ok, total, breakdown} ->
             # Use breakdown if available, otherwise create a simple one
@@ -1909,9 +1907,9 @@ defmodule YscWeb.BookingCheckoutLive do
            checkin_date,
            checkout_date,
            :room,
-           first_room_id,
-           guests_count,
-           children_count
+           room_id: first_room_id,
+           guests_count: guests_count,
+           children_count: children_count
          ) do
       {:ok, total, breakdown} when is_map(breakdown) ->
         breakdown_map =
