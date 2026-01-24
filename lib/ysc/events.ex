@@ -822,7 +822,6 @@ defmodule Ysc.Events do
     |> join(:inner, [t], tt in TicketTier, on: t.ticket_tier_id == tt.id)
     |> where([t, tt], t.event_id == ^event_id and t.status == :confirmed)
     |> where([t, tt], tt.type != :donation)
-    |> where([t, tt], tt.type != "donation")
     |> Repo.aggregate(:count, :id)
   end
 
@@ -840,7 +839,6 @@ defmodule Ysc.Events do
       |> join(:inner, [t], tt in TicketTier, on: t.ticket_tier_id == tt.id)
       |> where([t, tt], t.event_id == ^event_id and t.status == :confirmed)
       |> where([t, tt], tt.type != :donation)
-      |> where([t, tt], tt.type != "donation")
       |> group_by([t], t.user_id)
       |> select([t], %{user_id: t.user_id, first_purchase: min(t.inserted_at)})
       |> order_by([t], asc: min(t.inserted_at))
@@ -873,7 +871,6 @@ defmodule Ysc.Events do
     |> join(:inner, [t], tt in TicketTier, on: t.ticket_tier_id == tt.id)
     |> where([t, tt], t.event_id == ^event_id and t.status == :confirmed)
     |> where([t, tt], tt.type != :donation)
-    |> where([t, tt], tt.type != "donation")
     |> group_by([t], t.user_id)
     |> select([t], %{user_id: t.user_id, ticket_count: count(t.id)})
     |> Repo.all()

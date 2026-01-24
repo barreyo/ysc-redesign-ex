@@ -2465,14 +2465,14 @@ defmodule YscWeb.EventDetailsLive do
                 "#{attendee.first_name || ""} #{attendee.last_name || ""}" |> String.trim() %>
               <% display_name =
                 if attendee_name != "", do: attendee_name, else: attendee.email || "Unknown" %>
-              <% initial = String.first(display_name) |> String.upcase() %>
               <% ticket_count = Map.get(@ticket_counts_per_user, attendee.id, 0) %>
               <div class="flex items-center gap-3 p-3 bg-zinc-50 rounded-lg border border-zinc-200">
-                <div class="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span class="text-blue-600 font-semibold text-sm">
-                    <%= initial %>
-                  </span>
-                </div>
+                <.user_avatar_image
+                  email={attendee.email}
+                  user_id={attendee.id}
+                  country={Map.get(attendee, :most_connected_country, "SE")}
+                  class="h-10 w-10 rounded-full flex-shrink-0"
+                />
                 <div class="flex-1 min-w-0">
                   <p class="font-medium text-zinc-900">
                     <%= display_name %>
