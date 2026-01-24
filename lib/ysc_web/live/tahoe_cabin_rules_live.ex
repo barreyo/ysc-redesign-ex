@@ -306,7 +306,7 @@ defmodule YscWeb.TahoeCabinRulesLive do
       %{
         title: "No Smoking or Vaping",
         content:
-          "Smoking and vaping are prohibited indoors and on covered decks. This policy is strictly enforced."
+          "Smoking and vaping are prohibited indoors and on outdoor decks. This policy is strictly enforced."
       },
       %{
         title: "Local Services",

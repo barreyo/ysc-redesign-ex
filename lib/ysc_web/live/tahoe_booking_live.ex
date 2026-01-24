@@ -2502,18 +2502,18 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </div>
           <!-- Information Sections (Tab System) -->
-          <div id="information-section" class="mt-12">
+          <div id="information-section" class="mt-12 max-w-screen-xl mx-auto">
             <!-- Tab Navigation (Sticky) -->
-            <div class="sticky top-[88px] z-10 bg-white border-b border-zinc-200 mb-6 -mx-4 px-4 py-2">
-              <nav class="flex gap-4 overflow-x-auto" role="tablist">
+            <div class="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-zinc-200 mb-8 -mx-4 px-4 py-2">
+              <nav class="flex gap-2 overflow-x-auto" role="tablist">
                 <button
                   phx-click="switch-info-tab"
                   phx-value-tab="general"
                   class={[
-                    "px-4 py-2 text-sm font-bold border-b-2 transition-all whitespace-nowrap",
+                    "px-4 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap",
                     if(Map.get(assigns, :info_tab, :general) == :general,
-                      do: "border-blue-600 text-blue-600",
-                      else: "border-transparent text-zinc-500 hover:text-zinc-900"
+                      do: "bg-blue-50 text-blue-600 border border-blue-100",
+                      else: "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
                     )
                   ]}
                 >
@@ -2523,78 +2523,103 @@ defmodule YscWeb.TahoeBookingLive do
                   phx-click="switch-info-tab"
                   phx-value-tab="rules"
                   class={[
-                    "px-4 py-2 text-sm font-bold border-b-2 transition-all whitespace-nowrap",
+                    "px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap",
                     if(Map.get(assigns, :info_tab, :general) == :rules,
-                      do: "border-blue-600 text-blue-600",
-                      else: "border-transparent text-zinc-500 hover:text-zinc-900"
+                      do: "bg-blue-50 text-blue-600 border border-blue-100",
+                      else: "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
                     )
                   ]}
                 >
-                  📜 Cabin and Booking Rules
+                  📜 Cabin & Booking Rules
                 </button>
               </nav>
             </div>
             <!-- Tab Content -->
-            <div class="space-y-8 prose prose-zinc">
+            <div class="space-y-16">
               <!-- General Information Tab -->
-              <div :if={Map.get(assigns, :info_tab, :general) == :general}>
+              <div :if={Map.get(assigns, :info_tab, :general) == :general} class="space-y-16">
                 <!-- Welcome Header -->
-                <div class="mb-8 prose prose-zinc">
-                  <p>
-                    Welcome to the <strong>YSC Tahoe Cabin</strong>
-                    — your year-round retreat in the heart of Lake Tahoe!
-                  </p>
-                  <p>
-                    Since <strong>1993</strong>, the YSC has proudly owned this beautiful cabin, located just minutes from Tahoe City, on the
-                    <strong>west shore</strong>
-                    of <strong>Lake Tahoe</strong>.
-                  </p>
-                </div>
-                <!-- Important Notice -->
-                <h2>💡 Please Remember</h2>
-                <p>
-                  The Tahoe Cabin is <strong>your cabin — not a hotel.</strong>
-                  To ensure everyone enjoys their stay at a reasonable rate, please follow the guidelines below.
-                </p>
+                <section>
+                  <div class="prose prose-zinc max-w-none mb-10">
+                    <h1 class="text-3xl font-black tracking-tight text-zinc-900 mb-4">
+                      Welcome to the YSC Tahoe Cabin
+                    </h1>
+                    <p class="text-lg text-zinc-600 leading-relaxed">
+                      Your year-round retreat in the heart of Lake Tahoe. Since <strong>1993</strong>, the YSC has proudly owned this beautiful cabin, located just minutes from Tahoe City, on the
+                      <strong>west shore</strong>
+                      of <strong>Lake Tahoe</strong>.
+                    </p>
+                  </div>
+                  <!-- Important Notice -->
+                  <div class="flex items-center gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl not-prose mb-10">
+                    <span class="text-2xl flex-shrink-0">💡</span>
+                    <p class="text-sm text-amber-900 m-0">
+                      <strong>Remember:</strong>
+                      The Tahoe Cabin is <strong>your cabin — not a hotel.</strong>
+                      To ensure everyone enjoys their stay at a reasonable rate, please follow the guidelines below.
+                    </p>
+                  </div>
+                </section>
                 <!-- About the Cabin -->
-                <div id="general-info">
-                  <h2 class="text-2xl font-bold text-zinc-900 mb-6">🌲 About the Cabin</h2>
-                  <p class="mb-6 text-zinc-700">
+                <section id="general-info">
+                  <h2 class="text-2xl font-bold text-zinc-900 mb-6 flex items-center gap-2">
+                    <span>🌲</span>
+                    <span>About the Cabin</span>
+                  </h2>
+                  <p class="mb-8 text-zinc-700">
                     The Lake Tahoe region offers endless outdoor opportunities:
                   </p>
                   <!-- At-A-Glance Hero Grid -->
-                  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    <div class="bg-zinc-50 border border-zinc-200 rounded-xl p-4 text-center">
-                      <div class="text-2xl mb-1">🛏️</div>
-                      <div class="text-xs uppercase tracking-wider text-zinc-500 font-bold">
+                  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+                    <div class="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm hover:border-blue-200 transition-colors">
+                      <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-xl mb-4 mx-auto">
+                        🛏️
+                      </div>
+                      <div class="text-xs uppercase tracking-widest text-zinc-500 font-bold mb-1 text-center">
                         Capacity
                       </div>
-                      <div class="text-lg font-black text-zinc-900">17 Guests</div>
-                      <div class="text-xs text-zinc-500">7 Bedrooms</div>
+                      <div class="text-lg font-bold text-zinc-900 leading-tight text-center">
+                        17 Guests
+                      </div>
+                      <div class="text-xs text-zinc-500 text-center mt-1">7 Bedrooms</div>
                     </div>
-                    <div class="bg-zinc-50 border border-zinc-200 rounded-xl p-4 text-center">
-                      <div class="text-2xl mb-1">🧖</div>
-                      <div class="text-xs uppercase tracking-wider text-zinc-500 font-bold">
+                    <div class="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm hover:border-blue-200 transition-colors">
+                      <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-xl mb-4 mx-auto">
+                        🧖
+                      </div>
+                      <div class="text-xs uppercase tracking-widest text-zinc-500 font-bold mb-1 text-center">
                         Sauna
                       </div>
-                      <div class="text-lg font-black text-zinc-900">Traditional</div>
-                      <div class="text-xs text-zinc-500">Scandinavian Style</div>
+                      <div class="text-lg font-bold text-zinc-900 leading-tight text-center">
+                        Traditional
+                      </div>
+                      <div class="text-xs text-zinc-500 text-center mt-1">Scandinavian Style</div>
                     </div>
-                    <div class="bg-zinc-50 border border-zinc-200 rounded-xl p-4 text-center">
-                      <div class="text-2xl mb-1">🔥</div>
-                      <div class="text-xs uppercase tracking-wider text-zinc-500 font-bold">
+                    <div class="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm hover:border-blue-200 transition-colors">
+                      <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-xl mb-4 mx-auto">
+                        🔥
+                      </div>
+                      <div class="text-xs uppercase tracking-widest text-zinc-500 font-bold mb-1 text-center">
                         Features
                       </div>
-                      <div class="text-lg font-black text-zinc-900">Wood Fire</div>
-                      <div class="text-xs text-zinc-500">Kitchen Equipped</div>
+                      <div class="text-lg font-bold text-zinc-900 leading-tight text-center">
+                        Wood Fireplace
+                      </div>
+                      <div class="text-xs text-zinc-500 text-center mt-1">
+                        And Fully Equipped Kitchen!
+                      </div>
                     </div>
-                    <div class="bg-zinc-50 border border-zinc-200 rounded-xl p-4 text-center">
-                      <div class="text-2xl mb-1">🛶</div>
-                      <div class="text-xs uppercase tracking-wider text-zinc-500 font-bold">
+                    <div class="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm hover:border-blue-200 transition-colors">
+                      <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-xl mb-4 mx-auto">
+                        🛶
+                      </div>
+                      <div class="text-xs uppercase tracking-widest text-zinc-500 font-bold mb-1 text-center">
                         Summer
                       </div>
-                      <div class="text-lg font-black text-zinc-900">Kayaks</div>
-                      <div class="text-xs text-zinc-500">Available for use</div>
+                      <div class="text-lg font-bold text-zinc-900 leading-tight text-center">
+                        Kayaks
+                      </div>
+                      <div class="text-xs text-zinc-500 text-center mt-1">Available for use</div>
                     </div>
                   </div>
 
@@ -2609,15 +2634,15 @@ defmodule YscWeb.TahoeBookingLive do
                       %{src: ~p"/images/tahoe/tahoe_room_6.webp", alt: "Tahoe Cabin Room 6"},
                       %{src: ~p"/images/tahoe/tahoe_room_7.webp", alt: "Tahoe Cabin Room 7"}
                     ]}
-                    class="my-8"
+                    class="mb-12 rounded-2xl overflow-hidden shadow-2xl"
                   />
                   <!-- Nearby Destinations -->
-                  <section class="mb-8">
+                  <section class="mb-12">
                     <h2 class="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
                       <span>🏔️</span>
                       <span>Nearby Destinations</span>
                     </h2>
-                    <div class="bg-white border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
+                    <div class="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
                       <div class="flex items-center justify-between p-4 border-b border-zinc-100">
                         <div class="flex items-center gap-3">
                           <span class="text-xl">⛷️</span>
@@ -2650,16 +2675,16 @@ defmodule YscWeb.TahoeBookingLive do
                       <strong>📍 Location:</strong> South of Tahoe City, near the lake's west shore.
                     </p>
                   </section>
-                </div>
+                </section>
                 <!-- How to Book -->
-                <section class="border border-zinc-200 rounded-lg p-6 bg-zinc-50 mb-6">
+                <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
                   <h2 class="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
                     <span>🗓️</span>
                     <span>How to Book</span>
                   </h2>
                   <div>
                     <h3 class="font-semibold text-zinc-900 mb-3">How to Reserve</h3>
-                    <ul class="space-y-2">
+                    <ul class="space-y-2 text-zinc-700">
                       <li>
                         Use the <strong>booking form above</strong>
                         to check availability and select dates.
@@ -2675,114 +2700,153 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                 </section>
                 <!-- Getting There -->
-                <section
-                  id="getting-there"
-                  class="border border-zinc-200 rounded-lg p-6 bg-zinc-50 mb-6"
-                >
-                  <h2 class="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
-                    <span>🚗</span>
-                    <span>Getting There</span>
-                  </h2>
-                  <div class="mb-6">
-                    <p class="font-semibold mb-2">Address:</p>
-                    <p class="mb-4 text-lg">2685 Cedar Lane<br />Homewood, CA 96141</p>
+                <section id="getting-there" class="grid md:grid-cols-2 gap-8 items-start">
+                  <div>
+                    <h2 class="text-2xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
+                      <span>🚗</span>
+                      <span>Getting There</span>
+                    </h2>
+                    <div class="bg-zinc-50 border border-zinc-200 rounded-2xl p-6">
+                      <p class="text-xs uppercase tracking-widest text-zinc-500 font-bold mb-2">
+                        Address
+                      </p>
+                      <p class="text-xl font-medium text-zinc-900 mb-6">
+                        2685 Cedar Lane<br />Homewood, CA 96141
+                      </p>
 
-                    <div class="flex flex-col items-center not-prose my-6">
+                      <h3 class="font-bold text-zinc-900 mb-3">From the Bay Area</h3>
+                      <ol class="space-y-3 text-zinc-700 text-sm">
+                        <li class="flex gap-3">
+                          <span class="font-bold text-blue-600 flex-shrink-0">1.</span>
+                          <span>Take <strong>I-80 East</strong> toward Reno.</span>
+                        </li>
+                        <li class="flex gap-3">
+                          <span class="font-bold text-blue-600 flex-shrink-0">2.</span>
+                          <span>
+                            Exit at <strong>Truckee</strong>, onto <strong>Highway 89 South</strong>.
+                          </span>
+                        </li>
+                        <li class="flex gap-3">
+                          <span class="font-bold text-blue-600 flex-shrink-0">3.</span>
+                          <span>
+                            In <strong>Tahoe City</strong>, turn right at the first light to stay on Hwy 89.
+                          </span>
+                        </li>
+                        <li class="flex gap-3">
+                          <span class="font-bold text-blue-600 flex-shrink-0">4.</span>
+                          <span>
+                            After ~3 miles, turn <strong>right onto Timberland Lane</strong>
+                            (look for the Timberland totem pole).
+                          </span>
+                        </li>
+                        <li class="flex gap-3">
+                          <span class="font-bold text-blue-600 flex-shrink-0">5.</span>
+                          <span>
+                            Turn <strong>left onto Cedar Lane</strong> — the cabin is on your left.
+                          </span>
+                        </li>
+                      </ol>
+                      <p class="text-sm text-zinc-600 mt-6">
+                        <strong>Transportation Notes:</strong>
+                        Public transportation is limited — <strong>driving is recommended.</strong>
+                        <strong>Carpooling</strong>
+                        is encouraged to reduce parking strain and environmental impact.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="space-y-4">
+                    <div class="rounded-2xl overflow-hidden border border-zinc-200 shadow-sm h-80">
                       <.live_component
                         id="tahoe-cabin-map"
                         module={YscWeb.Components.MapComponent}
                         latitude={39.12591794747629}
                         longitude={-120.16648676079016}
                         locked={true}
-                        class="my-4"
-                      />
-
-                      <YscWeb.Components.MapNavigationButtons.map_navigation_buttons
-                        latitude={39.12591794747629}
-                        longitude={-120.16648676079016}
-                        class="w-full"
+                        class="w-full h-full"
                       />
                     </div>
-                  </div>
-                  <div class="mb-4">
-                    <h3 class="font-semibold text-zinc-900 mb-2">From the Bay Area</h3>
-                    <ol class="list-decimal list-inside space-y-2">
-                      <li>Take <strong>I-80 East</strong> toward Reno.</li>
-                      <li>
-                        Exit at <strong>Truckee</strong>, onto <strong>Highway 89 South</strong>.
-                      </li>
-                      <li>
-                        In <strong>Tahoe City</strong>, turn right at the first light to stay on Hwy 89.
-                      </li>
-                      <li>
-                        After ~3 miles, turn <strong>right onto Timberland Lane</strong>
-                        (look for the Timberland totem pole).
-                      </li>
-                      <li>Turn <strong>left onto Cedar Lane</strong> — the cabin is on your left.</li>
-                    </ol>
-                  </div>
-                  <div>
-                    <p class="text-sm text-zinc-600">
-                      <strong>Transportation Notes:</strong>
-                      Public transportation is limited — <strong>driving is recommended.</strong>
-                      <strong>Carpooling</strong>
-                      is encouraged to reduce parking strain and environmental impact.
-                    </p>
+                    <YscWeb.Components.MapNavigationButtons.map_navigation_buttons
+                      latitude={39.12591794747629}
+                      longitude={-120.16648676079016}
+                      class="w-full"
+                    />
                   </div>
                 </section>
-                <!-- Pre-Arrival Checklist -->
-                <section class="bg-blue-600 rounded-xl p-6 text-white mb-6 shadow-lg">
-                  <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-                    <span class="text-blue-200">🛠️</span>
-                    <span>Pre-Arrival Checklist</span>
-                  </h2>
-                  <div class="space-y-3">
-                    <div class="flex items-start gap-3 bg-white/10 p-3 rounded-lg border border-white/20">
-                      <input
-                        type="checkbox"
-                        class="mt-1 w-5 h-5 rounded border-white/30 bg-white/10 focus:ring-0"
-                      />
-                      <div>
-                        <p class="font-bold">Screenshot Door Code</p>
-                        <p class="text-sm text-blue-100 text-xs">
-                          Cell service is spotty at the cabin.
-                        </p>
-                      </div>
+                <!-- Pre-Arrival Checklist & Door Code -->
+                <section class="grid md:grid-cols-2 gap-6">
+                  <div class="bg-blue-600 rounded-2xl p-8 text-white shadow-lg shadow-blue-200">
+                    <div class="flex items-center gap-3 mb-6">
+                      <div class="p-2 bg-white/20 rounded-lg">🔑</div>
+                      <h2 class="text-xl font-bold text-white">Door Code & Access</h2>
                     </div>
-                    <div class="flex items-start gap-3 bg-white/10 p-3 rounded-lg border border-white/20">
-                      <input
-                        type="checkbox"
-                        class="mt-1 w-5 h-5 rounded border-white/30 bg-white/10 focus:ring-0"
-                      />
-                      <div>
-                        <p class="font-bold">Download Offline Maps</p>
-                        <p class="text-sm text-blue-100 text-xs">
-                          Google Maps/Apple Maps for Homewood, CA.
-                        </p>
-                      </div>
+                    <p class="text-blue-100 mb-6 leading-relaxed">
+                      Sent via email <strong>24 hours before check-in</strong>. Unique to your booking. The code is also displayed on your booking confirmation page when your stay is within 48 hours of check-in or currently active.
+                    </p>
+                    <div class="bg-blue-700/50 border border-white/10 rounded-xl p-4 text-sm">
+                      <p class="font-semibold text-blue-50 mb-2">Important:</p>
+                      <ul class="list-disc list-inside space-y-1 text-blue-100 text-xs">
+                        <li>
+                          Save the door code before you arrive — cell service can be limited in the area
+                        </li>
+                        <li>The door code is unique to your booking period</li>
+                        <li>
+                          If you don't receive the code, check your spam folder or contact the Cabin Master
+                        </li>
+                      </ul>
                     </div>
-                    <div class="flex items-start gap-3 bg-white/10 p-3 rounded-lg border border-white/20">
-                      <input
-                        type="checkbox"
-                        class="mt-1 w-5 h-5 rounded border-white/30 bg-white/10 focus:ring-0"
-                      />
-                      <div>
-                        <p class="font-bold">Winter Driving Ready</p>
-                        <p class="text-sm text-blue-100 text-xs">
-                          Chains in trunk or snow tires confirmed.
-                        </p>
-                      </div>
-                    </div>
+                  </div>
+
+                  <div class="bg-zinc-900 rounded-2xl p-8 text-white shadow-lg">
+                    <h2 class="text-xl font-bold mb-6">Pre-Arrival Checklist</h2>
+                    <ul class="space-y-4">
+                      <li class="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          class="w-5 h-5 rounded border-zinc-700 bg-zinc-800 text-blue-500 focus:ring-0"
+                        />
+                        <div>
+                          <span class="font-semibold">Screenshot Door Code</span>
+                          <p class="text-xs text-zinc-400 mt-1">
+                            Cell service is spotty at the cabin
+                          </p>
+                        </div>
+                      </li>
+                      <li class="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          class="w-5 h-5 rounded border-zinc-700 bg-zinc-800 text-blue-500 focus:ring-0"
+                        />
+                        <div>
+                          <span class="font-semibold">Download Offline Maps</span>
+                          <p class="text-xs text-zinc-400 mt-1">
+                            Google Maps/Apple Maps for Homewood, CA
+                          </p>
+                        </div>
+                      </li>
+                      <li class="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          class="w-5 h-5 rounded border-zinc-700 bg-zinc-800 text-blue-500 focus:ring-0"
+                        />
+                        <div>
+                          <span class="font-semibold">Winter Driving Ready</span>
+                          <p class="text-xs text-zinc-400 mt-1">
+                            Chains in trunk or snow tires confirmed
+                          </p>
+                        </div>
+                      </li>
+                    </ul>
                   </div>
                 </section>
                 <!-- Winter Driving & Weather Tips -->
-                <section class="border border-blue-200 rounded-lg p-6 bg-blue-50 mb-6">
+                <section class="bg-blue-50 border border-blue-200 rounded-2xl p-6">
                   <h2 class="text-xl font-bold text-blue-900 mb-4 flex items-center gap-2">
                     <span>❄️</span>
                     <span>Winter Driving & Weather Tips</span>
                   </h2>
                   <div>
-                    <ul class="list-disc list-inside space-y-2 mb-4">
+                    <ul class="list-disc list-inside space-y-2 mb-4 text-blue-900">
                       <li>
                         Always carry <strong>snow chains</strong>
                         or use a <strong>4WD vehicle with snow tires</strong>.
@@ -2790,8 +2854,8 @@ defmodule YscWeb.TahoeBookingLive do
                       <li>Check <strong>road and weather conditions</strong> before traveling.</li>
                     </ul>
                     <div>
-                      <p class="font-semibold mb-2">Helpful Resources:</p>
-                      <ul class="list-disc list-inside space-y-1">
+                      <p class="font-semibold mb-2 text-blue-900">Helpful Resources:</p>
+                      <ul class="list-disc list-inside space-y-1 text-blue-800">
                         <li>
                           <a
                             href="https://dot.ca.gov/travel/winter-driving-tips"
@@ -2840,16 +2904,16 @@ defmodule YscWeb.TahoeBookingLive do
                 <!-- Parking & Transportation -->
                 <section
                   id="parking-transportation"
-                  class="border border-zinc-200 rounded-lg p-6 bg-zinc-50 mb-6"
+                  class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm"
                 >
                   <h2 class="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
                     <span>🚙</span>
                     <span>Parking & Transportation</span>
                   </h2>
-                  <div>
-                    <div class="mb-4">
-                      <p class="font-semibold mb-2">Local Services:</p>
-                      <ul class="list-disc list-inside space-y-1">
+                  <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <p class="font-semibold mb-2 text-zinc-900">Local Services:</p>
+                      <ul class="list-disc list-inside space-y-1 text-zinc-700">
                         <li>
                           <strong>Tahoe Bus Transit:</strong>
                           <a href="tel:5305816365" class="text-blue-600 hover:text-blue-800 underline">
@@ -2865,8 +2929,8 @@ defmodule YscWeb.TahoeBookingLive do
                       </ul>
                     </div>
                     <div>
-                      <p class="font-semibold mb-2">Parking Rules:</p>
-                      <ul class="list-disc list-inside space-y-1">
+                      <p class="font-semibold mb-2 text-zinc-900">Parking Rules:</p>
+                      <ul class="list-disc list-inside space-y-1 text-zinc-700">
                         <li>Limited parking — <strong>carpool if possible.</strong></li>
                         <li>You may need to move vehicles to accommodate others.</li>
                         <li>
@@ -2878,60 +2942,33 @@ defmodule YscWeb.TahoeBookingLive do
                     </div>
                   </div>
                 </section>
-                <!-- Door Code & Access -->
-                <section
-                  id="door-code-access"
-                  class="border border-blue-200 rounded-lg p-6 bg-blue-50 mb-6"
-                >
-                  <h2 class="text-xl font-bold text-blue-900 mb-4 flex items-center gap-2">
-                    <span>🔑</span>
-                    <span>Door Code & Access</span>
-                  </h2>
-                  <div>
-                    <p class="mb-4">
-                      Your door code will be sent via email <strong>24 hours before your check-in</strong>.
-                      The code is also displayed on your booking confirmation page when your stay is within 48 hours of check-in or currently active.
-                    </p>
-                    <div class="bg-white/50 rounded-lg p-4 border border-blue-200">
-                      <p class="font-semibold text-blue-900 mb-2">Important:</p>
-                      <ul class="list-disc list-inside space-y-1 text-blue-800">
-                        <li>
-                          Save the door code before you arrive — cell service can be limited in the area
-                        </li>
-                        <li>The door code is unique to your booking period</li>
-                        <li>
-                          If you don't receive the code, check your spam folder or contact the Cabin Master
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </section>
               </div>
               <!-- Cabin and Booking Rules Tab -->
               <div :if={Map.get(assigns, :info_tab, :general) == :rules} id="cabin-rules">
                 <!-- Golden Rules Banner -->
-                <div class="bg-zinc-900 rounded-xl p-6 mb-6 shadow-lg">
-                  <h2 class="text-2xl font-black text-white mb-4 text-center">⚠️ Golden Rules</h2>
+                <section class="bg-zinc-100 rounded-2xl p-6 mb-12 shadow-lg">
                   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-white rounded-lg p-4 text-center border border-zinc-200">
-                      <div class="text-4xl mb-2">🚫</div>
-                      <div class="font-bold text-red-900 text-lg">No Pets</div>
-                      <div class="text-sm text-red-700 mt-1">No exceptions</div>
+                    <div class="bg-white rounded-xl p-5 text-center border border-zinc-200 shadow-sm">
+                      <div class="text-4xl mb-3">🚫</div>
+                      <div class="font-bold text-red-900 text-lg mb-1">No Pets</div>
+                      <div class="text-sm text-red-700">No exceptions</div>
                     </div>
-                    <div class="bg-white rounded-lg p-4 text-center border border-zinc-200">
-                      <div class="text-4xl mb-2">🧺</div>
-                      <div class="font-bold text-amber-900 text-lg">Bring Own Linens</div>
-                      <div class="text-sm text-amber-700 mt-1">Sheets & Towels Required</div>
+                    <div class="bg-white rounded-xl p-5 text-center border border-zinc-200 shadow-sm">
+                      <div class="text-4xl mb-3">🧺</div>
+                      <div class="font-bold text-amber-900 text-lg mb-1">Bring Own Linens</div>
+                      <div class="text-sm text-amber-700">
+                        Sheets, Pillowcases, Comforters or Sleeping Bags & Towels Required
+                      </div>
                     </div>
-                    <div class="bg-white rounded-lg p-4 text-center border border-zinc-200">
-                      <div class="text-4xl mb-2">🚭</div>
-                      <div class="font-bold text-red-900 text-lg">No Smoking</div>
-                      <div class="text-sm text-red-700 mt-1">Indoors or on decks</div>
+                    <div class="bg-white rounded-xl p-5 text-center border border-zinc-200 shadow-sm">
+                      <div class="text-4xl mb-3">🚭</div>
+                      <div class="font-bold text-red-900 text-lg mb-1">No Smoking</div>
+                      <div class="text-sm text-red-700">Indoors or on decks</div>
                     </div>
                   </div>
-                </div>
+                </section>
                 <!-- Winter Season Reservations Notice -->
-                <section class="border border-blue-200 rounded-lg p-6 bg-blue-50 mb-6">
+                <section class="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-12">
                   <div class="flex items-start gap-3">
                     <.icon name="hero-megaphone" class="w-6 h-6 text-blue-700 flex-shrink-0 mt-0.5" />
                     <div class="flex-1">
@@ -2941,7 +2978,7 @@ defmodule YscWeb.TahoeBookingLive do
                       <p class="text-blue-800 font-semibold mb-3">
                         Reservations for winter season 2025/2026 are now open!
                       </p>
-                      <div class="bg-white rounded-lg p-4 border border-blue-200">
+                      <div class="bg-white rounded-xl p-4 border border-blue-200">
                         <div class="flex items-start gap-2">
                           <.icon
                             name="hero-exclamation-triangle"
@@ -2958,13 +2995,13 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                 </section>
                 <!-- Booking Policies -->
-                <section class="border border-zinc-200 rounded-lg p-6 bg-zinc-50 mb-6">
-                  <h2 class="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
-                    <span>📝</span>
+                <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm mb-12">
+                  <h2 class="text-xl font-bold text-zinc-900 mb-6 flex items-center gap-2">
+                    <.icon name="hero-document-text" class="w-6 h-6" />
                     <span>Booking Policies</span>
                   </h2>
                   <div class="space-y-4">
-                    <div class="p-4 bg-white rounded-lg border border-zinc-200">
+                    <div class="p-5 bg-zinc-50 rounded-xl border border-zinc-200">
                       <h3 class="font-semibold text-zinc-900 mb-2">Reservation Requirements</h3>
                       <ul class="list-disc list-inside space-y-2 text-zinc-700">
                         <li>All reservations must be made and paid in advance on the website</li>
@@ -2975,7 +3012,7 @@ defmodule YscWeb.TahoeBookingLive do
                         <li>When your current stay is completed, another reservation can be made</li>
                       </ul>
                     </div>
-                    <div class="p-4 bg-white rounded-lg border border-zinc-200">
+                    <div class="p-5 bg-zinc-50 rounded-xl border border-zinc-200">
                       <h3 class="font-semibold text-zinc-900 mb-2">
                         Winter Season Room Limits (December through April)
                       </h3>
@@ -2995,7 +3032,7 @@ defmodule YscWeb.TahoeBookingLive do
                         </li>
                       </ul>
                     </div>
-                    <div class="p-4 bg-white rounded-lg border border-zinc-200">
+                    <div class="p-5 bg-zinc-50 rounded-xl border border-zinc-200">
                       <h3 class="font-semibold text-zinc-900 mb-2">Guest Count & Payment</h3>
                       <p class="text-zinc-700 mb-2">
                         Please make sure you specify the <strong>correct number of people</strong>, including guests, that will be staying in the room(s) with you.
@@ -3006,7 +3043,7 @@ defmodule YscWeb.TahoeBookingLive do
                         </strong>
                       </p>
                     </div>
-                    <div class="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <div class="p-5 bg-amber-50 rounded-xl border border-amber-200">
                       <h3 class="font-semibold text-amber-900 mb-2">Cancellation Refunds</h3>
                       <p class="text-sm text-amber-800">
                         Cash refunds due to cancellations are subject to a
@@ -3014,7 +3051,7 @@ defmodule YscWeb.TahoeBookingLive do
                         to cover the club's credit card handling costs.
                       </p>
                     </div>
-                    <div class="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div class="p-5 bg-red-50 rounded-xl border border-red-200">
                       <div class="flex items-start gap-2">
                         <.icon
                           name="hero-shield-exclamation"
@@ -3031,51 +3068,51 @@ defmodule YscWeb.TahoeBookingLive do
                 <!-- Booking Rules -->
                 <section
                   id="booking-rules"
-                  class="border border-zinc-200 rounded-lg p-6 bg-zinc-50 mb-6"
+                  class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm mb-12"
                 >
                   <h2 class="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
                     <span>📋</span>
                     <span>Booking Rules</span>
                   </h2>
-                  <div class="bg-white rounded-lg border border-zinc-200 overflow-hidden">
+                  <div class="bg-zinc-50 rounded-xl border border-zinc-200 overflow-hidden">
                     <div class="overflow-x-auto">
                       <table class="w-full border-collapse">
                         <thead>
-                          <tr class="bg-zinc-50 border-b border-zinc-200">
+                          <tr class="bg-zinc-100 border-b border-zinc-200">
                             <th class="text-left py-3 px-4 font-semibold text-zinc-900">Rule</th>
                             <th class="text-left py-3 px-4 font-semibold text-zinc-900">Details</th>
                           </tr>
                         </thead>
                         <tbody class="text-zinc-700">
-                          <tr class="border-b border-zinc-100 hover:bg-zinc-50">
+                          <tr class="border-b border-zinc-100 hover:bg-white">
                             <td class="py-3 px-4 font-semibold">Check-In / Out</td>
                             <td class="py-3 px-4">3:00 PM / 11:00 AM</td>
                           </tr>
-                          <tr class="border-b border-zinc-100 hover:bg-zinc-50">
+                          <tr class="border-b border-zinc-100 hover:bg-white">
                             <td class="py-3 px-4 font-semibold">Maximum Stay</td>
                             <td class="py-3 px-4">4 nights per booking</td>
                           </tr>
-                          <tr class="border-b border-zinc-100 hover:bg-zinc-50">
+                          <tr class="border-b border-zinc-100 hover:bg-white">
                             <td class="py-3 px-4 font-semibold">Weekend Policy</td>
                             <td class="py-3 px-4">Saturday bookings must include Sunday</td>
                           </tr>
-                          <tr class="border-b border-zinc-100 hover:bg-zinc-50">
+                          <tr class="border-b border-zinc-100 hover:bg-white">
                             <td class="py-3 px-4 font-semibold">Active Bookings</td>
                             <td class="py-3 px-4">One active booking per member</td>
                           </tr>
-                          <tr class="border-b border-zinc-100 hover:bg-zinc-50">
+                          <tr class="border-b border-zinc-100 hover:bg-white">
                             <td class="py-3 px-4 font-semibold">Winter</td>
                             <td class="py-3 px-4">Individual rooms only</td>
                           </tr>
-                          <tr class="border-b border-zinc-100 hover:bg-zinc-50">
+                          <tr class="border-b border-zinc-100 hover:bg-white">
                             <td class="py-3 px-4 font-semibold">Summer</td>
                             <td class="py-3 px-4">Rooms or full cabin allowed</td>
                           </tr>
-                          <tr class="border-b border-zinc-100 hover:bg-zinc-50">
+                          <tr class="border-b border-zinc-100 hover:bg-white">
                             <td class="py-3 px-4 font-semibold">Membership Limits</td>
                             <td class="py-3 px-4">Family/Lifetime: 2 rooms<br />Single: 1 room</td>
                           </tr>
-                          <tr class="hover:bg-zinc-50">
+                          <tr class="hover:bg-white">
                             <td class="py-3 px-4 font-semibold">Children Pricing</td>
                             <td class="py-3 px-4">
                               <% season_id =
@@ -3097,13 +3134,16 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                 </section>
                 <!-- Bear Safety Instructions -->
-                <section id="bear-safety" class="border border-red-200 rounded-lg p-6 bg-red-50 mb-6">
+                <section
+                  id="bear-safety"
+                  class="bg-red-50 border border-red-200 rounded-2xl p-6 mb-12"
+                >
                   <h2 class="text-xl font-bold text-red-900 mb-4 flex items-center gap-2">
                     <span>🐻</span>
                     <span>Bear Safety Instructions</span>
                   </h2>
                   <div class="space-y-6">
-                    <div class="p-4 bg-white rounded-lg border border-red-200">
+                    <div class="p-5 bg-white rounded-xl border border-red-200">
                       <p class="text-base text-red-900 leading-relaxed">
                         The cabin's deck is surrounded by
                         <strong class="font-bold">electric bear wire</strong>
@@ -3116,7 +3156,7 @@ defmodule YscWeb.TahoeBookingLive do
                       <div class="bg-green-50 border border-green-200 rounded-lg p-6">
                         <div class="flex items-center gap-3 mb-5">
                           <.icon name="hero-sun" class="w-6 h-6 text-green-700" />
-                          <h3 class="text-lg font-bold text-green-900">To Enter (Day)</h3>
+                          <h3 class="text-lg font-bold text-green-900">To Enter</h3>
                         </div>
                         <div class="space-y-3">
                           <div class="flex items-start gap-3 p-3 bg-white rounded-lg border border-green-200">
@@ -3153,7 +3193,9 @@ defmodule YscWeb.TahoeBookingLive do
                       <div class="bg-amber-50 border border-amber-200 rounded-lg p-6">
                         <div class="flex items-center gap-3 mb-5">
                           <.icon name="hero-moon" class="w-6 h-6 text-amber-700" />
-                          <h3 class="text-lg font-bold text-amber-900">When Leaving (Night)</h3>
+                          <h3 class="text-lg font-bold text-amber-900">
+                            When Leaving or Going to Sleep
+                          </h3>
                         </div>
                         <div class="space-y-3">
                           <div class="flex items-start gap-3 p-3 bg-white rounded-lg border border-amber-200">
@@ -3208,7 +3250,7 @@ defmodule YscWeb.TahoeBookingLive do
                 <!-- Cancellation Policy -->
                 <section
                   id="cancellation-policy"
-                  class="border border-zinc-200 rounded-lg p-6 bg-zinc-50 mb-6"
+                  class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm mb-12"
                 >
                   <h2 class="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
                     <span>🧾</span>
@@ -3216,18 +3258,18 @@ defmodule YscWeb.TahoeBookingLive do
                   </h2>
                   <div>
                     <!-- Comparison Table -->
-                    <div class="bg-white rounded-lg border border-zinc-200 overflow-hidden mb-4">
+                    <div class="bg-zinc-50 rounded-xl border border-zinc-200 overflow-hidden mb-4">
                       <div class="overflow-x-auto">
                         <table class="w-full border-collapse">
                           <thead>
-                            <tr class="bg-zinc-900 text-white">
+                            <tr class="bg-zinc-100 text-zinc-900">
                               <th class="px-4 py-3 text-left font-bold">Days Before Check-In</th>
-                              <th class="px-4 py-3 text-center font-bold border-l border-white/20">
+                              <th class="px-4 py-3 text-center font-bold border-l border-zinc-200">
                                 <%= if @buyout_refund_policy && @buyout_refund_policy.name,
                                   do: @buyout_refund_policy.name,
                                   else: "Full Cabin" %>
                               </th>
-                              <th class="px-4 py-3 text-center font-bold border-l border-white/20">
+                              <th class="px-4 py-3 text-center font-bold border-l border-zinc-200">
                                 <%= if @room_refund_policy && @room_refund_policy.name,
                                   do: @room_refund_policy.name,
                                   else: "Room Booking" %>
@@ -3266,7 +3308,7 @@ defmodule YscWeb.TahoeBookingLive do
                                         &(&1.days_before_checkin == days)
                                       ),
                                     else: nil %>
-                                <tr class="border-b border-zinc-100 hover:bg-zinc-50">
+                                <tr class="border-b border-zinc-100 hover:bg-white">
                                   <td class="px-4 py-3 font-semibold text-zinc-900">
                                     <%= days %>+ days
                                   </td>
@@ -3325,7 +3367,52 @@ defmodule YscWeb.TahoeBookingLive do
                         </table>
                       </div>
                     </div>
-                    <div class="bg-zinc-100 rounded-lg p-4 text-sm">
+                    <!-- Plain English Description -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-4">
+                      <h3 class="font-semibold text-blue-900 mb-3">Cancellation Policy Summary</h3>
+                      <div class="space-y-4 text-sm text-blue-900">
+                        <%= if @buyout_refund_policy && @buyout_refund_policy.rules do %>
+                          <div>
+                            <p class="font-semibold mb-2">
+                              <%= if @buyout_refund_policy.name,
+                                do: @buyout_refund_policy.name,
+                                else: "Full Cabin Buyout" %>:
+                            </p>
+                            <ul class="list-disc list-inside space-y-1 ml-2">
+                              <%= for rule <- Enum.sort_by(@buyout_refund_policy.rules, & &1.days_before_checkin, :desc) do %>
+                                <% refund_pct = trunc(Decimal.to_float(rule.refund_percentage)) %>
+                                <li>
+                                  If you cancel <%= rule.days_before_checkin %> or more days before check-in, you'll receive a <%= refund_pct %>% refund.
+                                </li>
+                              <% end %>
+                            </ul>
+                          </div>
+                        <% end %>
+                        <%= if @room_refund_policy && @room_refund_policy.rules do %>
+                          <div>
+                            <p class="font-semibold mb-2">
+                              <%= if @room_refund_policy.name,
+                                do: @room_refund_policy.name,
+                                else: "Room Booking" %>:
+                            </p>
+                            <ul class="list-disc list-inside space-y-1 ml-2">
+                              <%= for rule <- Enum.sort_by(@room_refund_policy.rules, & &1.days_before_checkin, :desc) do %>
+                                <% refund_pct = trunc(Decimal.to_float(rule.refund_percentage)) %>
+                                <li>
+                                  If you cancel <%= rule.days_before_checkin %> or more days before check-in, you'll receive a <%= refund_pct %>% refund.
+                                </li>
+                              <% end %>
+                            </ul>
+                          </div>
+                        <% end %>
+                        <%= if (!@buyout_refund_policy || !@buyout_refund_policy.rules) && (!@room_refund_policy || !@room_refund_policy.rules) do %>
+                          <p class="text-blue-800">
+                            Cancellation policy details will be displayed here once available.
+                          </p>
+                        <% end %>
+                      </div>
+                    </div>
+                    <div class="bg-zinc-50 rounded-xl p-4 text-sm border border-zinc-200">
                       <p class="mb-2 font-semibold text-zinc-900">Important Notes:</p>
                       <ul class="list-disc list-inside space-y-1 text-zinc-700">
                         <li>
@@ -3345,13 +3432,13 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                 </section>
                 <!-- Cabin Rules & Etiquette -->
-                <section class="border border-zinc-200 rounded-lg p-6 bg-zinc-50 mb-6">
+                <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm mb-12">
                   <h2 class="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
                     <span>🧺</span>
                     <span>Cabin Rules & Etiquette</span>
                   </h2>
                   <div class="space-y-4">
-                    <div class="bg-white rounded-lg p-4 border border-zinc-200">
+                    <div class="p-5 bg-zinc-50 rounded-xl border border-zinc-200">
                       <h3 class="font-semibold text-zinc-900 mb-2">General Guidelines</h3>
                       <ul class="list-disc list-inside space-y-1 text-zinc-700">
                         <li>Treat the cabin as your own — it's <strong>not a hotel</strong>.</li>
@@ -3359,7 +3446,7 @@ defmodule YscWeb.TahoeBookingLive do
                         <li>Be considerate — stairs and hallways carry sound easily.</li>
                       </ul>
                     </div>
-                    <div class="bg-white rounded-lg p-4 border border-zinc-200">
+                    <div class="p-5 bg-zinc-50 rounded-xl border border-zinc-200">
                       <h3 class="font-semibold text-zinc-900 mb-2">Common Areas & Storage</h3>
                       <ul class="list-disc list-inside space-y-1 text-zinc-700">
                         <li>Keep personal items out of shared spaces.</li>
@@ -3367,19 +3454,19 @@ defmodule YscWeb.TahoeBookingLive do
                         <li>Store other gear in the <strong>outside stairwell</strong>.</li>
                       </ul>
                     </div>
-                    <div class="bg-white rounded-lg p-4 border border-zinc-200">
+                    <div class="p-5 bg-zinc-50 rounded-xl border border-zinc-200">
                       <h3 class="font-semibold text-zinc-900 mb-2">Pets</h3>
                       <p class="text-zinc-700">
                         No pets are allowed — <strong>no exceptions.</strong>
                       </p>
                     </div>
-                    <div class="bg-white rounded-lg p-4 border border-zinc-200">
+                    <div class="p-5 bg-zinc-50 rounded-xl border border-zinc-200">
                       <h3 class="font-semibold text-zinc-900 mb-2">Smoking & Vaping</h3>
                       <p class="text-zinc-700">
-                        <strong>Prohibited</strong> indoors and on covered decks.
+                        <strong>Prohibited</strong> indoors and on decks.
                       </p>
                     </div>
-                    <div class="bg-white rounded-lg p-4 border border-zinc-200">
+                    <div class="p-5 bg-zinc-50 rounded-xl border border-zinc-200">
                       <h3 class="font-semibold text-zinc-900 mb-2">Children</h3>
                       <p class="text-zinc-700">
                         For safety, children should not play on or near the stairs.
@@ -3388,13 +3475,13 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                 </section>
                 <!-- What to Bring -->
-                <section class="border border-zinc-200 rounded-lg p-6 bg-zinc-50 mb-6">
+                <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm mb-12">
                   <h2 class="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
                     <span>🎒</span>
                     <span>Packing List</span>
                   </h2>
                   <div>
-                    <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div class="mb-6 p-5 bg-red-50 border border-red-200 rounded-xl">
                       <div class="flex items-start gap-3">
                         <.icon
                           name="hero-exclamation-triangle"
@@ -3411,13 +3498,13 @@ defmodule YscWeb.TahoeBookingLive do
                       </div>
                     </div>
                     <!-- Suitcase Graphic Style -->
-                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-6">
+                    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6">
                       <div class="flex items-center gap-3 mb-5">
                         <div class="text-4xl">🧳</div>
                         <h3 class="text-lg font-bold text-amber-900">Don't Forget</h3>
                       </div>
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="bg-white rounded-lg p-4 border border-amber-200 flex items-start gap-3">
+                        <div class="bg-white rounded-xl p-4 border border-amber-200 flex items-start gap-3">
                           <div class="text-2xl flex-shrink-0">🛏️</div>
                           <div class="flex-1">
                             <div class="font-bold text-amber-900 mb-1">Essential: Bedding</div>
@@ -3426,14 +3513,14 @@ defmodule YscWeb.TahoeBookingLive do
                             </div>
                           </div>
                         </div>
-                        <div class="bg-white rounded-lg p-4 border border-amber-200 flex items-start gap-3">
+                        <div class="bg-white rounded-xl p-4 border border-amber-200 flex items-start gap-3">
                           <div class="text-2xl flex-shrink-0">🧼</div>
                           <div class="flex-1">
                             <div class="font-bold text-amber-900 mb-1">Essential: Towels</div>
                             <div class="text-sm text-amber-800">For showers and the sauna</div>
                           </div>
                         </div>
-                        <div class="bg-white rounded-lg p-4 border border-amber-200 flex items-start gap-3">
+                        <div class="bg-white rounded-xl p-4 border border-amber-200 flex items-start gap-3">
                           <div class="text-2xl flex-shrink-0">🔥</div>
                           <div class="flex-1">
                             <div class="font-bold text-amber-900 mb-1">Essential: Fire Starters</div>
@@ -3442,7 +3529,7 @@ defmodule YscWeb.TahoeBookingLive do
                             </div>
                           </div>
                         </div>
-                        <div class="bg-white rounded-lg p-4 border border-amber-200 flex items-start gap-3">
+                        <div class="bg-white rounded-xl p-4 border border-amber-200 flex items-start gap-3">
                           <div class="text-2xl flex-shrink-0">🍳</div>
                           <div class="flex-1">
                             <div class="font-bold text-amber-900 mb-1">Food & Ingredients</div>
@@ -3450,7 +3537,7 @@ defmodule YscWeb.TahoeBookingLive do
                           </div>
                         </div>
                       </div>
-                      <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                         <div class="flex items-start gap-2">
                           <.icon
                             name="hero-sparkles"
@@ -3466,13 +3553,13 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                 </section>
                 <!-- Rates & Seasonal Rules -->
-                <section class="border border-zinc-200 rounded-lg p-6 bg-zinc-50 mb-6">
+                <section class="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm mb-12">
                   <h2 class="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
                     <span>💰</span>
                     <span>Rates & Seasonal Rules</span>
                   </h2>
                   <div class="space-y-4">
-                    <div class="bg-white rounded-lg p-4 border border-zinc-200">
+                    <div class="p-5 bg-zinc-50 rounded-xl border border-zinc-200">
                       <p class="font-semibold mb-2 text-zinc-900">Per-Person, Per-Night Rates</p>
                       <ul class="list-disc list-inside space-y-1 text-zinc-700">
                         <% season_id =
@@ -3495,7 +3582,7 @@ defmodule YscWeb.TahoeBookingLive do
                         <li>Children under 5: <strong>Free</strong></li>
                       </ul>
                     </div>
-                    <div class="bg-white rounded-lg p-4 border border-zinc-200">
+                    <div class="p-5 bg-zinc-50 rounded-xl border border-zinc-200">
                       <p class="font-semibold mb-2 text-zinc-900">Seasonal Availability</p>
                       <ul class="list-disc list-inside space-y-1 text-zinc-700">
                         <li>
@@ -3508,8 +3595,8 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                 </section>
                 <!-- Cleanliness & Chores (Accordion) -->
-                <details class="border border-zinc-200 rounded-lg bg-zinc-50 mb-6">
-                  <summary class="cursor-pointer p-6 list-none flex items-center justify-between hover:bg-zinc-100 transition-colors">
+                <details class="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
+                  <summary class="cursor-pointer p-6 list-none flex items-center justify-between hover:bg-zinc-50 transition-colors">
                     <h2 class="text-xl font-bold text-zinc-900 flex items-center gap-2">
                       <span>🧹</span>
                       <span>Cleanliness & Chores</span>
@@ -3523,36 +3610,36 @@ defmodule YscWeb.TahoeBookingLive do
                     <p class="mb-4 text-zinc-700">
                       Keeping the cabin affordable depends on everyone pitching in!
                     </p>
-                    <div class="bg-white rounded-lg p-5 border border-zinc-200 mb-4">
+                    <div class="bg-zinc-50 rounded-xl p-5 border border-zinc-200 mb-4">
                       <p class="font-semibold mb-3 text-zinc-900">Guests must:</p>
                       <div class="space-y-2">
-                        <label class="flex items-start gap-3 p-3 bg-zinc-50 rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-100 transition">
+                        <label class="flex items-start gap-3 p-3 bg-white rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-50 transition">
                           <input type="checkbox" class="mt-1 w-5 h-5 text-blue-600" />
                           <span class="text-sm text-zinc-700">Clean up after themselves</span>
                         </label>
-                        <label class="flex items-start gap-3 p-3 bg-zinc-50 rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-100 transition">
+                        <label class="flex items-start gap-3 p-3 bg-white rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-50 transition">
                           <input type="checkbox" class="mt-1 w-5 h-5 text-blue-600" />
                           <span class="text-sm text-zinc-700">Strip and clean their rooms</span>
                         </label>
-                        <label class="flex items-start gap-3 p-3 bg-zinc-50 rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-100 transition">
+                        <label class="flex items-start gap-3 p-3 bg-white rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-50 transition">
                           <input type="checkbox" class="mt-1 w-5 h-5 text-blue-600" />
                           <span class="text-sm text-zinc-700">
                             Wash, dry, and store any used club bedding
                           </span>
                         </label>
-                        <label class="flex items-start gap-3 p-3 bg-zinc-50 rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-100 transition">
+                        <label class="flex items-start gap-3 p-3 bg-white rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-50 transition">
                           <input type="checkbox" class="mt-1 w-5 h-5 text-blue-600" />
                           <span class="text-sm text-zinc-700">
                             Leave the kitchen spotless and remove all food
                           </span>
                         </label>
-                        <label class="flex items-start gap-3 p-3 bg-zinc-50 rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-100 transition">
+                        <label class="flex items-start gap-3 p-3 bg-white rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-50 transition">
                           <input type="checkbox" class="mt-1 w-5 h-5 text-blue-600" />
                           <span class="text-sm text-zinc-700">Secure bear-proof garbage lids</span>
                         </label>
                       </div>
                     </div>
-                    <div class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+                    <div class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
                       <p class="text-sm text-green-900 font-semibold">
                         <strong>Your cooperation helps keep cabin rates low for all members.</strong>
                       </p>

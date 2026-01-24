@@ -850,7 +850,7 @@ defmodule YscWeb.Components.DateRangePicker do
     bookings = tooltip[:bookings] || tooltip["bookings"]
 
     cond do
-      is_list(bookings) and length(bookings) > 0 ->
+      is_list(bookings) and bookings != [] ->
         format_bookings_tooltip(tooltip)
 
       Map.has_key?(tooltip, :reason) ->

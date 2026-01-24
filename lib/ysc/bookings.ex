@@ -1176,7 +1176,7 @@ defmodule Ysc.Bookings do
       available_room_ids =
         room_ids
         |> Enum.filter(fn room_id ->
-          is_room_available(room_id, available_room_ids_binary)
+          room_available?(room_id, available_room_ids_binary)
         end)
         |> MapSet.new()
 
@@ -3389,7 +3389,7 @@ defmodule Ysc.Bookings do
     end
   end
 
-  defp is_room_available(room_id, available_room_ids_binary) do
+  defp room_available?(room_id, available_room_ids_binary) do
     case Ecto.ULID.dump(room_id) do
       {:ok, binary} -> MapSet.member?(available_room_ids_binary, binary)
       _ -> false
