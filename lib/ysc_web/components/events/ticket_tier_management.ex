@@ -29,24 +29,40 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
         <div :if={length(@ticket_tiers) > 0} class="space-y-3 sm:space-y-4">
           <%= for ticket_tier <- @ticket_tiers do %>
-            <div class="border border-zinc-200 rounded p-3 sm:p-4 hover:bg-zinc-50 transition-colors">
-              <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0">
+            <div class="group border border-zinc-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-sm transition-all bg-white">
+              <div class="flex flex-col lg:flex-row lg:items-center gap-4">
                 <div class="flex-1">
-                  <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                    <h4 class="font-semibold text-lg"><%= ticket_tier.name %></h4>
-                    <.badge type={ticket_tier_type_to_badge_style(ticket_tier.type)}>
-                      <%= String.capitalize(to_string(ticket_tier.type)) %>
+                  <div class="flex items-center gap-3 mb-1">
+                    <h4 class="font-bold text-zinc-900 text-lg"><%= ticket_tier.name %></h4>
+                    <.badge
+                      type={tier_status_badge_type(ticket_tier)}
+                      class="text-[10px] uppercase tracking-wider font-bold rounded-full px-2 py-0.5 me-0"
+                    >
+                      <%= tier_status_text(ticket_tier) %>
                     </.badge>
                   </div>
-
-                  <p :if={ticket_tier.description} class="text-zinc-600 text-sm mb-2">
+                  <p
+                    :if={ticket_tier.description}
+                    class="text-zinc-500 text-sm mb-3 min-h-[2.5rem] lg:min-h-[1.25rem]"
+                  >
                     <%= ticket_tier.description %>
+                    <span class="text-zinc-400 italic text-xs">
+                      — <%= String.capitalize(to_string(ticket_tier.type)) %> Tier
+                    </span>
+                  </p>
+                  <p
+                    :if={!ticket_tier.description}
+                    class="text-zinc-400 text-sm italic mb-3 min-h-[2.5rem] lg:min-h-[1.25rem]"
+                  >
+                    <%= String.capitalize(to_string(ticket_tier.type)) %> Tier
                   </p>
 
-                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-sm">
+                  <div class="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
                     <div>
-                      <span class="font-medium text-zinc-700">Price:</span>
-                      <span class="ml-1">
+                      <p class="text-[10px] uppercase tracking-wide text-zinc-400 font-semibold mb-1">
+                        Price
+                      </p>
+                      <p class="text-sm font-bold text-zinc-800">
                         <%= case ticket_tier.type do %>
                           <% "free" -> %>
                             Free
@@ -57,54 +73,74 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                           <% _ -> %>
                             <%= format_money_safe(ticket_tier.price) %>
                         <% end %>
-                      </span>
+                      </p>
                     </div>
 
                     <div>
-                      <span class="font-medium text-zinc-700">Quantity:</span>
-                      <span class="ml-1">
-                        <%= case ticket_tier.quantity do %>
-                          <% nil -> %>
-                            Unlimited (<%= ticket_tier.sold_tickets_count %> sold)
-                          <% 0 -> %>
-                            Unlimited (<%= ticket_tier.sold_tickets_count %> sold)
-                          <% quantity -> %>
-                            <%= "#{ticket_tier.sold_tickets_count}/#{quantity}" %>
-                        <% end %>
-                      </span>
+                      <p class="text-[10px] uppercase tracking-wide text-zinc-400 font-semibold mb-1">
+                        Sold
+                      </p>
+                      <div class="flex items-center gap-2">
+                        <p class="text-sm font-bold text-zinc-800">
+                          <%= case ticket_tier.quantity do %>
+                            <% nil -> %>
+                              <%= ticket_tier.sold_tickets_count %> /
+                              <span class="text-zinc-400">∞</span>
+                            <% 0 -> %>
+                              <%= ticket_tier.sold_tickets_count %> /
+                              <span class="text-zinc-400">∞</span>
+                            <% quantity -> %>
+                              <%= "#{ticket_tier.sold_tickets_count}/#{quantity}" %>
+                          <% end %>
+                        </p>
+                        <div
+                          :if={ticket_tier.quantity && ticket_tier.quantity > 0}
+                          class="hidden sm:block w-16 h-1.5 bg-zinc-100 rounded-full overflow-hidden"
+                        >
+                          <div
+                            class={[
+                              "h-full rounded-full transition-all",
+                              tier_progress_bar_classes(ticket_tier)
+                            ]}
+                            style={"width: #{tier_progress_percentage(ticket_tier)}%"}
+                          >
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div>
-                      <span class="font-medium text-zinc-700">Sales Period:</span>
-                      <span class="ml-1">
+                      <p class="text-[10px] uppercase tracking-wide text-zinc-400 font-semibold mb-1">
+                        Sales Period
+                      </p>
+                      <p class="text-sm text-zinc-700 whitespace-nowrap">
                         <%= format_sales_period(ticket_tier.start_date, ticket_tier.end_date) %>
-                      </span>
+                      </p>
                     </div>
 
                     <div>
-                      <span class="font-medium text-zinc-700">Registration:</span>
-                      <span class="ml-1">
+                      <p class="text-[10px] uppercase tracking-wide text-zinc-400 font-semibold mb-1">
+                        Registration
+                      </p>
+                      <p class="text-sm text-zinc-700">
                         <%= if ticket_tier.requires_registration, do: "Required", else: "Not Required" %>
-                      </span>
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                <div class="flex flex-row sm:flex-col gap-2 sm:gap-1 sm:ml-4">
-                  <.button
-                    color="blue"
+                <div class="flex items-center gap-2 pt-4 lg:pt-0 border-t lg:border-t-0 border-zinc-100">
+                  <button
                     phx-click="edit-ticket-tier"
                     phx-value-id={ticket_tier.id}
                     phx-target={@myself}
                     phx-disable-with="Loading..."
-                    class="flex-1 sm:flex-none"
+                    class="p-2 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                    title="Edit ticket tier"
                   >
-                    <.icon name="hero-pencil" class="w-4 h-4 sm:me-0" />
-                    <span class="sm:hidden ml-1">Edit</span>
-                  </.button>
-
-                  <.button
-                    color="red"
+                    <.icon name="hero-pencil" class="w-5 h-5" />
+                  </button>
+                  <button
                     phx-click="delete-ticket-tier"
                     phx-value-id={ticket_tier.id}
                     phx-target={@myself}
@@ -116,11 +152,17 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                         do: "Cannot delete ticket tier with sold tickets",
                         else: "Delete ticket tier"
                     }
-                    class="flex-1 sm:flex-none"
+                    class={[
+                      "p-2 rounded-md transition-colors",
+                      if ticket_tier.sold_tickets_count > 0 do
+                        "text-zinc-300 cursor-not-allowed"
+                      else
+                        "text-zinc-400 hover:text-red-600 hover:bg-red-50"
+                      end
+                    ]}
                   >
-                    <.icon name="hero-trash" class="w-4 h-4 sm:me-0" />
-                    <span class="sm:hidden ml-1">Delete</span>
-                  </.button>
+                    <.icon name="hero-trash" class="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -445,4 +487,80 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
   end
 
   defp format_money_safe(_), do: "—"
+
+  # Check if ticket tier is currently active (on sale)
+  defp tier_is_active?(ticket_tier) do
+    now = DateTime.utc_now()
+
+    # Check if sale has started
+    sale_started =
+      case ticket_tier.start_date do
+        nil -> true
+        start_date -> DateTime.compare(now, start_date) != :lt
+      end
+
+    # Check if sale has ended
+    sale_ended =
+      case ticket_tier.end_date do
+        nil -> false
+        end_date -> DateTime.compare(now, end_date) == :gt
+      end
+
+    sale_started && !sale_ended
+  end
+
+  # Check if ticket tier is scheduled (not yet started)
+  defp tier_is_scheduled?(ticket_tier) do
+    case ticket_tier.start_date do
+      nil -> false
+      start_date -> DateTime.compare(DateTime.utc_now(), start_date) == :lt
+    end
+  end
+
+  # Get status badge type based on tier state
+  defp tier_status_badge_type(ticket_tier) do
+    cond do
+      tier_is_active?(ticket_tier) -> "green"
+      tier_is_scheduled?(ticket_tier) -> "yellow"
+      true -> "dark"
+    end
+  end
+
+  # Get status text based on tier state
+  defp tier_status_text(ticket_tier) do
+    cond do
+      tier_is_active?(ticket_tier) -> "Active"
+      tier_is_scheduled?(ticket_tier) -> "Scheduled"
+      true -> "Ended"
+    end
+  end
+
+  # Calculate progress percentage for sold tickets
+  defp tier_progress_percentage(ticket_tier) do
+    case ticket_tier.quantity do
+      nil ->
+        0
+
+      0 ->
+        0
+
+      quantity when quantity > 0 ->
+        sold = ticket_tier.sold_tickets_count || 0
+        min(100, round(sold / quantity * 100))
+
+      _ ->
+        0
+    end
+  end
+
+  # Get progress bar color classes based on percentage
+  defp tier_progress_bar_classes(ticket_tier) do
+    percentage = tier_progress_percentage(ticket_tier)
+
+    cond do
+      percentage >= 100 -> "bg-zinc-400"
+      percentage >= 90 -> "bg-amber-500"
+      true -> "bg-blue-600"
+    end
+  end
 end
