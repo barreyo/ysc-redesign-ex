@@ -95,12 +95,8 @@ defmodule YscWeb.AdminEventsLive.TicketReservationForm do
           required
         />
 
-        <.input
-          type="datetime-local"
-          label="Expires At (Optional)"
-          field={@form[:expires_at]}
-          help="Leave empty for reservations that don't expire"
-        />
+        <.input type="datetime-local" label="Expires At (Optional)" field={@form[:expires_at]} />
+        <p class="text-sm text-zinc-500 mt-1">Leave empty for reservations that don't expire</p>
 
         <.input
           type="textarea"

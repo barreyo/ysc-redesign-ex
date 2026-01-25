@@ -5458,7 +5458,7 @@ defmodule YscWeb.EventDetailsLive do
          selected_tickets,
          event,
          ticket_tiers,
-         user_id \\ nil
+         user_id
        )
 
   defp check_availability_cached(
@@ -5525,7 +5525,7 @@ defmodule YscWeb.EventDetailsLive do
          selected_tickets,
          event_id,
          ticket_tiers,
-         user_id \\ nil
+         user_id
        ) do
     case event_capacity.available do
       :unlimited ->
@@ -5562,7 +5562,7 @@ defmodule YscWeb.EventDetailsLive do
          selected_tickets,
          event,
          ticket_tiers,
-         user_id \\ nil
+         user_id
        ) do
     if tier_on_sale?(ticket_tier) do
       if donation_tier?(ticket_tier) do
@@ -5588,7 +5588,7 @@ defmodule YscWeb.EventDetailsLive do
          selected_tickets,
          event,
          ticket_tiers,
-         user_id \\ nil
+         user_id
        ) do
     case Ysc.Tickets.BookingLocker.check_availability_with_lock(event.id) do
       {:ok, availability} ->

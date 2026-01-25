@@ -485,7 +485,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
-  @impl true
   def handle_info(
         {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
         socket
@@ -498,7 +497,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
-  @impl true
   def handle_info(
         {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierUpdated{ticket_tier: ticket_tier}},
         socket
@@ -511,7 +509,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
-  @impl true
   def handle_info(
         {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier}},
         socket
@@ -524,7 +521,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
-  @impl true
   def handle_info({:ticket_reservation_created, event_id}, socket) do
     if event_id == socket.assigns.event_id do
       reservations_by_tier = refresh_reservations(event_id)
@@ -542,7 +538,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
-  @impl true
   def handle_info(
         {Ysc.Events,
          %Ysc.MessagePassingEvents.TicketReservationCreated{ticket_reservation: reservation}},
@@ -563,7 +558,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
-  @impl true
   def handle_info(
         {Ysc.Events,
          %Ysc.MessagePassingEvents.TicketReservationFulfilled{ticket_reservation: reservation}},
@@ -584,7 +578,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
-  @impl true
   def handle_info(
         {Ysc.Events,
          %Ysc.MessagePassingEvents.TicketReservationCancelled{ticket_reservation: reservation}},

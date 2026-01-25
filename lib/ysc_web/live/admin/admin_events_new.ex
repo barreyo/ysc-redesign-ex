@@ -874,7 +874,7 @@ defmodule YscWeb.AdminEventsNewLive do
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationCreated{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationCreated{ticket_reservation: _reservation}},
         socket
       ) do
     # Component handles this, but we need to catch it to prevent crashes
@@ -884,7 +884,7 @@ defmodule YscWeb.AdminEventsNewLive do
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationFulfilled{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationFulfilled{ticket_reservation: _reservation}},
         socket
       ) do
     # Component handles this, but we need to catch it to prevent crashes
@@ -894,7 +894,7 @@ defmodule YscWeb.AdminEventsNewLive do
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationCancelled{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationCancelled{ticket_reservation: _reservation}},
         socket
       ) do
     # Component handles this, but we need to catch it to prevent crashes
