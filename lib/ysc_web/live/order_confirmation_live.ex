@@ -256,6 +256,18 @@ defmodule YscWeb.OrderConfirmationLive do
                         </p>
                       </div>
                       <div class="text-right">
+                        <% ticket_discount = ticket.discount_amount || Money.new(0, :USD) %>
+                        <% has_discount = Money.positive?(ticket_discount) %>
+                        <% original_price = ticket.ticket_tier.price || Money.new(0, :USD) %>
+                        <% final_price =
+                          if has_discount do
+                            case Money.sub(original_price, ticket_discount) do
+                              {:ok, price} -> price
+                              _ -> original_price
+                            end
+                          else
+                            original_price
+                          end %>
                         <p class={[
                           "font-bold text-lg",
                           if(is_refunded,
@@ -271,13 +283,54 @@ defmodule YscWeb.OrderConfirmationLive do
                             <% Money.zero?(ticket.ticket_tier.price) -> %>
                               Free
                             <% true -> %>
-                              <%= MoneyHelper.format_money!(ticket.ticket_tier.price) %>
+                              <%= if has_discount && !is_refunded do %>
+                                <div class="flex flex-col items-end">
+                                  <span class="line-through text-zinc-400 text-sm">
+                                    <%= MoneyHelper.format_money!(original_price) %>
+                                  </span>
+                                  <span><%= MoneyHelper.format_money!(final_price) %></span>
+                                </div>
+                              <% else %>
+                                <%= MoneyHelper.format_money!(original_price) %>
+                              <% end %>
                           <% end %>
                         </p>
                       </div>
                     </div>
-                    <%= if requires_registration && ticket_detail do %>
+                    <% has_ticket_discount = has_discount && !is_refunded %>
+                    <%= if has_ticket_discount do %>
+                      <% discount_percentage =
+                        if ticket.ticket_tier.price && Money.positive?(ticket.ticket_tier.price) do
+                          case Money.div(ticket_discount, ticket.ticket_tier.price) do
+                            {:ok, ratio} ->
+                              Decimal.mult(ratio.amount, Decimal.new(100))
+                              |> Decimal.to_float()
+                              |> Float.round(2)
+
+                            _ ->
+                              nil
+                          end
+                        else
+                          nil
+                        end %>
                       <div class="mt-3 pt-3 border-t border-zinc-300">
+                        <div class="flex justify-between text-xs text-green-600">
+                          <span>
+                            Reserved discount<%= if discount_percentage do %>
+                              (<%= discount_percentage %>%)
+                            <% end %>
+                          </span>
+                          <span class="font-medium">
+                            -<%= MoneyHelper.format_money!(ticket_discount) %>
+                          </span>
+                        </div>
+                      </div>
+                    <% end %>
+                    <%= if requires_registration && ticket_detail do %>
+                      <div class={[
+                        "pt-3 border-t border-zinc-300",
+                        if(has_ticket_discount, do: "mt-3", else: "mt-3")
+                      ]}>
                         <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">
                           Registration Details
                         </p>
@@ -333,7 +386,64 @@ defmodule YscWeb.OrderConfirmationLive do
                 else: ""
               )
             ]}>
-              <div class="flex justify-between">
+              <% total_discount = @ticket_order.discount_amount || Money.new(0, :USD) %>
+              <% has_discount = Money.positive?(total_discount) %>
+              <%= if has_discount do %>
+                <% gross_total =
+                  case Money.add(@ticket_order.total_amount, total_discount) do
+                    {:ok, total} -> total
+                    _ -> @ticket_order.total_amount
+                  end %>
+                <div class="flex justify-between">
+                  <span class={
+                    if(
+                      @ticket_order.status == :cancelled ||
+                        (@refund_data && @refund_data.total_refunded),
+                      do: "text-zinc-600",
+                      else: "text-zinc-400"
+                    )
+                  }>
+                    Subtotal
+                  </span>
+                  <span class={
+                    if(
+                      @ticket_order.status == :cancelled ||
+                        (@refund_data && @refund_data.total_refunded),
+                      do: "text-zinc-900",
+                      else: "text-zinc-400"
+                    )
+                  }>
+                    <%= MoneyHelper.format_money!(gross_total) %>
+                  </span>
+                </div>
+                <div class="flex justify-between">
+                  <span class={
+                    if(
+                      @ticket_order.status == :cancelled ||
+                        (@refund_data && @refund_data.total_refunded),
+                      do: "text-zinc-600",
+                      else: "text-zinc-400"
+                    )
+                  }>
+                    Discount
+                  </span>
+                  <span class={[
+                    "font-medium",
+                    if(
+                      @ticket_order.status == :cancelled ||
+                        (@refund_data && @refund_data.total_refunded),
+                      do: "text-green-600",
+                      else: "text-green-400"
+                    )
+                  ]}>
+                    -<%= MoneyHelper.format_money!(total_discount) %>
+                  </span>
+                </div>
+              <% end %>
+              <div class={[
+                "flex justify-between",
+                if(has_discount, do: "border-t pt-4", else: "")
+              ]}>
                 <span class={
                   if(
                     @ticket_order.status == :cancelled ||

@@ -968,10 +968,13 @@ defmodule YscWeb.EventDetailsLive do
                             do: "ticket",
                             else: "tickets" %> reserved for this tier
                           <%= if has_discount do %>
-                            <span class="inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200">
+                            <.badge
+                              type="green"
+                              class="inline-flex items-center gap-1 ml-2 py-0.5 rounded-full border border-green-200 text-green-700 me-0"
+                            >
                               <.icon name="hero-tag" class="w-3 h-3" />
                               <%= reservation_info.discount_percentage |> Float.round(2) %>% off
-                            </span>
+                            </.badge>
                           <% end %>
                         </p>
                         <%= if has_discount && Money.positive?(reservation_info.discount_savings) do %>
@@ -1247,7 +1250,8 @@ defmodule YscWeb.EventDetailsLive do
                     @event.id,
                     @ticket_tiers,
                     @reservations_by_tier,
-                    @current_user
+                    @current_user,
+                    @user_reservations
                   ) %>
                 <%= for breakdown <- pricing.tier_breakdowns do %>
                   <div class="space-y-1">
@@ -1305,7 +1309,8 @@ defmodule YscWeb.EventDetailsLive do
                     @event.id,
                     @ticket_tiers,
                     @reservations_by_tier,
-                    @current_user
+                    @current_user,
+                    @user_reservations
                   ) %>
                 <div class="border-t border-zinc-200 pt-4 space-y-2">
                   <%= if Money.positive?(pricing.discount_amount) do %>
@@ -1347,7 +1352,8 @@ defmodule YscWeb.EventDetailsLive do
                         @event.id,
                         @ticket_tiers,
                         @reservations_by_tier,
-                        @current_user
+                        @current_user,
+                        @user_reservations
                       ) %>
                     </span>
                   </div>
@@ -1912,7 +1918,8 @@ defmodule YscWeb.EventDetailsLive do
                       @event.id,
                       @ticket_tiers,
                       @reservations_by_tier,
-                      @current_user
+                      @current_user,
+                      @user_reservations
                     ) %>
                   </span>
                 </div>
@@ -1927,7 +1934,8 @@ defmodule YscWeb.EventDetailsLive do
                       @event.id,
                       @ticket_tiers,
                       @reservations_by_tier,
-                      @current_user
+                      @current_user,
+                      @user_reservations
                     ) %>
                   </.button>
                   <.button
@@ -1967,7 +1975,8 @@ defmodule YscWeb.EventDetailsLive do
                       @event.id,
                       @ticket_tiers,
                       @reservations_by_tier,
-                      @current_user
+                      @current_user,
+                      @user_reservations
                     ) %>
                   <%= for breakdown <- pricing.tier_breakdowns do %>
                     <div class="space-y-1">
@@ -2015,7 +2024,8 @@ defmodule YscWeb.EventDetailsLive do
                       @event.id,
                       @ticket_tiers,
                       @reservations_by_tier,
-                      @current_user
+                      @current_user,
+                      @user_reservations
                     ) %>
                   <div class="border-t border-zinc-200 pt-4 space-y-2">
                     <%= if Money.positive?(pricing.discount_amount) do %>
@@ -2045,7 +2055,8 @@ defmodule YscWeb.EventDetailsLive do
                           @event.id,
                           @ticket_tiers,
                           @reservations_by_tier,
-                          @current_user
+                          @current_user,
+                          @user_reservations
                         ) %>
                       </span>
                     </div>
@@ -5868,7 +5879,8 @@ defmodule YscWeb.EventDetailsLive do
          event_id,
          ticket_tiers,
          reservations_by_tier,
-         current_user
+         current_user,
+         user_reservations
        ) do
     pricing =
       calculate_pricing_with_discounts(
@@ -5876,7 +5888,8 @@ defmodule YscWeb.EventDetailsLive do
         event_id,
         ticket_tiers,
         reservations_by_tier,
-        current_user
+        current_user,
+        user_reservations
       )
 
     format_price(pricing.total)
@@ -5887,8 +5900,9 @@ defmodule YscWeb.EventDetailsLive do
          selected_tickets,
          event_id,
          ticket_tiers,
-         reservations_by_tier,
-         current_user
+         _reservations_by_tier,
+         current_user,
+         user_reservations
        ) do
     user_id = if current_user, do: current_user.id, else: nil
 
@@ -5899,7 +5913,11 @@ defmodule YscWeb.EventDetailsLive do
                                                                       {acc_subtotal, acc_discount,
                                                                        acc_breakdowns} ->
         ticket_tier = get_ticket_tier_by_id(event_id, tier_id, ticket_tiers)
-        tier_reservations = if user_id, do: Map.get(reservations_by_tier, tier_id, []), else: []
+
+        tier_reservations =
+          if user_id,
+            do: Enum.filter(user_reservations, &(&1.ticket_tier_id == tier_id)),
+            else: []
 
         case ticket_tier.type do
           "free" ->
@@ -6023,7 +6041,7 @@ defmodule YscWeb.EventDetailsLive do
 
   # Calculate discount for a specific tier based on reservations
   defp calculate_tier_discount(tier, requested_quantity, reservations) do
-    {total_discount, _max_discount_pct} =
+    {total_discount, max_discount_pct, _covered_qty} =
       reservations
       |> Enum.reduce_while({Money.new(0, :USD), nil, 0}, fn reservation,
                                                             {discount_acc, max_pct, covered_qty} ->
@@ -6076,7 +6094,10 @@ defmodule YscWeb.EventDetailsLive do
         end
       end)
 
-    {elem(total_discount, 0), elem(total_discount, 1)}
+    # Convert max_discount_pct from float to Decimal for consistency, or keep as float
+    discount_pct = if max_discount_pct, do: max_discount_pct, else: nil
+
+    {total_discount, discount_pct}
   end
 
   # Get reservation discount information for display
@@ -6170,15 +6191,6 @@ defmodule YscWeb.EventDetailsLive do
         ""
     end
   end
-
-  defp format_price_from_cents(cents) when is_integer(cents) do
-    # Convert cents to dollars Decimal, then create Money
-    dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(cents)
-    money = Money.new(:USD, dollars_decimal)
-    format_price(money)
-  end
-
-  defp format_price_from_cents(_), do: "$0.00"
 
   defp parse_donation_amount(value) when is_binary(value) do
     # Handle empty strings explicitly

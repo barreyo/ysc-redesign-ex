@@ -556,7 +556,7 @@ defmodule Ysc.Tickets.BookingLocker do
     {new_acc_total, new_acc_discount}
   end
 
-  defp create_ticket_order_atomic(user_id, event_id, total_amount, discount_amount \\ nil) do
+  defp create_ticket_order_atomic(user_id, event_id, total_amount, discount_amount) do
     expires_at = DateTime.add(DateTime.utc_now(), 30, :minute)
 
     attrs = %{
