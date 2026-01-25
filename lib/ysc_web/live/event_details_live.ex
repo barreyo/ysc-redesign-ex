@@ -924,6 +924,8 @@ defmodule YscWeb.EventDetailsLive do
               <% days_until_sale = if is_donation, do: nil, else: days_until_sale_starts(ticket_tier) %>
               <% is_pre_sale = if is_donation, do: false, else: not is_on_sale && !is_sale_ended %>
               <% has_selected_tickets = get_ticket_quantity(@selected_tickets, ticket_tier.id) > 0 %>
+              <% reserved_quantity = Map.get(@reservations_by_tier, ticket_tier.id, 0) %>
+              <% has_reservation = reserved_quantity > 0 %>
               <div class={[
                 "border rounded-lg p-6 transition-all duration-200",
                 cond do
@@ -936,10 +938,25 @@ defmodule YscWeb.EventDetailsLive do
               ]}>
                 <div class="flex justify-between items-start mb-4">
                   <div>
-                    <h4 class="font-semibold text-lg text-zinc-900"><%= ticket_tier.name %></h4>
+                    <div class="flex items-center gap-2">
+                      <h4 class="font-semibold text-lg text-zinc-900"><%= ticket_tier.name %></h4>
+                      <%= if has_reservation do %>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                          <.icon name="hero-ticket" class="w-3 h-3" />
+                          <%= reserved_quantity %> reserved
+                        </span>
+                      <% end %>
+                    </div>
                     <p :if={ticket_tier.description} class="text-base text-zinc-600 mt-2">
                       <%= ticket_tier.description %>
                     </p>
+                    <%= if has_reservation do %>
+                      <p class="text-sm text-blue-600 mt-1 font-medium">
+                        You have <%= reserved_quantity %> <%= if reserved_quantity == 1,
+                          do: "ticket",
+                          else: "tickets" %> reserved for this tier
+                      </p>
+                    <% end %>
                   </div>
                   <div class="text-right">
                     <p
@@ -1096,7 +1113,8 @@ defmodule YscWeb.EventDetailsLive do
                           @selected_tickets,
                           @event,
                           @availability_data,
-                          @ticket_tiers
+                          @ticket_tiers,
+                          @current_user && @current_user.id
                         ) %>
                       <button
                         phx-click="increase-ticket-quantity"
@@ -2622,6 +2640,9 @@ defmodule YscWeb.EventDetailsLive do
     |> assign(:load_stripe, true)
     |> assign(:load_calendar, true)
     |> assign(:payment_redirect_in_progress, false)
+    # Reservations - will be loaded async
+    |> assign(:user_reservations, [])
+    |> assign(:reservations_by_tier, %{})
     # Track async loading state
     |> assign(:async_data_loaded, false)
   end
@@ -2650,7 +2671,8 @@ defmodule YscWeb.EventDetailsLive do
       {:ticket_tiers, fn -> Events.list_ticket_tiers_for_event(event_id) end},
       {:selling_fast, fn -> Events.event_selling_fast?(event_id) end},
       {:user_tickets, fn -> load_user_tickets(current_user, event_id) end},
-      {:attendees, fn -> load_attendees(active_membership?, current_user, event_id) end}
+      {:attendees, fn -> load_attendees(active_membership?, current_user, event_id) end},
+      {:user_reservations, fn -> load_user_reservations(current_user, event_id) end}
     ]
 
     results =
@@ -2762,6 +2784,12 @@ defmodule YscWeb.EventDetailsLive do
     {confirmed_tickets, all_tickets_by_order}
   end
 
+  defp load_user_reservations(nil, _event_id), do: []
+
+  defp load_user_reservations(current_user, event_id) do
+    Events.list_ticket_reservations_for_user(current_user.id, event_id)
+  end
+
   defp load_attendees(false, _current_user, _event_id), do: {nil, nil, %{}}
 
   defp load_attendees(true, current_user, event_id) do
@@ -2800,6 +2828,18 @@ defmodule YscWeb.EventDetailsLive do
     {attendees_count, attendees_list, ticket_counts_per_user} =
       Map.get(results, :attendees, {nil, nil, %{}})
 
+    user_reservations = Map.get(results, :user_reservations, [])
+
+    # Build a map of tier_id => reserved_quantity for quick lookup
+    reservations_by_tier =
+      user_reservations
+      |> Enum.group_by(& &1.ticket_tier_id)
+      |> Enum.map(fn {tier_id, reservations} ->
+        total_reserved = Enum.reduce(reservations, 0, fn r, acc -> acc + r.quantity end)
+        {tier_id, total_reserved}
+      end)
+      |> Map.new()
+
     # Compute derived values
     ticket_tiers = get_ticket_tiers_from_list(ticket_tiers_with_counts)
 
@@ -2830,6 +2870,8 @@ defmodule YscWeb.EventDetailsLive do
      |> assign(:attendees_count, attendees_count)
      |> assign(:attendees_list, attendees_list)
      |> assign(:ticket_counts_per_user, ticket_counts_per_user)
+     |> assign(:user_reservations, user_reservations)
+     |> assign(:reservations_by_tier, reservations_by_tier)
      |> assign(:async_data_loaded, true)}
   end
 
@@ -3564,6 +3606,135 @@ defmodule YscWeb.EventDetailsLive do
        |> assign(:payment_intent, nil)
        |> assign(:ticket_order, nil)
        |> assign(:selected_tickets, %{})}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationCreated{ticket_reservation: reservation}},
+        socket
+      ) do
+    # Reservations affect availability - refresh availability if for this event
+    ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
+
+    if ticket_tier && ticket_tier.event_id == socket.assigns.event.id do
+      # Use the same refresh logic as TicketAvailabilityUpdated
+      event_id = socket.assigns.event.id
+      ticket_tiers_with_counts = Events.list_ticket_tiers_for_event(event_id)
+      ticket_tiers = get_ticket_tiers_from_list(ticket_tiers_with_counts)
+
+      availability_data =
+        case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
+          {:ok, availability} -> availability
+          {:error, _} -> socket.assigns.availability_data
+        end
+
+      event = socket.assigns.event
+
+      event_at_capacity =
+        compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
+
+      event_selling_fast = Events.event_selling_fast?(event_id)
+      available_capacity = get_available_capacity_from_data(availability_data)
+      sold_percentage = compute_sold_percentage(event, availability_data)
+
+      {:noreply,
+       socket
+       |> assign(:ticket_tiers, ticket_tiers)
+       |> assign(:availability_data, availability_data)
+       |> assign(:event_at_capacity, event_at_capacity)
+       |> assign(:event_selling_fast, event_selling_fast)
+       |> assign(:available_capacity, available_capacity)
+       |> assign(:sold_percentage, sold_percentage)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationFulfilled{ticket_reservation: reservation}},
+        socket
+      ) do
+    # Reservations affect availability - refresh availability if for this event
+    ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
+
+    if ticket_tier && ticket_tier.event_id == socket.assigns.event.id do
+      # Use the same refresh logic as TicketAvailabilityUpdated
+      event_id = socket.assigns.event.id
+      ticket_tiers_with_counts = Events.list_ticket_tiers_for_event(event_id)
+      ticket_tiers = get_ticket_tiers_from_list(ticket_tiers_with_counts)
+
+      availability_data =
+        case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
+          {:ok, availability} -> availability
+          {:error, _} -> socket.assigns.availability_data
+        end
+
+      event = socket.assigns.event
+
+      event_at_capacity =
+        compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
+
+      event_selling_fast = Events.event_selling_fast?(event_id)
+      available_capacity = get_available_capacity_from_data(availability_data)
+      sold_percentage = compute_sold_percentage(event, availability_data)
+
+      {:noreply,
+       socket
+       |> assign(:ticket_tiers, ticket_tiers)
+       |> assign(:availability_data, availability_data)
+       |> assign(:event_at_capacity, event_at_capacity)
+       |> assign(:event_selling_fast, event_selling_fast)
+       |> assign(:available_capacity, available_capacity)
+       |> assign(:sold_percentage, sold_percentage)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationCancelled{ticket_reservation: reservation}},
+        socket
+      ) do
+    # Reservations affect availability - refresh availability if for this event
+    ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
+
+    if ticket_tier && ticket_tier.event_id == socket.assigns.event.id do
+      # Use the same refresh logic as TicketAvailabilityUpdated
+      event_id = socket.assigns.event.id
+      ticket_tiers_with_counts = Events.list_ticket_tiers_for_event(event_id)
+      ticket_tiers = get_ticket_tiers_from_list(ticket_tiers_with_counts)
+
+      availability_data =
+        case Ysc.Tickets.BookingLocker.check_availability_with_lock(event_id) do
+          {:ok, availability} -> availability
+          {:error, _} -> socket.assigns.availability_data
+        end
+
+      event = socket.assigns.event
+
+      event_at_capacity =
+        compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
+
+      event_selling_fast = Events.event_selling_fast?(event_id)
+      available_capacity = get_available_capacity_from_data(availability_data)
+      sold_percentage = compute_sold_percentage(event, availability_data)
+
+      {:noreply,
+       socket
+       |> assign(:ticket_tiers, ticket_tiers)
+       |> assign(:availability_data, availability_data)
+       |> assign(:event_at_capacity, event_at_capacity)
+       |> assign(:event_selling_fast, event_selling_fast)
+       |> assign(:available_capacity, available_capacity)
+       |> assign(:sold_percentage, sold_percentage)}
+    else
+      {:noreply, socket}
     end
   end
 
@@ -5254,7 +5425,8 @@ defmodule YscWeb.EventDetailsLive do
          selected_tickets,
          event,
          availability_data,
-         ticket_tiers
+         ticket_tiers,
+         user_id \\ nil
        ) do
     if tier_on_sale?(ticket_tier) do
       if donation_tier?(ticket_tier) do
@@ -5266,7 +5438,8 @@ defmodule YscWeb.EventDetailsLive do
           current_quantity,
           selected_tickets,
           event,
-          ticket_tiers
+          ticket_tiers,
+          user_id
         )
       end
     else
@@ -5279,12 +5452,23 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   defp check_availability_cached(
+         availability,
+         ticket_tier,
+         current_quantity,
+         selected_tickets,
+         event,
+         ticket_tiers,
+         user_id \\ nil
+       )
+
+  defp check_availability_cached(
          nil,
          ticket_tier,
          current_quantity,
          selected_tickets,
          event,
-         ticket_tiers
+         ticket_tiers,
+         user_id
        ) do
     # Fallback to query if cache is not available
     can_increase_quantity?(
@@ -5292,7 +5476,8 @@ defmodule YscWeb.EventDetailsLive do
       current_quantity,
       selected_tickets,
       event,
-      ticket_tiers
+      ticket_tiers,
+      user_id
     )
   end
 
@@ -5302,43 +5487,71 @@ defmodule YscWeb.EventDetailsLive do
          current_quantity,
          selected_tickets,
          event,
-         ticket_tiers
+         ticket_tiers,
+         user_id
        ) do
     tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
     event_capacity = availability.event_capacity
 
-    tier_available = check_tier_availability(tier_info, current_quantity)
+    tier_available = check_tier_availability(tier_info, current_quantity, ticket_tier.id, user_id)
 
     event_available =
-      check_event_capacity(event_capacity, selected_tickets, event.id, ticket_tiers)
+      check_event_capacity(event_capacity, selected_tickets, event.id, ticket_tiers, user_id)
 
     tier_available && event_available
   end
 
-  defp check_tier_availability(nil, _current_quantity), do: false
+  defp check_tier_availability(nil, _current_quantity, _tier_id, _user_id), do: false
 
-  defp check_tier_availability(tier_info, current_quantity) do
+  defp check_tier_availability(tier_info, current_quantity, tier_id, user_id) do
     if tier_info.available == :unlimited do
       true
     else
-      current_quantity < tier_info.available
+      # If user has reservations, add their reserved quantity to available
+      user_available =
+        if user_id do
+          user_reserved = Events.get_user_reserved_quantity(tier_id, user_id)
+          tier_info.available + user_reserved
+        else
+          tier_info.available
+        end
+
+      current_quantity < user_available
     end
   end
 
-  defp check_event_capacity(event_capacity, selected_tickets, event_id, ticket_tiers) do
+  defp check_event_capacity(
+         event_capacity,
+         selected_tickets,
+         event_id,
+         ticket_tiers,
+         user_id \\ nil
+       ) do
     case event_capacity.available do
       :unlimited ->
         true
 
       available ->
-        total_selected =
-          calculate_total_selected_tickets(
-            selected_tickets,
-            event_id,
-            ticket_tiers
-          )
+        # If user has reservations, allow bypassing event capacity
+        user_has_reservations =
+          if user_id do
+            Events.list_ticket_reservations_for_user(user_id, event_id) != []
+          else
+            false
+          end
 
-        total_selected + 1 <= available
+        if user_has_reservations do
+          true
+        else
+          total_selected =
+            calculate_total_selected_tickets(
+              selected_tickets,
+              event_id,
+              ticket_tiers
+            )
+
+          total_selected + 1 <= available
+        end
     end
   end
 
@@ -5348,7 +5561,8 @@ defmodule YscWeb.EventDetailsLive do
          current_quantity,
          selected_tickets,
          event,
-         ticket_tiers
+         ticket_tiers,
+         user_id \\ nil
        ) do
     if tier_on_sale?(ticket_tier) do
       if donation_tier?(ticket_tier) do
@@ -5359,7 +5573,8 @@ defmodule YscWeb.EventDetailsLive do
           current_quantity,
           selected_tickets,
           event,
-          ticket_tiers
+          ticket_tiers,
+          user_id
         )
       end
     else
@@ -5372,17 +5587,19 @@ defmodule YscWeb.EventDetailsLive do
          current_quantity,
          selected_tickets,
          event,
-         ticket_tiers
+         ticket_tiers,
+         user_id \\ nil
        ) do
     case Ysc.Tickets.BookingLocker.check_availability_with_lock(event.id) do
       {:ok, availability} ->
         tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
         event_capacity = availability.event_capacity
 
-        tier_available = check_tier_availability(tier_info, current_quantity)
+        tier_available =
+          check_tier_availability(tier_info, current_quantity, ticket_tier.id, user_id)
 
         event_available =
-          check_event_capacity(event_capacity, selected_tickets, event.id, ticket_tiers)
+          check_event_capacity(event_capacity, selected_tickets, event.id, ticket_tiers, user_id)
 
         tier_available && event_available
 

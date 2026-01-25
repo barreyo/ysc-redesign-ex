@@ -12,6 +12,7 @@ defmodule Ysc.Events do
   alias Ysc.Events.TicketTier
   alias Ysc.Events.Ticket
   alias Ysc.Events.TicketDetail
+  alias Ysc.Events.TicketReservation
 
   def subscribe() do
     Phoenix.PubSub.subscribe(Ysc.PubSub, topic())
@@ -1220,6 +1221,159 @@ defmodule Ysc.Events do
   end
 
   def registration_required?(_), do: false
+
+  # Ticket Reservation Management Functions
+
+  @doc """
+  Create a new ticket reservation.
+  """
+  def create_ticket_reservation(attrs \\ %{}) do
+    %TicketReservation{}
+    |> TicketReservation.changeset(attrs)
+    |> Repo.insert()
+    |> case do
+      {:ok, reservation} ->
+        broadcast(%Ysc.MessagePassingEvents.TicketReservationCreated{
+          ticket_reservation: reservation
+        })
+
+        {:ok, reservation}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
+  Get a ticket reservation by ID.
+  """
+  def get_ticket_reservation!(id) do
+    Repo.get!(TicketReservation, id)
+    |> Repo.preload([:ticket_tier, :user, :created_by, :ticket_order])
+  end
+
+  @doc """
+  Get a ticket reservation by ID, returns nil if not found.
+  """
+  def get_ticket_reservation(id) do
+    case Repo.get(TicketReservation, id) do
+      nil -> nil
+      reservation -> Repo.preload(reservation, [:ticket_tier, :user, :created_by, :ticket_order])
+    end
+  end
+
+  @doc """
+  List all ticket reservations for a ticket tier.
+  """
+  def list_ticket_reservations_for_tier(tier_id) do
+    TicketReservation
+    |> where([tr], tr.ticket_tier_id == ^tier_id)
+    |> order_by([tr], desc: tr.inserted_at)
+    |> Repo.all()
+    |> Repo.preload([:ticket_tier, :user, :created_by, :ticket_order])
+  end
+
+  @doc """
+  List ticket reservations for a user for a specific event.
+  """
+  def list_ticket_reservations_for_user(user_id, event_id) do
+    TicketReservation
+    |> join(:inner, [tr], tt in TicketTier, on: tr.ticket_tier_id == tt.id)
+    |> where([tr, tt], tr.user_id == ^user_id and tt.event_id == ^event_id)
+    |> where([tr], tr.status == "active")
+    |> order_by([tr], desc: tr.inserted_at)
+    |> Repo.all()
+    |> Repo.preload([:ticket_tier, :user, :created_by, :ticket_order])
+  end
+
+  @doc """
+  List only active reservations for a ticket tier.
+  """
+  def list_active_reservations_for_tier(tier_id) do
+    TicketReservation
+    |> where([tr], tr.ticket_tier_id == ^tier_id and tr.status == "active")
+    |> order_by([tr], desc: tr.inserted_at)
+    |> Repo.all()
+    |> Repo.preload([:ticket_tier, :user, :created_by])
+  end
+
+  @doc """
+  Fulfill a ticket reservation by linking it to a ticket order.
+  """
+  def fulfill_ticket_reservation(%TicketReservation{} = reservation, ticket_order_id) do
+    reservation
+    |> TicketReservation.changeset(%{
+      status: "fulfilled",
+      fulfilled_at: DateTime.utc_now(),
+      ticket_order_id: ticket_order_id
+    })
+    |> Repo.update()
+    |> case do
+      {:ok, reservation} ->
+        broadcast(%Ysc.MessagePassingEvents.TicketReservationFulfilled{
+          ticket_reservation: reservation
+        })
+
+        {:ok, reservation}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
+  Cancel a ticket reservation.
+  """
+  def cancel_ticket_reservation(%TicketReservation{} = reservation) do
+    reservation
+    |> TicketReservation.changeset(%{
+      status: "cancelled",
+      cancelled_at: DateTime.utc_now()
+    })
+    |> Repo.update()
+    |> case do
+      {:ok, reservation} ->
+        broadcast(%Ysc.MessagePassingEvents.TicketReservationCancelled{
+          ticket_reservation: reservation
+        })
+
+        {:ok, reservation}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
+  Count total reserved tickets for a tier (active reservations only).
+  """
+  def count_reserved_tickets_for_tier(tier_id) do
+    TicketReservation
+    |> where([tr], tr.ticket_tier_id == ^tier_id and tr.status == "active")
+    |> select([tr], sum(tr.quantity))
+    |> Repo.one()
+    |> case do
+      nil -> 0
+      count -> count
+    end
+  end
+
+  @doc """
+  Get the quantity of tickets reserved for a specific user and tier.
+  """
+  def get_user_reserved_quantity(tier_id, user_id) do
+    TicketReservation
+    |> where(
+      [tr],
+      tr.ticket_tier_id == ^tier_id and tr.user_id == ^user_id and tr.status == "active"
+    )
+    |> select([tr], sum(tr.quantity))
+    |> Repo.one()
+    |> case do
+      nil -> 0
+      count -> count
+    end
+  end
 
   defp broadcast(event) do
     Phoenix.PubSub.broadcast(Ysc.PubSub, topic(), {__MODULE__, event})

@@ -107,6 +107,14 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                           </div>
                         </div>
                       </div>
+                      <p
+                        :if={
+                          reserved_count = get_reserved_count(ticket_tier.id, @reservations_by_tier)
+                        }
+                        class="text-xs text-amber-600 mt-1"
+                      >
+                        <%= reserved_count %> reserved
+                      </p>
                     </div>
 
                     <div>
@@ -131,12 +139,20 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
                 <div class="flex items-center gap-2 pt-4 lg:pt-0 border-t lg:border-t-0 border-zinc-100">
                   <button
+                    phx-click="reserve-tickets"
+                    phx-value-tier-id={ticket_tier.id}
+                    phx-target={@myself}
+                    phx-disable-with="Loading..."
+                    class="p-2 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
+                  >
+                    <.icon name="hero-ticket" class="w-5 h-5" />
+                  </button>
+                  <button
                     phx-click="edit-ticket-tier"
                     phx-value-id={ticket_tier.id}
                     phx-target={@myself}
                     phx-disable-with="Loading..."
                     class="p-2 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                    title="Edit ticket tier"
                   >
                     <.icon name="hero-pencil" class="w-5 h-5" />
                   </button>
@@ -147,11 +163,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                     phx-disable-with="Deleting..."
                     data-confirm="Are you sure you want to delete this ticket tier? This action cannot be undone."
                     disabled={ticket_tier.sold_tickets_count > 0}
-                    title={
-                      if ticket_tier.sold_tickets_count > 0,
-                        do: "Cannot delete ticket tier with sold tickets",
-                        else: "Delete ticket tier"
-                    }
                     class={[
                       "p-2 rounded-md transition-colors",
                       if ticket_tier.sold_tickets_count > 0 do
@@ -165,6 +176,45 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                   </button>
                 </div>
               </div>
+              <!-- Reservations Section -->
+              <% reservations = Map.get(@reservations_by_tier, ticket_tier.id, []) %>
+              <%= if length(reservations) > 0 do %>
+                <div class="mt-4 pt-4 border-t border-zinc-200">
+                  <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
+                    Active Reservations
+                  </p>
+                  <div class="space-y-2">
+                    <%= for reservation <- reservations do %>
+                      <div class="flex items-center justify-between p-2 bg-amber-50 rounded border border-amber-200">
+                        <div class="flex-1">
+                          <p class="text-sm font-medium text-zinc-900">
+                            <%= reservation.user.first_name %> <%= reservation.user.last_name %>
+                          </p>
+                          <p class="text-xs text-zinc-600">
+                            <%= reservation.user.email %> • <%= reservation.quantity %> ticket<%= if reservation.quantity !=
+                                                                                                       1,
+                                                                                                     do:
+                                                                                                       "s" %>
+                            <span :if={reservation.expires_at} class="text-amber-600">
+                              • Expires <%= format_date(reservation.expires_at) %>
+                            </span>
+                          </p>
+                        </div>
+                        <button
+                          phx-click="cancel-reservation"
+                          phx-value-id={reservation.id}
+                          phx-target={@myself}
+                          phx-disable-with="Cancelling..."
+                          data-confirm="Are you sure you want to cancel this reservation?"
+                          class="p-1.5 text-amber-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        >
+                          <.icon name="hero-x-mark" class="w-4 h-4" />
+                        </button>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
             </div>
           <% end %>
         </div>
@@ -261,6 +311,22 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
           ticket_tier={@editing_ticket_tier}
         />
       </.modal>
+      <!-- Reserve Tickets Modal -->
+      <.modal
+        :if={@show_reserve_modal && @reserving_tier}
+        id="reserve-tickets-modal"
+        show
+        on_cancel={JS.push("close-reserve-tickets-modal", target: @myself)}
+      >
+        <.live_component
+          id={"ticket-reservation-form-#{@reserving_tier.id}"}
+          module={YscWeb.AdminEventsLive.TicketReservationForm}
+          ticket_tier={@reserving_tier}
+          ticket_tier_id={@reserving_tier.id}
+          event_id={@event_id}
+          current_user={@current_user}
+        />
+      </.modal>
     </div>
     """
   end
@@ -270,14 +336,27 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     ticket_tiers = Events.list_ticket_tiers_for_event(assigns.event_id)
     ticket_purchases = Events.get_ticket_purchase_summary(assigns.event_id)
 
+    # Load reservations for each tier
+    reservations_by_tier =
+      ticket_tiers
+      |> Enum.map(fn tier ->
+        reservations = Events.list_active_reservations_for_tier(tier.id)
+        {tier.id, reservations}
+      end)
+      |> Map.new()
+
     {:ok,
      socket
      |> assign(assigns)
      |> assign(:ticket_tiers, ticket_tiers)
      |> assign(:ticket_purchases, ticket_purchases)
+     |> assign(:reservations_by_tier, reservations_by_tier)
      |> assign(:show_add_modal, false)
      |> assign(:show_edit_modal, false)
-     |> assign(:editing_ticket_tier, nil)}
+     |> assign(:show_reserve_modal, false)
+     |> assign(:reserving_tier, nil)
+     |> assign(:editing_ticket_tier, nil)
+     |> assign(:current_user, assigns[:current_user])}
   end
 
   @impl true
@@ -367,6 +446,46 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
      |> push_event("download-csv", %{content: encoded_content, filename: filename})}
   end
 
+  @impl true
+  def handle_event("reserve-tickets", %{"tier-id" => tier_id}, socket) do
+    ticket_tier = Events.get_ticket_tier!(tier_id)
+
+    {:noreply,
+     socket
+     |> assign(:show_reserve_modal, true)
+     |> assign(:reserving_tier, ticket_tier)}
+  end
+
+  @impl true
+  def handle_event("close-reserve-tickets-modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_reserve_modal, false)
+     |> assign(:reserving_tier, nil)}
+  end
+
+  @impl true
+  def handle_event("cancel-reservation", %{"id" => id}, socket) do
+    reservation = Events.get_ticket_reservation!(id)
+
+    case Events.cancel_ticket_reservation(reservation) do
+      {:ok, _reservation} ->
+        # Refresh reservations
+        reservations_by_tier = refresh_reservations(socket.assigns.event_id)
+        ticket_tiers = Events.list_ticket_tiers_for_event(socket.assigns.event_id)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Reservation cancelled successfully")
+         |> assign(:ticket_tiers, ticket_tiers)
+         |> assign(:reservations_by_tier, reservations_by_tier)}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to cancel reservation")}
+    end
+  end
+
+  @impl true
   def handle_info(
         {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
         socket
@@ -379,6 +498,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
+  @impl true
   def handle_info(
         {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierUpdated{ticket_tier: ticket_tier}},
         socket
@@ -391,6 +511,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     end
   end
 
+  @impl true
   def handle_info(
         {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier}},
         socket
@@ -401,6 +522,103 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     else
       {:noreply, socket}
     end
+  end
+
+  @impl true
+  def handle_info({:ticket_reservation_created, event_id}, socket) do
+    if event_id == socket.assigns.event_id do
+      reservations_by_tier = refresh_reservations(event_id)
+      ticket_tiers = Events.list_ticket_tiers_for_event(event_id)
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Ticket reservation created successfully")
+       |> assign(:show_reserve_modal, false)
+       |> assign(:reserving_tier, nil)
+       |> assign(:ticket_tiers, ticket_tiers)
+       |> assign(:reservations_by_tier, reservations_by_tier)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationCreated{ticket_reservation: reservation}},
+        socket
+      ) do
+    ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
+
+    if ticket_tier && ticket_tier.event_id == socket.assigns.event_id do
+      reservations_by_tier = refresh_reservations(socket.assigns.event_id)
+      ticket_tiers = Events.list_ticket_tiers_for_event(socket.assigns.event_id)
+
+      {:noreply,
+       socket
+       |> assign(:ticket_tiers, ticket_tiers)
+       |> assign(:reservations_by_tier, reservations_by_tier)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationFulfilled{ticket_reservation: reservation}},
+        socket
+      ) do
+    ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
+
+    if ticket_tier && ticket_tier.event_id == socket.assigns.event_id do
+      reservations_by_tier = refresh_reservations(socket.assigns.event_id)
+      ticket_tiers = Events.list_ticket_tiers_for_event(socket.assigns.event_id)
+
+      {:noreply,
+       socket
+       |> assign(:ticket_tiers, ticket_tiers)
+       |> assign(:reservations_by_tier, reservations_by_tier)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationCancelled{ticket_reservation: reservation}},
+        socket
+      ) do
+    ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
+
+    if ticket_tier && ticket_tier.event_id == socket.assigns.event_id do
+      reservations_by_tier = refresh_reservations(socket.assigns.event_id)
+      ticket_tiers = Events.list_ticket_tiers_for_event(socket.assigns.event_id)
+
+      {:noreply,
+       socket
+       |> assign(:ticket_tiers, ticket_tiers)
+       |> assign(:reservations_by_tier, reservations_by_tier)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp refresh_reservations(event_id) do
+    ticket_tiers = Events.list_ticket_tiers_for_event(event_id)
+
+    ticket_tiers
+    |> Enum.map(fn tier ->
+      reservations = Events.list_active_reservations_for_tier(tier.id)
+      {tier.id, reservations}
+    end)
+    |> Map.new()
+  end
+
+  defp get_reserved_count(tier_id, reservations_by_tier) do
+    reservations = Map.get(reservations_by_tier, tier_id, [])
+    Enum.reduce(reservations, 0, fn reservation, acc -> acc + reservation.quantity end)
   end
 
   defp build_csv_rows(tickets) do
@@ -446,15 +664,6 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
       end
     end)
   end
-
-  defp ticket_tier_type_to_badge_style(type) when is_atom(type) do
-    ticket_tier_type_to_badge_style(to_string(type))
-  end
-
-  defp ticket_tier_type_to_badge_style("free"), do: "green"
-  defp ticket_tier_type_to_badge_style("paid"), do: "sky"
-  defp ticket_tier_type_to_badge_style("donation"), do: "yellow"
-  defp ticket_tier_type_to_badge_style(_), do: "default"
 
   defp format_sales_period(nil, nil), do: "Always available"
   defp format_sales_period(start_date, nil), do: "From #{format_date(start_date)}"

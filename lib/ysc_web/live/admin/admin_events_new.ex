@@ -426,6 +426,7 @@ defmodule YscWeb.AdminEventsNewLive do
               id={"ticket-tier-management-#{@event.id}"}
               module={YscWeb.AdminEventsLive.TicketTierManagement}
               event_id={@event.id}
+              current_user={@current_user}
             />
           </div>
         </div>
@@ -868,6 +869,36 @@ defmodule YscWeb.AdminEventsNewLive do
       end
 
     {:noreply, socket |> assign_form(changeset) |> assign(:event, updated_event)}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationCreated{ticket_reservation: reservation}},
+        socket
+      ) do
+    # Component handles this, but we need to catch it to prevent crashes
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationFulfilled{ticket_reservation: reservation}},
+        socket
+      ) do
+    # Component handles this, but we need to catch it to prevent crashes
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationCancelled{ticket_reservation: reservation}},
+        socket
+      ) do
+    # Component handles this, but we need to catch it to prevent crashes
+    {:noreply, socket}
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do

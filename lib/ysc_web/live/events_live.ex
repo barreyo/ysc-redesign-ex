@@ -296,6 +296,78 @@ defmodule YscWeb.EventsLive do
   end
 
   @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationCreated{ticket_reservation: reservation}},
+        socket
+      ) do
+    # Reservations affect availability, refresh the event
+    ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
+
+    if ticket_tier do
+      case Events.get_event(ticket_tier.event_id) do
+        nil ->
+          {:noreply, socket}
+
+        event ->
+          event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
+          send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationFulfilled{ticket_reservation: reservation}},
+        socket
+      ) do
+    # Reservations affect availability, refresh the event
+    ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
+
+    if ticket_tier do
+      case Events.get_event(ticket_tier.event_id) do
+        nil ->
+          {:noreply, socket}
+
+        event ->
+          event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
+          send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketReservationCancelled{ticket_reservation: reservation}},
+        socket
+      ) do
+    # Reservations affect availability, refresh the event
+    ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
+
+    if ticket_tier do
+      case Events.get_event(ticket_tier.event_id) do
+        nil ->
+          {:noreply, socket}
+
+        event ->
+          event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
+          send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
   def handle_event("show_more_past_events", _params, socket) do
     current_limit = socket.assigns.past_events_limit
     # Increase by 10, max 50

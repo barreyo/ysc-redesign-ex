@@ -8,7 +8,7 @@ defmodule Ysc.Tickets.BookingLocker do
 
   import Ecto.Query, warn: false
   alias Ysc.Repo
-  alias Ysc.Events.{Event, TicketTier, Ticket}
+  alias Ysc.Events.{Event, TicketTier, Ticket, TicketReservation}
   alias Ysc.Tickets.TicketOrder
 
   @doc """
@@ -32,11 +32,15 @@ defmodule Ysc.Tickets.BookingLocker do
   def atomic_booking(user_id, event_id, ticket_selections) do
     Repo.transaction(fn ->
       with {:ok, event} <- lock_and_validate_event(event_id),
-           {:ok, tiers} <- lock_and_validate_tiers(event_id, ticket_selections),
-           :ok <- validate_event_capacity(event, tiers, ticket_selections),
+           {:ok, tiers} <- lock_and_validate_tiers(event_id, ticket_selections, user_id),
+           :ok <- validate_event_capacity(event, tiers, ticket_selections, user_id),
            {:ok, total_amount} <- calculate_total_amount(tiers, ticket_selections),
            {:ok, ticket_order} <- create_ticket_order_atomic(user_id, event_id, total_amount),
-           {:ok, _tickets} <- create_tickets_atomic(ticket_order, tiers, ticket_selections) do
+           # Fulfill reservations first, then create only additional tickets needed
+           {:ok, fulfilled_by_tier} <-
+             fulfill_reservations_atomic(user_id, event_id, ticket_order.id, ticket_selections),
+           {:ok, _tickets} <-
+             create_tickets_atomic(ticket_order, tiers, ticket_selections, fulfilled_by_tier) do
         ticket_order
       else
         {:error, reason} ->
@@ -93,7 +97,7 @@ defmodule Ysc.Tickets.BookingLocker do
     end
   end
 
-  defp lock_and_validate_tiers(event_id, ticket_selections) do
+  defp lock_and_validate_tiers(event_id, ticket_selections, user_id) do
     _tier_ids = Map.keys(ticket_selections)
 
     # Lock all ticket tiers for this event
@@ -103,7 +107,7 @@ defmodule Ysc.Tickets.BookingLocker do
     validations =
       ticket_selections
       |> Enum.map(fn {tier_id, quantity} ->
-        validate_tier_availability(tiers, tier_id, quantity, event_id)
+        validate_tier_availability(tiers, tier_id, quantity, event_id, user_id)
       end)
 
     if Enum.any?(validations, &(&1 != :ok)) do
@@ -113,7 +117,7 @@ defmodule Ysc.Tickets.BookingLocker do
     end
   end
 
-  defp validate_tier_availability(tiers, tier_id, quantity, event_id) do
+  defp validate_tier_availability(tiers, tier_id, quantity, event_id, user_id) do
     case Enum.find(tiers, &(&1.id == tier_id)) do
       nil ->
         {:error, :tier_not_found}
@@ -125,22 +129,38 @@ defmodule Ysc.Tickets.BookingLocker do
           quantity <= 0 -> {:error, :invalid_quantity}
           # Donations don't count towards capacity - skip capacity check
           tier.type == :donation or tier.type == "donation" -> :ok
-          true -> validate_tier_capacity(tier, quantity)
+          true -> validate_tier_capacity(tier, quantity, user_id)
         end
     end
   end
 
-  defp validate_tier_capacity(tier, requested_quantity) do
+  defp validate_tier_capacity(tier, requested_quantity, user_id) do
     available = get_available_tier_quantity_locked(tier)
+    user_reserved = get_user_reserved_quantity_locked(tier.id, user_id)
 
     cond do
-      available == :unlimited -> :ok
-      requested_quantity <= available -> :ok
-      true -> {:error, :insufficient_capacity}
+      available == :unlimited ->
+        :ok
+
+      # If user has reservations, add their reserved quantity to available
+      user_reserved > 0 ->
+        user_available = available + user_reserved
+
+        if requested_quantity <= user_available do
+          :ok
+        else
+          {:error, :insufficient_capacity}
+        end
+
+      requested_quantity <= available ->
+        :ok
+
+      true ->
+        {:error, :insufficient_capacity}
     end
   end
 
-  defp validate_event_capacity(%Event{max_attendees: nil}, _tiers, _ticket_selections) do
+  defp validate_event_capacity(%Event{max_attendees: nil}, _tiers, _ticket_selections, _user_id) do
     # No capacity limit, always OK
     :ok
   end
@@ -148,7 +168,8 @@ defmodule Ysc.Tickets.BookingLocker do
   defp validate_event_capacity(
          %Event{max_attendees: max_attendees} = event,
          tiers,
-         ticket_selections
+         ticket_selections,
+         user_id
        ) do
     # Count current tickets (both confirmed and pending count toward capacity)
     current_attendees = count_all_tickets_for_event_locked(event.id)
@@ -167,8 +188,12 @@ defmodule Ysc.Tickets.BookingLocker do
         end
       end)
 
+    # Check if user has reservations that would allow them to bypass capacity
+    user_has_reservations = user_has_reservations_for_event?(user_id, event.id)
+
     # Check if adding requested tickets would exceed capacity
-    if current_attendees + total_requested <= max_attendees do
+    # Allow reserved users to bypass capacity check
+    if user_has_reservations or current_attendees + total_requested <= max_attendees do
       :ok
     else
       {:error, :event_capacity_exceeded}
@@ -195,7 +220,120 @@ defmodule Ysc.Tickets.BookingLocker do
 
   defp get_available_tier_quantity_locked(%TicketTier{id: tier_id, quantity: total_quantity}) do
     sold_count = count_sold_tickets_for_tier_locked(tier_id)
-    max(0, total_quantity - sold_count)
+    reserved_count = count_reserved_tickets_for_tier_locked(tier_id)
+    max(0, total_quantity - sold_count - reserved_count)
+  end
+
+  defp get_user_reserved_quantity_locked(tier_id, user_id) do
+    TicketReservation
+    |> where(
+      [tr],
+      tr.ticket_tier_id == ^tier_id and tr.user_id == ^user_id and tr.status == "active"
+    )
+    |> select([tr], sum(tr.quantity))
+    |> Repo.one()
+    |> case do
+      nil -> 0
+      count -> count
+    end
+  end
+
+  defp count_reserved_tickets_for_tier_locked(tier_id) do
+    TicketReservation
+    |> where([tr], tr.ticket_tier_id == ^tier_id and tr.status == "active")
+    |> select([tr], sum(tr.quantity))
+    |> Repo.one()
+    |> case do
+      nil -> 0
+      count -> count
+    end
+  end
+
+  defp user_has_reservations_for_event?(user_id, event_id) do
+    TicketReservation
+    |> join(:inner, [tr], tt in TicketTier, on: tr.ticket_tier_id == tt.id)
+    |> where(
+      [tr, tt],
+      tr.user_id == ^user_id and tt.event_id == ^event_id and tr.status == "active"
+    )
+    |> Repo.exists?()
+  end
+
+  defp fulfill_reservations_atomic(user_id, event_id, ticket_order_id, ticket_selections) do
+    # Get all active reservations for this user and event
+    reservations =
+      TicketReservation
+      |> join(:inner, [tr], tt in TicketTier, on: tr.ticket_tier_id == tt.id)
+      |> where(
+        [tr, tt],
+        tr.user_id == ^user_id and tt.event_id == ^event_id and tr.status == "active"
+      )
+      |> order_by([tr], asc: tr.inserted_at)
+      |> Repo.all()
+
+    # Fulfill reservations matching the ticket selections
+    fulfillments =
+      ticket_selections
+      |> Enum.reduce({reservations, []}, fn {tier_id, quantity},
+                                            {remaining_reservations, fulfilled} ->
+        tier_reservations = Enum.filter(remaining_reservations, &(&1.ticket_tier_id == tier_id))
+
+        {fulfilled_for_tier, still_active} =
+          fulfill_reservations_for_tier(tier_reservations, quantity, ticket_order_id)
+
+        remaining = remaining_reservations -- (tier_reservations ++ still_active)
+        {remaining, fulfilled ++ fulfilled_for_tier}
+      end)
+
+    # Update all fulfilled reservations
+    fulfilled_reservations = elem(fulfillments, 1)
+
+    Enum.each(fulfilled_reservations, fn reservation ->
+      reservation
+      |> TicketReservation.changeset(%{
+        status: "fulfilled",
+        fulfilled_at: DateTime.utc_now(),
+        ticket_order_id: ticket_order_id
+      })
+      |> Repo.update!()
+    end)
+
+    # Return fulfilled quantities by tier for use in ticket creation
+    fulfilled_by_tier =
+      fulfilled_reservations
+      |> Enum.group_by(& &1.ticket_tier_id)
+      |> Enum.map(fn {tier_id, reservations} ->
+        fulfilled_qty = Enum.reduce(reservations, 0, fn r, acc -> acc + r.quantity end)
+        {tier_id, fulfilled_qty}
+      end)
+      |> Map.new()
+
+    {:ok, fulfilled_by_tier}
+  end
+
+  defp fulfill_reservations_for_tier(reservations, requested_quantity, _ticket_order_id) do
+    # Fulfill reservations in order (FIFO) until we've covered the requested quantity
+    {fulfilled, _remaining_qty} =
+      Enum.reduce_while(reservations, {[], requested_quantity}, fn reservation,
+                                                                   {fulfilled_acc, remaining_qty} ->
+        if remaining_qty <= 0 do
+          {:halt, {fulfilled_acc, 0}}
+        else
+          reservation_qty = reservation.quantity
+
+          if reservation_qty <= remaining_qty do
+            # Fully fulfill this reservation
+            {:cont, {[reservation | fulfilled_acc], remaining_qty - reservation_qty}}
+          else
+            # This reservation covers more than needed, but we'll fulfill it anyway
+            # (In a more sophisticated system, we could split reservations)
+            {:halt, {[reservation | fulfilled_acc], 0}}
+          end
+        end
+      end)
+
+    remaining = reservations -- fulfilled
+    {fulfilled, remaining}
   end
 
   defp count_sold_tickets_for_tier_locked(tier_id) do
@@ -325,22 +463,31 @@ defmodule Ysc.Tickets.BookingLocker do
     end
   end
 
-  defp create_tickets_atomic(ticket_order, tiers, ticket_selections) do
+  defp create_tickets_atomic(ticket_order, tiers, ticket_selections, fulfilled_by_tier) do
+    # fulfilled_by_tier is a map of tier_id => fulfilled_quantity from reservations
+    # We only create tickets for quantities that exceed what was fulfilled from reservations
     tickets =
       ticket_selections
       |> Enum.flat_map(fn {tier_id, amount_or_quantity} ->
         tier = Enum.find(tiers, &(&1.id == tier_id))
 
         # For donation tiers, always create 1 ticket regardless of amount
-        # For other tiers, create tickets equal to quantity
-        ticket_count =
+        # For other tiers, calculate how many tickets to create
+        requested_count =
           case tier.type do
             :donation -> 1
             "donation" -> 1
             _ -> amount_or_quantity
           end
 
-        Enum.map(1..ticket_count, fn _ ->
+        # Check if we have fulfilled reservations for this tier
+        fulfilled_count = Map.get(fulfilled_by_tier, tier_id, 0)
+
+        # Only create tickets for the quantity that wasn't covered by reservations
+        # Reserved tickets are "used first" - we only create additional tickets from general pool
+        tickets_to_create = max(0, requested_count - fulfilled_count)
+
+        Enum.map(1..tickets_to_create, fn _ ->
           %Ticket{}
           |> Ticket.changeset(%{
             event_id: ticket_order.event_id,

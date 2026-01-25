@@ -13,7 +13,7 @@ defmodule Ysc.Tickets.BookingValidator do
   import Ecto.Query, warn: false
   alias Ysc.Repo
   alias Ysc.Events
-  alias Ysc.Events.{Event, TicketTier, Ticket}
+  alias Ysc.Events.{Event, TicketTier, Ticket, TicketReservation}
   alias Ysc.Accounts
 
   @doc """
@@ -32,7 +32,7 @@ defmodule Ysc.Tickets.BookingValidator do
     with :ok <- validate_user(user_id),
          :ok <- validate_event(event_id),
          :ok <- validate_ticket_selections(event_id, ticket_selections),
-         :ok <- validate_capacity(event_id, ticket_selections) do
+         :ok <- validate_capacity(event_id, ticket_selections, user_id) do
       validate_concurrent_booking(user_id, event_id)
     end
   end
@@ -71,13 +71,13 @@ defmodule Ysc.Tickets.BookingValidator do
   - `{:error, :insufficient_capacity}` if tier is sold out
   - `{:error, :tier_not_found}` if tier doesn't exist
   """
-  def check_tier_capacity(tier_id, requested_quantity) do
+  def check_tier_capacity(tier_id, requested_quantity, user_id \\ nil) do
     case get_ticket_tier(tier_id) do
       nil ->
         {:error, :tier_not_found}
 
       tier ->
-        available = get_available_tier_quantity(tier)
+        available = get_available_tier_quantity(tier, user_id)
 
         cond do
           available == :unlimited ->
@@ -188,27 +188,30 @@ defmodule Ysc.Tickets.BookingValidator do
     end
   end
 
-  defp validate_capacity(event_id, ticket_selections) do
+  defp validate_capacity(event_id, ticket_selections, user_id) do
     event = Events.get_event!(event_id)
 
-    # Check if event is already at capacity
-    if event_at_capacity?(event) do
+    # Check if user has reservations that would allow bypassing capacity
+    user_has_reservations = user_has_reservations_for_event?(user_id, event_id)
+
+    # Check if event is already at capacity (unless user has reservations)
+    if not user_has_reservations and event_at_capacity?(event) do
       {:error, :event_at_capacity}
     else
       # Check each tier capacity
       tier_capacity_validations =
         ticket_selections
         |> Enum.map(fn {tier_id, quantity} ->
-          check_tier_capacity(tier_id, quantity)
+          check_tier_capacity(tier_id, quantity, user_id)
         end)
 
       if Enum.any?(tier_capacity_validations, &(&1 == {:error, :insufficient_capacity})) do
         {:error, :tier_capacity_exceeded}
       else
-        # Check total event capacity
+        # Check total event capacity (unless user has reservations)
         total_requested = Enum.sum(Map.values(ticket_selections))
 
-        if within_event_capacity?(event, total_requested) do
+        if user_has_reservations or within_event_capacity?(event, total_requested) do
           :ok
         else
           {:error, :event_capacity_exceeded}
@@ -293,12 +296,56 @@ defmodule Ysc.Tickets.BookingValidator do
     end
   end
 
-  defp get_available_tier_quantity(%TicketTier{quantity: nil}), do: :unlimited
-  defp get_available_tier_quantity(%TicketTier{quantity: 0}), do: :unlimited
+  defp get_available_tier_quantity(%TicketTier{quantity: nil}, _user_id), do: :unlimited
+  defp get_available_tier_quantity(%TicketTier{quantity: 0}, _user_id), do: :unlimited
 
-  defp get_available_tier_quantity(%TicketTier{id: tier_id, quantity: total_quantity}) do
+  defp get_available_tier_quantity(%TicketTier{id: tier_id, quantity: total_quantity}, user_id) do
     sold_count = count_sold_tickets_for_tier(tier_id)
-    max(0, total_quantity - sold_count)
+    reserved_count = count_reserved_tickets_for_tier(tier_id)
+    available = max(0, total_quantity - sold_count - reserved_count)
+
+    # If user has reservations, add their reserved quantity to available
+    if user_id do
+      user_reserved = get_user_reserved_quantity(tier_id, user_id)
+      available + user_reserved
+    else
+      available
+    end
+  end
+
+  defp get_user_reserved_quantity(tier_id, user_id) do
+    TicketReservation
+    |> where(
+      [tr],
+      tr.ticket_tier_id == ^tier_id and tr.user_id == ^user_id and tr.status == "active"
+    )
+    |> select([tr], sum(tr.quantity))
+    |> Repo.one()
+    |> case do
+      nil -> 0
+      count -> count
+    end
+  end
+
+  defp count_reserved_tickets_for_tier(tier_id) do
+    TicketReservation
+    |> where([tr], tr.ticket_tier_id == ^tier_id and tr.status == "active")
+    |> select([tr], sum(tr.quantity))
+    |> Repo.one()
+    |> case do
+      nil -> 0
+      count -> count
+    end
+  end
+
+  defp user_has_reservations_for_event?(user_id, event_id) do
+    TicketReservation
+    |> join(:inner, [tr], tt in TicketTier, on: tr.ticket_tier_id == tt.id)
+    |> where(
+      [tr, tt],
+      tr.user_id == ^user_id and tt.event_id == ^event_id and tr.status == "active"
+    )
+    |> Repo.exists?()
   end
 
   defp count_confirmed_tickets_for_event(event_id) do
