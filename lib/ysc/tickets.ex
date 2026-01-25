@@ -934,25 +934,28 @@ defmodule Ysc.Tickets do
     ticket_order_with_tickets =
       get_ticket_order(ticket_order.id)
 
-    # Calculate donation vs regular ticket amounts
-    {event_amount, donation_amount} =
+    # Calculate donation vs regular ticket amounts (returns gross amount, donation, discount)
+    {gross_event_amount, donation_amount, discount_amount} =
       calculate_event_and_donation_amounts(ticket_order_with_tickets)
 
-    # If there are donations, use the mixed payment processor
-    if Money.positive?(donation_amount) do
-      Ledgers.process_event_payment_with_donations(%{
+    # If there are donations or discounts, use the mixed payment processor
+    if Money.positive?(donation_amount) || Money.positive?(discount_amount) do
+      Ledgers.process_event_payment_with_donations_and_discounts(%{
         user_id: ticket_order.user_id,
         total_amount: ticket_order.total_amount,
-        event_amount: event_amount,
+        gross_event_amount: gross_event_amount,
+        event_amount: gross_event_amount,
         donation_amount: donation_amount,
+        discount_amount: discount_amount,
         event_id: ticket_order.event_id,
         external_payment_id: payment_intent.id,
         stripe_fee: stripe_fee,
         description: "Event tickets - Order #{ticket_order.reference_id}",
-        payment_method_id: extract_payment_method_id(payment_intent, ticket_order.user_id)
+        payment_method_id: extract_payment_method_id(payment_intent, ticket_order.user_id),
+        ticket_order_id: ticket_order.id
       })
     else
-      # No donations, use regular event payment processing
+      # No donations or discounts, use regular event payment processing
       Ledgers.process_payment(%{
         user_id: ticket_order.user_id,
         amount: ticket_order.total_amount,
@@ -968,10 +971,12 @@ defmodule Ysc.Tickets do
   end
 
   # Calculate event revenue amount and donation amount from ticket order
+  # Returns {gross_event_amount, donation_amount, discount_amount}
+  # gross_event_amount is the amount before discounts (for ledger tracking)
   def calculate_event_and_donation_amounts(ticket_order) do
     if ticket_order && ticket_order.tickets do
-      # Calculate non-donation ticket costs (regular event revenue)
-      event_amount =
+      # Calculate non-donation ticket costs (regular event revenue) - gross amount before discounts
+      gross_event_amount =
         ticket_order.tickets
         |> Enum.filter(fn t ->
           tier_type = t.ticket_tier.type
@@ -995,18 +1000,75 @@ defmodule Ysc.Tickets do
           end
         end)
 
-      # Calculate donation amount (total - event amount)
+      # Calculate discount amount from fulfilled reservations
+      discount_amount = calculate_discount_from_reservations(ticket_order)
+
+      # Calculate donation amount (total - event amount after discounts)
+      net_event_amount =
+        case Money.sub(gross_event_amount, discount_amount) do
+          {:ok, amount} -> amount
+          _ -> gross_event_amount
+        end
+
       donation_amount =
-        case Money.sub(ticket_order.total_amount, event_amount) do
+        case Money.sub(ticket_order.total_amount, net_event_amount) do
           {:ok, amount} -> amount
           _ -> Money.new(0, :USD)
         end
 
-      {event_amount, donation_amount}
+      {gross_event_amount, donation_amount, discount_amount}
     else
       # If we can't load tickets, assume all is event revenue
-      {ticket_order.total_amount, Money.new(0, :USD)}
+      {ticket_order.total_amount, Money.new(0, :USD), Money.new(0, :USD)}
     end
+  end
+
+  # Calculate total discount amount from fulfilled reservations for a ticket order
+  defp calculate_discount_from_reservations(ticket_order) do
+    import Ecto.Query
+    alias Ysc.Events.TicketReservation
+
+    # Get all fulfilled reservations for this ticket order
+    fulfilled_reservations =
+      TicketReservation
+      |> where([tr], tr.ticket_order_id == ^ticket_order.id and tr.status == "fulfilled")
+      |> preload([:ticket_tier])
+      |> Repo.all()
+
+    # Calculate total discount amount
+    fulfilled_reservations
+    |> Enum.reduce(Money.new(0, :USD), fn reservation, acc ->
+      if reservation.discount_percentage && Decimal.gt?(reservation.discount_percentage, 0) do
+        # Calculate original price for reserved tickets
+        tier_price = reservation.ticket_tier.price
+
+        if tier_price do
+          original_total =
+            case Money.mult(tier_price, reservation.quantity) do
+              {:ok, total} -> total
+              {:error, _} -> Money.new(0, :USD)
+            end
+
+          # Apply discount percentage
+          discount_pct_decimal = Decimal.div(reservation.discount_percentage, Decimal.new(100))
+
+          discount_amount =
+            case Money.mult(original_total, discount_pct_decimal) do
+              {:ok, discount} -> discount
+              {:error, _} -> Money.new(0, :USD)
+            end
+
+          case Money.add(acc, discount_amount) do
+            {:ok, new_total} -> new_total
+            {:error, _} -> acc
+          end
+        else
+          acc
+        end
+      else
+        acc
+      end
+    end)
   end
 
   defp extract_payment_method_id(payment_intent, user_id) do

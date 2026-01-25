@@ -34,13 +34,20 @@ defmodule Ysc.Tickets.BookingLocker do
       with {:ok, event} <- lock_and_validate_event(event_id),
            {:ok, tiers} <- lock_and_validate_tiers(event_id, ticket_selections, user_id),
            :ok <- validate_event_capacity(event, tiers, ticket_selections, user_id),
-           {:ok, total_amount} <- calculate_total_amount(tiers, ticket_selections),
-           {:ok, ticket_order} <- create_ticket_order_atomic(user_id, event_id, total_amount),
+           {:ok, total_amount, discount_amount} <-
+             calculate_total_amount(tiers, ticket_selections, user_id, event_id),
+           {:ok, ticket_order} <-
+             create_ticket_order_atomic(user_id, event_id, total_amount, discount_amount),
            # Fulfill reservations first, then create only additional tickets needed
-           {:ok, fulfilled_by_tier} <-
+           {:ok, fulfilled_reservations_by_tier} <-
              fulfill_reservations_atomic(user_id, event_id, ticket_order.id, ticket_selections),
            {:ok, _tickets} <-
-             create_tickets_atomic(ticket_order, tiers, ticket_selections, fulfilled_by_tier) do
+             create_tickets_atomic(
+               ticket_order,
+               tiers,
+               ticket_selections,
+               fulfilled_reservations_by_tier
+             ) do
         ticket_order
       else
         {:error, reason} ->
@@ -298,17 +305,13 @@ defmodule Ysc.Tickets.BookingLocker do
       |> Repo.update!()
     end)
 
-    # Return fulfilled quantities by tier for use in ticket creation
-    fulfilled_by_tier =
+    # Return fulfilled reservations grouped by tier for use in ticket creation
+    # This includes the reservation details so we can store discount amounts on tickets
+    fulfilled_reservations_by_tier =
       fulfilled_reservations
       |> Enum.group_by(& &1.ticket_tier_id)
-      |> Enum.map(fn {tier_id, reservations} ->
-        fulfilled_qty = Enum.reduce(reservations, 0, fn r, acc -> acc + r.quantity end)
-        {tier_id, fulfilled_qty}
-      end)
-      |> Map.new()
 
-    {:ok, fulfilled_by_tier}
+    {:ok, fulfilled_reservations_by_tier}
   end
 
   defp fulfill_reservations_for_tier(reservations, requested_quantity, _ticket_order_id) do
@@ -392,15 +395,33 @@ defmodule Ysc.Tickets.BookingLocker do
     count_sold_tickets_for_tier_locked(tier_id)
   end
 
-  defp calculate_total_amount(tiers, ticket_selections) do
-    total =
+  defp calculate_total_amount(tiers, ticket_selections, user_id, event_id) do
+    # Get active reservations for this user and event to calculate discounts
+    active_reservations =
+      TicketReservation
+      |> join(:inner, [tr], tt in TicketTier, on: tr.ticket_tier_id == tt.id)
+      |> where(
+        [tr, tt],
+        tr.user_id == ^user_id and tt.event_id == ^event_id and tr.status == "active"
+      )
+      |> order_by([tr], asc: tr.inserted_at)
+      |> Repo.all()
+
+    # Build a map of tier_id => list of reservations with discounts
+    reservations_by_tier =
+      active_reservations
+      |> Enum.group_by(& &1.ticket_tier_id)
+
+    {total, discount_total} =
       ticket_selections
-      |> Enum.reduce(Money.new(0, :USD), fn {tier_id, amount_or_quantity}, acc ->
+      |> Enum.reduce({Money.new(0, :USD), Money.new(0, :USD)}, fn {tier_id, amount_or_quantity},
+                                                                  {acc_total, acc_discount} ->
         tier = Enum.find(tiers, &(&1.id == tier_id))
+        tier_reservations = Map.get(reservations_by_tier, tier_id, [])
 
         case tier.type do
           :free ->
-            acc
+            {acc_total, acc_discount}
 
           :donation ->
             # For donations, amount_or_quantity is already in cents
@@ -408,10 +429,13 @@ defmodule Ysc.Tickets.BookingLocker do
             dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
             donation_amount = Money.new(dollars_decimal, :USD)
 
-            case Money.add(acc, donation_amount) do
-              {:ok, new_total} -> new_total
-              {:error, _} -> acc
-            end
+            new_total =
+              case Money.add(acc_total, donation_amount) do
+                {:ok, total} -> total
+                {:error, _} -> acc_total
+              end
+
+            {new_total, acc_discount}
 
           "donation" ->
             # For donations, amount_or_quantity is already in cents
@@ -419,39 +443,138 @@ defmodule Ysc.Tickets.BookingLocker do
             dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
             donation_amount = Money.new(dollars_decimal, :USD)
 
-            case Money.add(acc, donation_amount) do
-              {:ok, new_total} -> new_total
-              {:error, _} -> acc
-            end
+            new_total =
+              case Money.add(acc_total, donation_amount) do
+                {:ok, total} -> total
+                {:error, _} -> acc_total
+              end
+
+            {new_total, acc_discount}
 
           _ ->
-            # For regular paid tiers, multiply price by quantity
-            case Money.mult(tier.price, amount_or_quantity) do
-              {:ok, tier_total} ->
-                case Money.add(acc, tier_total) do
-                  {:ok, new_total} -> new_total
-                  {:error, _} -> acc
-                end
-
-              {:error, _} ->
-                acc
-            end
+            # For regular paid tiers, calculate with discounts
+            calculate_tier_total_with_discounts(
+              tier,
+              amount_or_quantity,
+              tier_reservations,
+              acc_total,
+              acc_discount
+            )
         end
       end)
 
-    {:ok, total}
+    {:ok, total, discount_total}
   end
 
-  defp create_ticket_order_atomic(user_id, event_id, total_amount) do
+  defp calculate_tier_total_with_discounts(
+         tier,
+         requested_quantity,
+         reservations,
+         acc_total,
+         acc_discount
+       ) do
+    # Calculate original price for all tickets
+    original_total =
+      case Money.mult(tier.price, requested_quantity) do
+        {:ok, total} -> total
+        {:error, _} -> Money.new(0, :USD)
+      end
+
+    # Calculate how many tickets are covered by reservations and apply discounts
+    {_reserved_qty_covered, total_discount_amount} =
+      reservations
+      |> Enum.reduce_while({0, Money.new(0, :USD)}, fn reservation, {covered_qty, discount_acc} ->
+        remaining_to_cover = requested_quantity - covered_qty
+
+        if remaining_to_cover <= 0 do
+          {:halt, {covered_qty, discount_acc}}
+        else
+          reservation_qty = reservation.quantity
+          reservation_discount_pct = reservation.discount_percentage || Decimal.new(0)
+
+          if Decimal.gt?(reservation_discount_pct, 0) do
+            # Calculate how many tickets from this reservation we can use
+            tickets_from_reservation = min(reservation_qty, remaining_to_cover)
+
+            # Calculate discount for these tickets
+            reservation_tier_total =
+              case Money.mult(tier.price, tickets_from_reservation) do
+                {:ok, total} -> total
+                {:error, _} -> Money.new(0, :USD)
+              end
+
+            # Apply discount percentage (convert percentage to decimal: 50% = 0.50)
+            discount_pct_decimal = Decimal.div(reservation_discount_pct, Decimal.new(100))
+
+            discount_amount =
+              case Money.mult(reservation_tier_total, discount_pct_decimal) do
+                {:ok, discount} -> discount
+                {:error, _} -> Money.new(0, :USD)
+              end
+
+            new_covered = covered_qty + tickets_from_reservation
+
+            new_discount =
+              case Money.add(discount_acc, discount_amount) do
+                {:ok, total} -> total
+                {:error, _} -> discount_acc
+              end
+
+            if new_covered >= requested_quantity do
+              {:halt, {new_covered, new_discount}}
+            else
+              {:cont, {new_covered, new_discount}}
+            end
+          else
+            # No discount, but still count as covered
+            new_covered = covered_qty + min(reservation_qty, remaining_to_cover)
+            {:cont, {new_covered, discount_acc}}
+          end
+        end
+      end)
+
+    # Final total is original minus discounts
+    final_total =
+      case Money.sub(original_total, total_discount_amount) do
+        {:ok, total} -> total
+        {:error, _} -> original_total
+      end
+
+    # Add to accumulators
+    new_acc_total =
+      case Money.add(acc_total, final_total) do
+        {:ok, total} -> total
+        {:error, _} -> acc_total
+      end
+
+    new_acc_discount =
+      case Money.add(acc_discount, total_discount_amount) do
+        {:ok, total} -> total
+        {:error, _} -> acc_discount
+      end
+
+    {new_acc_total, new_acc_discount}
+  end
+
+  defp create_ticket_order_atomic(user_id, event_id, total_amount, discount_amount \\ nil) do
     expires_at = DateTime.add(DateTime.utc_now(), 30, :minute)
 
+    attrs = %{
+      user_id: user_id,
+      event_id: event_id,
+      total_amount: total_amount,
+      expires_at: expires_at
+    }
+
+    attrs =
+      if discount_amount && Money.positive?(discount_amount) do
+        Map.put(attrs, :discount_amount, discount_amount)
+      else
+        attrs
+      end
+
     case %TicketOrder{}
-         |> TicketOrder.create_changeset(%{
-           user_id: user_id,
-           event_id: event_id,
-           total_amount: total_amount,
-           expires_at: expires_at
-         })
+         |> TicketOrder.create_changeset(attrs)
          |> Repo.insert() do
       {:ok, ticket_order} ->
         # Schedule timeout check for this specific order
@@ -463,9 +586,14 @@ defmodule Ysc.Tickets.BookingLocker do
     end
   end
 
-  defp create_tickets_atomic(ticket_order, tiers, ticket_selections, fulfilled_by_tier) do
-    # fulfilled_by_tier is a map of tier_id => fulfilled_quantity from reservations
-    # We only create tickets for quantities that exceed what was fulfilled from reservations
+  defp create_tickets_atomic(
+         ticket_order,
+         tiers,
+         ticket_selections,
+         fulfilled_reservations_by_tier
+       ) do
+    # fulfilled_reservations_by_tier is a map of tier_id => [list of fulfilled reservations]
+    # We need to create tickets for both reserved and non-reserved quantities
     tickets =
       ticket_selections
       |> Enum.flat_map(fn {tier_id, amount_or_quantity} ->
@@ -480,24 +608,79 @@ defmodule Ysc.Tickets.BookingLocker do
             _ -> amount_or_quantity
           end
 
-        # Check if we have fulfilled reservations for this tier
-        fulfilled_count = Map.get(fulfilled_by_tier, tier_id, 0)
+        # Get fulfilled reservations for this tier
+        fulfilled_reservations = Map.get(fulfilled_reservations_by_tier, tier_id, [])
 
-        # Only create tickets for the quantity that wasn't covered by reservations
-        # Reserved tickets are "used first" - we only create additional tickets from general pool
-        tickets_to_create = max(0, requested_count - fulfilled_count)
+        fulfilled_count =
+          Enum.reduce(fulfilled_reservations, 0, fn r, acc -> acc + r.quantity end)
 
-        Enum.map(1..tickets_to_create, fn _ ->
-          %Ticket{}
-          |> Ticket.changeset(%{
-            event_id: ticket_order.event_id,
-            ticket_tier_id: tier_id,
-            user_id: ticket_order.user_id,
-            ticket_order_id: ticket_order.id,
-            status: :pending,
-            expires_at: ticket_order.expires_at
-          })
-        end)
+        # Create tickets for reserved quantities (with discount)
+        reserved_tickets =
+          fulfilled_reservations
+          |> Enum.flat_map(fn reservation ->
+            # Calculate discount per ticket for this reservation
+            per_ticket_discount =
+              if reservation.discount_percentage &&
+                   Decimal.gt?(reservation.discount_percentage, 0) &&
+                   tier.price do
+                # Calculate total discount for this reservation
+                reservation_total =
+                  case Money.mult(tier.price, reservation.quantity) do
+                    {:ok, total} -> total
+                    {:error, _} -> Money.new(0, :USD)
+                  end
+
+                discount_pct_decimal =
+                  Decimal.div(reservation.discount_percentage, Decimal.new(100))
+
+                total_discount =
+                  case Money.mult(reservation_total, discount_pct_decimal) do
+                    {:ok, discount} -> discount
+                    {:error, _} -> Money.new(0, :USD)
+                  end
+
+                # Divide discount evenly across tickets in this reservation
+                case Money.div(total_discount, reservation.quantity) do
+                  {:ok, per_ticket} -> per_ticket
+                  {:error, _} -> Money.new(0, :USD)
+                end
+              else
+                Money.new(0, :USD)
+              end
+
+            # Create one ticket per quantity in the reservation
+            Enum.map(1..reservation.quantity, fn _ ->
+              %Ticket{}
+              |> Ticket.changeset(%{
+                event_id: ticket_order.event_id,
+                ticket_tier_id: tier_id,
+                user_id: ticket_order.user_id,
+                ticket_order_id: ticket_order.id,
+                status: :pending,
+                expires_at: ticket_order.expires_at,
+                discount_amount: per_ticket_discount
+              })
+            end)
+          end)
+
+        # Create tickets for non-reserved quantities (without discount)
+        non_reserved_count = max(0, requested_count - fulfilled_count)
+
+        non_reserved_tickets =
+          Enum.map(1..non_reserved_count, fn _ ->
+            %Ticket{}
+            |> Ticket.changeset(%{
+              event_id: ticket_order.event_id,
+              ticket_tier_id: tier_id,
+              user_id: ticket_order.user_id,
+              ticket_order_id: ticket_order.id,
+              status: :pending,
+              expires_at: ticket_order.expires_at,
+              discount_amount: Money.new(0, :USD)
+            })
+          end)
+
+        reserved_tickets ++ non_reserved_tickets
       end)
 
     # Insert all tickets

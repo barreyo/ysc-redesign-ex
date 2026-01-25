@@ -29,6 +29,7 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
         <div :if={length(@ticket_tiers) > 0} class="space-y-3 sm:space-y-4">
           <%= for ticket_tier <- @ticket_tiers do %>
+            <% is_donation = ticket_tier.type == "donation" || ticket_tier.type == :donation %>
             <div class="group border border-zinc-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-sm transition-all bg-white">
               <div class="flex flex-col lg:flex-row lg:items-center gap-4">
                 <div class="flex-1">
@@ -107,14 +108,14 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                           </div>
                         </div>
                       </div>
-                      <p
-                        :if={
-                          reserved_count = get_reserved_count(ticket_tier.id, @reservations_by_tier)
-                        }
-                        class="text-xs text-amber-600 mt-1"
-                      >
-                        <%= reserved_count %> reserved
-                      </p>
+                      <%= if !is_donation do %>
+                        <% reserved_count = get_reserved_count(ticket_tier.id, @reservations_by_tier) %>
+                        <%= if reserved_count > 0 do %>
+                          <p class="text-xs text-amber-600 mt-1">
+                            <%= reserved_count %> reserved
+                          </p>
+                        <% end %>
+                      <% end %>
                     </div>
 
                     <div>
@@ -138,15 +139,17 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                 </div>
 
                 <div class="flex items-center gap-2 pt-4 lg:pt-0 border-t lg:border-t-0 border-zinc-100">
-                  <button
-                    phx-click="reserve-tickets"
-                    phx-value-tier-id={ticket_tier.id}
-                    phx-target={@myself}
-                    phx-disable-with="Loading..."
-                    class="p-2 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
-                  >
-                    <.icon name="hero-ticket" class="w-5 h-5" />
-                  </button>
+                  <%= if !is_donation do %>
+                    <button
+                      phx-click="reserve-tickets"
+                      phx-value-tier-id={ticket_tier.id}
+                      phx-target={@myself}
+                      phx-disable-with="Loading..."
+                      class="p-2 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
+                    >
+                      <.icon name="hero-ticket" class="w-5 h-5" />
+                    </button>
+                  <% end %>
                   <button
                     phx-click="edit-ticket-tier"
                     phx-value-id={ticket_tier.id}
@@ -177,43 +180,51 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                 </div>
               </div>
               <!-- Reservations Section -->
-              <% reservations = Map.get(@reservations_by_tier, ticket_tier.id, []) %>
-              <%= if length(reservations) > 0 do %>
-                <div class="mt-4 pt-4 border-t border-zinc-200">
-                  <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-                    Active Reservations
-                  </p>
-                  <div class="space-y-2">
-                    <%= for reservation <- reservations do %>
-                      <div class="flex items-center justify-between p-2 bg-amber-50 rounded border border-amber-200">
-                        <div class="flex-1">
-                          <p class="text-sm font-medium text-zinc-900">
-                            <%= reservation.user.first_name %> <%= reservation.user.last_name %>
-                          </p>
-                          <p class="text-xs text-zinc-600">
-                            <%= reservation.user.email %> • <%= reservation.quantity %> ticket<%= if reservation.quantity !=
-                                                                                                       1,
-                                                                                                     do:
-                                                                                                       "s" %>
-                            <span :if={reservation.expires_at} class="text-amber-600">
-                              • Expires <%= format_date(reservation.expires_at) %>
-                            </span>
-                          </p>
+              <%= if !is_donation do %>
+                <% reservations = Map.get(@reservations_by_tier, ticket_tier.id, []) %>
+                <%= if length(reservations) > 0 do %>
+                  <div class="mt-4 pt-4 border-t border-zinc-200">
+                    <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
+                      Active Reservations
+                    </p>
+                    <div class="space-y-2">
+                      <%= for reservation <- reservations do %>
+                        <div class="flex items-center justify-between p-2 bg-amber-50 rounded border border-amber-200">
+                          <div class="flex-1">
+                            <p class="text-sm font-medium text-zinc-900">
+                              <%= reservation.user.first_name %> <%= reservation.user.last_name %>
+                            </p>
+                            <p class="text-xs text-zinc-600">
+                              <%= reservation.user.email %> • <%= reservation.quantity %> ticket<%= if reservation.quantity !=
+                                                                                                         1,
+                                                                                                       do:
+                                                                                                         "s" %>
+                              <%= if reservation.discount_percentage && Decimal.gt?(reservation.discount_percentage, 0) do %>
+                                <span class="text-green-600 font-medium">
+                                  • <%= Decimal.to_float(reservation.discount_percentage)
+                                  |> Float.round(2) %>% off
+                                </span>
+                              <% end %>
+                              <span :if={reservation.expires_at} class="text-amber-600">
+                                • Expires <%= format_date(reservation.expires_at) %>
+                              </span>
+                            </p>
+                          </div>
+                          <button
+                            phx-click="cancel-reservation"
+                            phx-value-id={reservation.id}
+                            phx-target={@myself}
+                            phx-disable-with="Cancelling..."
+                            data-confirm="Are you sure you want to cancel this reservation?"
+                            class="p-1.5 text-amber-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          >
+                            <.icon name="hero-x-mark" class="w-4 h-4" />
+                          </button>
                         </div>
-                        <button
-                          phx-click="cancel-reservation"
-                          phx-value-id={reservation.id}
-                          phx-target={@myself}
-                          phx-disable-with="Cancelling..."
-                          data-confirm="Are you sure you want to cancel this reservation?"
-                          class="p-1.5 text-amber-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        >
-                          <.icon name="hero-x-mark" class="w-4 h-4" />
-                        </button>
-                      </div>
-                    <% end %>
+                      <% end %>
+                    </div>
                   </div>
-                </div>
+                <% end %>
               <% end %>
             </div>
           <% end %>
@@ -333,6 +344,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
   @impl true
   def update(assigns, socket) do
+    # Check if this is an update to close the reserve modal
+    close_modal = Map.get(assigns, :close_reserve_modal, false)
+
     ticket_tiers = Events.list_ticket_tiers_for_event(assigns.event_id)
     ticket_purchases = Events.get_ticket_purchase_summary(assigns.event_id)
 
@@ -345,18 +359,41 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
       end)
       |> Map.new()
 
-    {:ok,
-     socket
-     |> assign(assigns)
-     |> assign(:ticket_tiers, ticket_tiers)
-     |> assign(:ticket_purchases, ticket_purchases)
-     |> assign(:reservations_by_tier, reservations_by_tier)
-     |> assign(:show_add_modal, false)
-     |> assign(:show_edit_modal, false)
-     |> assign(:show_reserve_modal, false)
-     |> assign(:reserving_tier, nil)
-     |> assign(:editing_ticket_tier, nil)
-     |> assign(:current_user, assigns[:current_user])}
+    socket =
+      socket
+      |> assign(assigns)
+      |> assign(:ticket_tiers, ticket_tiers)
+      |> assign(:ticket_purchases, ticket_purchases)
+      |> assign(:reservations_by_tier, reservations_by_tier)
+      |> assign(:editing_ticket_tier, nil)
+      |> assign(:current_user, assigns[:current_user])
+
+    socket =
+      if close_modal do
+        # Explicitly close the reserve modal
+        socket
+        |> assign(:show_reserve_modal, false)
+        |> assign(:reserving_tier, nil)
+        |> assign(:show_add_modal, false)
+        |> assign(:show_edit_modal, false)
+      else
+        # Normal update - preserve modal states unless explicitly set in assigns
+        socket
+        |> assign(
+          :show_add_modal,
+          Map.get(assigns, :show_add_modal, socket.assigns[:show_add_modal] || false)
+        )
+        |> assign(
+          :show_edit_modal,
+          Map.get(assigns, :show_edit_modal, socket.assigns[:show_edit_modal] || false)
+        )
+        |> assign(
+          :show_reserve_modal,
+          Map.get(assigns, :show_reserve_modal, socket.assigns[:show_reserve_modal] || false)
+        )
+      end
+
+    {:ok, socket}
   end
 
   @impl true
@@ -450,10 +487,19 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
   def handle_event("reserve-tickets", %{"tier-id" => tier_id}, socket) do
     ticket_tier = Events.get_ticket_tier!(tier_id)
 
-    {:noreply,
-     socket
-     |> assign(:show_reserve_modal, true)
-     |> assign(:reserving_tier, ticket_tier)}
+    # Don't allow reservations for donation tiers
+    is_donation = ticket_tier.type == "donation" || ticket_tier.type == :donation
+
+    if is_donation do
+      {:noreply,
+       socket
+       |> put_flash(:error, "Reservations are not available for donation tiers")}
+    else
+      {:noreply,
+       socket
+       |> assign(:show_reserve_modal, true)
+       |> assign(:reserving_tier, ticket_tier)}
+    end
   end
 
   @impl true
@@ -552,7 +598,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
       {:noreply,
        socket
        |> assign(:ticket_tiers, ticket_tiers)
-       |> assign(:reservations_by_tier, reservations_by_tier)}
+       |> assign(:reservations_by_tier, reservations_by_tier)
+       |> assign(:show_reserve_modal, false)
+       |> assign(:reserving_tier, nil)}
     else
       {:noreply, socket}
     end

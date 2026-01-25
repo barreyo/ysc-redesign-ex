@@ -83,6 +83,19 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
     # Format money amounts
     total_amount = format_money(ticket_order.total_amount)
 
+    # Use stored discount_amount from ticket_order, or calculate from tickets if not stored
+    discount_amount =
+      ticket_order.discount_amount || calculate_discount_from_tickets(ticket_order)
+
+    total_discount_str = format_money(discount_amount)
+
+    # Calculate gross total (total_amount + discount_amount)
+    gross_total_str =
+      case Money.add(ticket_order.total_amount, discount_amount) do
+        {:ok, gross} -> format_money(gross)
+        _ -> total_amount
+      end
+
     # Prepare agenda data if available
     # Handle case where event.agendas might be nil
     agendas = if ticket_order.event, do: ticket_order.event.agendas || [], else: []
@@ -119,6 +132,9 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
       payment_date: payment_date,
       payment_method: payment_method,
       total_amount: total_amount,
+      gross_total: gross_total_str,
+      total_discount: total_discount_str,
+      has_discounts: Money.positive?(discount_amount),
       ticket_summaries: ticket_summaries,
       tickets:
         Enum.map(ticket_order.tickets, fn ticket ->
@@ -155,21 +171,68 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
       # Check if this is a donation tier
       is_donation = tier.type == "donation" || tier.type == :donation
 
-      {price_per_ticket, total_price} =
+      {price_per_ticket, total_price, original_price, discount_amount, discount_percentage} =
         if is_donation do
           # Calculate donation amount from ticket_order
-          calculate_donation_amounts(tier_tickets, ticket_order)
+          {per_ticket, total} = calculate_donation_amounts(tier_tickets, ticket_order)
+          {per_ticket, total, total, Money.new(0, :USD), nil}
         else
-          # Regular tier pricing
+          # Regular tier pricing - use stored discount_amount from tickets
           price = tier.price || Money.new(0, :USD)
-          {format_money(price), format_money(calculate_tier_total(price, quantity))}
+          original_total = calculate_tier_total(price, quantity)
+
+          # Sum discount amounts from tickets (stored when tickets were created)
+          total_tier_discount =
+            tier_tickets
+            |> Enum.reduce(Money.new(0, :USD), fn ticket, acc ->
+              ticket_discount = ticket.discount_amount || Money.new(0, :USD)
+
+              case Money.add(acc, ticket_discount) do
+                {:ok, total} -> total
+                {:error, _} -> acc
+              end
+            end)
+
+          discounted_total =
+            case Money.sub(original_total, total_tier_discount) do
+              {:ok, total} -> total
+              _ -> original_total
+            end
+
+          # Calculate discount percentage from stored discount amount
+          discount_pct =
+            if Money.positive?(total_tier_discount) && Money.positive?(price) do
+              # Calculate average discount percentage
+              per_ticket_discount =
+                case Money.div(total_tier_discount, quantity) do
+                  {:ok, discount} -> discount
+                  {:error, _} -> Money.new(0, :USD)
+                end
+
+              case Money.div(per_ticket_discount, price) do
+                {:ok, ratio} ->
+                  Decimal.mult(ratio.amount, Decimal.new(100))
+                  |> Decimal.to_float()
+
+                _ ->
+                  nil
+              end
+            else
+              nil
+            end
+
+          {format_money(price), format_money(discounted_total), format_money(original_total),
+           format_money(total_tier_discount), discount_pct}
         end
 
       %{
         ticket_tier_name: tier.name,
         quantity: quantity,
         price_per_ticket: price_per_ticket,
-        total_price: total_price
+        total_price: total_price,
+        original_price: original_price,
+        discount_amount: discount_amount,
+        discount_percentage: discount_percentage
       }
     end)
   end
@@ -423,6 +486,23 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
     ]
 
     Enum.at(palette, rem(index, length(palette)))
+  end
+
+  # Calculate total discount from tickets (fallback if discount_amount not stored on order)
+  defp calculate_discount_from_tickets(ticket_order) do
+    if ticket_order && ticket_order.tickets do
+      ticket_order.tickets
+      |> Enum.reduce(Money.new(0, :USD), fn ticket, acc ->
+        ticket_discount = ticket.discount_amount || Money.new(0, :USD)
+
+        case Money.add(acc, ticket_discount) do
+          {:ok, total} -> total
+          {:error, _} -> acc
+        end
+      end)
+    else
+      Money.new(0, :USD)
+    end
   end
 
   defp format_money(%Money{} = money) do

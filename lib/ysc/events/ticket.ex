@@ -33,6 +33,7 @@ defmodule Ysc.Events.Ticket do
     belongs_to :payment, Ysc.Ledgers.Payment, foreign_key: :payment_id, references: :id
 
     field :expires_at, :utc_datetime
+    field :discount_amount, Money.Ecto.Composite.Type, default_currency: :USD
 
     has_one :registration, Ysc.Events.TicketDetail, foreign_key: :ticket_id
 
@@ -52,7 +53,8 @@ defmodule Ysc.Events.Ticket do
       :ticket_order_id,
       :status,
       :payment_id,
-      :expires_at
+      :expires_at,
+      :discount_amount
     ])
     |> validate_required([
       :event_id,

@@ -1,6 +1,11 @@
 defmodule YscWeb.AdminEventsLive.TicketReservationForm do
   use YscWeb, :live_component
 
+  use Phoenix.VerifiedRoutes,
+    endpoint: YscWeb.Endpoint,
+    router: YscWeb.Router,
+    statics: YscWeb.static_paths()
+
   alias Ysc.Events
   alias Ysc.Accounts
 
@@ -94,6 +99,19 @@ defmodule YscWeb.AdminEventsLive.TicketReservationForm do
           min="1"
           required
         />
+
+        <.input
+          type="number"
+          label="Discount Percentage (Optional)"
+          field={@form[:discount_percentage]}
+          placeholder="0"
+          min="0"
+          max="100"
+          step="0.01"
+        />
+        <p class="text-sm text-zinc-500 mt-1">
+          Optional discount percentage (e.g., 50 for 50% off)
+        </p>
 
         <.input type="datetime-local" label="Expires At (Optional)" field={@form[:expires_at]} />
         <p class="text-sm text-zinc-500 mt-1">Leave empty for reservations that don't expire</p>
@@ -257,8 +275,29 @@ defmodule YscWeb.AdminEventsLive.TicketReservationForm do
       |> normalize_expires_at()
 
     case Events.create_ticket_reservation(reservation_params) do
-      {:ok, _reservation} ->
-        send(self(), {:ticket_reservation_created, socket.assigns.event_id})
+      {:ok, reservation} ->
+        # Get event_id from ticket_tier if not directly assigned
+        event_id =
+          cond do
+            socket.assigns[:event_id] ->
+              socket.assigns[:event_id]
+
+            socket.assigns[:ticket_tier] && socket.assigns[:ticket_tier].event_id ->
+              socket.assigns[:ticket_tier].event_id
+
+            reservation.ticket_tier_id ->
+              tier = Events.get_ticket_tier(reservation.ticket_tier_id)
+              tier && tier.event_id
+
+            true ->
+              nil
+          end
+
+        # Send message to parent LiveView to redirect to tickets page
+        if event_id do
+          send(self(), {:redirect_to_tickets, event_id})
+        end
+
         {:noreply, socket}
 
       {:error, changeset} ->

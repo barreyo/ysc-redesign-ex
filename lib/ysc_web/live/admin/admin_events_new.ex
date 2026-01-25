@@ -901,6 +901,25 @@ defmodule YscWeb.AdminEventsNewLive do
     {:noreply, socket}
   end
 
+  @impl true
+  def handle_info({:ticket_reservation_created, event_id}, socket) do
+    # Component handles this, but we need to catch it to prevent crashes
+    # Only process if it's for the current event
+    if socket.assigns[:event] && socket.assigns.event.id == event_id do
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:redirect_to_tickets, event_id}, socket) do
+    {:noreply,
+     socket
+     |> put_flash(:info, "Ticket reservation created successfully")
+     |> push_navigate(to: ~p"/admin/events/#{event_id}/tickets")}
+  end
+
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     form = to_form(changeset, as: "event")
     capacity_form = to_form(changeset, as: "event")

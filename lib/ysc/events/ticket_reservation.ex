@@ -22,6 +22,7 @@ defmodule Ysc.Events.TicketReservation do
     belongs_to :ticket_order, TicketOrder, foreign_key: :ticket_order_id, references: :id
 
     field :quantity, :integer
+    field :discount_percentage, :decimal
     field :expires_at, :utc_datetime
     field :notes, :string
     field :status, :string, default: "active"
@@ -40,6 +41,7 @@ defmodule Ysc.Events.TicketReservation do
       :ticket_tier_id,
       :user_id,
       :quantity,
+      :discount_percentage,
       :expires_at,
       :notes,
       :created_by_id,
@@ -50,6 +52,10 @@ defmodule Ysc.Events.TicketReservation do
     ])
     |> validate_required([:ticket_tier_id, :user_id, :quantity, :created_by_id])
     |> validate_number(:quantity, greater_than: 0)
+    |> validate_number(:discount_percentage,
+      greater_than_or_equal_to: 0,
+      less_than_or_equal_to: 100
+    )
     |> validate_status()
     |> validate_expires_at()
     |> foreign_key_constraint(:ticket_tier_id)

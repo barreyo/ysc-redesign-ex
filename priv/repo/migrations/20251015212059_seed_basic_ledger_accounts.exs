@@ -28,7 +28,8 @@ defmodule Ysc.Repo.Migrations.SeedBasicLedgerAccounts do
       # Expense accounts (debit-normal)
       {"stripe_fees", "expense", "debit", "Stripe processing fees"},
       {"operating_expenses", "expense", "debit", "General operating expenses"},
-      {"refund_expense", "expense", "debit", "Refunds issued to customers"}
+      {"refund_expense", "expense", "debit", "Refunds issued to customers"},
+      {"discount_expense", "expense", "debit", "Reserved ticket discounts"}
     ]
 
     # Insert basic accounts
@@ -86,7 +87,7 @@ defmodule Ysc.Repo.Migrations.SeedBasicLedgerAccounts do
         'accounts_payable', 'deferred_revenue', 'refund_liability',
         'membership_revenue', 'event_revenue',
         'tahoe_booking_revenue', 'clear_lake_booking_revenue', 'donation_revenue',
-        'stripe_fees', 'operating_expenses', 'refund_expense'
+        'stripe_fees', 'operating_expenses', 'refund_expense', 'discount_expense'
       );
     """
   end

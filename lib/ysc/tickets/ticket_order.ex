@@ -32,6 +32,7 @@ defmodule Ysc.Tickets.TicketOrder do
     field :reference_id, :string
     field :status, Ysc.Events.TicketOrderStatus
     field :total_amount, Money.Ecto.Composite.Type, default_currency: :USD
+    field :discount_amount, Money.Ecto.Composite.Type, default_currency: :USD
     field :payment_intent_id, :string
     field :expires_at, :utc_datetime
     field :completed_at, :utc_datetime
@@ -56,6 +57,7 @@ defmodule Ysc.Tickets.TicketOrder do
       :user_id,
       :event_id,
       :total_amount,
+      :discount_amount,
       :payment_intent_id,
       :expires_at
     ])

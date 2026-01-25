@@ -926,6 +926,17 @@ defmodule YscWeb.EventDetailsLive do
               <% has_selected_tickets = get_ticket_quantity(@selected_tickets, ticket_tier.id) > 0 %>
               <% reserved_quantity = Map.get(@reservations_by_tier, ticket_tier.id, 0) %>
               <% has_reservation = reserved_quantity > 0 %>
+              <% reservation_info =
+                get_reservation_discount_info(
+                  ticket_tier.id,
+                  reserved_quantity,
+                  @reservations_by_tier,
+                  @user_reservations,
+                  ticket_tier.price
+                ) %>
+              <% has_discount =
+                reservation_info.discount_percentage != nil &&
+                  reservation_info.discount_percentage > 0 %>
               <div class={[
                 "border rounded-lg p-6 transition-all duration-200",
                 cond do
@@ -951,11 +962,24 @@ defmodule YscWeb.EventDetailsLive do
                       <%= ticket_tier.description %>
                     </p>
                     <%= if has_reservation do %>
-                      <p class="text-sm text-blue-600 mt-1 font-medium">
-                        You have <%= reserved_quantity %> <%= if reserved_quantity == 1,
-                          do: "ticket",
-                          else: "tickets" %> reserved for this tier
-                      </p>
+                      <div class="mt-1 space-y-1">
+                        <p class="text-sm text-blue-600 font-medium">
+                          You have <%= reserved_quantity %> <%= if reserved_quantity == 1,
+                            do: "ticket",
+                            else: "tickets" %> reserved for this tier
+                          <%= if has_discount do %>
+                            <span class="inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200">
+                              <.icon name="hero-tag" class="w-3 h-3" />
+                              <%= reservation_info.discount_percentage |> Float.round(2) %>% off
+                            </span>
+                          <% end %>
+                        </p>
+                        <%= if has_discount && Money.positive?(reservation_info.discount_savings) do %>
+                          <p class="text-xs text-green-600">
+                            You'll save <%= format_price(reservation_info.discount_savings) %> with your reserved tickets
+                          </p>
+                        <% end %>
+                      </div>
                     <% end %>
                   </div>
                   <div class="text-right">
@@ -1217,39 +1241,49 @@ defmodule YscWeb.EventDetailsLive do
 
             <div class="bg-zinc-50 rounded-lg p-6 space-y-4 flex flex-col justify-between">
               <%= if has_any_tickets_selected?(@selected_tickets) do %>
-                <%= for {tier_id, amount_or_quantity} <- @selected_tickets, amount_or_quantity > 0 do %>
-                  <% ticket_tier = Enum.find(@ticket_tiers, &(&1.id == tier_id)) %>
-                  <div class="flex justify-between text-base">
-                    <span>
-                      <%= ticket_tier.name %>
-                      <%= if ticket_tier.type != "donation" && ticket_tier.type != :donation do %>
-                        × <%= amount_or_quantity %>
-                      <% end %>
-                    </span>
-                    <span class={[
-                      "font-medium",
-                      if @event_at_capacity do
-                        "line-through"
-                      else
-                        ""
-                      end
-                    ]}>
-                      <%= case ticket_tier.type do %>
-                        <% "free" -> %>
-                          Free
-                        <% "donation" -> %>
-                          <%= format_price_from_cents(amount_or_quantity) %>
-                        <% :donation -> %>
-                          <%= format_price_from_cents(amount_or_quantity) %>
-                        <% _ -> %>
-                          <%= case Money.mult(ticket_tier.price, amount_or_quantity) do %>
-                            <% {:ok, total} -> %>
-                              <%= format_price(total) %>
-                            <% {:error, _} -> %>
-                              $0.00
-                          <% end %>
-                      <% end %>
-                    </span>
+                <% pricing =
+                  calculate_pricing_with_discounts(
+                    @selected_tickets,
+                    @event.id,
+                    @ticket_tiers,
+                    @reservations_by_tier,
+                    @current_user
+                  ) %>
+                <%= for breakdown <- pricing.tier_breakdowns do %>
+                  <div class="space-y-1">
+                    <div class="flex justify-between text-base">
+                      <span>
+                        <%= breakdown.tier_name %>
+                        <%= if breakdown.quantity > 1 do %>
+                          × <%= breakdown.quantity %>
+                        <% end %>
+                      </span>
+                      <span class={[
+                        "font-medium",
+                        if @event_at_capacity do
+                          "line-through"
+                        else
+                          ""
+                        end
+                      ]}>
+                        <%= if Money.positive?(breakdown.original_price) && Money.positive?(breakdown.discount_amount) do %>
+                          <span class="text-zinc-400 line-through mr-2">
+                            <%= format_price(breakdown.original_price) %>
+                          </span>
+                        <% end %>
+                        <%= format_price(breakdown.final_price) %>
+                      </span>
+                    </div>
+                    <%= if breakdown.discount_percentage && breakdown.discount_percentage > 0 do %>
+                      <div class="flex justify-between text-sm text-green-600">
+                        <span>
+                          Reserved discount (<%= breakdown.discount_percentage |> Float.round(2) %>%)
+                        </span>
+                        <span class="font-medium">
+                          -<%= format_price(breakdown.discount_amount) %>
+                        </span>
+                      </div>
+                    <% end %>
                   </div>
                 <% end %>
               <% else %>
@@ -1264,20 +1298,61 @@ defmodule YscWeb.EventDetailsLive do
                 </div>
               <% end %>
 
-              <div class="border-t border-zinc-200 pt-4">
-                <div class="flex justify-between font-semibold text-lg">
-                  <span>Total:</span>
-                  <span class={[
-                    if @event_at_capacity do
-                      "line-through"
-                    else
-                      ""
-                    end
-                  ]}>
-                    <%= calculate_total_price(@selected_tickets, @event.id, @ticket_tiers) %>
-                  </span>
+              <%= if has_any_tickets_selected?(@selected_tickets) do %>
+                <% pricing =
+                  calculate_pricing_with_discounts(
+                    @selected_tickets,
+                    @event.id,
+                    @ticket_tiers,
+                    @reservations_by_tier,
+                    @current_user
+                  ) %>
+                <div class="border-t border-zinc-200 pt-4 space-y-2">
+                  <%= if Money.positive?(pricing.discount_amount) do %>
+                    <div class="flex justify-between text-sm text-zinc-600">
+                      <span>Subtotal:</span>
+                      <span><%= format_price(pricing.subtotal) %></span>
+                    </div>
+                    <div class="flex justify-between text-sm text-green-600 font-medium">
+                      <span>Discount:</span>
+                      <span>-<%= format_price(pricing.discount_amount) %></span>
+                    </div>
+                  <% end %>
+                  <div class="flex justify-between font-semibold text-lg">
+                    <span>Total:</span>
+                    <span class={[
+                      if @event_at_capacity do
+                        "line-through"
+                      else
+                        ""
+                      end
+                    ]}>
+                      <%= format_price(pricing.total) %>
+                    </span>
+                  </div>
                 </div>
-              </div>
+              <% else %>
+                <div class="border-t border-zinc-200 pt-4">
+                  <div class="flex justify-between font-semibold text-lg">
+                    <span>Total:</span>
+                    <span class={[
+                      if @event_at_capacity do
+                        "line-through"
+                      else
+                        ""
+                      end
+                    ]}>
+                      <%= calculate_total_price(
+                        @selected_tickets,
+                        @event.id,
+                        @ticket_tiers,
+                        @reservations_by_tier,
+                        @current_user
+                      ) %>
+                    </span>
+                  </div>
+                </div>
+              <% end %>
             </div>
           </div>
 
@@ -1832,7 +1907,13 @@ defmodule YscWeb.EventDetailsLive do
                 <div class="flex items-center justify-between mb-2">
                   <span class="text-zinc-600">Amount due:</span>
                   <span class="text-2xl font-bold text-zinc-900">
-                    <%= calculate_total_price(@selected_tickets, @event.id, @ticket_tiers) %>
+                    <%= calculate_total_price(
+                      @selected_tickets,
+                      @event.id,
+                      @ticket_tiers,
+                      @reservations_by_tier,
+                      @current_user
+                    ) %>
                   </span>
                 </div>
                 <div class="flex flex-col sm:flex-row gap-3">
@@ -1844,7 +1925,9 @@ defmodule YscWeb.EventDetailsLive do
                     Confirm and Pay <%= calculate_total_price(
                       @selected_tickets,
                       @event.id,
-                      @ticket_tiers
+                      @ticket_tiers,
+                      @reservations_by_tier,
+                      @current_user
                     ) %>
                   </.button>
                   <.button
@@ -1878,32 +1961,42 @@ defmodule YscWeb.EventDetailsLive do
 
               <div class="bg-zinc-50 rounded-lg p-6 space-y-4">
                 <%= if has_any_tickets_selected?(@selected_tickets) do %>
-                  <%= for {tier_id, amount_or_quantity} <- @selected_tickets, amount_or_quantity > 0 do %>
-                    <% ticket_tier = Enum.find(@ticket_tiers, &(&1.id == tier_id)) %>
-                    <div class="flex justify-between text-base">
-                      <span>
-                        <%= ticket_tier.name %>
-                        <%= if ticket_tier.type != "donation" && ticket_tier.type != :donation do %>
-                          × <%= amount_or_quantity %>
-                        <% end %>
-                      </span>
-                      <span class="font-medium">
-                        <%= case ticket_tier.type do %>
-                          <% "free" -> %>
-                            Free
-                          <% "donation" -> %>
-                            <%= format_price_from_cents(amount_or_quantity) %>
-                          <% :donation -> %>
-                            <%= format_price_from_cents(amount_or_quantity) %>
-                          <% _ -> %>
-                            <%= case Money.mult(ticket_tier.price, amount_or_quantity) do %>
-                              <% {:ok, total} -> %>
-                                <%= format_price(total) %>
-                              <% {:error, _} -> %>
-                                $0.00
-                            <% end %>
-                        <% end %>
-                      </span>
+                  <% pricing =
+                    calculate_pricing_with_discounts(
+                      @selected_tickets,
+                      @event.id,
+                      @ticket_tiers,
+                      @reservations_by_tier,
+                      @current_user
+                    ) %>
+                  <%= for breakdown <- pricing.tier_breakdowns do %>
+                    <div class="space-y-1">
+                      <div class="flex justify-between text-base">
+                        <span>
+                          <%= breakdown.tier_name %>
+                          <%= if breakdown.quantity > 1 do %>
+                            × <%= breakdown.quantity %>
+                          <% end %>
+                        </span>
+                        <span class="font-medium">
+                          <%= if Money.positive?(breakdown.original_price) && Money.positive?(breakdown.discount_amount) do %>
+                            <span class="text-zinc-400 line-through mr-2">
+                              <%= format_price(breakdown.original_price) %>
+                            </span>
+                          <% end %>
+                          <%= format_price(breakdown.final_price) %>
+                        </span>
+                      </div>
+                      <%= if breakdown.discount_percentage && breakdown.discount_percentage > 0 do %>
+                        <div class="flex justify-between text-sm text-green-600">
+                          <span>
+                            Reserved discount (<%= breakdown.discount_percentage |> Float.round(2) %>%)
+                          </span>
+                          <span class="font-medium">
+                            -<%= format_price(breakdown.discount_amount) %>
+                          </span>
+                        </div>
+                      <% end %>
                     </div>
                   <% end %>
                 <% else %>
@@ -1915,14 +2008,49 @@ defmodule YscWeb.EventDetailsLive do
                   </div>
                 <% end %>
 
-                <div class="border-t border-zinc-200 pt-4">
-                  <div class="flex justify-between font-semibold text-lg">
-                    <span>Total:</span>
-                    <span>
-                      <%= calculate_total_price(@selected_tickets, @event.id, @ticket_tiers) %>
-                    </span>
+                <%= if has_any_tickets_selected?(@selected_tickets) do %>
+                  <% pricing =
+                    calculate_pricing_with_discounts(
+                      @selected_tickets,
+                      @event.id,
+                      @ticket_tiers,
+                      @reservations_by_tier,
+                      @current_user
+                    ) %>
+                  <div class="border-t border-zinc-200 pt-4 space-y-2">
+                    <%= if Money.positive?(pricing.discount_amount) do %>
+                      <div class="flex justify-between text-sm text-zinc-600">
+                        <span>Subtotal:</span>
+                        <span><%= format_price(pricing.subtotal) %></span>
+                      </div>
+                      <div class="flex justify-between text-sm text-green-600 font-medium">
+                        <span>Discount:</span>
+                        <span>-<%= format_price(pricing.discount_amount) %></span>
+                      </div>
+                    <% end %>
+                    <div class="flex justify-between font-semibold text-lg">
+                      <span>Total:</span>
+                      <span>
+                        <%= format_price(pricing.total) %>
+                      </span>
+                    </div>
                   </div>
-                </div>
+                <% else %>
+                  <div class="border-t border-zinc-200 pt-4">
+                    <div class="flex justify-between font-semibold text-lg">
+                      <span>Total:</span>
+                      <span>
+                        <%= calculate_total_price(
+                          @selected_tickets,
+                          @event.id,
+                          @ticket_tiers,
+                          @reservations_by_tier,
+                          @current_user
+                        ) %>
+                      </span>
+                    </div>
+                  </div>
+                <% end %>
               </div>
             </div>
           </div>
@@ -2377,32 +2505,113 @@ defmodule YscWeb.EventDetailsLive do
           <h3 class="text-lg font-semibold text-zinc-900 mb-4">Your Tickets</h3>
           <div class="space-y-3">
             <%= for ticket <- @ticket_order.tickets do %>
-              <div class="flex justify-between items-center p-3 bg-zinc-50 rounded">
-                <div>
-                  <p class="font-medium text-zinc-900"><%= ticket.ticket_tier.name %></p>
-                  <p class="text-sm text-zinc-500">Ticket #<%= ticket.reference_id %></p>
+              <% ticket_discount_amount = ticket.discount_amount || Money.new(0, :USD) %>
+              <% has_discount = Money.positive?(ticket_discount_amount) %>
+              <div class="space-y-1">
+                <div class="flex justify-between items-center p-3 bg-zinc-50 rounded">
+                  <div>
+                    <p class="font-medium text-zinc-900"><%= ticket.ticket_tier.name %></p>
+                    <p class="text-sm text-zinc-500">Ticket #<%= ticket.reference_id %></p>
+                  </div>
+                  <div class="text-right">
+                    <p class="font-semibold text-zinc-900">
+                      <%= cond do %>
+                        <% ticket.ticket_tier.type == "donation" || ticket.ticket_tier.type == :donation -> %>
+                          <%= get_donation_amount_for_single_ticket(ticket) %>
+                        <% ticket.ticket_tier.price == nil -> %>
+                          Free
+                        <% Money.zero?(ticket.ticket_tier.price) -> %>
+                          Free
+                        <% true -> %>
+                          <%= if has_discount do %>
+                            <span class="text-zinc-400 line-through mr-2 text-sm">
+                              <%= case Money.to_string(ticket.ticket_tier.price) do
+                                {:ok, amount} -> amount
+                                {:error, _} -> "Error"
+                              end %>
+                            </span>
+                            <%= case Money.sub(ticket.ticket_tier.price, ticket_discount_amount) do
+                              {:ok, discounted} ->
+                                case Money.to_string(discounted) do
+                                  {:ok, amount} -> amount
+                                  {:error, _} -> "Error"
+                                end
+
+                              _ ->
+                                case Money.to_string(ticket.ticket_tier.price) do
+                                  {:ok, amount} -> amount
+                                  {:error, _} -> "Error"
+                                end
+                            end %>
+                          <% else %>
+                            <%= case Money.to_string(ticket.ticket_tier.price) do
+                              {:ok, amount} -> amount
+                              {:error, _} -> "Error"
+                            end %>
+                          <% end %>
+                      <% end %>
+                    </p>
+                  </div>
                 </div>
-                <div class="text-right">
-                  <p class="font-semibold text-zinc-900">
-                    <%= cond do %>
-                      <% ticket.ticket_tier.type == "donation" || ticket.ticket_tier.type == :donation -> %>
-                        <%= get_donation_amount_for_single_ticket(ticket) %>
-                      <% ticket.ticket_tier.price == nil -> %>
-                        Free
-                      <% Money.zero?(ticket.ticket_tier.price) -> %>
-                        Free
-                      <% true -> %>
-                        <%= case Money.to_string(ticket.ticket_tier.price) do
-                          {:ok, amount} -> amount
-                          {:error, _} -> "Error"
-                        end %>
-                    <% end %>
-                  </p>
-                </div>
+                <%= if has_discount do %>
+                  <% discount_percentage =
+                    if ticket.ticket_tier.price && Money.positive?(ticket.ticket_tier.price) do
+                      case Money.div(ticket_discount_amount, ticket.ticket_tier.price) do
+                        {:ok, ratio} ->
+                          Decimal.mult(ratio.amount, Decimal.new(100))
+                          |> Decimal.to_float()
+                          |> Float.round(2)
+
+                        _ ->
+                          nil
+                      end
+                    else
+                      nil
+                    end %>
+                  <div class="flex justify-between text-xs text-green-600 px-3">
+                    <span>
+                      Reserved discount<%= if discount_percentage do %>
+                        (<%= discount_percentage %>%)
+                      <% end %>
+                    </span>
+                    <span class="font-medium">
+                      -<%= case Money.to_string(ticket_discount_amount) do
+                        {:ok, amount} -> amount
+                        {:error, _} -> "$0.00"
+                      end %>
+                    </span>
+                  </div>
+                <% end %>
               </div>
             <% end %>
           </div>
-          <div class="border-t pt-3 mt-4">
+          <div class="border-t pt-3 mt-4 space-y-2">
+            <% total_discount = @ticket_order.discount_amount || Money.new(0, :USD) %>
+            <%= if Money.positive?(total_discount) do %>
+              <% gross_total =
+                case Money.add(@ticket_order.total_amount, total_discount) do
+                  {:ok, total} -> total
+                  _ -> @ticket_order.total_amount
+                end %>
+              <div class="flex justify-between text-sm text-zinc-600">
+                <span>Subtotal:</span>
+                <span>
+                  <%= case Money.to_string(gross_total) do
+                    {:ok, amount} -> amount
+                    {:error, _} -> "$0.00"
+                  end %>
+                </span>
+              </div>
+              <div class="flex justify-between text-sm text-green-600 font-medium">
+                <span>Discount:</span>
+                <span>
+                  -<%= case Money.to_string(total_discount) do
+                    {:ok, amount} -> amount
+                    {:error, _} -> "$0.00"
+                  end %>
+                </span>
+              </div>
+            <% end %>
             <div class="flex justify-between items-center">
               <p class="text-lg font-semibold text-zinc-900">Total</p>
               <p class="text-lg font-bold text-green-600">
@@ -3323,7 +3532,7 @@ defmodule YscWeb.EventDetailsLive do
           # For donations, calculate the total donation amount for this tier
           # The donation amount is stored in the ticket_order.total_amount
           # We need to calculate how much of the total is for this specific donation tier
-          {_event_amount, donation_amount} =
+          {_gross_event_amount, donation_amount, _discount_amount} =
             Ysc.Tickets.calculate_event_and_donation_amounts(ticket_order)
 
           # Count all donation tickets in the order
@@ -5654,54 +5863,278 @@ defmodule YscWeb.EventDetailsLive do
     DateTime.compare(now, event_datetime) == :gt
   end
 
-  defp calculate_total_price(selected_tickets, event_id, ticket_tiers) do
-    total =
+  defp calculate_total_price(
+         selected_tickets,
+         event_id,
+         ticket_tiers,
+         reservations_by_tier,
+         current_user
+       ) do
+    pricing =
+      calculate_pricing_with_discounts(
+        selected_tickets,
+        event_id,
+        ticket_tiers,
+        reservations_by_tier,
+        current_user
+      )
+
+    format_price(pricing.total)
+  end
+
+  # Calculate pricing breakdown including discounts from reservations
+  defp calculate_pricing_with_discounts(
+         selected_tickets,
+         event_id,
+         ticket_tiers,
+         reservations_by_tier,
+         current_user
+       ) do
+    user_id = if current_user, do: current_user.id, else: nil
+
+    {subtotal, discount_total, tier_breakdowns} =
       selected_tickets
-      |> Enum.reduce(Money.new(0, :USD), fn {tier_id, amount_or_quantity}, acc ->
+      |> Enum.reduce({Money.new(0, :USD), Money.new(0, :USD), []}, fn {tier_id,
+                                                                       amount_or_quantity},
+                                                                      {acc_subtotal, acc_discount,
+                                                                       acc_breakdowns} ->
         ticket_tier = get_ticket_tier_by_id(event_id, tier_id, ticket_tiers)
+        tier_reservations = if user_id, do: Map.get(reservations_by_tier, tier_id, []), else: []
 
         case ticket_tier.type do
           "free" ->
-            acc
+            breakdown = %{
+              tier_id: tier_id,
+              tier_name: ticket_tier.name,
+              quantity: amount_or_quantity,
+              original_price: Money.new(0, :USD),
+              discount_amount: Money.new(0, :USD),
+              final_price: Money.new(0, :USD),
+              discount_percentage: nil
+            }
+
+            {acc_subtotal, acc_discount, [breakdown | acc_breakdowns]}
 
           "donation" ->
-            # amount_or_quantity is already in cents for donations
-            # Convert cents to dollars Decimal, then create Money
             dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
             donation_amount = Money.new(:USD, dollars_decimal)
 
-            case Money.add(acc, donation_amount) do
-              {:ok, new_total} -> new_total
-              {:error, _} -> acc
-            end
+            new_subtotal =
+              case Money.add(acc_subtotal, donation_amount) do
+                {:ok, total} -> total
+                {:error, _} -> acc_subtotal
+              end
+
+            breakdown = %{
+              tier_id: tier_id,
+              tier_name: ticket_tier.name,
+              quantity: 1,
+              original_price: donation_amount,
+              discount_amount: Money.new(0, :USD),
+              final_price: donation_amount,
+              discount_percentage: nil
+            }
+
+            {new_subtotal, acc_discount, [breakdown | acc_breakdowns]}
 
           :donation ->
-            # amount_or_quantity is already in cents for donations
-            # Convert cents to dollars Decimal, then create Money
             dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
             donation_amount = Money.new(:USD, dollars_decimal)
 
-            case Money.add(acc, donation_amount) do
-              {:ok, new_total} -> new_total
-              {:error, _} -> acc
-            end
+            new_subtotal =
+              case Money.add(acc_subtotal, donation_amount) do
+                {:ok, total} -> total
+                {:error, _} -> acc_subtotal
+              end
+
+            breakdown = %{
+              tier_id: tier_id,
+              tier_name: ticket_tier.name,
+              quantity: 1,
+              original_price: donation_amount,
+              discount_amount: Money.new(0, :USD),
+              final_price: donation_amount,
+              discount_percentage: nil
+            }
+
+            {new_subtotal, acc_discount, [breakdown | acc_breakdowns]}
 
           _ ->
-            # Regular paid tiers: multiply price by quantity
-            case Money.mult(ticket_tier.price, amount_or_quantity) do
-              {:ok, tier_total} ->
-                case Money.add(acc, tier_total) do
-                  {:ok, new_total} -> new_total
-                  {:error, _} -> acc
-                end
+            # Regular paid tiers: calculate with discounts
+            original_tier_total =
+              case Money.mult(ticket_tier.price, amount_or_quantity) do
+                {:ok, total} -> total
+                {:error, _} -> Money.new(0, :USD)
+              end
 
-              {:error, _} ->
-                acc
-            end
+            # Calculate discount for reserved tickets
+            {tier_discount, discount_pct} =
+              if user_id && length(tier_reservations) > 0 do
+                calculate_tier_discount(ticket_tier, amount_or_quantity, tier_reservations)
+              else
+                {Money.new(0, :USD), nil}
+              end
+
+            final_tier_total =
+              case Money.sub(original_tier_total, tier_discount) do
+                {:ok, total} -> total
+                {:error, _} -> original_tier_total
+              end
+
+            new_subtotal =
+              case Money.add(acc_subtotal, original_tier_total) do
+                {:ok, total} -> total
+                {:error, _} -> acc_subtotal
+              end
+
+            new_discount =
+              case Money.add(acc_discount, tier_discount) do
+                {:ok, total} -> total
+                {:error, _} -> acc_discount
+              end
+
+            breakdown = %{
+              tier_id: tier_id,
+              tier_name: ticket_tier.name,
+              quantity: amount_or_quantity,
+              original_price: original_tier_total,
+              discount_amount: tier_discount,
+              final_price: final_tier_total,
+              discount_percentage: discount_pct
+            }
+
+            {new_subtotal, new_discount, [breakdown | acc_breakdowns]}
         end
       end)
 
-    format_price(total)
+    total =
+      case Money.sub(subtotal, discount_total) do
+        {:ok, amount} -> amount
+        _ -> subtotal
+      end
+
+    %{
+      subtotal: subtotal,
+      discount_amount: discount_total,
+      total: total,
+      tier_breakdowns: Enum.reverse(tier_breakdowns)
+    }
+  end
+
+  # Calculate discount for a specific tier based on reservations
+  defp calculate_tier_discount(tier, requested_quantity, reservations) do
+    {total_discount, _max_discount_pct} =
+      reservations
+      |> Enum.reduce_while({Money.new(0, :USD), nil, 0}, fn reservation,
+                                                            {discount_acc, max_pct, covered_qty} ->
+        remaining_to_cover = requested_quantity - covered_qty
+
+        if remaining_to_cover <= 0 do
+          {:halt, {discount_acc, max_pct, covered_qty}}
+        else
+          reservation_qty = reservation.quantity
+          reservation_discount_pct = reservation.discount_percentage || Decimal.new(0)
+
+          if Decimal.gt?(reservation_discount_pct, 0) do
+            tickets_from_reservation = min(reservation_qty, remaining_to_cover)
+
+            reservation_tier_total =
+              case Money.mult(tier.price, tickets_from_reservation) do
+                {:ok, total} -> total
+                {:error, _} -> Money.new(0, :USD)
+              end
+
+            discount_pct_decimal = Decimal.div(reservation_discount_pct, Decimal.new(100))
+
+            discount_amount =
+              case Money.mult(reservation_tier_total, discount_pct_decimal) do
+                {:ok, discount} -> discount
+                {:error, _} -> Money.new(0, :USD)
+              end
+
+            new_discount =
+              case Money.add(discount_acc, discount_amount) do
+                {:ok, total} -> total
+                {:error, _} -> discount_acc
+              end
+
+            # Track the maximum discount percentage for display
+            pct_float = Decimal.to_float(reservation_discount_pct)
+            new_max_pct = if max_pct == nil || pct_float > max_pct, do: pct_float, else: max_pct
+
+            new_covered = covered_qty + tickets_from_reservation
+
+            if new_covered >= requested_quantity do
+              {:halt, {new_discount, new_max_pct, new_covered}}
+            else
+              {:cont, {new_discount, new_max_pct, new_covered}}
+            end
+          else
+            new_covered = covered_qty + min(reservation_qty, remaining_to_cover)
+            {:cont, {discount_acc, max_pct, new_covered}}
+          end
+        end
+      end)
+
+    {elem(total_discount, 0), elem(total_discount, 1)}
+  end
+
+  # Get reservation discount information for display
+  defp get_reservation_discount_info(
+         tier_id,
+         reserved_quantity,
+         _reservations_by_tier,
+         user_reservations,
+         tier_price
+       ) do
+    if reserved_quantity > 0 && user_reservations do
+      # Find reservations for this tier
+      tier_reservations =
+        user_reservations
+        |> Enum.filter(&(&1.ticket_tier_id == tier_id))
+
+      # Get maximum discount percentage
+      max_discount_pct =
+        tier_reservations
+        |> Enum.map(&(&1.discount_percentage || Decimal.new(0)))
+        |> Enum.filter(&Decimal.gt?(&1, 0))
+        |> Enum.reduce(nil, fn discount, acc ->
+          if acc do
+            if Decimal.gt?(discount, acc), do: discount, else: acc
+          else
+            discount
+          end
+        end)
+
+      # Calculate discount savings
+      discount_savings =
+        if max_discount_pct && tier_price do
+          original_total =
+            case Money.mult(tier_price, reserved_quantity) do
+              {:ok, total} -> total
+              {:error, _} -> Money.new(0, :USD)
+            end
+
+          discount_pct_decimal = Decimal.div(max_discount_pct, Decimal.new(100))
+
+          case Money.mult(original_total, discount_pct_decimal) do
+            {:ok, discount} -> discount
+            {:error, _} -> Money.new(0, :USD)
+          end
+        else
+          Money.new(0, :USD)
+        end
+
+      %{
+        discount_percentage: max_discount_pct && Decimal.to_float(max_discount_pct),
+        discount_savings: discount_savings
+      }
+    else
+      %{
+        discount_percentage: nil,
+        discount_savings: Money.new(0, :USD)
+      }
+    end
   end
 
   defp group_tickets_by_tier(tickets) do

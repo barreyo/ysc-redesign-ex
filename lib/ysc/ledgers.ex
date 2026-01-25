@@ -44,7 +44,8 @@ defmodule Ysc.Ledgers do
     # Expense accounts (debit-normal)
     {"stripe_fees", "expense", "debit", "Stripe processing fees"},
     {"operating_expenses", "expense", "debit", "General operating expenses"},
-    {"refund_expense", "expense", "debit", "Refunds issued to customers"}
+    {"refund_expense", "expense", "debit", "Refunds issued to customers"},
+    {"discount_expense", "expense", "debit", "Reserved ticket discounts"}
   ]
 
   ## Account Management
@@ -246,6 +247,126 @@ defmodule Ysc.Ledgers do
           tags: %{
             ledger_operation: "process_payment",
             entity_type: inspect(entity_type)
+          }
+        )
+
+        error
+    end
+  end
+
+  @doc """
+  Processes an event payment that may include donations and discounts.
+
+  This function handles ticket orders that contain regular tickets, donation tickets, and discounts.
+  It creates separate revenue entries for event revenue, donation revenue, and discount expense entries.
+
+  ## Parameters:
+  - `user_id`: The user making the payment
+  - `total_amount`: Total payment amount (net after discounts)
+  - `gross_event_amount`: Gross event amount before discounts
+  - `event_amount`: Amount for regular event tickets (same as gross_event_amount)
+  - `donation_amount`: Amount for donation tickets
+  - `discount_amount`: Total discount amount applied
+  - `event_id`: Event ID
+  - `external_payment_id`: External payment provider ID (e.g., Stripe payment intent)
+  - `stripe_fee`: Stripe processing fee (optional)
+  - `description`: Description of the payment
+  - `payment_method_id`: ID of the payment method used (optional)
+  - `ticket_order_id`: Ticket order ID for traceability (optional)
+  """
+  def process_event_payment_with_donations_and_discounts(attrs) do
+    %{
+      user_id: user_id,
+      total_amount: total_amount,
+      gross_event_amount: gross_event_amount,
+      event_amount: _event_amount,
+      donation_amount: donation_amount,
+      discount_amount: discount_amount,
+      event_id: event_id,
+      external_payment_id: external_payment_id,
+      stripe_fee: stripe_fee,
+      description: description,
+      payment_method_id: payment_method_id,
+      ticket_order_id: ticket_order_id
+    } = attrs
+
+    ensure_basic_accounts()
+
+    Repo.transaction(fn ->
+      # Create payment record
+      {:ok, payment} =
+        create_payment(%{
+          user_id: user_id,
+          amount: total_amount,
+          external_provider: :stripe,
+          external_payment_id: external_payment_id,
+          status: :completed,
+          payment_date: DateTime.utc_now(),
+          payment_method_id: payment_method_id
+        })
+
+      # Create ledger transaction
+      {:ok, transaction} =
+        create_transaction(%{
+          type: :payment,
+          payment_id: payment.id,
+          total_amount: total_amount,
+          status: :completed
+        })
+
+      # Create double-entry entries for mixed event/donation/discount payment
+      entries =
+        create_mixed_event_donation_discount_entries(%{
+          payment: payment,
+          transaction: transaction,
+          total_amount: total_amount,
+          gross_event_amount: gross_event_amount,
+          donation_amount: donation_amount,
+          discount_amount: discount_amount,
+          event_id: event_id,
+          stripe_fee: stripe_fee,
+          description: description,
+          ticket_order_id: ticket_order_id
+        })
+
+      {payment, transaction, entries}
+    end)
+    |> case do
+      {:ok, {payment, transaction, entries}} ->
+        # Enqueue QuickBooks sync job after successful payment creation
+        enqueue_quickbooks_sync_payment(payment)
+        {:ok, {payment, transaction, entries}}
+
+      error ->
+        # Report to Sentry
+        require Logger
+
+        Logger.error("Failed to process event payment with donations and discounts in ledger",
+          user_id: user_id,
+          total_amount: Money.to_string!(total_amount),
+          gross_event_amount: Money.to_string!(gross_event_amount),
+          donation_amount: Money.to_string!(donation_amount),
+          discount_amount: Money.to_string!(discount_amount),
+          event_id: event_id,
+          external_payment_id: external_payment_id,
+          error: inspect(error)
+        )
+
+        Sentry.capture_message("Failed to process event payment with discounts in ledger",
+          level: :error,
+          extra: %{
+            user_id: user_id,
+            total_amount: Money.to_string!(total_amount),
+            gross_event_amount: Money.to_string!(gross_event_amount),
+            donation_amount: Money.to_string!(donation_amount),
+            discount_amount: Money.to_string!(discount_amount),
+            event_id: event_id,
+            external_payment_id: external_payment_id,
+            error: inspect(error)
+          },
+          tags: %{
+            ledger_operation: "process_event_payment_with_discounts",
+            entity_type: "event"
           }
         )
 
@@ -660,6 +781,156 @@ defmodule Ysc.Ledgers do
           })
 
         # Entry 3b: Credit Stripe Account (reducing receivable by fee amount)
+        {:ok, stripe_fee_deduction_entry} =
+          create_entry(%{
+            account_id: stripe_account.id,
+            payment_id: payment.id,
+            amount: stripe_fee,
+            debit_credit: :credit,
+            description: "Stripe fee deduction from receivable - #{payment.reference_id}",
+            related_entity_type: :administration,
+            related_entity_id: payment.id
+          })
+
+        [fee_expense_entry, stripe_fee_deduction_entry | entries]
+      else
+        entries
+      end
+
+    entries
+  end
+
+  defp create_mixed_event_donation_discount_entries(attrs) do
+    %{
+      payment: payment,
+      total_amount: total_amount,
+      gross_event_amount: gross_event_amount,
+      donation_amount: donation_amount,
+      discount_amount: discount_amount,
+      event_id: event_id,
+      stripe_fee: stripe_fee,
+      description: description,
+      ticket_order_id: ticket_order_id
+    } = attrs
+
+    entries = []
+
+    stripe_receivable_account = get_account_by_name("stripe_account")
+    event_revenue_account = get_account_by_name("event_revenue")
+    donation_revenue_account = get_account_by_name("donation_revenue")
+    discount_expense_account = get_account_by_name("discount_expense")
+
+    # Entry 1: Debit Stripe Receivable (Asset) - money owed to us by Stripe (net amount received)
+    {:ok, stripe_receivable_entry} =
+      create_entry(%{
+        account_id: stripe_receivable_account.id,
+        payment_id: payment.id,
+        amount: total_amount,
+        debit_credit: :debit,
+        description: "Payment receivable from Stripe: #{description}",
+        related_entity_type: :event,
+        related_entity_id: event_id
+      })
+
+    entries = [stripe_receivable_entry | entries]
+
+    # Entry 2: Credit Event Revenue (net amount after discounts)
+    # We credit the net revenue (gross - discount) to show what we actually earned
+    net_event_amount =
+      case Money.sub(gross_event_amount, discount_amount) do
+        {:ok, amount} -> amount
+        _ -> gross_event_amount
+      end
+
+    entries =
+      if Money.positive?(net_event_amount) do
+        {:ok, event_revenue_entry} =
+          create_entry(%{
+            account_id: event_revenue_account.id,
+            payment_id: payment.id,
+            amount: net_event_amount,
+            debit_credit: :credit,
+            description: "Event revenue from tickets: #{description}",
+            related_entity_type: :event,
+            related_entity_id: event_id
+          })
+
+        [event_revenue_entry | entries]
+      else
+        entries
+      end
+
+    # Entry 3: Debit Discount Expense (if discounts were applied)
+    # This tracks the discount as an expense and reduces revenue
+    entries =
+      if Money.positive?(discount_amount) do
+        {:ok, discount_expense_entry} =
+          create_entry(%{
+            account_id: discount_expense_account.id,
+            payment_id: payment.id,
+            amount: discount_amount,
+            debit_credit: :debit,
+            description: "Reserved ticket discount - Order #{ticket_order_id || "N/A"}",
+            related_entity_type: :event,
+            related_entity_id: event_id
+          })
+
+        # Entry 4: Credit Event Revenue (reducing revenue by discount amount)
+        # This entry reduces the gross revenue to show the net revenue
+        {:ok, discount_revenue_reduction_entry} =
+          create_entry(%{
+            account_id: event_revenue_account.id,
+            payment_id: payment.id,
+            amount: discount_amount,
+            debit_credit: :credit,
+            description: "Revenue reduction from discount - Order #{ticket_order_id || "N/A"}",
+            related_entity_type: :event,
+            related_entity_id: event_id
+          })
+
+        [discount_revenue_reduction_entry, discount_expense_entry | entries]
+      else
+        entries
+      end
+
+    # Entry 5: Credit Donation Revenue (if there are donations)
+    entries =
+      if Money.positive?(donation_amount) do
+        {:ok, donation_revenue_entry} =
+          create_entry(%{
+            account_id: donation_revenue_account.id,
+            payment_id: payment.id,
+            amount: donation_amount,
+            debit_credit: :credit,
+            description: "Donation revenue from tickets: #{description}",
+            related_entity_type: :donation,
+            related_entity_id: event_id
+          })
+
+        [donation_revenue_entry | entries]
+      else
+        entries
+      end
+
+    # Entry 6: Stripe fee entries (if there's a fee)
+    entries =
+      if stripe_fee && Money.positive?(stripe_fee) do
+        stripe_fee_account = get_account_by_name("stripe_fees")
+        stripe_account = get_account_by_name("stripe_account")
+
+        # Entry 6a: Debit Stripe Fee Expense
+        {:ok, fee_expense_entry} =
+          create_entry(%{
+            account_id: stripe_fee_account.id,
+            payment_id: payment.id,
+            amount: stripe_fee,
+            debit_credit: :debit,
+            description: "Stripe processing fee for payment #{payment.reference_id}",
+            related_entity_type: :administration,
+            related_entity_id: payment.id
+          })
+
+        # Entry 6b: Credit Stripe Account (reducing receivable by fee amount)
         {:ok, stripe_fee_deduction_entry} =
           create_entry(%{
             account_id: stripe_account.id,
