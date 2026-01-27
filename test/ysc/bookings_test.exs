@@ -5,7 +5,19 @@ defmodule Ysc.BookingsTest do
   use Ysc.DataCase, async: true
 
   alias Ysc.Bookings
-  alias Ysc.Bookings.{Booking, Season, Room, RoomCategory}
+
+  alias Ysc.Bookings.{
+    Booking,
+    Season,
+    Room,
+    RoomCategory,
+    PricingRule,
+    Blackout,
+    DoorCode,
+    RefundPolicy,
+    RefundPolicyRule
+  }
+
   import Ysc.AccountsFixtures
   import Ysc.BookingsFixtures
 
@@ -98,7 +110,15 @@ defmodule Ysc.BookingsTest do
     end
 
     test "list_bookings/3 filters by date range" do
-      checkin = Date.utc_today() |> Date.add(7)
+      # Ensure dates don't include Saturday without Sunday (Tahoe rule)
+      # Start from a Monday to avoid weekend issues
+      base_date = Date.utc_today() |> Date.add(7)
+      # Find next Monday if not already Monday
+      checkin =
+        if Date.day_of_week(base_date) == 1,
+          do: base_date,
+          else: Date.add(base_date, 8 - Date.day_of_week(base_date))
+
       checkout = Date.add(checkin, 2)
 
       booking1 = booking_fixture(%{checkin_date: checkin, checkout_date: checkout})
@@ -244,6 +264,51 @@ defmodule Ysc.BookingsTest do
     end
   end
 
+  describe "pricing rules" do
+    test "list_pricing_rules/0 returns all pricing rules" do
+      rule1 = create_pricing_rule_fixture(%{property: :tahoe})
+      rule2 = create_pricing_rule_fixture(%{property: :clear_lake})
+
+      rules = Bookings.list_pricing_rules()
+      assert length(rules) >= 2
+      assert Enum.any?(rules, &(&1.id == rule1.id))
+      assert Enum.any?(rules, &(&1.id == rule2.id))
+    end
+
+    test "get_pricing_rule!/1 returns the pricing rule with given id" do
+      rule = create_pricing_rule_fixture()
+      found = Bookings.get_pricing_rule!(rule.id)
+      assert found.id == rule.id
+    end
+
+    test "create_pricing_rule/1 with valid data creates a pricing rule" do
+      valid_attrs = %{
+        amount: Money.new(100, :USD),
+        booking_mode: :room,
+        price_unit: :per_person_per_night,
+        property: :tahoe
+      }
+
+      assert {:ok, rule} = Bookings.create_pricing_rule(valid_attrs)
+      assert rule.property == :tahoe
+      assert rule.booking_mode == :room
+    end
+
+    test "update_pricing_rule/2 with valid data updates the pricing rule" do
+      rule = create_pricing_rule_fixture()
+      update_attrs = %{amount: Money.new(150, :USD)}
+
+      assert {:ok, updated} = Bookings.update_pricing_rule(rule, update_attrs)
+      assert Money.equal?(updated.amount, Money.new(150, :USD))
+    end
+
+    test "delete_pricing_rule/1 deletes the pricing rule" do
+      rule = create_pricing_rule_fixture()
+      assert {:ok, %{}} = Bookings.delete_pricing_rule(rule)
+      assert_raise Ecto.NoResultsError, fn -> Bookings.get_pricing_rule!(rule.id) end
+    end
+  end
+
   describe "rooms" do
     test "list_rooms/0 returns all rooms" do
       room1 = create_room_fixture(%{name: "Room 1", property: :tahoe})
@@ -299,6 +364,511 @@ defmodule Ysc.BookingsTest do
     end
   end
 
+  describe "room categories" do
+    test "list_room_categories/0 returns all room categories" do
+      category1 = create_room_category_fixture()
+      category2 = create_room_category_fixture()
+
+      categories = Bookings.list_room_categories()
+      assert length(categories) >= 2
+      assert Enum.any?(categories, &(&1.id == category1.id))
+      assert Enum.any?(categories, &(&1.id == category2.id))
+    end
+  end
+
+  describe "booking guests" do
+    test "list_booking_guests/1 returns guests for booking" do
+      booking = booking_fixture()
+      guests = Bookings.list_booking_guests(booking.id)
+      assert is_list(guests)
+    end
+
+    test "create_booking_guests/2 creates guests for booking" do
+      booking = booking_fixture()
+
+      guests_attrs = [
+        %{first_name: "John", last_name: "Doe"},
+        %{first_name: "Jane", last_name: "Doe"}
+      ]
+
+      assert {:ok, guests} = Bookings.create_booking_guests(booking.id, guests_attrs)
+      assert length(guests) == 2
+    end
+
+    test "delete_booking_guests/1 deletes all guests for booking" do
+      booking = booking_fixture()
+      guests_attrs = [%{first_name: "John", last_name: "Doe"}]
+      {:ok, _guests} = Bookings.create_booking_guests(booking.id, guests_attrs)
+
+      assert {:ok, _} = Bookings.delete_booking_guests(booking.id)
+      guests = Bookings.list_booking_guests(booking.id)
+      assert guests == []
+    end
+  end
+
+  describe "paginated bookings" do
+    test "list_paginated_bookings/1 returns paginated results" do
+      _booking1 = booking_fixture()
+      _booking2 = booking_fixture()
+
+      params = %{page: 1, page_size: 10}
+      result = Bookings.list_paginated_bookings(params)
+
+      assert Map.has_key?(result, :entries)
+      assert Map.has_key?(result, :page_number)
+      assert Map.has_key?(result, :page_size)
+      assert Map.has_key?(result, :total_pages)
+      assert Map.has_key?(result, :total_entries)
+      assert result.page_number == 1
+      assert result.page_size == 10
+    end
+
+    test "list_paginated_bookings/2 with search term filters results" do
+      user = user_fixture()
+      booking = booking_fixture(%{user_id: user.id})
+
+      params = %{page: 1, page_size: 10}
+      result = Bookings.list_paginated_bookings(params, user.email)
+
+      assert is_list(result.entries)
+    end
+
+    test "list_user_bookings_paginated/2 returns user's bookings" do
+      user = user_fixture()
+      _booking1 = booking_fixture(%{user_id: user.id})
+      _booking2 = booking_fixture(%{user_id: user.id})
+
+      params = %{page: 1, page_size: 10}
+      result = Bookings.list_user_bookings_paginated(user.id, params)
+
+      assert Map.has_key?(result, :entries)
+      assert result.page_number == 1
+    end
+  end
+
+  describe "check-ins" do
+    test "create_check_in/1 creates a check-in" do
+      booking = booking_fixture()
+
+      attrs = %{
+        booking_id: booking.id,
+        checked_in_at: DateTime.utc_now()
+      }
+
+      assert {:ok, check_in} = Bookings.create_check_in(attrs)
+      assert check_in.booking_id == booking.id
+    end
+
+    test "get_check_in!/1 returns check-in by id" do
+      booking = booking_fixture()
+
+      {:ok, check_in} =
+        Bookings.create_check_in(%{
+          booking_id: booking.id,
+          checked_in_at: DateTime.utc_now()
+        })
+
+      found = Bookings.get_check_in!(check_in.id)
+      assert found.id == check_in.id
+    end
+
+    test "list_check_ins_by_booking/1 returns check-ins for booking" do
+      booking = booking_fixture()
+
+      {:ok, _check_in} =
+        Bookings.create_check_in(%{
+          booking_id: booking.id,
+          checked_in_at: DateTime.utc_now()
+        })
+
+      check_ins = Bookings.list_check_ins_by_booking(booking.id)
+      assert is_list(check_ins)
+      assert check_ins != []
+    end
+
+    test "mark_booking_checked_in/1 marks booking as checked in" do
+      booking = booking_fixture()
+      assert {:ok, _} = Bookings.mark_booking_checked_in(booking.id)
+    end
+  end
+
+  describe "blackouts" do
+    test "list_blackouts/0 returns all blackouts" do
+      blackout1 = create_blackout_fixture(%{property: :tahoe})
+      blackout2 = create_blackout_fixture(%{property: :clear_lake})
+
+      blackouts = Bookings.list_blackouts()
+      assert length(blackouts) >= 2
+      assert Enum.any?(blackouts, &(&1.id == blackout1.id))
+      assert Enum.any?(blackouts, &(&1.id == blackout2.id))
+    end
+
+    test "list_blackouts/3 filters by property and date range" do
+      checkin = Date.utc_today() |> Date.add(30)
+      checkout = Date.add(checkin, 2)
+
+      blackout =
+        create_blackout_fixture(%{
+          property: :tahoe,
+          start_date: checkin,
+          end_date: checkout
+        })
+
+      blackouts = Bookings.list_blackouts(:tahoe, checkin, checkout)
+      assert Enum.any?(blackouts, &(&1.id == blackout.id))
+    end
+
+    test "get_blackout!/1 returns blackout by id" do
+      blackout = create_blackout_fixture()
+      found = Bookings.get_blackout!(blackout.id)
+      assert found.id == blackout.id
+    end
+
+    test "create_blackout/1 creates a blackout" do
+      attrs = %{
+        property: :tahoe,
+        start_date: Date.utc_today() |> Date.add(30),
+        end_date: Date.utc_today() |> Date.add(32),
+        reason: "Maintenance"
+      }
+
+      assert {:ok, blackout} = Bookings.create_blackout(attrs)
+      assert blackout.property == :tahoe
+    end
+
+    test "update_blackout/2 updates a blackout" do
+      blackout = create_blackout_fixture()
+      update_attrs = %{reason: "Updated reason"}
+
+      assert {:ok, updated} = Bookings.update_blackout(blackout, update_attrs)
+      assert updated.reason == "Updated reason"
+    end
+
+    test "delete_blackout/1 deletes a blackout" do
+      blackout = create_blackout_fixture()
+      assert {:ok, %{}} = Bookings.delete_blackout(blackout)
+      assert_raise Ecto.NoResultsError, fn -> Bookings.get_blackout!(blackout.id) end
+    end
+
+    test "has_blackout?/3 checks if property has blackout for dates" do
+      checkin = Date.utc_today() |> Date.add(30)
+      checkout = Date.add(checkin, 2)
+
+      _blackout =
+        create_blackout_fixture(%{
+          property: :tahoe,
+          start_date: checkin,
+          end_date: checkout
+        })
+
+      assert Bookings.has_blackout?(:tahoe, checkin, checkout) == true
+      assert Bookings.has_blackout?(:tahoe, Date.add(checkin, 10), Date.add(checkin, 12)) == false
+    end
+
+    test "get_overlapping_blackouts/3 returns overlapping blackouts" do
+      checkin = Date.utc_today() |> Date.add(30)
+      checkout = Date.add(checkin, 2)
+
+      blackout =
+        create_blackout_fixture(%{
+          property: :tahoe,
+          start_date: checkin,
+          end_date: checkout
+        })
+
+      overlapping = Bookings.get_overlapping_blackouts(:tahoe, checkin, checkout)
+      assert Enum.any?(overlapping, &(&1.id == blackout.id))
+    end
+  end
+
+  describe "utility functions" do
+    test "bookings_overlap?/4 detects overlapping bookings" do
+      checkin1 = ~D[2025-06-01]
+      checkout1 = ~D[2025-06-05]
+      checkin2 = ~D[2025-06-03]
+      checkout2 = ~D[2025-06-07]
+
+      assert Bookings.bookings_overlap?(checkin1, checkout1, checkin2, checkout2) == true
+
+      assert Bookings.bookings_overlap?(checkin1, checkout1, ~D[2025-06-10], ~D[2025-06-12]) ==
+               false
+    end
+
+    test "checkin_time/0 returns check-in time" do
+      assert Bookings.checkin_time() == ~T[15:00:00]
+    end
+
+    test "checkout_time/0 returns check-out time" do
+      assert Bookings.checkout_time() == ~T[11:00:00]
+    end
+
+    test "room_available?/3 checks room availability" do
+      room = create_room_fixture()
+      checkin = Date.utc_today() |> Date.add(30)
+      checkout = Date.add(checkin, 2)
+
+      # Room should be available when no bookings exist
+      assert Bookings.room_available?(room.id, checkin, checkout) == true
+    end
+
+    test "get_available_rooms/3 returns available rooms" do
+      _room = create_room_fixture(%{property: :tahoe})
+      checkin = Date.utc_today() |> Date.add(30)
+      checkout = Date.add(checkin, 2)
+
+      rooms = Bookings.get_available_rooms(:tahoe, checkin, checkout)
+      assert is_list(rooms)
+    end
+
+    test "batch_check_room_availability/4 checks multiple rooms" do
+      room1 = create_room_fixture(%{property: :tahoe})
+      room2 = create_room_fixture(%{property: :tahoe})
+      checkin = Date.utc_today() |> Date.add(30)
+      checkout = Date.add(checkin, 2)
+
+      results =
+        Bookings.batch_check_room_availability([room1.id, room2.id], :tahoe, checkin, checkout)
+
+      assert is_map(results)
+      assert Map.has_key?(results, room1.id)
+      assert Map.has_key?(results, room2.id)
+    end
+  end
+
+  describe "door codes" do
+    test "get_active_door_code/1 returns active door code for property" do
+      code = create_door_code_fixture(%{property: :tahoe, is_active: true})
+      active = Bookings.get_active_door_code(:tahoe)
+      assert active.id == code.id
+    end
+
+    test "list_door_codes/1 returns door codes for property" do
+      code1 = create_door_code_fixture(%{property: :tahoe})
+      _code2 = create_door_code_fixture(%{property: :clear_lake})
+
+      codes = Bookings.list_door_codes(:tahoe)
+      assert Enum.any?(codes, &(&1.id == code1.id))
+    end
+
+    test "get_recent_door_codes/2 returns recent door codes" do
+      code1 = create_door_code_fixture(%{property: :tahoe})
+      code2 = create_door_code_fixture(%{property: :tahoe})
+
+      codes = Bookings.get_recent_door_codes(:tahoe, code1.code)
+      assert is_list(codes)
+    end
+
+    test "create_door_code/1 creates a door code" do
+      attrs = %{
+        property: :tahoe,
+        code: "1234",
+        is_active: true
+      }
+
+      assert {:ok, door_code} = Bookings.create_door_code(attrs)
+      assert door_code.property == :tahoe
+      assert door_code.code == "1234"
+    end
+
+    test "get_door_code!/1 returns door code by id" do
+      code = create_door_code_fixture()
+      found = Bookings.get_door_code!(code.id)
+      assert found.id == code.id
+    end
+  end
+
+  describe "refund policies" do
+    test "list_refund_policies/0 returns all refund policies" do
+      policy1 = create_refund_policy_fixture(%{property: :tahoe})
+      policy2 = create_refund_policy_fixture(%{property: :clear_lake})
+
+      policies = Bookings.list_refund_policies()
+      assert length(policies) >= 2
+      assert Enum.any?(policies, &(&1.id == policy1.id))
+      assert Enum.any?(policies, &(&1.id == policy2.id))
+    end
+
+    test "list_refund_policies/2 filters by property and booking mode" do
+      policy = create_refund_policy_fixture(%{property: :tahoe, booking_mode: :buyout})
+      _other = create_refund_policy_fixture(%{property: :clear_lake, booking_mode: :room})
+
+      policies = Bookings.list_refund_policies(:tahoe, :buyout)
+      assert Enum.any?(policies, &(&1.id == policy.id))
+    end
+
+    test "get_refund_policy!/1 returns refund policy by id" do
+      policy = create_refund_policy_fixture()
+      found = Bookings.get_refund_policy!(policy.id)
+      assert found.id == policy.id
+    end
+
+    test "get_active_refund_policy/2 returns active policy" do
+      _inactive = create_refund_policy_fixture(%{property: :tahoe, is_active: false})
+
+      active =
+        create_refund_policy_fixture(%{property: :tahoe, is_active: true, booking_mode: :buyout})
+
+      found = Bookings.get_active_refund_policy(:tahoe, :buyout)
+      assert found.id == active.id
+    end
+
+    test "create_refund_policy/1 creates a refund policy" do
+      attrs = %{
+        property: :tahoe,
+        booking_mode: :buyout,
+        is_active: true,
+        name: "Test Policy"
+      }
+
+      assert {:ok, policy} = Bookings.create_refund_policy(attrs)
+      assert policy.property == :tahoe
+    end
+
+    test "update_refund_policy/2 updates a refund policy" do
+      policy = create_refund_policy_fixture()
+      update_attrs = %{name: "Updated Policy"}
+
+      assert {:ok, updated} = Bookings.update_refund_policy(policy, update_attrs)
+      assert updated.name == "Updated Policy"
+    end
+
+    test "delete_refund_policy/1 deletes a refund policy" do
+      policy = create_refund_policy_fixture()
+      assert {:ok, %{}} = Bookings.delete_refund_policy(policy)
+      assert_raise Ecto.NoResultsError, fn -> Bookings.get_refund_policy!(policy.id) end
+    end
+  end
+
+  describe "refund policy rules" do
+    test "list_refund_policy_rules/1 returns rules for policy" do
+      policy = create_refund_policy_fixture()
+      rule = create_refund_policy_rule_fixture(%{refund_policy_id: policy.id})
+
+      rules = Bookings.list_refund_policy_rules(policy.id)
+      assert Enum.any?(rules, &(&1.id == rule.id))
+    end
+
+    test "get_refund_policy_rule!/1 returns rule by id" do
+      rule = create_refund_policy_rule_fixture()
+      found = Bookings.get_refund_policy_rule!(rule.id)
+      assert found.id == rule.id
+    end
+
+    test "create_refund_policy_rule/1 creates a rule" do
+      policy = create_refund_policy_fixture()
+
+      attrs = %{
+        refund_policy_id: policy.id,
+        days_before_checkin: 7,
+        refund_percentage: 50
+      }
+
+      assert {:ok, rule} = Bookings.create_refund_policy_rule(attrs)
+      assert rule.refund_policy_id == policy.id
+    end
+
+    test "update_refund_policy_rule/2 updates a rule" do
+      rule = create_refund_policy_rule_fixture()
+      update_attrs = %{refund_percentage: 75}
+
+      assert {:ok, updated} = Bookings.update_refund_policy_rule(rule, update_attrs)
+      assert updated.refund_percentage == 75
+    end
+
+    test "delete_refund_policy_rule/1 deletes a rule" do
+      rule = create_refund_policy_rule_fixture()
+      assert {:ok, %{}} = Bookings.delete_refund_policy_rule(rule)
+      assert_raise Ecto.NoResultsError, fn -> Bookings.get_refund_policy_rule!(rule.id) end
+    end
+  end
+
+  describe "refund calculations" do
+    test "calculate_refund/2 calculates refund amount" do
+      booking = booking_fixture(%{total_price: Money.new(10_000, :USD)})
+      cancellation_date = Date.utc_today()
+
+      refund_amount = Bookings.calculate_refund(booking, cancellation_date)
+      assert %Money{} = refund_amount
+    end
+
+    test "get_booking_payment_amount/1 returns payment amount for booking" do
+      booking = booking_fixture()
+      amount = Bookings.get_booking_payment_amount(booking)
+      assert %Money{} = amount
+    end
+  end
+
+  describe "search functions" do
+    test "search_bookings_by_last_name/2 searches bookings by last name" do
+      user = user_fixture(%{last_name: "Smith"})
+      booking = booking_fixture(%{user_id: user.id})
+
+      results = Bookings.search_bookings_by_last_name("Smith", :tahoe)
+      assert is_list(results)
+    end
+  end
+
+  describe "get_booking_payment/1" do
+    test "returns payment for booking", %{user: user} do
+      booking = booking_fixture(%{user_id: user.id})
+
+      # Create a payment for the booking
+      {:ok, {payment, _, _}} =
+        Ysc.Ledgers.process_payment(%{
+          user_id: user.id,
+          amount: booking.total_price,
+          entity_type: :booking,
+          entity_id: booking.id,
+          external_payment_id: "pi_booking_payment",
+          stripe_fee: Money.new(320, :USD),
+          description: "Booking payment",
+          property: booking.property,
+          payment_method_id: nil
+        })
+
+      found = Bookings.get_booking_payment(booking)
+      assert found.id == payment.id
+    end
+
+    test "returns nil when booking has no payment" do
+      booking = booking_fixture()
+      assert Bookings.get_booking_payment(booking) == nil
+    end
+  end
+
+  describe "daily availability" do
+    test "get_tahoe_daily_availability/2 returns availability data" do
+      start_date = Date.utc_today() |> Date.add(30)
+      end_date = Date.add(start_date, 7)
+
+      availability = Bookings.get_tahoe_daily_availability(start_date, end_date)
+      assert is_list(availability)
+    end
+
+    test "get_clear_lake_daily_availability/2 returns availability data" do
+      start_date = Date.utc_today() |> Date.add(30)
+      end_date = Date.add(start_date, 7)
+
+      availability = Bookings.get_clear_lake_daily_availability(start_date, end_date)
+      assert is_list(availability)
+    end
+  end
+
+  describe "pending refunds" do
+    test "list_pending_refunds/0 returns pending refunds" do
+      refunds = Bookings.list_pending_refunds()
+      assert is_list(refunds)
+    end
+
+    test "get_pending_refund!/1 returns pending refund by id" do
+      # This test may need a pending refund fixture
+      # For now, we'll test that it raises when not found
+      assert_raise Ecto.NoResultsError, fn ->
+        Bookings.get_pending_refund!(Ecto.ULID.generate())
+      end
+    end
+  end
+
   # Helper functions for creating test data
   defp create_season_fixture(attrs \\ %{}) do
     default_attrs = %{
@@ -345,5 +915,86 @@ defmodule Ysc.BookingsTest do
       |> Ysc.Repo.insert()
 
     category
+  end
+
+  defp create_pricing_rule_fixture(attrs \\ %{}) do
+    default_attrs = %{
+      amount: Money.new(100, :USD),
+      booking_mode: :room,
+      price_unit: :per_person_per_night,
+      property: :tahoe
+    }
+
+    {:ok, rule} =
+      default_attrs
+      |> Map.merge(attrs)
+      |> Bookings.create_pricing_rule()
+
+    rule
+  end
+
+  defp create_blackout_fixture(attrs \\ %{}) do
+    default_attrs = %{
+      property: :tahoe,
+      start_date: Date.utc_today() |> Date.add(30),
+      end_date: Date.utc_today() |> Date.add(32),
+      reason: "Test blackout"
+    }
+
+    {:ok, blackout} =
+      default_attrs
+      |> Map.merge(attrs)
+      |> Bookings.create_blackout()
+
+    blackout
+  end
+
+  defp create_door_code_fixture(attrs \\ %{}) do
+    default_attrs = %{
+      property: :tahoe,
+      code: "1234#{System.unique_integer([:positive])}",
+      is_active: false
+    }
+
+    {:ok, door_code} =
+      default_attrs
+      |> Map.merge(attrs)
+      |> Bookings.create_door_code()
+
+    door_code
+  end
+
+  defp create_refund_policy_fixture(attrs \\ %{}) do
+    default_attrs = %{
+      property: :tahoe,
+      booking_mode: :buyout,
+      is_active: true,
+      name: "Test Policy #{System.unique_integer()}"
+    }
+
+    {:ok, policy} =
+      default_attrs
+      |> Map.merge(attrs)
+      |> Bookings.create_refund_policy()
+
+    policy
+  end
+
+  defp create_refund_policy_rule_fixture(attrs \\ %{}) do
+    policy = create_refund_policy_fixture()
+
+    default_attrs = %{
+      refund_policy_id: policy.id,
+      days_before_checkin: 7,
+      refund_percentage: 50,
+      priority: 1
+    }
+
+    {:ok, rule} =
+      default_attrs
+      |> Map.merge(attrs)
+      |> Bookings.create_refund_policy_rule()
+
+    rule
   end
 end

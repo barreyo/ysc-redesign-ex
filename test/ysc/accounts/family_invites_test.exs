@@ -39,7 +39,9 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
         Subscriptions.create_subscription_item(%{
           subscription_id: subscription.id,
           stripe_price_id: family_plan.stripe_price_id,
-          stripe_id: "si_test_#{System.unique_integer()}"
+          stripe_product_id: "prod_test_#{System.unique_integer()}",
+          stripe_id: "si_test_#{System.unique_integer()}",
+          quantity: 1
         })
 
       Accounts.get_user!(user.id, [:subscriptions])
@@ -165,7 +167,9 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
           primary_user_id: primary_user.id,
           created_by_user_id: primary_user.id
         })
-        |> Ecto.Changeset.change(expires_at: DateTime.add(DateTime.utc_now(), -1, :day))
+        |> Ecto.Changeset.change(
+          expires_at: DateTime.add(DateTime.utc_now(), -1, :day) |> DateTime.truncate(:second)
+        )
         |> Repo.insert!()
 
       # Wait a moment to ensure the expired check works
@@ -193,9 +197,9 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
           date_of_birth: ~D[1990-01-01]
         })
 
-      # Should be able to create a new invite since the old one was accepted
-      assert {:ok, new_invite} = FamilyInvites.create_invite(primary_user, email)
-      assert new_invite.id != invite1.id
+      # After accepting an invite, the email is already registered, so creating a new invite should fail
+      assert {:error, :email_already_registered} =
+               FamilyInvites.create_invite(primary_user, email)
     end
 
     test "includes family_member_id option when provided" do
@@ -207,9 +211,9 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
         |> FamilyMember.family_member_changeset(%{
           first_name: "John",
           last_name: "Doe",
-          type: "spouse",
-          user_id: primary_user.id
+          type: "spouse"
         })
+        |> Ecto.Changeset.put_change(:user_id, primary_user.id)
         |> Repo.insert!()
 
       email = unique_user_email()
@@ -306,7 +310,9 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
       # Manually expire it by updating expires_at
       expired_invite =
         invite
-        |> Ecto.Changeset.change(expires_at: DateTime.add(DateTime.utc_now(), -1, :day))
+        |> Ecto.Changeset.change(
+          expires_at: DateTime.add(DateTime.utc_now(), -1, :day) |> DateTime.truncate(:second)
+        )
         |> Repo.update!()
 
       # Wait a moment to ensure time has passed
@@ -333,10 +339,11 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
       {:ok, _user} =
         FamilyInvites.accept_invite(invite.token, %{
           email: email,
-          password: "password123",
+          password: "password1234",
           first_name: "Sub",
           last_name: "User",
-          phone_number: "+14159098268"
+          phone_number: "+14159098268",
+          date_of_birth: ~D[1990-01-01]
         })
 
       # Try to accept again
@@ -446,10 +453,10 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
 
       # Create multiple invites
       {:ok, invite1} = FamilyInvites.create_invite(primary_user, unique_user_email())
-      # Ensure different timestamps
-      :timer.sleep(10)
+      # Ensure different timestamps - need at least 1 second for database timestamp precision
+      :timer.sleep(1000)
       {:ok, invite2} = FamilyInvites.create_invite(primary_user, unique_user_email())
-      :timer.sleep(10)
+      :timer.sleep(1000)
       {:ok, invite3} = FamilyInvites.create_invite(primary_user, unique_user_email())
 
       invites = FamilyInvites.list_invites(primary_user)
@@ -582,10 +589,11 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
         |> User.sub_account_registration_changeset(
           %{
             email: "sub#{i}@example.com",
-            password: "password123",
+            password: "password1234",
             first_name: "Sub",
             last_name: "User#{i}",
-            phone_number: "+14159098268"
+            phone_number: "+14159098268",
+            date_of_birth: ~D[1990-01-01]
           },
           user.id,
           hash_password: true,

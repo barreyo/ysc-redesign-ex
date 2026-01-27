@@ -173,4 +173,53 @@ defmodule Ysc.AgendasTest do
       assert changeset.changes.title == "New Title"
     end
   end
+
+  describe "list_all_agenda_items/0" do
+    test "returns all agenda items", %{event: event} do
+      {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
+      {:ok, _item1} = Agendas.create_agenda_item(event.id, agenda, %{title: "Item 1"})
+      {:ok, _item2} = Agendas.create_agenda_item(event.id, agenda, %{title: "Item 2"})
+
+      items = Agendas.list_all_agenda_items()
+      assert length(items) >= 2
+    end
+  end
+
+  describe "update_agenda_position/3" do
+    test "updates agenda position", %{event: event} do
+      {:ok, agenda1} = Agendas.create_agenda(event, %{title: "Day 1"})
+      {:ok, agenda2} = Agendas.create_agenda(event, %{title: "Day 2"})
+
+      assert :ok = Agendas.update_agenda_position(event.id, agenda1, 1)
+      # Reload to verify
+      updated = Agendas.get_agenda!(agenda1.id)
+      assert updated.position == 1
+    end
+  end
+
+  describe "update_agenda_item_position/3" do
+    test "updates agenda item position", %{event: event} do
+      {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
+      {:ok, item1} = Agendas.create_agenda_item(event.id, agenda, %{title: "Item 1"})
+      {:ok, item2} = Agendas.create_agenda_item(event.id, agenda, %{title: "Item 2"})
+
+      assert :ok = Agendas.update_agenda_item_position(event.id, item1, 1)
+      # Reload to verify
+      updated = Agendas.get_agenda_item!(item1.id)
+      assert updated.position == 1
+    end
+  end
+
+  describe "move_agenda_item_to_agenda/4" do
+    test "moves agenda item to different agenda", %{event: event} do
+      {:ok, agenda1} = Agendas.create_agenda(event, %{title: "Day 1"})
+      {:ok, agenda2} = Agendas.create_agenda(event, %{title: "Day 2"})
+      {:ok, item} = Agendas.create_agenda_item(event.id, agenda1, %{title: "Item"})
+
+      assert {:ok, _} = Agendas.move_agenda_item_to_agenda(event.id, item, agenda2, 0)
+      # Reload to verify
+      updated = Agendas.get_agenda_item!(item.id)
+      assert updated.agenda_id == agenda2.id
+    end
+  end
 end

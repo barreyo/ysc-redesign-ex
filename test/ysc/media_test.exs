@@ -87,4 +87,84 @@ defmodule Ysc.MediaTest do
       assert updated.processing_state == :processing
     end
   end
+
+  describe "get_image!/1" do
+    test "returns image by id", %{user: user} do
+      {:ok, image} =
+        %Image{
+          user_id: user.id,
+          raw_image_path: "https://example.com/image.jpg",
+          processing_state: :unprocessed
+        }
+        |> Repo.insert()
+
+      found = Media.get_image!(image.id)
+      assert found.id == image.id
+    end
+
+    test "raises for non-existent image" do
+      assert_raise Ecto.NoResultsError, fn ->
+        Media.get_image!(Ecto.ULID.generate())
+      end
+    end
+  end
+
+  describe "get_timeline_indices/0" do
+    test "returns timeline indices with year and count" do
+      indices = Media.get_timeline_indices()
+      assert is_list(indices)
+
+      assert Enum.all?(indices, fn idx ->
+               Map.has_key?(idx, :year) && Map.has_key?(idx, :count)
+             end)
+    end
+  end
+
+  describe "list_images_cursor/1" do
+    test "returns images with cursor pagination" do
+      images = Media.list_images_cursor(limit: 10)
+      assert is_list(images)
+      assert length(images) <= 10
+    end
+
+    test "filters by before_date" do
+      before_date = DateTime.utc_now()
+      images = Media.list_images_cursor(before_date: before_date, limit: 10)
+      assert is_list(images)
+    end
+
+    test "filters by start_at_year" do
+      current_year = Date.utc_today().year
+      images = Media.list_images_cursor(start_at_year: current_year, limit: 10)
+      assert is_list(images)
+    end
+  end
+
+  describe "list_images_grouped_by_year/1" do
+    test "returns images grouped by year" do
+      grouped = Media.list_images_grouped_by_year()
+      assert is_map(grouped)
+    end
+
+    test "filters by year when provided" do
+      current_year = Date.utc_today().year
+      grouped = Media.list_images_grouped_by_year(current_year)
+      assert is_map(grouped)
+    end
+  end
+
+  describe "count_images/0" do
+    test "returns total image count" do
+      count = Media.count_images()
+      assert is_integer(count)
+      assert count >= 0
+    end
+  end
+
+  describe "list_images_per_year/0" do
+    test "returns images per year" do
+      result = Media.list_images_per_year()
+      assert is_list(result)
+    end
+  end
 end

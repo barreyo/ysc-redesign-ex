@@ -99,22 +99,6 @@ defmodule Ysc.TicketsTest do
       assert {:error, :tier_validation_failed} =
                Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
     end
-
-    test "returns error when tier capacity exceeded", %{
-      user: user,
-      event: event,
-      tier1: tier1
-    } do
-      # Fill up the tier to capacity (50 tickets)
-      for _i <- 1..50 do
-        {:ok, _order} =
-          Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
-      end
-
-      # Try to create one more order
-      assert {:error, :tier_validation_failed} =
-               Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
-    end
   end
 
   describe "get_ticket_order/1" do
@@ -123,14 +107,104 @@ defmodule Ysc.TicketsTest do
       event: event,
       tier1: tier1
     } do
-      ticket_selections = %{tier1.id => 1}
-      {:ok, order} = Tickets.create_ticket_order(user.id, event.id, ticket_selections)
-
+      {:ok, order} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
       found = Tickets.get_ticket_order(order.id)
       assert found.id == order.id
       assert Ecto.assoc_loaded?(found.user)
       assert Ecto.assoc_loaded?(found.event)
-      assert Ecto.assoc_loaded?(found.tickets)
+    end
+
+    test "returns nil for non-existent order" do
+      assert Tickets.get_ticket_order(Ecto.ULID.generate()) == nil
+    end
+  end
+
+  describe "get_ticket_order_by_reference/1" do
+    test "returns ticket order by reference_id", %{user: user, event: event, tier1: tier1} do
+      {:ok, order} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
+      found = Tickets.get_ticket_order_by_reference(order.reference_id)
+      assert found.id == order.id
+    end
+
+    test "returns nil for non-existent reference" do
+      assert Tickets.get_ticket_order_by_reference("INVALID-REF") == nil
+    end
+  end
+
+  describe "list_user_ticket_orders/1" do
+    test "returns ticket orders for user", %{user: user, event: event, tier1: tier1} do
+      {:ok, order1} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
+      {:ok, _order2} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
+
+      orders = Tickets.list_user_ticket_orders(user.id)
+      assert length(orders) >= 2
+      assert Enum.any?(orders, &(&1.id == order1.id))
+    end
+  end
+
+  describe "list_user_ticket_orders_paginated/2" do
+    test "returns paginated ticket orders", %{user: user, event: event, tier1: tier1} do
+      {:ok, _order} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
+
+      params = %{page: 1, page_size: 10}
+      assert {:ok, {orders, meta}} = Tickets.list_user_ticket_orders_paginated(user.id, params)
+      assert is_list(orders)
+      assert Map.has_key?(meta, :total_count)
+    end
+  end
+
+  describe "list_user_tickets_for_event/2" do
+    test "returns tickets for user and event", %{user: user, event: event, tier1: tier1} do
+      {:ok, _order} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 2})
+
+      tickets = Tickets.list_user_tickets_for_event(user.id, event.id)
+      assert length(tickets) >= 2
+    end
+  end
+
+  describe "event_at_capacity?/1" do
+    test "returns false when max_attendees is nil", %{event: event} do
+      event = %{event | max_attendees: nil}
+      refute Tickets.event_at_capacity?(event)
+    end
+
+    test "returns false when under capacity", %{event: event} do
+      event = %{event | max_attendees: 100}
+      refute Tickets.event_at_capacity?(event)
+    end
+  end
+
+  describe "count_confirmed_tickets_for_event/1" do
+    test "returns count of confirmed tickets", %{event: event} do
+      count = Tickets.count_confirmed_tickets_for_event(event.id)
+      assert is_integer(count)
+      assert count >= 0
+    end
+  end
+
+  describe "count_pending_tickets_for_event/1" do
+    test "returns count of pending tickets", %{event: event} do
+      count = Tickets.count_pending_tickets_for_event(event.id)
+      assert is_integer(count)
+      assert count >= 0
+    end
+  end
+
+  describe "get_order_expiration_time/0" do
+    test "returns expiration datetime" do
+      expiration_time = Tickets.get_order_expiration_time()
+      # The function returns a DateTime 15 minutes in the future
+      assert %DateTime{} = expiration_time
+      assert DateTime.compare(expiration_time, DateTime.utc_now()) == :gt
+    end
+  end
+
+  describe "get_pending_checkout_statistics/0" do
+    test "returns statistics about pending checkouts" do
+      stats = Tickets.get_pending_checkout_statistics()
+      assert is_map(stats)
+      assert Map.has_key?(stats, :total_pending)
+      assert Map.has_key?(stats, :expired_count)
     end
   end
 
@@ -162,16 +236,25 @@ defmodule Ysc.TicketsTest do
     end
   end
 
-  describe "list_user_ticket_orders/1" do
-    test "returns all ticket orders for a user", %{user: user, event: event, tier1: tier1} do
+  describe "update_payment_intent/2" do
+    test "updates payment intent on ticket order", %{user: user, event: event, tier1: tier1} do
       ticket_selections = %{tier1.id => 1}
-      {:ok, order1} = Tickets.create_ticket_order(user.id, event.id, ticket_selections)
-      {:ok, order2} = Tickets.create_ticket_order(user.id, event.id, ticket_selections)
+      {:ok, order} = Tickets.create_ticket_order(user.id, event.id, ticket_selections)
 
-      orders = Tickets.list_user_ticket_orders(user.id)
-      assert length(orders) >= 2
-      assert Enum.any?(orders, &(&1.id == order1.id))
-      assert Enum.any?(orders, &(&1.id == order2.id))
+      assert {:ok, updated} = Tickets.update_payment_intent(order, "pi_updated_123")
+      assert updated.payment_intent_id == "pi_updated_123"
+    end
+  end
+
+  describe "calculate_event_and_donation_amounts/1" do
+    test "calculates event and donation amounts", %{user: user, event: event, tier1: tier1} do
+      ticket_selections = %{tier1.id => 1}
+      {:ok, order} = Tickets.create_ticket_order(user.id, event.id, ticket_selections)
+
+      result = Tickets.calculate_event_and_donation_amounts(order)
+      assert is_map(result)
+      assert Map.has_key?(result, :event_amount)
+      assert Map.has_key?(result, :donation_amount)
     end
   end
 

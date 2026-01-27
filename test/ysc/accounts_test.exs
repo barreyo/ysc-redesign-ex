@@ -17,6 +17,59 @@ defmodule Ysc.AccountsTest do
     end
   end
 
+  describe "get_user/2" do
+    test "returns user by id" do
+      user = user_fixture(%{phone_number: "+14159098268"})
+      found = Accounts.get_user(user.id)
+      assert found.id == user.id
+    end
+
+    test "returns nil for non-existent id" do
+      refute Accounts.get_user(Ecto.ULID.generate())
+    end
+
+    test "preloads associations when specified" do
+      user = user_fixture(%{phone_number: "+14159098268"})
+      found = Accounts.get_user(user.id, [:subscription])
+      assert Ecto.assoc_loaded?(found.subscription)
+    end
+  end
+
+  describe "get_user_from_stripe_id/1" do
+    test "returns user by stripe_id" do
+      user = user_fixture(%{phone_number: "+14159098268", stripe_id: "cus_test123"})
+      found = Accounts.get_user_from_stripe_id("cus_test123")
+      assert found.id == user.id
+    end
+
+    test "returns nil for non-existent stripe_id" do
+      refute Accounts.get_user_from_stripe_id("cus_nonexistent")
+    end
+  end
+
+  describe "search_users/2" do
+    test "searches users by name" do
+      user = user_fixture(%{first_name: "John", last_name: "Doe", phone_number: "+14159098268"})
+      results = Accounts.search_users("John")
+      assert Enum.any?(results, &(&1.id == user.id))
+    end
+
+    test "searches users by email" do
+      user = user_fixture(%{email: "john.doe@example.com", phone_number: "+14159098268"})
+      results = Accounts.search_users("john.doe@example.com")
+      assert Enum.any?(results, &(&1.id == user.id))
+    end
+
+    test "respects limit option" do
+      for i <- 1..15 do
+        user_fixture(%{first_name: "John#{i}", phone_number: "+1415909826#{i}"})
+      end
+
+      results = Accounts.search_users("John", limit: 10)
+      assert length(results) <= 10
+    end
+  end
+
   describe "get_user_by_email_and_password/2" do
     test "does not return the user if the email does not exist" do
       refute Accounts.get_user_by_email_and_password("unknown@example.com", "hello world!")
@@ -45,6 +98,102 @@ defmodule Ysc.AccountsTest do
     test "returns the user with the given id" do
       %{id: id} = user = user_fixture(%{phone_number: "+14159098268"})
       assert %User{id: ^id} = Accounts.get_user!(user.id)
+    end
+  end
+
+  describe "has_active_membership?/1" do
+    test "returns false for user without membership" do
+      user = user_fixture(%{phone_number: "+14159098268"})
+      refute Accounts.has_active_membership?(user)
+    end
+
+    test "returns true for user with lifetime membership" do
+      user =
+        user_fixture(%{
+          phone_number: "+14159098268",
+          lifetime_membership_awarded_at: DateTime.utc_now()
+        })
+
+      assert Accounts.has_active_membership?(user)
+    end
+  end
+
+  describe "has_lifetime_membership?/1" do
+    test "returns true when lifetime_membership_awarded_at is set" do
+      user =
+        user_fixture(%{
+          phone_number: "+14159098268",
+          lifetime_membership_awarded_at: DateTime.utc_now()
+        })
+
+      assert Accounts.has_lifetime_membership?(user)
+    end
+
+    test "returns false when lifetime_membership_awarded_at is nil" do
+      user = user_fixture(%{phone_number: "+14159098268"})
+      refute Accounts.has_lifetime_membership?(user)
+    end
+  end
+
+  describe "list_paginated_users/2" do
+    test "returns paginated users" do
+      _user1 = user_fixture(%{phone_number: "+14159098268"})
+      _user2 = user_fixture(%{phone_number: "+14159098269"})
+
+      params = %{page: 1, page_size: 10}
+      result = Accounts.list_paginated_users(params)
+
+      assert Map.has_key?(result, :entries)
+      assert Map.has_key?(result, :page_number)
+      assert result.page_number == 1
+    end
+
+    test "filters by search term" do
+      user = user_fixture(%{first_name: "John", phone_number: "+14159098268"})
+      _other = user_fixture(%{first_name: "Jane", phone_number: "+14159098269"})
+
+      params = %{page: 1, page_size: 10}
+      result = Accounts.list_paginated_users(params, "John")
+
+      assert Enum.any?(result.entries, &(&1.id == user.id))
+    end
+  end
+
+  describe "update_user_profile/2" do
+    test "updates user profile" do
+      user = user_fixture(%{phone_number: "+14159098268"})
+      attrs = %{first_name: "Updated Name"}
+
+      assert {:ok, updated} = Accounts.update_user_profile(user, attrs)
+      assert updated.first_name == "Updated Name"
+    end
+  end
+
+  describe "update_notification_preferences/2" do
+    test "updates notification preferences" do
+      user = user_fixture(%{phone_number: "+14159098268"})
+      attrs = %{email_notifications_enabled: false}
+
+      assert {:ok, updated} = Accounts.update_notification_preferences(user, attrs)
+      assert updated.email_notifications_enabled == false
+    end
+  end
+
+  describe "update_billing_address/2" do
+    test "updates billing address" do
+      user = user_fixture(%{phone_number: "+14159098268"})
+      attrs = %{address: "123 New St", city: "San Francisco"}
+
+      assert {:ok, _updated} = Accounts.update_billing_address(user, attrs)
+    end
+  end
+
+  describe "get_billing_address/1" do
+    test "returns billing address for user" do
+      user = user_fixture(%{phone_number: "+14159098268"})
+      address = Accounts.get_billing_address(user)
+      # May be nil if no address set
+      assert is_nil(address) || is_struct(address, Ysc.Accounts.Address)
     end
   end
 

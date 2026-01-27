@@ -5987,7 +5987,7 @@ defmodule YscWeb.EventDetailsLive do
 
             # Calculate discount for reserved tickets
             {tier_discount, discount_pct} =
-              if user_id && length(tier_reservations) > 0 do
+              if user_id && tier_reservations != [] do
                 calculate_tier_discount(ticket_tier, amount_or_quantity, tier_reservations)
               else
                 {Money.new(0, :USD), nil}

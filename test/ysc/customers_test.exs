@@ -42,7 +42,7 @@ defmodule Ysc.CustomersTest do
         })
 
       subscriptions = Customers.subscriptions(user)
-      assert length(subscriptions) >= 1
+      assert subscriptions != []
       assert Enum.any?(subscriptions, &(&1.id == subscription.id))
     end
 
@@ -82,6 +82,53 @@ defmodule Ysc.CustomersTest do
     test "returns false when user is not subscribed to price" do
       user = user_fixture()
       assert Customers.subscribed_to_price?(user, "price_nonexistent") == false
+    end
+  end
+
+  describe "default_payment_method/1" do
+    test "returns default payment method for user" do
+      user = user_fixture()
+      # Create payment method and set as default
+      {:ok, _method} =
+        Ysc.Payments.insert_payment_method(%{
+          user_id: user.id,
+          provider: :stripe,
+          provider_id: "pm_test123",
+          is_default: true
+        })
+
+      method = Customers.default_payment_method(user)
+      assert method != nil
+      assert method.is_default == true
+    end
+
+    test "returns nil when user has no default payment method" do
+      user = user_fixture()
+      refute Customers.default_payment_method(user)
+    end
+  end
+
+  describe "payment_methods/1" do
+    test "returns payment methods for user" do
+      user = user_fixture()
+
+      {:ok, _method1} =
+        Ysc.Payments.insert_payment_method(%{
+          user_id: user.id,
+          provider: :stripe,
+          provider_id: "pm_test1"
+        })
+
+      methods = Customers.payment_methods(user)
+      assert methods != []
+    end
+  end
+
+  describe "invoices/1" do
+    test "returns invoices for user" do
+      user = user_fixture()
+      invoices = Customers.invoices(user)
+      assert is_list(invoices)
     end
   end
 

@@ -119,7 +119,8 @@ defmodule Ysc.Accounts.FamilyInvites do
               copy_billing_address_from_primary(updated_user, invite.primary_user_id)
 
               # Copy most_connected_country from primary user if not already set
-              copy_most_connected_country_from_primary(updated_user, invite.primary_user_id)
+              final_user =
+                copy_most_connected_country_from_primary(updated_user, invite.primary_user_id)
 
               # Create UserEvent to track family addition
               %UserEvent{}
@@ -177,7 +178,7 @@ defmodule Ysc.Accounts.FamilyInvites do
                 end
               end)
 
-              updated_user
+              final_user
 
             {:error, changeset} ->
               Repo.rollback(changeset)

@@ -346,7 +346,7 @@ defmodule Ysc.PostsTest do
       {:ok, {entries, meta}} = Posts.list_posts_paginated(params)
       # Should return at least the published and draft posts (not deleted)
       assert meta.total_count >= 1
-      assert length(entries) >= 1
+      assert entries != []
     end
   end
 
@@ -437,8 +437,84 @@ defmodule Ysc.PostsTest do
         )
 
       authors = Posts.get_all_authors()
-      assert length(authors) >= 1
+      assert authors != []
       assert Enum.any?(authors, fn {_name, user_id} -> user_id == author.id end)
+    end
+  end
+
+  describe "get_post_by_url_name!/1" do
+    test "returns post by url_name", %{author: author} do
+      {:ok, post} =
+        Posts.create_post(
+          %{"title" => "Test", "body" => "Body", "url_name" => "url-name-bang"},
+          author
+        )
+
+      found = Posts.get_post_by_url_name!("url-name-bang")
+      assert found.id == post.id
+    end
+
+    test "raises for non-existent url_name" do
+      assert_raise Ecto.NoResultsError, fn ->
+        Posts.get_post_by_url_name!("nonexistent-slug")
+      end
+    end
+  end
+
+  describe "get_comment!/2" do
+    test "returns comment by id", %{author: author, regular_user: user} do
+      {:ok, post} =
+        Posts.create_post(
+          %{"title" => "Test", "body" => "Body", "url_name" => "get-comment"},
+          author
+        )
+
+      {:ok, comment} =
+        Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Test comment"}, user)
+
+      found = Posts.get_comment!(comment.id)
+      assert found.id == comment.id
+    end
+  end
+
+  describe "get_insert_index_for_comment/1" do
+    test "returns 0 for top-level comment" do
+      comment = %Comment{comment_id: nil}
+      assert Posts.get_insert_index_for_comment(comment) == 0
+    end
+
+    test "returns index for reply comment", %{author: author, regular_user: user} do
+      {:ok, post} =
+        Posts.create_post(
+          %{"title" => "Test", "body" => "Body", "url_name" => "index-test"},
+          author
+        )
+
+      {:ok, parent} =
+        Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Parent"}, user)
+
+      {:ok, reply} =
+        Posts.add_comment_to_post(
+          %{"post_id" => post.id, "text" => "Reply", "comment_id" => parent.id},
+          user
+        )
+
+      index = Posts.get_insert_index_for_comment(reply)
+      assert is_integer(index)
+      assert index >= 0
+    end
+  end
+
+  describe "post_topic/1" do
+    test "returns topic for post", %{author: author} do
+      {:ok, post} =
+        Posts.create_post(
+          %{"title" => "Test", "body" => "Body", "url_name" => "topic-test"},
+          author
+        )
+
+      topic = Posts.post_topic(post.id)
+      assert is_binary(topic)
     end
   end
 end

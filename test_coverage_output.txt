@@ -1,0 +1,9 @@
+** (RuntimeError) failed to start Mix.PubSub, reason: {{:shutdown, {:failed_to_start_child, Mix.PubSub.Subscriber, {%Mix.Error{message: "failed to open a TCP socket in Mix.Sync.PubSub.subscribe/1, reason: :eperm", mix: 1}, [{Mix, :raise, 2, [file: ~c"lib/mix.ex", line: 647]}, {Mix.PubSub.Subscriber, :init, 1, [file: ~c"lib/mix/pubsub/subscriber.ex", line: 24]}, {:gen_server, :init_it, 2, [file: ~c"gen_server.erl", line: 2276]}, {:gen_server, :init_it, 6, [file: ~c"gen_server.erl", line: 2236]}, {:proc_lib, :init_p_do_apply, 3, [file: ~c"proc_lib.erl", line: 333]}]}}}, {:child, :undefined, Mix.PubSub, {Supervisor, :start_link, [[Mix.PubSub.Subscriber], [strategy: :one_for_one, name: Mix.PubSub]]}, :permanent, false, :infinity, :supervisor, [Supervisor]}}
+    (mix 1.19.5) lib/mix/pubsub.ex:36: Mix.PubSub.start/0
+    (mix 1.19.5) lib/mix/tasks/deps.loadpaths.ex:51: Mix.Tasks.Deps.Loadpaths.run/1
+    (mix 1.19.5) lib/mix/task.ex:499: anonymous fn/3 in Mix.Task.run_task/5
+    (mix 1.19.5) lib/mix/task.ex:557: Mix.Task.get_task_or_run/3
+    (mix 1.19.5) lib/mix/task.ex:474: Mix.Task.maybe_load_or_compile_task/2
+    (mix 1.19.5) lib/mix/task.ex:428: Mix.Task.do_run/3
+    (mix 1.19.5) lib/mix/task.ex:573: Mix.Task.run_alias/6
+    (mix 1.19.5) lib/mix/cli.ex:129: Mix.CLI.run_task/2

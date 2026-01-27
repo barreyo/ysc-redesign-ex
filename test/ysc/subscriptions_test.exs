@@ -289,5 +289,98 @@ defmodule Ysc.SubscriptionsTest do
       assert {:ok, updated} = Subscriptions.update_subscription_item(item, %{quantity: 2})
       assert updated.quantity == 2
     end
+
+    test "delete_subscription_item/1 deletes subscription item", %{user: user} do
+      {:ok, subscription} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_item_delete",
+          stripe_status: "active",
+          name: "Membership",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      {:ok, item} =
+        Subscriptions.create_subscription_item(%{
+          subscription_id: subscription.id,
+          stripe_price_id: "price_123",
+          stripe_product_id: "prod_123",
+          stripe_id: "si_123",
+          quantity: 1
+        })
+
+      assert {:ok, _} = Subscriptions.delete_subscription_item(item)
+    end
+
+    test "change_subscription/2 returns changeset", %{user: user} do
+      {:ok, subscription} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_change",
+          stripe_status: "active",
+          name: "Membership",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      changeset = Subscriptions.change_subscription(subscription, %{})
+      assert %Ecto.Changeset{} = changeset
+    end
+
+    test "change_subscription_item/2 returns changeset", %{user: user} do
+      {:ok, subscription} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_item_change",
+          stripe_status: "active",
+          name: "Membership",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      {:ok, item} =
+        Subscriptions.create_subscription_item(%{
+          subscription_id: subscription.id,
+          stripe_price_id: "price_123",
+          stripe_product_id: "prod_123",
+          stripe_id: "si_123",
+          quantity: 1
+        })
+
+      changeset = Subscriptions.change_subscription_item(item, %{})
+      assert %Ecto.Changeset{} = changeset
+    end
+
+    test "scheduled_for_cancellation?/1 checks if subscription is scheduled", %{user: user} do
+      future_date = DateTime.add(DateTime.utc_now(), 30, :day)
+
+      scheduled = %Subscription{
+        stripe_status: "active",
+        ends_at: future_date,
+        current_period_end: future_date
+      }
+
+      not_scheduled = %Subscription{
+        stripe_status: "active",
+        ends_at: nil,
+        current_period_end: future_date
+      }
+
+      assert Subscriptions.scheduled_for_cancellation?(scheduled)
+      refute Subscriptions.scheduled_for_cancellation?(not_scheduled)
+      refute Subscriptions.scheduled_for_cancellation?(nil)
+    end
+
+    test "get_active_subscription/1 returns active subscription", %{user: user} do
+      {:ok, active_sub} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_active",
+          stripe_status: "active",
+          name: "Active Membership",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      found = Subscriptions.get_active_subscription(user)
+      assert found.id == active_sub.id
+    end
   end
 end
