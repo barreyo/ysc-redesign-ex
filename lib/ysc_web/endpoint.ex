@@ -83,5 +83,9 @@ defmodule YscWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
+
+  # Prometheus metrics endpoint - must be before router
+  plug PromEx.Plug, prom_ex_module: Ysc.PromEx, path: "/metrics"
+
   plug YscWeb.Router
 end

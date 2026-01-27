@@ -28,10 +28,14 @@ defmodule Ysc.Bookings.HoldExpiryWorker do
   def expire_expired_holds do
     now = DateTime.utc_now()
 
-    Booking
-    |> where([b], b.status == :hold and b.hold_expires_at < ^now)
-    |> Ysc.Repo.all()
-    |> Enum.each(fn booking ->
+    expired_bookings =
+      Booking
+      |> where([b], b.status == :hold and b.hold_expires_at < ^now)
+      |> Ysc.Repo.all()
+
+    count = length(expired_bookings)
+
+    Enum.each(expired_bookings, fn booking ->
       case BookingLocker.release_hold(booking.id) do
         {:ok, _updated_booking} ->
           Logger.info("Expired booking hold due to timeout",
@@ -40,6 +44,18 @@ defmodule Ysc.Bookings.HoldExpiryWorker do
             user_id: booking.user_id,
             property: booking.property,
             booking_mode: booking.booking_mode
+          )
+
+          # Emit telemetry event for hold expiry
+          :telemetry.execute(
+            [:ysc, :bookings, :hold_expired],
+            %{count: 1},
+            %{
+              booking_id: booking.id,
+              property: to_string(booking.property),
+              booking_mode: to_string(booking.booking_mode),
+              user_id: booking.user_id
+            }
           )
 
         {:error, reason} ->
@@ -51,6 +67,15 @@ defmodule Ysc.Bookings.HoldExpiryWorker do
           )
       end
     end)
+
+    # Emit aggregate telemetry event
+    if count > 0 do
+      :telemetry.execute(
+        [:ysc, :bookings, :hold_expired_batch],
+        %{count: count},
+        %{}
+      )
+    end
   end
 
   @impl Oban.Worker

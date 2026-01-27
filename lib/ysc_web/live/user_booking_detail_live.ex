@@ -6,6 +6,8 @@ defmodule YscWeb.UserBookingDetailLive do
   alias Ysc.EmailConfig
   alias Ysc.MoneyHelper
   alias Ysc.Repo
+  alias YscWeb.Authorization.Policy
+  import Ecto.Query
 
   @impl true
   def mount(%{"id" => booking_id}, _session, socket) do
@@ -17,7 +19,15 @@ defmodule YscWeb.UserBookingDetailLive do
        |> put_flash(:error, "You must be signed in to view this booking.")
        |> redirect(to: ~p"/")}
     else
-      case Repo.get(Booking, booking_id) do
+      # SECURITY: Filter by user_id in the database query to prevent unauthorized access
+      # This ensures we only fetch bookings that belong to the current user
+      booking_query =
+        from(b in Booking,
+          where: b.id == ^booking_id and b.user_id == ^user.id,
+          preload: [:user, rooms: :room_category]
+        )
+
+      case Repo.one(booking_query) do
         nil ->
           {:ok,
            socket
@@ -25,48 +35,47 @@ defmodule YscWeb.UserBookingDetailLive do
            |> redirect(to: ~p"/")}
 
         booking ->
-          # Verify booking belongs to user
-          if booking.user_id != user.id do
-            {:ok,
-             socket
-             |> put_flash(:error, "You don't have permission to view this booking.")
-             |> redirect(to: ~p"/")}
-          else
-            # Preload associations
-            booking = Repo.preload(booking, [:user, rooms: :room_category])
+          # Additional authorization check using LetMe policy
+          case Policy.authorize(:booking_read, user, booking) do
+            :ok ->
+              # Get payment information
+              payment = get_booking_payment_info(booking)
 
-            # Get payment information
-            payment = get_booking_payment_info(booking)
+              # Get timezone from connect params
+              connect_params =
+                case get_connect_params(socket) do
+                  nil -> %{}
+                  v -> v
+                end
 
-            # Get timezone from connect params
-            connect_params =
-              case get_connect_params(socket) do
-                nil -> %{}
-                v -> v
-              end
+              timezone = Map.get(connect_params, "timezone", "America/Los_Angeles")
 
-            timezone = Map.get(connect_params, "timezone", "America/Los_Angeles")
+              # Calculate price breakdown
+              price_breakdown = calculate_price_breakdown(booking)
 
-            # Calculate price breakdown
-            price_breakdown = calculate_price_breakdown(booking)
+              # Check if booking can be cancelled
+              can_cancel = can_cancel_booking?(booking)
 
-            # Check if booking can be cancelled
-            can_cancel = can_cancel_booking?(booking)
+              # Get refund policy info for cancellation
+              refund_info = get_refund_info(booking)
 
-            # Get refund policy info for cancellation
-            refund_info = get_refund_info(booking)
+              {:ok,
+               socket
+               |> assign(:booking, booking)
+               |> assign(:payment, payment)
+               |> assign(:timezone, timezone)
+               |> assign(:price_breakdown, price_breakdown)
+               |> assign(:can_cancel, can_cancel)
+               |> assign(:refund_info, refund_info)
+               |> assign(:show_cancel_modal, false)
+               |> assign(:cancel_reason, "")
+               |> assign(:page_title, "Booking Details")}
 
-            {:ok,
-             socket
-             |> assign(:booking, booking)
-             |> assign(:payment, payment)
-             |> assign(:timezone, timezone)
-             |> assign(:price_breakdown, price_breakdown)
-             |> assign(:can_cancel, can_cancel)
-             |> assign(:refund_info, refund_info)
-             |> assign(:show_cancel_modal, false)
-             |> assign(:cancel_reason, "")
-             |> assign(:page_title, "Booking Details")}
+            {:error, _reason} ->
+              {:ok,
+               socket
+               |> put_flash(:error, "You don't have permission to view this booking.")
+               |> redirect(to: ~p"/")}
           end
       end
     end
@@ -95,64 +104,75 @@ defmodule YscWeb.UserBookingDetailLive do
   @impl true
   def handle_event("confirm-cancel", %{"reason" => reason}, socket) do
     booking = socket.assigns.booking
+    user = socket.assigns.current_user
 
-    case Bookings.cancel_booking(booking, Date.utc_today(), reason) do
-      {:ok, updated_booking, refund_amount, refund_result} ->
-        updated_booking = Repo.preload(updated_booking, [:user, rooms: :room_category])
-        refund_info = get_refund_info(updated_booking)
+    # Verify authorization before cancellation
+    case Policy.authorize(:booking_cancel, user, booking) do
+      :ok ->
+        case Bookings.cancel_booking(booking, Date.utc_today(), reason) do
+          {:ok, updated_booking, refund_amount, refund_result} ->
+            updated_booking = Repo.preload(updated_booking, [:user, rooms: :room_category])
+            refund_info = get_refund_info(updated_booking)
 
-        # Check if refund_result is a PendingRefund (partial refund) or LedgerTransaction (full refund)
-        is_pending_refund =
-          case refund_result do
-            %Ysc.Bookings.PendingRefund{} -> true
-            _ -> false
-          end
+            # Check if refund_result is a PendingRefund (partial refund) or LedgerTransaction (full refund)
+            is_pending_refund =
+              case refund_result do
+                %Ysc.Bookings.PendingRefund{} -> true
+                _ -> false
+              end
 
-        refund_message =
-          if Money.positive?(refund_amount) do
-            if is_pending_refund do
-              "Booking cancelled. Your refund of #{MoneyHelper.format_money!(refund_amount)} is pending admin review and will be processed once approved."
-            else
-              "Booking cancelled. A refund of #{MoneyHelper.format_money!(refund_amount)} will be processed."
-            end
-          else
-            "Booking cancelled. No refund is available based on the cancellation policy."
-          end
+            refund_message =
+              if Money.positive?(refund_amount) do
+                if is_pending_refund do
+                  "Booking cancelled. Your refund of #{MoneyHelper.format_money!(refund_amount)} is pending admin review and will be processed once approved."
+                else
+                  "Booking cancelled. A refund of #{MoneyHelper.format_money!(refund_amount)} will be processed."
+                end
+              else
+                "Booking cancelled. No refund is available based on the cancellation policy."
+              end
 
+            {:noreply,
+             socket
+             |> assign(:booking, updated_booking)
+             |> assign(:refund_info, refund_info)
+             |> assign(:can_cancel, false)
+             |> assign(:show_cancel_modal, false)
+             |> put_flash(:info, refund_message)}
+
+          {:error, reason} ->
+            error_message =
+              case reason do
+                {:payment_not_found, _} ->
+                  "Unable to process cancellation: payment not found."
+
+                {:calculation_failed, _} ->
+                  "Unable to calculate refund amount."
+
+                {:refund_failed, _} ->
+                  "Booking cancelled but refund processing failed. Please contact support."
+
+                {:pending_refund_failed, _} ->
+                  "Booking cancelled but could not create pending refund. Please contact support."
+
+                {:cancellation_failed, _} ->
+                  "Failed to cancel booking. Please try again or contact support."
+
+                _ ->
+                  "Failed to cancel booking. Please try again or contact support."
+              end
+
+            {:noreply,
+             socket
+             |> assign(:show_cancel_modal, false)
+             |> put_flash(:error, error_message)}
+        end
+
+      {:error, _reason} ->
         {:noreply,
          socket
-         |> assign(:booking, updated_booking)
-         |> assign(:refund_info, refund_info)
-         |> assign(:can_cancel, false)
          |> assign(:show_cancel_modal, false)
-         |> put_flash(:info, refund_message)}
-
-      {:error, reason} ->
-        error_message =
-          case reason do
-            {:payment_not_found, _} ->
-              "Unable to process cancellation: payment not found."
-
-            {:calculation_failed, _} ->
-              "Unable to calculate refund amount."
-
-            {:refund_failed, _} ->
-              "Booking cancelled but refund processing failed. Please contact support."
-
-            {:pending_refund_failed, _} ->
-              "Booking cancelled but could not create pending refund. Please contact support."
-
-            {:cancellation_failed, _} ->
-              "Failed to cancel booking. Please try again or contact support."
-
-            _ ->
-              "Failed to cancel booking. Please try again or contact support."
-          end
-
-        {:noreply,
-         socket
-         |> assign(:show_cancel_modal, false)
-         |> put_flash(:error, error_message)}
+         |> put_flash(:error, "You don't have permission to cancel this booking.")}
     end
   end
 

@@ -68,6 +68,30 @@ defmodule Ysc.Ledgers.Reconciliation do
 
     log_reconciliation_results(report)
 
+    # Emit telemetry event for reconciliation completion
+    :telemetry.execute(
+      [:ysc, :ledgers, :reconciliation_completed],
+      %{duration: duration_ms, count: 1},
+      %{
+        status: if(report.overall_status == :ok, do: "success", else: "error"),
+        has_errors: report.overall_status != :ok
+      }
+    )
+
+    # Emit error count if there are errors
+    if report.overall_status != :ok do
+      error_count =
+        Enum.count(report.checks, fn {_key, check} ->
+          check.status != :ok
+        end)
+
+      :telemetry.execute(
+        [:ysc, :ledgers, :reconciliation_errors],
+        %{count: error_count},
+        %{}
+      )
+    end
+
     {:ok, report}
   end
 

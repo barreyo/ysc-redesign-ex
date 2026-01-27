@@ -217,6 +217,18 @@ defmodule Ysc.Ledgers do
     end
     |> case do
       {:ok, {payment, transaction, entries}} ->
+        # Emit telemetry event for payment recording
+        :telemetry.execute(
+          [:ysc, :ledgers, :payment_recorded],
+          %{count: 1},
+          %{
+            payment_id: payment.id,
+            entity_type: to_string(entity_type),
+            user_id: user_id,
+            amount: Money.to_decimal(amount)
+          }
+        )
+
         # Enqueue QuickBooks sync job after successful payment creation
         enqueue_quickbooks_sync_payment(payment)
         {:ok, {payment, transaction, entries}}
@@ -1049,6 +1061,18 @@ defmodule Ysc.Ledgers do
     end)
     |> case do
       {:ok, {refund, refund_transaction, entries}} ->
+        # Emit telemetry event for refund recording
+        :telemetry.execute(
+          [:ysc, :ledgers, :refund_recorded],
+          %{count: 1},
+          %{
+            refund_id: refund.id,
+            payment_id: payment_id,
+            user_id: refund.user_id,
+            amount: Money.to_decimal(refund_amount)
+          }
+        )
+
         # Enqueue QuickBooks sync job after successful refund creation
         enqueue_quickbooks_sync_refund(refund)
         # Send refund confirmation email

@@ -88,6 +88,7 @@ defmodule Ysc.MixProject do
       {:phoenix_live_dashboard, "~> 0.8"},
       {:phoenix_live_reload, "~> 1.5", only: :dev},
       {:phoenix_live_view, "~> 0.20"},
+      {:prom_ex, "~> 1.11"},
       {:phoenix_test, "~> 0.5.2", only: :test, runtime: false},
       {:phoenix_turnstile, "~> 1.0"},
       {:phoenix, "~> 1.7"},

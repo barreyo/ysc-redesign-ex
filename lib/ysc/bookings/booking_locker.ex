@@ -136,17 +136,39 @@ defmodule Ysc.Bookings.BookingLocker do
         calculate_buyout_pricing(property, checkin_date, checkout_date, guests_count)
 
       # Create booking in :hold
-      create_buyout_booking_hold(
-        user_id,
-        property,
-        checkin_date,
-        checkout_date,
-        guests_count,
-        hold_expires_at,
-        total_price,
-        pricing_items
-      )
+      booking =
+        create_buyout_booking_hold(
+          user_id,
+          property,
+          checkin_date,
+          checkout_date,
+          guests_count,
+          hold_expires_at,
+          total_price,
+          pricing_items
+        )
+
+      booking
     end)
+    |> case do
+      {:ok, booking} ->
+        # Emit telemetry event for booking creation
+        :telemetry.execute(
+          [:ysc, :bookings, :booking_created],
+          %{count: 1},
+          %{
+            booking_id: booking.id,
+            property: to_string(booking.property),
+            booking_mode: to_string(booking.booking_mode),
+            user_id: user_id
+          }
+        )
+
+        {:ok, booking}
+
+      error ->
+        error
+    end
   end
 
   defp ensure_property_inventory_for_days(property, days) do
@@ -448,6 +470,25 @@ defmodule Ysc.Bookings.BookingLocker do
             {:error, :pricing_calculation_failed}
         end
       end)
+      |> case do
+        {:ok, booking} ->
+          # Emit telemetry event for booking creation
+          :telemetry.execute(
+            [:ysc, :bookings, :booking_created],
+            %{count: 1},
+            %{
+              booking_id: booking.id,
+              property: to_string(booking.property),
+              booking_mode: "room",
+              user_id: user_id
+            }
+          )
+
+          {:ok, booking}
+
+        error ->
+          error
+      end
     end
   end
 
@@ -832,17 +873,39 @@ defmodule Ysc.Bookings.BookingLocker do
         calculate_per_guest_pricing(property, checkin_date, checkout_date, guests_count)
 
       # Create booking :hold
-      create_per_guest_booking_hold(
-        user_id,
-        property,
-        checkin_date,
-        checkout_date,
-        guests_count,
-        hold_expires_at,
-        total_price,
-        pricing_items
-      )
+      booking =
+        create_per_guest_booking_hold(
+          user_id,
+          property,
+          checkin_date,
+          checkout_date,
+          guests_count,
+          hold_expires_at,
+          total_price,
+          pricing_items
+        )
+
+      booking
     end)
+    |> case do
+      {:ok, booking} ->
+        # Emit telemetry event for booking creation
+        :telemetry.execute(
+          [:ysc, :bookings, :booking_created],
+          %{count: 1},
+          %{
+            booking_id: booking.id,
+            property: to_string(property),
+            booking_mode: "day",
+            user_id: user_id
+          }
+        )
+
+        {:ok, booking}
+
+      error ->
+        error
+    end
   end
 
   defp validate_per_guest_availability(
@@ -1087,6 +1150,19 @@ defmodule Ysc.Bookings.BookingLocker do
     end)
     |> case do
       {:ok, confirmed_booking} ->
+        # Emit telemetry event for booking payment/confirmation
+        :telemetry.execute(
+          [:ysc, :bookings, :payment_processed],
+          %{count: 1},
+          %{
+            booking_id: confirmed_booking.id,
+            property: to_string(confirmed_booking.property),
+            booking_mode: to_string(confirmed_booking.booking_mode),
+            user_id: confirmed_booking.user_id,
+            status: "success"
+          }
+        )
+
         # After successful confirmation, cancel all other hold bookings for the same property and user
         # This frees up any inventory that was accidentally left pending
         # Do this outside the transaction to avoid nested transaction issues

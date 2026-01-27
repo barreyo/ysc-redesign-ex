@@ -18,6 +18,8 @@ defmodule Ysc.Application do
         Ysc.Vault,
         # Start the Telemetry supervisor
         YscWeb.Telemetry,
+        # Start PromEx for metrics
+        Ysc.PromEx,
         # Start the Ecto repository
         Ysc.Repo,
         # Start the PubSub system

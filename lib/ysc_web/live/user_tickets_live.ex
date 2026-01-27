@@ -260,7 +260,9 @@ defmodule YscWeb.UserTicketsLive do
 
   @impl true
   def handle_event("cancel-order", %{"order-id" => order_id}, socket) do
-    case Tickets.get_ticket_order(order_id) do
+    user = socket.assigns.current_user
+
+    case Tickets.get_user_ticket_order(user.id, order_id) do
       nil ->
         {:noreply, put_flash(socket, :error, "Order not found")}
 
@@ -292,14 +294,15 @@ defmodule YscWeb.UserTicketsLive do
 
   @impl true
   def handle_event("resume-order", %{"order-id" => order_id}, socket) do
-    case Tickets.get_ticket_order(order_id) do
+    user = socket.assigns.current_user
+
+    case Tickets.get_user_ticket_order(user.id, order_id) do
       nil ->
         {:noreply, put_flash(socket, :error, "Order not found")}
 
       ticket_order ->
-        # Verify the order belongs to the current user
-        if ticket_order.user_id == socket.assigns.current_user.id and
-             ticket_order.status == :pending do
+        # Verify the order status is pending
+        if ticket_order.status == :pending do
           # Redirect to event page with resume_order query parameter
           {:noreply,
            redirect(socket,

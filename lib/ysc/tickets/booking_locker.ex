@@ -163,6 +163,19 @@ defmodule Ysc.Tickets.BookingLocker do
         :ok
 
       true ->
+        # Emit telemetry event for overbooking attempt
+        :telemetry.execute(
+          [:ysc, :tickets, :overbooking_attempt],
+          %{count: 1},
+          %{
+            tier_id: tier.id,
+            event_id: tier.event_id,
+            requested_quantity: requested_quantity,
+            available: available,
+            reason: "insufficient_capacity"
+          }
+        )
+
         {:error, :insufficient_capacity}
     end
   end
@@ -203,6 +216,19 @@ defmodule Ysc.Tickets.BookingLocker do
     if user_has_reservations or current_attendees + total_requested <= max_attendees do
       :ok
     else
+      # Emit telemetry event for event capacity exceeded
+      :telemetry.execute(
+        [:ysc, :tickets, :overbooking_attempt],
+        %{count: 1},
+        %{
+          event_id: event.id,
+          current_attendees: current_attendees,
+          requested_quantity: total_requested,
+          max_attendees: max_attendees,
+          reason: "event_capacity_exceeded"
+        }
+      )
+
       {:error, :event_capacity_exceeded}
     end
   end

@@ -22,11 +22,49 @@ defmodule YscWeb.Telemetry do
 
   def metrics do
     [
+      # Golden Signals - Performance Guardrails
+      # Latency: LiveView mount duration (alert threshold: > 200ms P95)
+      summary("phoenix.live_view.mount.stop.duration",
+        event_name: [:phoenix, :live_view, :mount, :stop],
+        unit: {:native, :millisecond},
+        description: "LiveView mount duration - alert if P95 > 200ms",
+        tags: [:live_view, :action]
+      ),
+      # Traffic: Endpoint requests (track 4xx/5xx spikes)
+      summary("phoenix.endpoint.stop.duration",
+        unit: {:native, :millisecond},
+        description: "Endpoint request duration - track traffic patterns"
+      ),
+      counter("phoenix.endpoint.stop",
+        event_name: [:phoenix, :endpoint, :stop],
+        description: "Total endpoint requests - track traffic volume",
+        tags: [:status]
+      ),
+      # Errors: Track all error renders
+      counter("phoenix.error_rendered",
+        event_name: [:phoenix, :error_rendered],
+        description: "Error pages rendered - alert on any non-zero count",
+        tags: [:status, :kind]
+      ),
+      # Saturation: VM memory usage (alert threshold: > 80% total RAM)
+      last_value("vm.memory.total",
+        event_name: [:vm, :memory, :total],
+        unit: {:byte, :kilobyte},
+        description: "Total VM memory - alert if > 80% of total RAM"
+      ),
+      last_value("vm.memory.processes_used",
+        event_name: [:vm, :memory, :processes_used],
+        unit: {:byte, :kilobyte},
+        description: "Memory used by processes"
+      ),
+      last_value("vm.memory.processes",
+        event_name: [:vm, :memory, :processes],
+        unit: {:byte, :kilobyte},
+        description: "Memory allocated for processes"
+      ),
+
       # Phoenix Metrics
       summary("phoenix.endpoint.start.system_time",
-        unit: {:native, :millisecond}
-      ),
-      summary("phoenix.endpoint.stop.duration",
         unit: {:native, :millisecond}
       ),
       summary("phoenix.router_dispatch.start.system_time",

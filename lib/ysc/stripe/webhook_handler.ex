@@ -20,21 +20,50 @@ defmodule Ysc.Stripe.WebhookHandler do
     require Logger
     Logger.info("Processing Stripe webhook event", event_id: event.id, event_type: event.type)
 
+    # Emit telemetry event for webhook received
+    :telemetry.execute(
+      [:ysc, :payments, :stripe_webhook_received],
+      %{count: 1},
+      %{
+        event_id: event.id,
+        event_type: event.type
+      }
+    )
+
+    start_time = System.monotonic_time()
+
     # Check for replay attacks - reject webhooks older than 5 minutes
-    case check_webhook_age(event) do
-      :ok ->
-        process_webhook(event)
+    result =
+      case check_webhook_age(event) do
+        :ok ->
+          process_webhook(event)
 
-      {:error, :webhook_too_old} = error ->
-        Logger.warning("Rejecting old webhook event (possible replay attack)",
-          event_id: event.id,
-          event_type: event.type,
-          event_created: event.created,
-          age_seconds: DateTime.diff(DateTime.utc_now(), DateTime.from_unix!(event.created))
-        )
+        {:error, :webhook_too_old} = error ->
+          Logger.warning("Rejecting old webhook event (possible replay attack)",
+            event_id: event.id,
+            event_type: event.type,
+            event_created: event.created,
+            age_seconds: DateTime.diff(DateTime.utc_now(), DateTime.from_unix!(event.created))
+          )
 
-        error
-    end
+          error
+      end
+
+    # Emit telemetry event for webhook processing duration
+    duration = System.monotonic_time() - start_time
+    duration_ms = System.convert_time_unit(duration, :native, :millisecond)
+
+    :telemetry.execute(
+      [:ysc, :payments, :stripe_webhook_processing_duration],
+      %{duration: duration_ms},
+      %{
+        event_id: event.id,
+        event_type: event.type,
+        status: if(match?(:ok, result), do: "success", else: "failure")
+      }
+    )
+
+    result
   end
 
   # Check if webhook is within acceptable age

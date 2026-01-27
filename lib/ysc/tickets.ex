@@ -63,6 +63,19 @@ defmodule Ysc.Tickets do
         # Capacity is checked by counting existing tickets within the transaction
         case BookingLocker.atomic_booking(user_id, event_id, ticket_selections) do
           {:ok, ticket_order} ->
+            # Emit telemetry event for ticket order creation
+            :telemetry.execute(
+              [:ysc, :tickets, :order_created],
+              %{count: 1},
+              %{
+                ticket_order_id: ticket_order.id,
+                event_id: event_id,
+                user_id: user_id,
+                total_amount: Money.to_decimal(ticket_order.total_amount),
+                ticket_count: length(ticket_order.tickets || [])
+              }
+            )
+
             # Broadcast ticket availability update to all users viewing this event
             broadcast_ticket_availability_update(event_id)
             {:ok, ticket_order}
@@ -121,6 +134,59 @@ defmodule Ysc.Tickets do
       payment: :payment_method,
       tickets: :ticket_tier
     ])
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets a ticket order by ID for a specific user with preloaded tickets.
+
+  This function filters by user_id to ensure users can only access their own ticket orders.
+  Use this instead of `get_ticket_order/1` for user-facing operations.
+  """
+  def get_user_ticket_order(user_id, order_id) do
+    from(to in TicketOrder,
+      where: to.id == ^order_id and to.user_id == ^user_id,
+      preload: [
+        :user,
+        event: [agendas: :agenda_items],
+        payment: :payment_method,
+        tickets: :ticket_tier
+      ]
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets a ticket order by payment ID for a specific user with preloaded associations.
+
+  This function filters by user_id to ensure users can only access their own ticket orders.
+  Use this instead of `get_ticket_order_by_payment_id/1` for user-facing operations.
+  """
+  def get_user_ticket_order_by_payment_id(user_id, payment_id) do
+    from(to in TicketOrder,
+      where: to.payment_id == ^payment_id and to.user_id == ^user_id,
+      limit: 1,
+      preload: [:user, event: [], tickets: :ticket_tier]
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets a ticket order by reference ID for a specific user with preloaded associations.
+
+  This function filters by user_id to ensure users can only access their own ticket orders.
+  Use this instead of `get_ticket_order_by_reference/1` for user-facing operations.
+  """
+  def get_user_ticket_order_by_reference(user_id, reference_id) do
+    from(to in TicketOrder,
+      where: to.reference_id == ^reference_id and to.user_id == ^user_id,
+      preload: [
+        :user,
+        :event,
+        payment: :payment_method,
+        tickets: :ticket_tier
+      ]
+    )
     |> Repo.one()
   end
 
@@ -572,20 +638,41 @@ defmodule Ysc.Tickets do
   Processes payment for a ticket order using Stripe.
   """
   def process_ticket_order_payment(ticket_order, payment_intent_id) do
-    with {:ok, payment_intent} <- Stripe.PaymentIntent.retrieve(payment_intent_id, %{}),
-         :ok <- validate_payment_intent(payment_intent, ticket_order),
-         {:ok, {payment, _transaction, _entries}} <-
-           process_ledger_payment(ticket_order, payment_intent),
-         {:ok, completed_order} <- complete_ticket_order(ticket_order, payment.id),
-         :ok <- confirm_tickets(completed_order) do
-      # Reload the completed order with all necessary associations for email
-      reloaded_order = get_ticket_order(completed_order.id)
-      # Send confirmation email
-      send_ticket_confirmation_email(reloaded_order)
-      # Broadcast ticket availability update
-      broadcast_ticket_availability_update(ticket_order.event_id)
-      {:ok, reloaded_order}
-    end
+    start_time = System.monotonic_time()
+
+    result =
+      with {:ok, payment_intent} <- Stripe.PaymentIntent.retrieve(payment_intent_id, %{}),
+           :ok <- validate_payment_intent(payment_intent, ticket_order),
+           {:ok, {payment, _transaction, _entries}} <-
+             process_ledger_payment(ticket_order, payment_intent),
+           {:ok, completed_order} <- complete_ticket_order(ticket_order, payment.id),
+           :ok <- confirm_tickets(completed_order) do
+        # Reload the completed order with all necessary associations for email
+        reloaded_order = get_ticket_order(completed_order.id)
+        # Send confirmation email
+        send_ticket_confirmation_email(reloaded_order)
+        # Broadcast ticket availability update
+        broadcast_ticket_availability_update(ticket_order.event_id)
+        {:ok, reloaded_order}
+      end
+
+    # Emit telemetry event for payment processing
+    duration = System.monotonic_time() - start_time
+    duration_ms = System.convert_time_unit(duration, :native, :millisecond)
+
+    :telemetry.execute(
+      [:ysc, :tickets, :payment_processed],
+      %{duration: duration_ms, count: 1},
+      %{
+        ticket_order_id: ticket_order.id,
+        event_id: ticket_order.event_id,
+        user_id: ticket_order.user_id,
+        status: if(match?({:ok, _}, result), do: "success", else: "failure"),
+        payment_intent_id: payment_intent_id
+      }
+    )
+
+    result
   end
 
   @doc """
@@ -615,11 +702,24 @@ defmodule Ysc.Tickets do
   def expire_timed_out_orders do
     now = DateTime.utc_now()
 
-    TicketOrder
-    |> where([to], to.status == :pending and to.expires_at < ^now)
-    |> preload(:tickets)
-    |> Repo.all()
-    |> Enum.each(&expire_ticket_order/1)
+    expired_orders =
+      TicketOrder
+      |> where([to], to.status == :pending and to.expires_at < ^now)
+      |> preload(:tickets)
+      |> Repo.all()
+
+    count = length(expired_orders)
+
+    Enum.each(expired_orders, &expire_ticket_order/1)
+
+    # Emit telemetry event for expired orders
+    if count > 0 do
+      :telemetry.execute(
+        [:ysc, :tickets, :timeout_expired],
+        %{count: count},
+        %{}
+      )
+    end
   end
 
   @doc """

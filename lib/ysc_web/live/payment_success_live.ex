@@ -12,6 +12,7 @@ defmodule YscWeb.PaymentSuccessLive do
   alias Ysc.Bookings
   alias Ysc.Tickets
   alias Ysc.Repo
+  import Ecto.Query
   require Logger
 
   # Retry configuration
@@ -245,30 +246,29 @@ defmodule YscWeb.PaymentSuccessLive do
   end
 
   defp verify_and_redirect_booking(booking_id, user) do
-    case Repo.get(Bookings.Booking, booking_id) do
+    # SECURITY: Filter by user_id in the database query to prevent unauthorized access
+    booking_query =
+      from(b in Bookings.Booking,
+        where: b.id == ^booking_id and b.user_id == ^user.id
+      )
+
+    case Repo.one(booking_query) do
       nil ->
         {:error, :booking_not_found}
 
-      booking ->
-        if booking.user_id == user.id do
-          {:ok, ~p"/bookings/#{booking_id}/receipt?confetti=true"}
-        else
-          {:error, :unauthorized}
-        end
+      _booking ->
+        {:ok, ~p"/bookings/#{booking_id}/receipt?confetti=true"}
     end
   end
 
   defp verify_and_redirect_ticket_order(ticket_order_id, user) do
-    case Tickets.get_ticket_order(ticket_order_id) do
+    # SECURITY: Use user-scoped function to prevent unauthorized access
+    case Tickets.get_user_ticket_order(user.id, ticket_order_id) do
       nil ->
         {:error, :ticket_order_not_found}
 
-      ticket_order ->
-        if ticket_order.user_id == user.id do
-          {:ok, ~p"/orders/#{ticket_order_id}/confirmation?confetti=true"}
-        else
-          {:error, :unauthorized}
-        end
+      _ticket_order ->
+        {:ok, ~p"/orders/#{ticket_order_id}/confirmation?confetti=true"}
     end
   end
 
@@ -318,30 +318,29 @@ defmodule YscWeb.PaymentSuccessLive do
   end
 
   defp verify_booking_access(booking_id, user) do
-    case Repo.get(Bookings.Booking, booking_id) do
+    # SECURITY: Filter by user_id in the database query to prevent unauthorized access
+    booking_query =
+      from(b in Bookings.Booking,
+        where: b.id == ^booking_id and b.user_id == ^user.id
+      )
+
+    case Repo.one(booking_query) do
       nil ->
         {:error, :booking_not_found}
 
       booking ->
-        if booking.user_id == user.id do
-          {:ok, booking}
-        else
-          {:error, :unauthorized}
-        end
+        {:ok, booking}
     end
   end
 
   defp verify_ticket_order_access(ticket_order_id, user) do
-    case Tickets.get_ticket_order(ticket_order_id) do
+    # SECURITY: Use user-scoped function to prevent unauthorized access
+    case Tickets.get_user_ticket_order(user.id, ticket_order_id) do
       nil ->
         {:error, :ticket_order_not_found}
 
       ticket_order ->
-        if ticket_order.user_id == user.id do
-          {:ok, ticket_order.event_id}
-        else
-          {:error, :unauthorized}
-        end
+        {:ok, ticket_order.event_id}
     end
   end
 

@@ -5,6 +5,7 @@ defmodule YscWeb.BookingCheckoutLive do
   alias Ysc.Bookings.{Booking, BookingLocker}
   alias Ysc.MoneyHelper
   alias Ysc.Repo
+  import Ecto.Query
   require Logger
 
   @impl true
@@ -15,8 +16,7 @@ defmodule YscWeb.BookingCheckoutLive do
 
     result =
       with :ok <- validate_user_signed_in(user),
-           {:ok, booking} <- load_booking(booking_id),
-           :ok <- validate_booking_ownership(booking, user),
+           {:ok, booking} <- load_booking(booking_id, user),
            booking <- preload_booking_rooms(booking),
            :ok <- validate_booking_status(booking),
            :ok <- validate_booking_not_expired(booking) do
@@ -49,20 +49,17 @@ defmodule YscWeb.BookingCheckoutLive do
 
   defp validate_user_signed_in(_user), do: :ok
 
-  defp load_booking(booking_id) do
-    case Repo.get(Booking, booking_id) do
+  defp load_booking(booking_id, user) do
+    # SECURITY: Filter by user_id in the database query to prevent unauthorized access
+    # This ensures we only fetch bookings that belong to the current user
+    booking_query =
+      from(b in Booking,
+        where: b.id == ^booking_id and b.user_id == ^user.id
+      )
+
+    case Repo.one(booking_query) do
       nil -> {:error, {:redirect, ~p"/", "Booking not found."}}
       booking -> {:ok, booking}
-    end
-  end
-
-  defp validate_booking_ownership(booking, user) do
-    if booking.user_id == user.id do
-      :ok
-    else
-      {:error,
-       {:redirect, get_property_redirect_path(booking.property),
-        "You don't have permission to view this booking."}}
     end
   end
 
