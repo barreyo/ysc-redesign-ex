@@ -24,7 +24,7 @@ defmodule YscWeb.UserLoginLive do
         <.button
           :if={@passkey_supported}
           type="button"
-          class="w-full flex items-center justify-center gap-2"
+          class="w-full flex items-center justify-center gap-2 h-10"
           phx-click="sign_in_with_passkey"
           phx-mounted={
             JS.transition(
@@ -112,7 +112,7 @@ defmodule YscWeb.UserLoginLive do
         <.button
           type="button"
           variant="outline"
-          class="w-full flex items-center justify-center gap-2"
+          class="w-full flex items-center justify-center gap-2 h-10"
           phx-click="sign_in_with_google"
         >
           <svg
@@ -141,6 +141,26 @@ defmodule YscWeb.UserLoginLive do
             <path d="M1 1h22v22H1z" fill="none" />
           </svg>
           Sign in with Google
+        </.button>
+        <.button
+          type="button"
+          variant="outline"
+          class="w-full flex items-center justify-center gap-2 h-10"
+          phx-click="sign_in_with_facebook"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            height="20"
+            viewBox="0 0 24 24"
+            width="20"
+            class="w-5 h-5"
+          >
+            <path
+              d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
+              fill="#1877F2"
+            />
+          </svg>
+          Sign in with Facebook
         </.button>
       </div>
       <!-- Divider -->
@@ -270,6 +290,11 @@ defmodule YscWeb.UserLoginLive do
   def handle_event("sign_in_with_google", _params, socket) do
     # Placeholder for Google OAuth authentication
     {:noreply, put_flash(socket, :info, "Google authentication coming soon!")}
+  end
+
+  def handle_event("sign_in_with_facebook", _params, socket) do
+    # Placeholder for Facebook OAuth authentication
+    {:noreply, put_flash(socket, :info, "Facebook authentication coming soon!")}
   end
 
   def handle_event("device_detected", %{"device" => "ios_mobile"}, socket) do
