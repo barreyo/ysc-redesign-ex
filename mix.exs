@@ -105,6 +105,9 @@ defmodule Ysc.MixProject do
       {:telemetry_metrics, "~> 1.1"},
       {:telemetry_poller, "~> 1.3"},
       {:timex, "~> 3.7"},
+      {:ueberauth, "~> 0.10"},
+      {:ueberauth_google, "~> 0.10"},
+      {:ueberauth_facebook, "~> 0.10"},
       {:uuid, "~> 1.1"}
     ]
   end

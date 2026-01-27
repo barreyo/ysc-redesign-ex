@@ -270,6 +270,14 @@ config :live_view_native_stylesheet,
   ],
   output: "priv/static/assets"
 
+# Ueberauth configuration
+# Provider credentials are configured at runtime in config/runtime.exs
+config :ueberauth, Ueberauth,
+  providers: [
+    google: {Ueberauth.Strategy.Google, [default_scope: "email profile"]},
+    facebook: {Ueberauth.Strategy.Facebook, [default_scope: "email"]}
+  ]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

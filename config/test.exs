@@ -61,3 +61,12 @@ config :ysc,
 # FlowRoute SMS configuration for tests
 # Use a fake number since we're in noop mode anyway
 config :ysc, :flowroute, from_number: "12061231234"
+
+# OAuth Configuration for tests
+config :ueberauth, Ueberauth.Strategy.Google.OAuth,
+  client_id: "test_google_client_id",
+  client_secret: "test_google_client_secret"
+
+config :ueberauth, Ueberauth.Strategy.Facebook.OAuth,
+  client_id: "test_facebook_client_id",
+  client_secret: "test_facebook_client_secret"

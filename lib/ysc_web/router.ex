@@ -165,6 +165,14 @@ defmodule YscWeb.Router do
     end
   end
 
+  ## OAuth routes (allow unauthenticated access)
+  scope "/auth", YscWeb do
+    pipe_through [:browser]
+
+    get "/:provider", AuthController, :request
+    get "/:provider/callback", AuthController, :callback
+  end
+
   ## Special routes that bypass CSRF protection for programmatic logins
   scope "/", YscWeb do
     pipe_through [:auto_login]
@@ -187,6 +195,7 @@ defmodule YscWeb.Router do
     end
 
     post "/users/log-in", UserSessionController, :create
+    get "/users/log-in/reset-attempts", UserSessionController, :reset_attempts
   end
 
   ## Account setup (allow access to both authenticated and unauthenticated users)

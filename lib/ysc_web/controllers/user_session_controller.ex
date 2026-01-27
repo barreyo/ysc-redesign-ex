@@ -153,4 +153,11 @@ defmodule YscWeb.UserSessionController do
     |> put_flash(:info, "Signed out successfully.")
     |> UserAuth.log_out_user()
   end
+
+  def reset_attempts(conn, _params) do
+    # Clear failed login attempts from session and redirect back to login page
+    conn
+    |> delete_session(:failed_login_attempts)
+    |> redirect(to: ~p"/users/log-in")
+  end
 end

@@ -146,3 +146,13 @@ config :live_view_native_stylesheet,
 # Native iOS API Key Configuration
 # Default API key for development (can be overridden via NATIVE_API_KEY env var)
 config :ysc, :native_api_key, System.get_env("NATIVE_API_KEY") || "development"
+
+# OAuth Configuration for development
+# Set these via environment variables or use test values
+config :ueberauth, Ueberauth.Strategy.Google.OAuth,
+  client_id: System.get_env("GOOGLE_CLIENT_ID") || "dev_google_client_id",
+  client_secret: System.get_env("GOOGLE_CLIENT_SECRET") || "dev_google_client_secret"
+
+config :ueberauth, Ueberauth.Strategy.Facebook.OAuth,
+  client_id: System.get_env("FACEBOOK_CLIENT_ID") || "dev_facebook_client_id",
+  client_secret: System.get_env("FACEBOOK_CLIENT_SECRET") || "dev_facebook_client_secret"

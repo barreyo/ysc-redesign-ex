@@ -357,6 +357,27 @@ if config_env() == :prod do
       Generate one with: :crypto.strong_rand_bytes(32) |> Base.encode64()
       """
 
+  # ## OAuth Configuration
+  #
+  # Configure OAuth providers (Google and Facebook) for production.
+  # These must be set at runtime for releases to work properly.
+  google_client_id = System.get_env("GOOGLE_CLIENT_ID")
+  google_client_secret = System.get_env("GOOGLE_CLIENT_SECRET")
+  facebook_client_id = System.get_env("FACEBOOK_CLIENT_ID")
+  facebook_client_secret = System.get_env("FACEBOOK_CLIENT_SECRET")
+
+  if google_client_id && google_client_secret do
+    config :ueberauth, Ueberauth.Strategy.Google.OAuth,
+      client_id: google_client_id,
+      client_secret: google_client_secret
+  end
+
+  if facebook_client_id && facebook_client_secret do
+    config :ueberauth, Ueberauth.Strategy.Facebook.OAuth,
+      client_id: facebook_client_id,
+      client_secret: facebook_client_secret
+  end
+
   # ## QuickBooks Configuration
   #
   # Configure QuickBooks API settings for production.

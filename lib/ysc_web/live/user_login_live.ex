@@ -288,13 +288,33 @@ defmodule YscWeb.UserLoginLive do
   end
 
   def handle_event("sign_in_with_google", _params, socket) do
-    # Placeholder for Google OAuth authentication
-    {:noreply, put_flash(socket, :info, "Google authentication coming soon!")}
+    # Pass redirect_to as query parameter - Ueberauth will preserve it through OAuth flow
+    redirect_to = socket.assigns.redirect_to
+
+    oauth_url =
+      if redirect_to && YscWeb.UserAuth.valid_internal_redirect?(redirect_to) do
+        ~p"/auth/google?redirect_to=#{URI.encode(redirect_to)}"
+      else
+        ~p"/auth/google"
+      end
+
+    # Redirect to OAuth provider (full page redirect, not LiveView navigation)
+    {:noreply, socket |> redirect(to: oauth_url)}
   end
 
   def handle_event("sign_in_with_facebook", _params, socket) do
-    # Placeholder for Facebook OAuth authentication
-    {:noreply, put_flash(socket, :info, "Facebook authentication coming soon!")}
+    # Pass redirect_to as query parameter - Ueberauth will preserve it through OAuth flow
+    redirect_to = socket.assigns.redirect_to
+
+    oauth_url =
+      if redirect_to && YscWeb.UserAuth.valid_internal_redirect?(redirect_to) do
+        ~p"/auth/facebook?redirect_to=#{URI.encode(redirect_to)}"
+      else
+        ~p"/auth/facebook"
+      end
+
+    # Redirect to OAuth provider (full page redirect, not LiveView navigation)
+    {:noreply, socket |> redirect(to: oauth_url)}
   end
 
   def handle_event("device_detected", %{"device" => "ios_mobile"}, socket) do
@@ -314,6 +334,12 @@ defmodule YscWeb.UserLoginLive do
   end
 
   def handle_event("dismiss_banner", _params, socket) do
-    {:noreply, assign(socket, :banner_dismissed, true)}
+    # Reset failed login attempts when user dismisses the banner
+    # Redirect to controller endpoint to clear session, then redirect back
+    {:noreply,
+     socket
+     |> assign(:failed_login_attempts, 0)
+     |> assign(:banner_dismissed, true)
+     |> redirect(to: ~p"/users/log-in/reset-attempts")}
   end
 end
