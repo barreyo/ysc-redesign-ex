@@ -155,6 +155,9 @@ defmodule YscWeb.UserSessionControllerTest do
       # Create a pending approval user (like after account setup)
       user = user_fixture(%{state: :pending_approval})
 
+      # Mark email as verified so user can log in without being redirected to account setup
+      {:ok, user} = Ysc.Accounts.mark_email_verified(user)
+
       # Generate a valid session token
       token = Ysc.Accounts.generate_user_session_token(user)
       encoded_token = Base.url_encode64(token)
@@ -174,6 +177,9 @@ defmodule YscWeb.UserSessionControllerTest do
     } do
       # Create an active user
       user = user_fixture(%{state: :active})
+
+      # Mark email as verified so user can log in without being redirected to account setup
+      {:ok, user} = Ysc.Accounts.mark_email_verified(user)
 
       # Generate a valid session token
       token = Ysc.Accounts.generate_user_session_token(user)

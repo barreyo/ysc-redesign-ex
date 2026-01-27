@@ -14,9 +14,7 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorkerTest do
   import Ysc.AccountsFixtures
 
   alias YscWeb.Workers.QuickbooksBillPaymentProcessorWorker
-  alias Ysc.ExpenseReports
   alias Ysc.ExpenseReports.ExpenseReport
-  alias Ysc.Webhooks
   alias Ysc.Quickbooks.ClientMock
   alias Ysc.Repo
 

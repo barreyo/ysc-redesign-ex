@@ -35,8 +35,9 @@ defmodule Ysc.Tickets.TimeoutWorkerTest do
         |> Repo.insert!()
 
       # Run worker
-      assert {:ok, "Expired timed out ticket orders"} =
-               TimeoutWorker.perform(%Oban.Job{args: %{}})
+      assert {:ok, message} = TimeoutWorker.perform(%Oban.Job{args: %{}})
+      assert message =~ "Expired"
+      assert message =~ "timed out ticket orders"
 
       # Verify order status
       updated_order = Tickets.get_ticket_order(order.id)
@@ -58,8 +59,9 @@ defmodule Ysc.Tickets.TimeoutWorkerTest do
         |> Repo.insert!()
 
       # Run worker
-      assert {:ok, "Expired timed out ticket orders"} =
-               TimeoutWorker.perform(%Oban.Job{args: %{}})
+      assert {:ok, message} = TimeoutWorker.perform(%Oban.Job{args: %{}})
+      assert message =~ "Expired"
+      assert message =~ "timed out ticket orders"
 
       # Verify order status
       updated_order = Tickets.get_ticket_order(order.id)

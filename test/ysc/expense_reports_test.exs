@@ -125,9 +125,70 @@ defmodule Ysc.ExpenseReportsTest do
     end
 
     test "constructs URL for valid S3 path" do
-      url = ExpenseReports.receipt_url("receipts/test.pdf")
+      s3_path = "receipts/test.pdf"
+      url = ExpenseReports.receipt_url(s3_path)
       assert is_binary(url)
-      assert String.contains?(url, "receipts/test.pdf")
+      # The path is base64 encoded in the URL
+      encoded_path = Base.url_encode64(s3_path, padding: false)
+      assert String.contains?(url, encoded_path)
+      assert String.starts_with?(url, "/expensereport/files/")
+    end
+  end
+
+  describe "expense report creation and workflow" do
+    test "creates expense report", %{user: user} do
+      # Create bank account for user (required for bank_transfer)
+      {:ok, bank_account} =
+        ExpenseReports.create_bank_account(
+          %{
+            "routing_number" => "021000021",
+            "account_number" => "1234567890"
+          },
+          user
+        )
+
+      attrs = %{
+        "user_id" => user.id,
+        "status" => "draft",
+        "purpose" => "Test expense report",
+        "reimbursement_method" => "bank_transfer",
+        "bank_account_id" => bank_account.id
+      }
+
+      assert {:ok, %Ysc.ExpenseReports.ExpenseReport{} = report} =
+               ExpenseReports.create_expense_report(attrs, user)
+
+      assert report.user_id == user.id
+      assert report.status == "draft"
+    end
+
+    test "updates expense report status", %{user: user} do
+      # Create bank account for user (required for bank_transfer)
+      {:ok, bank_account} =
+        ExpenseReports.create_bank_account(
+          %{
+            "routing_number" => "021000021",
+            "account_number" => "1234567890"
+          },
+          user
+        )
+
+      {:ok, report} =
+        ExpenseReports.create_expense_report(
+          %{
+            "user_id" => user.id,
+            "status" => "draft",
+            "purpose" => "Test",
+            "reimbursement_method" => "bank_transfer",
+            "bank_account_id" => bank_account.id
+          },
+          user
+        )
+
+      # Preload expense_items association before updating to avoid changeset error
+      report = Ysc.Repo.preload(report, :expense_items)
+      assert {:ok, updated} = ExpenseReports.update_expense_report(report, %{status: "approved"})
+      assert updated.status == "approved"
     end
   end
 end

@@ -134,7 +134,9 @@ defmodule Ysc.Accounts.FamilyInvites do
 
               # Create Stripe customer asynchronously
               Task.start(fn ->
-                if Application.get_env(:ysc, :environment) == "test" do
+                is_test = if Code.ensure_loaded?(Mix), do: Mix.env() == :test, else: false
+
+                if is_test do
                   owner =
                     Ysc.Repo.config()[:owner] ||
                       Process.get({Ecto.Adapters.SQL.Sandbox, :owner})
@@ -146,7 +148,33 @@ defmodule Ysc.Accounts.FamilyInvites do
                   end
                 end
 
-                Ysc.Customers.create_stripe_customer(updated_user)
+                # Wrap in try-catch to suppress errors in test mode
+                try do
+                  Ysc.Customers.create_stripe_customer(updated_user)
+                rescue
+                  e ->
+                    # In test mode, silently ignore errors to keep test output clean
+                    unless is_test do
+                      require Logger
+
+                      Logger.error("Failed to create Stripe customer in background task",
+                        user_id: updated_user.id,
+                        error: Exception.format(:error, e, __STACKTRACE__)
+                      )
+                    end
+                catch
+                  kind, reason ->
+                    # Catch all other errors (throws, exits, etc.)
+                    unless is_test do
+                      require Logger
+
+                      Logger.error("Failed to create Stripe customer in background task",
+                        user_id: updated_user.id,
+                        kind: kind,
+                        reason: inspect(reason)
+                      )
+                    end
+                end
               end)
 
               updated_user

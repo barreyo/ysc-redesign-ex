@@ -571,7 +571,7 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
       # Reload ticket order with tickets to calculate amounts
       ticket_order_with_tickets = Tickets.get_ticket_order(ticket_order.id)
 
-      {event_amount, donation_amount} =
+      {event_amount, donation_amount, _discount_amount} =
         Tickets.calculate_event_and_donation_amounts(ticket_order_with_tickets)
 
       # Verify amounts are reasonable

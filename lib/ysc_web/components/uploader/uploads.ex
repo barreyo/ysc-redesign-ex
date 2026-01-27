@@ -7,6 +7,7 @@ defmodule YscWeb.Uploads do
 
   alias Ysc.Media
   alias Ysc.S3Config
+  alias YscWeb.Validators.FileValidator
 
   embed_templates("uploads/*")
 
@@ -133,6 +134,15 @@ defmodule YscWeb.Uploads do
 
   @doc false
   def consume_entry(%{path: path} = _details, _params, current_user) do
+    # Validate file MIME type before processing
+    case FileValidator.validate_image(path, [".jpg", ".jpeg", ".png", ".gif", ".webp"]) do
+      {:ok, _mime_type} ->
+        :ok
+
+      {:error, reason} ->
+        raise "File validation failed: #{reason}"
+    end
+
     base = Path.basename(path)
     _dest = Path.join(uploads_dir(), base)
 

@@ -45,9 +45,14 @@ defmodule YscWeb.QuickbooksWebhookController do
           {:ok, webhook_event} when is_struct(webhook_event) ->
             # Process the webhook event asynchronously
             # The handler will enqueue a worker to process the BillPayment
-            Task.start(fn ->
+            # In test mode, run synchronously to avoid database connection issues
+            if Application.get_env(:ysc, :environment) == "test" do
               QuickbooksWebhookHandler.handle_webhook_event(webhook_event)
-            end)
+            else
+              Task.start(fn ->
+                QuickbooksWebhookHandler.handle_webhook_event(webhook_event)
+              end)
+            end
 
             # Respond with 200 OK immediately (within 3 seconds requirement)
             send_resp(conn, 200, "OK")
@@ -84,7 +89,10 @@ defmodule YscWeb.QuickbooksWebhookController do
   # Verifies the intuit-signature header from QuickBooks
   defp verify_signature(conn) do
     # Get the verifier token from environment
-    verifier_token = Application.get_env(:ysc, :quickbooks)[:webhook_verifier_token]
+    # Try both config paths for backwards compatibility
+    verifier_token =
+      Application.get_env(:ysc, :quickbooks_webhook_verifier_token) ||
+        get_in(Application.get_env(:ysc, :quickbooks, []), [:webhook_verifier_token])
 
     if is_nil(verifier_token) || verifier_token == "" do
       Logger.warning("QuickBooks webhook verifier token not configured")

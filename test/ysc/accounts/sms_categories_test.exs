@@ -11,9 +11,10 @@ defmodule Ysc.Accounts.SmsCategoriesTest do
       user_enabled = %{account_notifications_sms: true}
       user_disabled = %{account_notifications_sms: false}
 
-      # Assuming "two_factor_verification" is :account category
+      # Security templates like "two_factor_verification" always return true
+      # regardless of notification preferences
       assert SmsCategories.should_send_sms?(user_enabled, "two_factor_verification")
-      refute SmsCategories.should_send_sms?(user_disabled, "two_factor_verification")
+      assert SmsCategories.should_send_sms?(user_disabled, "two_factor_verification")
     end
   end
 

@@ -5,8 +5,6 @@ defmodule Ysc.Subscriptions.ExpirationWorkerTest do
   use Ysc.DataCase, async: false
 
   alias Ysc.Subscriptions
-  alias Ysc.Subscriptions.{ExpirationWorker, Subscription}
-  alias Ysc.Accounts.MembershipCache
   import Ysc.AccountsFixtures
 
   setup do

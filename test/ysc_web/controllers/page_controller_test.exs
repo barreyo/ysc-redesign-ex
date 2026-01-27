@@ -9,8 +9,9 @@ defmodule YscWeb.PageControllerTest do
   describe "GET /" do
     test "renders home page", %{conn: conn} do
       conn = get(conn, ~p"/")
-      # Adjust the content based on your actual home page
-      assert html_response(conn, 200) =~ "Welcome to the Young Scandinavians Club!"
+      # Check for content that actually exists on the home page
+      html = html_response(conn, 200)
+      assert html =~ "Young Scandinavians Club"
     end
   end
 

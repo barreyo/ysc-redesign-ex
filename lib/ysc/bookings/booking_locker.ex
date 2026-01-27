@@ -416,30 +416,37 @@ defmodule Ysc.Bookings.BookingLocker do
         update_room_inventory_for_booking(room_inv)
 
         # Calculate pricing for all rooms combined
-        {total_price, pricing_items} =
-          calculate_room_booking_pricing(
-            rooms,
-            checkin_date,
-            checkout_date,
-            guests_count,
-            children_count
-          )
+        case calculate_room_booking_pricing(
+               rooms,
+               checkin_date,
+               checkout_date,
+               guests_count,
+               children_count
+             ) do
+          {total_price, pricing_items}
+          when not is_nil(total_price) and not is_nil(pricing_items) ->
+            # Create booking :hold with all rooms
+            hold_params = %{
+              user_id: user_id,
+              property: property,
+              checkin_date: checkin_date,
+              checkout_date: checkout_date,
+              guests_count: guests_count,
+              children_count: children_count,
+              hold_expires_at: hold_expires_at,
+              total_price: total_price,
+              pricing_items: pricing_items,
+              rooms: rooms
+            }
 
-        # Create booking :hold with all rooms
-        hold_params = %{
-          user_id: user_id,
-          property: property,
-          checkin_date: checkin_date,
-          checkout_date: checkout_date,
-          guests_count: guests_count,
-          children_count: children_count,
-          hold_expires_at: hold_expires_at,
-          total_price: total_price,
-          pricing_items: pricing_items,
-          rooms: rooms
-        }
+            create_room_booking_hold(hold_params)
 
-        create_room_booking_hold(hold_params)
+          {nil, _} ->
+            {:error, :pricing_calculation_failed}
+
+          {_, nil} ->
+            {:error, :pricing_calculation_failed}
+        end
       end)
     end
   end
@@ -567,6 +574,11 @@ defmodule Ysc.Bookings.BookingLocker do
 
       {:error, _reason} ->
         {nil, nil}
+
+      nil ->
+        # Handle case where calculate_multi_room_price returns nil
+        # (e.g., when no pricing rules are found)
+        {nil, nil}
     end
   end
 
@@ -622,7 +634,13 @@ defmodule Ysc.Bookings.BookingLocker do
         )
       end)
 
-    build_combined_pricing_items(results, nights, guests_count, children_count)
+    case results do
+      {:ok, _total, _items} ->
+        build_combined_pricing_items(results, nights, guests_count, children_count)
+
+      error ->
+        error
+    end
   end
 
   defp process_room_pricing(

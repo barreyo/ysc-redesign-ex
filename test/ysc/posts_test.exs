@@ -264,4 +264,181 @@ defmodule Ysc.PostsTest do
       assert count >= 2
     end
   end
+
+  describe "get_featured_post/0" do
+    test "returns featured published post", %{author: author} do
+      {:ok, featured} =
+        Posts.create_post(
+          %{
+            "title" => "Featured",
+            "body" => "Body",
+            "url_name" => "featured-post",
+            "state" => "published",
+            "featured_post" => true,
+            "published_on" => DateTime.truncate(DateTime.utc_now(), :second)
+          },
+          author
+        )
+
+      result = Posts.get_featured_post()
+      assert result.id == featured.id
+      assert result.featured_post == true
+    end
+
+    test "returns nil when no featured post exists" do
+      assert Posts.get_featured_post() == nil
+    end
+  end
+
+  describe "list_posts/2" do
+    test "returns paginated published posts", %{author: author} do
+      # Create multiple published posts
+      for i <- 1..5 do
+        {:ok, _} =
+          Posts.create_post(
+            %{
+              "title" => "Post #{i}",
+              "body" => "Body",
+              "url_name" => "post-#{i}",
+              "state" => "published",
+              "featured_post" => false,
+              "published_on" => DateTime.truncate(DateTime.utc_now(), :second)
+            },
+            author
+          )
+      end
+
+      # Get first page
+      page1 = Posts.list_posts(0, 2)
+      assert length(page1) == 2
+
+      # Get second page
+      page2 = Posts.list_posts(2, 2)
+      assert length(page2) >= 2
+    end
+  end
+
+  describe "list_posts_paginated/1" do
+    test "returns paginated posts with filters", %{author: author} do
+      {:ok, _} =
+        Posts.create_post(
+          %{
+            "title" => "Published",
+            "body" => "Body",
+            "url_name" => "paginated-1",
+            "state" => "published"
+          },
+          author
+        )
+
+      {:ok, _} =
+        Posts.create_post(
+          %{
+            "title" => "Draft",
+            "body" => "Body",
+            "url_name" => "paginated-2",
+            "state" => "draft"
+          },
+          author
+        )
+
+      params = %{limit: 10, offset: 0}
+      {:ok, {entries, meta}} = Posts.list_posts_paginated(params)
+      # Should return at least the published and draft posts (not deleted)
+      assert meta.total_count >= 1
+      assert length(entries) >= 1
+    end
+  end
+
+  describe "get_latest_comments/1" do
+    test "returns latest comments from published posts", %{author: author, regular_user: user} do
+      {:ok, post} =
+        Posts.create_post(
+          %{
+            "title" => "Published Post",
+            "body" => "Body",
+            "url_name" => "latest-comments",
+            "state" => "published",
+            "published_on" => DateTime.truncate(DateTime.utc_now(), :second)
+          },
+          author
+        )
+
+      Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Comment 1"}, user)
+      Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Comment 2"}, user)
+
+      comments = Posts.get_latest_comments(5)
+      assert length(comments) >= 2
+      assert Enum.any?(comments, &(&1.text == "Comment 1"))
+    end
+  end
+
+  describe "reply comments" do
+    test "adds reply to existing comment", %{author: author, regular_user: user} do
+      {:ok, post} =
+        Posts.create_post(
+          %{"title" => "Test", "body" => "Body", "url_name" => "reply-test"},
+          author
+        )
+
+      {:ok, parent_comment} =
+        Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Parent comment"}, user)
+
+      {:ok, reply} =
+        Posts.add_comment_to_post(
+          %{"post_id" => post.id, "text" => "Reply", "comment_id" => parent_comment.id},
+          user
+        )
+
+      assert reply.comment_id == parent_comment.id
+      assert reply.text == "Reply"
+    end
+
+    test "sort_comments_for_render/1 organizes replies under parents", %{
+      author: author,
+      regular_user: user
+    } do
+      {:ok, post} =
+        Posts.create_post(
+          %{"title" => "Test", "body" => "Body", "url_name" => "sort-test"},
+          author
+        )
+
+      {:ok, parent} =
+        Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Parent"}, user)
+
+      {:ok, _reply1} =
+        Posts.add_comment_to_post(
+          %{"post_id" => post.id, "text" => "Reply 1", "comment_id" => parent.id},
+          user
+        )
+
+      {:ok, _reply2} =
+        Posts.add_comment_to_post(
+          %{"post_id" => post.id, "text" => "Reply 2", "comment_id" => parent.id},
+          user
+        )
+
+      comments = Posts.get_comments_for_post(post.id)
+      sorted = Posts.sort_comments_for_render(comments)
+
+      # Parent should be first, followed by its replies
+      assert length(sorted) >= 3
+      assert Enum.at(sorted, 0).id == parent.id
+    end
+  end
+
+  describe "get_all_authors/0" do
+    test "returns all unique post authors", %{author: author} do
+      {:ok, _} =
+        Posts.create_post(
+          %{"title" => "Post 1", "body" => "Body", "url_name" => "author-1"},
+          author
+        )
+
+      authors = Posts.get_all_authors()
+      assert length(authors) >= 1
+      assert Enum.any?(authors, fn {_name, user_id} -> user_id == author.id end)
+    end
+  end
 end

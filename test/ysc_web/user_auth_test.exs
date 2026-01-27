@@ -19,6 +19,8 @@ defmodule YscWeb.UserAuthTest do
 
   describe "log_in_user/3" do
     test "stores the user token in the session", %{conn: conn, user: user} do
+      # Mark email as verified so user can log in without being redirected to account setup
+      {:ok, user} = Ysc.Accounts.mark_email_verified(user)
       conn = UserAuth.log_in_user(conn, user)
       assert token = get_session(conn, :user_token)
       assert get_session(conn, :live_socket_id) == "users_sessions:#{Base.url_encode64(token)}"
@@ -32,6 +34,8 @@ defmodule YscWeb.UserAuthTest do
     end
 
     test "redirects to the configured path", %{conn: conn, user: user} do
+      # Mark email as verified so user can log in without being redirected to account setup
+      {:ok, user} = Ysc.Accounts.mark_email_verified(user)
       conn = conn |> put_session(:user_return_to, "/hello") |> UserAuth.log_in_user(user)
       assert redirected_to(conn) == "/hello"
     end

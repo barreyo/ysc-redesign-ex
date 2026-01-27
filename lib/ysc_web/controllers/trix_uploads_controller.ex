@@ -3,6 +3,7 @@ defmodule YscWeb.TrixUploadsController do
   alias Ysc.Accounts.User
   alias Ysc.Media
   alias Ysc.S3Config
+  alias YscWeb.Validators.FileValidator
   use YscWeb, :controller
 
   @temp_dir "/tmp/image_processor"
@@ -36,6 +37,15 @@ defmodule YscWeb.TrixUploadsController do
     # 4. Return optimized url or raw url
 
     tmp_path = plug_upload["file"].path
+
+    # Validate file MIME type before processing
+    case FileValidator.validate_image(tmp_path, [".jpg", ".jpeg", ".png", ".gif", ".webp"]) do
+      {:ok, _mime_type} ->
+        :ok
+
+      {:error, reason} ->
+        raise "File validation failed: #{reason}"
+    end
 
     upload_result = Media.upload_file_to_s3(tmp_path)
     raw_s3_path = upload_result[:body][:location]

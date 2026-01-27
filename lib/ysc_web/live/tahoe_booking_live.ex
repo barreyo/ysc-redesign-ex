@@ -1017,7 +1017,7 @@ defmodule YscWeb.TahoeBookingLive do
                     <div>
                       <.date_range_picker
                         label="Check-in & Check-out Dates"
-                        id="booking_date_range"
+                        id="1"
                         form={@date_form}
                         start_date_field={@date_form[:checkin_date]}
                         end_date_field={@date_form[:checkout_date]}
@@ -1325,10 +1325,7 @@ defmodule YscWeb.TahoeBookingLive do
                   class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded"
                 >
                   <div class="flex items-start gap-2">
-                    <.icon
-                      name="hero-light-bulb-solid"
-                      class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"
-                    />
+                    <.icon name="hero-light-bulb-solid" class="w-5 h-5 text-blue-600 flex-shrink-0" />
                     <p class="text-sm text-blue-900 font-medium">
                       <strong>Family Membership Benefit:</strong>
                       You can book up to <%= max_rooms_for_user(assigns) %> rooms in the same reservation.
@@ -1801,10 +1798,7 @@ defmodule YscWeb.TahoeBookingLive do
                     class="p-2 bg-blue-50 border border-blue-200 rounded"
                   >
                     <div class="flex items-start gap-2">
-                      <.icon
-                        name="hero-light-bulb-solid"
-                        class="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5"
-                      />
+                      <.icon name="hero-light-bulb-solid" class="w-4 h-4 text-blue-600 flex-shrink-0" />
                       <p class="text-xs text-blue-900 leading-tight">
                         <strong>Family Membership:</strong>
                         You can book up to <%= max_rooms_for_user(assigns) %> rooms.
@@ -2683,94 +2677,103 @@ defmodule YscWeb.TahoeBookingLive do
                     <span>How to Book</span>
                   </h2>
                   <div>
-                    <h3 class="font-semibold text-zinc-900 mb-3">How to Reserve</h3>
+                    <h3 class="font-semibold text-zinc-900 mb-3">Making a Reservation</h3>
                     <ul class="space-y-2 text-zinc-700">
                       <li>
                         Use the <strong>booking form above</strong>
-                        to check availability and select dates.
+                        to check availability and select your dates.
                       </li>
-                      <li>View available rooms and select the ones that fit your group size.</li>
-                      <li>All bookings must be made <strong>through this website</strong>.</li>
                       <li>
-                        To cancel, use the <strong>"Cancel My Booking"</strong>
-                        link in your confirmation email.
+                        Browse available rooms and select the ones that best fit your group size.
                       </li>
-                      <li>See the Cancellation Policy in the Cabin Rules tab for details.</li>
+                      <li>
+                        Complete your booking and payment <strong>through this website</strong>. You'll receive a confirmation email with your booking details.
+                      </li>
+                      <li>
+                        After booking, you can view and manage your reservation, including cancellation options, from your booking details page (accessible via the link in your confirmation email).
+                      </li>
+                      <li>
+                        For cancellation policies and refund information, see the
+                        <strong>Cancellation Policy</strong>
+                        in the Cabin Rules tab.
+                      </li>
                     </ul>
                   </div>
                 </section>
                 <!-- Getting There -->
-                <section id="getting-there" class="grid md:grid-cols-2 gap-8 items-start">
-                  <div>
-                    <h2 class="text-2xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
-                      <span>🚗</span>
-                      <span>Getting There</span>
-                    </h2>
-                    <div class="bg-zinc-50 border border-zinc-200 rounded-2xl p-6">
-                      <p class="text-xs uppercase tracking-widest text-zinc-500 font-bold mb-2">
-                        Address
-                      </p>
-                      <p class="text-xl font-medium text-zinc-900 mb-6">
-                        2685 Cedar Lane<br />Homewood, CA 96141
-                      </p>
+                <section id="getting-there">
+                  <h2 class="text-2xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
+                    <span>🚗</span>
+                    <span>Getting There</span>
+                  </h2>
+                  <div class="grid md:grid-cols-2 gap-8 items-start">
+                    <div>
+                      <div class="bg-zinc-50 border border-zinc-200 rounded-2xl p-6">
+                        <p class="text-xs uppercase tracking-widest text-zinc-500 font-bold mb-2">
+                          Address
+                        </p>
+                        <p class="text-xl font-medium text-zinc-900 mb-6">
+                          2685 Cedar Lane<br />Homewood, CA 96141
+                        </p>
 
-                      <h3 class="font-bold text-zinc-900 mb-3">From the Bay Area</h3>
-                      <ol class="space-y-3 text-zinc-700 text-sm">
-                        <li class="flex gap-3">
-                          <span class="font-bold text-blue-600 flex-shrink-0">1.</span>
-                          <span>Take <strong>I-80 East</strong> toward Reno.</span>
-                        </li>
-                        <li class="flex gap-3">
-                          <span class="font-bold text-blue-600 flex-shrink-0">2.</span>
-                          <span>
-                            Exit at <strong>Truckee</strong>, onto <strong>Highway 89 South</strong>.
-                          </span>
-                        </li>
-                        <li class="flex gap-3">
-                          <span class="font-bold text-blue-600 flex-shrink-0">3.</span>
-                          <span>
-                            In <strong>Tahoe City</strong>, turn right at the first light to stay on Hwy 89.
-                          </span>
-                        </li>
-                        <li class="flex gap-3">
-                          <span class="font-bold text-blue-600 flex-shrink-0">4.</span>
-                          <span>
-                            After ~3 miles, turn <strong>right onto Timberland Lane</strong>
-                            (look for the Timberland totem pole).
-                          </span>
-                        </li>
-                        <li class="flex gap-3">
-                          <span class="font-bold text-blue-600 flex-shrink-0">5.</span>
-                          <span>
-                            Turn <strong>left onto Cedar Lane</strong> — the cabin is on your left.
-                          </span>
-                        </li>
-                      </ol>
-                      <p class="text-sm text-zinc-600 mt-6">
-                        <strong>Transportation Notes:</strong>
-                        Public transportation is limited — <strong>driving is recommended.</strong>
-                        <strong>Carpooling</strong>
-                        is encouraged to reduce parking strain and environmental impact.
-                      </p>
+                        <h3 class="font-bold text-zinc-900 mb-3">From the Bay Area</h3>
+                        <ol class="space-y-3 text-zinc-700 text-sm">
+                          <li class="flex gap-3">
+                            <span class="font-bold text-blue-600 flex-shrink-0">1.</span>
+                            <span>Take <strong>I-80 East</strong> toward Reno.</span>
+                          </li>
+                          <li class="flex gap-3">
+                            <span class="font-bold text-blue-600 flex-shrink-0">2.</span>
+                            <span>
+                              Exit at <strong>Truckee</strong>, onto <strong>Highway 89 South</strong>.
+                            </span>
+                          </li>
+                          <li class="flex gap-3">
+                            <span class="font-bold text-blue-600 flex-shrink-0">3.</span>
+                            <span>
+                              In <strong>Tahoe City</strong>, turn right at the first light to stay on Hwy 89.
+                            </span>
+                          </li>
+                          <li class="flex gap-3">
+                            <span class="font-bold text-blue-600 flex-shrink-0">4.</span>
+                            <span>
+                              After ~3 miles, turn <strong>right onto Timberland Lane</strong>
+                              (look for the Timberland totem pole).
+                            </span>
+                          </li>
+                          <li class="flex gap-3">
+                            <span class="font-bold text-blue-600 flex-shrink-0">5.</span>
+                            <span>
+                              Turn <strong>left onto Cedar Lane</strong> — the cabin is on your left.
+                            </span>
+                          </li>
+                        </ol>
+                        <p class="text-sm text-zinc-600 mt-6">
+                          <strong>Transportation Notes:</strong>
+                          Public transportation is limited — <strong>driving is recommended.</strong>
+                          <strong>Carpooling</strong>
+                          is encouraged to reduce parking strain and environmental impact.
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div class="space-y-4">
-                    <div class="rounded-2xl overflow-hidden border border-zinc-200 shadow-sm h-80">
-                      <.live_component
-                        id="tahoe-cabin-map"
-                        module={YscWeb.Components.MapComponent}
+                    <div class="space-y-4">
+                      <div class="rounded-2xl overflow-hidden border border-zinc-200 shadow-sm h-80">
+                        <.live_component
+                          id="tahoe-cabin-map"
+                          module={YscWeb.Components.MapComponent}
+                          latitude={39.12591794747629}
+                          longitude={-120.16648676079016}
+                          locked={true}
+                          class="w-full h-full"
+                        />
+                      </div>
+                      <YscWeb.Components.MapNavigationButtons.map_navigation_buttons
                         latitude={39.12591794747629}
                         longitude={-120.16648676079016}
-                        locked={true}
-                        class="w-full h-full"
+                        class="w-full"
                       />
                     </div>
-                    <YscWeb.Components.MapNavigationButtons.map_navigation_buttons
-                      latitude={39.12591794747629}
-                      longitude={-120.16648676079016}
-                      class="w-full"
-                    />
                   </div>
                 </section>
                 <!-- Pre-Arrival Checklist & Door Code -->

@@ -764,7 +764,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 </div>
                 <.live_component
                   module={YscWeb.Components.AvailabilityCalendar}
-                  id="clear-lake-availability-calendar"
+                  id="1"
                   checkin_date={@checkin_date}
                   checkout_date={@checkout_date}
                   selected_booking_mode={@selected_booking_mode}
@@ -822,7 +822,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 </div>
                 <.live_component
                   module={YscWeb.Components.AvailabilityCalendar}
-                  id="clear-lake-availability-calendar"
+                  id="1"
                   checkin_date={@checkin_date}
                   checkout_date={@checkout_date}
                   selected_booking_mode={@selected_booking_mode}
@@ -1279,54 +1279,35 @@ defmodule YscWeb.ClearLakeBookingLive do
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Left Column: Main Content (2 columns on large screens) -->
         <div class="lg:col-span-2 space-y-20">
-          <!-- Life at the Cabin Section -->
-          <article id="amenities" class="mb-20">
-            <h2 class="text-3xl font-bold text-zinc-900 mb-4">Life at the Cabin</h2>
-            <p class="text-zinc-500 mb-10">Essential details for a perfect lakeside stay.</p>
+          <!-- Your Lakeside Sanctuary Section -->
+          <article id="the-experience" class="mb-16">
+            <h2 class="text-4xl font-black text-zinc-900 mb-4 tracking-tight">
+              Your Lakeside Sanctuary
+            </h2>
+            <p class="text-xl text-zinc-500 mb-10 font-light">
+              Escape the city for North America's oldest lake. Whether it's a high-energy summer weekend or a cozy winter retreat, the YSC Cabin is your home on the water.
+            </p>
+
             <div class="prose prose-lg prose-zinc font-light leading-relaxed text-zinc-600 max-w-none">
               <p>
-                Purchased by a group of visionary young Scandinavians in 1963, this cabin was built on the spirit of <strong>dugnad</strong>—the Nordic tradition of community work. For over 60 years, every nail driven and every meal shared has been part of a collective effort to maintain a home away from home.
-              </p>
-              <p>
-                Nestled in the heart of Kelseyville, our cabin serves as a year-round sanctuary for members seeking the rustic charm of lakeside living. From summer sunrises on the dock to crisp winter mornings by the water, the cabin offers a unique connection to North America's oldest lake.
+                Imagine waking up to the mist rolling off Clear Lake, coffee in hand on a <strong>private 100-foot dock</strong>, with the dormant peak of Mt. Konocti as your backdrop. This isn't just a rental; it's a 60-year tradition of Scandinavian lakeside living.
               </p>
             </div>
-            <!-- Dugnad Definition Callout -->
-            <div class="mt-8 p-6 bg-zinc-50 rounded-2xl border-dashed border-2 border-zinc-200">
-              <h4 class="text-sm font-black text-zinc-400 uppercase tracking-[0.2em] mb-2">
-                Nordic Tradition
-              </h4>
-              <p class="text-sm text-zinc-600 italic leading-relaxed">
-                <strong>Dugnad [duo-nad]:</strong>
-                A Norwegian term for voluntary community work. Our cabin survives because members contribute their time to fix the dock, clean the kitchen, and maintain the grounds. When you stay here, you aren't just a guest—you're a steward of the legacy.
-              </p>
-            </div>
-            <!-- Seasons Info Box -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12 border-l-4 border-teal-600 pl-6 py-2">
-              <div>
-                <h4 class="font-bold text-zinc-900 mb-2">Summer Highs (May–Sept)</h4>
-                <p class="text-base text-zinc-600 leading-relaxed">
-                  Legendary dock parties, community meals, and boat tie-ups. This is the peak season for sleeping under the stars and lakeside community life.
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12">
+              <div class="p-6 bg-teal-50 rounded-2xl border border-teal-100">
+                <span class="text-2xl mb-2 block">🌅</span>
+                <h4 class="font-bold text-teal-900 mb-2">Summer on the Water</h4>
+                <p class="text-sm text-teal-800/80 leading-relaxed">
+                  The legendary YSC summer. Spend your days swimming off the dock, mooring your boat for free, and enjoying communal "Langbord" dinners under the stars.
                 </p>
               </div>
-              <div>
-                <h4 class="font-bold text-zinc-900 mb-2">Winter Quiet (Oct–April)</h4>
-                <p class="text-base text-zinc-600 leading-relaxed">
-                  The best time for hikers and wine enthusiasts. Enjoy the stillness of the lake and crisp mountain air.
+              <div class="p-6 bg-amber-50 rounded-2xl border border-amber-100">
+                <span class="text-2xl mb-2 block">🍷</span>
+                <h4 class="font-bold text-amber-900 mb-2">Winter Wine & Hikes</h4>
+                <p class="text-sm text-amber-800/80 leading-relaxed">
+                  Cozy up in the Social Hall. Winter is for the Red Hills wine enthusiasts and those looking to summit Konocti without the summer heat.
                 </p>
-                <div class="mt-3 p-3 bg-zinc-100 rounded-lg">
-                  <p class="text-sm text-zinc-600 italic">
-                    <strong>Winter Buyouts:</strong>
-                    The cabin is available for full-group rentals. We move beds into the front rooms for a cozy, indoor retreat.
-                  </p>
-                  <a
-                    href="mailto:clearlake@ysc.org?subject=Winter Buyout Inquiry"
-                    class="inline-flex items-center mt-2 text-sm font-bold text-teal-700 hover:underline"
-                  >
-                    Enquire about Winter Buyouts
-                    <.icon name="hero-arrow-right" class="w-4 h-4 ml-1" />
-                  </a>
-                </div>
               </div>
             </div>
             <!-- CTA Card for Non-Logged-In Users -->
@@ -1572,59 +1553,53 @@ defmodule YscWeb.ClearLakeBookingLive do
               </details>
             </div>
           </article>
-          <!-- What to Expect Section -->
-          <section id="the-stay-section" class="mb-20">
-            <h2 class="text-3xl font-bold text-zinc-900 mb-10 text-center lg:text-left">
-              What to Expect
-            </h2>
+          <!-- Amenities Section -->
+          <section id="amenities" class="pt-10 border-t border-zinc-100">
+            <h3 class="text-2xl font-bold text-zinc-900 mb-8">
+              Everything You Need for a Perfect Stay
+            </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div class="flex gap-4">
-                <div class="w-12 h-12 flex-shrink-0 bg-zinc-100 rounded-lg flex items-center justify-center">
-                  <.icon name="hero-home" class="w-6 h-6 text-teal-600" />
-                </div>
-                <div>
-                  <h4 class="font-bold text-zinc-900 mb-1">Communal Cabin</h4>
-                  <p class="text-base text-zinc-500 leading-relaxed">
-                    A fully-equipped group kitchen, changing rooms, and a dance floor for social evenings.
-                  </p>
-                </div>
-              </div>
-              <div class="flex gap-4">
-                <div class="w-12 h-12 flex-shrink-0 bg-zinc-100 rounded-lg flex items-center justify-center">
-                  <.icon name="hero-sparkles" class="w-6 h-6 text-teal-600" />
-                </div>
-                <div>
-                  <h4 class="font-bold text-zinc-900 mb-1">Lawn Sleeping</h4>
-                  <p class="text-base text-zinc-500 leading-relaxed">
-                    Embrace the lake breeze. We provide mattresses for sleeping under the stars on the main lawn.
-                  </p>
-                  <div class="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p class="text-sm text-amber-800">
-                      <strong>⚠️ Sprinkler Alert:</strong>
-                      Monday–Wednesday mornings at 4:00 AM, the lawn sprinklers run automatically. If you're sleeping under the stars or pitching a tent, make sure you're in a designated "dry zone" or have moved inside by then!
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div class="flex gap-4">
-                <div class="w-12 h-12 flex-shrink-0 bg-zinc-100 rounded-lg flex items-center justify-center">
-                  <.icon name="hero-beaker" class="w-6 h-6 text-teal-600" />
-                </div>
-                <div>
-                  <h4 class="font-bold text-zinc-900 mb-1">Filtered Water</h4>
-                  <p class="text-base text-zinc-500 leading-relaxed">
-                    Safe, clean tap water is available. No need to bring plastic flats; just bring a reusable bottle.
-                  </p>
-                </div>
-              </div>
-              <div class="flex gap-4">
-                <div class="w-12 h-12 flex-shrink-0 bg-zinc-100 rounded-lg flex items-center justify-center">
+                <div class="w-12 h-12 flex-shrink-0 bg-zinc-100 rounded-xl flex items-center justify-center">
                   <.icon name="hero-lifebuoy" class="w-6 h-6 text-teal-600" />
                 </div>
                 <div>
-                  <h4 class="font-bold text-zinc-900 mb-1">Private Dock</h4>
-                  <p class="text-base text-zinc-500 leading-relaxed">
-                    Perfect for swimming, mooring your boat, or enjoying a morning coffee over the water.
+                  <h4 class="font-bold text-zinc-900">The Iconic Private Dock</h4>
+                  <p class="text-sm text-zinc-500">
+                    Perfect for deep-water swimming, sunbathing, or securing your boat. It's the heart of the property.
+                  </p>
+                </div>
+              </div>
+              <div class="flex gap-4">
+                <div class="w-12 h-12 flex-shrink-0 bg-zinc-100 rounded-xl flex items-center justify-center">
+                  <.icon name="hero-musical-note" class="w-6 h-6 text-teal-600" />
+                </div>
+                <div>
+                  <h4 class="font-bold text-zinc-900">Social Hall & Dance Floor</h4>
+                  <p class="text-sm text-zinc-500">
+                    A massive cedar hall for evening games, music, and the warmth of a wood-burning fireplace.
+                  </p>
+                </div>
+              </div>
+              <div class="flex gap-4">
+                <div class="w-12 h-12 flex-shrink-0 bg-zinc-100 rounded-xl flex items-center justify-center">
+                  <.icon name="hero-home-modern" class="w-6 h-6 text-teal-600" />
+                </div>
+                <div>
+                  <h4 class="font-bold text-zinc-900">Gourmet Group Kitchen</h4>
+                  <p class="text-sm text-zinc-500">
+                    Fully equipped with industrial stoves and ample fridge space. Perfect for hosting big group feasts.
+                  </p>
+                </div>
+              </div>
+              <div class="flex gap-4">
+                <div class="w-12 h-12 flex-shrink-0 bg-zinc-100 rounded-xl flex items-center justify-center">
+                  <.icon name="hero-sparkles" class="w-6 h-6 text-teal-600" />
+                </div>
+                <div>
+                  <h4 class="font-bold text-zinc-900">The Sleeping Lawn</h4>
+                  <p class="text-sm text-zinc-500">
+                    Fall asleep to the sound of crickets and the lake breeze. We provide the mattresses; the stars provide the view.
                   </p>
                 </div>
               </div>
@@ -1738,102 +1713,45 @@ defmodule YscWeb.ClearLakeBookingLive do
               </div>
             </div>
           </section>
-          <!-- Things to Do Nearby Section -->
-          <section id="nearby-section" class="mb-20">
-            <details class="group border border-zinc-200 rounded bg-white transition-all">
-              <summary class="p-4 cursor-pointer font-bold flex justify-between items-center list-none hover:bg-zinc-50">
-                <span class="flex items-center gap-3">
-                  <span class="text-xl">🌄</span>
-                  <span>Things to Do Nearby</span>
-                </span>
-                <.icon
-                  name="hero-chevron-down"
-                  class="w-4 h-4 text-zinc-500 chevron-icon transition-transform"
-                />
-              </summary>
-              <div class="px-4 pb-5 text-base text-zinc-700 leading-relaxed border-t border-zinc-50 pt-5 space-y-6">
-                <div class="space-y-3">
-                  <h4 class="font-bold text-zinc-900">North America's Oldest Lake</h4>
-                  <p class="text-base text-zinc-600">
-                    Estimated to be 2.5 million years old, Clear Lake is a biological treasure. In the winter, it becomes a peaceful mirror for the migratory birds and the snow-capped peak of Mt. Konocti.
-                  </p>
-                </div>
-                <div class="space-y-3">
-                  <h4 class="font-bold text-zinc-900">The Winter Migration</h4>
-                  <p class="text-base text-zinc-600">
-                    Clear Lake is a premier birding destination. In the colder months, the lake is home to thousands of wintering grebes and majestic Bald Eagles. It's a photographer's paradise when the summer crowds have cleared.
-                  </p>
-                </div>
-                <div class="space-y-3">
-                  <h4 class="font-bold text-zinc-900">The Wine of the 'Red Hills'</h4>
-                  <p class="text-base text-zinc-600">
-                    When it's too cold for the lake, it's perfect for the cellar. The Kelseyville area is the heart of the Red Hills AVA. Visit high-altitude tasting rooms like Chacewater or Laujor to taste some of California's best volcanic-soil Cabernets.
-                  </p>
-                </div>
-                <div class="space-y-3">
-                  <h4 class="font-bold text-zinc-900">Mt. Konocti in the Mist</h4>
-                  <p class="text-base text-zinc-600">
-                    Hiking the dormant volcano is actually more pleasant in the spring and fall than the summer heat. The trails offer 360-degree views of the lake and, on clear winter days, glimpses of the snow-capped Sierras.
-                  </p>
-                </div>
-                <div class="space-y-3">
-                  <h4 class="font-bold text-zinc-900">Kelseyville Charm</h4>
-                  <p class="text-base text-zinc-600">
-                    A 10-minute drive takes you to the historic town of Kelseyville—famous for its pear orchards, local breweries, and small-town hospitality that feels like a step back in time.
-                  </p>
-                </div>
-                <div class="p-4 bg-zinc-50 border border-zinc-200 rounded-lg">
-                  <p class="text-base text-zinc-700">
-                    <strong>Planning Tip:</strong>
-                    The nearest store is 5 miles (8km) away. We recommend stopping in Kelseyville for ice and necessities before you arrive.
-                  </p>
-                </div>
-                <div class="pt-4 border-t border-zinc-100">
-                  <p class="text-base font-medium text-zinc-700 mb-3">
-                    Explore more local attractions:
-                  </p>
-                  <ul class="space-y-2">
-                    <li>
-                      <a
-                        href="https://lakecounty.com"
-                        target="_blank"
-                        class="text-teal-600 hover:text-teal-700 underline"
-                      >
-                        Lake County Tourism Board →
-                      </a>
-                    </li>
-                    <li>
-                      <a
-                        href="https://www.konoctitrails.com"
-                        target="_blank"
-                        class="text-teal-600 hover:text-teal-700 underline"
-                      >
-                        Konocti Trails – Hiking Mount Konocti →
-                      </a>
-                    </li>
-                    <li>
-                      <a
-                        href="https://www.parks.ca.gov/?page_id=473"
-                        target="_blank"
-                        class="text-teal-600 hover:text-teal-700 underline"
-                      >
-                        Clear Lake State Park →
-                      </a>
-                    </li>
-                    <li>
-                      <a
-                        href="https://lakecountywineries.org"
-                        target="_blank"
-                        class="text-teal-600 hover:text-teal-700 underline"
-                      >
-                        Lake County Wine Tasting →
-                      </a>
-                      <span class="text-zinc-500"> — visit one of a dozen nearby wineries!</span>
-                    </li>
-                  </ul>
-                </div>
+          <!-- Nearby Section -->
+          <section id="nearby" class="py-12 border-t border-zinc-100">
+            <h3 class="text-2xl font-bold text-zinc-900 mb-6">Explore Kelseyville</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="space-y-2">
+                <h5 class="font-bold text-zinc-800">Volcanic Wines</h5>
+                <p class="text-xs text-zinc-500">
+                  Visit Laujor or Chacewater for world-class Cabernets in the Red Hills AVA.
+                </p>
               </div>
-            </details>
+              <div class="space-y-2">
+                <h5 class="font-bold text-zinc-800">Mt. Konocti Trails</h5>
+                <p class="text-xs text-zinc-500">
+                  Incredible 360-degree views of the lake. A must-do hike for every member.
+                </p>
+              </div>
+              <div class="space-y-2">
+                <h5 class="font-bold text-zinc-800">Town Charm</h5>
+                <p class="text-xs text-zinc-500">
+                  10 mins to historic Kelseyville for local breweries and pear orchards.
+                </p>
+              </div>
+            </div>
+          </section>
+          <!-- Legacy Section -->
+          <section id="legacy" class="bg-zinc-50 rounded-3xl p-8 border border-zinc-100">
+            <h4 class="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
+              The YSC Spirit
+            </h4>
+            <h2 class="text-2xl font-bold text-zinc-900 mb-4">Owned by Members, Loved by All</h2>
+            <p class="text-zinc-600 mb-6 leading-relaxed">
+              This isn't a hotel—it's a collective treasure. Since 1963, we've kept costs low and the quality high through <strong>Dugnad</strong>: the Nordic tradition of "shared effort." Everyone pitches in for one small chore a day, ensuring the cabin stays beautiful for the next generation.
+            </p>
+            <.link
+              navigate={~p"/code-of-conduct"}
+              class="text-teal-700 font-bold hover:underline flex items-center gap-2"
+            >
+              Read the Cabin Code of Conduct <.icon name="hero-arrow-right" class="w-4 h-4" />
+            </.link>
           </section>
           <!-- Legacy Timeline Section -->
           <section id="legacy-timeline" class="py-16 border-t border-zinc-100">
@@ -1883,69 +1801,50 @@ defmodule YscWeb.ClearLakeBookingLive do
         <!-- Right Sidebar -->
         <aside class="space-y-8">
           <div class="sticky top-24 space-y-8">
-            <!-- Quick Logistics Card -->
-            <div class="bg-white border-2 border-zinc-100 rounded-2xl overflow-hidden shadow-sm">
-              <div class="bg-zinc-50 px-6 py-4 border-b border-zinc-100">
-                <h3 class="font-bold text-zinc-900">Quick Logistics</h3>
+            <!-- Your Stay Card -->
+            <div class="bg-white border-2 border-zinc-900 rounded-2xl overflow-hidden shadow-xl">
+              <div class="bg-zinc-900 px-6 py-4">
+                <h3 class="font-bold text-white">Your Stay</h3>
               </div>
               <div class="p-6 space-y-4">
                 <div class="flex justify-between text-base">
+                  <span class="text-zinc-500">Lakeside Dock</span>
+                  <span class="font-bold text-teal-600">Included</span>
+                </div>
+                <div class="flex justify-between text-base">
+                  <span class="text-zinc-500">Group Kitchen</span>
+                  <span class="font-bold text-teal-600">Included</span>
+                </div>
+                <div class="flex justify-between text-base border-t border-zinc-50 pt-4">
                   <span class="text-zinc-500">Check-in</span>
-                  <span class="font-bold">3:00 PM</span>
+                  <span class="font-bold text-zinc-900">3:00 PM</span>
                 </div>
                 <div class="flex justify-between text-base">
                   <span class="text-zinc-500">Check-out</span>
-                  <span class="font-bold">11:00 AM</span>
-                </div>
-                <div class="flex justify-between text-base border-t border-zinc-50 pt-4">
-                  <span class="text-zinc-500">Capacity</span>
-                  <span class="font-bold"><%= @max_guests %> Guests</span>
-                </div>
-                <div class="flex justify-between text-base">
-                  <span class="text-zinc-500">Pets</span>
-                  <span class="font-bold text-rose-600">No Pets Allowed</span>
+                  <span class="font-bold text-zinc-900">11:00 AM</span>
                 </div>
               </div>
+              <div class="px-6 pb-6">
+                <button class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-teal-600/20">
+                  Check Availability
+                </button>
+              </div>
             </div>
-            <!-- Essential Packing Card - Dark Teal -->
-            <div class="bg-teal-900 rounded-2xl p-8 text-white shadow-xl shadow-teal-900/20">
-              <h3 class="text-lg font-bold mb-6 flex items-center gap-2">
-                <.icon name="hero-shopping-bag" class="w-6 h-6" /> Essential Packing
-              </h3>
-              <ul class="space-y-4 text-base text-teal-100">
-                <li class="flex gap-3">
-                  <span class="text-teal-400 font-bold">✓</span>
-                  <span><strong>Bedding:</strong> Sleeping bag & pillow</span>
+            <!-- The Packing List Card -->
+            <div class="bg-teal-900 rounded-2xl p-8 text-white">
+              <h3 class="text-lg font-bold mb-6">The Packing List</h3>
+              <ul class="space-y-4 text-sm text-teal-100">
+                <li class="flex items-center gap-3">
+                  <span class="text-teal-400">●</span> Sleeping bag & Pillow
                 </li>
-                <li class="flex gap-3">
-                  <span class="text-teal-400 font-bold">✓</span>
-                  <span>
-                    <strong>Footwear:</strong>
-                    Flip-flops for the dock, and <strong>dancing shoes</strong>
-                    for the hall
-                  </span>
+                <li class="flex items-center gap-3">
+                  <span class="text-teal-400">●</span> Dancing Shoes
                 </li>
-                <li class="flex gap-3">
-                  <span class="text-teal-400 font-bold">✓</span>
-                  <span><strong>Rest:</strong> Earplugs (recommended for communal sleeping)</span>
+                <li class="flex items-center gap-3">
+                  <span class="text-teal-400">●</span> Reusable Water Bottle
                 </li>
-                <li class="flex gap-3">
-                  <span class="text-teal-400 font-bold">✓</span>
-                  <span>
-                    <strong>Hydration:</strong> Reusable bottle (tap water is safe & filtered)
-                  </span>
-                </li>
-                <li class="flex gap-3">
-                  <span class="text-teal-400 font-bold">✓</span>
-                  <span>
-                    <strong>Cooler:</strong> Ice is 5 miles away; bring plenty for your beverages
-                  </span>
-                </li>
-                <li class="flex gap-3 border-t border-white/10 pt-4">
-                  <span class="text-teal-400">!</span>
-                  <span class="italic text-sm">
-                    Chore duty is required for all guests. Check the kitchen board upon arrival.
-                  </span>
+                <li class="flex items-center gap-3">
+                  <span class="text-teal-400">●</span> Sunscreen & Swimsuit
                 </li>
               </ul>
             </div>

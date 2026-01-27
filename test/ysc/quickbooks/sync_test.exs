@@ -1235,8 +1235,11 @@ defmodule Ysc.Quickbooks.SyncTest do
         # Payment amount is $10,000.00 (Money.new(10_000, :USD) when stored as dollars)
         # Money.to_decimal returns dollars, so 10_000 becomes "10000.00"
         assert line1.amount == Decimal.new("10000.00")
-        assert get_in(line1, [:deposit_line_detail, :entity_ref, :value]) == "qb_sr_1"
-        assert get_in(line1, [:deposit_line_detail, :entity_ref, :type]) == "SalesReceipt"
+        # Verify linked_txn references the correct SalesReceipt
+        assert line1.linked_txn != nil
+        linked_txn1 = Enum.at(line1.linked_txn, 0)
+        assert linked_txn1.txn_id == "qb_sr_1"
+        assert linked_txn1.txn_type == "SalesReceipt"
 
         # CRITICAL: Verify class_ref is present in deposit line items (ALL QuickBooks exports must have a class)
         assert get_in(line1, [:deposit_line_detail, :class_ref]) != nil
@@ -1245,8 +1248,11 @@ defmodule Ysc.Quickbooks.SyncTest do
         line2 = Enum.at(params.line, 1)
         # Payment amount is $5,000.00 (Money.new(5_000, :USD) when stored as dollars)
         assert line2.amount == Decimal.new("5000.00")
-        assert get_in(line2, [:deposit_line_detail, :entity_ref, :value]) == "qb_sr_2"
-        assert get_in(line2, [:deposit_line_detail, :entity_ref, :type]) == "SalesReceipt"
+        # Verify linked_txn references the correct SalesReceipt
+        assert line2.linked_txn != nil
+        linked_txn2 = Enum.at(line2.linked_txn, 0)
+        assert linked_txn2.txn_id == "qb_sr_2"
+        assert linked_txn2.txn_type == "SalesReceipt"
         # CRITICAL: Verify class_ref is present in deposit line items
         assert get_in(line2, [:deposit_line_detail, :class_ref]) != nil
         assert Map.has_key?(get_in(line2, [:deposit_line_detail, :class_ref]), :value)
@@ -1421,20 +1427,28 @@ defmodule Ysc.Quickbooks.SyncTest do
         # Verify line items
         assert length(params.line) == 2
 
-        # Payment line (positive)
+        # Payment line (positive) - find by linked_txn
         payment_line =
           Enum.find(params.line, fn line ->
-            get_in(line, [:deposit_line_detail, :entity_ref, :value]) == "qb_sr_payment"
+            line.linked_txn != nil &&
+              Enum.any?(line.linked_txn, fn txn ->
+                txn.txn_id == "qb_sr_payment" && txn.txn_type == "SalesReceipt"
+              end)
           end)
 
+        assert payment_line != nil
         assert payment_line.amount == Decimal.new("10000.00")
 
-        # Refund line (negative)
+        # Refund line (negative) - find by linked_txn
         refund_line =
           Enum.find(params.line, fn line ->
-            get_in(line, [:deposit_line_detail, :entity_ref, :value]) == "qb_refund_receipt_123"
+            line.linked_txn != nil &&
+              Enum.any?(line.linked_txn, fn txn ->
+                txn.txn_id == "qb_refund_receipt_123" && txn.txn_type == "RefundReceipt"
+              end)
           end)
 
+        assert refund_line != nil
         assert Decimal.negative?(refund_line.amount)
         assert refund_line.amount == Decimal.new("-3000.00")
 
@@ -2526,13 +2540,14 @@ defmodule Ysc.Quickbooks.SyncTest do
         assert length(params.line) == 5
 
         # Verify payment line items are positive
+        # Check linked_txn instead of entity_ref
         payment_lines =
           Enum.filter(params.line, fn line ->
-            get_in(line, [:deposit_line_detail, :entity_ref, :value]) in [
-              "qb_sr_1",
-              "qb_sr_2",
-              "qb_sr_3"
-            ]
+            line.linked_txn != nil &&
+              Enum.any?(line.linked_txn, fn txn ->
+                txn.txn_id in ["qb_sr_1", "qb_sr_2", "qb_sr_3"] &&
+                  txn.txn_type == "SalesReceipt"
+              end)
           end)
 
         assert length(payment_lines) == 3
@@ -2542,12 +2557,14 @@ defmodule Ysc.Quickbooks.SyncTest do
         end)
 
         # Verify refund line items are negative
+        # Check linked_txn instead of entity_ref
         refund_lines =
           Enum.filter(params.line, fn line ->
-            get_in(line, [:deposit_line_detail, :entity_ref, :value]) in [
-              "qb_sr_refund_1",
-              "qb_sr_refund_2"
-            ]
+            line.linked_txn != nil &&
+              Enum.any?(line.linked_txn, fn txn ->
+                txn.txn_id in ["qb_sr_refund_1", "qb_sr_refund_2"] &&
+                  txn.txn_type == "RefundReceipt"
+              end)
           end)
 
         assert length(refund_lines) == 2

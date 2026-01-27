@@ -3,13 +3,25 @@ defmodule YscWeb.Workers.SmsNotifierTest do
 
   alias YscWeb.Workers.SmsNotifier
   import Ysc.AccountsFixtures
+  import Ecto.Query
 
   describe "perform/1" do
     setup do
       user = user_fixture()
       # Ensure user has phone number
-      {:ok, user} =
-        Ysc.Accounts.update_user_profile(user, %{phone_number: "+12065551234"})
+      {:ok, updated_user} =
+        Ysc.Accounts.update_user_profile(user, %{
+          phone_number: "+12065551234"
+        })
+
+      # Update notification preferences separately
+      {:ok, _} =
+        Ysc.Accounts.update_notification_preferences(updated_user, %{
+          account_notifications_sms: true
+        })
+
+      # Reload user to ensure we have fresh data
+      user = Ysc.Repo.reload!(updated_user)
 
       # Clear rate limits before test
       Cachex.clear(:ysc_cache)
@@ -26,21 +38,23 @@ defmodule YscWeb.Workers.SmsNotifierTest do
         checkin_time: "3:00 PM"
       }
 
-      assert :ok =
-               perform_job(SmsNotifier, %{
-                 "phone_number" => "12065551234",
-                 "idempotency_key" => "sms_idemp_123",
-                 "template" => "booking_checkin_reminder",
-                 "params" => params,
-                 "user_id" => user.id,
-                 "category" => "bookings"
-               })
+      result =
+        perform_job(SmsNotifier, %{
+          "phone_number" => "12065551234",
+          "idempotency_key" => "sms_idemp_123",
+          "template" => "booking_checkin_reminder",
+          "params" => params,
+          "user_id" => user.id,
+          "category" => "bookings"
+        })
+
+      assert :ok = result
 
       # Verify idempotency record created
-      assert Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency,
-               idempotency_key: "sms_idemp_123",
-               message_type: :sms
-             )
+      # The transaction should have committed, so the record should be visible
+      record = Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency, idempotency_key: "sms_idemp_123")
+      assert record != nil, "Expected idempotency record with key 'sms_idemp_123'"
+      assert record.message_type == :sms
     end
 
     test "handles legacy args without category", %{user: user} do
@@ -61,7 +75,13 @@ defmodule YscWeb.Workers.SmsNotifierTest do
                  "user_id" => user.id
                })
 
-      assert Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency, idempotency_key: "sms_legacy_123")
+      # Query all records to ensure we see committed transactions
+      record =
+        Ysc.Repo.one(
+          from(m in Ysc.Messages.MessageIdempotency, where: m.idempotency_key == "sms_legacy_123")
+        )
+
+      assert record != nil, "Expected idempotency record with key 'sms_legacy_123'"
     end
 
     test "skips sms if user notification preference is disabled", %{user: user} do
@@ -126,10 +146,15 @@ defmodule YscWeb.Workers.SmsNotifierTest do
                  "category" => "bookings"
                })
 
-      assert record =
-               Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency,
-                 idempotency_key: "sms_user_phone_123"
-               )
+      # Query all records to ensure we see committed transactions
+      record =
+        Ysc.Repo.one(
+          from(m in Ysc.Messages.MessageIdempotency,
+            where: m.idempotency_key == "sms_user_phone_123"
+          )
+        )
+
+      assert record != nil, "Expected idempotency record with key 'sms_user_phone_123'"
 
       # The record should have the user's phone number
       # Normalize expected phone number
@@ -195,7 +220,9 @@ defmodule YscWeb.Workers.SmsNotifierTest do
 
       # First run
       assert :ok = perform_job(SmsNotifier, args)
-      assert Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency, idempotency_key: "sms_dup_123")
+      # Verify idempotency record created
+      record = Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency, idempotency_key: "sms_dup_123")
+      assert record != nil, "Expected idempotency record with key 'sms_dup_123'"
       initial_count = Ysc.Repo.aggregate(Ysc.Messages.MessageIdempotency, :count)
 
       # Second run

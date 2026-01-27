@@ -13,7 +13,6 @@ defmodule Ysc.FormsTest do
 
   alias Ysc.Forms
   alias Ysc.Forms.Volunteer
-  alias Ysc.Repo
 
   setup do
     user = user_fixture()
@@ -135,6 +134,74 @@ defmodule Ysc.FormsTest do
 
       assert {:error, changeset} = Forms.create_conduct_violation_report(changeset)
       refute changeset.valid?
+    end
+  end
+
+  describe "create_contact_form/1" do
+    test "creates contact form and schedules emails", %{user: user} do
+      attrs = %{
+        name: "John Doe",
+        email: "contact@example.com",
+        subject: "Test Subject",
+        message: "This is a test message with enough characters to pass validation.",
+        user_id: user.id
+      }
+
+      changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
+
+      assert {:ok, contact_form} = Forms.create_contact_form(changeset)
+      assert contact_form.name == "John Doe"
+      assert contact_form.email == "contact@example.com"
+      assert contact_form.subject == "Test Subject"
+
+      assert contact_form.message ==
+               "This is a test message with enough characters to pass validation."
+    end
+
+    test "creates contact form without user_id" do
+      attrs = %{
+        name: "Jane Smith",
+        email: "jane@example.com",
+        subject: "Another Subject",
+        message: "This is another test message with enough characters to pass validation."
+      }
+
+      changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
+
+      assert {:ok, contact_form} = Forms.create_contact_form(changeset)
+      assert contact_form.name == "Jane Smith"
+      assert contact_form.user_id == nil
+    end
+
+    test "returns error for invalid changeset" do
+      attrs = %{
+        name: "",
+        email: "invalid-email",
+        subject: "",
+        message: "short"
+      }
+
+      changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
+
+      assert {:error, changeset} = Forms.create_contact_form(changeset)
+      refute changeset.valid?
+      assert changeset.errors[:name] != nil
+      assert changeset.errors[:email] != nil
+      assert changeset.errors[:message] != nil
+    end
+
+    test "validates minimum message length" do
+      attrs = %{
+        name: "Test User",
+        email: "test@example.com",
+        subject: "Test",
+        message: "short"
+      }
+
+      changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
+
+      assert {:error, changeset} = Forms.create_contact_form(changeset)
+      assert changeset.errors[:message] != nil
     end
   end
 end

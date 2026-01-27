@@ -12,9 +12,12 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorker do
 
   alias Ysc.Webhooks
   alias Ysc.ExpenseReports
-  alias Ysc.Quickbooks.Client
   alias Ysc.Repo
   import Ecto.Query
+
+  defp client do
+    Application.get_env(:ysc, :quickbooks_client, Ysc.Quickbooks.Client)
+  end
 
   @impl Oban.Worker
   def perform(%Oban.Job{
@@ -48,7 +51,7 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorker do
 
   defp process_bill_payment(webhook_event, bill_payment_id) do
     # Fetch the BillPayment from QuickBooks
-    case Client.get_bill_payment(bill_payment_id) do
+    case client().get_bill_payment(bill_payment_id) do
       {:ok, bill_payment} ->
         Logger.info("Retrieved BillPayment from QuickBooks",
           bill_payment_id: bill_payment_id,
@@ -73,6 +76,15 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorker do
                   bill_id: bill_id,
                   current_status: expense_report.status
                 )
+
+                # Preload expense_items association if not already loaded
+                # (required for changeset validation)
+                expense_report =
+                  if Ecto.assoc_loaded?(expense_report.expense_items) do
+                    expense_report
+                  else
+                    Repo.preload(expense_report, :expense_items)
+                  end
 
                 # Update the expense report status to "paid"
                 case ExpenseReports.mark_expense_report_as_paid(expense_report) do

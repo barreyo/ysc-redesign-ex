@@ -28,7 +28,7 @@ defmodule Ysc.SubscriptionsTest do
       assert sub.stripe_status == "active"
     end
 
-    test "active?/1 returns true for active/trialing with valid dates", %{user: user} do
+    test "active?/1 returns true for active/trialing with valid dates" do
       now = DateTime.utc_now()
       future_date = DateTime.add(now, 30, :day)
       past_date = DateTime.add(now, -1, :day)
@@ -79,7 +79,7 @@ defmodule Ysc.SubscriptionsTest do
       refute Subscriptions.active?(no_period_end)
     end
 
-    test "cancelled?/1 checks status, ends_at, and current_period_end", %{user: user} do
+    test "cancelled?/1 checks status, ends_at, and current_period_end" do
       now = DateTime.utc_now()
       past_date = DateTime.add(now, -1, :day)
       future_date = DateTime.add(now, 1, :day)
@@ -128,7 +128,7 @@ defmodule Ysc.SubscriptionsTest do
       refute Subscriptions.cancelled?(nil)
     end
 
-    test "valid?/1 checks expiration dates", %{user: user} do
+    test "valid?/1 checks expiration dates" do
       now = DateTime.utc_now()
       future_date = DateTime.add(now, 30, :day)
       past_date = DateTime.add(now, -1, :day)
@@ -159,6 +159,135 @@ defmodule Ysc.SubscriptionsTest do
       }
 
       refute Subscriptions.valid?(ended_sub)
+    end
+
+    test "list_subscriptions/1 returns subscriptions for user", %{user: user} do
+      {:ok, sub1} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_1",
+          stripe_status: "active",
+          name: "Membership 1",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      {:ok, sub2} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_2",
+          stripe_status: "active",
+          name: "Membership 2",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      subscriptions = Subscriptions.list_subscriptions(user)
+      assert length(subscriptions) >= 2
+      assert Enum.any?(subscriptions, &(&1.id == sub1.id))
+      assert Enum.any?(subscriptions, &(&1.id == sub2.id))
+    end
+
+    test "get_subscription/1 returns subscription by id", %{user: user} do
+      {:ok, subscription} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_get",
+          stripe_status: "active",
+          name: "Membership",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      found = Subscriptions.get_subscription(subscription.id)
+      assert found.id == subscription.id
+    end
+
+    test "get_subscription_by_stripe_id/1 returns subscription", %{user: user} do
+      {:ok, subscription} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_stripe_123",
+          stripe_status: "active",
+          name: "Membership",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      found = Subscriptions.get_subscription_by_stripe_id("sub_stripe_123")
+      assert found.id == subscription.id
+    end
+
+    test "update_subscription/2 updates subscription", %{user: user} do
+      {:ok, subscription} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_update",
+          stripe_status: "active",
+          name: "Original",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      assert {:ok, updated} = Subscriptions.update_subscription(subscription, %{name: "Updated"})
+      assert updated.name == "Updated"
+    end
+
+    test "delete_subscription/1 deletes subscription", %{user: user} do
+      {:ok, subscription} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_delete",
+          stripe_status: "active",
+          name: "To Delete",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      assert {:ok, _} = Subscriptions.delete_subscription(subscription)
+      assert Subscriptions.get_subscription(subscription.id) == nil
+    end
+
+    test "create_subscription_item/1 creates subscription item", %{user: user} do
+      {:ok, subscription} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_item",
+          stripe_status: "active",
+          name: "Membership",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      attrs = %{
+        subscription_id: subscription.id,
+        stripe_price_id: "price_123",
+        stripe_product_id: "prod_123",
+        stripe_id: "si_123",
+        quantity: 1
+      }
+
+      assert {:ok, %Ysc.Subscriptions.SubscriptionItem{} = item} =
+               Subscriptions.create_subscription_item(attrs)
+
+      assert item.subscription_id == subscription.id
+      assert item.stripe_price_id == "price_123"
+    end
+
+    test "update_subscription_item/2 updates subscription item", %{user: user} do
+      {:ok, subscription} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_item_update",
+          stripe_status: "active",
+          name: "Membership",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      {:ok, item} =
+        Subscriptions.create_subscription_item(%{
+          subscription_id: subscription.id,
+          stripe_price_id: "price_123",
+          stripe_product_id: "prod_123",
+          stripe_id: "si_123",
+          quantity: 1
+        })
+
+      assert {:ok, updated} = Subscriptions.update_subscription_item(item, %{quantity: 2})
+      assert updated.quantity == 2
     end
   end
 end

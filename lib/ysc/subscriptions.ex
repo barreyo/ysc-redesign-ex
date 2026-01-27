@@ -253,10 +253,10 @@ defmodule Ysc.Subscriptions do
 
     if status_valid? do
       # Check if current_period_end has passed
-      period_expired? =
+      period_valid? =
         case subscription.current_period_end do
           %DateTime{} = period_end ->
-            DateTime.compare(period_end, now) != :gt
+            DateTime.compare(period_end, now) == :gt
 
           _ ->
             # If current_period_end is nil, we can't verify it's active
@@ -265,17 +265,18 @@ defmodule Ysc.Subscriptions do
         end
 
       # Check if ends_at has passed (subscription was cancelled/ended)
-      ends_at_expired? =
+      ends_at_valid? =
         case subscription.ends_at do
           %DateTime{} = ends_at ->
-            DateTime.compare(ends_at, now) != :gt
+            DateTime.compare(ends_at, now) == :gt
 
           _ ->
-            false
+            # If ends_at is nil, it's not cancelled/ended
+            true
         end
 
-      # Subscription is active only if status is valid AND neither date has expired
-      status_valid? and not period_expired? and not ends_at_expired?
+      # Subscription is active only if status is valid AND period is valid AND ends_at is valid
+      status_valid? and period_valid? and ends_at_valid?
     else
       false
     end

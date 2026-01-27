@@ -1474,6 +1474,8 @@ defmodule Ysc.Bookings do
         }
 
         build_room_price_result(price_result_params)
+      else
+        {:error, :no_pricing_rules_found}
       end
     end
   end

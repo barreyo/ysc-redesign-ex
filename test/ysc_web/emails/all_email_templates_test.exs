@@ -167,7 +167,8 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       assigns = %{
         first_name: user.first_name,
         last_name: user.last_name,
-        summary: "Test violation summary"
+        summary: "Test violation summary",
+        anonymous: false
       }
 
       html = ConductViolationConfirmation.render(assigns)
@@ -184,7 +185,8 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
         phone: user.phone_number || "555-1234",
         report_id: "RPT-123",
         submitted_at: "2024-01-15 10:30:00",
-        summary: "Test violation summary"
+        summary: "Test violation summary",
+        anonymous: false
       }
 
       html = ConductViolationBoardNotification.render(assigns)
@@ -225,12 +227,18 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
         payment_date: "Dec 1, 2024 at 10:00 AM",
         payment_method: "Credit Card ending in 1234",
         total_amount: "$100.00",
+        gross_total: "$100.00",
+        total_discount: "$0.00",
+        has_discounts: false,
         ticket_summaries: [
           %{
             ticket_tier_name: "General Admission",
             quantity: 2,
             price_per_ticket: "$50.00",
-            total_price: "$100.00"
+            total_price: "$100.00",
+            original_price: nil,
+            discount_amount: nil,
+            discount_percentage: nil
           }
         ],
         tickets: [
@@ -609,7 +617,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
         email: user.email,
         membership_type: "Single",
         is_renewal: false,
-        pay_membership_url: "https://example.com/users/membership"
+        pay_membership_url: "https://example.com/users/membership",
+        invoice_id: nil,
+        retry_payment_url: nil
       }
 
       html = MembershipPaymentFailure.render(assigns)

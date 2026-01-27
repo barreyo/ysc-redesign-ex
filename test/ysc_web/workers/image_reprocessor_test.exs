@@ -4,7 +4,6 @@ defmodule YscWeb.Workers.ImageReprocessorTest do
   """
   use Ysc.DataCase, async: true
 
-  alias Ysc.Media
   alias YscWeb.Workers.ImageReprocessor
 
   setup do

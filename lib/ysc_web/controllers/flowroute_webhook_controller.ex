@@ -420,11 +420,14 @@ defmodule YscWeb.FlowrouteWebhookController do
   defp send_response_sms(to, from, body, template) do
     idempotency_key = "sms_response_#{template}_#{to}_#{System.system_time(:second)}"
 
-    case Ysc.Messages.run_send_sms_idempotent(to, body,
-           idempotency_key: idempotency_key,
-           message_template: template,
-           from: from
-         ) do
+    attrs = %{
+      message_type: :sms,
+      idempotency_key: idempotency_key,
+      message_template: template,
+      params: %{from: from}
+    }
+
+    case Ysc.Messages.run_send_sms_idempotent(to, body, attrs) do
       {:ok, %{id: _message_id}} ->
         Logger.info("Sent SMS response",
           template: template,

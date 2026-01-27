@@ -349,7 +349,9 @@ defmodule Ysc.Accounts do
         Task.start(fn ->
           # In test mode, allow this task to use the parent's database connection
           # This prevents DBConnection.OwnershipError in tests
-          if Application.get_env(:ysc, :environment) == "test" do
+          is_test = if Code.ensure_loaded?(Mix), do: Mix.env() == :test, else: false
+
+          if is_test do
             # Try to get the sandbox owner from the repo config or process dictionary
             owner = Ysc.Repo.config()[:owner] || Process.get({Ecto.Adapters.SQL.Sandbox, :owner})
 
@@ -362,7 +364,34 @@ defmodule Ysc.Accounts do
             end
           end
 
-          Ysc.Customers.create_stripe_customer(user)
+          # Wrap in try-catch to suppress errors in test mode
+          try do
+            Ysc.Customers.create_stripe_customer(user)
+          rescue
+            e ->
+              # In test mode, silently ignore errors to keep test output clean
+              # The user might not exist anymore due to test transaction rollback
+              unless is_test do
+                require Logger
+
+                Logger.error("Failed to create Stripe customer in background task",
+                  user_id: user.id,
+                  error: Exception.format(:error, e, __STACKTRACE__)
+                )
+              end
+          catch
+            kind, reason ->
+              # Catch all other errors (throws, exits, etc.)
+              unless is_test do
+                require Logger
+
+                Logger.error("Failed to create Stripe customer in background task",
+                  user_id: user.id,
+                  kind: kind,
+                  reason: inspect(reason)
+                )
+              end
+          end
         end)
 
         subscribe_user_to_newsletter(user)

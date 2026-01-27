@@ -29,6 +29,9 @@ defmodule YscWeb.UserLoginLiveTest do
       password = "123456789abcd"
       user = user_fixture(%{password: password})
 
+      # Mark email as verified so user can log in without being redirected to account setup
+      {:ok, user} = Ysc.Accounts.mark_email_verified(user)
+
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       form =

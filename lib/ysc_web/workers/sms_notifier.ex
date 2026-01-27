@@ -187,26 +187,35 @@ defmodule YscWeb.Workers.SmsNotifier do
          category,
          user
        ) do
-    if Ysc.Accounts.SmsCategories.should_send_sms?(user, template) do
-      handle_sms_with_phone_check(
-        job,
-        phone_number,
-        idempotency_key,
-        template,
-        params,
-        user_id,
-        category,
-        user
-      )
-    else
-      Logger.info("SMS not sent - user has disabled notifications",
-        job_id: job.id,
-        user_id: user_id,
-        template: template,
-        category: category
-      )
+    # Validate template first before checking user preferences
+    template_module = YscWeb.Sms.Notifier.get_template_module(template)
 
-      :ok
+    if is_nil(template_module) do
+      error_message = "Template module not found for template: #{template}"
+      Logger.error("Template module not found for template: #{template}")
+      {:error, error_message}
+    else
+      if Ysc.Accounts.SmsCategories.should_send_sms?(user, template) do
+        handle_sms_with_phone_check(
+          job,
+          phone_number,
+          idempotency_key,
+          template,
+          params,
+          user_id,
+          category,
+          user
+        )
+      else
+        Logger.info("SMS not sent - user has disabled notifications",
+          job_id: job.id,
+          user_id: user_id,
+          template: template,
+          category: category
+        )
+
+        :ok
+      end
     end
   end
 
@@ -280,35 +289,17 @@ defmodule YscWeb.Workers.SmsNotifier do
   defp send_sms(job, phone_number, idempotency_key, template, params, user_id, category) do
     log_send_sms_start(job, phone_number, params, idempotency_key, template, user_id, category)
 
-    try do
-      validate_template_module(job, template, phone_number, idempotency_key, user_id, category)
-      atomized_params = prepare_and_atomize_params(job, params)
+    atomized_params = prepare_and_atomize_params(job, params)
 
-      send_sms_and_handle_result(
-        job,
-        phone_number,
-        idempotency_key,
-        template,
-        atomized_params,
-        user_id,
-        category
-      )
-    rescue
-      error ->
-        error_params = %{
-          error: error,
-          stacktrace: __STACKTRACE__,
-          job: job,
-          phone_number: phone_number,
-          idempotency_key: idempotency_key,
-          template: template,
-          params: params,
-          user_id: user_id,
-          category: category
-        }
-
-        handle_send_sms_error(error_params)
-    end
+    send_sms_and_handle_result(
+      job,
+      phone_number,
+      idempotency_key,
+      template,
+      atomized_params,
+      user_id,
+      category
+    )
   end
 
   defp log_send_sms_start(job, phone_number, params, idempotency_key, template, user_id, category) do
@@ -338,38 +329,6 @@ defmodule YscWeb.Workers.SmsNotifier do
       else
         "unknown"
       end
-    end
-  end
-
-  defp validate_template_module(job, template, phone_number, idempotency_key, user_id, category) do
-    template_module = YscWeb.Sms.Notifier.get_template_module(template)
-
-    if template_module do
-      Logger.info("Template module found: #{inspect(template_module)}")
-    else
-      error_message = "Template module not found for template: #{template}"
-
-      Logger.error("Template module not found for template: #{template}")
-
-      Sentry.capture_message(error_message,
-        level: :error,
-        extra: %{
-          job_id: job.id,
-          phone_number: phone_number,
-          idempotency_key: idempotency_key,
-          template: template,
-          user_id: user_id,
-          category: category
-        },
-        tags: %{
-          sms_template: template,
-          sms_category: to_string(category),
-          has_user_id: !is_nil(user_id),
-          error_type: "missing_template_module"
-        }
-      )
-
-      raise error_message
     end
   end
 
@@ -490,59 +449,6 @@ defmodule YscWeb.Workers.SmsNotifier do
     )
 
     {:error, reason}
-  end
-
-  defp handle_send_sms_error(params) do
-    error_type = inspect(params.error.__struct__)
-    error_message = Exception.message(params.error)
-    formatted_stacktrace = Exception.format_stacktrace(params.stacktrace)
-
-    phone_number_type_error = get_phone_number_type_string(params.phone_number)
-    params_type_error = get_params_type_string(params.params)
-
-    Logger.error(
-      "SmsNotifier EXCEPTION: #{error_type} - #{error_message} | Job: #{params.job.id} | Template: #{params.template} | Phone: #{inspect(params.phone_number)}"
-    )
-
-    Logger.error("SmsNotifier exception details",
-      job_id: params.job.id,
-      phone_number: params.phone_number,
-      phone_number_type: phone_number_type_error,
-      phone_number_inspect: inspect(params.phone_number),
-      idempotency_key: params.idempotency_key,
-      template: params.template,
-      params_raw: inspect(params.params, limit: :infinity),
-      params_type: params_type_error,
-      user_id: params.user_id,
-      category: params.category,
-      error_type: error_type,
-      error_message: error_message,
-      error_full: inspect(params.error, limit: :infinity)
-    )
-
-    Logger.error("SmsNotifier exception stacktrace:\n#{formatted_stacktrace}")
-
-    Sentry.capture_exception(params.error,
-      stacktrace: params.stacktrace,
-      extra: %{
-        job_id: params.job.id,
-        phone_number: params.phone_number,
-        idempotency_key: params.idempotency_key,
-        template: params.template,
-        user_id: params.user_id,
-        category: params.category,
-        error_type: error_type,
-        error_message: error_message
-      },
-      tags: %{
-        sms_template: params.template,
-        sms_category: to_string(params.category),
-        error_type: "sms_notifier_exception",
-        has_user_id: !is_nil(params.user_id)
-      }
-    )
-
-    {:error, error_message}
   end
 
   # Helper function to convert string keys to atoms

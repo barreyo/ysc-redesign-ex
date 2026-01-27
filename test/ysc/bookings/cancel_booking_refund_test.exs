@@ -31,6 +31,47 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       |> Ecto.Changeset.change(state: :active)
       |> Repo.update!()
 
+    # Create pricing rules for both properties to enable booking creation
+    # Tahoe room bookings
+    {:ok, _} =
+      Bookings.create_pricing_rule(%{
+        amount: Money.new(100, :USD),
+        booking_mode: :room,
+        price_unit: :per_person_per_night,
+        property: :tahoe,
+        season_id: nil
+      })
+
+    # Tahoe buyout bookings
+    {:ok, _} =
+      Bookings.create_pricing_rule(%{
+        amount: Money.new(500, :USD),
+        booking_mode: :buyout,
+        price_unit: :buyout_fixed,
+        property: :tahoe,
+        season_id: nil
+      })
+
+    # Clear Lake room bookings
+    {:ok, _} =
+      Bookings.create_pricing_rule(%{
+        amount: Money.new(50, :USD),
+        booking_mode: :room,
+        price_unit: :per_guest_per_day,
+        property: :clear_lake,
+        season_id: nil
+      })
+
+    # Clear Lake buyout bookings
+    {:ok, _} =
+      Bookings.create_pricing_rule(%{
+        amount: Money.new(400, :USD),
+        booking_mode: :buyout,
+        price_unit: :buyout_fixed,
+        property: :clear_lake,
+        season_id: nil
+      })
+
     %{user: user}
   end
 
@@ -421,10 +462,18 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
 
     test "preserves cancellation reason in pending refund", %{user: user} do
       # Create refund policy
-      _policy =
+      policy =
         create_refund_policy(:tahoe, :room, [
           {14, "50.0"}
         ])
+
+      # Ensure policy cache is invalidated and policy is fresh
+      Ysc.Bookings.RefundPolicyCache.invalidate()
+
+      # Verify policy exists
+      found_policy = Ysc.Bookings.get_active_refund_policy(:tahoe, :room)
+      assert found_policy != nil, "Policy should exist after creation"
+      assert found_policy.id == policy.id
 
       # Create booking with payment
       checkin_date = ~D[2025-12-15]
@@ -437,6 +486,7 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       cancellation_reason = "Emergency - family issue"
 
       # Cancel booking
+      # This should create a pending refund because the policy rule applies (14 days before, 50% refund)
       result = Bookings.cancel_booking(booking, cancellation_date, cancellation_reason)
 
       assert {:ok, _, _, pending_refund} = result

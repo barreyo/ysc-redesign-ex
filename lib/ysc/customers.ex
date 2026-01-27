@@ -31,12 +31,45 @@ defmodule Ysc.Customers do
 
     case Stripe.Customer.create(customer_params) do
       {:ok, stripe_customer} ->
+        # Reload user to get latest version and avoid stale entry errors
+        # This is important when called from async tasks
+        user = Repo.get!(User, user.id)
+
         # Update user with Stripe customer ID directly (bypass authorization for system operation)
         changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
 
         case Repo.update(changeset) do
           {:ok, _updated_user} ->
             {:ok, stripe_customer}
+
+          {:error, %Ecto.StaleEntryError{}} ->
+            # User was updated concurrently, reload and retry once
+            require Logger
+
+            Logger.warning("Stale user entry when updating stripe_id, retrying",
+              user_id: user.id,
+              stripe_customer_id: stripe_customer.id
+            )
+
+            # Reload and retry once
+            user = Repo.get!(User, user.id)
+            changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
+
+            case Repo.update(changeset) do
+              {:ok, _updated_user} ->
+                {:ok, stripe_customer}
+
+              {:error, changeset} ->
+                Logger.error("Failed to update user with stripe_id after retry",
+                  user_id: user.id,
+                  stripe_customer_id: stripe_customer.id,
+                  changeset_errors: inspect(changeset.errors)
+                )
+
+                # Still return success for the customer creation, but log the error
+                # The stripe_id will be set via webhook handler eventually
+                {:ok, stripe_customer}
+            end
 
           {:error, changeset} ->
             require Logger

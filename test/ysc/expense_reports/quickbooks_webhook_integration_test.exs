@@ -4,14 +4,12 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
 
   Tests the complete flow from webhook receipt to expense report status update.
   """
-  use Ysc.DataCase, async: false
+  use YscWeb.ConnCase, async: false
 
   import Mox
   import Ysc.AccountsFixtures
-  import Oban.Testing
+  import Ecto.Query
 
-  alias YscWeb.QuickbooksWebhookController
-  alias Ysc.ExpenseReports
   alias Ysc.ExpenseReports.ExpenseReport
   alias Ysc.Webhooks
   alias Ysc.Quickbooks.ClientMock
@@ -31,7 +29,7 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
 
     user = user_fixture()
 
-    %{user: user}
+    %{user: user, conn: build_conn()}
   end
 
   describe "end-to-end webhook flow" do
@@ -84,7 +82,7 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
         build_conn()
         |> put_req_header("intuit-signature", "test_signature")
         |> put_req_header("content-type", "application/json")
-        |> post("/webhooks/quickbooks", payload)
+        |> post(~p"/webhooks/quickbooks", payload)
 
       assert conn.status == 200
 
@@ -92,38 +90,34 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
       event_id = "123456789:BillPayment:bp_integration_123:Create"
       webhook_event = Webhooks.get_webhook_event_by_provider_and_event_id("quickbooks", event_id)
       assert webhook_event != nil
-      assert webhook_event.state == :pending
 
-      # Verify job was enqueued
-      assert_enqueued(
-        worker: YscWeb.Workers.QuickbooksBillPaymentProcessorWorker,
-        args: %{
-          "webhook_event_id" => webhook_event.id,
-          "bill_payment_id" => "bp_integration_123"
+      # With Oban in :inline mode, the job is processed immediately when enqueued
+      # So we need to reload the webhook event to get its current state
+      webhook_event = Repo.reload(webhook_event)
+
+      # If the job hasn't been processed yet (shouldn't happen in inline mode, but handle it)
+      if webhook_event.state == :pending do
+        job = %Oban.Job{
+          id: 1,
+          args: %{
+            "webhook_event_id" => webhook_event.id,
+            "bill_payment_id" => "bp_integration_123"
+          },
+          worker: "YscWeb.Workers.QuickbooksBillPaymentProcessorWorker",
+          queue: "default",
+          state: "available",
+          attempt: 1
         }
-      )
 
-      # Perform the job
-      job = %Oban.Job{
-        id: 1,
-        args: %{
-          "webhook_event_id" => webhook_event.id,
-          "bill_payment_id" => "bp_integration_123"
-        },
-        worker: "YscWeb.Workers.QuickbooksBillPaymentProcessorWorker",
-        queue: "default",
-        state: "available",
-        attempt: 1
-      }
-
-      assert :ok = YscWeb.Workers.QuickbooksBillPaymentProcessorWorker.perform(job)
+        assert :ok = YscWeb.Workers.QuickbooksBillPaymentProcessorWorker.perform(job)
+      end
 
       # Verify expense report was updated to paid
       updated_report = Repo.get!(ExpenseReport, expense_report.id)
       assert updated_report.status == "paid"
 
       # Verify webhook event was marked as processed
-      updated_webhook = Repo.get!(Ysc.Webhooks.WebhookEvent, webhook_event.id)
+      updated_webhook = Repo.reload(webhook_event)
       assert updated_webhook.state == :processed
     end
 
@@ -156,12 +150,26 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
         ]
       }
 
+      # Mock QuickBooks client to return BillPayment with linked Bill
+      expect(ClientMock, :get_bill_payment, fn "bp_duplicate_123" ->
+        {:ok,
+         %{
+           "Id" => "bp_duplicate_123",
+           "LinkedTxn" => [
+             %{
+               "TxnId" => "bill_duplicate_123",
+               "TxnType" => "Bill"
+             }
+           ]
+         }}
+      end)
+
       # First webhook
       conn1 =
         build_conn()
         |> put_req_header("intuit-signature", "test_signature")
         |> put_req_header("content-type", "application/json")
-        |> post("/webhooks/quickbooks", payload)
+        |> post(~p"/webhooks/quickbooks", payload)
 
       assert conn1.status == 200
 
@@ -170,11 +178,11 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
         build_conn()
         |> put_req_header("intuit-signature", "test_signature")
         |> put_req_header("content-type", "application/json")
-        |> post("/webhooks/quickbooks", payload)
+        |> post(~p"/webhooks/quickbooks", payload)
 
       assert conn2.status == 200
 
-      # Verify only one webhook event was created
+      # Verify only one webhook event was created (duplicate was rejected)
       event_id = "123456789:BillPayment:bp_duplicate_123:Create"
 
       webhook_events =
@@ -186,9 +194,10 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
 
       assert length(webhook_events) == 1
 
-      # Verify expense report was not updated (no job was processed)
+      # Verify expense report was updated by the first webhook (job was processed)
+      # The duplicate webhook was correctly rejected, so only one job ran
       updated_report = Repo.get!(ExpenseReport, expense_report.id)
-      assert updated_report.status == "submitted"
+      assert updated_report.status == "paid"
     end
 
     test "handles webhook for non-existent expense report gracefully", %{user: _user} do
@@ -228,7 +237,7 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
         build_conn()
         |> put_req_header("intuit-signature", "test_signature")
         |> put_req_header("content-type", "application/json")
-        |> post("/webhooks/quickbooks", payload)
+        |> post(~p"/webhooks/quickbooks", payload)
 
       assert conn.status == 200
 

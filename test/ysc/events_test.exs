@@ -5,6 +5,11 @@ defmodule Ysc.EventsTest do
   alias Ysc.Events.Ticket
   import Ysc.AccountsFixtures
 
+  setup do
+    user = user_fixture()
+    %{user: user}
+  end
+
   describe "selling fast functionality" do
     test "is_event_selling_fast? returns true when 10+ tickets sold in last 3 days" do
       # Create a user and event
@@ -189,6 +194,199 @@ defmodule Ysc.EventsTest do
 
       # Test the function
       assert Events.count_recent_tickets_sold(event.id) == 3
+    end
+  end
+
+  describe "event CRUD operations" do
+    test "create_event/1 creates an event", %{user: user} do
+      attrs = %{
+        title: "New Event",
+        description: "Event description",
+        state: :published,
+        organizer_id: user.id,
+        start_date: DateTime.add(DateTime.utc_now(), 30, :day),
+        published_at: DateTime.utc_now()
+      }
+
+      assert {:ok, %Ysc.Events.Event{} = event} = Events.create_event(attrs)
+      assert event.title == "New Event"
+      assert event.organizer_id == user.id
+    end
+
+    test "update_event/2 updates an event", %{user: user} do
+      {:ok, event} =
+        Events.create_event(%{
+          title: "Original Title",
+          description: "Description",
+          state: :published,
+          organizer_id: user.id,
+          start_date: DateTime.add(DateTime.utc_now(), 30, :day),
+          published_at: DateTime.utc_now()
+        })
+
+      assert {:ok, updated} = Events.update_event(event, %{title: "Updated Title"})
+      assert updated.title == "Updated Title"
+    end
+
+    test "delete_event/1 marks event as deleted", %{user: user} do
+      {:ok, event} =
+        Events.create_event(%{
+          title: "To Delete",
+          description: "Description",
+          state: :published,
+          organizer_id: user.id,
+          start_date: DateTime.add(DateTime.utc_now(), 30, :day),
+          published_at: DateTime.utc_now()
+        })
+
+      assert {:ok, deleted} = Events.delete_event(event)
+      assert deleted.state == :deleted
+    end
+  end
+
+  describe "ticket tier management" do
+    test "create_ticket_tier/1 creates a tier", %{user: user} do
+      {:ok, event} =
+        Events.create_event(%{
+          title: "Event with Tiers",
+          description: "Description",
+          state: :published,
+          organizer_id: user.id,
+          start_date: DateTime.add(DateTime.utc_now(), 30, :day),
+          published_at: DateTime.utc_now()
+        })
+
+      attrs = %{
+        name: "VIP Tier",
+        type: :paid,
+        price: Money.new(100, :USD),
+        quantity: 50,
+        event_id: event.id
+      }
+
+      assert {:ok, %Ysc.Events.TicketTier{} = tier} = Events.create_ticket_tier(attrs)
+      assert tier.name == "VIP Tier"
+      assert tier.event_id == event.id
+    end
+
+    test "update_ticket_tier/2 updates a tier", %{user: user} do
+      {:ok, event} =
+        Events.create_event(%{
+          title: "Event",
+          description: "Description",
+          state: :published,
+          organizer_id: user.id,
+          start_date: DateTime.add(DateTime.utc_now(), 30, :day),
+          published_at: DateTime.utc_now()
+        })
+
+      {:ok, tier} =
+        Events.create_ticket_tier(%{
+          name: "Original Tier",
+          type: :paid,
+          price: Money.new(50, :USD),
+          quantity: 100,
+          event_id: event.id
+        })
+
+      assert {:ok, updated} = Events.update_ticket_tier(tier, %{name: "Updated Tier"})
+      assert updated.name == "Updated Tier"
+    end
+
+    test "delete_ticket_tier/1 deletes a tier", %{user: user} do
+      {:ok, event} =
+        Events.create_event(%{
+          title: "Event",
+          description: "Description",
+          state: :published,
+          organizer_id: user.id,
+          start_date: DateTime.add(DateTime.utc_now(), 30, :day),
+          published_at: DateTime.utc_now()
+        })
+
+      {:ok, tier} =
+        Events.create_ticket_tier(%{
+          name: "To Delete",
+          type: :paid,
+          price: Money.new(50, :USD),
+          quantity: 100,
+          event_id: event.id
+        })
+
+      assert {:ok, _deleted} = Events.delete_ticket_tier(tier)
+      assert Events.get_ticket_tier(tier.id) == nil
+    end
+  end
+
+  describe "ticket counting" do
+    test "count_tickets_for_tier/1 returns correct count", %{user: user} do
+      {:ok, event} =
+        Events.create_event(%{
+          title: "Event",
+          description: "Description",
+          state: :published,
+          organizer_id: user.id,
+          start_date: DateTime.add(DateTime.utc_now(), 30, :day),
+          published_at: DateTime.utc_now()
+        })
+
+      {:ok, tier} =
+        Events.create_ticket_tier(%{
+          name: "Tier",
+          type: :paid,
+          price: Money.new(50, :USD),
+          quantity: 100,
+          event_id: event.id
+        })
+
+      # Create some tickets
+      for _i <- 1..5 do
+        %Ysc.Events.Ticket{
+          event_id: event.id,
+          ticket_tier_id: tier.id,
+          user_id: user.id,
+          status: :confirmed
+        }
+        |> Ysc.Repo.insert!()
+      end
+
+      count = Events.count_tickets_for_tier(tier.id)
+      assert count == 5
+    end
+
+    test "count_total_tickets_sold_for_event/1 returns correct count", %{user: user} do
+      {:ok, event} =
+        Events.create_event(%{
+          title: "Event",
+          description: "Description",
+          state: :published,
+          organizer_id: user.id,
+          start_date: DateTime.add(DateTime.utc_now(), 30, :day),
+          published_at: DateTime.utc_now()
+        })
+
+      {:ok, tier} =
+        Events.create_ticket_tier(%{
+          name: "Tier",
+          type: :paid,
+          price: Money.new(50, :USD),
+          quantity: 100,
+          event_id: event.id
+        })
+
+      # Create some tickets
+      for _i <- 1..3 do
+        %Ysc.Events.Ticket{
+          event_id: event.id,
+          ticket_tier_id: tier.id,
+          user_id: user.id,
+          status: :confirmed
+        }
+        |> Ysc.Repo.insert!()
+      end
+
+      count = Events.count_total_tickets_sold_for_event(event.id)
+      assert count == 3
     end
   end
 end

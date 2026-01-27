@@ -15,7 +15,7 @@ defmodule Ysc.Tickets.BookingValidatorTest do
 
   alias Ysc.Tickets.BookingValidator
   alias Ysc.Events
-  alias Ysc.Events.{Event, TicketTier, Ticket}
+  alias Ysc.Events.{Event, Ticket}
   alias Ysc.Repo
 
   setup do
@@ -130,7 +130,7 @@ defmodule Ysc.Tickets.BookingValidatorTest do
 
     test "returns error when tier is for different event", %{
       user: user,
-      event: event,
+      event: _event,
       tier1: tier1
     } do
       # Create another event
@@ -202,7 +202,7 @@ defmodule Ysc.Tickets.BookingValidatorTest do
       user: user,
       event: event,
       tier1: tier1,
-      tier2: tier2
+      tier2: _tier2
     } do
       # Fill up the event to capacity
       # Create 100 confirmed tickets (max_attendees = 100)
@@ -402,7 +402,7 @@ defmodule Ysc.Tickets.BookingValidatorTest do
       assert true == BookingValidator.event_at_capacity?(event.id)
     end
 
-    test "returns false when event has no max_attendees", %{tier1: tier1} do
+    test "returns false when event has no max_attendees", %{tier1: _tier1} do
       organizer = user_fixture()
 
       {:ok, unlimited_event} =
@@ -421,7 +421,11 @@ defmodule Ysc.Tickets.BookingValidatorTest do
   end
 
   describe "get_event_availability/1" do
-    test "returns availability information for event", %{event: event, tier1: tier1, tier2: tier2} do
+    test "returns availability information for event", %{
+      event: event,
+      tier1: tier1,
+      tier2: _tier2
+    } do
       availability = BookingValidator.get_event_availability(event.id)
 
       assert %{event_capacity: event_capacity, tiers: tiers} = availability

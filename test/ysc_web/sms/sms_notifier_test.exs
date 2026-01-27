@@ -482,12 +482,10 @@ defmodule YscWeb.Sms.SmsNotifierTest do
     end
 
     test "validates phone number format before sending" do
-      # Invalid phone number (missing leading 1)
-      # Note: This will fail at from_number validation first, but we can test
-      # by providing a from number
+      # Invalid phone number (too short, only 9 digits)
       result =
         Ysc.Flowroute.Client.send_sms(
-          to: "4159009001",
+          to: "415900901",
           from: "12061231234",
           body: "Test message"
         )

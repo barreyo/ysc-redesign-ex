@@ -2075,14 +2075,40 @@ defmodule YscWeb.AdminBookingsLive do
                     end %>
                   </span>
                 </:col>
-                <:action :let={{_, booking}} label="View">
-                  <button
-                    phx-click="view-booking"
-                    phx-value-booking-id={booking.id}
-                    class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm whitespace-nowrap"
-                  >
-                    View
-                  </button>
+                <:action :let={{_, booking}} label="Actions">
+                  <div class="flex gap-3 items-center">
+                    <button
+                      phx-click="view-booking"
+                      phx-value-booking-id={booking.id}
+                      class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm whitespace-nowrap"
+                    >
+                      View
+                    </button>
+                    <button
+                      phx-click={
+                        query_params = %{
+                          "property" => Atom.to_string(@selected_property),
+                          "from_date" => Date.to_string(@calendar_start_date),
+                          "to_date" => Date.to_string(@calendar_end_date)
+                        }
+
+                        query_string = URI.encode_query(query_params)
+                        JS.navigate("/admin/bookings/bookings/#{booking.id}/edit?#{query_string}")
+                      }
+                      class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm whitespace-nowrap"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      phx-click="delete-booking"
+                      phx-value-id={booking.id}
+                      phx-confirm="Are you sure you want to delete this booking?"
+                      phx-disable-with="Deleting..."
+                      class="text-red-600 font-semibold hover:underline cursor-pointer text-sm whitespace-nowrap"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </:action>
               </Flop.Phoenix.table>
 
@@ -2928,16 +2954,31 @@ defmodule YscWeb.AdminBookingsLive do
   def handle_info(:load_bookings_data, socket) do
     selected_property = socket.assigns.selected_property
 
-    # Load reference data
-    seasons = Bookings.list_seasons()
-    pricing_rules = Bookings.list_pricing_rules()
-    refund_policies = Bookings.list_refund_policies()
-    room_categories = Bookings.list_room_categories()
-    rooms = Bookings.list_rooms()
+    # Load critical data first (needed for calendar view)
+    # Parallelize independent queries for better performance
+    tasks = [
+      Task.async(fn -> Bookings.list_seasons() end),
+      Task.async(fn -> Bookings.list_pricing_rules() end),
+      Task.async(fn -> Bookings.list_refund_policies() end),
+      Task.async(fn -> Bookings.list_room_categories() end),
+      Task.async(fn -> Bookings.list_rooms() end),
+      Task.async(fn -> Bookings.list_door_codes(selected_property) end),
+      Task.async(fn -> Bookings.get_active_door_code(selected_property) end)
+    ]
 
-    # Load door codes for the selected property
-    door_codes = Bookings.list_door_codes(selected_property)
-    active_door_code = Bookings.get_active_door_code(selected_property)
+    # Await all tasks concurrently
+    results = Task.await_many(tasks, :infinity)
+
+    [
+      seasons,
+      pricing_rules,
+      refund_policies,
+      room_categories,
+      rooms,
+      door_codes,
+      active_door_code
+    ] =
+      results
 
     {:noreply,
      socket
@@ -3079,27 +3120,53 @@ defmodule YscWeb.AdminBookingsLive do
       end
 
     # Load pending refunds count and list if on pending_refunds section
-    socket =
+    # Parallelize pending refunds queries for better performance
+    selected_property = socket.assigns.selected_property
+
+    # Start both queries in parallel
+    pending_refunds_count_task =
       if socket.assigns[:current_section] == :pending_refunds do
-        load_pending_refunds(socket)
+        nil
       else
         # Still load count for the badge (filtered by selected property at DB level)
-        selected_property = socket.assigns.selected_property
-
-        pending_refunds_count =
+        Task.async(fn ->
           from(pr in Ysc.Bookings.PendingRefund,
             join: b in assoc(pr, :booking),
             where: pr.status == :pending,
             where: b.property == ^selected_property,
             select: count(pr.id)
           )
-          |> Repo.one()
-
-        assign(socket, :pending_refunds_count, pending_refunds_count || 0)
+          |> Repo.one() || 0
+        end)
       end
 
-    # Load pending refunds counts per property for tab badges
-    socket = load_property_pending_refunds_counts(socket)
+    # Load pending refunds counts per property for tab badges (parallelize with property count)
+    property_counts_task = Task.async(fn -> load_property_pending_refunds_counts_data() end)
+
+    # Load full pending refunds list if on that section
+    socket =
+      if socket.assigns[:current_section] == :pending_refunds do
+        load_pending_refunds(socket)
+      else
+        socket
+      end
+
+    # Await both tasks in parallel
+    property_counts = Task.await(property_counts_task, :infinity)
+
+    socket =
+      socket
+      |> assign(:tahoe_pending_refunds_count, Map.get(property_counts, :tahoe, 0))
+      |> assign(:clear_lake_pending_refunds_count, Map.get(property_counts, :clear_lake, 0))
+
+    # Await property-specific count if needed
+    socket =
+      if pending_refunds_count_task do
+        pending_refunds_count = Task.await(pending_refunds_count_task, :infinity)
+        assign(socket, :pending_refunds_count, pending_refunds_count)
+      else
+        socket
+      end
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
@@ -3753,24 +3820,31 @@ defmodule YscWeb.AdminBookingsLive do
     booking = Bookings.get_booking!(id)
     Bookings.delete_booking(booking)
 
-    # Preserve date range if available
-    query_params = %{property: socket.assigns.selected_property}
-
-    query_params =
-      if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
-        Map.merge(query_params, %{
-          from_date: Date.to_string(socket.assigns.calendar_start_date),
-          to_date: Date.to_string(socket.assigns.calendar_end_date)
-        })
+    # Remove from stream if we're on the reservations section
+    socket =
+      if socket.assigns[:current_section] == :reservations do
+        socket
+        |> stream_delete(:reservations, booking)
       else
-        query_params
+        # If not on reservations section, preserve date range and navigate
+        query_params = %{property: socket.assigns.selected_property}
+
+        query_params =
+          if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+            Map.merge(query_params, %{
+              from_date: Date.to_string(socket.assigns.calendar_start_date),
+              to_date: Date.to_string(socket.assigns.calendar_end_date)
+            })
+          else
+            query_params
+          end
+
+        socket
+        |> push_navigate(to: ~p"/admin/bookings?#{URI.encode_query(query_params)}")
+        |> update_calendar_view(socket.assigns.selected_property)
       end
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Booking deleted successfully")
-     |> push_navigate(to: ~p"/admin/bookings?#{URI.encode_query(query_params)}")
-     |> update_calendar_view(socket.assigns.selected_property)}
+    {:noreply, socket |> put_flash(:info, "Booking deleted successfully")}
   end
 
   def handle_event("view-booking", %{"booking-id" => booking_id}, socket) do
@@ -5779,13 +5853,18 @@ defmodule YscWeb.AdminBookingsLive do
 
     calendar_dates = generate_calendar_dates(start_date, end_date)
 
-    # Load blackouts for this property and date range (filtered at database level)
-    filtered_blackouts = Bookings.list_blackouts(property, start_date, end_date)
-
-    # Load bookings for this property and date range (filtered at database level)
-    bookings_in_range =
-      Bookings.list_bookings(property, start_date, end_date,
-        preload: [:rooms, :user, check_ins: :check_in_vehicles]
+    # Parallelize blackouts and bookings queries for better performance
+    [filtered_blackouts, bookings_in_range] =
+      Task.await_many(
+        [
+          Task.async(fn -> Bookings.list_blackouts(property, start_date, end_date) end),
+          Task.async(fn ->
+            Bookings.list_bookings(property, start_date, end_date,
+              preload: [:rooms, :user, check_ins: :check_in_vehicles]
+            )
+          end)
+        ],
+        :infinity
       )
 
     # Filter out canceled and refunded bookings (only show active bookings on calendar)
@@ -5963,20 +6042,16 @@ defmodule YscWeb.AdminBookingsLive do
   end
 
   # Load pending refunds counts for each property (for tab badges)
-  defp load_property_pending_refunds_counts(socket) do
-    counts =
-      from(pr in Ysc.Bookings.PendingRefund,
-        join: b in assoc(pr, :booking),
-        where: pr.status == :pending,
-        group_by: b.property,
-        select: {b.property, count(pr.id)}
-      )
-      |> Repo.all()
-      |> Map.new()
-
-    socket
-    |> assign(:tahoe_pending_refunds_count, Map.get(counts, :tahoe, 0))
-    |> assign(:clear_lake_pending_refunds_count, Map.get(counts, :clear_lake, 0))
+  # Extract data loading for async execution
+  defp load_property_pending_refunds_counts_data do
+    from(pr in Ysc.Bookings.PendingRefund,
+      join: b in assoc(pr, :booking),
+      where: pr.status == :pending,
+      group_by: b.property,
+      select: {b.property, count(pr.id)}
+    )
+    |> Repo.all()
+    |> Map.new()
   end
 
   # Helper to format property name

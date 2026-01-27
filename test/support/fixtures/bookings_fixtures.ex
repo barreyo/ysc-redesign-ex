@@ -20,7 +20,7 @@ defmodule Ysc.BookingsFixtures do
         property: :tahoe,
         booking_mode: :buyout,
         user_id: user_id,
-        status: :confirmed,
+        status: :draft,
         total_price: Money.new(200, :USD)
       })
       |> Bookings.create_booking()

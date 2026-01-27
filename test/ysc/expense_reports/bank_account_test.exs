@@ -310,11 +310,4 @@ defmodule Ysc.ExpenseReports.BankAccountTest do
   defp has_error?(changeset, field) do
     Keyword.has_key?(changeset.errors, field)
   end
-
-  # Helper function to check for errors with specific message
-  defp has_error_with_message?(changeset, field, message) do
-    errors = errors_on(changeset)
-    field_errors = Map.get(errors, to_string(field), [])
-    Enum.any?(field_errors, fn error_msg -> error_msg == message end)
-  end
 end

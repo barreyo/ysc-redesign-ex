@@ -487,18 +487,18 @@ defmodule Ysc.Messages do
   end
 
   defp build_and_run_sms_transaction(phone_number, body, attrs) do
+    # attrs already contains phone_number and rendered_message from send_sms_idempotent
+    # But we use the parameters here to ensure consistency
+    # Merge phone_number and body into attrs for the changeset (matching email pattern)
+    idempotency_attrs =
+      attrs
+      |> Map.put(:phone_number, phone_number)
+      |> Map.put(:rendered_message, body)
+
     Ecto.Multi.new()
     |> Ecto.Multi.insert(
       :message_idempotency,
-      MessageIdempotency.changeset(%MessageIdempotency{}, %{
-        message_type: "sms",
-        idempotency_key: attrs[:idempotency_key],
-        message_template: attrs[:message_template],
-        phone_number: phone_number,
-        user_id: attrs[:user_id],
-        params: attrs[:params],
-        rendered_message: body
-      })
+      MessageIdempotency.changeset(%MessageIdempotency{}, idempotency_attrs)
     )
     |> Ecto.Multi.run(:send_sms, fn _repo, _result ->
       send_sms_via_client(phone_number, body, attrs)

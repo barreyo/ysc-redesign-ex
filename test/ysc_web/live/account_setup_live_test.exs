@@ -17,10 +17,10 @@ defmodule YscWeb.AccountSetupLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/account/setup/#{user.id}")
 
-      # Should show 3 steps in stepper
-      assert has_element?(lv, ".flex.items-center.w-full", "Email")
-      assert has_element?(lv, ".flex.items-center.w-full", "Password")
-      assert has_element?(lv, ".flex.items-center.w-full", "Phone & Verification")
+      # Should show steps in stepper (Email verification is not shown in stepper, handled separately)
+      # The stepper shows: "Set Password" and "Verify Phone Number" based on user needs
+      assert has_element?(lv, ".flex.items-center.w-full", "Set Password")
+      assert has_element?(lv, ".flex.items-center.w-full", "Verify Phone Number")
     end
   end
 end

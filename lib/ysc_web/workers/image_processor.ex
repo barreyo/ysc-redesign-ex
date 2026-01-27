@@ -10,6 +10,7 @@ defmodule YscWeb.Workers.ImageProcessor do
 
   alias HTTP
   alias Ysc.Media
+  alias YscWeb.Validators.FileValidator
 
   @temp_dir "/tmp/image_processor"
 
@@ -17,86 +18,108 @@ defmodule YscWeb.Workers.ImageProcessor do
   def perform(%Oban.Job{args: %{"id" => id} = _args}) do
     image = Media.fetch_image(id)
 
-    tmp_output_file = "#{@temp_dir}/#{image.id}"
-    # Format will be determined dynamically in process_image_upload
-    # Use placeholder extensions - they'll be corrected by the processing function
-    optimized_output_path = "#{tmp_output_file}_optimized"
-    thumbnail_output_path = "#{tmp_output_file}_thumb"
+    if is_nil(image) do
+      Logger.error("Image not found", image_id: id)
+      {:error, "Image not found"}
+    else
+      tmp_output_file = "#{@temp_dir}/#{image.id}"
+      # Format will be determined dynamically in process_image_upload
+      # Use placeholder extensions - they'll be corrected by the processing function
+      optimized_output_path = "#{tmp_output_file}_optimized"
+      thumbnail_output_path = "#{tmp_output_file}_thumb"
 
-    Logger.info(tmp_output_file)
-    Logger.info(optimized_output_path)
-    Logger.info(thumbnail_output_path)
+      Logger.info(tmp_output_file)
+      Logger.info(optimized_output_path)
+      Logger.info(thumbnail_output_path)
 
-    make_temp_dir(@temp_dir)
+      make_temp_dir(@temp_dir)
 
-    Logger.info("Started work on Image: #{image.id}")
+      Logger.info("Started work on Image: #{image.id}")
 
-    try do
-      # Start working on this image
-      Media.set_image_processing_state(image, :processing)
+      try do
+        # Start working on this image
+        Media.set_image_processing_state(image, :processing)
 
-      # Download from the internet and cache locally
-      {:ok, :saved_to_file} =
-        :httpc.request(:get, {to_charlist(URI.encode(image.raw_image_path)), []}, [],
-          stream: to_charlist(tmp_output_file)
-        )
+        # Download from the internet and cache locally
+        {:ok, :saved_to_file} =
+          :httpc.request(:get, {to_charlist(URI.encode(image.raw_image_path)), []}, [],
+            stream: to_charlist(tmp_output_file)
+          )
 
-      result =
-        Media.process_image_upload(
-          image,
-          tmp_output_file,
-          thumbnail_output_path,
-          optimized_output_path
-        )
+        # Validate file MIME type before processing (security check for external uploads)
+        case FileValidator.validate_image(tmp_output_file, [
+               ".jpg",
+               ".jpeg",
+               ".png",
+               ".gif",
+               ".webp"
+             ]) do
+          {:ok, _mime_type} ->
+            :ok
 
-      Logger.info("Image processing completed successfully for: #{image.id}")
-      Logger.info("Result: #{inspect(result)}")
-
-      # Get the actual file paths with correct extensions for cleanup
-      # The process_image_upload function will have set the correct extensions
-      # We need to detect them from the uploaded paths or use a pattern
-      _optimized_path = find_file_with_pattern("#{tmp_output_file}_optimized")
-      _thumbnail_path = find_file_with_pattern("#{tmp_output_file}_thumb")
-
-      {:ok, result}
-    rescue
-      e ->
-        Logger.error("Image processing failed for #{image.id}: #{inspect(e)}")
-        Logger.error("Error type: #{inspect(e.__struct__)}")
-        Logger.error("Stacktrace:")
-        Logger.error(Exception.format_stacktrace(__STACKTRACE__))
-
-        # Update image state to failed
-        try do
-          Media.set_image_processing_state(image, :failed)
-        rescue
-          _ -> :ok
+          {:error, reason} ->
+            Logger.error("Image validation failed for #{image.id}: #{reason}")
+            Media.set_image_processing_state(image, :failed)
+            raise "File validation failed: #{reason}"
         end
 
-        {:error, e}
-    catch
-      kind, reason ->
-        Logger.error(
-          "Image processing caught error for #{image.id}: #{inspect(kind)}, #{inspect(reason)}"
-        )
+        result =
+          Media.process_image_upload(
+            image,
+            tmp_output_file,
+            thumbnail_output_path,
+            optimized_output_path
+          )
 
-        Logger.error("Stacktrace:")
-        Logger.error(Exception.format_stacktrace(__STACKTRACE__))
+        Logger.info("Image processing completed successfully for: #{image.id}")
+        Logger.info("Result: #{inspect(result)}")
 
-        # Update image state to failed
-        try do
-          Media.set_image_processing_state(image, :failed)
-        rescue
-          _ -> :ok
-        end
+        # Get the actual file paths with correct extensions for cleanup
+        # The process_image_upload function will have set the correct extensions
+        # We need to detect them from the uploaded paths or use a pattern
+        _optimized_path = find_file_with_pattern("#{tmp_output_file}_optimized")
+        _thumbnail_path = find_file_with_pattern("#{tmp_output_file}_thumb")
 
-        {:error, {kind, reason}}
-    after
-      Logger.info("Cleaning up generated files")
-      # Clean up files - try multiple possible extensions
-      cleanup_file(tmp_output_file)
-      cleanup_file_with_extensions("#{tmp_output_file}_optimized")
-      cleanup_file_with_extensions("#{tmp_output_file}_thumb")
+        {:ok, result}
+      rescue
+        e ->
+          Logger.error("Image processing failed for #{image.id}: #{inspect(e)}")
+          Logger.error("Error type: #{inspect(e.__struct__)}")
+          Logger.error("Stacktrace:")
+          Logger.error(Exception.format_stacktrace(__STACKTRACE__))
+
+          # Update image state to failed
+          try do
+            Media.set_image_processing_state(image, :failed)
+          rescue
+            _ -> :ok
+          end
+
+          {:error, e}
+      catch
+        kind, reason ->
+          Logger.error(
+            "Image processing caught error for #{image.id}: #{inspect(kind)}, #{inspect(reason)}"
+          )
+
+          Logger.error("Stacktrace:")
+          Logger.error(Exception.format_stacktrace(__STACKTRACE__))
+
+          # Update image state to failed
+          try do
+            Media.set_image_processing_state(image, :failed)
+          rescue
+            _ -> :ok
+          end
+
+          {:error, {kind, reason}}
+      after
+        Logger.info("Cleaning up generated files")
+        # Clean up files - try multiple possible extensions
+        cleanup_file(tmp_output_file)
+        cleanup_file_with_extensions("#{tmp_output_file}_optimized")
+        cleanup_file_with_extensions("#{tmp_output_file}_thumb")
+      end
     end
   end
 

@@ -17,7 +17,11 @@ defmodule YscWeb.Components.DateRangePicker do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id={Map.get(assigns, :id, @id)} class="date-range-picker" data-phx-component={@id}>
+    <div
+      id={Map.get(assigns, :id, @id)}
+      class="date-range-picker"
+      data-phx-component={Map.get(assigns, :id, @id)}
+    >
       <.input field={@start_date_field} type="hidden" />
       <.input :if={@is_range?} field={@end_date_field} type="hidden" />
       <div class="relative w-full lg:w-80" phx-click="open-calendar" phx-target={@myself}>

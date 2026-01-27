@@ -166,7 +166,8 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
       assigns = %{
         first_name: user.first_name,
         last_name: user.last_name,
-        summary: "Test violation summary"
+        summary: "Test violation summary",
+        anonymous: false
       }
 
       html = ConductViolationConfirmation.render(assigns)
@@ -192,7 +193,8 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
         phone: user.phone_number,
         report_id: "RPT-123",
         submitted_at: "2024-01-15 10:30:00",
-        summary: "Test violation summary"
+        summary: "Test violation summary",
+        anonymous: false
       }
 
       html = ConductViolationBoardNotification.render(assigns)
@@ -218,7 +220,9 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
         email: user.email,
         membership_type: "Single",
         is_renewal: false,
-        pay_membership_url: YscWeb.Endpoint.url() <> "/users/membership"
+        pay_membership_url: YscWeb.Endpoint.url() <> "/users/membership",
+        invoice_id: nil,
+        retry_payment_url: nil
       }
 
       html = MembershipPaymentFailure.render(assigns)
@@ -290,7 +294,8 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
          %{
            first_name: user.first_name,
            last_name: user.last_name,
-           summary: "Test violation summary"
+           summary: "Test violation summary",
+           anonymous: false
          }},
         {ConductViolationBoardNotification,
          %{
@@ -300,16 +305,19 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
            phone: user.phone_number,
            report_id: "RPT-123",
            submitted_at: "2024-01-15 10:30:00",
-           summary: "Test violation summary"
+           summary: "Test violation summary",
+           anonymous: false
          }},
         {MembershipPaymentFailure,
          %{
            first_name: user.first_name,
+           invoice_id: nil,
            last_name: user.last_name,
            email: user.email,
            membership_type: "Single",
            is_renewal: false,
-           pay_membership_url: YscWeb.Endpoint.url() <> "/users/membership"
+           pay_membership_url: YscWeb.Endpoint.url() <> "/users/membership",
+           retry_payment_url: nil
          }}
       ]
 

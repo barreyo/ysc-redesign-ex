@@ -14,6 +14,7 @@ defmodule YscWeb.ExpenseReportLive do
   alias Ysc.Accounts.User
   alias Ysc.Events
   alias Ysc.Repo
+  alias YscWeb.Validators.FileValidator
 
   import Ecto.Query
   require Logger
@@ -482,6 +483,15 @@ defmodule YscWeb.ExpenseReportLive do
       result =
         consume_uploaded_entry(socket, entry, fn %{path: path} ->
           try do
+            # Validate file MIME type before processing
+            case FileValidator.validate_document(path, [".pdf", ".jpg", ".jpeg", ".png", ".webp"]) do
+              {:ok, _mime_type} ->
+                :ok
+
+              {:error, reason} ->
+                raise "File validation failed: #{reason}"
+            end
+
             s3_path =
               ExpenseReports.upload_receipt_to_s3(path, original_filename: original_filename)
 

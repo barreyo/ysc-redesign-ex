@@ -10,8 +10,6 @@ defmodule Ysc.Messages.RequeueTest do
   use Ysc.DataCase, async: true
 
   alias Ysc.Messages.Requeue
-  alias Oban.Job
-  alias Ysc.Repo
 
   describe "list_failed_jobs/1" do
     test "returns empty list when no failed jobs exist" do

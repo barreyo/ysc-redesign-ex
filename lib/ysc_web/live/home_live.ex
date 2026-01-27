@@ -685,7 +685,7 @@ defmodule YscWeb.HomeLive do
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-20 border-b border-zinc-200 pb-10">
           <div class="max-w-2xl">
             <span class="text-blue-600 font-black text-xs uppercase tracking-[0.3em]">
-              Nordic Post
+              Club News
             </span>
             <h2 class="mt-4 text-4xl lg:text-6xl font-black text-zinc-900 tracking-tighter">
               Stay Informed.
@@ -1173,7 +1173,7 @@ defmodule YscWeb.HomeLive do
                 <div class="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <.icon name="hero-calendar-days" class="w-8 h-8 text-zinc-400" />
                 </div>
-                <h3 class="text-lg font-black text-zinc-900 mb-2">No upcoming events</h3>
+                <h3 class="text-lg font-black text-zinc-900 mb-2">No upcoming event tickets</h3>
                 <p class="text-zinc-500 text-sm mb-6">Discover what's happening in our community</p>
                 <.link
                   navigate={~p"/events"}

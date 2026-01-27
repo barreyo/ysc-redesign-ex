@@ -603,4 +603,371 @@ defmodule Ysc.LedgersTest do
       end)
     end
   end
+
+  describe "payout processing" do
+    setup do
+      user = user_fixture()
+      Ledgers.ensure_basic_accounts()
+
+      # Configure QuickBooks client to use mock
+      Application.put_env(:ysc, :quickbooks_client, Ysc.Quickbooks.ClientMock)
+
+      Application.put_env(:ysc, :quickbooks,
+        client_id: "test_client_id",
+        client_secret: "test_client_secret",
+        company_id: "test_company_id",
+        access_token: "test_access_token",
+        refresh_token: "test_refresh_token",
+        event_item_id: "event_item_123",
+        donation_item_id: "donation_item_123",
+        bank_account_id: "bank_account_123",
+        stripe_account_id: "stripe_account_123"
+      )
+
+      import Mox
+
+      stub(Ysc.Quickbooks.ClientMock, :create_customer, fn _params ->
+        {:ok, %{"Id" => "qb_customer_default"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_sales_receipt, fn _params ->
+        {:ok, %{"Id" => "qb_sr_default", "TotalAmt" => "0.00"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_deposit, fn _params ->
+        {:ok, %{"Id" => "qb_deposit_default", "TotalAmt" => "0.00"}}
+      end)
+
+      # Create test payments
+      {:ok, {payment1, _transaction1, _entries1}} =
+        Ledgers.process_payment(%{
+          user_id: user.id,
+          amount: Money.new(10_000, :USD),
+          entity_type: :event,
+          entity_id: Ecto.ULID.generate(),
+          external_payment_id: "pi_payout_1",
+          stripe_fee: Money.new(320, :USD),
+          description: "Payment 1",
+          property: nil,
+          payment_method_id: nil
+        })
+
+      {:ok, {payment2, _transaction2, _entries2}} =
+        Ledgers.process_payment(%{
+          user_id: user.id,
+          amount: Money.new(5_000, :USD),
+          entity_type: :event,
+          entity_id: Ecto.ULID.generate(),
+          external_payment_id: "pi_payout_2",
+          stripe_fee: Money.new(160, :USD),
+          description: "Payment 2",
+          property: nil,
+          payment_method_id: nil
+        })
+
+      %{user: user, payment1: payment1, payment2: payment2}
+    end
+
+    test "process_stripe_payout/1 creates payout with entries", %{payment1: _payment1} do
+      payout_attrs = %{
+        payout_amount: Money.new(10_000, :USD),
+        stripe_payout_id: "po_test_123",
+        description: "Test payout",
+        currency: "usd",
+        status: "paid",
+        arrival_date: DateTime.utc_now(),
+        metadata: %{}
+      }
+
+      assert {:ok, {payout_payment, transaction, entries, payout}} =
+               Ledgers.process_stripe_payout(payout_attrs)
+
+      assert payout_payment.amount == Money.new(10_000, :USD)
+      assert payout.stripe_payout_id == "po_test_123"
+      assert transaction.type == :payout
+      assert length(entries) >= 2
+    end
+
+    test "link_payment_to_payout/2 links payment to payout", %{
+      payment1: payment1,
+      payment2: payment2
+    } do
+      {:ok, {_payout_payment, _transaction, _entries, payout}} =
+        Ledgers.process_stripe_payout(%{
+          payout_amount: Money.new(15_000, :USD),
+          stripe_payout_id: "po_link_test",
+          description: "Test payout",
+          currency: "usd",
+          status: "paid",
+          arrival_date: DateTime.utc_now(),
+          metadata: %{}
+        })
+
+      assert {:ok, updated_payout} = Ledgers.link_payment_to_payout(payout, payment1)
+      assert {:ok, updated_payout} = Ledgers.link_payment_to_payout(updated_payout, payment2)
+
+      # Reload payout with payments
+      updated_payout = Ysc.Repo.reload!(updated_payout) |> Ysc.Repo.preload(:payments)
+      assert length(updated_payout.payments) == 2
+    end
+
+    test "link_refund_to_payout/2 links refund to payout", %{payment1: payment1} do
+      {:ok, {refund, _transaction, _entries}} =
+        Ledgers.process_refund(%{
+          payment_id: payment1.id,
+          refund_amount: Money.new(2_000, :USD),
+          external_refund_id: "re_payout_test",
+          reason: "Test refund"
+        })
+
+      {:ok, {_payout_payment, _transaction, _entries, payout}} =
+        Ledgers.process_stripe_payout(%{
+          payout_amount: Money.new(8_000, :USD),
+          stripe_payout_id: "po_refund_link_test",
+          description: "Test payout",
+          currency: "usd",
+          status: "paid",
+          arrival_date: DateTime.utc_now(),
+          metadata: %{}
+        })
+
+      assert {:ok, updated_payout} = Ledgers.link_refund_to_payout(payout, refund)
+
+      # Reload payout with refunds
+      updated_payout = Ysc.Repo.reload!(updated_payout) |> Ysc.Repo.preload(:refunds)
+      assert length(updated_payout.refunds) == 1
+    end
+  end
+
+  describe "balance calculations" do
+    setup do
+      user = user_fixture()
+      Ledgers.ensure_basic_accounts()
+
+      # Configure QuickBooks client to use mock
+      Application.put_env(:ysc, :quickbooks_client, Ysc.Quickbooks.ClientMock)
+
+      Application.put_env(:ysc, :quickbooks,
+        client_id: "test_client_id",
+        client_secret: "test_client_secret",
+        company_id: "test_company_id",
+        access_token: "test_access_token",
+        refresh_token: "test_refresh_token",
+        event_item_id: "event_item_123",
+        donation_item_id: "donation_item_123",
+        bank_account_id: "bank_account_123",
+        stripe_account_id: "stripe_account_123"
+      )
+
+      import Mox
+
+      stub(Ysc.Quickbooks.ClientMock, :create_customer, fn _params ->
+        {:ok, %{"Id" => "qb_customer_default"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_sales_receipt, fn _params ->
+        {:ok, %{"Id" => "qb_sr_default", "TotalAmt" => "0.00"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_deposit, fn _params ->
+        {:ok, %{"Id" => "qb_deposit_default", "TotalAmt" => "0.00"}}
+      end)
+
+      %{user: user}
+    end
+
+    test "verify_ledger_balance/0 returns balanced for empty ledger" do
+      assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
+    end
+
+    test "verify_ledger_balance/0 returns balanced after payment", %{user: user} do
+      {:ok, {_payment, _transaction, _entries}} =
+        Ledgers.process_payment(%{
+          user_id: user.id,
+          amount: Money.new(10_000, :USD),
+          entity_type: :membership,
+          entity_id: Ecto.ULID.generate(),
+          external_payment_id: "pi_balance_test",
+          stripe_fee: Money.new(320, :USD),
+          description: "Test payment",
+          property: nil,
+          payment_method_id: nil
+        })
+
+      assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
+    end
+
+    test "verify_ledger_balance/0 returns balanced after payment and refund", %{user: user} do
+      {:ok, {payment, _transaction, _entries}} =
+        Ledgers.process_payment(%{
+          user_id: user.id,
+          amount: Money.new(10_000, :USD),
+          entity_type: :membership,
+          entity_id: Ecto.ULID.generate(),
+          external_payment_id: "pi_balance_refund_test",
+          stripe_fee: Money.new(320, :USD),
+          description: "Test payment",
+          property: nil,
+          payment_method_id: nil
+        })
+
+      {:ok, {_refund, _refund_transaction, _refund_entries}} =
+        Ledgers.process_refund(%{
+          payment_id: payment.id,
+          refund_amount: Money.new(5_000, :USD),
+          external_refund_id: "re_balance_test",
+          reason: "Test refund"
+        })
+
+      assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
+    end
+
+    test "get_account_balance/2 respects date range", %{user: user} do
+      # Membership payments create entries for stripe_account (debit) and membership_revenue (credit)
+      # Check stripe_account which should have a positive balance
+      account = Ledgers.get_account_by_name("stripe_account")
+
+      # Get today's date range first
+      today = Date.utc_today()
+      today_start = DateTime.new!(today, ~T[00:00:00], "Etc/UTC")
+      today_end = DateTime.new!(today, ~T[23:59:59], "Etc/UTC")
+
+      # Create payment with unique external_payment_id
+      unique_id = "pi_date_range_test_#{System.unique_integer([:positive])}"
+
+      {:ok, {payment, _transaction, _entries}} =
+        Ledgers.process_payment(%{
+          user_id: user.id,
+          amount: Money.new(10_000, :USD),
+          entity_type: :membership,
+          entity_id: Ecto.ULID.generate(),
+          external_payment_id: unique_id,
+          stripe_fee: Money.new(320, :USD),
+          description: "Test payment",
+          property: nil,
+          payment_method_id: nil
+        })
+
+      # Update payment_date using direct SQL to ensure it's within today's range
+      Ysc.Repo.update_all(
+        from(p in Ysc.Ledgers.Payment, where: p.id == ^payment.id),
+        set: [payment_date: today_start]
+      )
+
+      balance_today = Ledgers.get_account_balance(account.id, today_start, today_end)
+      assert Money.positive?(balance_today)
+
+      # Get balance for yesterday (should be zero)
+      yesterday = Date.add(today, -1)
+      yesterday_start = DateTime.new!(yesterday, ~T[00:00:00], "Etc/UTC")
+      yesterday_end = DateTime.new!(yesterday, ~T[23:59:59], "Etc/UTC")
+      balance_yesterday = Ledgers.get_account_balance(account.id, yesterday_start, yesterday_end)
+      assert Money.equal?(balance_yesterday, Money.new(0, :USD))
+    end
+  end
+
+  describe "payment types" do
+    setup do
+      user = user_fixture()
+      Ledgers.ensure_basic_accounts()
+
+      # Configure QuickBooks client to use mock
+      Application.put_env(:ysc, :quickbooks_client, Ysc.Quickbooks.ClientMock)
+
+      Application.put_env(:ysc, :quickbooks,
+        client_id: "test_client_id",
+        client_secret: "test_client_secret",
+        company_id: "test_company_id",
+        access_token: "test_access_token",
+        refresh_token: "test_refresh_token",
+        event_item_id: "event_item_123",
+        donation_item_id: "donation_item_123",
+        bank_account_id: "bank_account_123",
+        stripe_account_id: "stripe_account_123"
+      )
+
+      import Mox
+
+      stub(Ysc.Quickbooks.ClientMock, :create_customer, fn _params ->
+        {:ok, %{"Id" => "qb_customer_default"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_sales_receipt, fn _params ->
+        {:ok, %{"Id" => "qb_sr_default", "TotalAmt" => "0.00"}}
+      end)
+
+      stub(Ysc.Quickbooks.ClientMock, :create_deposit, fn _params ->
+        {:ok, %{"Id" => "qb_deposit_default", "TotalAmt" => "0.00"}}
+      end)
+
+      %{user: user}
+    end
+
+    test "process_payment/1 handles booking payments", %{user: user} do
+      {:ok, {payment, _transaction, _entries}} =
+        Ledgers.process_payment(%{
+          user_id: user.id,
+          amount: Money.new(20_000, :USD),
+          entity_type: :booking,
+          entity_id: Ecto.ULID.generate(),
+          external_payment_id: "pi_booking_test",
+          stripe_fee: Money.new(640, :USD),
+          description: "Tahoe booking",
+          property: :tahoe,
+          payment_method_id: nil
+        })
+
+      # entity_type is stored in ledger entries, not on payment directly
+      entries = Ysc.Ledgers.get_entries_by_payment(payment.id)
+      booking_entry = Enum.find(entries, &(&1.related_entity_type == :booking))
+      assert booking_entry.related_entity_type == :booking
+      # Property is used to determine revenue account but not stored in ledger entries
+      # Verify the description contains the property information
+      assert booking_entry.description =~ "Tahoe"
+      assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
+    end
+
+    test "process_payment/1 handles subscription payments", %{user: user} do
+      {:ok, {payment, _transaction, _entries}} =
+        Ledgers.process_payment(%{
+          user_id: user.id,
+          amount: Money.new(15_000, :USD),
+          entity_type: :membership,
+          entity_id: Ecto.ULID.generate(),
+          external_payment_id: "pi_subscription_test",
+          stripe_fee: Money.new(480, :USD),
+          description: "Membership subscription",
+          property: nil,
+          payment_method_id: nil
+        })
+
+      # entity_type is stored in ledger entries, not on payment directly
+      # Subscription payments use :membership as entity_type
+      entries = Ysc.Ledgers.get_entries_by_payment(payment.id)
+      membership_entry = Enum.find(entries, &(&1.related_entity_type == :membership))
+      assert membership_entry.related_entity_type == :membership
+      assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
+    end
+
+    test "process_payment/1 handles donation payments", %{user: user} do
+      {:ok, {payment, _transaction, _entries}} =
+        Ledgers.process_payment(%{
+          user_id: user.id,
+          amount: Money.new(5_000, :USD),
+          entity_type: :donation,
+          entity_id: Ecto.ULID.generate(),
+          external_payment_id: "pi_donation_test",
+          stripe_fee: Money.new(160, :USD),
+          description: "Donation",
+          property: nil,
+          payment_method_id: nil
+        })
+
+      # entity_type is stored in ledger entries, not on payment directly
+      entries = Ysc.Ledgers.get_entries_by_payment(payment.id)
+      donation_entry = Enum.find(entries, &(&1.related_entity_type == :donation))
+      assert donation_entry.related_entity_type == :donation
+      assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
+    end
+  end
 end

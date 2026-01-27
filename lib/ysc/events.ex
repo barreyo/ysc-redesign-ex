@@ -96,7 +96,7 @@ defmodule Ysc.Events do
   """
   def delete_event(%Event{} = event) do
     event
-    |> Event.changeset(%{state: "deleted", published_at: nil})
+    |> Event.changeset(%{state: :deleted, published_at: nil})
     |> Repo.update()
     |> case do
       {:ok, event} ->
