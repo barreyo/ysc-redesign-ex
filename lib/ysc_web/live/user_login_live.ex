@@ -26,6 +26,12 @@ defmodule YscWeb.UserLoginLive do
           type="button"
           class="w-full flex items-center justify-center gap-2"
           phx-click="sign_in_with_passkey"
+          phx-mounted={
+            JS.transition(
+              {"transition ease-out duration-300", "opacity-0 -translate-y-1",
+               "opacity-100 translate-y-0"}
+            )
+          }
         >
           <%= if @is_ios_mobile do %>
             <svg
@@ -149,7 +155,15 @@ defmodule YscWeb.UserLoginLive do
       <!-- Failed Sign-in Attempts Banner -->
       <div
         :if={@failed_login_attempts >= 3 && !@banner_dismissed}
+        id="failed-login-banner"
         class="bg-amber-50 border border-amber-200 rounded-lg p-4 my-6 relative"
+        phx-mounted={
+          JS.transition(
+            {"transition ease-out duration-300", "opacity-0 -translate-y-1",
+             "opacity-100 translate-y-0"}
+          )
+        }
+        phx-remove={JS.transition({"transition ease-in duration-200", "opacity-100", "opacity-0"})}
       >
         <button
           type="button"
