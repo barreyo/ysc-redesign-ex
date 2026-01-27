@@ -60,6 +60,7 @@ import PathTracker from "./path_tracker";
 import Autocomplete from "./autocomplete";
 import ReceiptLightbox from "./receipt_lightbox";
 import ScrollToSection from "./scroll_to_section";
+import DeviceDetection from "./device_detection";
 
 let Hooks = {
     StickyNavbar,
@@ -98,6 +99,7 @@ let Hooks = {
     Autocomplete,
     ReceiptLightbox,
     ScrollToSection,
+    DeviceDetection,
 };
 Hooks.LivePhone = LivePhone;
 
