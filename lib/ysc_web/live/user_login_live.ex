@@ -530,35 +530,6 @@ defmodule YscWeb.UserLoginLive do
     end
   end
 
-  def handle_event("passkey_auth_error", %{"error" => error, "message" => message}, socket) do
-    error_message =
-      case error do
-        "NotAllowedError" ->
-          "Authentication was cancelled or not allowed. Please try again."
-
-        "InvalidStateError" ->
-          "This passkey may have been removed. Please use another sign-in method."
-
-        "NotSupportedError" ->
-          "Your device doesn't support this authentication method. Please use another sign-in method."
-
-        _ ->
-          "Authentication failed: #{message}. Please try again or use another sign-in method."
-      end
-
-    {:noreply,
-     put_flash(socket, :error, error_message)
-     |> assign(:passkey_challenge, nil)
-     |> assign(:passkey_auth_mode, nil)}
-  end
-
-  def handle_event("passkey_auth_error", _params, socket) do
-    {:noreply,
-     put_flash(socket, :error, "An error occurred during authentication. Please try again.")
-     |> assign(:passkey_challenge, nil)
-     |> assign(:passkey_auth_mode, nil)}
-  end
-
   def handle_event("dismiss_banner", _params, socket) do
     # Reset failed login attempts when user dismisses the banner
     # Redirect to controller endpoint to clear session, then redirect back
