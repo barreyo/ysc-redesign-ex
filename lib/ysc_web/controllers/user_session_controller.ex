@@ -166,9 +166,91 @@ defmodule YscWeb.UserSessionController do
     |> redirect(to: ~p"/users/log-in")
   end
 
-  def passkey_login(conn, %{"user_id" => encoded_user_id, "redirect_to" => redirect_to}) do
+  def passkey_login(conn, params) do
+    require Logger
+
+    # Merge query params into params (in case they're not merged automatically)
+    merged_params = Map.merge(params || %{}, conn.query_params || %{})
+
+    # Check if query string was malformed (entire query string became a key)
+    # This can happen when redirecting from LiveView
+    parsed_params =
+      case find_malformed_query_key(merged_params) do
+        nil ->
+          merged_params
+
+        malformed_key ->
+          Logger.warning("[UserSessionController] Found malformed query key, parsing manually", %{
+            malformed_key: malformed_key
+          })
+
+          # Parse the query string from the malformed key
+          parsed = URI.decode_query(malformed_key)
+          # Remove the malformed key and merge parsed params
+          Map.delete(merged_params, malformed_key)
+          |> Map.merge(parsed)
+      end
+
+    Logger.info("[UserSessionController] passkey_login called", %{
+      params: params,
+      query_params: conn.query_params,
+      path_params: conn.path_params,
+      merged_params: merged_params,
+      parsed_params: parsed_params,
+      has_user_id: Map.has_key?(parsed_params, "user_id"),
+      has_redirect_to: Map.has_key?(parsed_params, "redirect_to")
+    })
+
+    case parsed_params do
+      %{"user_id" => encoded_user_id, "redirect_to" => redirect_to} ->
+        passkey_login_with_params(conn, encoded_user_id, redirect_to)
+
+      %{"user_id" => encoded_user_id} ->
+        passkey_login_with_params(conn, encoded_user_id, "")
+
+      _ ->
+        Logger.error("[UserSessionController] passkey_login called with invalid params", %{
+          params: params,
+          query_params: conn.query_params,
+          path_params: conn.path_params,
+          merged_params: merged_params,
+          parsed_params: parsed_params
+        })
+
+        conn
+        |> put_flash(:error, "Invalid login request.")
+        |> redirect(to: ~p"/users/log-in")
+    end
+  end
+
+  # Find a key that looks like a malformed query string (contains & and =)
+  defp find_malformed_query_key(params) when is_map(params) do
+    Enum.find_value(params, fn {key, value} ->
+      if is_binary(key) && String.contains?(key, "=") && String.contains?(key, "user_id") do
+        key
+      else
+        nil
+      end
+    end)
+  end
+
+  defp find_malformed_query_key(_), do: nil
+
+  defp passkey_login_with_params(conn, encoded_user_id, redirect_to) do
+    require Logger
+
+    Logger.info("[UserSessionController] passkey_login_with_params called", %{
+      encoded_user_id: encoded_user_id,
+      redirect_to: redirect_to
+    })
+
     # Passkey-based login - skip CSRF protection (similar to auto_login)
     user_id = Base.url_decode64!(encoded_user_id, padding: false)
+
+    Logger.debug("[UserSessionController] Decoded user_id", %{
+      user_id_hex: Base.encode16(user_id, case: :lower),
+      user_id_length: byte_size(user_id)
+    })
 
     if user = Accounts.get_user(user_id) do
       if user.state in [:pending_approval, :active] do
@@ -184,31 +266,37 @@ defmodule YscWeb.UserSessionController do
             nil
           end
 
+        Logger.info("[UserSessionController] Logging in user successfully", %{
+          user_id: user.id,
+          user_email: user.email,
+          validated_redirect: validated_redirect
+        })
+
         conn
         |> delete_session(:failed_login_attempts)
         |> put_session(:just_logged_in, true)
         |> UserAuth.log_in_user(user, %{}, validated_redirect)
       else
         # Account not active
+        Logger.warning("[UserSessionController] User account not active", %{
+          user_id: user.id,
+          user_state: user.state
+        })
+
         conn
         |> put_flash(:error, "Your account is not currently active.")
         |> redirect(to: ~p"/users/log-in")
       end
     else
       # Invalid user ID
+      Logger.error("[UserSessionController] User not found", %{
+        user_id_hex: Base.encode16(user_id, case: :lower),
+        encoded_user_id: encoded_user_id
+      })
+
       conn
       |> put_flash(:error, "Invalid login session.")
       |> redirect(to: ~p"/users/log-in")
     end
-  end
-
-  def passkey_login(conn, %{"user_id" => encoded_user_id}) do
-    passkey_login(conn, %{"user_id" => encoded_user_id, "redirect_to" => ""})
-  end
-
-  def passkey_login(conn, _params) do
-    conn
-    |> put_flash(:error, "Invalid login request.")
-    |> redirect(to: ~p"/users/log-in")
   end
 end

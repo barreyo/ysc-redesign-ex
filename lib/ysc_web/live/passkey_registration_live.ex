@@ -208,8 +208,7 @@ defmodule YscWeb.PasskeyRegistrationLive do
                |> assign(:error, nil)
                |> assign(:loading, false)
                |> assign(:passkey_challenge, nil)
-               |> put_flash(:info, "Passkey added successfully! You can now use it to sign in.")
-               |> redirect(to: ~p"/")}
+               |> put_flash(:info, "Passkey added successfully! You can now use it to sign in.")}
 
             {:error, _changeset} ->
               {:noreply,

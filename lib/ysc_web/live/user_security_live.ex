@@ -274,7 +274,6 @@ defmodule YscWeb.UserSecurityLive do
                 </div>
               </div>
             </div>
-
             <!-- Password Change Section -->
             <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
               <h2 class="text-zinc-900 font-bold text-xl">Change Password</h2>
