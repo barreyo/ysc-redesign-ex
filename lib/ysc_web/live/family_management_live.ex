@@ -232,6 +232,17 @@ defmodule YscWeb.FamilyManagementLive do
           <% end %>
           <li>
             <.link
+              navigate={~p"/users/settings/security"}
+              class={[
+                "inline-flex items-center px-4 py-3 rounded w-full",
+                "hover:bg-zinc-100 hover:text-zinc-900"
+              ]}
+            >
+              <.icon name="hero-shield-check" class="w-5 h-5 me-2" /> Security
+            </.link>
+          </li>
+          <li>
+            <.link
               navigate={~p"/users/notifications"}
               class={[
                 "inline-flex items-center px-4 py-3 rounded w-full",

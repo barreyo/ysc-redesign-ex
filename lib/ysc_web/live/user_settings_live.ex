@@ -403,6 +403,17 @@ defmodule YscWeb.UserSettingsLive do
           <% end %>
           <li>
             <.link
+              navigate={~p"/users/settings/security"}
+              class={[
+                "inline-flex items-center px-4 py-3 rounded w-full",
+                "hover:bg-zinc-100 hover:text-zinc-900"
+              ]}
+            >
+              <.icon name="hero-shield-check" class="w-5 h-5 me-2" /> Security
+            </.link>
+          </li>
+          <li>
+            <.link
               navigate={~p"/users/notifications"}
               class={[
                 "inline-flex items-center px-4 py-3 rounded w-full",
@@ -519,72 +530,30 @@ defmodule YscWeb.UserSettingsLive do
                 </:actions>
               </.simple_form>
             </div>
-            <!-- Account Security Section -->
+            <!-- Email Change Section -->
             <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
-              <h2 class="text-zinc-900 font-bold text-xl">Account Security</h2>
+              <h2 class="text-zinc-900 font-bold text-xl">Email</h2>
 
-              <div class="space-y-6">
-                <.simple_form
-                  for={@email_form}
-                  id="email_form"
-                  phx-submit="update_email"
-                  phx-change="validate_email"
-                >
-                  <.input field={@email_form[:email]} type="email" label="Email" required />
-                  <.input
-                    field={@email_form[:current_password]}
-                    name="current_password"
-                    id="current_password_for_email"
-                    type="password-toggle"
-                    label="Current password"
-                    value={@email_form_current_password}
-                    required
-                  />
-                  <:actions>
-                    <.button phx-disable-with="Changing...">Change Email</.button>
-                  </:actions>
-                </.simple_form>
-
-                <.simple_form
-                  for={@password_form}
-                  id="password_form"
-                  action={~p"/users/log-in?_action=password_updated"}
-                  method="post"
-                  phx-change="validate_password"
-                  phx-submit="update_password"
-                  phx-trigger-action={@trigger_submit}
-                >
-                  <.input
-                    field={@password_form[:email]}
-                    type="hidden"
-                    id="hidden_user_email"
-                    value={@current_email}
-                  />
-                  <.input
-                    field={@password_form[:password]}
-                    type="password-toggle"
-                    label="New password"
-                    required
-                  />
-                  <.input
-                    field={@password_form[:password_confirmation]}
-                    type="password-toggle"
-                    label="Confirm new password"
-                  />
-                  <.input
-                    field={@password_form[:current_password]}
-                    name="current_password"
-                    type="password-toggle"
-                    label="Current password"
-                    id="current_password_for_password"
-                    value={@current_password}
-                    required
-                  />
-                  <:actions>
-                    <.button phx-disable-with="Changing...">Change Password</.button>
-                  </:actions>
-                </.simple_form>
-              </div>
+              <.simple_form
+                for={@email_form}
+                id="email_form"
+                phx-submit="update_email"
+                phx-change="validate_email"
+              >
+                <.input field={@email_form[:email]} type="email" label="Email" required />
+                <.input
+                  field={@email_form[:current_password]}
+                  name="current_password"
+                  id="current_password_for_email"
+                  type="password-toggle"
+                  label="Current password"
+                  value={@email_form_current_password}
+                  required
+                />
+                <:actions>
+                  <.button phx-disable-with="Changing...">Change Email</.button>
+                </:actions>
+              </.simple_form>
             </div>
           </div>
 
@@ -1499,7 +1468,6 @@ defmodule YscWeb.UserSettingsLive do
 
     # Basic changesets that don't require DB queries (use existing user data)
     email_changeset = Accounts.change_user_email(user)
-    password_changeset = Accounts.change_user_password(user)
     profile_changeset = Accounts.change_user_profile(user)
     notification_changeset = Accounts.change_notification_preferences(user)
 
@@ -1507,7 +1475,6 @@ defmodule YscWeb.UserSettingsLive do
     socket =
       socket
       |> assign(:page_title, "User Settings")
-      |> assign(:current_password, nil)
       |> assign(:user, user)
       |> assign(:user_is_active, user_is_active)
       |> assign(:is_sub_account, is_sub_account)
@@ -1527,7 +1494,6 @@ defmodule YscWeb.UserSettingsLive do
       |> assign(:membership_plans, membership_plans)
       |> assign(:active_plan_type, active_plan)
       |> assign(:email_form, to_form(email_changeset))
-      |> assign(:password_form, to_form(password_changeset))
       |> assign(:profile_form, to_form(profile_changeset))
       |> assign(:notification_form, to_form(notification_changeset))
       # Address form with placeholder - will be populated when connected
@@ -1536,7 +1502,6 @@ defmodule YscWeb.UserSettingsLive do
         :membership_form,
         to_form(%{"membership_type" => nil})
       )
-      |> assign(:trigger_submit, false)
       |> assign(:phone_verification_form, to_form(%{"verification_code" => ""}))
       |> assign(:sms_resend_disabled_until, nil)
       |> assign(:pending_phone_number, nil)
@@ -1732,38 +1697,6 @@ defmodule YscWeb.UserSettingsLive do
            |> put_flash(:info, "Email address is the same.")
            |> assign(email_form_current_password: nil)}
         end
-    end
-  end
-
-  def handle_event("validate_password", params, socket) do
-    %{"current_password" => password, "user" => user_params} = params
-
-    password_form =
-      socket.assigns.current_user
-      |> Accounts.change_user_password(user_params)
-      |> Map.put(:action, :validate)
-      |> to_form()
-
-    {:noreply, assign(socket, password_form: password_form, current_password: password)}
-  end
-
-  def handle_event("update_password", params, socket) do
-    %{"current_password" => password, "user" => user_params} = params
-    user = socket.assigns.current_user
-
-    case Accounts.update_user_password(user, password, user_params) do
-      {:ok, user} ->
-        UserNotifier.deliver_password_changed_notification(user)
-
-        password_form =
-          user
-          |> Accounts.change_user_password(user_params)
-          |> to_form()
-
-        {:noreply, assign(socket, trigger_submit: true, password_form: password_form)}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, password_form: to_form(changeset))}
     end
   end
 

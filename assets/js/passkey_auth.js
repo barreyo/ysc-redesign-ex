@@ -26,6 +26,13 @@ const PasskeyAuth = {
             console.error("[PasskeyAuth] Error pushing passkey_support_detected event", error);
         }
 
+        // Send user agent to LiveView for device nickname generation
+        try {
+            this.pushEvent("user_agent_received", { user_agent: userAgent });
+        } catch (error) {
+            console.error("[PasskeyAuth] Error pushing user_agent_received event", error);
+        }
+
         // If WebAuthn is not supported, return early
         if (!isPasskeySupported) {
             return;

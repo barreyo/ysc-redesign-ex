@@ -76,7 +76,8 @@ defmodule YscWeb.PasskeyRegistrationLive do
          error: nil,
          success: false,
          loading: false,
-         passkey_challenge: nil
+         passkey_challenge: nil,
+         user_agent: nil
        )}
     end
   end
@@ -194,7 +195,7 @@ defmodule YscWeb.PasskeyRegistrationLive do
           attrs = %{
             external_id: credential_id,
             public_key: UserPasskey.encode_public_key(public_key),
-            nickname: get_device_nickname()
+            nickname: get_device_nickname(socket.assigns[:user_agent])
           }
 
           case Accounts.create_user_passkey(user, attrs) do
@@ -275,14 +276,47 @@ defmodule YscWeb.PasskeyRegistrationLive do
     {:noreply, socket}
   end
 
+  def handle_event("user_agent_received", %{"user_agent" => user_agent}, socket) do
+    {:noreply, assign(socket, :user_agent, user_agent)}
+  end
+
+  def handle_event("user_agent_received", _params, socket) do
+    {:noreply, socket}
+  end
+
   defp get_origin do
     # Get origin from Wax config
     Application.get_env(:wax_, :origin) || "http://localhost:4000"
   end
 
-  defp get_device_nickname do
-    # Try to detect device type from user agent
-    # This is a simple implementation - could be enhanced
-    "Device"
+  defp get_device_nickname(user_agent) do
+    if user_agent && user_agent != "" do
+      parse_user_agent_to_nickname(user_agent)
+    else
+      "Device"
+    end
+  end
+
+  defp parse_user_agent_to_nickname(user_agent) do
+    # Use the existing AuthEvent parsing logic
+    parsed = Ysc.Accounts.AuthEvent.parse_user_agent(user_agent)
+    browser = Map.get(parsed, :browser, "Unknown")
+    os = Map.get(parsed, :operating_system, "Unknown")
+    device_type = Map.get(parsed, :device_type, "unknown")
+
+    # Create a descriptive nickname
+    cond do
+      browser != "Unknown" && os != "Unknown" ->
+        "#{browser} on #{os}"
+
+      browser != "Unknown" ->
+        browser
+
+      os != "Unknown" ->
+        "#{device_type} (#{os})"
+
+      true ->
+        String.capitalize(device_type)
+    end
   end
 end
