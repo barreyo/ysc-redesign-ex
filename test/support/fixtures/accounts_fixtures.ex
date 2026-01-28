@@ -63,4 +63,41 @@ defmodule Ysc.AccountsFixtures do
         token
     end
   end
+
+  @doc """
+  Creates a valid COSE public key map for testing.
+  """
+  def valid_cose_public_key do
+    %{
+      # x coordinate
+      -3 => :crypto.strong_rand_bytes(32),
+      # y coordinate
+      -2 => :crypto.strong_rand_bytes(32),
+      # curve
+      -1 => 1,
+      # kty (key type)
+      1 => 2,
+      # alg (algorithm: ES256)
+      3 => -7
+    }
+  end
+
+  @doc """
+  Creates a passkey fixture for a user.
+  """
+  def passkey_fixture(user, attrs \\ %{}) do
+    credential_id = attrs[:external_id] || :crypto.strong_rand_bytes(16)
+    public_key_map = attrs[:public_key_map] || valid_cose_public_key()
+
+    default_attrs = %{
+      external_id: credential_id,
+      public_key: Ysc.Accounts.UserPasskey.encode_public_key(public_key_map),
+      nickname: attrs[:nickname] || "Test Device",
+      sign_count: attrs[:sign_count] || 0
+    }
+
+    attrs = Map.merge(default_attrs, attrs)
+    {:ok, passkey} = Ysc.Accounts.create_user_passkey(user, attrs)
+    passkey
+  end
 end
