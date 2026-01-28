@@ -158,6 +158,12 @@ config :ueberauth, Ueberauth.Strategy.Facebook.OAuth,
   client_secret: System.get_env("FACEBOOK_CLIENT_SECRET") || "dev_facebook_client_secret"
 
 # Wax (WebAuthn) configuration for development
+#
+# RP ID: "localhost" (development only - each environment has separate passkeys)
+# Origin: Must match the actual origin where the app runs
+#
+# Note: For production subdomain sharing, set WEBAUTHN_RP_ID environment variable
+# to the base domain (e.g., "ysc.org") to allow passkeys to work across subdomains
 config :wax_,
   rp_id: "localhost",
   origin: "http://localhost:4000",

@@ -108,8 +108,22 @@ if config_env() == :prod do
     secret_key: System.fetch_env!("TURNSTILE_SECRET_KEY")
 
   # Wax (WebAuthn) configuration for production
-  # RP ID should be the domain without protocol (e.g., "ysc.org" or "ysc-sandbox.fly.dev")
-  rp_id = host
+  #
+  # RP ID (Relying Party ID) determines which domains can share passkeys.
+  # WebAuthn is strictly bound to a single domain - passkeys registered on one domain
+  # cannot be used on a different domain unless they share the same RP ID.
+  #
+  # For subdomain sharing (e.g., app.ysc.org, api.ysc.org, www.ysc.org):
+  #   Set WEBAUTHN_RP_ID environment variable to the base domain: "ysc.org"
+  #   This allows passkeys registered on any subdomain to work on all subdomains
+  #
+  # For separate domains (e.g., ysc-sandbox.fly.dev vs ysc.org):
+  #   Use the full hostname as RP ID (default behavior)
+  #   Each domain will have its own separate passkeys
+  #
+  # Default: Uses PHX_HOST value (e.g., "ysc-sandbox.fly.dev" or "ysc.org")
+  # Override: Set WEBAUTHN_RP_ID environment variable to customize
+  rp_id = System.get_env("WEBAUTHN_RP_ID") || host
   origin = "https://#{host}"
 
   config :wax_,

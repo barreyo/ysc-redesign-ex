@@ -72,6 +72,9 @@ config :ueberauth, Ueberauth.Strategy.Facebook.OAuth,
   client_secret: "test_facebook_client_secret"
 
 # Wax (WebAuthn) configuration for tests
+# 
+# RP ID: "localhost" (test environment - separate from dev/prod)
+# All binary data uses Base64URL encoding for WebAuthn compatibility
 config :wax_,
   rp_id: "localhost",
   origin: "http://localhost:4002",

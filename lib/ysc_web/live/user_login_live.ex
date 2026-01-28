@@ -20,7 +20,7 @@ defmodule YscWeb.UserLoginLive do
         </:subtitle>
       </.header>
       <!-- Alternative Authentication Methods -->
-      <div id="auth-methods" class="space-y-3 pt-8" phx-hook="DeviceDetection PasskeyAuth">
+      <div id="auth-methods" class="space-y-3 pt-8" phx-hook="PasskeyAuth">
         <.button
           :if={@passkey_supported}
           type="button"
@@ -112,7 +112,7 @@ defmodule YscWeb.UserLoginLive do
         <.button
           type="button"
           variant="outline"
-          class="w-full flex items-center justify-center gap-2 h-10"
+          class="w-full flex items-center justify-center gap-2 h-10 border-zinc-300 text-zinc-700"
           phx-click="sign_in_with_google"
         >
           <svg
@@ -145,7 +145,7 @@ defmodule YscWeb.UserLoginLive do
         <.button
           type="button"
           variant="outline"
-          class="w-full flex items-center justify-center gap-2 h-10"
+          class="w-full flex items-center justify-center gap-2 h-10 border-zinc-300 text-zinc-700"
           phx-click="sign_in_with_facebook"
         >
           <svg
@@ -294,6 +294,10 @@ defmodule YscWeb.UserLoginLive do
 
     # Convert challenge to JSON-serializable format for JS
     # Note: No allow_credentials means the browser will show a native account picker
+    #
+    # IMPORTANT: All binary data (challenges, credential IDs, signatures) must use Base64URL encoding
+    # Base64URL is URL-safe Base64 without padding, required for WebAuthn data transmission
+    # This prevents issues with JSON parsers and LiveView's transport layer
     challenge_json = %{
       challenge: Base.url_encode64(challenge.bytes, padding: false),
       timeout: challenge.timeout,
@@ -340,18 +344,39 @@ defmodule YscWeb.UserLoginLive do
   end
 
   def handle_event("device_detected", %{"device" => "ios_mobile"}, socket) do
+    require Logger
+    Logger.info("[UserLoginLive] device_detected event received: ios_mobile")
     {:noreply, assign(socket, :is_ios_mobile, true)}
   end
 
-  def handle_event("device_detected", _params, socket) do
+  def handle_event("device_detected", params, socket) do
+    require Logger
+
+    Logger.warn(
+      "[UserLoginLive] device_detected event received with unexpected params: #{inspect(params)}"
+    )
+
     {:noreply, socket}
   end
 
   def handle_event("passkey_support_detected", %{"supported" => supported}, socket) do
+    require Logger
+
+    Logger.info("[UserLoginLive] passkey_support_detected event received", %{
+      supported: supported,
+      current_passkey_supported: socket.assigns[:passkey_supported]
+    })
+
     {:noreply, assign(socket, :passkey_supported, supported)}
   end
 
-  def handle_event("passkey_support_detected", _params, socket) do
+  def handle_event("passkey_support_detected", params, socket) do
+    require Logger
+
+    Logger.warn(
+      "[UserLoginLive] passkey_support_detected event received with unexpected params: #{inspect(params)}"
+    )
+
     {:noreply, socket}
   end
 
@@ -370,6 +395,7 @@ defmodule YscWeb.UserLoginLive do
        |> assign(:passkey_auth_mode, nil)}
     else
       # Decode the response from JS
+      # All binary data from JavaScript is Base64URL encoded and must be decoded here
       raw_id = Base.url_decode64!(response["rawId"] || response["id"], padding: false)
 
       authenticator_data =
@@ -448,6 +474,35 @@ defmodule YscWeb.UserLoginLive do
           end
       end
     end
+  end
+
+  def handle_event("passkey_auth_error", %{"error" => error, "message" => message}, socket) do
+    error_message =
+      case error do
+        "NotAllowedError" ->
+          "Authentication was cancelled or not allowed. Please try again."
+
+        "InvalidStateError" ->
+          "This passkey may have been removed. Please use another sign-in method."
+
+        "NotSupportedError" ->
+          "Your device doesn't support this authentication method. Please use another sign-in method."
+
+        _ ->
+          "Authentication failed: #{message}. Please try again or use another sign-in method."
+      end
+
+    {:noreply,
+     put_flash(socket, :error, error_message)
+     |> assign(:passkey_challenge, nil)
+     |> assign(:passkey_auth_mode, nil)}
+  end
+
+  def handle_event("passkey_auth_error", _params, socket) do
+    {:noreply,
+     put_flash(socket, :error, "An error occurred during authentication. Please try again.")
+     |> assign(:passkey_challenge, nil)
+     |> assign(:passkey_auth_mode, nil)}
   end
 
   defp verify_passkey_authentication(

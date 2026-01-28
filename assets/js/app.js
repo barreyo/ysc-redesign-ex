@@ -60,7 +60,6 @@ import PathTracker from "./path_tracker";
 import Autocomplete from "./autocomplete";
 import ReceiptLightbox from "./receipt_lightbox";
 import ScrollToSection from "./scroll_to_section";
-import DeviceDetection from "./device_detection";
 import PasskeyAuth from "./passkey_auth";
 
 let Hooks = {
@@ -100,17 +99,9 @@ let Hooks = {
     Autocomplete,
     ReceiptLightbox,
     ScrollToSection,
-    DeviceDetection,
     PasskeyAuth,
 };
 Hooks.LivePhone = LivePhone;
-
-// Verify ScrollToSection hook is registered
-if (!Hooks.ScrollToSection) {
-    console.error("ScrollToSection hook not found in Hooks object");
-} else {
-    console.log("ScrollToSection hook registered successfully");
-}
 
 let csrfToken = document
     .querySelector("meta[name='csrf-token']")
