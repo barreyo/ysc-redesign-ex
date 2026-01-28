@@ -91,6 +91,7 @@ defmodule Ysc.Accounts.User do
     field :email_verified_at, :utc_datetime
     field :phone_verified_at, :utc_datetime
     field :password_set_at, :utc_datetime
+    field :passkey_prompt_dismissed_at, :utc_datetime
 
     timestamps()
   end
@@ -223,7 +224,8 @@ defmodule Ysc.Accounts.User do
       :stripe_id,
       :quickbooks_customer_id,
       :lifetime_membership_awarded_at,
-      :date_of_birth
+      :date_of_birth,
+      :passkey_prompt_dismissed_at
     ])
     |> validate_length(:first_name, min: 1, max: 150)
     |> validate_length(:last_name, min: 1, max: 150)

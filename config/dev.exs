@@ -68,6 +68,8 @@ config :ysc, YscWeb.Endpoint,
   live_reload: [
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg|swiftui\.styles)$",
+      ~r"assets/js/.*(js)$",
+      ~r"assets/css/.*(css)$",
       ~r"priv/gettext/.*(po)$",
       ~r"lib/ysc_web/(controllers|live|components)/.*(ex|heex)$",
       ~r"lib/ysc_web/(live|components)/.*neex$",

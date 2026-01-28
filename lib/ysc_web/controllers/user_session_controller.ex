@@ -26,7 +26,7 @@ defmodule YscWeb.UserSessionController do
     if user = Accounts.get_user_by_session_token(token) do
       if user.state in [:pending_approval, :active] do
         # Log successful sign-in
-        AuthService.log_login_success(user, conn, %{token: token})
+        AuthService.log_login_success(user, conn, %{token: token, method: "email_password"})
 
         # Reset failed sign-in attempts and log in user
         conn
@@ -53,7 +53,7 @@ defmodule YscWeb.UserSessionController do
     if user = Accounts.get_user_by_session_token(token) do
       if user.state in [:pending_approval, :active] do
         # Log successful sign-in
-        AuthService.log_login_success(user, conn, %{token: token})
+        AuthService.log_login_success(user, conn, %{token: token, method: "email_password"})
 
         # Reset failed sign-in attempts and log in user
         # UserAuth.log_in_user will redirect to the appropriate path based on user state
@@ -93,7 +93,11 @@ defmodule YscWeb.UserSessionController do
         # Check if user is in an allowed state for login
         if user.state in [:pending_approval, :active] do
           # Log successful sign-in
-          AuthService.log_login_success(user, conn, user_params)
+          AuthService.log_login_success(
+            user,
+            conn,
+            Map.put(user_params, :method, "email_password")
+          )
 
           # Reset failed sign-in attempts on successful sign-in
           # Validate redirect_to is internal before using it
@@ -108,6 +112,7 @@ defmodule YscWeb.UserSessionController do
           |> put_flash(:info, info)
           |> delete_session(:failed_login_attempts)
           |> delete_session(:user_return_to)
+          |> put_session(:just_logged_in, true)
           |> UserAuth.log_in_user(user, user_params, validated_redirect)
         else
           # Log failed sign-in attempt due to account state
@@ -181,6 +186,7 @@ defmodule YscWeb.UserSessionController do
 
         conn
         |> delete_session(:failed_login_attempts)
+        |> put_session(:just_logged_in, true)
         |> UserAuth.log_in_user(user, %{}, validated_redirect)
       else
         # Account not active

@@ -10,7 +10,7 @@ defmodule YscWeb.HomeLive do
   import Ecto.Query
 
   @impl true
-  def mount(params, _session, socket) do
+  def mount(params, session, socket) do
     if Map.get(params, "_format") == "swiftui" do
       # SwiftUI/native format - load minimal data synchronously
       upcoming_events =
@@ -28,6 +28,24 @@ defmodule YscWeb.HomeLive do
       if user do
         # Logged-in user: use async loading for performance
         socket = mount_minimal_assigns(socket)
+
+        # Check if user just logged in (from session) and should show passkey prompt
+        just_logged_in =
+          Map.get(session, "just_logged_in", false) || Map.get(session, :just_logged_in, false)
+
+        user_with_passkeys = Accounts.get_user!(user.id, [:passkeys])
+
+        show_passkey_prompt =
+          just_logged_in && Accounts.should_show_passkey_prompt?(user_with_passkeys)
+
+        socket =
+          assign(socket,
+            show_passkey_prompt: show_passkey_prompt,
+            just_logged_in: just_logged_in
+          )
+
+        # Note: The just_logged_in session flag will persist for this page load
+        # It will be cleared on the next page navigation
 
         if connected?(socket) do
           {:ok, load_home_data_async(socket)}
@@ -145,6 +163,13 @@ defmodule YscWeb.HomeLive do
     upcoming_events = Map.get(results, :events, [])
     latest_news = Map.get(results, :news, [])
 
+    # Re-check passkey prompt status after data loads (in case user added a passkey)
+    user = socket.assigns.current_user
+    user_with_passkeys = Accounts.get_user!(user.id, [:passkeys])
+
+    show_passkey_prompt =
+      socket.assigns[:just_logged_in] && Accounts.should_show_passkey_prompt?(user_with_passkeys)
+
     socket =
       assign(socket,
         is_sub_account: is_sub_account,
@@ -152,6 +177,7 @@ defmodule YscWeb.HomeLive do
         upcoming_tickets: upcoming_tickets,
         future_bookings: future_bookings,
         upcoming_events: upcoming_events,
+        show_passkey_prompt: show_passkey_prompt,
         latest_news: latest_news,
         async_data_loaded: true
       )
@@ -908,6 +934,66 @@ defmodule YscWeb.HomeLive do
 
     <%!-- Logged-in User Dashboard --%>
     <main :if={@current_user != nil} class="flex-1 w-full bg-zinc-50/50 min-h-screen">
+      <%!-- Passkey Setup Prompt Banner --%>
+      <div
+        :if={@show_passkey_prompt}
+        id="passkey-prompt-banner"
+        class="bg-blue-50 border-b border-blue-200"
+        phx-mounted={
+          JS.transition(
+            {"transition ease-out duration-300", "opacity-0 -translate-y-1",
+             "opacity-100 translate-y-0"}
+          )
+        }
+        phx-remove={JS.transition({"transition ease-in duration-200", "opacity-100", "opacity-0"})}
+      >
+        <div class="max-w-screen-xl mx-auto px-4 py-4">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1">
+              <div class="flex items-start gap-3">
+                <div class="flex-shrink-0">
+                  <.icon name="hero-bolt" class="h-5 w-5 text-blue-600" />
+                </div>
+                <div class="flex-1">
+                  <h3 class="text-sm font-semibold text-blue-900">
+                    Make your next login faster
+                  </h3>
+                  <p class="mt-1 text-sm text-blue-800">
+                    Use your device's fingerprint or face scan instead of a password.
+                  </p>
+                  <p class="mt-1 text-xs text-blue-700">
+                    Enable instant sign-in with TouchID/FaceID.
+                  </p>
+                  <div class="mt-3 flex flex-col sm:flex-row gap-2">
+                    <.button
+                      phx-click="setup_passkey"
+                      class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded"
+                    >
+                      Setup Passkey
+                    </.button>
+                    <.button
+                      phx-click="dismiss_passkey_prompt"
+                      variant="outline"
+                      class="border-blue-300 text-blue-700 hover:bg-blue-100 text-sm px-4 py-2 rounded"
+                    >
+                      Maybe Later
+                    </.button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              phx-click="dismiss_passkey_prompt"
+              class="flex-shrink-0 p-1 rounded hover:bg-blue-100 opacity-60 hover:opacity-100 transition-opacity"
+              aria-label="Dismiss"
+            >
+              <.icon name="hero-x-mark" class="w-5 h-5 text-blue-600" />
+            </button>
+          </div>
+        </div>
+      </div>
+
       <%!-- Welcome Header with Soft Background --%>
       <div class="bg-white border-b border-zinc-100">
         <div class="max-w-screen-xl mx-auto px-4 py-10 lg:py-16">
@@ -1871,6 +1957,25 @@ defmodule YscWeb.HomeLive do
   end
 
   @impl true
+  def handle_event("dismiss_passkey_prompt", _params, socket) do
+    user = socket.assigns.current_user
+
+    case Accounts.dismiss_passkey_prompt(user) do
+      {:ok, _updated_user} ->
+        {:noreply,
+         socket
+         |> assign(show_passkey_prompt: false)
+         |> put_flash(:info, "We'll remind you about passkeys in 30 days.")}
+
+      {:error, _changeset} ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("setup_passkey", _params, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/users/settings/passkeys/new")}
+  end
+
   def handle_event("subscribe_newsletter", %{"email" => email}, socket) do
     case Mailpoet.subscribe_email(email) do
       {:ok, _response} ->

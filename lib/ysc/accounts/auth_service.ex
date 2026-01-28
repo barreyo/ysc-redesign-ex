@@ -120,17 +120,33 @@ defmodule Ysc.Accounts.AuthService do
         conn when is_map(conn) -> conn
       end
 
+    # Extract authentication method from params (google, facebook, passkey, email_password)
+    auth_method =
+      cond do
+        Map.has_key?(params, "method") -> Map.get(params, "method")
+        Map.has_key?(params, :method) -> Map.get(params, :method)
+        Map.has_key?(params, "provider") -> Map.get(params, "provider") |> to_string()
+        Map.has_key?(params, :provider) -> Map.get(params, :provider) |> to_string()
+        # fallback for oauth without provider
+        Map.get(params, "oauth") == true -> "oauth"
+        # default for email/password login
+        true -> "email_password"
+      end
+
+    base_metadata = %{
+      forwarded_for: sanitize_utf8(get_header(conn, "x-forwarded-for")),
+      real_ip: sanitize_utf8(get_header(conn, "x-real-ip")),
+      origin: sanitize_utf8(get_header(conn, "origin")),
+      referer: sanitize_utf8(get_header(conn, "referer")),
+      auth_method: auth_method
+    }
+
     %{
       ip_address: get_client_ip(conn),
       user_agent: sanitize_utf8(get_user_agent(conn)),
       session_id: get_session_id(conn),
       remember_me: Map.get(params, "remember_me") == "true",
-      metadata: %{
-        forwarded_for: sanitize_utf8(get_header(conn, "x-forwarded-for")),
-        real_ip: sanitize_utf8(get_header(conn, "x-real-ip")),
-        origin: sanitize_utf8(get_header(conn, "origin")),
-        referer: sanitize_utf8(get_header(conn, "referer"))
-      }
+      metadata: base_metadata
     }
     |> Map.merge(parse_user_agent_data(conn))
   end

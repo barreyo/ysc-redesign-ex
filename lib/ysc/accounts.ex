@@ -235,6 +235,44 @@ defmodule Ysc.Accounts do
   end
 
   @doc """
+  Checks if the passkey prompt should be shown to a user.
+
+  Returns true if:
+  - User has no passkeys
+  - Either passkey_prompt_dismissed_at is nil OR it's been more than 30 days since dismissal
+  """
+  def should_show_passkey_prompt?(user) do
+    # Check if user has any passkeys
+    passkeys = get_user_passkeys(user)
+
+    if Enum.empty?(passkeys) do
+      # User has no passkeys, check dismissal status
+      if is_nil(user.passkey_prompt_dismissed_at) do
+        # Never dismissed, show prompt
+        true
+      else
+        # Check if 30 days have passed since dismissal
+        days_since_dismissal =
+          DateTime.diff(DateTime.utc_now(), user.passkey_prompt_dismissed_at, :day)
+
+        days_since_dismissal >= 30
+      end
+    else
+      # User has passkeys, don't show prompt
+      false
+    end
+  end
+
+  @doc """
+  Dismisses the passkey prompt for a user by setting passkey_prompt_dismissed_at to current time.
+  """
+  def dismiss_passkey_prompt(user) do
+    user
+    |> User.update_user_changeset(%{passkey_prompt_dismissed_at: DateTime.utc_now()})
+    |> Repo.update()
+  end
+
+  @doc """
   Searches for users by name or email.
 
   Returns a list of active users matching the search query.

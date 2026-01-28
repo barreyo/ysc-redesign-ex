@@ -94,7 +94,8 @@ defmodule YscWeb.AuthController do
           # Log successful authentication
           AuthService.log_login_success(updated_user, conn, %{
             "provider" => to_string(provider),
-            "oauth" => true
+            "oauth" => true,
+            "method" => to_string(provider)
           })
 
           # Get redirect_to from session if it was stored
@@ -107,6 +108,7 @@ defmodule YscWeb.AuthController do
             :info,
             "Successfully signed in with #{String.capitalize(to_string(provider))}!"
           )
+          |> put_session(:just_logged_in, true)
           |> UserAuth.log_in_user(updated_user, %{}, redirect_to)
         else
           # Account not in allowed state

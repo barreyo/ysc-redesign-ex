@@ -95,9 +95,19 @@ defmodule YscWeb.UserAuth do
   #     end
   #
   defp renew_session(conn) do
+    # Preserve just_logged_in flag through session renewal
+    just_logged_in = get_session(conn, :just_logged_in)
+
     conn
     |> configure_session(renew: true)
     |> clear_session()
+    |> then(fn conn ->
+      if just_logged_in do
+        put_session(conn, :just_logged_in, just_logged_in)
+      else
+        conn
+      end
+    end)
   end
 
   @doc """

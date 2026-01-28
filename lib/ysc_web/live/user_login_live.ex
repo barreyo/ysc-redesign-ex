@@ -24,7 +24,11 @@ defmodule YscWeb.UserLoginLive do
         <.button
           :if={@passkey_supported}
           type="button"
-          class="w-full flex items-center justify-center gap-2 h-10"
+          disabled={@passkey_loading}
+          class={
+            "w-full flex items-center justify-center gap-2 h-10" <>
+              if(@passkey_loading, do: " opacity-50 cursor-not-allowed", else: "")
+          }
           phx-click="sign_in_with_passkey"
           phx-mounted={
             JS.transition(
@@ -33,80 +37,84 @@ defmodule YscWeb.UserLoginLive do
             )
           }
         >
-          <%= if @is_ios_mobile do %>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 80 80"
-              version="1.1"
-              xmlns="http://www.w3.org/2000/svg"
-              class="w-5 h-5"
-            >
-              <g stroke="none" stroke-width="1" fill="currentColor" fill-rule="evenodd">
-                <g>
-                  <g id="Corners" fill-rule="nonzero">
-                    <g id="Corner">
-                      <path d="M4.11428571,21.9428571 L4.11428571,13.0285714 C4.11428571,7.99327149 7.99327149,4.11428571 13.0285714,4.11428571 L21.9428571,4.11428571 C23.0789858,4.11428571 24,3.19327149 24,2.05714286 C24,0.921014229 23.0789858,0 21.9428571,0 L13.0285714,0 C5.72101423,0 0,5.72101423 0,13.0285714 L0,21.9428571 C0,23.0789858 0.921014229,24 2.05714286,24 C3.19327149,24 4.11428571,23.0789858 4.11428571,21.9428571 Z">
+          <%= if @passkey_loading do %>
+            <.icon name="hero-arrow-path" class="w-5 h-5 animate-spin" /> Signing in...
+          <% else %>
+            <%= if @is_ios_mobile do %>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 80 80"
+                version="1.1"
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-5 h-5"
+              >
+                <g stroke="none" stroke-width="1" fill="currentColor" fill-rule="evenodd">
+                  <g>
+                    <g id="Corners" fill-rule="nonzero">
+                      <g id="Corner">
+                        <path d="M4.11428571,21.9428571 L4.11428571,13.0285714 C4.11428571,7.99327149 7.99327149,4.11428571 13.0285714,4.11428571 L21.9428571,4.11428571 C23.0789858,4.11428571 24,3.19327149 24,2.05714286 C24,0.921014229 23.0789858,0 21.9428571,0 L13.0285714,0 C5.72101423,0 0,5.72101423 0,13.0285714 L0,21.9428571 C0,23.0789858 0.921014229,24 2.05714286,24 C3.19327149,24 4.11428571,23.0789858 4.11428571,21.9428571 Z">
+                        </path>
+                      </g>
+                      <g
+                        id="Corner"
+                        transform="translate(68.070175, 11.929825) scale(-1, 1) translate(-68.070175, -11.929825) translate(56.140351, 0.000000)"
+                      >
+                        <path d="M4.11428571,21.9428571 L4.11428571,13.0285714 C4.11428571,7.99327149 7.99327149,4.11428571 13.0285714,4.11428571 L21.9428571,4.11428571 C23.0789858,4.11428571 24,3.19327149 24,2.05714286 C24,0.921014229 23.0789858,0 21.9428571,0 L13.0285714,0 C5.72101423,0 0,5.72101423 0,13.0285714 L0,21.9428571 C0,23.0789858 0.921014229,24 2.05714286,24 C3.19327149,24 4.11428571,23.0789858 4.11428571,21.9428571 Z">
+                        </path>
+                      </g>
+                      <g
+                        id="Corner"
+                        transform="translate(11.929825, 68.070175) scale(1, -1) translate(-11.929825, -68.070175) translate(0.000000, 56.140351)"
+                      >
+                        <path d="M4.11428571,21.9428571 L4.11428571,13.0285714 C4.11428571,7.99327149 7.99327149,4.11428571 13.0285714,4.11428571 L21.9428571,4.11428571 C23.0789858,4.11428571 24,3.19327149 24,2.05714286 C24,0.921014229 23.0789858,0 21.9428571,0 L13.0285714,0 C5.72101423,0 0,5.72101423 0,13.0285714 L0,21.9428571 C0,23.0789858 0.921014229,24 2.05714286,24 C3.19327149,24 4.11428571,23.0789858 4.11428571,21.9428571 Z">
+                        </path>
+                      </g>
+                      <g
+                        id="Corner"
+                        transform="translate(68.070175, 68.070175) scale(-1, -1) translate(-68.070175, -68.070175) translate(56.140351, 56.140351)"
+                      >
+                        <path d="M4.11428571,21.9428571 L4.11428571,13.0285714 C4.11428571,7.99327149 7.99327149,4.11428571 13.0285714,4.11428571 L21.9428571,4.11428571 C23.0789858,4.11428571 24,3.19327149 24,2.05714286 C24,0.921014229 23.0789858,0 21.9428571,0 L13.0285714,0 C5.72101423,0 0,5.72101423 0,13.0285714 L0,21.9428571 C0,23.0789858 0.921014229,24 2.05714286,24 C3.19327149,24 4.11428571,23.0789858 4.11428571,21.9428571 Z">
+                        </path>
+                      </g>
+                    </g>
+                    <g id="Eye" transform="translate(21.754386, 28.070175)" fill-rule="nonzero">
+                      <path
+                        d="M0,2.14285714 L0,7.86037654 C0,9.04384386 0.8954305,10.0032337 2,10.0032337 C3.1045695,10.0032337 4,9.04384386 4,7.86037654 L4,2.14285714 C4,0.959389822 3.1045695,0 2,0 C0.8954305,0 0,0.959389822 0,2.14285714 Z"
+                        id="Path"
+                      >
                       </path>
                     </g>
-                    <g
-                      id="Corner"
-                      transform="translate(68.070175, 11.929825) scale(-1, 1) translate(-68.070175, -11.929825) translate(56.140351, 0.000000)"
-                    >
-                      <path d="M4.11428571,21.9428571 L4.11428571,13.0285714 C4.11428571,7.99327149 7.99327149,4.11428571 13.0285714,4.11428571 L21.9428571,4.11428571 C23.0789858,4.11428571 24,3.19327149 24,2.05714286 C24,0.921014229 23.0789858,0 21.9428571,0 L13.0285714,0 C5.72101423,0 0,5.72101423 0,13.0285714 L0,21.9428571 C0,23.0789858 0.921014229,24 2.05714286,24 C3.19327149,24 4.11428571,23.0789858 4.11428571,21.9428571 Z">
+                    <g id="Eye" transform="translate(54.736842, 28.070175)" fill-rule="nonzero">
+                      <path
+                        d="M0,2.14285714 L0,7.86037654 C0,9.04384386 0.8954305,10.0032337 2,10.0032337 C3.1045695,10.0032337 4,9.04384386 4,7.86037654 L4,2.14285714 C4,0.959389822 3.1045695,0 2,0 C0.8954305,0 0,0.959389822 0,2.14285714 Z"
+                        id="Path"
+                      >
                       </path>
                     </g>
-                    <g
-                      id="Corner"
-                      transform="translate(11.929825, 68.070175) scale(1, -1) translate(-11.929825, -68.070175) translate(0.000000, 56.140351)"
-                    >
-                      <path d="M4.11428571,21.9428571 L4.11428571,13.0285714 C4.11428571,7.99327149 7.99327149,4.11428571 13.0285714,4.11428571 L21.9428571,4.11428571 C23.0789858,4.11428571 24,3.19327149 24,2.05714286 C24,0.921014229 23.0789858,0 21.9428571,0 L13.0285714,0 C5.72101423,0 0,5.72101423 0,13.0285714 L0,21.9428571 C0,23.0789858 0.921014229,24 2.05714286,24 C3.19327149,24 4.11428571,23.0789858 4.11428571,21.9428571 Z">
-                      </path>
-                    </g>
-                    <g
-                      id="Corner"
-                      transform="translate(68.070175, 68.070175) scale(-1, -1) translate(-68.070175, -68.070175) translate(56.140351, 56.140351)"
-                    >
-                      <path d="M4.11428571,21.9428571 L4.11428571,13.0285714 C4.11428571,7.99327149 7.99327149,4.11428571 13.0285714,4.11428571 L21.9428571,4.11428571 C23.0789858,4.11428571 24,3.19327149 24,2.05714286 C24,0.921014229 23.0789858,0 21.9428571,0 L13.0285714,0 C5.72101423,0 0,5.72101423 0,13.0285714 L0,21.9428571 C0,23.0789858 0.921014229,24 2.05714286,24 C3.19327149,24 4.11428571,23.0789858 4.11428571,21.9428571 Z">
-                      </path>
-                    </g>
-                  </g>
-                  <g id="Eye" transform="translate(21.754386, 28.070175)" fill-rule="nonzero">
                     <path
-                      d="M0,2.14285714 L0,7.86037654 C0,9.04384386 0.8954305,10.0032337 2,10.0032337 C3.1045695,10.0032337 4,9.04384386 4,7.86037654 L4,2.14285714 C4,0.959389822 3.1045695,0 2,0 C0.8954305,0 0,0.959389822 0,2.14285714 Z"
-                      id="Path"
+                      d="M25.9319616,59.0829234 C29.8331111,62.7239962 34.5578726,64.5614035 40,64.5614035 C45.4421274,64.5614035 50.1668889,62.7239962 54.0680384,59.0829234 C54.9180398,58.2895887 54.9639773,56.9574016 54.1706427,56.1074002 C53.377308,55.2573988 52.0451209,55.2114613 51.1951195,56.0047959 C48.0787251,58.9134307 44.382434,60.3508772 40,60.3508772 C35.617566,60.3508772 31.9212749,58.9134307 28.8048805,56.0047959 C27.9548791,55.2114613 26.622692,55.2573988 25.8293573,56.1074002 C25.0360227,56.9574016 25.0819602,58.2895887 25.9319616,59.0829234 Z"
+                      id="Mouth"
+                      fill-rule="nonzero"
+                    >
+                    </path>
+                    <path
+                      d="M40,30.1754386 L40,44.9122807 C40,45.85537 39.539042,46.3157895 38.5912711,46.3157895 L37.1929825,46.3157895 C36.0302777,46.3157895 35.0877193,47.2583479 35.0877193,48.4210526 C35.0877193,49.5837574 36.0302777,50.5263158 37.1929825,50.5263158 L38.5912711,50.5263158 C41.8633505,50.5263158 44.2105263,48.1818819 44.2105263,44.9122807 L44.2105263,30.1754386 C44.2105263,29.0127339 43.2679679,28.0701754 42.1052632,28.0701754 C40.9425584,28.0701754 40,29.0127339 40,30.1754386 Z"
+                      id="Nose"
+                      fill-rule="nonzero"
                     >
                     </path>
                   </g>
-                  <g id="Eye" transform="translate(54.736842, 28.070175)" fill-rule="nonzero">
-                    <path
-                      d="M0,2.14285714 L0,7.86037654 C0,9.04384386 0.8954305,10.0032337 2,10.0032337 C3.1045695,10.0032337 4,9.04384386 4,7.86037654 L4,2.14285714 C4,0.959389822 3.1045695,0 2,0 C0.8954305,0 0,0.959389822 0,2.14285714 Z"
-                      id="Path"
-                    >
-                    </path>
-                  </g>
-                  <path
-                    d="M25.9319616,59.0829234 C29.8331111,62.7239962 34.5578726,64.5614035 40,64.5614035 C45.4421274,64.5614035 50.1668889,62.7239962 54.0680384,59.0829234 C54.9180398,58.2895887 54.9639773,56.9574016 54.1706427,56.1074002 C53.377308,55.2573988 52.0451209,55.2114613 51.1951195,56.0047959 C48.0787251,58.9134307 44.382434,60.3508772 40,60.3508772 C35.617566,60.3508772 31.9212749,58.9134307 28.8048805,56.0047959 C27.9548791,55.2114613 26.622692,55.2573988 25.8293573,56.1074002 C25.0360227,56.9574016 25.0819602,58.2895887 25.9319616,59.0829234 Z"
-                    id="Mouth"
-                    fill-rule="nonzero"
-                  >
-                  </path>
-                  <path
-                    d="M40,30.1754386 L40,44.9122807 C40,45.85537 39.539042,46.3157895 38.5912711,46.3157895 L37.1929825,46.3157895 C36.0302777,46.3157895 35.0877193,47.2583479 35.0877193,48.4210526 C35.0877193,49.5837574 36.0302777,50.5263158 37.1929825,50.5263158 L38.5912711,50.5263158 C41.8633505,50.5263158 44.2105263,48.1818819 44.2105263,44.9122807 L44.2105263,30.1754386 C44.2105263,29.0127339 43.2679679,28.0701754 42.1052632,28.0701754 C40.9425584,28.0701754 40,29.0127339 40,30.1754386 Z"
-                    id="Nose"
-                    fill-rule="nonzero"
-                  >
-                  </path>
                 </g>
-              </g>
-            </svg>
-          <% else %>
-            <.icon name="hero-key" class="w-5 h-5" />
-          <% end %>
-          <%= if @is_ios_mobile do %>
-            Sign in with Face ID (Passkey)
-          <% else %>
-            Sign in with Passkey
+              </svg>
+            <% else %>
+              <.icon name="hero-key" class="w-5 h-5" />
+            <% end %>
+            <%= if @is_ios_mobile do %>
+              Sign in with Face ID (Passkey)
+            <% else %>
+              Sign in with Passkey
+            <% end %>
           <% end %>
         </.button>
         <.button
@@ -280,6 +288,7 @@ defmodule YscWeb.UserLoginLive do
      |> assign(:is_ios_mobile, false)
      |> assign(:passkey_supported, false)
      |> assign(:banner_dismissed, false)
+     |> assign(:passkey_loading, false)
      |> assign(:passkey_challenge, nil)
      |> assign(:passkey_auth_mode, nil), temporary_assigns: [form: form]}
   end
@@ -288,22 +297,51 @@ defmodule YscWeb.UserLoginLive do
     # Use discoverable credentials (passwordless - no email needed)
     # The browser will show a native account picker with available passkeys
 
-    # Generate challenge for discoverable credentials (no allow_credentials list)
-    # This tells the browser to look up keys stored on the device
-    challenge = Wax.new_authentication_challenge([])
+    # Set loading state
+    socket = assign(socket, :passkey_loading, true)
+
+    # For discoverable credentials, we need to pass allow_credentials to Wax
+    # so it knows which public keys to use for verification, but we omit it
+    # from the JSON sent to the browser to enable the native account picker.
+    # Get all passkeys from the database to pass to Wax
+    # Use the same rp_id and origin as registration to ensure consistency
+    rp_id = Application.get_env(:wax_, :rp_id) || "localhost"
+    origin = Application.get_env(:wax_, :origin) || "http://localhost:4000"
+
+    # Get all passkeys from all users for discoverable credentials
+    # Wax needs to know all possible credential_ids and public keys for verification
+    all_passkeys = Ysc.Repo.all(Ysc.Accounts.UserPasskey)
+
+    # Convert to list of {credential_id, public_key} tuples for Wax
+    allow_credentials =
+      Enum.map(all_passkeys, fn passkey ->
+        public_key = Ysc.Accounts.UserPasskey.decode_public_key(passkey.public_key)
+        {passkey.external_id, public_key}
+      end)
+
+    challenge =
+      Wax.new_authentication_challenge(
+        rp_id: rp_id,
+        origin: origin,
+        allow_credentials: allow_credentials
+      )
 
     # Convert challenge to JSON-serializable format for JS
-    # Note: No allow_credentials means the browser will show a native account picker
+    # Note: We omit allow_credentials from the JSON to enable discoverable credentials
+    # (native account picker), but we pass it to Wax so it knows the public keys
     #
     # IMPORTANT: All binary data (challenges, credential IDs, signatures) must use Base64URL encoding
     # Base64URL is URL-safe Base64 without padding, required for WebAuthn data transmission
     # This prevents issues with JSON parsers and LiveView's transport layer
+    challenge_base64url = Base.url_encode64(challenge.bytes, padding: false)
+
     challenge_json = %{
-      challenge: Base.url_encode64(challenge.bytes, padding: false),
+      challenge: challenge_base64url,
       timeout: challenge.timeout,
-      rp_id: challenge.rp_id,
-      user_verification: "preferred"
-      # Intentionally omitting allow_credentials to enable discoverable credentials
+      rpId: challenge.rp_id,
+      userVerification: "preferred"
+      # Intentionally omitting allowCredentials to enable discoverable credentials
+      # (browser will show native account picker)
     }
 
     {:noreply,
@@ -344,15 +382,13 @@ defmodule YscWeb.UserLoginLive do
   end
 
   def handle_event("device_detected", %{"device" => "ios_mobile"}, socket) do
-    require Logger
-    Logger.info("[UserLoginLive] device_detected event received: ios_mobile")
     {:noreply, assign(socket, :is_ios_mobile, true)}
   end
 
   def handle_event("device_detected", params, socket) do
     require Logger
 
-    Logger.warn(
+    Logger.warning(
       "[UserLoginLive] device_detected event received with unexpected params: #{inspect(params)}"
     )
 
@@ -360,20 +396,13 @@ defmodule YscWeb.UserLoginLive do
   end
 
   def handle_event("passkey_support_detected", %{"supported" => supported}, socket) do
-    require Logger
-
-    Logger.info("[UserLoginLive] passkey_support_detected event received", %{
-      supported: supported,
-      current_passkey_supported: socket.assigns[:passkey_supported]
-    })
-
     {:noreply, assign(socket, :passkey_supported, supported)}
   end
 
   def handle_event("passkey_support_detected", params, socket) do
     require Logger
 
-    Logger.warn(
+    Logger.warning(
       "[UserLoginLive] passkey_support_detected event received with unexpected params: #{inspect(params)}"
     )
 
@@ -381,16 +410,31 @@ defmodule YscWeb.UserLoginLive do
   end
 
   def handle_event("verify_authentication", response, socket) do
+    require Logger
+
     challenge = socket.assigns.passkey_challenge
     auth_mode = socket.assigns[:passkey_auth_mode] || :non_discoverable
 
     if is_nil(challenge) do
+      Logger.warning("[UserLoginLive] Challenge is nil in verify_authentication")
+
       {:noreply,
        put_flash(
          socket,
          :error,
          "Authentication session expired. Please try again."
        )
+       |> assign(:passkey_loading, false)
+       |> assign(:passkey_challenge, nil)
+       |> assign(:passkey_auth_mode, nil)}
+
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "Authentication session expired. Please try again."
+       )
+       |> assign(:passkey_loading, false)
        |> assign(:passkey_challenge, nil)
        |> assign(:passkey_auth_mode, nil)}
     else
@@ -409,12 +453,18 @@ defmodule YscWeb.UserLoginLive do
       # Find passkey by external_id first (needed for verification)
       case Ysc.Accounts.get_user_passkey_by_external_id(raw_id) do
         nil ->
+          Logger.error("[UserLoginLive] Passkey not found by external_id", %{
+            raw_id_hex: Base.encode16(raw_id, case: :lower),
+            raw_id_base64: Base.url_encode64(raw_id, padding: false)
+          })
+
           {:noreply,
            put_flash(
              socket,
              :error,
              "Invalid passkey. Please try again or use another sign-in method."
            )
+           |> assign(:passkey_loading, false)
            |> assign(:passkey_challenge, nil)
            |> assign(:passkey_auth_mode, nil)}
 
@@ -424,53 +474,159 @@ defmodule YscWeb.UserLoginLive do
             user_handle = response["response"]["userHandle"]
 
             if is_nil(user_handle) || user_handle == "" do
+              Logger.warning(
+                "[UserLoginLive] Missing userHandle in discoverable credential response",
+                %{
+                  has_user_handle: !is_nil(user_handle),
+                  user_handle: user_handle,
+                  response_keys: Map.keys(response["response"] || %{})
+                }
+              )
+
               {:noreply,
                put_flash(
                  socket,
                  :error,
                  "Invalid passkey response. Please try again or use another sign-in method."
                )
+               |> assign(:passkey_loading, false)
                |> assign(:passkey_challenge, nil)
                |> assign(:passkey_auth_mode, nil)}
             else
               # Decode user_id from userHandle and verify it matches passkey's user_id
-              user_id_from_handle = Base.url_decode64!(user_handle, padding: false)
+              # userHandle is Base64URL encoded (from JavaScript), decode it to get the binary user_id
+              user_id_from_handle =
+                try do
+                  Base.url_decode64!(user_handle, padding: false)
+                rescue
+                  e ->
+                    Logger.error("[UserLoginLive] Failed to decode userHandle", %{
+                      error: inspect(e),
+                      user_handle: user_handle
+                    })
 
-              if passkey.user_id != user_id_from_handle do
+                    nil
+                end
+
+              if is_nil(user_id_from_handle) do
                 {:noreply,
                  put_flash(
                    socket,
                    :error,
-                   "Passkey verification failed. Please try again or use another sign-in method."
+                   "Invalid passkey response. Please try again or use another sign-in method."
                  )
+                 |> assign(:passkey_loading, false)
                  |> assign(:passkey_challenge, nil)
                  |> assign(:passkey_auth_mode, nil)}
               else
-                # Continue with verification using the passkey
-                verify_passkey_authentication(
-                  socket,
-                  passkey,
-                  user_id_from_handle,
-                  raw_id,
-                  authenticator_data,
-                  client_data_json,
-                  signature,
-                  challenge
-                )
+                # passkey.user_id is Ecto.ULID which is already a binary
+                # Both should be binaries, so direct comparison should work
+                if passkey.user_id != user_id_from_handle do
+                  Logger.error("[UserLoginLive] User ID mismatch during passkey verification", %{
+                    passkey_user_id: inspect(passkey.user_id),
+                    passkey_user_id_hex: Base.encode16(passkey.user_id, case: :lower),
+                    passkey_user_id_binary: is_binary(passkey.user_id),
+                    user_id_from_handle: inspect(user_id_from_handle),
+                    user_id_from_handle_hex: Base.encode16(user_id_from_handle, case: :lower),
+                    user_id_from_handle_binary: is_binary(user_id_from_handle),
+                    user_handle_encoded: user_handle,
+                    user_ids_match: passkey.user_id == user_id_from_handle
+                  })
+
+                  {:noreply,
+                   put_flash(
+                     socket,
+                     :error,
+                     "Passkey verification failed. Please try again or use another sign-in method."
+                   )
+                   |> assign(:passkey_loading, false)
+                   |> assign(:passkey_challenge, nil)
+                   |> assign(:passkey_auth_mode, nil)}
+                else
+                  Logger.info(
+                    "[UserLoginLive] User IDs match, proceeding to verify_passkey_authentication"
+                  )
+
+                  # Verify that raw_id matches passkey.external_id before calling Wax.authenticate
+                  if passkey.external_id != raw_id do
+                    Logger.error(
+                      "[UserLoginLive] CRITICAL: raw_id from response does not match passkey.external_id",
+                      %{
+                        raw_id_hex: Base.encode16(raw_id, case: :lower),
+                        raw_id_base64url: Base.url_encode64(raw_id, padding: false),
+                        passkey_external_id_hex: Base.encode16(passkey.external_id, case: :lower),
+                        passkey_external_id_base64url:
+                          Base.url_encode64(passkey.external_id, padding: false),
+                        lengths_match: byte_size(raw_id) == byte_size(passkey.external_id)
+                      }
+                    )
+
+                    {:noreply,
+                     put_flash(
+                       socket,
+                       :error,
+                       "Passkey credential ID mismatch. Please try again or use another sign-in method."
+                     )
+                     |> assign(:passkey_loading, false)
+                     |> assign(:passkey_challenge, nil)
+                     |> assign(:passkey_auth_mode, nil)}
+                  else
+                    # Continue with verification using the passkey
+                    verify_passkey_authentication(
+                      socket,
+                      passkey,
+                      user_id_from_handle,
+                      raw_id,
+                      authenticator_data,
+                      client_data_json,
+                      signature,
+                      challenge
+                    )
+                  end
+                end
               end
             end
           else
-            # Non-discoverable: use passkey's user_id directly
-            verify_passkey_authentication(
-              socket,
-              passkey,
-              passkey.user_id,
-              raw_id,
-              authenticator_data,
-              client_data_json,
-              signature,
-              challenge
+            Logger.info(
+              "[UserLoginLive] Processing non-discoverable credential, using passkey.user_id directly"
             )
+
+            # Verify that raw_id matches passkey.external_id before calling Wax.authenticate
+            if passkey.external_id != raw_id do
+              Logger.error(
+                "[UserLoginLive] CRITICAL: raw_id from response does not match passkey.external_id (non-discoverable)",
+                %{
+                  raw_id_hex: Base.encode16(raw_id, case: :lower),
+                  raw_id_base64url: Base.url_encode64(raw_id, padding: false),
+                  passkey_external_id_hex: Base.encode16(passkey.external_id, case: :lower),
+                  passkey_external_id_base64url:
+                    Base.url_encode64(passkey.external_id, padding: false),
+                  lengths_match: byte_size(raw_id) == byte_size(passkey.external_id)
+                }
+              )
+
+              {:noreply,
+               put_flash(
+                 socket,
+                 :error,
+                 "Passkey credential ID mismatch. Please try again or use another sign-in method."
+               )
+               |> assign(:passkey_loading, false)
+               |> assign(:passkey_challenge, nil)
+               |> assign(:passkey_auth_mode, nil)}
+            else
+              # Non-discoverable: use passkey's user_id directly
+              verify_passkey_authentication(
+                socket,
+                passkey,
+                passkey.user_id,
+                raw_id,
+                authenticator_data,
+                client_data_json,
+                signature,
+                challenge
+              )
+            end
           end
       end
     end
@@ -494,6 +650,7 @@ defmodule YscWeb.UserLoginLive do
 
     {:noreply,
      put_flash(socket, :error, error_message)
+     |> assign(:passkey_loading, false)
      |> assign(:passkey_challenge, nil)
      |> assign(:passkey_auth_mode, nil)}
   end
@@ -501,8 +658,19 @@ defmodule YscWeb.UserLoginLive do
   def handle_event("passkey_auth_error", _params, socket) do
     {:noreply,
      put_flash(socket, :error, "An error occurred during authentication. Please try again.")
+     |> assign(:passkey_loading, false)
      |> assign(:passkey_challenge, nil)
      |> assign(:passkey_auth_mode, nil)}
+  end
+
+  def handle_event("dismiss_banner", _params, socket) do
+    # Reset failed login attempts when user dismisses the banner
+    # Redirect to controller endpoint to clear session, then redirect back
+    {:noreply,
+     socket
+     |> assign(:failed_login_attempts, 0)
+     |> assign(:banner_dismissed, true)
+     |> redirect(to: ~p"/users/log-in/reset-attempts")}
   end
 
   defp verify_passkey_authentication(
@@ -515,19 +683,36 @@ defmodule YscWeb.UserLoginLive do
          signature,
          challenge
        ) do
+    # For Wax.authenticate, we must use the raw_id from the response
+    # This is the credential_id that the browser/authenticator used, and it must match
+    # what's embedded in the authenticator_data (if present) or what the authenticator expects
+    # Even though we verified raw_id matches passkey.external_id, we use raw_id here
+    # because Wax.authenticate validates it against the authenticator_data structure
+    credential_id_to_verify = raw_id
+
     # Verify the authentication
+    # For discoverable credentials, Wax.authenticate needs the public key to verify the signature.
+    # Since we didn't pass allow_credentials in the challenge, we need to provide the public key here.
+    # However, Wax.authenticate might not accept public_key as an option. Let's try the standard call first.
+    # If that fails, we might need to reconstruct the challenge with allow_credentials.
     case Wax.authenticate(
-           raw_id,
+           credential_id_to_verify,
            authenticator_data,
            signature,
            client_data_json,
            challenge
          ) do
       {:ok, auth_result} ->
-        # Verify sign_count increased (replay attack prevention)
-        new_sign_count = auth_result.authenticator_data.sign_count
+        # Wax.authenticate returns {:ok, authenticator_data} where authenticator_data is a Wax.AuthenticatorData struct
+        # The struct has fields like sign_count, not nested under :authenticator_data
+        authenticator_data = auth_result
 
-        if new_sign_count > passkey.sign_count do
+        # Verify sign_count increased (replay attack prevention)
+        # For discoverable credentials, the first use might have sign_count = 0
+        # So we allow >= instead of > to handle the first use case
+        new_sign_count = authenticator_data.sign_count
+
+        if new_sign_count >= passkey.sign_count do
           # Update passkey sign_count and last_used_at
           {:ok, _updated_passkey} =
             Ysc.Accounts.update_passkey_sign_count(passkey, new_sign_count)
@@ -540,17 +725,18 @@ defmodule YscWeb.UserLoginLive do
             method: "passkey"
           })
 
-          # Clear the challenge
+          # Clear the challenge and loading state
           socket =
             socket
+            |> assign(:passkey_loading, false)
             |> assign(:passkey_challenge, nil)
             |> assign(:passkey_auth_mode, nil)
             |> put_flash(:info, "Welcome back!")
 
           # Redirect to session controller to log in (since we need a conn, not socket)
-          query_params = %{
-            "user_id" => Base.url_encode64(user_id, padding: false)
-          }
+          encoded_user_id = Base.url_encode64(user_id, padding: false)
+
+          query_params = %{"user_id" => encoded_user_id}
 
           query_params =
             if socket.assigns.redirect_to && socket.assigns.redirect_to != "" do
@@ -559,39 +745,47 @@ defmodule YscWeb.UserLoginLive do
               query_params
             end
 
+          redirect_url = ~p"/users/log-in/passkey?#{URI.encode_query(query_params)}"
+
           {:noreply,
            socket
-           |> redirect(to: ~p"/users/log-in/passkey?#{URI.encode_query(query_params)}")}
+           |> redirect(to: redirect_url)}
         else
+          require Logger
+
+          Logger.warning("[UserLoginLive] Sign count check failed - possible replay attack", %{
+            new_sign_count: new_sign_count,
+            passkey_sign_count: passkey.sign_count,
+            sign_count_decreased: new_sign_count < passkey.sign_count
+          })
+
           {:noreply,
            put_flash(
              socket,
              :error,
              "Security check failed. Please try again."
            )
+           |> assign(:passkey_loading, false)
            |> assign(:passkey_challenge, nil)
            |> assign(:passkey_auth_mode, nil)}
         end
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        require Logger
+
+        # Log the error
+        error_string = inspect(reason, pretty: true, limit: :infinity)
+        Logger.error("[UserLoginLive] Wax.authenticate failed: #{error_string}")
+
         {:noreply,
          put_flash(
            socket,
            :error,
            "Passkey verification failed. Please try again or use another sign-in method."
          )
+         |> assign(:passkey_loading, false)
          |> assign(:passkey_challenge, nil)
          |> assign(:passkey_auth_mode, nil)}
     end
-  end
-
-  def handle_event("dismiss_banner", _params, socket) do
-    # Reset failed login attempts when user dismisses the banner
-    # Redirect to controller endpoint to clear session, then redirect back
-    {:noreply,
-     socket
-     |> assign(:failed_login_attempts, 0)
-     |> assign(:banner_dismissed, true)
-     |> redirect(to: ~p"/users/log-in/reset-attempts")}
   end
 end

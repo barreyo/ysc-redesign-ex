@@ -354,6 +354,16 @@ window.addEventListener("phx:print-page", () => {
     window.print();
 });
 
+// Handle redirect after delay event (for showing success messages before redirect)
+window.addEventListener("phx:redirect-after-delay", (e) => {
+    const { url, delay = 1500 } = e.detail || {};
+    if (url) {
+        setTimeout(() => {
+            window.location.href = url;
+        }, delay);
+    }
+});
+
 // Handle copy to clipboard for Report ID
 document.addEventListener("click", (event) => {
     if (event.target.closest('[phx-click="copy-report-id"]')) {
