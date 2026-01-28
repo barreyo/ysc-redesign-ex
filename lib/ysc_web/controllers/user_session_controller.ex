@@ -225,7 +225,7 @@ defmodule YscWeb.UserSessionController do
 
   # Find a key that looks like a malformed query string (contains & and =)
   defp find_malformed_query_key(params) when is_map(params) do
-    Enum.find_value(params, fn {key, value} ->
+    Enum.find_value(params, fn {key, _value} ->
       if is_binary(key) && String.contains?(key, "=") && String.contains?(key, "user_id") do
         key
       else

@@ -882,7 +882,7 @@ defmodule YscWeb.UserLoginLive do
 
         Logger.error("[UserLoginLive] Wax.authenticate failed", %{
           error: error_string,
-          error_type: if(is_exception(reason), do: Exception.exception?(reason), else: :unknown),
+          error_type: if(is_exception(reason), do: :exception, else: :unknown),
           passkey_id: passkey.id,
           passkey_user_id: passkey.user_id,
           passkey_user_id_hex: Base.encode16(passkey.user_id, case: :lower),
