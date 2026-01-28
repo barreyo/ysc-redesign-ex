@@ -108,7 +108,8 @@ defmodule Ysc.MixProject do
       {:ueberauth, "~> 0.10"},
       {:ueberauth_google, "~> 0.10"},
       {:ueberauth_facebook, "~> 0.10"},
-      {:uuid, "~> 1.1"}
+      {:uuid, "~> 1.1"},
+      {:wax_, "~> 0.7.0"}
     ]
   end
 

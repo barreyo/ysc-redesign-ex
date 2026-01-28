@@ -160,4 +160,49 @@ defmodule YscWeb.UserSessionController do
     |> delete_session(:failed_login_attempts)
     |> redirect(to: ~p"/users/log-in")
   end
+
+  def passkey_login(conn, %{"user_id" => encoded_user_id, "redirect_to" => redirect_to}) do
+    # Passkey-based login - skip CSRF protection (similar to auto_login)
+    user_id = Base.url_decode64!(encoded_user_id, padding: false)
+
+    if user = Accounts.get_user(user_id) do
+      if user.state in [:pending_approval, :active] do
+        # Log successful sign-in
+        AuthService.log_login_success(user, conn, %{method: "passkey"})
+
+        # Reset failed sign-in attempts and log in user
+        validated_redirect =
+          if redirect_to && redirect_to != "" &&
+               YscWeb.UserAuth.valid_internal_redirect?(redirect_to) do
+            redirect_to
+          else
+            nil
+          end
+
+        conn
+        |> delete_session(:failed_login_attempts)
+        |> UserAuth.log_in_user(user, %{}, validated_redirect)
+      else
+        # Account not active
+        conn
+        |> put_flash(:error, "Your account is not currently active.")
+        |> redirect(to: ~p"/users/log-in")
+      end
+    else
+      # Invalid user ID
+      conn
+      |> put_flash(:error, "Invalid login session.")
+      |> redirect(to: ~p"/users/log-in")
+    end
+  end
+
+  def passkey_login(conn, %{"user_id" => encoded_user_id}) do
+    passkey_login(conn, %{"user_id" => encoded_user_id, "redirect_to" => ""})
+  end
+
+  def passkey_login(conn, _params) do
+    conn
+    |> put_flash(:error, "Invalid login request.")
+    |> redirect(to: ~p"/users/log-in")
+  end
 end

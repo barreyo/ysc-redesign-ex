@@ -11,7 +11,7 @@ defmodule Ysc.Accounts do
   alias Ysc.Accounts.SignupApplication
   alias Ysc.Repo
 
-  alias Ysc.Accounts.{Address, User, UserToken, UserNotifier, AuthService, UserNote}
+  alias Ysc.Accounts.{Address, User, UserToken, UserNotifier, AuthService, UserNote, UserPasskey}
 
   ## Database getters
 
@@ -177,6 +177,61 @@ defmodule Ysc.Accounts do
 
   def get_user_from_stripe_id(stripe_id) do
     Repo.get_by(User, stripe_id: stripe_id)
+  end
+
+  ## Passkey functions
+
+  @doc """
+  Gets all passkeys for a user.
+  """
+  def get_user_passkeys(user) do
+    from(p in UserPasskey, where: p.user_id == ^user.id, order_by: [desc: p.last_used_at])
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a user passkey by external_id (credential ID).
+  """
+  def get_user_passkey_by_external_id(external_id) do
+    Repo.get_by(UserPasskey, external_id: external_id)
+  end
+
+  @doc """
+  Gets a user by email with passkeys preloaded.
+  """
+  def get_user_by_email_for_passkey(email) when is_binary(email) do
+    case Repo.get_by(User, email: email) do
+      nil -> nil
+      user -> Repo.preload(user, :passkeys)
+    end
+  end
+
+  @doc """
+  Creates a new user passkey.
+  """
+  def create_user_passkey(user, attrs) do
+    %UserPasskey{}
+    |> UserPasskey.create_changeset(Map.merge(attrs, %{user_id: user.id}))
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates the sign_count and last_used_at for a passkey.
+  """
+  def update_passkey_sign_count(passkey, sign_count) do
+    passkey
+    |> UserPasskey.update_usage_changeset(%{
+      sign_count: sign_count,
+      last_used_at: DateTime.utc_now()
+    })
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a user passkey.
+  """
+  def delete_user_passkey(passkey) do
+    Repo.delete(passkey)
   end
 
   @doc """

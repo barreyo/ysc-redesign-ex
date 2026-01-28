@@ -107,6 +107,16 @@ if config_env() == :prod do
     site_key: System.fetch_env!("TURNSTILE_SITE_KEY"),
     secret_key: System.fetch_env!("TURNSTILE_SECRET_KEY")
 
+  # Wax (WebAuthn) configuration for production
+  # RP ID should be the domain without protocol (e.g., "ysc.org" or "ysc-sandbox.fly.dev")
+  rp_id = host
+  origin = "https://#{host}"
+
+  config :wax_,
+    rp_id: rp_id,
+    origin: origin,
+    attestation: "none"
+
   # ## Stripe Configuration
   #
   # Configure Stripe API keys for production.

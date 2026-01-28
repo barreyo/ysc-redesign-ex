@@ -156,3 +156,9 @@ config :ueberauth, Ueberauth.Strategy.Google.OAuth,
 config :ueberauth, Ueberauth.Strategy.Facebook.OAuth,
   client_id: System.get_env("FACEBOOK_CLIENT_ID") || "dev_facebook_client_id",
   client_secret: System.get_env("FACEBOOK_CLIENT_SECRET") || "dev_facebook_client_secret"
+
+# Wax (WebAuthn) configuration for development
+config :wax_,
+  rp_id: "localhost",
+  origin: "http://localhost:4000",
+  attestation: "none"

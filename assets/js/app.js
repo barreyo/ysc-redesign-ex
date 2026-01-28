@@ -61,6 +61,7 @@ import Autocomplete from "./autocomplete";
 import ReceiptLightbox from "./receipt_lightbox";
 import ScrollToSection from "./scroll_to_section";
 import DeviceDetection from "./device_detection";
+import PasskeyAuth from "./passkey_auth";
 
 let Hooks = {
     StickyNavbar,
@@ -100,6 +101,7 @@ let Hooks = {
     ReceiptLightbox,
     ScrollToSection,
     DeviceDetection,
+    PasskeyAuth,
 };
 Hooks.LivePhone = LivePhone;
 

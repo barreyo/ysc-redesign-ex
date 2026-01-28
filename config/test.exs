@@ -70,3 +70,9 @@ config :ueberauth, Ueberauth.Strategy.Google.OAuth,
 config :ueberauth, Ueberauth.Strategy.Facebook.OAuth,
   client_id: "test_facebook_client_id",
   client_secret: "test_facebook_client_secret"
+
+# Wax (WebAuthn) configuration for tests
+config :wax_,
+  rp_id: "localhost",
+  origin: "http://localhost:4002",
+  attestation: "none"

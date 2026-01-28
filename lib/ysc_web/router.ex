@@ -178,6 +178,7 @@ defmodule YscWeb.Router do
     pipe_through [:auto_login]
 
     get "/users/log-in/auto", UserSessionController, :auto_login
+    get "/users/log-in/passkey", UserSessionController, :passkey_login
   end
 
   ## Password reset (allow unauthenticated access)

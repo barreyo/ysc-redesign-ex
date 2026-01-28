@@ -20,7 +20,7 @@ defmodule YscWeb.UserLoginLive do
         </:subtitle>
       </.header>
       <!-- Alternative Authentication Methods -->
-      <div id="auth-methods" class="space-y-3 pt-8" phx-hook="DeviceDetection">
+      <div id="auth-methods" class="space-y-3 pt-8" phx-hook="DeviceDetection PasskeyAuth">
         <.button
           :if={@passkey_supported}
           type="button"
@@ -279,12 +279,34 @@ defmodule YscWeb.UserLoginLive do
      |> assign(:redirect_to, redirect_to)
      |> assign(:is_ios_mobile, false)
      |> assign(:passkey_supported, false)
-     |> assign(:banner_dismissed, false), temporary_assigns: [form: form]}
+     |> assign(:banner_dismissed, false)
+     |> assign(:passkey_challenge, nil)
+     |> assign(:passkey_auth_mode, nil), temporary_assigns: [form: form]}
   end
 
   def handle_event("sign_in_with_passkey", _params, socket) do
-    # Placeholder for passkey authentication
-    {:noreply, put_flash(socket, :info, "Passkey authentication coming soon!")}
+    # Use discoverable credentials (passwordless - no email needed)
+    # The browser will show a native account picker with available passkeys
+
+    # Generate challenge for discoverable credentials (no allow_credentials list)
+    # This tells the browser to look up keys stored on the device
+    challenge = Wax.new_authentication_challenge([])
+
+    # Convert challenge to JSON-serializable format for JS
+    # Note: No allow_credentials means the browser will show a native account picker
+    challenge_json = %{
+      challenge: Base.url_encode64(challenge.bytes, padding: false),
+      timeout: challenge.timeout,
+      rp_id: challenge.rp_id,
+      user_verification: "preferred"
+      # Intentionally omitting allow_credentials to enable discoverable credentials
+    }
+
+    {:noreply,
+     socket
+     |> assign(:passkey_challenge, challenge)
+     |> assign(:passkey_auth_mode, :discoverable)
+     |> push_event("create_authentication_challenge", %{options: challenge_json})}
   end
 
   def handle_event("sign_in_with_google", _params, socket) do
@@ -331,6 +353,210 @@ defmodule YscWeb.UserLoginLive do
 
   def handle_event("passkey_support_detected", _params, socket) do
     {:noreply, socket}
+  end
+
+  def handle_event("verify_authentication", response, socket) do
+    challenge = socket.assigns.passkey_challenge
+    auth_mode = socket.assigns[:passkey_auth_mode] || :non_discoverable
+
+    if is_nil(challenge) do
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "Authentication session expired. Please try again."
+       )
+       |> assign(:passkey_challenge, nil)
+       |> assign(:passkey_auth_mode, nil)}
+    else
+      # Decode the response from JS
+      raw_id = Base.url_decode64!(response["rawId"] || response["id"], padding: false)
+
+      authenticator_data =
+        Base.url_decode64!(response["response"]["authenticatorData"], padding: false)
+
+      client_data_json =
+        Base.url_decode64!(response["response"]["clientDataJSON"], padding: false)
+
+      signature = Base.url_decode64!(response["response"]["signature"], padding: false)
+
+      # Find passkey by external_id first (needed for verification)
+      case Ysc.Accounts.get_user_passkey_by_external_id(raw_id) do
+        nil ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Invalid passkey. Please try again or use another sign-in method."
+           )
+           |> assign(:passkey_challenge, nil)
+           |> assign(:passkey_auth_mode, nil)}
+
+        passkey ->
+          # For discoverable credentials, verify userHandle matches passkey's user_id
+          if auth_mode == :discoverable do
+            user_handle = response["response"]["userHandle"]
+
+            if is_nil(user_handle) || user_handle == "" do
+              {:noreply,
+               put_flash(
+                 socket,
+                 :error,
+                 "Invalid passkey response. Please try again or use another sign-in method."
+               )
+               |> assign(:passkey_challenge, nil)
+               |> assign(:passkey_auth_mode, nil)}
+            else
+              # Decode user_id from userHandle and verify it matches passkey's user_id
+              user_id_from_handle = Base.url_decode64!(user_handle, padding: false)
+
+              if passkey.user_id != user_id_from_handle do
+                {:noreply,
+                 put_flash(
+                   socket,
+                   :error,
+                   "Passkey verification failed. Please try again or use another sign-in method."
+                 )
+                 |> assign(:passkey_challenge, nil)
+                 |> assign(:passkey_auth_mode, nil)}
+              else
+                # Continue with verification using the passkey
+                verify_passkey_authentication(
+                  socket,
+                  passkey,
+                  user_id_from_handle,
+                  raw_id,
+                  authenticator_data,
+                  client_data_json,
+                  signature,
+                  challenge
+                )
+              end
+            end
+          else
+            # Non-discoverable: use passkey's user_id directly
+            verify_passkey_authentication(
+              socket,
+              passkey,
+              passkey.user_id,
+              raw_id,
+              authenticator_data,
+              client_data_json,
+              signature,
+              challenge
+            )
+          end
+      end
+    end
+  end
+
+  defp verify_passkey_authentication(
+         socket,
+         passkey,
+         user_id,
+         raw_id,
+         authenticator_data,
+         client_data_json,
+         signature,
+         challenge
+       ) do
+    # Verify the authentication
+    case Wax.authenticate(
+           raw_id,
+           authenticator_data,
+           signature,
+           client_data_json,
+           challenge
+         ) do
+      {:ok, auth_result} ->
+        # Verify sign_count increased (replay attack prevention)
+        new_sign_count = auth_result.authenticator_data.sign_count
+
+        if new_sign_count > passkey.sign_count do
+          # Update passkey sign_count and last_used_at
+          {:ok, _updated_passkey} =
+            Ysc.Accounts.update_passkey_sign_count(passkey, new_sign_count)
+
+          # Get the user and log them in
+          user = Ysc.Accounts.get_user!(user_id)
+
+          # Log successful authentication
+          Ysc.Accounts.AuthService.log_login_success(user, socket, %{
+            method: "passkey"
+          })
+
+          # Clear the challenge
+          socket =
+            socket
+            |> assign(:passkey_challenge, nil)
+            |> assign(:passkey_auth_mode, nil)
+            |> put_flash(:info, "Welcome back!")
+
+          # Redirect to session controller to log in (since we need a conn, not socket)
+          query_params = %{
+            "user_id" => Base.url_encode64(user_id, padding: false)
+          }
+
+          query_params =
+            if socket.assigns.redirect_to && socket.assigns.redirect_to != "" do
+              Map.put(query_params, "redirect_to", socket.assigns.redirect_to)
+            else
+              query_params
+            end
+
+          {:noreply,
+           socket
+           |> redirect(to: ~p"/users/log-in/passkey?#{URI.encode_query(query_params)}")}
+        else
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Security check failed. Please try again."
+           )
+           |> assign(:passkey_challenge, nil)
+           |> assign(:passkey_auth_mode, nil)}
+        end
+
+      {:error, _reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Passkey verification failed. Please try again or use another sign-in method."
+         )
+         |> assign(:passkey_challenge, nil)
+         |> assign(:passkey_auth_mode, nil)}
+    end
+  end
+
+  def handle_event("passkey_auth_error", %{"error" => error, "message" => message}, socket) do
+    error_message =
+      case error do
+        "NotAllowedError" ->
+          "Authentication was cancelled or not allowed. Please try again."
+
+        "InvalidStateError" ->
+          "This passkey may have been removed. Please use another sign-in method."
+
+        "NotSupportedError" ->
+          "Your device doesn't support this authentication method. Please use another sign-in method."
+
+        _ ->
+          "Authentication failed: #{message}. Please try again or use another sign-in method."
+      end
+
+    {:noreply,
+     put_flash(socket, :error, error_message)
+     |> assign(:passkey_challenge, nil)
+     |> assign(:passkey_auth_mode, nil)}
+  end
+
+  def handle_event("passkey_auth_error", _params, socket) do
+    {:noreply,
+     put_flash(socket, :error, "An error occurred during authentication. Please try again.")
+     |> assign(:passkey_challenge, nil)
+     |> assign(:passkey_auth_mode, nil)}
   end
 
   def handle_event("dismiss_banner", _params, socket) do
