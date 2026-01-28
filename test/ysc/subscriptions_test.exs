@@ -349,7 +349,7 @@ defmodule Ysc.SubscriptionsTest do
       assert %Ecto.Changeset{} = changeset
     end
 
-    test "scheduled_for_cancellation?/1 checks if subscription is scheduled", %{user: user} do
+    test "scheduled_for_cancellation?/1 checks if subscription is scheduled", %{user: _user} do
       future_date = DateTime.add(DateTime.utc_now(), 30, :day)
 
       scheduled = %Subscription{

@@ -123,7 +123,7 @@ defmodule YscWeb.Sms.Notifier do
           if is_valid do
             {:ok, normalized}
           else
-            Logger.error("SMS not scheduled - invalid phone number format",
+            Logger.warning("SMS not scheduled - invalid phone number format",
               phone_number: phone_number,
               normalized: normalized,
               template: template
@@ -151,7 +151,7 @@ defmodule YscWeb.Sms.Notifier do
               if is_valid do
                 {:ok, normalized}
               else
-                Logger.error("SMS not scheduled - invalid phone number format",
+                Logger.warning("SMS not scheduled - invalid phone number format",
                   phone_number: validated_phone,
                   normalized: normalized,
                   template: template
@@ -191,7 +191,7 @@ defmodule YscWeb.Sms.Notifier do
       if is_valid do
         {:ok, normalized}
       else
-        Logger.error("SMS not scheduled - invalid phone number format",
+        Logger.warning("SMS not scheduled - invalid phone number format",
           phone_number: phone_number,
           normalized: normalized,
           template: template
@@ -216,21 +216,7 @@ defmodule YscWeb.Sms.Notifier do
     if is_nil(template_module) do
       error_message = "Template module not found for template: #{template}"
 
-      Logger.error(error_message)
-
-      Sentry.capture_message(error_message,
-        level: :error,
-        extra: %{
-          phone_number: phone_number,
-          idempotency_key: idempotency_key,
-          template: template,
-          user_id: user_id
-        },
-        tags: %{
-          sms_template: template,
-          error_type: "missing_template_module"
-        }
-      )
+      Logger.warning(error_message)
 
       {:error, error_message}
     else

@@ -21,7 +21,7 @@ defmodule YscWeb.FlowrouteWebhookController do
       message_id = get_in(data, ["id"])
 
       if is_nil(message_id) or is_nil(attributes) do
-        Logger.error("Invalid inbound SMS webhook payload", payload: inspect(params))
+        Logger.warning("Invalid inbound SMS webhook payload", payload: inspect(params))
         send_resp(conn, 400, "Invalid payload")
       else
         # Parse timestamp
@@ -78,7 +78,7 @@ defmodule YscWeb.FlowrouteWebhookController do
             send_resp(conn, 200, "OK")
 
           {:error, changeset} ->
-            Logger.error("Failed to create SMS received record",
+            Logger.warning("Failed to create SMS received record",
               provider: :flowroute,
               provider_message_id: message_id,
               errors: inspect(changeset.errors)
@@ -89,7 +89,7 @@ defmodule YscWeb.FlowrouteWebhookController do
       end
     rescue
       error ->
-        Logger.error("Error processing inbound SMS webhook",
+        Logger.warning("Error processing inbound SMS webhook",
           error: Exception.message(error),
           stacktrace: Exception.format_stacktrace(__STACKTRACE__)
         )
@@ -116,7 +116,7 @@ defmodule YscWeb.FlowrouteWebhookController do
       message_id = get_in(data, ["id"])
 
       if is_nil(message_id) or is_nil(attributes) do
-        Logger.error("Invalid delivery receipt webhook payload", payload: inspect(params))
+        Logger.warning("Invalid delivery receipt webhook payload", payload: inspect(params))
         send_resp(conn, 400, "Invalid payload")
       else
         # Parse timestamp
@@ -168,7 +168,7 @@ defmodule YscWeb.FlowrouteWebhookController do
             send_resp(conn, 200, "OK")
 
           {:error, changeset} ->
-            Logger.error("Failed to create delivery receipt record",
+            Logger.warning("Failed to create delivery receipt record",
               provider: :flowroute,
               provider_message_id: message_id,
               errors: inspect(changeset.errors)

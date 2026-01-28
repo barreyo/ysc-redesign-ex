@@ -2,10 +2,8 @@ defmodule YscWeb.Workers.QuickbooksSyncPayoutWorkerTest do
   use Ysc.DataCase, async: false
 
   import Mox
-  import Ysc.AccountsFixtures
 
   alias YscWeb.Workers.QuickbooksSyncPayoutWorker
-  alias Ysc.Ledgers
 
   setup :verify_on_exit!
 
@@ -36,7 +34,7 @@ defmodule YscWeb.Workers.QuickbooksSyncPayoutWorkerTest do
         attempt: 1
       }
 
-      assert {:error, :payout_not_found} = QuickbooksSyncPayoutWorker.perform(job)
+      assert {:discard, :payout_not_found} = QuickbooksSyncPayoutWorker.perform(job)
     end
   end
 end

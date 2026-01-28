@@ -209,7 +209,7 @@ defmodule YscWeb.UserSessionController do
         passkey_login_with_params(conn, encoded_user_id, "")
 
       _ ->
-        Logger.error("[UserSessionController] passkey_login called with invalid params", %{
+        Logger.warning("[UserSessionController] passkey_login called with invalid params", %{
           params: params,
           query_params: conn.query_params,
           path_params: conn.path_params,
@@ -245,14 +245,44 @@ defmodule YscWeb.UserSessionController do
     })
 
     # Passkey-based login - skip CSRF protection (similar to auto_login)
-    user_id = Base.url_decode64!(encoded_user_id, padding: false)
+    # Handle invalid base64 or invalid ULID gracefully
+    user_id =
+      try do
+        Base.url_decode64!(encoded_user_id, padding: false)
+      rescue
+        ArgumentError ->
+          Logger.warning("[UserSessionController] Invalid base64 user_id", %{
+            encoded_user_id: encoded_user_id
+          })
 
-    Logger.debug("[UserSessionController] Decoded user_id", %{
-      user_id_hex: Base.encode16(user_id, case: :lower),
-      user_id_length: byte_size(user_id)
-    })
+          nil
+      end
 
-    if user = Accounts.get_user(user_id) do
+    if user_id do
+      Logger.debug("[UserSessionController] Decoded user_id", %{
+        user_id_hex: Base.encode16(user_id, case: :lower),
+        user_id_length: byte_size(user_id)
+      })
+    end
+
+    # Try to get user, handling invalid ULID gracefully
+    user =
+      if user_id do
+        try do
+          Accounts.get_user(user_id)
+        rescue
+          Ecto.Query.CastError ->
+            Logger.warning("[UserSessionController] Invalid ULID format", %{
+              user_id: user_id
+            })
+
+            nil
+        end
+      else
+        nil
+      end
+
+    if user do
       if user.state in [:pending_approval, :active] do
         # Log successful sign-in
         AuthService.log_login_success(user, conn, %{method: "passkey"})
@@ -289,7 +319,7 @@ defmodule YscWeb.UserSessionController do
       end
     else
       # Invalid user ID
-      Logger.error("[UserSessionController] User not found", %{
+      Logger.warning("[UserSessionController] User not found", %{
         user_id_hex: Base.encode16(user_id, case: :lower),
         encoded_user_id: encoded_user_id
       })

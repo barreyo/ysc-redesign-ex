@@ -4,7 +4,22 @@ defmodule Ysc.ResendRateLimiterTest do
   alias Ysc.ResendRateLimiter
 
   setup do
-    # Clear cache before each test
+    # Clear cache before each test to ensure clean state
+    # Clear all keys that match the resend pattern to avoid test interference
+    case Cachex.keys(:ysc_cache) do
+      {:ok, keys} ->
+        keys
+        |> Enum.filter(&String.starts_with?(&1, "resend_"))
+        |> Enum.each(fn key ->
+          Cachex.del(:ysc_cache, key)
+        end)
+
+      _ ->
+        :ok
+    end
+
+    # Also clear the entire cache as a fallback
+    Cachex.clear(:ysc_cache)
     :ok
   end
 
@@ -31,6 +46,11 @@ defmodule Ysc.ResendRateLimiterTest do
       type = :email
 
       assert :ok = ResendRateLimiter.record_resend(identifier, type, 60)
+
+      # Verify the cache entry was actually created
+      cache_key = "resend_#{type}:#{identifier}"
+      assert {:ok, true} = Cachex.get(:ysc_cache, cache_key)
+
       assert {:error, :rate_limited, _} = ResendRateLimiter.resend_allowed?(identifier, type, 60)
     end
   end
@@ -49,6 +69,10 @@ defmodule Ysc.ResendRateLimiterTest do
       type = :sms
 
       :ok = ResendRateLimiter.record_resend(identifier, type, 60)
+
+      # Verify the cache entry was actually created
+      cache_key = "resend_#{type}:#{identifier}"
+      assert {:ok, true} = Cachex.get(:ysc_cache, cache_key)
 
       assert {:error, :rate_limited, _remaining} =
                ResendRateLimiter.check_and_record_resend(identifier, type, 60)

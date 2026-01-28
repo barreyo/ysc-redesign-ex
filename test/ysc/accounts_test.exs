@@ -2,6 +2,7 @@ defmodule Ysc.AccountsTest do
   use Ysc.DataCase
 
   alias Ysc.Accounts
+  alias Ysc.Repo
 
   import Ysc.AccountsFixtures
   alias Ysc.Accounts.{User, UserToken}
@@ -30,14 +31,20 @@ defmodule Ysc.AccountsTest do
 
     test "preloads associations when specified" do
       user = user_fixture(%{phone_number: "+14159098268"})
-      found = Accounts.get_user(user.id, [:subscription])
-      assert Ecto.assoc_loaded?(found.subscription)
+      found = Accounts.get_user(user.id, [:subscriptions])
+      assert Ecto.assoc_loaded?(found.subscriptions)
     end
   end
 
   describe "get_user_from_stripe_id/1" do
     test "returns user by stripe_id" do
-      user = user_fixture(%{phone_number: "+14159098268", stripe_id: "cus_test123"})
+      user = user_fixture(%{phone_number: "+14159098268"})
+
+      user =
+        user
+        |> Ecto.Changeset.change(stripe_id: "cus_test123")
+        |> Repo.update!()
+
       found = Accounts.get_user_from_stripe_id("cus_test123")
       assert found.id == user.id
     end
@@ -62,7 +69,9 @@ defmodule Ysc.AccountsTest do
 
     test "respects limit option" do
       for i <- 1..15 do
-        user_fixture(%{first_name: "John#{i}", phone_number: "+1415909826#{i}"})
+        # Generate valid phone numbers (US format: +1XXXXXXXXXX, 11 digits total)
+        phone_suffix = String.pad_leading(Integer.to_string(i), 2, "0")
+        user_fixture(%{first_name: "John#{i}", phone_number: "+141590982#{phone_suffix}"})
       end
 
       results = Accounts.search_users("John", limit: 10)
@@ -108,11 +117,15 @@ defmodule Ysc.AccountsTest do
     end
 
     test "returns true for user with lifetime membership" do
+      user = user_fixture(%{phone_number: "+14159098268"})
+
       user =
-        user_fixture(%{
-          phone_number: "+14159098268",
-          lifetime_membership_awarded_at: DateTime.utc_now()
-        })
+        user
+        |> Ecto.Changeset.change(
+          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        )
+        |> Repo.update!()
+        |> Repo.reload!()
 
       assert Accounts.has_active_membership?(user)
     end
@@ -120,11 +133,15 @@ defmodule Ysc.AccountsTest do
 
   describe "has_lifetime_membership?/1" do
     test "returns true when lifetime_membership_awarded_at is set" do
+      user = user_fixture(%{phone_number: "+14159098268"})
+
       user =
-        user_fixture(%{
-          phone_number: "+14159098268",
-          lifetime_membership_awarded_at: DateTime.utc_now()
-        })
+        user
+        |> Ecto.Changeset.change(
+          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        )
+        |> Repo.update!()
+        |> Repo.reload!()
 
       assert Accounts.has_lifetime_membership?(user)
     end
@@ -141,11 +158,11 @@ defmodule Ysc.AccountsTest do
       _user2 = user_fixture(%{phone_number: "+14159098269"})
 
       params = %{page: 1, page_size: 10}
-      result = Accounts.list_paginated_users(params)
+      assert {:ok, {users, meta}} = Accounts.list_paginated_users(params)
 
-      assert Map.has_key?(result, :entries)
-      assert Map.has_key?(result, :page_number)
-      assert result.page_number == 1
+      assert is_list(users)
+      assert meta.current_page == 1
+      assert meta.page_size == 10
     end
 
     test "filters by search term" do
@@ -153,9 +170,9 @@ defmodule Ysc.AccountsTest do
       _other = user_fixture(%{first_name: "Jane", phone_number: "+14159098269"})
 
       params = %{page: 1, page_size: 10}
-      result = Accounts.list_paginated_users(params, "John")
+      assert {:ok, {users, _meta}} = Accounts.list_paginated_users(params, "John")
 
-      assert Enum.any?(result.entries, &(&1.id == user.id))
+      assert Enum.any?(users, &(&1.id == user.id))
     end
   end
 
@@ -172,17 +189,23 @@ defmodule Ysc.AccountsTest do
   describe "update_notification_preferences/2" do
     test "updates notification preferences" do
       user = user_fixture(%{phone_number: "+14159098268"})
-      attrs = %{email_notifications_enabled: false}
+      attrs = %{newsletter_notifications: false}
 
       assert {:ok, updated} = Accounts.update_notification_preferences(user, attrs)
-      assert updated.email_notifications_enabled == false
+      assert updated.newsletter_notifications == false
     end
   end
 
   describe "update_billing_address/2" do
     test "updates billing address" do
       user = user_fixture(%{phone_number: "+14159098268"})
-      attrs = %{address: "123 New St", city: "San Francisco"}
+
+      attrs = %{
+        "address" => "123 New St",
+        "city" => "San Francisco",
+        "postal_code" => "94105",
+        "country" => "US"
+      }
 
       assert {:ok, _updated} = Accounts.update_billing_address(user, attrs)
     end

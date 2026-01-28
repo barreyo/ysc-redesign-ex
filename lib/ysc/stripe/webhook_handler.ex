@@ -199,7 +199,7 @@ defmodule Ysc.Stripe.WebhookHandler do
         # Mark as failed
         Ysc.Webhooks.update_webhook_state(webhook_event, :failed)
 
-        Logger.error("Webhook event processing failed",
+        Logger.warning("Webhook event processing failed",
           event_id: event.id,
           event_type: event.type,
           error: Exception.message(error)

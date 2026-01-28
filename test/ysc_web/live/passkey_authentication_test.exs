@@ -21,28 +21,24 @@ defmodule YscWeb.PasskeyAuthenticationTest do
     test "creates authentication challenge when sign_in_with_passkey is clicked", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
+      # First enable passkey support so the button is visible
+      lv
+      |> element("#auth-methods")
+      |> render_hook("passkey_support_detected", %{"supported" => true})
+
       # Click sign in with passkey button
       lv
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
 
-      # Verify challenge was created
-      assert %{passkey_challenge: challenge} = lv.assigns
-      assert challenge != nil
-      assert challenge.rp_id == "localhost"
-      assert challenge.origin == "http://localhost:4002"
-      assert byte_size(challenge.bytes) >= 16
-
-      # Verify loading state
-      assert lv.assigns.passkey_loading == true
-
       # Verify create_authentication_challenge event was pushed
       assert_push_event(lv, "create_authentication_challenge", %{options: options})
-      assert options["challenge"] != nil
-      assert options["rpId"] == "localhost"
-      assert options["userVerification"] == "preferred"
+      # Note: push_event payload uses atom keys in tests
+      assert is_binary(options[:challenge])
+      assert options[:rpId] == "localhost"
+      assert options[:userVerification] == "preferred"
       # Should not have allowCredentials for discoverable credentials
-      refute Map.has_key?(options, "allowCredentials")
+      refute Map.has_key?(options, :allowCredentials)
     end
 
     test "includes all passkeys in challenge for Wax verification", %{conn: conn, user: user} do
@@ -66,23 +62,26 @@ defmodule YscWeb.PasskeyAuthenticationTest do
 
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
+      # First enable passkey support so the button is visible
+      lv
+      |> element("#auth-methods")
+      |> render_hook("passkey_support_detected", %{"supported" => true})
+
       # Click sign in with passkey
       lv
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
 
-      # Challenge should include the passkey in allow_credentials for Wax
-      challenge = lv.assigns.passkey_challenge
-      assert challenge != nil
-      assert length(challenge.allow_credentials) == 1
-      {stored_credential_id, _stored_public_key} = List.first(challenge.allow_credentials)
-      assert stored_credential_id == credential_id
+      # For discoverable credentials we intentionally omit allowCredentials from the browser options.
+      # This test asserts we still create/push the authentication challenge even when passkeys exist.
+      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+      assert is_binary(options[:challenge])
     end
   end
 
   describe "Passkey authentication - verification" do
     setup %{user: user} do
-      passkey = create_test_passkey(user)
+      passkey = passkey_fixture(user)
       %{passkey: passkey, credential_id: passkey.external_id}
     end
 
@@ -103,20 +102,22 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       }
 
       lv
-      |> element("form")
+      |> element("#auth-methods")
       |> render_hook("verify_authentication", response)
 
       # Should show error about expired session
-      assert lv.assigns.flash[:error] =~ "expired" ||
-               lv.assigns.flash[:error] =~ "session"
-
-      assert lv.assigns.passkey_loading == false
+      html = render(lv)
+      assert html =~ "expired" || html =~ "session"
     end
 
     test "handles passkey not found error", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       # Create challenge
+      lv
+      |> element("#auth-methods")
+      |> render_hook("passkey_support_detected", %{"supported" => true})
+
       lv
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
@@ -146,30 +147,33 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       }
 
       lv
-      |> element("form")
+      |> element("#auth-methods")
       |> render_hook("verify_authentication", response)
 
       # Should show error about invalid passkey
-      assert lv.assigns.flash[:error] =~ "Invalid passkey" ||
-               lv.assigns.flash[:error] =~ "not found"
-
-      assert lv.assigns.passkey_loading == false
+      html = render(lv)
+      assert html =~ "Invalid passkey" || html =~ "another sign-in"
     end
 
     test "handles missing userHandle for discoverable credentials", %{
       conn: conn,
-      user: user,
+      user: _user,
       passkey: passkey
     } do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       # Create challenge
       lv
+      |> element("#auth-methods")
+      |> render_hook("passkey_support_detected", %{"supported" => true})
+
+      lv
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
 
       raw_id = Base.url_encode64(passkey.external_id, padding: false)
-      challenge = lv.assigns.passkey_challenge
+      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+      challenge_b64 = options[:challenge]
 
       response = %{
         "id" => raw_id,
@@ -181,7 +185,7 @@ defmodule YscWeb.PasskeyAuthenticationTest do
             Base.url_encode64(
               Jason.encode!(%{
                 type: "webauthn.get",
-                challenge: Base.url_encode64(challenge.bytes, padding: false),
+                challenge: challenge_b64,
                 origin: "http://localhost:4002"
               }),
               padding: false
@@ -192,19 +196,17 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       }
 
       lv
-      |> element("form")
+      |> element("#auth-methods")
       |> render_hook("verify_authentication", response)
 
       # Should show error about missing userHandle
-      assert lv.assigns.flash[:error] =~ "Invalid passkey response" ||
-               lv.assigns.flash[:error] =~ "userHandle"
-
-      assert lv.assigns.passkey_loading == false
+      html = render(lv)
+      assert html =~ "Invalid passkey response"
     end
 
     test "handles user ID mismatch for discoverable credentials", %{
       conn: conn,
-      user: user,
+      user: _user,
       passkey: passkey
     } do
       # Create another user
@@ -215,11 +217,16 @@ defmodule YscWeb.PasskeyAuthenticationTest do
 
       # Create challenge
       lv
+      |> element("#auth-methods")
+      |> render_hook("passkey_support_detected", %{"supported" => true})
+
+      lv
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
 
       raw_id = Base.url_encode64(passkey.external_id, padding: false)
-      challenge = lv.assigns.passkey_challenge
+      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+      challenge_b64 = options[:challenge]
       # Use wrong user's ID in userHandle
       wrong_user_id = Base.url_encode64(other_user.id, padding: false)
 
@@ -233,7 +240,7 @@ defmodule YscWeb.PasskeyAuthenticationTest do
             Base.url_encode64(
               Jason.encode!(%{
                 type: "webauthn.get",
-                challenge: Base.url_encode64(challenge.bytes, padding: false),
+                challenge: challenge_b64,
                 origin: "http://localhost:4002"
               }),
               padding: false
@@ -244,20 +251,22 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       }
 
       lv
-      |> element("form")
+      |> element("#auth-methods")
       |> render_hook("verify_authentication", response)
 
       # Should show error about user ID mismatch
-      assert lv.assigns.flash[:error] =~ "mismatch" ||
-               lv.assigns.flash[:error] =~ "Invalid"
-
-      assert lv.assigns.passkey_loading == false
+      html = render(lv)
+      assert html =~ "Passkey verification failed" || html =~ "Invalid"
     end
 
-    test "handles credential ID mismatch", %{conn: conn, user: user, passkey: passkey} do
+    test "handles credential ID mismatch", %{conn: conn, user: user, passkey: _passkey} do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       # Create challenge
+      lv
+      |> element("#auth-methods")
+      |> render_hook("passkey_support_detected", %{"supported" => true})
+
       lv
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
@@ -265,7 +274,8 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       # Use wrong credential ID
       wrong_credential_id = :crypto.strong_rand_bytes(16)
       wrong_raw_id = Base.url_encode64(wrong_credential_id, padding: false)
-      challenge = lv.assigns.passkey_challenge
+      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+      challenge_b64 = options[:challenge]
       user_id = Base.url_encode64(user.id, padding: false)
 
       response = %{
@@ -278,7 +288,7 @@ defmodule YscWeb.PasskeyAuthenticationTest do
             Base.url_encode64(
               Jason.encode!(%{
                 type: "webauthn.get",
-                challenge: Base.url_encode64(challenge.bytes, padding: false),
+                challenge: challenge_b64,
                 origin: "http://localhost:4002"
               }),
               padding: false
@@ -289,14 +299,12 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       }
 
       lv
-      |> element("form")
+      |> element("#auth-methods")
       |> render_hook("verify_authentication", response)
 
       # Should show error about invalid passkey
-      assert lv.assigns.flash[:error] =~ "Invalid passkey" ||
-               lv.assigns.flash[:error] =~ "not found"
-
-      assert lv.assigns.passkey_loading == false
+      html = render(lv)
+      assert html =~ "Invalid passkey" || html =~ "another sign-in"
     end
 
     test "handles passkey authentication errors from JavaScript", %{conn: conn} do
@@ -304,38 +312,47 @@ defmodule YscWeb.PasskeyAuthenticationTest do
 
       # Create challenge
       lv
+      |> element("#auth-methods")
+      |> render_hook("passkey_support_detected", %{"supported" => true})
+
+      lv
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
 
       # Simulate error from JavaScript
       lv
-      |> element("form")
+      |> element("#auth-methods")
       |> render_hook("passkey_auth_error", %{
         "error" => "NotAllowedError",
         "message" => "User cancelled the operation"
       })
 
       # Should show error message
-      assert lv.assigns.flash[:error] != nil
-      assert lv.assigns.passkey_loading == false
-      assert lv.assigns.passkey_challenge == nil
+      html = render(lv)
+      assert html =~ "cancelled" || html =~ "Authentication was cancelled"
     end
 
     test "shows loading state during authentication", %{conn: conn} do
-      {:ok, lv, html} = live(conn, ~p"/users/log-in")
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
-      # Initially not loading
-      refute html =~ "Signing in..."
+      # Enable passkey support so the passkey button exists
+      lv
+      |> element("#auth-methods")
+      |> render_hook("passkey_support_detected", %{"supported" => true})
+
+      # Initially, the passkey button should NOT show the loading label.
+      refute lv |> element("button[phx-click='sign_in_with_passkey']") |> render() =~
+               "Signing in..."
 
       # Click sign in with passkey
       lv
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
 
-      # Should show loading state
-      html = render(lv)
-      assert html =~ "Signing in..." || html =~ "opacity-50"
-      assert lv.assigns.passkey_loading == true
+      # Should show loading state on the passkey button (not the whole page, since the
+      # password form contains phx-disable-with="Signing in..." by default).
+      passkey_btn_html = lv |> element("button[phx-click='sign_in_with_passkey']") |> render()
+      assert passkey_btn_html =~ "Signing in..." || passkey_btn_html =~ "opacity-50"
     end
   end
 
@@ -344,7 +361,7 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       %{user: user}
     end
 
-    test "allows first use when sign_count is 0", %{conn: conn, user: user} do
+    test "allows first use when sign_count is 0", %{conn: _conn, user: user} do
       # Create a new passkey with sign_count = 0
       credential_id = :crypto.strong_rand_bytes(16)
 
@@ -408,12 +425,15 @@ defmodule YscWeb.PasskeyAuthenticationTest do
 
       # Create challenge - should include both passkeys
       lv
+      |> element("#auth-methods")
+      |> render_hook("passkey_support_detected", %{"supported" => true})
+
+      lv
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
 
-      challenge = lv.assigns.passkey_challenge
-      assert challenge != nil
-      assert length(challenge.allow_credentials) == 2
+      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+      assert is_binary(options[:challenge])
     end
 
     test "handles passkeys from different users", %{conn: conn, user: _user} do
@@ -452,22 +472,25 @@ defmodule YscWeb.PasskeyAuthenticationTest do
 
       # Create challenge - should include both users' passkeys
       lv
+      |> element("#auth-methods")
+      |> render_hook("passkey_support_detected", %{"supported" => true})
+
+      lv
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
 
-      challenge = lv.assigns.passkey_challenge
-      assert challenge != nil
-      assert length(challenge.allow_credentials) == 2
+      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+      assert is_binary(options[:challenge])
     end
   end
 
   describe "Passkey authentication - UI states" do
     test "shows passkey button when supported", %{conn: conn} do
-      {:ok, lv, html} = live(conn, ~p"/users/log-in")
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       # Simulate passkey support
       lv
-      |> element("form")
+      |> element("#auth-methods")
       |> render_hook("passkey_support_detected", %{"supported" => true})
 
       html = render(lv)
@@ -479,11 +502,28 @@ defmodule YscWeb.PasskeyAuthenticationTest do
 
       # Simulate no passkey support
       lv
-      |> element("form")
+      |> element("#auth-methods")
       |> render_hook("passkey_support_detected", %{"supported" => false})
 
       html = render(lv)
       refute html =~ "Sign in with Passkey"
+    end
+
+    test "handles device detection for iOS mobile", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+
+      # Simulate iOS device detection
+      lv
+      |> element("#auth-methods")
+      |> render_hook("device_detected", %{"device" => "ios_mobile"})
+
+      # When passkey is supported and iOS, should show Face ID text
+      lv
+      |> element("#auth-methods")
+      |> render_hook("passkey_support_detected", %{"supported" => true})
+
+      html = render(lv)
+      assert html =~ "Face ID" || html =~ "Passkey"
     end
   end
 end

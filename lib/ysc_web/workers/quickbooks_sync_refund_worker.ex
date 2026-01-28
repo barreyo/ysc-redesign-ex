@@ -34,21 +34,9 @@ defmodule YscWeb.Workers.QuickbooksSyncRefundWorker do
            |> Repo.one()
          end) do
       {:ok, nil} ->
-        Logger.error("Refund not found for QuickBooks sync", refund_id: refund_id)
+        Logger.warning("Refund not found for QuickBooks sync", refund_id: refund_id)
 
-        # Report to Sentry
-        Sentry.capture_message("Refund not found for QuickBooks sync",
-          level: :error,
-          extra: %{
-            refund_id: refund_id
-          },
-          tags: %{
-            quickbooks_worker: "sync_refund",
-            error_type: "refund_not_found"
-          }
-        )
-
-        {:error, :refund_not_found}
+        {:discard, :refund_not_found}
 
       {:ok, refund} ->
         # Check if already synced (double-check after acquiring lock)
@@ -70,7 +58,7 @@ defmodule YscWeb.Workers.QuickbooksSyncRefundWorker do
               :ok
 
             {:error, reason} ->
-              Logger.error("Failed to sync refund to QuickBooks",
+              Logger.warning("Failed to sync refund to QuickBooks",
                 refund_id: refund_id,
                 error: inspect(reason)
               )
@@ -99,7 +87,7 @@ defmodule YscWeb.Workers.QuickbooksSyncRefundWorker do
         :ok
 
       {:error, reason} ->
-        Logger.error("Failed to lock refund for QuickBooks sync",
+        Logger.warning("Failed to lock refund for QuickBooks sync",
           refund_id: refund_id,
           error: inspect(reason)
         )

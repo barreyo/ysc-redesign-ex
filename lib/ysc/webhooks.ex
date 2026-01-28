@@ -101,7 +101,7 @@ defmodule Ysc.Webhooks do
   Updates a webhook event's state to complete or failed.
   Returns {:ok, webhook_event} if successful, or {:error, :not_found} if not found.
   """
-  def update_webhook_event_state(event_id, new_state) when new_state in [:complete, :failed] do
+  def update_webhook_event_state(event_id, new_state) when new_state in [:processed, :failed] do
     case Repo.get(WebhookEvent, event_id) do
       nil ->
         {:error, :not_found}

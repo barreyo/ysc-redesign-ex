@@ -49,7 +49,8 @@ defmodule Ysc.LedgersTest do
 
       assert {:ok, %LedgerAccount{} = account} = Ledgers.create_account(attrs)
       assert account.name == "test_account"
-      assert account.account_type == "asset"
+      # account_type is an enum that returns atoms, not strings
+      assert account.account_type == :asset
     end
 
     test "update_account/2 updates an account" do
@@ -1177,12 +1178,10 @@ defmodule Ysc.LedgersTest do
     end
 
     test "list_user_payments_paginated/3 returns paginated payments", %{user: user} do
-      result = Ledgers.list_user_payments_paginated(user.id, 1, 10)
-      assert Map.has_key?(result, :entries)
-      assert Map.has_key?(result, :page_number)
-      assert Map.has_key?(result, :page_size)
-      assert Map.has_key?(result, :total_pages)
-      assert Map.has_key?(result, :total_entries)
+      {entries, total_count} = Ledgers.list_user_payments_paginated(user.id, 1, 10)
+      assert is_list(entries)
+      assert is_integer(total_count)
+      assert total_count >= 0
     end
 
     test "update_payment/2 updates payment", %{payment: payment} do
@@ -1559,8 +1558,9 @@ defmodule Ysc.LedgersTest do
       payments = Ledgers.get_recent_payments_with_types(start_date, end_date, 10)
       assert is_list(payments)
 
+      # add_payment_type_info adds :payment_type_info key to the payment struct
       assert Enum.all?(payments, fn p ->
-               Map.has_key?(p, :payment_type) || Map.has_key?(p, :type)
+               Map.has_key?(p, :payment_type_info)
              end)
     end
 
@@ -1623,12 +1623,16 @@ defmodule Ysc.LedgersTest do
 
       payout_attrs = %{
         stripe_payout_id: "po_test123",
-        amount: Money.new(9_680, :USD),
-        arrival_date: DateTime.utc_now(),
-        status: :paid
+        payout_amount: Money.new(9_680, :USD),
+        arrival_date: DateTime.utc_now() |> DateTime.truncate(:second),
+        status: "paid",
+        currency: "usd",
+        description: "Test payout"
       }
 
-      {:ok, payout} = Ledgers.process_stripe_payout(payout_attrs)
+      {:ok, {_payout_payment, _transaction, _entries, payout}} =
+        Ledgers.process_stripe_payout(payout_attrs)
+
       {:ok, _} = Ledgers.link_payment_to_payout(payout, payment)
 
       %{user: user, payment: payment, payout: payout}
@@ -1654,10 +1658,8 @@ defmodule Ysc.LedgersTest do
     test "get_payout_refunds/1 returns refunds for payout", %{payout: payout, payment: payment} do
       {:ok, {refund, _transaction, _entries}} =
         Ledgers.process_refund(%{
-          user_id: payment.user_id,
           payment_id: payment.id,
-          amount: Money.new(5_000, :USD),
-          external_provider: :stripe,
+          refund_amount: Money.new(5_000, :USD),
           external_refund_id: "re_test123",
           reason: "Test refund"
         })
@@ -2018,8 +2020,9 @@ defmodule Ysc.LedgersTest do
       attrs = %{
         stripe_payout_id: "po_create",
         amount: Money.new(10_000, :USD),
-        arrival_date: DateTime.utc_now(),
-        status: :paid
+        arrival_date: DateTime.utc_now() |> DateTime.truncate(:second),
+        status: "paid",
+        currency: "usd"
       }
 
       assert {:ok, %Ysc.Ledgers.Payout{} = payout} = Ledgers.create_payout(attrs)

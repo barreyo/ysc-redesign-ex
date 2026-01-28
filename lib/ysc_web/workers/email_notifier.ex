@@ -127,7 +127,7 @@ defmodule YscWeb.Workers.EmailNotifier do
         else
           error_message = "Template module not found for template: #{params.template}"
 
-          Logger.error("Template module not found for template: #{params.template}")
+          Logger.warning("Template module not found for template: #{params.template}")
 
           # Report to Sentry
           Sentry.capture_message(error_message,
@@ -180,7 +180,7 @@ defmodule YscWeb.Workers.EmailNotifier do
             :ok
 
           {:error, reason} ->
-            Logger.error("Failed to send email",
+            Logger.warning("Failed to send email",
               job_id: params.job.id,
               recipient: params.recipient,
               idempotency_key: params.idempotency_key,
@@ -211,7 +211,7 @@ defmodule YscWeb.Workers.EmailNotifier do
         end
       rescue
         error ->
-          Logger.error("EmailNotifier job failed",
+          Logger.warning("EmailNotifier job failed",
             job_id: params.job.id,
             recipient: params.recipient,
             idempotency_key: params.idempotency_key,

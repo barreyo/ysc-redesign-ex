@@ -49,7 +49,7 @@ defmodule YscWeb.Workers.MailpoetSubscriber do
         :ok
 
       {:error, error} ->
-        Logger.error("MailpoetSubscriber: Failed to subscribe",
+        Logger.warning("MailpoetSubscriber: Failed to subscribe",
           email: email,
           error: inspect(error)
         )
@@ -94,7 +94,7 @@ defmodule YscWeb.Workers.MailpoetSubscriber do
         :ok
 
       {:error, error} ->
-        Logger.error("MailpoetSubscriber: Failed to subscribe",
+        Logger.warning("MailpoetSubscriber: Failed to subscribe",
           email: email,
           error: inspect(error)
         )
@@ -139,7 +139,7 @@ defmodule YscWeb.Workers.MailpoetSubscriber do
         :ok
 
       {:error, error} ->
-        Logger.error("MailpoetSubscriber: Failed to unsubscribe",
+        Logger.warning("MailpoetSubscriber: Failed to unsubscribe",
           email: email,
           error: inspect(error)
         )
@@ -185,7 +185,7 @@ defmodule YscWeb.Workers.MailpoetSubscriber do
         :ok
 
       {:error, error} ->
-        Logger.error("MailpoetSubscriber: Failed to subscribe",
+        Logger.warning("MailpoetSubscriber: Failed to subscribe",
           email: email,
           error: inspect(error)
         )
@@ -196,7 +196,7 @@ defmodule YscWeb.Workers.MailpoetSubscriber do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: args}) do
-    Logger.error("MailpoetSubscriber: Invalid job args",
+    Logger.warning("MailpoetSubscriber: Invalid job args",
       args: args
     )
 

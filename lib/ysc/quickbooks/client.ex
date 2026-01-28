@@ -2040,7 +2040,7 @@ defmodule Ysc.Quickbooks.Client do
               {:ok, new_token}
 
             error ->
-              Logger.error("[QB Client] get_access_token: Failed to refresh token",
+              Logger.warning("[QB Client] get_access_token: Failed to refresh token",
                 error: inspect(error)
               )
 
@@ -2073,7 +2073,7 @@ defmodule Ysc.Quickbooks.Client do
     refresh_token_to_use = cached_refresh_token || original_refresh_token
 
     if is_nil(refresh_token_to_use) do
-      Logger.error(
+      Logger.warning(
         "[QB Client] refresh_access_token: No refresh token available in cache, database, or config (env variables)"
       )
 
@@ -2191,7 +2191,7 @@ defmodule Ysc.Quickbooks.Client do
               {:ok, access_token, new_refresh_token}
 
             {:ok, data} ->
-              Logger.error(
+              Logger.warning(
                 "[QB Client] attempt_token_refresh: Unexpected token refresh response",
                 data: inspect(data),
                 response_keys: if(is_map(data), do: Map.keys(data), else: :not_a_map)
@@ -2200,7 +2200,7 @@ defmodule Ysc.Quickbooks.Client do
               {:error, :invalid_token_response}
 
             {:error, error} ->
-              Logger.error(
+              Logger.warning(
                 "[QB Client] attempt_token_refresh: Failed to parse token refresh response",
                 error: inspect(error)
               )
@@ -2209,7 +2209,7 @@ defmodule Ysc.Quickbooks.Client do
           end
 
         {:ok, %Finch.Response{status: status, body: response_body}} ->
-          Logger.error("[QB Client] attempt_token_refresh: Token refresh failed",
+          Logger.warning("[QB Client] attempt_token_refresh: Token refresh failed",
             status: status,
             response: response_body
           )
@@ -2217,7 +2217,7 @@ defmodule Ysc.Quickbooks.Client do
           {:error, :token_refresh_failed}
 
         {:error, error} ->
-          Logger.error("[QB Client] attempt_token_refresh: Request failed during token refresh",
+          Logger.warning("[QB Client] attempt_token_refresh: Request failed during token refresh",
             error: inspect(error)
           )
 
@@ -2225,7 +2225,7 @@ defmodule Ysc.Quickbooks.Client do
       end
     else
       error ->
-        Logger.error("[QB Client] attempt_token_refresh: Failed to get required credentials",
+        Logger.warning("[QB Client] attempt_token_refresh: Failed to get required credentials",
           error: inspect(error)
         )
 
@@ -2236,7 +2236,7 @@ defmodule Ysc.Quickbooks.Client do
   defp get_client_id do
     case Application.get_env(:ysc, :quickbooks)[:client_id] do
       nil ->
-        Logger.error("[QB Client] get_client_id: QUICKBOOKS_CLIENT_ID not configured")
+        Logger.warning("[QB Client] get_client_id: QUICKBOOKS_CLIENT_ID not configured")
         {:error, :quickbooks_client_id_not_configured}
 
       client_id ->
@@ -2251,7 +2251,7 @@ defmodule Ysc.Quickbooks.Client do
   defp get_client_secret do
     case Application.get_env(:ysc, :quickbooks)[:client_secret] do
       nil ->
-        Logger.error("[QB Client] get_client_secret: QUICKBOOKS_CLIENT_SECRET not configured")
+        Logger.warning("[QB Client] get_client_secret: QUICKBOOKS_CLIENT_SECRET not configured")
         {:error, :quickbooks_client_secret_not_configured}
 
       client_secret ->

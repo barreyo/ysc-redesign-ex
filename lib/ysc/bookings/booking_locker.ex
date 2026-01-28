@@ -471,7 +471,7 @@ defmodule Ysc.Bookings.BookingLocker do
         end
       end)
       |> case do
-        {:ok, booking} ->
+        {:ok, %Booking{} = booking} ->
           # Emit telemetry event for booking creation
           :telemetry.execute(
             [:ysc, :bookings, :booking_created],
@@ -485,6 +485,9 @@ defmodule Ysc.Bookings.BookingLocker do
           )
 
           {:ok, booking}
+
+        {:ok, {:error, reason}} ->
+          {:error, reason}
 
         error ->
           error
@@ -662,7 +665,7 @@ defmodule Ysc.Bookings.BookingLocker do
     property = rooms |> List.first() |> Map.get(:property)
 
     results =
-      Enum.reduce(rooms, {:ok, Money.new(0, :USD), []}, fn room, acc ->
+      Enum.reduce(rooms, {:ok, Money.new(:USD, 0), []}, fn room, acc ->
         process_room_pricing(
           acc,
           room,
@@ -732,7 +735,7 @@ defmodule Ysc.Bookings.BookingLocker do
     case total_acc do
       {:ok, money} when is_struct(money, Money) -> money
       %Money{} = money -> money
-      _ -> Money.new(0, :USD)
+      _ -> Money.new(:USD, 0)
     end
   end
 
@@ -991,7 +994,7 @@ defmodule Ysc.Bookings.BookingLocker do
           if nights > 0 and guests_count > 0 do
             Money.div(total, nights * guests_count) |> elem(1)
           else
-            Money.new(0, :USD)
+            Money.new(:USD, 0)
           end
 
         items = %{

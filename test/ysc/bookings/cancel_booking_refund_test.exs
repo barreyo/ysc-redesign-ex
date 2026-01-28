@@ -24,6 +24,7 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
   setup do
     Ledgers.ensure_basic_accounts()
     user = user_fixture()
+    Application.put_env(:ysc, :stripe_client, Ysc.TestStripeClient)
 
     # Ensure user is active
     user =

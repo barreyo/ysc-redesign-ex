@@ -34,7 +34,7 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorker do
         process_bill_payment(webhook_event, bill_payment_id)
 
       {:error, :not_found} ->
-        Logger.error("Webhook event not found",
+        Logger.warning("Webhook event not found",
           webhook_event_id: webhook_event_id
         )
 
@@ -133,7 +133,7 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorker do
                 :ok
 
               {:error, reason} ->
-                Logger.error("Error finding expense report",
+                Logger.warning("Error finding expense report",
                   bill_id: bill_id,
                   error: reason
                 )
@@ -156,7 +156,7 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorker do
         end
 
       {:error, reason} ->
-        Logger.error("Failed to fetch BillPayment from QuickBooks",
+        Logger.warning("Failed to fetch BillPayment from QuickBooks",
           bill_payment_id: bill_payment_id,
           error: inspect(reason)
         )
@@ -164,13 +164,15 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorker do
         # Mark webhook event as failed
         Webhooks.update_webhook_state(webhook_event, :failed)
 
-        Sentry.capture_message("Failed to fetch BillPayment from QuickBooks",
-          level: :error,
-          extra: %{
-            bill_payment_id: bill_payment_id,
-            error: inspect(reason)
-          }
-        )
+        unless reason == :not_found do
+          Sentry.capture_message("Failed to fetch BillPayment from QuickBooks",
+            level: :error,
+            extra: %{
+              bill_payment_id: bill_payment_id,
+              error: inspect(reason)
+            }
+          )
+        end
 
         {:error, :fetch_failed}
     end

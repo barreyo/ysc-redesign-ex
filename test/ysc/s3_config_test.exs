@@ -54,7 +54,10 @@ defmodule Ysc.S3ConfigTest do
       key = "/test/image.jpg"
       url = S3Config.object_url(key)
       assert is_binary(url)
-      refute String.contains?(url, "//")
+      # Check for double slashes in the path portion (after the protocol)
+      # Split on :// to get the path portion
+      [_protocol, path] = String.split(url, "://", parts: 2)
+      refute String.contains?(path, "//")
     end
   end
 

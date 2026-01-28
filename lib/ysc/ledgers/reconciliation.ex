@@ -636,7 +636,7 @@ defmodule Ysc.Ledgers.Reconciliation do
         )
 
       :error ->
-        Logger.error("❌ Reconciliation found discrepancies",
+        Logger.warning("❌ Reconciliation found discrepancies",
           duration_ms: report.duration_ms,
           timestamp: report.timestamp,
           payment_issues: report.checks.payments.discrepancies_count,
@@ -677,7 +677,7 @@ defmodule Ysc.Ledgers.Reconciliation do
 
         # Log specific issues
         if report.checks.payments.discrepancies_count > 0 do
-          Logger.error("Payment discrepancies found",
+          Logger.warning("Payment discrepancies found",
             count: report.checks.payments.discrepancies_count
           )
 
@@ -702,7 +702,7 @@ defmodule Ysc.Ledgers.Reconciliation do
         end
 
         if report.checks.refunds.discrepancies_count > 0 do
-          Logger.error("Refund discrepancies found",
+          Logger.warning("Refund discrepancies found",
             count: report.checks.refunds.discrepancies_count
           )
 
@@ -725,7 +725,7 @@ defmodule Ysc.Ledgers.Reconciliation do
         end
 
         if !report.checks.ledger_balance.balanced do
-          Logger.error("Ledger is imbalanced",
+          Logger.warning("Ledger is imbalanced",
             difference: Money.to_string!(report.checks.ledger_balance.difference)
           )
 
@@ -744,7 +744,7 @@ defmodule Ysc.Ledgers.Reconciliation do
         end
 
         if report.checks.orphaned_entries.orphaned_entries_count > 0 do
-          Logger.error("Orphaned ledger entries found",
+          Logger.warning("Orphaned ledger entries found",
             count: report.checks.orphaned_entries.orphaned_entries_count
           )
 

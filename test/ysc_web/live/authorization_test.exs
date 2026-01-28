@@ -9,8 +9,12 @@ defmodule YscWeb.AuthorizationTest do
   import Ysc.AccountsFixtures
   import Ysc.BookingsFixtures
   import Ysc.TicketsFixtures
+  import Mox
 
   alias Ysc.Tickets
+  alias Ysc.StripeMock
+
+  setup :verify_on_exit!
 
   describe "UserBookingDetailLive authorization" do
     setup %{conn: conn} do
@@ -38,7 +42,7 @@ defmodule YscWeb.AuthorizationTest do
 
     test "user cannot access another user's booking", %{
       conn: conn,
-      other_user: other_user,
+      other_user: _other_user,
       other_booking: other_booking
     } do
       # Try to access another user's booking
@@ -50,7 +54,7 @@ defmodule YscWeb.AuthorizationTest do
 
     test "user cannot cancel another user's booking", %{
       conn: conn,
-      other_user: other_user,
+      other_user: _other_user,
       other_booking: other_booking
     } do
       # This should fail at mount, but test the full flow
@@ -63,6 +67,20 @@ defmodule YscWeb.AuthorizationTest do
 
   describe "BookingCheckoutLive authorization" do
     setup %{conn: conn} do
+      import Mox
+      alias Ysc.StripeMock
+
+      Application.put_env(:ysc, :stripe_client, StripeMock)
+
+      stub(StripeMock, :create_payment_intent, fn _params, _opts ->
+        {:ok,
+         %Stripe.PaymentIntent{
+           id: "pi_test_123",
+           client_secret: "pi_test_123_secret_456",
+           status: "requires_payment_method"
+         }}
+      end)
+
       user = user_fixture()
       booking = booking_fixture(user_id: user.id, status: :hold)
 
@@ -214,7 +232,7 @@ defmodule YscWeb.AuthorizationTest do
     test "user can access their own booking receipt", %{conn: conn, booking: booking} do
       {:ok, _view, html} = live(conn, ~p"/bookings/#{booking.id}/receipt")
 
-      assert html =~ "Booking Receipt"
+      assert html =~ "Booking Confirmation"
     end
 
     test "user cannot access another user's booking receipt", %{

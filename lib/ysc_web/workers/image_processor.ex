@@ -19,7 +19,7 @@ defmodule YscWeb.Workers.ImageProcessor do
     image = Media.fetch_image(id)
 
     if is_nil(image) do
-      Logger.error("Image not found", image_id: id)
+      Logger.warning("Image not found", image_id: id)
       {:error, "Image not found"}
     else
       tmp_output_file = "#{@temp_dir}/#{image.id}"

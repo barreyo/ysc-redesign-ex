@@ -176,7 +176,7 @@ defmodule Ysc.Alerts.Discord do
             {:ok, :sent}
 
           {:error, reason} ->
-            Logger.error("Failed to send Discord alert",
+            Logger.warning("Failed to send Discord alert",
               title: opts[:title],
               reason: inspect(reason)
             )
@@ -382,7 +382,7 @@ defmodule Ysc.Alerts.Discord do
 
     request = Finch.build(:post, url, headers, body)
 
-    case Finch.request(request, YscWeb.Finch) do
+    case Finch.request(request, Ysc.Finch) do
       {:ok, %Finch.Response{status: status}} when status in 200..299 ->
         {:ok, :sent}
 

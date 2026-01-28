@@ -34,21 +34,9 @@ defmodule YscWeb.Workers.QuickbooksSyncPaymentWorker do
            |> Repo.one()
          end) do
       {:ok, nil} ->
-        Logger.error("Payment not found for QuickBooks sync", payment_id: payment_id)
+        Logger.warning("Payment not found for QuickBooks sync", payment_id: payment_id)
 
-        # Report to Sentry
-        Sentry.capture_message("Payment not found for QuickBooks sync",
-          level: :error,
-          extra: %{
-            payment_id: payment_id
-          },
-          tags: %{
-            quickbooks_worker: "sync_payment",
-            error_type: "payment_not_found"
-          }
-        )
-
-        {:error, :payment_not_found}
+        {:discard, :payment_not_found}
 
       {:ok, payment} ->
         # Check if already synced (double-check after acquiring lock)
@@ -70,7 +58,7 @@ defmodule YscWeb.Workers.QuickbooksSyncPaymentWorker do
               :ok
 
             {:error, reason} ->
-              Logger.error("Failed to sync payment to QuickBooks",
+              Logger.warning("Failed to sync payment to QuickBooks",
                 payment_id: payment_id,
                 error: inspect(reason)
               )
@@ -99,7 +87,7 @@ defmodule YscWeb.Workers.QuickbooksSyncPaymentWorker do
         :ok
 
       {:error, reason} ->
-        Logger.error("Failed to lock payment for QuickBooks sync",
+        Logger.warning("Failed to lock payment for QuickBooks sync",
           payment_id: payment_id,
           error: inspect(reason)
         )

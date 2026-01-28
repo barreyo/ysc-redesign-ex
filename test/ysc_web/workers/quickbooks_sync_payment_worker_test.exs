@@ -6,7 +6,6 @@ defmodule YscWeb.Workers.QuickbooksSyncPaymentWorkerTest do
 
   alias YscWeb.Workers.QuickbooksSyncPaymentWorker
   alias Ysc.Ledgers
-  alias Ysc.Ledgers.Payment
 
   setup :verify_on_exit!
 
@@ -38,7 +37,7 @@ defmodule YscWeb.Workers.QuickbooksSyncPaymentWorkerTest do
         attempt: 1
       }
 
-      assert {:error, :payment_not_found} = QuickbooksSyncPaymentWorker.perform(job)
+      assert {:discard, :payment_not_found} = QuickbooksSyncPaymentWorker.perform(job)
     end
 
     test "returns ok when payment already synced", %{user: user} do

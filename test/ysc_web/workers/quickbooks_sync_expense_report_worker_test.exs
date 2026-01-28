@@ -26,7 +26,7 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorkerTest do
       }
 
       result = QuickbooksSyncExpenseReportWorker.perform(job)
-      assert {:error, :expense_report_not_found} = result
+      assert {:discard, :expense_report_not_found} = result
     end
 
     test "skips already synced expense reports", %{user: user} do

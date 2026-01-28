@@ -120,30 +120,14 @@ defmodule Ysc.Mailpoet do
 
             {:ok, data}
 
-          {:error, error} ->
-            Logger.error("Failed to parse Mailpoet response",
-              email: email,
-              error: inspect(error)
-            )
-
+          {:error, _error} ->
             {:error, :invalid_response}
         end
 
-      {:ok, %{status: status, body: response_body}} ->
-        Logger.error("Mailpoet API returned error status",
-          email: email,
-          status: status,
-          response: response_body
-        )
-
+      {:ok, %{status: status, body: _response_body}} ->
         {:error, "Mailpoet API error: #{status}"}
 
-      {:error, error} ->
-        Logger.error("Failed to subscribe email to Mailpoet",
-          email: email,
-          error: inspect(error)
-        )
-
+      {:error, _error} ->
         {:error, :request_failed}
     end
   end
@@ -173,30 +157,14 @@ defmodule Ysc.Mailpoet do
 
                 {:ok, data}
 
-              {:error, error} ->
-                Logger.error("Failed to parse Mailpoet response",
-                  email: email,
-                  error: inspect(error)
-                )
-
+              {:error, _error} ->
                 {:error, :invalid_response}
             end
 
-          {:ok, %{status: status, body: response_body}} ->
-            Logger.error("Mailpoet API returned error status",
-              email: email,
-              status: status,
-              response: response_body
-            )
-
+          {:ok, %{status: status, body: _response_body}} ->
             {:error, "Mailpoet API error: #{status}"}
 
-          {:error, error} ->
-            Logger.error("Failed to unsubscribe email from Mailpoet",
-              email: email,
-              error: inspect(error)
-            )
-
+          {:error, _error} ->
             {:error, :request_failed}
         end
 
@@ -226,29 +194,14 @@ defmodule Ysc.Mailpoet do
               {:ok, data} ->
                 {:ok, data}
 
-              {:error, error} ->
-                Logger.error("Failed to parse Mailpoet response",
-                  email: email,
-                  error: inspect(error)
-                )
-
+              {:error, _error} ->
                 {:error, :invalid_response}
             end
 
           {:ok, %{status: status}} ->
-            Logger.error("Mailpoet API returned error status",
-              email: email,
-              status: status
-            )
-
             {:error, "Mailpoet API error: #{status}"}
 
-          {:error, error} ->
-            Logger.error("Failed to check subscription status",
-              email: email,
-              error: inspect(error)
-            )
-
+          {:error, _error} ->
             {:error, :request_failed}
         end
 
@@ -278,29 +231,14 @@ defmodule Ysc.Mailpoet do
               _ -> {:error, :invalid_response}
             end
 
-          {:error, error} ->
-            Logger.error("Failed to parse Mailpoet response",
-              email: email,
-              error: inspect(error)
-            )
-
+          {:error, _error} ->
             {:error, :invalid_response}
         end
 
       {:ok, %{status: status}} ->
-        Logger.error("Mailpoet API returned error status",
-          email: email,
-          status: status
-        )
-
         {:error, "Mailpoet API error: #{status}"}
 
-      {:error, error} ->
-        Logger.error("Failed to get subscriber ID",
-          email: email,
-          error: inspect(error)
-        )
-
+      {:error, _error} ->
         {:error, :request_failed}
     end
   end

@@ -161,7 +161,7 @@ defmodule Ysc.Tickets.StripeService do
 
           :ok
         else
-          Logger.error("Failed to cancel PaymentIntent",
+          Logger.warning("Failed to cancel PaymentIntent",
             payment_intent_id: payment_intent_id,
             error: error.message
           )
@@ -170,7 +170,7 @@ defmodule Ysc.Tickets.StripeService do
         end
 
       {:error, reason} ->
-        Logger.error("Failed to cancel PaymentIntent",
+        Logger.warning("Failed to cancel PaymentIntent",
           payment_intent_id: payment_intent_id,
           error: reason
         )

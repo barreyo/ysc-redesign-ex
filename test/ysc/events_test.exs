@@ -421,10 +421,11 @@ defmodule Ysc.EventsTest do
       {:ok, _event2} = create_event_fixture()
 
       params = %{page: 1, page_size: 10}
+      # Function returns Flop result which is a tuple {:ok, {events, meta}} or error
       result = Events.list_events_paginated(params)
-
-      assert Map.has_key?(result, :entries)
-      assert Map.has_key?(result, :page_number)
+      assert {:ok, {events, meta}} = result
+      assert is_list(events)
+      assert meta.current_page == 1
     end
 
     test "count_published_events/0 returns count of published events" do
@@ -616,16 +617,64 @@ defmodule Ysc.EventsTest do
     |> Events.create_ticket_tier()
   end
 
-  defp create_ticket_fixture(attrs \\ %{}) do
-    {:ok, event} = create_event_fixture()
-    user = user_fixture()
-    {:ok, tier} = create_ticket_tier_fixture(%{event_id: event.id})
+  defp create_ticket_fixture(attrs) do
+    # Extract provided IDs (handle both atom and string keys)
+    provided_event_id = attrs[:event_id] || attrs["event_id"]
+    provided_user_id = attrs[:user_id] || attrs["user_id"]
+    provided_tier_id = attrs[:ticket_tier_id] || attrs["ticket_tier_id"]
+
+    # Use provided event_id or create a new event
+    event =
+      if provided_event_id do
+        Ysc.Repo.get!(Ysc.Events.Event, provided_event_id)
+      else
+        {:ok, event} = create_event_fixture()
+        event
+      end
+
+    # Use provided user_id or create a new user
+    user =
+      if provided_user_id do
+        user = Ysc.Repo.get!(Ysc.Accounts.User, provided_user_id)
+
+        # Ensure user has active membership (required for tickets)
+        # Use update_all to ensure the change is committed immediately
+        Ysc.Repo.update_all(
+          from(u in Ysc.Accounts.User, where: u.id == ^user.id),
+          set: [lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)]
+        )
+
+        # Reload to get the updated user
+        Ysc.Repo.get!(Ysc.Accounts.User, provided_user_id)
+      else
+        user = user_fixture()
+
+        # Ensure user has active membership (required for tickets)
+        # Use update_all to ensure the change is committed immediately
+        Ysc.Repo.update_all(
+          from(u in Ysc.Accounts.User, where: u.id == ^user.id),
+          set: [lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)]
+        )
+
+        # Reload to get the updated user
+        Ysc.Repo.get!(Ysc.Accounts.User, user.id)
+      end
+
+    # Use provided ticket_tier_id or create a new tier
+    tier =
+      if provided_tier_id do
+        Ysc.Repo.get!(Ysc.Events.TicketTier, provided_tier_id)
+      else
+        {:ok, tier} = create_ticket_tier_fixture(%{event_id: event.id})
+        tier
+      end
 
     default_attrs = %{
       event_id: event.id,
       user_id: user.id,
       ticket_tier_id: tier.id,
-      status: :confirmed
+      status: :confirmed,
+      expires_at: DateTime.add(DateTime.utc_now(), 30, :day)
     }
 
     {:ok, ticket} =
@@ -683,8 +732,9 @@ defmodule Ysc.EventsTest do
         })
 
       authors = Events.get_all_authors()
+      # Function returns list of tuples {name, id}
       assert is_list(authors)
-      assert Enum.any?(authors, &(&1.id == user.id))
+      assert Enum.any?(authors, fn {_name, id} -> id == user.id end)
     end
   end
 
@@ -711,7 +761,8 @@ defmodule Ysc.EventsTest do
 
       events = Events.get_upcoming_events_with_ticket_tier_counts()
       assert is_list(events)
-      assert Enum.any?(events, &(&1.id == event.id))
+      # Function returns list of maps with :event and :ticket_tiers keys
+      assert Enum.any?(events, fn event_map -> event_map.event.id == event.id end)
     end
   end
 
@@ -784,9 +835,12 @@ defmodule Ysc.EventsTest do
       end
 
       summary = Events.get_ticket_purchase_summary(event.id)
-      assert is_map(summary)
-      assert Map.has_key?(summary, :total_tickets)
-      assert Map.has_key?(summary, :total_revenue)
+      # Function returns a list of purchase summaries, not a single map
+      assert is_list(summary)
+      assert length(summary) == 1
+      purchase = Enum.at(summary, 0)
+      assert Map.has_key?(purchase, :ticket_count)
+      assert Map.has_key?(purchase, :total_amount)
     end
   end
 end

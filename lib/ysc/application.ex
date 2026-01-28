@@ -12,32 +12,41 @@ defmodule Ysc.Application do
     })
 
     # Add shutdown task for sandbox environment only
+    base_children = [
+      # Start the Vault for encryption
+      Ysc.Vault,
+      # Start the Telemetry supervisor
+      YscWeb.Telemetry,
+      # Start the Ecto repository
+      Ysc.Repo,
+      # Start the PubSub system
+      {Phoenix.PubSub, name: Ysc.PubSub},
+      # Start DNS cluster to cluster the app
+      {DNSCluster, query: Application.get_env(:ysc, :dns_cluster_query) || :ignore},
+      # Start Finch
+      {Finch, name: Ysc.Finch},
+      # Start cache
+      {Cachex, name: :ysc_cache},
+      # Start verification code cache
+      Ysc.VerificationCache,
+      # Start the Endpoint (http/https)
+      YscWeb.Endpoint,
+      # Start a worker by calling: Ysc.Worker.start_link(arg)
+      # {Ysc.Worker, arg}
+      {Oban, Application.fetch_env!(:ysc, Oban)}
+    ]
+
+    # PromEx periodically polls metrics (including DB-backed plugins). In tests, this can
+    # generate noisy ownership errors due to the SQL sandbox.
+    base_children =
+      if Mix.env() == :test do
+        base_children
+      else
+        base_children ++ [Ysc.PromEx]
+      end
+
     children =
-      [
-        # Start the Vault for encryption
-        Ysc.Vault,
-        # Start the Telemetry supervisor
-        YscWeb.Telemetry,
-        # Start PromEx for metrics
-        Ysc.PromEx,
-        # Start the Ecto repository
-        Ysc.Repo,
-        # Start the PubSub system
-        {Phoenix.PubSub, name: Ysc.PubSub},
-        # Start DNS cluster to cluster the app
-        {DNSCluster, query: Application.get_env(:ysc, :dns_cluster_query) || :ignore},
-        # Start Finch
-        {Finch, name: Ysc.Finch},
-        # Start cache
-        {Cachex, name: :ysc_cache},
-        # Start verification code cache
-        Ysc.VerificationCache,
-        # Start the Endpoint (http/https)
-        YscWeb.Endpoint,
-        # Start a worker by calling: Ysc.Worker.start_link(arg)
-        # {Ysc.Worker, arg}
-        {Oban, Application.fetch_env!(:ysc, Oban)}
-      ] ++
+      base_children ++
         if sandbox_environment?() do
           [{Task, fn -> shutdown_when_inactive(:timer.minutes(10)) end}]
         else

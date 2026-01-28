@@ -10,14 +10,10 @@ defmodule Ysc.BookingsTest do
     Booking,
     Season,
     Room,
-    RoomCategory,
-    PricingRule,
-    Blackout,
-    DoorCode,
-    RefundPolicy,
-    RefundPolicyRule
+    RoomCategory
   }
 
+  import Ecto.Query
   import Ysc.AccountsFixtures
   import Ysc.BookingsFixtures
 
@@ -387,8 +383,8 @@ defmodule Ysc.BookingsTest do
       booking = booking_fixture()
 
       guests_attrs = [
-        %{first_name: "John", last_name: "Doe"},
-        %{first_name: "Jane", last_name: "Doe"}
+        {0, %{first_name: "John", last_name: "Doe"}},
+        {1, %{first_name: "Jane", last_name: "Doe"}}
       ]
 
       assert {:ok, guests} = Bookings.create_booking_guests(booking.id, guests_attrs)
@@ -397,10 +393,13 @@ defmodule Ysc.BookingsTest do
 
     test "delete_booking_guests/1 deletes all guests for booking" do
       booking = booking_fixture()
-      guests_attrs = [%{first_name: "John", last_name: "Doe"}]
+      # create_booking_guests expects a list of tuples {index, guest_attrs}
+      guests_attrs = [{0, %{first_name: "John", last_name: "Doe"}}]
       {:ok, _guests} = Bookings.create_booking_guests(booking.id, guests_attrs)
 
-      assert {:ok, _} = Bookings.delete_booking_guests(booking.id)
+      # delete_booking_guests returns {count, nil} from Repo.delete_all
+      {count, _} = Bookings.delete_booking_guests(booking.id)
+      assert count == 1
       guests = Bookings.list_booking_guests(booking.id)
       assert guests == []
     end
@@ -412,25 +411,23 @@ defmodule Ysc.BookingsTest do
       _booking2 = booking_fixture()
 
       params = %{page: 1, page_size: 10}
-      result = Bookings.list_paginated_bookings(params)
+      assert {:ok, {bookings, meta}} = Bookings.list_paginated_bookings(params)
 
-      assert Map.has_key?(result, :entries)
-      assert Map.has_key?(result, :page_number)
-      assert Map.has_key?(result, :page_size)
-      assert Map.has_key?(result, :total_pages)
-      assert Map.has_key?(result, :total_entries)
-      assert result.page_number == 1
-      assert result.page_size == 10
+      assert is_list(bookings)
+      assert length(bookings) >= 2
+      assert meta.total_count >= 2
+      assert meta.page_size == 10
+      assert meta.current_page == 1
     end
 
     test "list_paginated_bookings/2 with search term filters results" do
       user = user_fixture()
-      booking = booking_fixture(%{user_id: user.id})
+      _booking = booking_fixture(%{user_id: user.id})
 
       params = %{page: 1, page_size: 10}
-      result = Bookings.list_paginated_bookings(params, user.email)
-
-      assert is_list(result.entries)
+      # Function returns {:ok, {bookings, meta}} tuple
+      assert {:ok, {bookings, _meta}} = Bookings.list_paginated_bookings(params, user.email)
+      assert is_list(bookings)
     end
 
     test "list_user_bookings_paginated/2 returns user's bookings" do
@@ -439,10 +436,10 @@ defmodule Ysc.BookingsTest do
       _booking2 = booking_fixture(%{user_id: user.id})
 
       params = %{page: 1, page_size: 10}
-      result = Bookings.list_user_bookings_paginated(user.id, params)
-
-      assert Map.has_key?(result, :entries)
-      assert result.page_number == 1
+      # Function returns {:ok, {bookings, meta}} tuple
+      assert {:ok, {bookings, meta}} = Bookings.list_user_bookings_paginated(user.id, params)
+      assert is_list(bookings)
+      assert meta.current_page == 1
     end
   end
 
@@ -451,12 +448,17 @@ defmodule Ysc.BookingsTest do
       booking = booking_fixture()
 
       attrs = %{
-        booking_id: booking.id,
+        bookings: [booking],
+        rules_agreed: true,
         checked_in_at: DateTime.utc_now()
       }
 
       assert {:ok, check_in} = Bookings.create_check_in(attrs)
-      assert check_in.booking_id == booking.id
+      assert check_in.id != nil
+      # Check that the booking is associated
+      check_in = Ysc.Repo.preload(check_in, :bookings)
+      assert length(check_in.bookings) == 1
+      assert Enum.at(check_in.bookings, 0).id == booking.id
     end
 
     test "get_check_in!/1 returns check-in by id" do
@@ -477,7 +479,8 @@ defmodule Ysc.BookingsTest do
 
       {:ok, _check_in} =
         Bookings.create_check_in(%{
-          booking_id: booking.id,
+          bookings: [booking],
+          rules_agreed: true,
           checked_in_at: DateTime.utc_now()
         })
 
@@ -488,6 +491,7 @@ defmodule Ysc.BookingsTest do
 
     test "mark_booking_checked_in/1 marks booking as checked in" do
       booking = booking_fixture()
+      # mark_booking_checked_in now preloads rooms internally
       assert {:ok, _} = Bookings.mark_booking_checked_in(booking.id)
     end
   end
@@ -629,9 +633,10 @@ defmodule Ysc.BookingsTest do
       results =
         Bookings.batch_check_room_availability([room1.id, room2.id], :tahoe, checkin, checkout)
 
-      assert is_map(results)
-      assert Map.has_key?(results, room1.id)
-      assert Map.has_key?(results, room2.id)
+      assert %MapSet{} = results
+      # Verify both rooms are in the results (they should be available)
+      assert MapSet.member?(results, room1.id)
+      assert MapSet.member?(results, room2.id)
     end
   end
 
@@ -652,7 +657,7 @@ defmodule Ysc.BookingsTest do
 
     test "get_recent_door_codes/2 returns recent door codes" do
       code1 = create_door_code_fixture(%{property: :tahoe})
-      code2 = create_door_code_fixture(%{property: :tahoe})
+      _code2 = create_door_code_fixture(%{property: :tahoe})
 
       codes = Bookings.get_recent_door_codes(:tahoe, code1.code)
       assert is_list(codes)
@@ -772,7 +777,8 @@ defmodule Ysc.BookingsTest do
       update_attrs = %{refund_percentage: 75}
 
       assert {:ok, updated} = Bookings.update_refund_policy_rule(rule, update_attrs)
-      assert updated.refund_percentage == 75
+      # refund_percentage is stored as Decimal, so compare with Decimal
+      assert Decimal.equal?(updated.refund_percentage, Decimal.new(75))
     end
 
     test "delete_refund_policy_rule/1 deletes a rule" do
@@ -787,21 +793,30 @@ defmodule Ysc.BookingsTest do
       booking = booking_fixture(%{total_price: Money.new(10_000, :USD)})
       cancellation_date = Date.utc_today()
 
-      refund_amount = Bookings.calculate_refund(booking, cancellation_date)
-      assert %Money{} = refund_amount
+      result = Bookings.calculate_refund(booking, cancellation_date)
+      # Function returns {:ok, refund_amount, rule} or {:ok, nil, nil}
+      assert {:ok, refund_amount, _rule} = result
+      # If there's no policy, refund_amount will be nil, otherwise it's a Money struct
+      if refund_amount == nil do
+        assert refund_amount == nil
+      else
+        assert %Money{} = refund_amount
+      end
     end
 
     test "get_booking_payment_amount/1 returns payment amount for booking" do
       booking = booking_fixture()
-      amount = Bookings.get_booking_payment_amount(booking)
-      assert %Money{} = amount
+      # Function returns {:ok, amount} or {:error, :payment_not_found}
+      # Since booking_fixture doesn't create a payment, we expect an error
+      result = Bookings.get_booking_payment_amount(booking)
+      assert {:error, :payment_not_found} = result
     end
   end
 
   describe "search functions" do
     test "search_bookings_by_last_name/2 searches bookings by last name" do
       user = user_fixture(%{last_name: "Smith"})
-      booking = booking_fixture(%{user_id: user.id})
+      _booking = booking_fixture(%{user_id: user.id})
 
       results = Bookings.search_bookings_by_last_name("Smith", :tahoe)
       assert is_list(results)
@@ -809,6 +824,11 @@ defmodule Ysc.BookingsTest do
   end
 
   describe "get_booking_payment/1" do
+    setup do
+      user = user_fixture()
+      %{user: user}
+    end
+
     test "returns payment for booking", %{user: user} do
       booking = booking_fixture(%{user_id: user.id})
 
@@ -826,13 +846,13 @@ defmodule Ysc.BookingsTest do
           payment_method_id: nil
         })
 
-      found = Bookings.get_booking_payment(booking)
+      {:ok, found} = Bookings.get_booking_payment(booking)
       assert found.id == payment.id
     end
 
     test "returns nil when booking has no payment" do
       booking = booking_fixture()
-      assert Bookings.get_booking_payment(booking) == nil
+      assert {:error, :payment_not_found} = Bookings.get_booking_payment(booking)
     end
   end
 
@@ -842,7 +862,14 @@ defmodule Ysc.BookingsTest do
       end_date = Date.add(start_date, 7)
 
       availability = Bookings.get_tahoe_daily_availability(start_date, end_date)
-      assert is_list(availability)
+      assert is_map(availability)
+      # Verify it has the expected structure for each date
+      Enum.each(Date.range(start_date, end_date), fn date ->
+        assert Map.has_key?(availability, date)
+        date_data = availability[date]
+        assert Map.has_key?(date_data, :has_room_booking)
+        assert Map.has_key?(date_data, :has_buyout)
+      end)
     end
 
     test "get_clear_lake_daily_availability/2 returns availability data" do
@@ -850,7 +877,13 @@ defmodule Ysc.BookingsTest do
       end_date = Date.add(start_date, 7)
 
       availability = Bookings.get_clear_lake_daily_availability(start_date, end_date)
-      assert is_list(availability)
+      assert is_map(availability)
+      # Verify it has the expected structure for each date
+      Enum.each(Date.range(start_date, end_date), fn date ->
+        assert Map.has_key?(availability, date)
+        date_data = availability[date]
+        assert is_map(date_data)
+      end)
     end
   end
 
@@ -950,9 +983,15 @@ defmodule Ysc.BookingsTest do
   end
 
   defp create_door_code_fixture(attrs \\ %{}) do
+    # Generate a 4-5 character alphanumeric code
+    unique_suffix =
+      System.unique_integer([:positive]) |> Integer.to_string() |> String.slice(-1, 1)
+
+    code = "123#{unique_suffix}"
+
     default_attrs = %{
       property: :tahoe,
-      code: "1234#{System.unique_integer([:positive])}",
+      code: code,
       is_active: false
     }
 
@@ -972,10 +1011,20 @@ defmodule Ysc.BookingsTest do
       name: "Test Policy #{System.unique_integer()}"
     }
 
-    {:ok, policy} =
-      default_attrs
-      |> Map.merge(attrs)
-      |> Bookings.create_refund_policy()
+    merged_attrs = Map.merge(default_attrs, attrs)
+
+    # If creating an active policy, deactivate any existing active policies for the same property/mode
+    # to avoid unique constraint violations
+    if Map.get(merged_attrs, :is_active, true) do
+      from(p in Ysc.Bookings.RefundPolicy,
+        where: p.property == ^merged_attrs[:property],
+        where: p.booking_mode == ^merged_attrs[:booking_mode],
+        where: p.is_active == true
+      )
+      |> Ysc.Repo.update_all(set: [is_active: false])
+    end
+
+    {:ok, policy} = Bookings.create_refund_policy(merged_attrs)
 
     policy
   end

@@ -54,9 +54,7 @@ defmodule YscWeb.Workers.FileExportCleanUp do
   def zero_pad(n), do: "#{n}"
 
   def ctime_to_datetime({{year, month, day}, {hour, minute, second}}) do
-    Timex.parse!(
-      "#{year}-#{month}-#{day} #{zero_pad(hour)}:#{zero_pad(minute)}:#{zero_pad(second)}",
-      "{YYYY}-{M}-{D} {h24}:{m}:{s}"
-    )
+    naive_dt = NaiveDateTime.new!(year, month, day, hour, minute, second, {0, 0})
+    DateTime.from_naive!(naive_dt, "Etc/UTC")
   end
 end

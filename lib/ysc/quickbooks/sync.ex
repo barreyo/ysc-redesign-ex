@@ -221,7 +221,7 @@ defmodule Ysc.Quickbooks.Sync do
       {:ok, sales_receipt}
     else
       {:error, reason} = error ->
-        Logger.error(
+        Logger.warning(
           "[QB Sync] do_sync_payment: Sync failed in pipeline - Error: #{inspect(reason)}, Payment ID: #{payment.id}, Reference ID: #{payment.reference_id}, User ID: #{payment.user_id}",
           payment_id: payment.id,
           payment_reference_id: payment.reference_id,
@@ -309,7 +309,7 @@ defmodule Ysc.Quickbooks.Sync do
       {:ok, refund_receipt}
     else
       {:error, reason} = error ->
-        Logger.error(
+        Logger.warning(
           "[QB Sync] do_sync_refund: Sync failed in pipeline - Error: #{inspect(reason)}, Refund ID: #{refund.id}, Reference ID: #{refund.reference_id}, Payment ID: #{refund.payment_id}",
           refund_id: refund.id,
           refund_reference_id: refund.reference_id,
@@ -408,7 +408,7 @@ defmodule Ysc.Quickbooks.Sync do
       {:ok, deposit}
     else
       {:error, reason} = error ->
-        Logger.error(
+        Logger.warning(
           "[QB Sync] do_sync_payout: Sync failed in pipeline - Error: #{inspect(reason)}, Payout ID: #{payout.id}, Stripe Payout ID: #{inspect(payout.stripe_payout_id)}, Payments: #{length(payout.payments)}, Refunds: #{length(payout.refunds)}",
           payout_id: payout.id,
           stripe_payout_id: payout.stripe_payout_id,
@@ -511,7 +511,7 @@ defmodule Ysc.Quickbooks.Sync do
         {:ok, customer_id}
 
       {:error, reason} = error ->
-        Logger.error(
+        Logger.warning(
           "[QB Sync] get_or_create_customer: Failed to get or create customer - Error: #{inspect(reason)}, User ID: #{user.id}, Email: #{user.email}, Existing QB Customer ID: #{inspect(user.quickbooks_customer_id)}",
           user_id: user.id,
           user_email: user.email,
@@ -539,7 +539,7 @@ defmodule Ysc.Quickbooks.Sync do
         error
 
       error ->
-        Logger.error(
+        Logger.warning(
           "[QB Sync] get_or_create_customer: Failed to get or create customer (unexpected error format) - Error: #{inspect(error)}, User ID: #{user.id}, Email: #{user.email}",
           user_id: user.id,
           user_email: user.email,
@@ -998,7 +998,7 @@ defmodule Ysc.Quickbooks.Sync do
         {:ok, item_id}
 
       error ->
-        Logger.error("[QB Sync] get_quickbooks_item_id: Failed to get or create item",
+        Logger.warning("[QB Sync] get_quickbooks_item_id: Failed to get or create item",
           item_name: item_name,
           error: inspect(error)
         )
@@ -1381,7 +1381,7 @@ defmodule Ysc.Quickbooks.Sync do
       result
     else
       error ->
-        Logger.error(
+        Logger.warning(
           "[QB Sync] create_mixed_payment_sales_receipt: Failed to get or create item IDs",
           payment_id: payment.id,
           error: inspect(error)
@@ -1431,8 +1431,13 @@ defmodule Ysc.Quickbooks.Sync do
         %{value: class_id, name: "Administration"}
 
       _ ->
-        Logger.error(
+        Logger.warning(
           "[QB Sync] get_administration_class_ref: CRITICAL - Administration class not found! Using hardcoded fallback (this may fail)"
+        )
+
+        Sentry.capture_message("QuickBooks Administration class not found",
+          level: :error,
+          tags: %{quickbooks_operation: "get_administration_class_ref"}
         )
 
         # Last resort fallback - this may fail, but we must provide a class
@@ -1640,9 +1645,15 @@ defmodule Ysc.Quickbooks.Sync do
             })
 
           _ ->
-            Logger.error(
+            Logger.warning(
               "[QB Sync] create_refund_sales_receipt: CRITICAL - Cannot find Undeposited Funds account, refund receipt will fail",
               refund_id: refund.id
+            )
+
+            Sentry.capture_message("QuickBooks Undeposited Funds account not found",
+              level: :error,
+              extra: %{refund_id: refund.id},
+              tags: %{quickbooks_operation: "create_refund_sales_receipt"}
             )
 
             # This will likely fail, but we must provide something
@@ -1976,7 +1987,7 @@ defmodule Ysc.Quickbooks.Sync do
         end
       end
     else
-      Logger.error("[QB Sync] create_payout_deposit: QuickBooks accounts not configured",
+      Logger.warning("[QB Sync] create_payout_deposit: QuickBooks accounts not configured",
         payout_id: payout.id,
         bank_account_id: bank_account_id,
         stripe_account_id: stripe_account_id
@@ -2621,7 +2632,7 @@ defmodule Ysc.Quickbooks.Sync do
         :ok
 
       {:error, changeset} ->
-        Logger.error("[QB Sync] Failed to update payment sync failure",
+        Logger.warning("[QB Sync] Failed to update payment sync failure",
           payment_id: payment.id,
           error: inspect(changeset.errors)
         )

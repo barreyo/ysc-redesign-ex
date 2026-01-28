@@ -34,21 +34,9 @@ defmodule YscWeb.Workers.QuickbooksSyncPayoutWorker do
            |> Repo.one()
          end) do
       {:ok, nil} ->
-        Logger.error("Payout not found for QuickBooks sync", payout_id: payout_id)
+        Logger.warning("Payout not found for QuickBooks sync", payout_id: payout_id)
 
-        # Report to Sentry
-        Sentry.capture_message("Payout not found for QuickBooks sync",
-          level: :error,
-          extra: %{
-            payout_id: payout_id
-          },
-          tags: %{
-            quickbooks_worker: "sync_payout",
-            error_type: "payout_not_found"
-          }
-        )
-
-        {:error, :payout_not_found}
+        {:discard, :payout_not_found}
 
       {:ok, payout} ->
         # Check if already synced (double-check after acquiring lock)
@@ -73,7 +61,7 @@ defmodule YscWeb.Workers.QuickbooksSyncPayoutWorker do
               :ok
 
             {:error, reason} ->
-              Logger.error("Failed to sync payout to QuickBooks",
+              Logger.warning("Failed to sync payout to QuickBooks",
                 payout_id: payout_id,
                 error: inspect(reason)
               )
@@ -102,7 +90,7 @@ defmodule YscWeb.Workers.QuickbooksSyncPayoutWorker do
         :ok
 
       {:error, reason} ->
-        Logger.error("Failed to lock payout for QuickBooks sync",
+        Logger.warning("Failed to lock payout for QuickBooks sync",
           payout_id: payout_id,
           error: inspect(reason)
         )

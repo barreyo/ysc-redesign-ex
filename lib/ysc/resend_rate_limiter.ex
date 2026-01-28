@@ -49,8 +49,25 @@ defmodule Ysc.ResendRateLimiter do
   @spec record_resend(String.t() | integer(), atom(), integer()) :: :ok
   def record_resend(identifier, type, rate_limit_seconds \\ @default_rate_limit_seconds) do
     cache_key = cache_key(identifier, type)
-    Cachex.put(:ysc_cache, cache_key, true, ttl: :timer.seconds(rate_limit_seconds))
-    :ok
+    ttl_ms = :timer.seconds(rate_limit_seconds)
+
+    case Cachex.put(:ysc_cache, cache_key, true, ttl: ttl_ms) do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        require Logger
+
+        Logger.error("[ResendRateLimiter] Failed to cache rate limit", %{
+          cache_key: cache_key,
+          reason: reason
+        })
+
+        # In test environment, this might fail if cache isn't initialized
+        # For now, we'll still return :ok to avoid breaking callers
+        # but the rate limiting won't work if cache fails
+        :ok
+    end
   end
 
   @doc """

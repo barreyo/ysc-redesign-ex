@@ -2,7 +2,6 @@ defmodule YscWeb.Workers.QuickbooksSyncRetryWorkerTest do
   use Ysc.DataCase, async: false
 
   alias YscWeb.Workers.QuickbooksSyncRetryWorker
-  alias Ysc.Ledgers
 
   describe "perform/1" do
     test "enqueues sync jobs for unsynced records" do

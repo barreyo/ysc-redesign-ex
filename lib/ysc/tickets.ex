@@ -64,6 +64,13 @@ defmodule Ysc.Tickets do
         case BookingLocker.atomic_booking(user_id, event_id, ticket_selections) do
           {:ok, ticket_order} ->
             # Emit telemetry event for ticket order creation
+            ticket_count =
+              if Ecto.assoc_loaded?(ticket_order.tickets) do
+                length(ticket_order.tickets)
+              else
+                0
+              end
+
             :telemetry.execute(
               [:ysc, :tickets, :order_created],
               %{count: 1},
@@ -72,7 +79,7 @@ defmodule Ysc.Tickets do
                 event_id: event_id,
                 user_id: user_id,
                 total_amount: Money.to_decimal(ticket_order.total_amount),
-                ticket_count: length(ticket_order.tickets || [])
+                ticket_count: ticket_count
               }
             )
 
@@ -87,7 +94,7 @@ defmodule Ysc.Tickets do
       error ->
         require Logger
 
-        Logger.error("Failed to create ticket order",
+        Logger.warning("Failed to create ticket order",
           user_id: user_id,
           event_id: event_id,
           ticket_selections: ticket_selections,
@@ -1074,7 +1081,7 @@ defmodule Ysc.Tickets do
   # Returns {gross_event_amount, donation_amount, discount_amount}
   # gross_event_amount is the amount before discounts (for ledger tracking)
   def calculate_event_and_donation_amounts(ticket_order) do
-    if ticket_order && ticket_order.tickets do
+    if ticket_order && Ecto.assoc_loaded?(ticket_order.tickets) && ticket_order.tickets do
       # Calculate non-donation ticket costs (regular event revenue) - gross amount before discounts
       gross_event_amount =
         ticket_order.tickets

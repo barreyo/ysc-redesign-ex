@@ -164,7 +164,8 @@ defmodule Ysc.MediaTest do
   describe "list_images_per_year/0" do
     test "returns images per year" do
       result = Media.list_images_per_year()
-      assert is_list(result)
+      # Function returns a map with year as keys and lists of images as values
+      assert is_map(result)
     end
   end
 end

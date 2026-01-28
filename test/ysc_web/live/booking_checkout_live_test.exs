@@ -42,8 +42,8 @@ defmodule YscWeb.BookingCheckoutLiveTest do
       assert {:error, {:redirect, %{to: path}}} =
                live(conn, ~p"/bookings/checkout/#{booking.id}")
 
-      # Expect redirect to property path
-      assert path =~ "/bookings/tahoe"
+      # When booking is not found (not owned by user), redirects to home
+      assert path == ~p"/"
     end
   end
 end

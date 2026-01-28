@@ -48,7 +48,7 @@ defmodule Ysc.Tickets.WebhookHandler do
         :ok
 
       {:error, reason} ->
-        Logger.error("Failed to process ticket order payment",
+        Logger.warning("Failed to process ticket order payment",
           payment_intent_id: payment_intent_id,
           error: reason
         )
@@ -71,7 +71,7 @@ defmodule Ysc.Tickets.WebhookHandler do
         :ok
 
       {:error, reason} ->
-        Logger.error("Failed to cancel ticket order after payment failure",
+        Logger.warning("Failed to cancel ticket order after payment failure",
           payment_intent_id: payment_intent_id,
           error: reason
         )
@@ -94,7 +94,7 @@ defmodule Ysc.Tickets.WebhookHandler do
         :ok
 
       {:error, reason} ->
-        Logger.error("Failed to cancel ticket order after payment cancellation",
+        Logger.warning("Failed to cancel ticket order after payment cancellation",
           payment_intent_id: payment_intent_id,
           error: reason
         )

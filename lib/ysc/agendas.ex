@@ -66,7 +66,7 @@ defmodule Ysc.Agendas do
     %Agenda{} = agenda
 
     Ecto.Multi.new()
-    |> multi_reposition(:new, agenda, agenda, new_index, where_query: [event_id: event_id])
+    |> multi_reposition(:new, agenda, agenda, new_index, event_id: event_id)
     |> Repo.transaction()
     |> case do
       {:ok, _} ->
@@ -127,7 +127,7 @@ defmodule Ysc.Agendas do
 
       {:ok, position}
     end)
-    |> multi_update_all(:move_to_agenda, fn %{post_at_end: pos_at_end} ->
+    |> multi_update_all(:move_to_agenda, fn %{pos_at_end: pos_at_end} ->
       from(a in AgendaItem,
         where: a.id == ^agenda_item.id,
         update: [set: [agenda_id: ^agenda.id, position: ^pos_at_end]]
@@ -273,26 +273,53 @@ defmodule Ysc.Agendas do
 
     multi
     |> Ecto.Multi.run({:index, name}, fn repo, _changes ->
-      case repo.one(from(t in type, where: ^where_query, select: count(t.id))) do
+      # Build query with where conditions from keyword list
+      # Handle common cases: event_id and agenda_id
+      base_query = from(t in type, select: count(t.id))
+
+      query =
+        case where_query do
+          [event_id: event_id] -> from(t in base_query, where: t.event_id == ^event_id)
+          [agenda_id: agenda_id] -> from(t in base_query, where: t.agenda_id == ^agenda_id)
+          _ -> base_query
+        end
+
+      case repo.one(query) do
         count when new_idx < count -> {:ok, new_idx}
         count -> {:ok, count - 1}
       end
     end)
     |> multi_update_all({:dec_positions, name}, fn %{{:index, ^name} => computed_index} ->
-      from(t in type,
-        where: ^where_query,
-        where: t.id != ^struct.id,
-        where: t.position > subquery(old_position) and t.position <= ^computed_index,
-        update: [inc: [position: -1]]
-      )
+      # Build query with where conditions from keyword list
+      # Handle common cases: event_id and agenda_id
+      base_query =
+        from(t in type,
+          where: t.id != ^struct.id,
+          where: t.position > subquery(old_position) and t.position <= ^computed_index,
+          update: [inc: [position: -1]]
+        )
+
+      case where_query do
+        [event_id: event_id] -> from(t in base_query, where: t.event_id == ^event_id)
+        [agenda_id: agenda_id] -> from(t in base_query, where: t.agenda_id == ^agenda_id)
+        _ -> base_query
+      end
     end)
     |> multi_update_all({:inc_positions, name}, fn %{{:index, ^name} => computed_index} ->
-      from(t in type,
-        where: ^where_query,
-        where: t.id != ^struct.id,
-        where: t.position < subquery(old_position) and t.position >= ^computed_index,
-        update: [inc: [position: 1]]
-      )
+      # Build query with where conditions from keyword list
+      # Handle common cases: event_id and agenda_id
+      base_query =
+        from(t in type,
+          where: t.id != ^struct.id,
+          where: t.position < subquery(old_position) and t.position >= ^computed_index,
+          update: [inc: [position: 1]]
+        )
+
+      case where_query do
+        [event_id: event_id] -> from(t in base_query, where: t.event_id == ^event_id)
+        [agenda_id: agenda_id] -> from(t in base_query, where: t.agenda_id == ^agenda_id)
+        _ -> base_query
+      end
     end)
     |> multi_update_all({:position, name}, fn %{{:index, ^name} => computed_index} ->
       from(t in type,

@@ -19,74 +19,86 @@ defmodule Ysc.Customers do
 
   """
   def create_stripe_customer(%User{} = user) do
-    customer_params = %{
-      email: user.email,
-      name: "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
-      phone: user.phone_number,
-      description: "User ID: #{user.id}",
-      metadata: %{
-        user_id: user.id
+    if Code.ensure_loaded?(Mix) && Mix.env() == :test do
+      # In tests we avoid calling the real Stripe API. We still persist a deterministic
+      # stripe_id so downstream code that relies on it behaves normally.
+      stripe_customer = %Stripe.Customer{id: "cus_test_#{user.id}"}
+
+      user = Repo.get!(User, user.id)
+      changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
+      _ = Repo.update(changeset)
+
+      {:ok, stripe_customer}
+    else
+      customer_params = %{
+        email: user.email,
+        name: "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
+        phone: user.phone_number,
+        description: "User ID: #{user.id}",
+        metadata: %{
+          user_id: user.id
+        }
       }
-    }
 
-    case Stripe.Customer.create(customer_params) do
-      {:ok, stripe_customer} ->
-        # Reload user to get latest version and avoid stale entry errors
-        # This is important when called from async tasks
-        user = Repo.get!(User, user.id)
+      case Stripe.Customer.create(customer_params) do
+        {:ok, stripe_customer} ->
+          # Reload user to get latest version and avoid stale entry errors
+          # This is important when called from async tasks
+          user = Repo.get!(User, user.id)
 
-        # Update user with Stripe customer ID directly (bypass authorization for system operation)
-        changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
+          # Update user with Stripe customer ID directly (bypass authorization for system operation)
+          changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
 
-        case Repo.update(changeset) do
-          {:ok, _updated_user} ->
-            {:ok, stripe_customer}
+          case Repo.update(changeset) do
+            {:ok, _updated_user} ->
+              {:ok, stripe_customer}
 
-          {:error, %Ecto.StaleEntryError{}} ->
-            # User was updated concurrently, reload and retry once
-            require Logger
+            {:error, %Ecto.StaleEntryError{}} ->
+              # User was updated concurrently, reload and retry once
+              require Logger
 
-            Logger.warning("Stale user entry when updating stripe_id, retrying",
-              user_id: user.id,
-              stripe_customer_id: stripe_customer.id
-            )
+              Logger.warning("Stale user entry when updating stripe_id, retrying",
+                user_id: user.id,
+                stripe_customer_id: stripe_customer.id
+              )
 
-            # Reload and retry once
-            user = Repo.get!(User, user.id)
-            changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
+              # Reload and retry once
+              user = Repo.get!(User, user.id)
+              changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
 
-            case Repo.update(changeset) do
-              {:ok, _updated_user} ->
-                {:ok, stripe_customer}
+              case Repo.update(changeset) do
+                {:ok, _updated_user} ->
+                  {:ok, stripe_customer}
 
-              {:error, changeset} ->
-                Logger.error("Failed to update user with stripe_id after retry",
-                  user_id: user.id,
-                  stripe_customer_id: stripe_customer.id,
-                  changeset_errors: inspect(changeset.errors)
-                )
+                {:error, changeset} ->
+                  Logger.error("Failed to update user with stripe_id after retry",
+                    user_id: user.id,
+                    stripe_customer_id: stripe_customer.id,
+                    changeset_errors: inspect(changeset.errors)
+                  )
 
-                # Still return success for the customer creation, but log the error
-                # The stripe_id will be set via webhook handler eventually
-                {:ok, stripe_customer}
-            end
+                  # Still return success for the customer creation, but log the error
+                  # The stripe_id will be set via webhook handler eventually
+                  {:ok, stripe_customer}
+              end
 
-          {:error, changeset} ->
-            require Logger
+            {:error, changeset} ->
+              require Logger
 
-            Logger.error("Failed to update user with stripe_id",
-              user_id: user.id,
-              stripe_customer_id: stripe_customer.id,
-              changeset_errors: inspect(changeset.errors)
-            )
+              Logger.error("Failed to update user with stripe_id",
+                user_id: user.id,
+                stripe_customer_id: stripe_customer.id,
+                changeset_errors: inspect(changeset.errors)
+              )
 
-            # Still return success for the customer creation, but log the error
-            # The stripe_id will be set via webhook handler eventually
-            {:ok, stripe_customer}
-        end
+              # Still return success for the customer creation, but log the error
+              # The stripe_id will be set via webhook handler eventually
+              {:ok, stripe_customer}
+          end
 
-      {:error, error} ->
-        {:error, error}
+        {:error, error} ->
+          {:error, error}
+      end
     end
   end
 
@@ -104,42 +116,47 @@ defmodule Ysc.Customers do
   """
   def update_stripe_customer(%User{} = user) do
     if user.stripe_id do
-      # Preload billing_address to ensure it's available for customer update
-      user = Repo.preload(user, :billing_address)
+      if Code.ensure_loaded?(Mix) && Mix.env() == :test do
+        # Avoid Stripe API in tests; behave as if update succeeded.
+        {:ok, %Stripe.Customer{id: user.stripe_id}}
+      else
+        # Preload billing_address to ensure it's available for customer update
+        user = Repo.preload(user, :billing_address)
 
-      customer_params = %{
-        email: user.email,
-        name: "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
-        phone: user.phone_number,
-        description: "User ID: #{user.id}",
-        metadata: %{
-          user_id: user.id
+        customer_params = %{
+          email: user.email,
+          name: "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
+          phone: user.phone_number,
+          description: "User ID: #{user.id}",
+          metadata: %{
+            user_id: user.id
+          }
         }
-      }
 
-      # Add address if billing_address exists
-      customer_params =
-        if user.billing_address do
-          address = build_customer_address(user.billing_address)
-          Map.put(customer_params, :address, address)
-        else
-          customer_params
+        # Add address if billing_address exists
+        customer_params =
+          if user.billing_address do
+            address = build_customer_address(user.billing_address)
+            Map.put(customer_params, :address, address)
+          else
+            customer_params
+          end
+
+        case Stripe.Customer.update(user.stripe_id, customer_params) do
+          {:ok, stripe_customer} ->
+            {:ok, stripe_customer}
+
+          {:error, error} ->
+            require Logger
+
+            Logger.error("Failed to update Stripe customer",
+              user_id: user.id,
+              stripe_customer_id: user.stripe_id,
+              error: inspect(error)
+            )
+
+            {:error, error}
         end
-
-      case Stripe.Customer.update(user.stripe_id, customer_params) do
-        {:ok, stripe_customer} ->
-          {:ok, stripe_customer}
-
-        {:error, error} ->
-          require Logger
-
-          Logger.error("Failed to update Stripe customer",
-            user_id: user.id,
-            stripe_customer_id: user.stripe_id,
-            error: inspect(error)
-          )
-
-          {:error, error}
       end
     else
       {:error, :no_stripe_customer}

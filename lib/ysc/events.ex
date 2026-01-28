@@ -549,17 +549,25 @@ defmodule Ysc.Events do
   end
 
   def schedule_event(%Event{} = event, publish_at) when is_binary(publish_at) do
-    # Parse datetime-local string (format: "YYYY-MM-DDTHH:MM") as PST and convert to UTC
+    # Try to parse as full ISO8601 first, then fall back to datetime-local format
     parsed_datetime =
-      case NaiveDateTime.from_iso8601("#{publish_at}:00") do
-        {:ok, naive_dt} ->
-          # Create DateTime in America/Los_Angeles timezone (PST)
-          local_dt = DateTime.from_naive!(naive_dt, "America/Los_Angeles")
-          # Convert to UTC for storage
-          DateTime.shift_zone!(local_dt, "Etc/UTC")
+      case DateTime.from_iso8601(publish_at) do
+        {:ok, dt, _offset} ->
+          # Already a DateTime, use it directly
+          dt
 
         {:error, _} ->
-          raise ArgumentError, "Invalid datetime format: #{publish_at}"
+          # Try parsing as datetime-local string (format: "YYYY-MM-DDTHH:MM") as PST and convert to UTC
+          case NaiveDateTime.from_iso8601("#{publish_at}:00") do
+            {:ok, naive_dt} ->
+              # Create DateTime in America/Los_Angeles timezone (PST)
+              local_dt = DateTime.from_naive!(naive_dt, "America/Los_Angeles")
+              # Convert to UTC for storage
+              DateTime.shift_zone!(local_dt, "Etc/UTC")
+
+            {:error, _} ->
+              raise ArgumentError, "Invalid datetime format: #{publish_at}"
+          end
       end
 
     schedule_event(event, parsed_datetime)

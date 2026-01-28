@@ -8,8 +8,6 @@ defmodule YscWeb.PasskeyLoginTest do
   import Ysc.AccountsFixtures
 
   alias Ysc.Accounts
-  alias Ysc.Accounts.{AuthEvent, UserPasskey}
-  alias Ysc.Repo
 
   describe "passkey_login/2" do
     setup do
@@ -34,7 +32,7 @@ defmodule YscWeb.PasskeyLoginTest do
 
     test "logs in user with redirect_to parameter", %{conn: conn, user: user} do
       encoded_user_id = Base.url_encode64(user.id, padding: false)
-      redirect_to = ~p"/bookings"
+      redirect_to = ~p"/bookings/tahoe"
 
       conn =
         conn
@@ -50,7 +48,7 @@ defmodule YscWeb.PasskeyLoginTest do
     test "stores authentication method in auth event", %{conn: conn, user: user} do
       encoded_user_id = Base.url_encode64(user.id, padding: false)
 
-      conn =
+      _conn =
         conn
         |> get(~p"/users/log-in/passkey", %{"user_id" => encoded_user_id})
 
@@ -72,12 +70,15 @@ defmodule YscWeb.PasskeyLoginTest do
     end
 
     test "redirects to login with error for invalid user_id", %{conn: conn} do
+      # Use a valid base64-encoded string that decodes to an invalid ULID
+      # Base64 encode a string that's not a valid ULID
       invalid_user_id = Base.url_encode64("invalid_id", padding: false)
 
       conn =
         conn
         |> get(~p"/users/log-in/passkey", %{"user_id" => invalid_user_id})
 
+      # The controller should handle the invalid ULID gracefully
       assert redirected_to(conn) == ~p"/users/log-in"
       assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "Invalid login session"
     end
@@ -108,8 +109,9 @@ defmodule YscWeb.PasskeyLoginTest do
     test "clears failed login attempts on successful login", %{conn: conn, user: user} do
       encoded_user_id = Base.url_encode64(user.id, padding: false)
 
-      # Set failed attempts in session
-      conn = put_session(conn, :failed_login_attempts, 3)
+      # Set failed attempts in session - must init test session first
+      conn =
+        conn |> Phoenix.ConnTest.init_test_session(%{}) |> put_session(:failed_login_attempts, 3)
 
       conn =
         conn

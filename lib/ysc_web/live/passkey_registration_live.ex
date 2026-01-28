@@ -174,55 +174,59 @@ defmodule YscWeb.PasskeyRegistrationLive do
          passkey_challenge: nil
        )}
     else
-      # Decode the response from JS
-      attestation_object =
-        Base.url_decode64!(response["response"]["attestationObject"], padding: false)
+      try do
+        attestation_object =
+          Base.url_decode64!(response["response"]["attestationObject"], padding: false)
 
-      client_data_json =
-        Base.url_decode64!(response["response"]["clientDataJSON"], padding: false)
+        client_data_json =
+          Base.url_decode64!(response["response"]["clientDataJSON"], padding: false)
 
-      # Verify the registration
-      # Wax.register returns {:ok, {auth_data, attestation_result_data}}
-      case Wax.register(attestation_object, client_data_json, challenge) do
-        {:ok, {auth_data, _attestation_result_data}} ->
-          # Extract the credential ID and public key from the authenticator data
-          # The auth_data contains the attested_credential_data with credential_id and public_key
-          credential_data = auth_data.attested_credential_data
-          credential_id = credential_data.credential_id
-          public_key = credential_data.credential_public_key
+        # Verify the registration
+        # Wax.register returns {:ok, {auth_data, attestation_result_data}}
+        case Wax.register(attestation_object, client_data_json, challenge) do
+          {:ok, {auth_data, _attestation_result_data}} ->
+            credential_data = auth_data.attested_credential_data
+            credential_id = credential_data.credential_id
+            public_key = credential_data.credential_public_key
 
-          # Store the passkey
-          attrs = %{
-            external_id: credential_id,
-            public_key: UserPasskey.encode_public_key(public_key),
-            nickname: get_device_nickname(socket.assigns[:user_agent])
-          }
+            attrs = %{
+              external_id: credential_id,
+              public_key: UserPasskey.encode_public_key(public_key),
+              nickname: get_device_nickname(socket.assigns[:user_agent])
+            }
 
-          case Accounts.create_user_passkey(user, attrs) do
-            {:ok, _passkey} ->
-              # Show success message, set flash, and redirect
-              # The success state will show on the page, and flash will show after redirect
-              {:noreply,
-               socket
-               |> assign(:success, true)
-               |> assign(:error, nil)
-               |> assign(:loading, false)
-               |> assign(:passkey_challenge, nil)
-               |> put_flash(:info, "Passkey added successfully! You can now use it to sign in.")}
+            case Accounts.create_user_passkey(user, attrs) do
+              {:ok, _passkey} ->
+                {:noreply,
+                 socket
+                 |> assign(:success, true)
+                 |> assign(:error, nil)
+                 |> assign(:loading, false)
+                 |> assign(:passkey_challenge, nil)
+                 |> put_flash(:info, "Passkey added successfully! You can now use it to sign in.")}
 
-            {:error, _changeset} ->
-              {:noreply,
-               assign(socket,
-                 error: "Failed to save passkey. Please try again.",
-                 loading: false,
-                 passkey_challenge: nil
-               )}
-          end
+              {:error, _changeset} ->
+                {:noreply,
+                 assign(socket,
+                   error: "Failed to save passkey. Please try again.",
+                   loading: false,
+                   passkey_challenge: nil
+                 )}
+            end
 
-        {:error, reason} ->
+          {:error, reason} ->
+            {:noreply,
+             assign(socket,
+               error: "Passkey registration failed: #{inspect(reason)}. Please try again.",
+               loading: false,
+               passkey_challenge: nil
+             )}
+        end
+      rescue
+        _ ->
           {:noreply,
            assign(socket,
-             error: "Passkey registration failed: #{inspect(reason)}. Please try again.",
+             error: "Invalid passkey response. Please try again.",
              loading: false,
              passkey_challenge: nil
            )}

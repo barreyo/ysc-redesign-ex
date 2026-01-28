@@ -66,7 +66,7 @@ defmodule YscWeb.Workers.SmsNotifier do
             )
 
           _ ->
-            Logger.error("SmsNotifier job received invalid args",
+            Logger.warning("SmsNotifier job received invalid args",
               job_id: job.id,
               args: args,
               expected_keys: [
@@ -192,7 +192,7 @@ defmodule YscWeb.Workers.SmsNotifier do
 
     if is_nil(template_module) do
       error_message = "Template module not found for template: #{template}"
-      Logger.error("Template module not found for template: #{template}")
+      Logger.warning("Template module not found for template: #{template}")
       {:error, error_message}
     else
       if Ysc.Accounts.SmsCategories.should_send_sms?(user, template) do

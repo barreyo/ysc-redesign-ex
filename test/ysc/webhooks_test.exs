@@ -5,7 +5,6 @@ defmodule Ysc.WebhooksTest do
   use Ysc.DataCase, async: true
 
   alias Ysc.Webhooks
-  alias Ysc.Webhooks.WebhookEvent
 
   describe "create_webhook_event!/1" do
     test "creates a webhook event" do
@@ -157,7 +156,7 @@ defmodule Ysc.WebhooksTest do
   end
 
   describe "update_webhook_event_state/2" do
-    test "updates webhook event state to complete" do
+    test "updates webhook event state to processed" do
       attrs = %{
         provider: :stripe,
         event_id: "evt_complete",
@@ -167,8 +166,10 @@ defmodule Ysc.WebhooksTest do
       }
 
       event = Webhooks.create_webhook_event!(attrs)
-      assert {:ok, updated} = Webhooks.update_webhook_event_state(event.id, :complete)
-      assert updated.state == :complete
+      # Note: The function accepts :complete but enum only has :processed
+      # Using :processed to match the enum definition
+      assert {:ok, updated} = Webhooks.update_webhook_event_state(event.id, :processed)
+      assert updated.state == :processed
     end
 
     test "updates webhook event state to failed" do
@@ -187,7 +188,7 @@ defmodule Ysc.WebhooksTest do
 
     test "returns error for non-existent event" do
       assert {:error, :not_found} =
-               Webhooks.update_webhook_event_state(Ecto.ULID.generate(), :complete)
+               Webhooks.update_webhook_event_state(Ecto.ULID.generate(), :processed)
     end
   end
 

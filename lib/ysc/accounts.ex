@@ -437,55 +437,34 @@ defmodule Ysc.Accounts do
     end)
     |> case do
       {:ok, user} ->
-        # Spawn task to create Stripe customer asynchronously
-        # In test mode, allow the task to use the database connection
-        Task.start(fn ->
-          # In test mode, allow this task to use the parent's database connection
-          # This prevents DBConnection.OwnershipError in tests
-          is_test = if Code.ensure_loaded?(Mix), do: Mix.env() == :test, else: false
+        is_test = if Code.ensure_loaded?(Mix), do: Mix.env() == :test, else: false
 
-          if is_test do
-            # Try to get the sandbox owner from the repo config or process dictionary
-            owner = Ysc.Repo.config()[:owner] || Process.get({Ecto.Adapters.SQL.Sandbox, :owner})
-
-            if owner do
-              Ecto.Adapters.SQL.Sandbox.allow(Ysc.Repo, self(), owner)
-            else
-              # Fallback: use checkout which finds the owner automatically from parent
-              # This works when the parent process has a checked-out connection
-              Ecto.Adapters.SQL.Sandbox.checkout(Ysc.Repo, sandbox: true)
-            end
-          end
-
-          # Wrap in try-catch to suppress errors in test mode
-          try do
-            Ysc.Customers.create_stripe_customer(user)
-          rescue
-            e ->
-              # In test mode, silently ignore errors to keep test output clean
-              # The user might not exist anymore due to test transaction rollback
-              unless is_test do
+        # In tests, avoid spawning background tasks that touch the DB inside the SQL sandbox,
+        # as they can produce noisy DBConnection ownership/disconnect logs.
+        unless is_test do
+          Task.start(fn ->
+            try do
+              Ysc.Customers.create_stripe_customer(user)
+            rescue
+              e ->
                 require Logger
 
-                Logger.error("Failed to create Stripe customer in background task",
+                Logger.warning("Failed to create Stripe customer in background task",
                   user_id: user.id,
                   error: Exception.format(:error, e, __STACKTRACE__)
                 )
-              end
-          catch
-            kind, reason ->
-              # Catch all other errors (throws, exits, etc.)
-              unless is_test do
+            catch
+              kind, reason ->
                 require Logger
 
-                Logger.error("Failed to create Stripe customer in background task",
+                Logger.warning("Failed to create Stripe customer in background task",
                   user_id: user.id,
                   kind: kind,
                   reason: inspect(reason)
                 )
-              end
-          end
-        end)
+            end
+          end)
+        end
 
         subscribe_user_to_newsletter(user)
         {:ok, user}

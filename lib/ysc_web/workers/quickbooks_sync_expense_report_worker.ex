@@ -63,22 +63,12 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
            end
          end) do
       {:ok, nil} ->
-        Logger.error("Expense report not found for QuickBooks sync",
+        Logger.warning("Expense report not found for QuickBooks sync",
           expense_report_id: expense_report_id
         )
 
-        Sentry.capture_message("Expense report not found for QuickBooks sync",
-          level: :error,
-          extra: %{
-            expense_report_id: expense_report_id
-          },
-          tags: %{
-            quickbooks_worker: "sync_expense_report",
-            error_type: "expense_report_not_found"
-          }
-        )
-
-        {:error, :expense_report_not_found}
+        # Not found is expected sometimes (e.g. stale job); don't retry.
+        {:discard, :expense_report_not_found}
 
       {:ok, expense_report} ->
         # Idempotency check: If bill_id exists, don't sync again (prevents duplicate bills)
@@ -134,7 +124,7 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
                   :ok
 
                 {:error, reason} ->
-                  Logger.error("Failed to sync expense report to QuickBooks",
+                  Logger.warning("Failed to sync expense report to QuickBooks",
                     expense_report_id: expense_report_id,
                     error: inspect(reason)
                   )
@@ -166,7 +156,7 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
         :ok
 
       {:error, reason} ->
-        Logger.error("Failed to lock expense report for QuickBooks sync",
+        Logger.warning("Failed to lock expense report for QuickBooks sync",
           expense_report_id: expense_report_id,
           error: inspect(reason)
         )

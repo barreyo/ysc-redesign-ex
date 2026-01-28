@@ -502,7 +502,7 @@ defmodule YscWeb.UserLoginLive do
       # Find passkey by external_id first (needed for verification)
       case Ysc.Accounts.get_user_passkey_by_external_id(raw_id) do
         nil ->
-          Logger.error("[UserLoginLive] Passkey not found by external_id", %{
+          Logger.warning("[UserLoginLive] Passkey not found by external_id", %{
             raw_id_hex: Base.encode16(raw_id, case: :lower),
             raw_id_base64: Base.url_encode64(raw_id, padding: false),
             raw_id_length: byte_size(raw_id)
@@ -550,7 +550,7 @@ defmodule YscWeb.UserLoginLive do
                   Base.url_decode64!(user_handle, padding: false)
                 rescue
                   e ->
-                    Logger.error("[UserLoginLive] Failed to decode userHandle", %{
+                    Logger.warning("[UserLoginLive] Failed to decode userHandle", %{
                       error: inspect(e),
                       user_handle: user_handle
                     })
@@ -572,16 +572,19 @@ defmodule YscWeb.UserLoginLive do
                 # passkey.user_id is Ecto.ULID which is already a binary
                 # Both should be binaries, so direct comparison should work
                 if passkey.user_id != user_id_from_handle do
-                  Logger.error("[UserLoginLive] User ID mismatch during passkey verification", %{
-                    passkey_user_id: inspect(passkey.user_id),
-                    passkey_user_id_hex: Base.encode16(passkey.user_id, case: :lower),
-                    passkey_user_id_binary: is_binary(passkey.user_id),
-                    user_id_from_handle: inspect(user_id_from_handle),
-                    user_id_from_handle_hex: Base.encode16(user_id_from_handle, case: :lower),
-                    user_id_from_handle_binary: is_binary(user_id_from_handle),
-                    user_handle_encoded: user_handle,
-                    user_ids_match: passkey.user_id == user_id_from_handle
-                  })
+                  Logger.warning(
+                    "[UserLoginLive] User ID mismatch during passkey verification",
+                    %{
+                      passkey_user_id: inspect(passkey.user_id),
+                      passkey_user_id_hex: Base.encode16(passkey.user_id, case: :lower),
+                      passkey_user_id_binary: is_binary(passkey.user_id),
+                      user_id_from_handle: inspect(user_id_from_handle),
+                      user_id_from_handle_hex: Base.encode16(user_id_from_handle, case: :lower),
+                      user_id_from_handle_binary: is_binary(user_id_from_handle),
+                      user_handle_encoded: user_handle,
+                      user_ids_match: passkey.user_id == user_id_from_handle
+                    }
+                  )
 
                   {:noreply,
                    put_flash(

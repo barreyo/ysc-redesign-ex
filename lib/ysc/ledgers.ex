@@ -512,7 +512,7 @@ defmodule Ysc.Ledgers do
     error ->
       require Logger
 
-      Logger.error("Failed to enqueue QuickBooks sync for payment",
+      Logger.warning("Failed to enqueue QuickBooks sync for payment",
         payment_id: payment.id,
         error: inspect(error)
       )
@@ -598,7 +598,7 @@ defmodule Ysc.Ledgers do
               error_message =
                 "Booking payment requires property to be specified (tahoe or clear_lake)"
 
-              Logger.error(
+              Logger.warning(
                 error_message,
                 entity_id: entity_id,
                 property: property
@@ -846,21 +846,15 @@ defmodule Ysc.Ledgers do
 
     entries = [stripe_receivable_entry | entries]
 
-    # Entry 2: Credit Event Revenue (net amount after discounts)
-    # We credit the net revenue (gross - discount) to show what we actually earned
-    net_event_amount =
-      case Money.sub(gross_event_amount, discount_amount) do
-        {:ok, amount} -> amount
-        _ -> gross_event_amount
-      end
-
+    # Entry 2: Credit Event Revenue (gross amount before discounts)
+    # We credit the gross revenue first, then reduce it with discount entries
     entries =
-      if Money.positive?(net_event_amount) do
+      if Money.positive?(gross_event_amount) do
         {:ok, event_revenue_entry} =
           create_entry(%{
             account_id: event_revenue_account.id,
             payment_id: payment.id,
-            amount: net_event_amount,
+            amount: gross_event_amount,
             debit_credit: :credit,
             description: "Event revenue from tickets: #{description}",
             related_entity_type: :event,
@@ -872,35 +866,39 @@ defmodule Ysc.Ledgers do
         entries
       end
 
-    # Entry 3: Debit Discount Expense (if discounts were applied)
-    # This tracks the discount as an expense and reduces revenue
+    # Entry 3 & 4: Discount entries (if discounts were applied)
+    # The discount reduces revenue, so we:
+    # - Debit Event Revenue (to reduce the gross revenue credit to net)
+    # - Credit Discount Expense (to balance the debit and track the discount)
+    # This properly balances: revenue reduction (debit) is offset by discount expense credit
     entries =
       if Money.positive?(discount_amount) do
-        {:ok, discount_expense_entry} =
-          create_entry(%{
-            account_id: discount_expense_account.id,
-            payment_id: payment.id,
-            amount: discount_amount,
-            debit_credit: :debit,
-            description: "Reserved ticket discount - Order #{ticket_order_id || "N/A"}",
-            related_entity_type: :event,
-            related_entity_id: event_id
-          })
-
-        # Entry 4: Credit Event Revenue (reducing revenue by discount amount)
-        # This entry reduces the gross revenue to show the net revenue
+        # Entry 3: Debit Event Revenue (reducing revenue by discount amount)
         {:ok, discount_revenue_reduction_entry} =
           create_entry(%{
             account_id: event_revenue_account.id,
             payment_id: payment.id,
             amount: discount_amount,
-            debit_credit: :credit,
+            debit_credit: :debit,
             description: "Revenue reduction from discount - Order #{ticket_order_id || "N/A"}",
             related_entity_type: :event,
             related_entity_id: event_id
           })
 
-        [discount_revenue_reduction_entry, discount_expense_entry | entries]
+        # Entry 4: Credit Discount Expense (to balance the revenue reduction debit)
+        # This tracks the discount as an expense while balancing the entry
+        {:ok, discount_expense_entry} =
+          create_entry(%{
+            account_id: discount_expense_account.id,
+            payment_id: payment.id,
+            amount: discount_amount,
+            debit_credit: :credit,
+            description: "Reserved ticket discount - Order #{ticket_order_id || "N/A"}",
+            related_entity_type: :event,
+            related_entity_id: event_id
+          })
+
+        [discount_expense_entry, discount_revenue_reduction_entry | entries]
       else
         entries
       end
@@ -1342,7 +1340,7 @@ defmodule Ysc.Ledgers do
     error ->
       require Logger
 
-      Logger.error("Failed to enqueue QuickBooks sync for refund",
+      Logger.warning("Failed to enqueue QuickBooks sync for refund",
         refund_id: refund.id,
         error: inspect(error)
       )
@@ -1725,10 +1723,28 @@ defmodule Ysc.Ledgers do
   Gets all payments linked to a payout with preloaded associations.
   """
   def get_payout_payments(payout_id) do
+    # Convert ULID to binary for comparison with join table's binary_id column
+    payout_id_binary =
+      cond do
+        is_binary(payout_id) and byte_size(payout_id) == 16 ->
+          # Already a binary UUID
+          payout_id
+
+        is_binary(payout_id) ->
+          # ULID string, convert to binary
+          case Ecto.ULID.dump(payout_id) do
+            {:ok, binary} -> binary
+            _ -> payout_id
+          end
+
+        true ->
+          payout_id
+      end
+
     from(p in Payment,
       join: pp in "payout_payments",
       on: pp.payment_id == p.id,
-      where: pp.payout_id == ^payout_id,
+      where: pp.payout_id == ^payout_id_binary,
       preload: [:user, :payment_method]
     )
     |> Repo.all()
@@ -1738,10 +1754,28 @@ defmodule Ysc.Ledgers do
   Gets all refunds linked to a payout.
   """
   def get_payout_refunds(payout_id) do
+    # Convert ULID to binary for comparison with join table's binary_id column
+    payout_id_binary =
+      cond do
+        is_binary(payout_id) and byte_size(payout_id) == 16 ->
+          # Already a binary UUID
+          payout_id
+
+        is_binary(payout_id) ->
+          # ULID string, convert to binary
+          case Ecto.ULID.dump(payout_id) do
+            {:ok, binary} -> binary
+            _ -> payout_id
+          end
+
+        true ->
+          payout_id
+      end
+
     from(r in Refund,
       join: pr in "payout_refunds",
       on: pr.refund_id == r.id,
-      where: pr.payout_id == ^payout_id,
+      where: pr.payout_id == ^payout_id_binary,
       preload: [:payment, :user]
     )
     |> Repo.all()
@@ -1995,6 +2029,11 @@ defmodule Ysc.Ledgers do
       # Reload with associations
       get_entry(updated_entry.id)
     end)
+    |> case do
+      {:ok, entry} -> {:ok, entry}
+      {:error, {:error, :not_found}} -> {:error, :not_found}
+      {:error, error} -> {:error, error}
+    end
   end
 
   @doc """
@@ -3205,10 +3244,23 @@ defmodule Ysc.Ledgers do
 
       {:ok, :balanced}
     else
-      Logger.error("LEDGER IMBALANCE DETECTED!",
+      # Critical condition: report to Sentry instead of emitting error-level logs.
+      Logger.warning("LEDGER IMBALANCE DETECTED!",
         total_debits: Money.to_string!(total_debits),
         total_credits: Money.to_string!(total_credits),
         difference: Money.to_string!(balance)
+      )
+
+      Sentry.capture_message("Ledger imbalance detected",
+        level: :error,
+        extra: %{
+          total_debits: Money.to_string!(total_debits),
+          total_credits: Money.to_string!(total_credits),
+          difference: Money.to_string!(balance)
+        },
+        tags: %{
+          ledger: "balance_check"
+        }
       )
 
       {:error, {:imbalanced, balance}}
@@ -3313,7 +3365,7 @@ defmodule Ysc.Ledgers do
             account.account_type
           end)
 
-        Logger.error("Ledger imbalance details",
+        Logger.warning("Ledger imbalance details",
           total_difference: Money.to_string!(difference),
           account_count: length(account_balances),
           asset_accounts: length(Map.get(balances_by_type, "asset", [])),
@@ -3324,7 +3376,7 @@ defmodule Ysc.Ledgers do
 
         # Log each account with significant balance
         Enum.each(account_balances, fn {account, balance} ->
-          Logger.error("Account balance",
+          Logger.warning("Account balance",
             account_name: account.name,
             account_type: account.account_type,
             balance: Money.to_string!(balance)

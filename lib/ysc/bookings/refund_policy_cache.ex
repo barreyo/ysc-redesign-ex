@@ -120,7 +120,9 @@ defmodule Ysc.Bookings.RefundPolicyCache do
       from(rp in RefundPolicy,
         where: rp.property == ^property,
         where: rp.booking_mode == ^booking_mode,
-        where: rp.is_active == true
+        where: rp.is_active == true,
+        order_by: [desc: rp.inserted_at, desc: rp.id],
+        limit: 1
       )
       |> Repo.one()
 

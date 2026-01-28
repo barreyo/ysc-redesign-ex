@@ -42,10 +42,23 @@ defmodule Ysc.Ledgers.BalanceCheckWorker do
 
   # Handle ledger imbalance by sending alerts and logging details
   defp handle_imbalance(difference, imbalanced_accounts) do
-    Logger.error("CRITICAL: Ledger imbalance detected during scheduled check",
+    # Critical condition: report to Sentry instead of emitting error-level logs.
+    Logger.warning("CRITICAL: Ledger imbalance detected during scheduled check",
       difference: Money.to_string!(difference),
       account_count: length(imbalanced_accounts),
       timestamp: DateTime.utc_now()
+    )
+
+    Sentry.capture_message("Ledger imbalance detected during scheduled check",
+      level: :error,
+      extra: %{
+        difference: Money.to_string!(difference),
+        account_count: length(imbalanced_accounts),
+        timestamp: DateTime.utc_now()
+      },
+      tags: %{
+        ledger: "scheduled_balance_check"
+      }
     )
 
     # Group accounts by type for the alert
@@ -80,10 +93,12 @@ defmodule Ysc.Ledgers.BalanceCheckWorker do
 
   # Log details about each imbalanced account
   defp log_imbalanced_accounts(imbalanced_accounts) do
-    Logger.error("Imbalanced accounts breakdown:")
+    Logger.warning("Imbalanced accounts breakdown:")
 
     Enum.each(imbalanced_accounts, fn {account, balance} ->
-      Logger.error("  - #{account.name} (#{account.account_type}): #{Money.to_string!(balance)}")
+      Logger.warning(
+        "  - #{account.name} (#{account.account_type}): #{Money.to_string!(balance)}"
+      )
     end)
   end
 

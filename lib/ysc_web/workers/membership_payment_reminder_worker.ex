@@ -157,7 +157,7 @@ defmodule YscWeb.Workers.MembershipPaymentReminderWorker do
   defp send_reminder_email(_user, reminder_type) do
     require Logger
 
-    Logger.error("Unknown reminder type",
+    Logger.warning("Unknown reminder type",
       reminder_type: reminder_type
     )
 

@@ -2,10 +2,8 @@ defmodule YscWeb.Workers.QuickbooksSyncRefundWorkerTest do
   use Ysc.DataCase, async: false
 
   import Mox
-  import Ysc.AccountsFixtures
 
   alias YscWeb.Workers.QuickbooksSyncRefundWorker
-  alias Ysc.Ledgers
 
   setup :verify_on_exit!
 
@@ -34,7 +32,7 @@ defmodule YscWeb.Workers.QuickbooksSyncRefundWorkerTest do
         attempt: 1
       }
 
-      assert {:error, :refund_not_found} = QuickbooksSyncRefundWorker.perform(job)
+      assert {:discard, :refund_not_found} = QuickbooksSyncRefundWorker.perform(job)
     end
   end
 end
