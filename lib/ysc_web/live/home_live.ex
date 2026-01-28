@@ -938,7 +938,7 @@ defmodule YscWeb.HomeLive do
       <div
         :if={@show_passkey_prompt}
         id="passkey-prompt-banner"
-        class="bg-blue-50 border-b border-blue-200"
+        class="bg-blue-50 border-b border-blue-100 shadow-sm"
         phx-mounted={
           JS.transition(
             {"transition ease-out duration-300", "opacity-0 -translate-y-1",
@@ -947,49 +947,44 @@ defmodule YscWeb.HomeLive do
         }
         phx-remove={JS.transition({"transition ease-in duration-200", "opacity-100", "opacity-0"})}
       >
-        <div class="max-w-screen-xl mx-auto px-4 py-4">
-          <div class="flex items-start justify-between gap-4">
-            <div class="flex-1">
-              <div class="flex items-start gap-3">
-                <div class="flex-shrink-0">
-                  <.icon name="hero-bolt" class="h-5 w-5 text-blue-600" />
-                </div>
-                <div class="flex-1">
-                  <h3 class="text-sm font-semibold text-blue-900">
-                    Make your next login faster
-                  </h3>
-                  <p class="mt-1 text-sm text-blue-800">
-                    Use your device's fingerprint or face scan instead of a password.
-                  </p>
-                  <p class="mt-1 text-xs text-blue-700">
-                    Enable instant sign-in with TouchID/FaceID.
-                  </p>
-                  <div class="mt-3 flex flex-col sm:flex-row gap-2">
-                    <.button
-                      phx-click="setup_passkey"
-                      class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded"
-                    >
-                      Setup Passkey
-                    </.button>
-                    <.button
-                      phx-click="dismiss_passkey_prompt"
-                      variant="outline"
-                      class="border-blue-300 text-blue-700 hover:bg-blue-100 text-sm px-4 py-2 rounded"
-                    >
-                      Maybe Later
-                    </.button>
-                  </div>
-                </div>
+        <div class="max-w-screen-xl mx-auto px-4 py-3 sm:py-3.5">
+          <div class="flex items-start sm:items-center justify-between gap-x-4">
+            <div class="flex items-start sm:items-center gap-4 flex-1">
+              <div class="hidden sm:flex flex-shrink-0 h-10 w-10 items-center justify-center rounded-full bg-blue-100 ring-4 ring-blue-50">
+                <.icon name="hero-bolt" class="h-6 w-6 text-blue-600" />
+              </div>
+
+              <div class="flex-1 min-w-0">
+                <h3 class="text-sm font-semibold text-blue-900 leading-none sm:leading-6">
+                  Sign in faster with Passkeys
+                </h3>
+                <p class="mt-1 text-sm text-blue-800/80 leading-snug max-w-xl">
+                  Use FaceID, TouchID, or your device passcode instead of a password.
+                </p>
               </div>
             </div>
-            <button
-              type="button"
-              phx-click="dismiss_passkey_prompt"
-              class="flex-shrink-0 p-1 rounded hover:bg-blue-100 opacity-60 hover:opacity-100 transition-opacity"
-              aria-label="Dismiss"
-            >
-              <.icon name="hero-x-mark" class="w-5 h-5 text-blue-600" />
-            </button>
+
+            <div class="flex items-center gap-2 sm:gap-4">
+              <.button phx-click="setup_passkey" class="!py-1.5 !px-4 whitespace-nowrap shadow-sm">
+                Setup
+              </.button>
+
+              <button
+                phx-click="dismiss_passkey_prompt"
+                class="hidden md:block whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                Maybe later
+              </button>
+
+              <button
+                type="button"
+                phx-click="dismiss_passkey_prompt"
+                class="p-2 -mr-2 text-blue-400 hover:text-blue-600 transition-colors"
+                aria-label="Dismiss"
+              >
+                <.icon name="hero-x-mark" class="w-5 h-5 -mt-0.5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
