@@ -1,6 +1,8 @@
 defmodule YscWeb.EventsLive do
   use YscWeb, :live_view
 
+  import YscWeb.Live.AsyncHelpers
+
   alias Ysc.Events
   alias Ysc.Media.Image
 
@@ -199,7 +201,7 @@ defmodule YscWeb.EventsLive do
 
       results =
         tasks
-        |> Task.async_stream(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
+        |> async_stream_with_repo(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
         |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
 
       # Compute has_more_past_events based on results
@@ -207,6 +209,8 @@ defmodule YscWeb.EventsLive do
 
       has_more =
         if length(past_events) == past_events_limit do
+          # Allow sandbox access for this query
+          allow_sandbox_access()
           Events.has_more_past_events?(past_events_limit)
         else
           false

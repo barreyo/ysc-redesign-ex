@@ -2,6 +2,8 @@ defmodule YscWeb.HomeLive do
   use YscWeb, :live_view
   use YscNative, :live_view
 
+  import YscWeb.Live.AsyncHelpers
+
   alias Ysc.{Accounts, Events, Posts, Mailpoet, Tickets}
   alias Ysc.Bookings.{Booking, Season}
   alias Ysc.Posts.Post
@@ -137,7 +139,7 @@ defmodule YscWeb.HomeLive do
     ]
 
     tasks
-    |> Task.async_stream(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
+    |> async_stream_with_repo(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
     |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
   end
 

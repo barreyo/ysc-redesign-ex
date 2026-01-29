@@ -1,6 +1,8 @@
 defmodule YscWeb.EventDetailsLive do
   use YscWeb, :live_view
 
+  import YscWeb.Live.AsyncHelpers
+
   alias HtmlSanitizeEx.Scrubber
 
   alias Ysc.Events
@@ -2897,7 +2899,7 @@ defmodule YscWeb.EventDetailsLive do
 
     results =
       tasks
-      |> Task.async_stream(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
+      |> async_stream_with_repo(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
       |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
 
     # Compute availability from ticket_tiers data (avoids expensive locking transaction)

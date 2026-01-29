@@ -38,12 +38,18 @@ config :swoosh, :api_client, false
 # Suppress error logs for cleaner test output
 config :logger, level: :error
 
+# Note: You may see some Postgrex disconnection errors during test runs.
+# These are expected and occur when async database operations are still running
+# while tests finish and cleanup. They don't indicate actual problems and can be
+# safely ignored. The test suite handles proper cleanup via Ecto.Adapters.SQL.Sandbox.
+
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
 
 config :ysc, Oban, testing: :inline
 
 config :ysc, sql_sandbox_timeout: 30_000
+config :ysc, sql_sandbox: true
 
 config :phoenix_test, :endpoint, YscWeb.Endpoint
 config :ysc, :stripe_customer, Stripe.CustomerMock

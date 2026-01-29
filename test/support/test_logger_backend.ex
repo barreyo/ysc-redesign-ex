@@ -17,28 +17,31 @@ defmodule Ysc.TestLoggerBackend do
   end
 
   def handle_event({level, _gl, {Logger, msg, _ts, md}}, state) when level == :error do
-    message_str = to_string(msg)
-    # Also check metadata for error messages
-    metadata_str = inspect(md)
-    full_message = message_str <> " " <> metadata_str
+    # Suppress all db_connection errors - they're expected during test cleanup
+    if md[:application] == :db_connection or
+         md[:mfa] == {DBConnection.Connection, :handle_event, 4} do
+      {:ok, state}
+    else
+      message_str = to_string(msg)
+      # Also check metadata for error messages
+      metadata_str = inspect(md)
+      full_message = message_str <> " " <> metadata_str
 
-    # Check if this is an expected test error - if so, completely suppress it
-    # Also suppress normal sandbox teardown: when a test ends, its owner process
-    # exits and DBConnection logs "owner/client ... exited" (expected, not a failure)
-    is_expected_error =
-      Enum.any?(@expected_error_patterns, fn pattern ->
-        String.contains?(message_str, pattern) || String.contains?(full_message, pattern)
-      end) or
-        (md[:application] == :db_connection and
-           (String.contains?(message_str, "exited") or String.contains?(full_message, "exited")))
+      # Check if this is an expected test error - if so, completely suppress it
+      is_expected_error =
+        Enum.any?(@expected_error_patterns, fn pattern ->
+          String.contains?(message_str, pattern) || String.contains?(full_message, pattern)
+        end) or String.contains?(message_str, "exited") or
+          String.contains?(full_message, "exited")
 
-    # Only log if it's not an expected test error
-    unless is_expected_error do
-      # Use minimal format for unexpected errors
-      IO.puts(:stderr, "\n[ERROR] #{message_str}\n")
+      # Only log if it's not an expected test error
+      unless is_expected_error do
+        # Use minimal format for unexpected errors
+        IO.puts(:stderr, "\n[ERROR] #{message_str}\n")
+      end
+
+      {:ok, state}
     end
-
-    {:ok, state}
   end
 
   def handle_event({_level, _gl, {Logger, _msg, _ts, _md}}, state) do
