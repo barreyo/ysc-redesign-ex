@@ -8,42 +8,8 @@ defmodule Ysc.TestLoggerBackend do
 
   # Patterns that indicate expected test errors (these are tested scenarios)
   @expected_error_patterns [
-    "Mox.UnexpectedCallError",
     "DBConnection.ConnectionError",
-    "Postgrex.Protocol",
-    "Mint.TransportError",
-    "Failed to subscribe email to Mailpoet",
-    "MailpoetSubscriber: Failed to subscribe",
-    "Failed to process ticket order payment",
-    "Failed to cancel ticket order",
-    "no_ticket_order_metadata",
-    "Failed to enqueue QuickBooks sync",
-    "Failed to fetch BillPayment from QuickBooks",
-    "Failed to retrieve payment intent for refund",
-    "No such payment_intent",
-    "SMS not scheduled",
-    "Template module not found",
-    "Failed to send Discord alert",
-    "unknown registry: YscWeb.Finch",
-    "Image not found",
-    "LEDGER IMBALANCE DETECTED",
-    "Ledger imbalance details",
-    "Account balance",
-    "CRITICAL: Ledger imbalance detected",
-    "Reconciliation found discrepancies",
-    "BookingLocker.atomic_booking failed",
-    "Expense report not found for QuickBooks sync",
-    "Invalid inbound SMS webhook payload",
-    "Invalid delivery receipt webhook payload",
-    "Webhook event not found",
-    "Webhook event processing failed",
-    "Failed to sync payment to QuickBooks",
-    "Sync failed in pipeline",
-    "Token refresh failed",
-    "EmailNotifier job failed",
-    "Unknown reminder type",
-    "Failed to create SMS received record",
-    "Failed to cancel PaymentIntent"
+    "Postgrex.Protocol"
   ]
 
   def init(_) do
@@ -57,10 +23,14 @@ defmodule Ysc.TestLoggerBackend do
     full_message = message_str <> " " <> metadata_str
 
     # Check if this is an expected test error - if so, completely suppress it
+    # Also suppress normal sandbox teardown: when a test ends, its owner process
+    # exits and DBConnection logs "owner/client ... exited" (expected, not a failure)
     is_expected_error =
       Enum.any?(@expected_error_patterns, fn pattern ->
         String.contains?(message_str, pattern) || String.contains?(full_message, pattern)
-      end)
+      end) or
+        (md[:application] == :db_connection and
+           (String.contains?(message_str, "exited") or String.contains?(full_message, "exited")))
 
     # Only log if it's not an expected test error
     unless is_expected_error do

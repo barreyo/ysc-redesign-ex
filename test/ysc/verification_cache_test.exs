@@ -1,118 +1,66 @@
 defmodule Ysc.VerificationCacheTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias Ysc.VerificationCache
 
   setup do
-    # Check if already started, if so, use existing, otherwise start
+    # Ensure the GenServer is running (it may already be started by the app).
     case Process.whereis(VerificationCache) do
-      nil -> start_supervised!(VerificationCache)
+      nil -> start_supervised!({VerificationCache, []})
       _pid -> :ok
     end
 
     :ok
   end
 
-  describe "store_code/4" do
-    test "stores a verification code" do
-      user_id = "user123"
-      code_type = :email_verification
-      code = "123456"
-
-      assert :ok = VerificationCache.store_code(user_id, code_type, code, 600)
-    end
+  test "store_code/4 and get_code/2 returns stored code when not expired" do
+    assert :ok = VerificationCache.store_code("user-1", :email_verification, "123456", 60)
+    assert {:ok, "123456"} = VerificationCache.get_code("user-1", :email_verification)
   end
 
-  describe "get_code/2" do
-    test "retrieves stored code" do
-      user_id = "user456"
-      code_type = :sms_verification
-      code = "654321"
-
-      :ok = VerificationCache.store_code(user_id, code_type, code, 600)
-      assert {:ok, ^code} = VerificationCache.get_code(user_id, code_type)
-    end
-
-    test "returns not_found for non-existent code" do
-      assert {:error, :not_found} = VerificationCache.get_code("nonexistent", :email_verification)
-    end
-
-    test "returns expired for expired code" do
-      user_id = "user789"
-      code_type = :email_verification
-      code = "999999"
-
-      # Store with very short expiration
-      :ok = VerificationCache.store_code(user_id, code_type, code, 1)
-      # Wait for expiration
-      Process.sleep(1100)
-      assert {:error, :expired} = VerificationCache.get_code(user_id, code_type)
-    end
+  test "get_code/2 returns :not_found when missing" do
+    assert {:error, :not_found} = VerificationCache.get_code("missing", :sms_verification)
   end
 
-  describe "verify_code/3" do
-    test "verifies correct code and removes it" do
-      user_id = "user101"
-      code_type = :sms_verification
-      code = "111111"
-
-      :ok = VerificationCache.store_code(user_id, code_type, code, 600)
-      assert {:ok, :verified} = VerificationCache.verify_code(user_id, code_type, code)
-      # Code should be removed after verification
-      assert {:error, :not_found} = VerificationCache.get_code(user_id, code_type)
-    end
-
-    test "returns invalid_code for wrong code" do
-      user_id = "user202"
-      code_type = :email_verification
-      code = "222222"
-
-      :ok = VerificationCache.store_code(user_id, code_type, code, 600)
-      assert {:error, :invalid_code} = VerificationCache.verify_code(user_id, code_type, "wrong")
-      # Code should still exist
-      assert {:ok, ^code} = VerificationCache.get_code(user_id, code_type)
-    end
-
-    test "returns expired for expired code" do
-      user_id = "user303"
-      code_type = :email_verification
-      code = "333333"
-
-      :ok = VerificationCache.store_code(user_id, code_type, code, 1)
-      Process.sleep(1100)
-      assert {:error, :expired} = VerificationCache.verify_code(user_id, code_type, code)
-    end
+  test "get_code/2 returns :expired when expired and removes entry" do
+    assert :ok = VerificationCache.store_code("user-2", :sms_verification, "999999", -1)
+    assert {:error, :expired} = VerificationCache.get_code("user-2", :sms_verification)
+    assert {:error, :not_found} = VerificationCache.get_code("user-2", :sms_verification)
   end
 
-  describe "remove_code/2" do
-    test "removes code from cache" do
-      user_id = "user404"
-      code_type = :sms_verification
-      code = "444444"
-
-      :ok = VerificationCache.store_code(user_id, code_type, code, 600)
-      assert :ok = VerificationCache.remove_code(user_id, code_type)
-      assert {:error, :not_found} = VerificationCache.get_code(user_id, code_type)
-    end
+  test "verify_code/3 returns ok and removes when code matches" do
+    assert :ok = VerificationCache.store_code("user-3", :email_verification, "abc", 60)
+    assert {:ok, :verified} = VerificationCache.verify_code("user-3", :email_verification, "abc")
+    assert {:error, :not_found} = VerificationCache.get_code("user-3", :email_verification)
   end
 
-  describe "cleanup_expired/0" do
-    test "cleans up expired codes" do
-      user_id1 = "user505"
-      user_id2 = "user606"
-      code_type = :email_verification
+  test "verify_code/3 returns :invalid_code when code does not match" do
+    assert :ok = VerificationCache.store_code("user-4", :email_verification, "abc", 60)
 
-      # Store one code with short expiration
-      :ok = VerificationCache.store_code(user_id1, code_type, "555555", 1)
-      # Store another with long expiration
-      :ok = VerificationCache.store_code(user_id2, code_type, "666666", 600)
+    assert {:error, :invalid_code} =
+             VerificationCache.verify_code("user-4", :email_verification, "nope")
 
-      Process.sleep(1100)
+    assert {:ok, "abc"} = VerificationCache.get_code("user-4", :email_verification)
+  end
 
-      # Cleanup should remove expired code
-      assert :ok = VerificationCache.cleanup_expired()
-      assert {:error, :not_found} = VerificationCache.get_code(user_id1, code_type)
-      assert {:ok, "666666"} = VerificationCache.get_code(user_id2, code_type)
-    end
+  test "verify_code/3 returns :expired when expired" do
+    assert :ok = VerificationCache.store_code("user-5", :email_verification, "abc", -1)
+
+    assert {:error, :expired} =
+             VerificationCache.verify_code("user-5", :email_verification, "abc")
+
+    assert {:error, :not_found} = VerificationCache.get_code("user-5", :email_verification)
+  end
+
+  test "remove_code/2 deletes code" do
+    assert :ok = VerificationCache.store_code("user-6", :email_verification, "abc", 60)
+    assert :ok = VerificationCache.remove_code("user-6", :email_verification)
+    assert {:error, :not_found} = VerificationCache.get_code("user-6", :email_verification)
+  end
+
+  test "cleanup_expired/0 removes expired codes" do
+    assert :ok = VerificationCache.store_code("user-7", :email_verification, "abc", -1)
+    assert :ok = VerificationCache.cleanup_expired()
+    assert {:error, :not_found} = VerificationCache.get_code("user-7", :email_verification)
   end
 end

@@ -1,5 +1,6 @@
 defmodule Ysc.Quickbooks.ClientTokenCacheTest do
-  use ExUnit.Case, async: true
+  # Uses global Cachex cache (:ysc_cache), so must not be async.
+  use ExUnit.Case, async: false
 
   setup do
     # Clear cache before each test

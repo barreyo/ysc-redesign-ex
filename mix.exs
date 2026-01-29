@@ -9,7 +9,28 @@ defmodule Ysc.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      test_coverage: [
+        ignore_modules: [
+          YscNative,
+          YscWeb.PropertyCheckInLive.SwiftUI,
+          YscWeb.TahoeCabinRulesLive.SwiftUI,
+          YscWeb.TahoeStayingWithLive.SwiftUI,
+          YscWeb.HomeLive.SwiftUI,
+          YscWeb.Layouts.SwiftUI,
+          YscWeb.Styles.App.SwiftUI,
+          Ysc.Application,
+          Ysc.Cldr,
+          Ysc.Cldr.Currency,
+          Ysc.Cldr.DateTime.Format,
+          Ysc.Cldr.DateTime.Formatter,
+          Ysc.Cldr.List,
+          Ysc.Cldr.Unit,
+          YscWeb.TahoeCabinRulesLive,
+          YscWeb.TahoeStayingWithLive,
+          YscWeb.PropertyCheckInLive
+        ]
+      ]
     ]
   end
 

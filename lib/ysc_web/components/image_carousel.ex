@@ -242,7 +242,7 @@ defmodule YscWeb.Components.ImageCarousel do
       </style>
 
       <input type="radio" name={"carousel-#{@id}"} id={"slide-#{@id}-0"} checked />
-      <%= for i <- 1..(@image_count - 1) do %>
+      <%= for i <- 1..(@image_count - 1)//1 do %>
         <input type="radio" name={"carousel-#{@id}"} id={"slide-#{@id}-#{i}"} />
       <% end %>
 

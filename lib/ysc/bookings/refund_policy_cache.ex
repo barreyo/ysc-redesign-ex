@@ -66,7 +66,9 @@ defmodule Ysc.Bookings.RefundPolicyCache do
   """
   def invalidate do
     # Bump version to invalidate all cached policies
-    new_version = System.system_time(:second)
+    # Use millisecond resolution so multiple invalidations in quick succession
+    # (e.g., in tests) always bump the version.
+    new_version = System.system_time(:millisecond)
 
     # Try to update cache version, but don't fail if cache isn't initialized
     case Cachex.put(@cache_name, @cache_version_key, new_version) do
@@ -108,7 +110,7 @@ defmodule Ysc.Bookings.RefundPolicyCache do
 
       _ ->
         # No version set yet - initialize it
-        version = System.system_time(:second)
+        version = System.system_time(:millisecond)
         Cachex.put(@cache_name, @cache_version_key, version)
         Cachex.put(@cache_name, key, {:version, version, value})
     end

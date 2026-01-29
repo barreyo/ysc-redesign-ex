@@ -200,5 +200,16 @@ defmodule Ysc.Events.TicketDetailTest do
       assert ticket_detail.last_name == "Smith"
       assert ticket_detail.email == "jane.smith@example.com"
     end
+
+    test "changeset with default empty attrs" do
+      # Test default parameter
+      changeset = TicketDetail.changeset(%TicketDetail{})
+
+      refute changeset.valid?
+      assert changeset.errors[:ticket_id] != nil
+      assert changeset.errors[:first_name] != nil
+      assert changeset.errors[:last_name] != nil
+      assert changeset.errors[:email] != nil
+    end
   end
 end

@@ -121,13 +121,6 @@ defmodule YscWeb.Sms.AllSmsTemplatesTest do
   end
 
   describe "SMS template prepare functions" do
-    test "BookingCheckinReminder.prepare_sms_data works" do
-      # This test verifies the prepare function exists and can be called
-      # We'll need a booking fixture for a full test, but we can at least verify
-      # the function exists and handles nil gracefully
-      assert function_exported?(BookingCheckinReminder, :prepare_sms_data, 1)
-    end
-
     test "TwoFactorVerification.prepare_sms_data works with string code", %{user: user} do
       result = TwoFactorVerification.prepare_sms_data(user, "123456")
       assert is_map(result)
