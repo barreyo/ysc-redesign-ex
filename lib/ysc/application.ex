@@ -5,6 +5,9 @@ defmodule Ysc.Application do
 
   use Application
 
+  # Resolved at compile time; Mix is not available in releases.
+  @env Mix.env()
+
   @impl true
   def start(_type, _args) do
     :logger.add_handler(:ysc_sentry_handler, Sentry.LoggerHandler, %{
@@ -41,7 +44,7 @@ defmodule Ysc.Application do
     # PromEx periodically polls metrics (including DB-backed plugins). In tests, this can
     # generate noisy ownership errors due to the SQL sandbox.
     base_children =
-      if Mix.env() == :test do
+      if @env == :test do
         base_children
       else
         base_children ++ [Ysc.PromEx]
