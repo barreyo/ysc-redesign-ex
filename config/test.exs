@@ -1,5 +1,7 @@
 import Config
 
+config :ysc, :quickbooks_client, Ysc.Quickbooks.ClientMock
+
 # In tests run with low complexity for speed
 config :argon2_elixir,
   t_cost: 1,
@@ -30,6 +32,9 @@ config :ysc, YscWeb.Endpoint,
 
 # In test we don't send emails.
 config :ysc, Ysc.Mailer, adapter: Swoosh.Adapters.Test
+
+# Relax auth rate limits in test so login/forgot-password tests don't hit them
+config :ysc, Ysc.AuthRateLimit, ip_limit: 10_000, identifier_limit: 10_000
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false

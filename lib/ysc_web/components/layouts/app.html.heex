@@ -389,34 +389,67 @@
         </div>
       </div>
     </nav>
+    <%!-- Hero mode: notice strip sits just below the nav, rounded and not full width --%>
+    <div :if={is_hero_mode} class="relative z-[90] shrink-0 px-4 pt-2 pb-2">
+      <div class="max-w-screen-xl mx-auto rounded-xl overflow-hidden shadow-lg">
+        <.alert_banner
+          :if={@current_user && @current_user.state == :pending_approval && !is_fullscreen}
+          type="warning"
+          icon="hero-exclamation-triangle"
+          title="Application Under Review"
+        >
+          Your membership application is currently being reviewed by our board. You will be able to access all features of the website once your application has been approved. For more details <.link
+            navigate={~p"/pending-review"}
+            class="hover:underline font-bold"
+          >click here</.link>.
+        </.alert_banner>
+
+        <.alert_banner
+          :if={
+            @current_user && @current_user.state == :active && !@active_membership? &&
+              !is_fullscreen
+          }
+          type="orange"
+          icon="hero-exclamation-triangle"
+          title="Membership Required"
+          action_label="Manage Membership"
+          action_path={~p"/users/membership"}
+        >
+          To access events and the cabin booking system, you need to be a paying member of the club. Click the button below to activate your membership plan.
+        </.alert_banner>
+      </div>
+    </div>
   </header>
 
-  <.alert_banner
-    :if={@current_user && @current_user.state == :pending_approval && !is_fullscreen}
-    type="warning"
-    icon="hero-exclamation-triangle"
-    title="Application Under Review"
-  >
-    Your membership application is currently being reviewed by our board. You will be able to access all features of the website once your application has been approved. For more details <.link
-      navigate={~p"/pending-review"}
-      class="hover:underline font-bold"
-    >click here</.link>.
-  </.alert_banner>
+  <%!-- Non–hero pages: notice between header and main --%>
+  <div :if={!is_hero_mode}>
+    <.alert_banner
+      :if={@current_user && @current_user.state == :pending_approval && !is_fullscreen}
+      type="warning"
+      icon="hero-exclamation-triangle"
+      title="Application Under Review"
+    >
+      Your membership application is currently being reviewed by our board. You will be able to access all features of the website once your application has been approved. For more details <.link
+        navigate={~p"/pending-review"}
+        class="hover:underline font-bold"
+      >click here</.link>.
+    </.alert_banner>
 
-  <.alert_banner
-    :if={
-      @current_user && @current_user.state == :active && !@active_membership? && !is_fullscreen
-    }
-    type="orange"
-    icon="hero-exclamation-triangle"
-    title="Membership Required"
-    action_label="Manage Membership"
-    action_path={~p"/users/membership"}
-  >
-    To access events and the cabin booking system, you need to be a paying member of the club. Click the button below to activate your membership plan.
-  </.alert_banner>
+    <.alert_banner
+      :if={
+        @current_user && @current_user.state == :active && !@active_membership? && !is_fullscreen
+      }
+      type="orange"
+      icon="hero-exclamation-triangle"
+      title="Membership Required"
+      action_label="Manage Membership"
+      action_path={~p"/users/membership"}
+    >
+      To access events and the cabin booking system, you need to be a paying member of the club. Click the button below to activate your membership plan.
+    </.alert_banner>
+  </div>
 
-  <main class="flex-1 w-full">
+  <main class={["flex-1 w-full", is_hero_mode && "relative z-[1]"]}>
     <%= @inner_content %>
   </main>
 

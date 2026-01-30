@@ -77,6 +77,28 @@ defmodule YscWeb.UserSessionController do
   defp create(conn, %{"user" => user_params} = params, info) do
     %{"email" => email, "password" => password} = user_params
 
+    # Per-identifier rate limit (credential stuffing: slow down attacks on one account)
+    case Ysc.AuthRateLimit.check_identifier(email) do
+      :ok ->
+        do_create(conn, params, info, user_params, email, password)
+
+      {:error, :rate_limited, retry_after_sec} ->
+        body = """
+        <!DOCTYPE html>
+        <html><head><title>Too Many Requests</title></head>
+        <body><h1>Too many attempts</h1><p>Please try again in #{retry_after_sec} seconds.</p></body>
+        </html>
+        """
+
+        conn
+        |> put_resp_header("retry-after", Integer.to_string(retry_after_sec))
+        |> put_resp_content_type("text/html")
+        |> send_resp(429, body)
+        |> halt()
+    end
+  end
+
+  defp do_create(conn, params, info, user_params, email, password) do
     # Get redirect_to from form params (passed as hidden field from LiveView)
     # Also check session as fallback for backwards compatibility
     redirect_to =
@@ -237,6 +259,30 @@ defmodule YscWeb.UserSessionController do
   defp find_malformed_query_key(_), do: nil
 
   defp passkey_login_with_params(conn, encoded_user_id, redirect_to) do
+    require Logger
+
+    # Per-identifier rate limit (same account targeted repeatedly)
+    case Ysc.AuthRateLimit.check_identifier(encoded_user_id) do
+      :ok ->
+        do_passkey_login_with_params(conn, encoded_user_id, redirect_to)
+
+      {:error, :rate_limited, retry_after_sec} ->
+        body = """
+        <!DOCTYPE html>
+        <html><head><title>Too Many Requests</title></head>
+        <body><h1>Too many attempts</h1><p>Please try again in #{retry_after_sec} seconds.</p></body>
+        </html>
+        """
+
+        conn
+        |> put_resp_header("retry-after", Integer.to_string(retry_after_sec))
+        |> put_resp_content_type("text/html")
+        |> send_resp(429, body)
+        |> halt()
+    end
+  end
+
+  defp do_passkey_login_with_params(conn, encoded_user_id, redirect_to) do
     require Logger
 
     Logger.info("[UserSessionController] passkey_login_with_params called", %{

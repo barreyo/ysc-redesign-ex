@@ -44,7 +44,8 @@ defmodule YscWeb.UserResetPasswordLive do
   end
 
   def mount(params, _session, socket) do
-    socket = assign_user_and_token(socket, params)
+    remote_ip = get_connect_info(socket, :peer_data) |> Map.get(:address, {0, 0, 0, 0})
+    socket = assign(socket, :remote_ip, remote_ip) |> assign_user_and_token(params)
 
     form_source =
       case socket.assigns do
@@ -62,6 +63,26 @@ defmodule YscWeb.UserResetPasswordLive do
   # Do not sign in the user after reset password to avoid a
   # leaked token giving the user access to the account.
   def handle_event("reset_password", %{"user" => user_params}, socket) do
+    ip = socket.assigns[:remote_ip] || {0, 0, 0, 0}
+
+    case Ysc.AuthRateLimit.check_ip(ip) do
+      {:error, :rate_limited, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Too many attempts. Please try again later.")
+         |> redirect(to: ~p"/users/log-in")}
+
+      :ok ->
+        do_reset_password(socket, user_params)
+    end
+  end
+
+  def handle_event("validate", %{"user" => user_params}, socket) do
+    changeset = Accounts.change_user_password(socket.assigns.user, user_params)
+    {:noreply, assign_form(socket, Map.put(changeset, :action, :validate))}
+  end
+
+  defp do_reset_password(socket, user_params) do
     case Accounts.reset_user_password(socket.assigns.user, user_params) do
       {:ok, user} ->
         # Log successful password reset
@@ -78,11 +99,6 @@ defmodule YscWeb.UserResetPasswordLive do
       {:error, changeset} ->
         {:noreply, assign_form(socket, Map.put(changeset, :action, :insert))}
     end
-  end
-
-  def handle_event("validate", %{"user" => user_params}, socket) do
-    changeset = Accounts.change_user_password(socket.assigns.user, user_params)
-    {:noreply, assign_form(socket, Map.put(changeset, :action, :validate))}
   end
 
   defp assign_user_and_token(socket, %{"token" => token}) do

@@ -87,6 +87,7 @@ defmodule Ysc.MixProject do
       {:flop_phoenix, "~> 0.22.7"},
       {:gen_smtp, "~> 1.0"},
       {:gettext, "~> 0.24"},
+      {:hammer, "~> 7.0"},
       {:hackney, "~> 1.9"},
       {:html_sanitize_ex, "~> 1.4"},
       {:image, "~> 0.37"},

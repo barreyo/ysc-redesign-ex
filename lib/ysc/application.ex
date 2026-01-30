@@ -27,6 +27,8 @@ defmodule Ysc.Application do
       {Finch, name: Ysc.Finch},
       # Start cache
       {Cachex, name: :ysc_cache},
+      # Auth rate limiting (credential stuffing protection)
+      {Ysc.AuthRateLimit, [clean_period: :timer.minutes(1)]},
       # Start verification code cache
       Ysc.VerificationCache,
       # Start the Endpoint (http/https)

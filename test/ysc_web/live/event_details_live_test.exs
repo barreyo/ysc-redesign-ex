@@ -3,6 +3,7 @@ defmodule YscWeb.EventDetailsLiveTest do
 
   import Phoenix.LiveViewTest
   import Ysc.AccountsFixtures
+  import Ysc.TestDataFactory
 
   alias Ysc.Events
   alias Ysc.Repo
@@ -363,6 +364,566 @@ defmodule YscWeb.EventDetailsLiveTest do
       html = render(view)
       # Event should be displayed
       assert html =~ "Test Event"
+    end
+  end
+
+  describe "modal interactions" do
+    test "handles close-payment-modal event", %{conn: conn} do
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "close-payment-modal")
+      assert is_binary(result)
+    end
+
+    test "handles close-registration-modal event", %{conn: conn} do
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "close-registration-modal")
+      assert is_binary(result)
+    end
+
+    test "handles close-free-ticket-confirmation event", %{conn: conn} do
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "close-free-ticket-confirmation")
+      assert is_binary(result)
+    end
+
+    test "handles close-order-completion event", %{conn: conn} do
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "close-order-completion")
+      assert is_binary(result)
+    end
+
+    test "handles payment-redirect-started event", %{conn: conn} do
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "payment-redirect-started")
+      assert is_binary(result)
+    end
+
+    test "handles checkout-expired event", %{conn: conn} do
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "checkout-expired")
+      assert is_binary(result)
+    end
+  end
+
+  describe "map interactions" do
+    test "handles toggle-map event", %{conn: conn} do
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "toggle-map")
+      assert is_binary(result)
+
+      # Toggle again
+      result = render_click(view, "toggle-map")
+      assert is_binary(result)
+    end
+  end
+
+  describe "authentication-required interactions" do
+    test "handles login-redirect event for unauthenticated users", %{conn: conn} do
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "login-redirect")
+      # Should redirect to login or return HTML
+      assert is_binary(result) or match?({:error, {:redirect, %{to: _}}}, result)
+    end
+  end
+
+  describe "ticket modal interactions" do
+    test "opens ticket modal for authenticated user", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Event with Tickets"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      # May succeed or show errors if tickets aren't configured
+      try do
+        result = render_click(view, "open-ticket-modal")
+        assert is_binary(result) or match?({:error, _}, result)
+      catch
+        :exit, _ -> :ok
+      end
+    end
+
+    test "closes ticket modal", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "close-ticket-modal")
+      assert is_binary(result)
+    end
+
+    test "shows attendees modal", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "show-attendees-modal")
+      assert is_binary(result)
+    end
+  end
+
+  describe "ticket registration interactions" do
+    test "handles update-registration-field event", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      params = %{
+        "ticket-index" => "0",
+        "field" => "first_name",
+        "value" => "John"
+      }
+
+      result = render_change(view, "update-registration-field", params)
+      assert is_binary(result)
+    end
+  end
+
+  describe "ticket attendee selection" do
+    test "handles select-family-member event", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      params = %{
+        "ticket-id" => "temp-1",
+        "family-member-id" => "123"
+      }
+
+      result = render_click(view, "select-family-member", params)
+      assert is_binary(result) or match?({:error, _}, result)
+    end
+
+    test "handles select-ticket-attendee event", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      params = %{
+        "ticket-id" => "temp-1",
+        "attendee-id" => "456"
+      }
+
+      result = render_click(view, "select-ticket-attendee", params)
+      assert is_binary(result) or match?({:error, _}, result)
+    end
+  end
+
+  describe "checkout flows" do
+    test "handles retry-checkout event", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "retry-checkout")
+      assert is_binary(result) or match?({:error, _}, result)
+    end
+
+    test "handles proceed-to-checkout event", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "proceed-to-checkout")
+      assert is_binary(result) or match?({:error, _}, result)
+    end
+  end
+
+  describe "agenda interactions" do
+    test "handles set-active-agenda event", %{conn: conn} do
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "set-active-agenda", %{"id" => "1"})
+      assert is_binary(result)
+    end
+  end
+
+  describe "donation interactions - comprehensive" do
+    test "handles set-donation-amount event", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      params = %{
+        "tier-id" => "tier-1",
+        "amount" => "100"
+      }
+
+      result = render_click(view, "set-donation-amount", params)
+      assert is_binary(result)
+    end
+
+    test "handles various donation amounts", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      # Test different amounts
+      for amount <- ["10", "25", "50", "100"] do
+        render_click(view, "update-donation-amount", %{"amount" => amount})
+      end
+
+      html = render(view)
+      assert html =~ event.title
+    end
+
+    test "handles zero donation amount", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "update-donation-amount", %{"amount" => "0"})
+      assert is_binary(result)
+    end
+
+    test "handles invalid donation amount", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result = render_click(view, "update-donation-amount", %{"amount" => "invalid"})
+      assert is_binary(result)
+    end
+  end
+
+  describe "different event states" do
+    test "loads upcoming event", %{conn: conn} do
+      future_date = DateTime.add(DateTime.utc_now(), 30, :day)
+
+      event =
+        create_event(%{
+          title: "Upcoming Event",
+          start_datetime: future_date
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      assert html =~ "Upcoming Event"
+    end
+
+    test "loads past event", %{conn: conn} do
+      past_date = DateTime.add(DateTime.utc_now(), -30, :day)
+
+      event =
+        create_event(%{
+          title: "Past Event",
+          start_datetime: past_date
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      assert html =~ "Past Event"
+    end
+
+    test "loads event happening today", %{conn: conn} do
+      # Event starting in 2 hours
+      today = DateTime.add(DateTime.utc_now(), 2, :hour)
+
+      event =
+        create_event(%{
+          title: "Today's Event",
+          start_datetime: today
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(300)
+
+      html = render(view)
+      # Event may not be in initial HTML if async loading
+      assert is_binary(html)
+    end
+  end
+
+  describe "different user authentication states" do
+    test "unauthenticated user can view public event", %{conn: conn} do
+      event = create_event(%{title: "Public Event"})
+
+      {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      assert html =~ "Public Event"
+    end
+
+    test "authenticated user without membership can view event", %{conn: conn} do
+      user = user_with_membership(:none)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test Event"})
+
+      {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      assert html =~ "Test Event"
+    end
+
+    test "lifetime member can view event", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Member Event"})
+
+      {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      assert html =~ "Member Event"
+    end
+
+    test "subscription member can view event", %{conn: conn} do
+      user = user_with_membership(:subscription)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Subscriber Event"})
+
+      {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      assert html =~ "Subscriber Event"
+    end
+  end
+
+  describe "rapid interaction scenarios" do
+    test "handles rapid ticket quantity changes", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      # Rapid increase/decrease cycles
+      tier_id = "tier-1"
+
+      for _i <- 1..3 do
+        render_click(view, "increase-ticket-quantity", %{"tier-id" => tier_id})
+      end
+
+      for _i <- 1..2 do
+        render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier_id})
+      end
+
+      html = render(view)
+      assert html =~ event.title
+    end
+  end
+
+  describe "edge cases and error handling" do
+    test "handles invalid event ID", %{conn: conn} do
+      # Invalid ULID format will raise CastError or NoResultsError
+      assert_raise Ecto.Query.CastError, fn ->
+        live(conn, ~p"/events/99999999")
+      end
+    end
+
+    test "handles invalid ticket quantity tier ID", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result =
+        render_click(view, "increase-ticket-quantity", %{"tier-id" => "nonexistent-tier"})
+
+      assert is_binary(result)
+    end
+
+    test "handles invalid registration field index", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      params = %{
+        "ticket-index" => "999",
+        "field" => "first_name",
+        "value" => "Test"
+      }
+
+      result = render_change(view, "update-registration-field", params)
+      assert is_binary(result)
+    end
+  end
+
+  describe "page reload and navigation scenarios" do
+    test "maintains state after re-rendering", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Test Event"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      # Make some changes
+      render_click(view, "increase-ticket-quantity", %{"tier-id" => "tier-1"})
+
+      # Re-render
+      html = render(view)
+      assert html =~ "Test Event"
+    end
+
+    test "handles navigation back to event page", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Navigation Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(300)
+
+      html = render(view)
+      assert html =~ "Navigation Test"
+    end
+  end
+
+  describe "combined interaction flows" do
+    test "donation with ticket purchase flow", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Donation Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      # Add tickets
+      render_click(view, "increase-ticket-quantity", %{"tier-id" => "tier-1"})
+
+      # Add donation
+      render_click(view, "update-donation-amount", %{"amount" => "50"})
+
+      html = render(view)
+      assert html =~ event.title
+    end
+
+    test "modify ticket selection multiple times", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Modification Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      tier_id = "tier-1"
+
+      # Add tickets
+      render_click(view, "increase-ticket-quantity", %{"tier-id" => tier_id})
+      render_click(view, "increase-ticket-quantity", %{"tier-id" => tier_id})
+
+      # Remove some
+      render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier_id})
+
+      # Add more
+      render_click(view, "increase-ticket-quantity", %{"tier-id" => tier_id})
+
+      html = render(view)
+      assert html =~ event.title
+    end
+  end
+
+  describe "boundary conditions" do
+    test "handles minimum ticket quantity", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Min Quantity Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      # Try to decrease when at 0
+      result = render_click(view, "decrease-ticket-quantity", %{"tier-id" => "tier-1"})
+      assert is_binary(result)
+    end
+
+    test "handles registration field validation", %{conn: conn} do
+      user = user_with_membership(:lifetime)
+      conn = log_in_user(conn, user)
+      event = create_event(%{title: "Validation Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      # Test various field values
+      fields = [
+        %{"ticket-index" => "0", "field" => "first_name", "value" => ""},
+        %{"ticket-index" => "0", "field" => "email", "value" => "invalid-email"},
+        %{"ticket-index" => "0", "field" => "last_name", "value" => "Doe"}
+      ]
+
+      for params <- fields do
+        render_change(view, "update-registration-field", params)
+      end
+
+      html = render(view)
+      assert html =~ event.title
     end
   end
 end

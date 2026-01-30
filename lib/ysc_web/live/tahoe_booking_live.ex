@@ -5569,30 +5569,35 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   defp validate_weekend_rule(errors, checkin_date, checkout_date) do
-    date_range = Date.range(checkin_date, checkout_date) |> Enum.to_list()
+    if Date.compare(checkout_date, checkin_date) == :lt do
+      # Invalid: checkout before checkin; skip weekend rule to avoid negative Date.range
+      errors
+    else
+      date_range = Date.range(checkin_date, checkout_date) |> Enum.to_list()
 
-    has_saturday =
-      Enum.any?(date_range, fn date ->
-        Date.day_of_week(date) == 6
-      end)
-
-    if has_saturday do
-      has_sunday =
+      has_saturday =
         Enum.any?(date_range, fn date ->
-          Date.day_of_week(date) == 7
+          Date.day_of_week(date) == 6
         end)
 
-      if has_sunday do
-        errors
+      if has_saturday do
+        has_sunday =
+          Enum.any?(date_range, fn date ->
+            Date.day_of_week(date) == 7
+          end)
+
+        if has_sunday do
+          errors
+        else
+          Map.put(
+            errors,
+            :weekend,
+            "Bookings containing Saturday must also include Sunday (full weekend required)"
+          )
+        end
       else
-        Map.put(
-          errors,
-          :weekend,
-          "Bookings containing Saturday must also include Sunday (full weekend required)"
-        )
+        errors
       end
-    else
-      errors
     end
   end
 

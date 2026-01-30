@@ -1310,7 +1310,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 </p>
               </div>
             </div>
-            <!-- CTA Card for Non-Logged-In Users -->
+            <!-- CTA Card when booking is unavailable (not logged in or no membership) -->
             <div
               :if={!@can_book}
               class="mt-10 p-8 rounded-2xl bg-teal-50 border border-teal-100 flex flex-col md:flex-row items-center justify-between gap-6"
@@ -1318,12 +1318,23 @@ defmodule YscWeb.ClearLakeBookingLive do
               <div>
                 <h4 class="text-xl font-bold text-teal-900">Ready to reserve?</h4>
                 <p class="text-teal-700"><%= raw(@booking_disabled_reason) %></p>
+                <p :if={@user} class="text-teal-600 text-sm mt-2">
+                  You will be able to use the booking system as soon as you pay for membership.
+                </p>
               </div>
               <.link
+                :if={!@user}
                 navigate={~p"/users/log-in?#{%{redirect_to: ~p"/bookings/clear-lake"}}"}
                 class="px-8 py-3 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 transition shadow-lg shadow-teal-200"
               >
                 Sign In to Book
+              </.link>
+              <.link
+                :if={@user}
+                navigate={~p"/users/membership"}
+                class="px-8 py-3 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 transition shadow-lg shadow-teal-200"
+              >
+                Manage Membership
               </.link>
             </div>
           </article>

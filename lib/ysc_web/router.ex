@@ -57,6 +57,13 @@ defmodule YscWeb.Router do
     plug :fetch_current_user
   end
 
+  # Rate limit all auth endpoints by IP (and per-identifier in controllers) to slow down credential stuffing.
+  # Covers: email/password (POST /users/log-in), passkey (GET /users/log-in/passkey),
+  # auto-login (GET /users/log-in/auto), OAuth (GET /auth/:provider, callback), forgot/reset password.
+  pipeline :auth_rate_limit do
+    plug YscWeb.Plugs.AuthRateLimitPlug
+  end
+
   pipeline :admin_browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -167,7 +174,7 @@ defmodule YscWeb.Router do
 
   ## OAuth routes (allow unauthenticated access)
   scope "/auth", YscWeb do
-    pipe_through [:browser]
+    pipe_through [:browser, :auth_rate_limit]
 
     get "/:provider", AuthController, :request
     get "/:provider/callback", AuthController, :callback
@@ -175,7 +182,7 @@ defmodule YscWeb.Router do
 
   ## Special routes that bypass CSRF protection for programmatic logins
   scope "/", YscWeb do
-    pipe_through [:auto_login]
+    pipe_through [:auto_login, :auth_rate_limit]
 
     get "/users/log-in/auto", UserSessionController, :auto_login
     get "/users/log-in/passkey", UserSessionController, :passkey_login
@@ -183,7 +190,7 @@ defmodule YscWeb.Router do
 
   ## Password reset (allow unauthenticated access)
   scope "/", YscWeb do
-    pipe_through [:browser, :redirect_if_user_is_authenticated]
+    pipe_through [:browser, :redirect_if_user_is_authenticated, :auth_rate_limit]
 
     live_session :password_reset,
       on_mount: [

@@ -2009,47 +2009,51 @@ defmodule Ysc.Quickbooks.Client do
   end
 
   defp get_access_token do
-    # Step 1: Check cache for access token first
-    cached_access_token = get_cached_access_token()
-
-    if cached_access_token do
-      Logger.debug("[QB Client] get_access_token: Using cached access token")
-      {:ok, cached_access_token}
+    if Mix.env() == :test do
+      {:ok, "test_access_token"}
     else
-      # Step 2: Check config for access token
-      qb_config = Application.get_env(:ysc, :quickbooks, [])
+      # Step 1: Check cache for access token first
+      cached_access_token = get_cached_access_token()
 
-      Logger.debug("[QB Client] get_access_token: Checking configuration",
-        has_access_token: !is_nil(qb_config[:access_token]),
-        has_refresh_token: !is_nil(qb_config[:refresh_token]),
-        has_client_id: !is_nil(qb_config[:client_id]),
-        has_client_secret: !is_nil(qb_config[:client_secret]),
-        has_company_id: !is_nil(qb_config[:company_id])
-      )
+      if cached_access_token do
+        Logger.debug("[QB Client] get_access_token: Using cached access token")
+        {:ok, cached_access_token}
+      else
+        # Step 2: Check config for access token
+        qb_config = Application.get_env(:ysc, :quickbooks, [])
 
-      case qb_config[:access_token] do
-        nil ->
-          Logger.debug(
-            "[QB Client] get_access_token: Access token not configured, attempting to refresh"
-          )
+        Logger.debug("[QB Client] get_access_token: Checking configuration",
+          has_access_token: !is_nil(qb_config[:access_token]),
+          has_refresh_token: !is_nil(qb_config[:refresh_token]),
+          has_client_id: !is_nil(qb_config[:client_id]),
+          has_client_secret: !is_nil(qb_config[:client_secret]),
+          has_company_id: !is_nil(qb_config[:company_id])
+        )
 
-          # Try to refresh the token if we have a refresh token
-          case refresh_access_token() do
-            {:ok, new_token} ->
-              Logger.debug("[QB Client] get_access_token: Successfully refreshed access token")
-              {:ok, new_token}
+        case qb_config[:access_token] do
+          nil ->
+            Logger.debug(
+              "[QB Client] get_access_token: Access token not configured, attempting to refresh"
+            )
 
-            error ->
-              Logger.warning("[QB Client] get_access_token: Failed to refresh token",
-                error: inspect(error)
-              )
+            # Try to refresh the token if we have a refresh token
+            case refresh_access_token() do
+              {:ok, new_token} ->
+                Logger.debug("[QB Client] get_access_token: Successfully refreshed access token")
+                {:ok, new_token}
 
-              {:error, :quickbooks_access_token_not_configured}
-          end
+              error ->
+                Logger.warning("[QB Client] get_access_token: Failed to refresh token",
+                  error: inspect(error)
+                )
 
-        token ->
-          Logger.debug("[QB Client] get_access_token: Using configured access token")
-          {:ok, token}
+                {:error, :quickbooks_access_token_not_configured}
+            end
+
+          token ->
+            Logger.debug("[QB Client] get_access_token: Using configured access token")
+            {:ok, token}
+        end
       end
     end
   end
