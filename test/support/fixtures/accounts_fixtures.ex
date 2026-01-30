@@ -100,4 +100,31 @@ defmodule Ysc.AccountsFixtures do
     {:ok, passkey} = Ysc.Accounts.create_user_passkey(user, attrs)
     passkey
   end
+
+  def signup_application_fixture(user, attrs \\ %{}) do
+    attrs =
+      Enum.into(attrs, %{
+        user_id: user.id,
+        membership_type: "single",
+        membership_eligibility: ["born_in_scandinavia"],
+        occupation: "Developer",
+        birth_date: ~D[1990-01-01],
+        address: "123 Viking Way",
+        country: "USA",
+        city: "San Francisco",
+        postal_code: "94107",
+        place_of_birth: "Oslo",
+        citizenship: "Norwegian",
+        most_connected_nordic_country: "Norway",
+        agreed_to_bylaws: true,
+        completed: DateTime.utc_now()
+      })
+
+    {:ok, application} =
+      %Ysc.Accounts.SignupApplication{}
+      |> Ysc.Accounts.SignupApplication.application_changeset(attrs)
+      |> Ysc.Repo.insert()
+
+    application
+  end
 end

@@ -291,7 +291,14 @@ defmodule YscWeb.AdminUsersLive do
 
       <div class="w-full pt-4">
         <div>
-          <form action="" novalidate="" role="search" phx-change="change" class="relative">
+          <form
+            id="user-search-form"
+            action=""
+            novalidate=""
+            role="search"
+            phx-change="change"
+            class="relative"
+          >
             <div class="absolute inset-y-0 rtl:inset-r-0 start-0 flex items-center ps-3 pointer-events-none">
               <.icon name="hero-magnifying-glass" class="w-5 h-5 text-zinc-500" />
             </div>

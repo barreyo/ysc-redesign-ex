@@ -147,7 +147,14 @@ defmodule Ysc.BookingsTest do
 
     test "create_booking/1 with valid data creates a booking" do
       user = user_fixture()
-      checkin = Date.utc_today() |> Date.add(7)
+      # Ensure dates don't include Saturday without Sunday (Tahoe rule)
+      base_date = Date.utc_today() |> Date.add(7)
+
+      checkin =
+        if Date.day_of_week(base_date) == 1,
+          do: base_date,
+          else: Date.add(base_date, 8 - Date.day_of_week(base_date))
+
       checkout = Date.add(checkin, 2)
 
       valid_attrs = %{

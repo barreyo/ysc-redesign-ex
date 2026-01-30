@@ -87,6 +87,7 @@ defmodule Ysc.Accounts.SignupApplication do
   def application_changeset(application, attrs, _opts \\ []) do
     application
     |> cast(attrs, [
+      :user_id,
       :membership_type,
       :membership_eligibility,
       :occupation,

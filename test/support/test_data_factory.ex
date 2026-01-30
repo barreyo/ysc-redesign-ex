@@ -222,7 +222,7 @@ defmodule Ysc.TestDataFactory do
     event_attrs = Keyword.get(opts, :event_attrs, %{})
     tier_attrs = Keyword.get(opts, :tier_attrs, %{})
 
-    event = event_with_state(state, attrs: event_attrs)
+    event = event_with_state(state, with_image: true, attrs: event_attrs)
 
     # Create ticket tiers
     tiers =
