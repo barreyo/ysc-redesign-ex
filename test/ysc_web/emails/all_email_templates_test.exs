@@ -21,6 +21,7 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
     ConfirmEmail,
     ResetPassword,
     PasswordChanged,
+    PasskeyAdded,
     EmailChanged,
     ConductViolationConfirmation,
     ConductViolationBoardNotification,
@@ -149,6 +150,18 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       assert is_binary(html)
       assert String.length(html) > 0
       assert PasswordChanged.get_template_name() == "password_changed"
+    end
+
+    test "PasskeyAdded renders", %{user: user} do
+      assigns = %{
+        first_name: user.first_name,
+        device_name: "Chrome on macOS"
+      }
+
+      html = PasskeyAdded.render(assigns)
+      assert is_binary(html)
+      assert String.length(html) > 0
+      assert PasskeyAdded.get_template_name() == "passkey_added"
     end
 
     test "EmailChanged renders", %{user: user} do
