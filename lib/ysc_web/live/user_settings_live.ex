@@ -1285,7 +1285,7 @@ defmodule YscWeb.UserSettingsLive do
             <div class="rounded border border-zinc-100 py-4 px-4 space-y-6">
               <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <h2 class="text-zinc-900 font-bold text-xl">Payment History</h2>
-                <%= if @yearly_stats do %>
+                <%= if @yearly_stats && (@yearly_stats.nights > 0 || @yearly_stats.events > 0) do %>
                   <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
                     <p class="text-sm text-blue-900 font-semibold">
                       In <%= Date.utc_today().year %>, you've enjoyed

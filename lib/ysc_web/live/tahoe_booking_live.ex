@@ -2839,6 +2839,18 @@ defmodule YscWeb.TahoeBookingLive do
                           </p>
                         </div>
                       </li>
+                      <li class="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          class="w-5 h-5 rounded border-zinc-700 bg-zinc-800 text-blue-500 focus:ring-0"
+                        />
+                        <div>
+                          <span class="font-semibold">Pack bedding and towels</span>
+                          <p class="text-xs text-zinc-400 mt-1">
+                            Sheets, Pillowcases, Comforters or Sleeping Bags & Towels Required
+                          </p>
+                        </div>
+                      </li>
                     </ul>
                   </div>
                 </section>
