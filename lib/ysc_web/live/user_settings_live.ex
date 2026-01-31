@@ -1837,7 +1837,7 @@ defmodule YscWeb.UserSettingsLive do
 
     challenge_json = %{
       challenge: challenge,
-      timeout: 60000,
+      timeout: 60_000,
       userVerification: "required"
     }
 

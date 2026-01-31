@@ -57,7 +57,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
   describe "changeset/2" do
     test "creates valid changeset with all required fields" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         property: :tahoe
@@ -66,14 +66,14 @@ defmodule Ysc.Bookings.PricingRuleTest do
       changeset = PricingRule.changeset(%PricingRule{}, attrs)
 
       assert changeset.valid?
-      assert changeset.changes.amount == Money.new(10000, :USD)
+      assert changeset.changes.amount == Money.new(10_000, :USD)
       assert changeset.changes.booking_mode == :room
       assert changeset.changes.price_unit == :per_person_per_night
     end
 
     test "creates valid changeset with children pricing", %{season: season} do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         children_amount: Money.new(5000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
@@ -102,7 +102,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "requires booking_mode" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         price_unit: :per_person_per_night,
         property: :tahoe
       }
@@ -115,7 +115,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "requires price_unit" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         property: :tahoe
       }
@@ -128,7 +128,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "requires at least one specificity field (property, room_id, or category_id)" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night
       }
@@ -145,7 +145,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
   describe "Money validation" do
     test "accepts valid USD amount" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         property: :tahoe
@@ -192,7 +192,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "rejects non-USD currency for amount" do
       attrs = %{
-        amount: Money.new(10000, :EUR),
+        amount: Money.new(10_000, :EUR),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         property: :tahoe
@@ -210,7 +210,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
     test "rejects negative children_amount (VALIDATION BUG: same Decimal guard clause issue)" do
       # NOTE: Same validation bug as amount field
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         children_amount: Money.new(-50, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
@@ -228,7 +228,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "accepts nil children_amount" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         children_amount: nil,
         booking_mode: :room,
         price_unit: :per_person_per_night,
@@ -244,7 +244,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
   describe "booking_mode enum" do
     test "accepts room booking mode" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         property: :tahoe
@@ -258,7 +258,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "accepts day booking mode" do
       attrs = %{
-        amount: Money.new(20000, :USD),
+        amount: Money.new(20_000, :USD),
         booking_mode: :day,
         price_unit: :per_guest_per_day,
         property: :clear_lake
@@ -286,7 +286,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "rejects invalid booking mode" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :invalid_mode,
         price_unit: :per_person_per_night,
         property: :tahoe
@@ -301,7 +301,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
   describe "price_unit enum" do
     test "accepts per_person_per_night" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         property: :tahoe
@@ -315,7 +315,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "accepts per_guest_per_day" do
       attrs = %{
-        amount: Money.new(15000, :USD),
+        amount: Money.new(15_000, :USD),
         booking_mode: :day,
         price_unit: :per_guest_per_day,
         property: :clear_lake
@@ -343,7 +343,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "rejects invalid price unit" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :invalid_unit,
         property: :tahoe
@@ -358,7 +358,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
   describe "property enum" do
     test "accepts tahoe property" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         property: :tahoe
@@ -372,7 +372,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "accepts clear_lake property" do
       attrs = %{
-        amount: Money.new(15000, :USD),
+        amount: Money.new(15_000, :USD),
         booking_mode: :day,
         price_unit: :per_guest_per_day,
         property: :clear_lake
@@ -386,7 +386,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "rejects invalid property" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         property: :invalid_property
@@ -401,7 +401,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
   describe "hierarchical specificity" do
     test "room-level pricing (most specific)", %{room: room} do
       attrs = %{
-        amount: Money.new(12000, :USD),
+        amount: Money.new(12_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         room_id: room.id
@@ -418,7 +418,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "category-level pricing (medium specificity)", %{category: category} do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         room_category_id: category.id
@@ -453,7 +453,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "property + season pricing", %{season: season} do
       attrs = %{
-        amount: Money.new(12000, :USD),
+        amount: Money.new(12_000, :USD),
         booking_mode: :day,
         # Use day to avoid conflict
         price_unit: :per_guest_per_day,
@@ -475,7 +475,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
       invalid_room_id = Ecto.ULID.generate()
 
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         room_id: invalid_room_id
@@ -491,7 +491,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
       invalid_category_id = Ecto.ULID.generate()
 
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         room_category_id: invalid_category_id
@@ -507,7 +507,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
       invalid_season_id = Ecto.ULID.generate()
 
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         property: :tahoe,
@@ -522,7 +522,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "can insert and retrieve complete pricing rule", %{season: season, room: room} do
       attrs = %{
-        amount: Money.new(15000, :USD),
+        amount: Money.new(15_000, :USD),
         children_amount: Money.new(7500, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
@@ -536,7 +536,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
       retrieved = Repo.get(PricingRule, rule.id)
 
-      assert retrieved.amount == Money.new(15000, :USD)
+      assert retrieved.amount == Money.new(15_000, :USD)
       assert retrieved.children_amount == Money.new(7500, :USD)
       assert retrieved.booking_mode == :room
       assert retrieved.price_unit == :per_person_per_night
@@ -553,7 +553,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
       category: category
     } do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         property: :tahoe,
@@ -582,7 +582,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
   describe "children pricing" do
     test "stores children amount separately", %{room: room} do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         children_amount: Money.new(5000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
@@ -592,13 +592,13 @@ defmodule Ysc.Bookings.PricingRuleTest do
       changeset = PricingRule.changeset(%PricingRule{}, attrs)
       {:ok, rule} = Repo.insert(changeset)
 
-      assert rule.amount == Money.new(10000, :USD)
+      assert rule.amount == Money.new(10_000, :USD)
       assert rule.children_amount == Money.new(5000, :USD)
     end
 
     test "children amount is optional" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         booking_mode: :day,
         price_unit: :per_guest_per_day,
         property: :clear_lake
@@ -607,13 +607,13 @@ defmodule Ysc.Bookings.PricingRuleTest do
       changeset = PricingRule.changeset(%PricingRule{}, attrs)
       {:ok, rule} = Repo.insert(changeset)
 
-      assert rule.amount == Money.new(10000, :USD)
+      assert rule.amount == Money.new(10_000, :USD)
       assert is_nil(rule.children_amount)
     end
 
     test "children amount can be zero", %{category: category} do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         children_amount: Money.new(0, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
@@ -651,7 +651,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
     test "Clear Lake per-guest-per-day pricing" do
       attrs = %{
-        amount: Money.new(15000, :USD),
+        amount: Money.new(15_000, :USD),
         children_amount: Money.new(7500, :USD),
         booking_mode: :day,
         price_unit: :per_guest_per_day,
@@ -661,7 +661,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
       changeset = PricingRule.changeset(%PricingRule{}, attrs)
       {:ok, rule} = Repo.insert(changeset)
 
-      assert rule.amount == Money.new(15000, :USD)
+      assert rule.amount == Money.new(15_000, :USD)
       assert rule.children_amount == Money.new(7500, :USD)
       assert rule.booking_mode == :day
       assert rule.price_unit == :per_guest_per_day
@@ -701,7 +701,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
 
       # Summer pricing (higher rate) - use category + season
       summer_attrs = %{
-        amount: Money.new(12000, :USD),
+        amount: Money.new(12_000, :USD),
         booking_mode: :room,
         price_unit: :per_person_per_night,
         property: :tahoe,
@@ -715,7 +715,7 @@ defmodule Ysc.Bookings.PricingRuleTest do
         |> Repo.insert()
 
       assert base_rule.amount == Money.new(8000, :USD)
-      assert summer_rule.amount == Money.new(12000, :USD)
+      assert summer_rule.amount == Money.new(12_000, :USD)
       assert is_nil(base_rule.season_id)
       assert summer_rule.season_id == season.id
     end

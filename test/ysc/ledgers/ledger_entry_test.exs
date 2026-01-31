@@ -34,7 +34,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
     test "creates valid changeset with all required fields", %{account: account} do
       attrs = %{
         account_id: account.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :credit
       }
 
@@ -42,14 +42,14 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
 
       assert changeset.valid?
       assert changeset.changes.account_id == account.id
-      assert changeset.changes.amount == Money.new(10000, :USD)
+      assert changeset.changes.amount == Money.new(10_000, :USD)
       assert changeset.changes.debit_credit == :credit
     end
 
     test "creates valid changeset with optional fields", %{account: account} do
       attrs = %{
         account_id: account.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :debit,
         description: "Test entry description",
         related_entity_type: :booking,
@@ -66,7 +66,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
 
     test "requires account_id" do
       attrs = %{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :credit
       }
 
@@ -91,7 +91,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
     test "requires debit_credit" do
       attrs = %{
         account_id: Ecto.ULID.generate(),
-        amount: Money.new(10000, :USD)
+        amount: Money.new(10_000, :USD)
       }
 
       changeset = LedgerEntry.changeset(%LedgerEntry{}, attrs)
@@ -105,7 +105,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
 
       attrs = %{
         account_id: account.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :credit,
         description: long_description
       }
@@ -121,7 +121,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
 
       attrs = %{
         account_id: account.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :credit,
         description: valid_description
       }
@@ -136,14 +136,14 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
     test "handles positive amounts", %{account: account} do
       attrs = %{
         account_id: account.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :debit
       }
 
       changeset = LedgerEntry.changeset(%LedgerEntry{}, attrs)
       {:ok, entry} = Repo.insert(changeset)
 
-      assert entry.amount == Money.new(10000, :USD)
+      assert entry.amount == Money.new(10_000, :USD)
     end
 
     test "handles zero amounts", %{account: account} do
@@ -162,14 +162,14 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
     test "handles fractional amounts with precision", %{account: account} do
       attrs = %{
         account_id: account.id,
-        amount: Money.new(10050, :USD),
+        amount: Money.new(10_050, :USD),
         debit_credit: :credit
       }
 
       changeset = LedgerEntry.changeset(%LedgerEntry{}, attrs)
       {:ok, entry} = Repo.insert(changeset)
 
-      assert entry.amount == Money.new(10050, :USD)
+      assert entry.amount == Money.new(10_050, :USD)
       assert Money.to_decimal(entry.amount) == Decimal.new("10050")
     end
 
@@ -207,7 +207,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
     test "accepts debit value", %{account: account} do
       attrs = %{
         account_id: account.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :debit
       }
 
@@ -220,7 +220,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
     test "accepts credit value", %{account: account} do
       attrs = %{
         account_id: account.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :credit
       }
 
@@ -233,7 +233,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
     test "rejects invalid debit_credit values" do
       attrs = %{
         account_id: Ecto.ULID.generate(),
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :invalid
       }
 
@@ -249,7 +249,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
       for entity_type <- entity_types do
         attrs = %{
           account_id: account.id,
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           debit_credit: :debit,
           related_entity_type: entity_type,
           related_entity_id: Ecto.ULID.generate()
@@ -265,7 +265,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
     test "rejects invalid entity_type values" do
       attrs = %{
         account_id: Ecto.ULID.generate(),
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :debit,
         related_entity_type: :invalid_type
       }
@@ -281,7 +281,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
 
       attrs = %{
         account_id: invalid_account_id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :credit
       }
 
@@ -296,7 +296,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
 
       attrs = %{
         account_id: account.id,
-        amount: Money.new(50000, :USD),
+        amount: Money.new(50_000, :USD),
         debit_credit: :debit,
         description: "Test entry for retrieval",
         related_entity_type: :membership,
@@ -309,7 +309,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
       retrieved = Repo.get(LedgerEntry, entry.id)
 
       assert retrieved.account_id == account.id
-      assert retrieved.amount == Money.new(50000, :USD)
+      assert retrieved.amount == Money.new(50_000, :USD)
       assert retrieved.debit_credit == :debit
       assert retrieved.description == "Test entry for retrieval"
       assert retrieved.related_entity_type == :membership
@@ -321,7 +321,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
     test "can retrieve entry with preloaded account", %{account: account} do
       attrs = %{
         account_id: account.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :credit
       }
 
@@ -345,7 +345,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
 
       attrs = %{
         account_id: account.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :debit,
         payment_id: payment.id
       }
@@ -366,7 +366,7 @@ defmodule Ysc.Ledgers.LedgerEntryTest do
 
       attrs = %{
         account_id: account.id,
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         debit_credit: :credit,
         payment_id: invalid_payment_id
       }

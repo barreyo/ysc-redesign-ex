@@ -80,7 +80,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       rule =
         create_pricing_rule(%{
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           property: :tahoe,
           season_id: season.id,
           booking_mode: :room,
@@ -92,7 +92,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
         PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
 
       assert cached_rule.id == rule.id
-      assert cached_rule.amount == Money.new(10000, :USD)
+      assert cached_rule.amount == Money.new(10_000, :USD)
     end
 
     test "returns pricing rule from cache on cache hit" do
@@ -100,7 +100,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       rule =
         create_pricing_rule(%{
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           property: :tahoe,
           season_id: season.id,
           booking_mode: :room,
@@ -144,7 +144,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       # Create property-level rule
       create_pricing_rule(%{
-        amount: Money.new(10000, :USD),
+        amount: Money.new(10_000, :USD),
         property: :tahoe,
         season_id: season.id,
         booking_mode: :room,
@@ -154,7 +154,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
       # Create room-specific rule (more specific)
       room_rule =
         create_pricing_rule(%{
-          amount: Money.new(15000, :USD),
+          amount: Money.new(15_000, :USD),
           property: :tahoe,
           season_id: season.id,
           room_id: room.id,
@@ -167,7 +167,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
         PricingRuleCache.get(:tahoe, season.id, room.id, nil, :room, :per_person_per_night)
 
       assert cached_rule.id == room_rule.id
-      assert cached_rule.amount == Money.new(15000, :USD)
+      assert cached_rule.amount == Money.new(15_000, :USD)
     end
 
     test "different cache keys for different parameters" do
@@ -175,7 +175,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       rule1 =
         create_pricing_rule(%{
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           property: :tahoe,
           season_id: season.id,
           booking_mode: :room,
@@ -184,7 +184,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       rule2 =
         create_pricing_rule(%{
-          amount: Money.new(20000, :USD),
+          amount: Money.new(20_000, :USD),
           property: :tahoe,
           season_id: season.id,
           booking_mode: :buyout,
@@ -208,7 +208,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       rule =
         create_pricing_rule(%{
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           children_amount: Money.new(5000, :USD),
           property: :tahoe,
           season_id: season.id,
@@ -229,7 +229,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       rule =
         create_pricing_rule(%{
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           children_amount: Money.new(5000, :USD),
           property: :tahoe,
           season_id: season.id,
@@ -253,7 +253,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
       # Create rule with both adult and children pricing
       rule =
         create_pricing_rule(%{
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           children_amount: Money.new(5000, :USD),
           property: :tahoe,
           season_id: season.id,
@@ -272,7 +272,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
       # Both should return the same rule (since it has both prices)
       assert cached_regular.id == rule.id
       assert cached_children.id == rule.id
-      assert cached_regular.amount == Money.new(10000, :USD)
+      assert cached_regular.amount == Money.new(10_000, :USD)
       assert cached_children.children_amount == Money.new(5000, :USD)
     end
   end
@@ -283,7 +283,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       rule =
         create_pricing_rule(%{
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           property: :tahoe,
           season_id: season.id,
           booking_mode: :room,
@@ -305,7 +305,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
       # Update the rule in database
       {:ok, updated_rule} =
         rule
-        |> PricingRule.changeset(%{amount: Money.new(15000, :USD)})
+        |> PricingRule.changeset(%{amount: Money.new(15_000, :USD)})
         |> Repo.update()
 
       # Next get should fetch updated rule from DB
@@ -313,7 +313,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
         PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
 
       assert cached2.id == updated_rule.id
-      assert cached2.amount == Money.new(15000, :USD)
+      assert cached2.amount == Money.new(15_000, :USD)
     end
 
     test "invalidation bumps cache version" do
@@ -350,7 +350,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       rule =
         create_pricing_rule(%{
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           property: :tahoe,
           season_id: season.id,
           booking_mode: :room,
@@ -369,14 +369,14 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
       # Update rule in DB
       {:ok, _updated_rule} =
         rule
-        |> PricingRule.changeset(%{amount: Money.new(15000, :USD)})
+        |> PricingRule.changeset(%{amount: Money.new(15_000, :USD)})
         |> Repo.update()
 
       # Get should detect stale version and refetch
       cached_rule =
         PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
 
-      assert cached_rule.amount == Money.new(15000, :USD)
+      assert cached_rule.amount == Money.new(15_000, :USD)
     end
   end
 
@@ -388,7 +388,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
       # Create rules with different specificity
       rule1 =
         create_pricing_rule(%{
-          amount: Money.new(10000, :USD),
+          amount: Money.new(10_000, :USD),
           property: :tahoe,
           season_id: season.id,
           booking_mode: :room,
@@ -397,7 +397,7 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       rule2 =
         create_pricing_rule(%{
-          amount: Money.new(15000, :USD),
+          amount: Money.new(15_000, :USD),
           property: :tahoe,
           season_id: season.id,
           room_id: room.id,

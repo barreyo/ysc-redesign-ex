@@ -206,7 +206,7 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
 
       # Count tokens before
       tokens_before = Accounts.UserToken.by_user_and_contexts_query(user, :all) |> Repo.all()
-      assert length(tokens_before) > 0
+      refute tokens_before == []
 
       # Change password
       render_submit(view, "request_password_change", %{
@@ -223,7 +223,7 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
 
       # All tokens should be deleted
       tokens_after = Accounts.UserToken.by_user_and_contexts_query(user, :all) |> Repo.all()
-      assert length(tokens_after) == 0
+      assert tokens_after == []
     end
   end
 

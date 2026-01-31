@@ -6,7 +6,7 @@ defmodule Ysc.StripeSubscriptionRetrieverMock do
 
   def retrieve(_stripe_id) do
     now = System.os_time(:second)
-    past = now - 86400
+    past = now - 86_400
 
     {:ok,
      %Stripe.Subscription{

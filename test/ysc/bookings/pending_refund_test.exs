@@ -43,7 +43,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
   defp create_payment(user_id) when is_binary(user_id) do
     attrs = %{
       user_id: user_id,
-      amount: Money.new(50000, :USD),
+      amount: Money.new(50_000, :USD),
       external_provider: :stripe,
       external_payment_id: "pi_test_#{System.unique_integer()}",
       status: :completed
@@ -65,7 +65,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
       attrs = %{
         booking_id: booking.id,
         payment_id: payment.id,
-        policy_refund_amount: Money.new(25000, :USD),
+        policy_refund_amount: Money.new(25_000, :USD),
         status: :approved
       }
 
@@ -74,7 +74,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
       assert changeset.valid?
       assert changeset.changes.booking_id == booking.id
       assert changeset.changes.payment_id == payment.id
-      assert changeset.changes.policy_refund_amount == Money.new(25000, :USD)
+      assert changeset.changes.policy_refund_amount == Money.new(25_000, :USD)
       assert changeset.changes.status == :approved
     end
 
@@ -84,7 +84,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
 
       attrs = %{
         payment_id: payment.id,
-        policy_refund_amount: Money.new(25000, :USD),
+        policy_refund_amount: Money.new(25_000, :USD),
         status: :pending
       }
 
@@ -99,7 +99,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
 
       attrs = %{
         booking_id: booking.id,
-        policy_refund_amount: Money.new(25000, :USD),
+        policy_refund_amount: Money.new(25_000, :USD),
         status: :pending
       }
 
@@ -132,7 +132,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
       attrs = %{
         booking_id: booking.id,
         payment_id: payment.id,
-        policy_refund_amount: Money.new(25000, :USD)
+        policy_refund_amount: Money.new(25_000, :USD)
       }
 
       changeset = PendingRefund.changeset(%PendingRefund{}, attrs)
@@ -151,7 +151,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
         attrs = %{
           booking_id: booking.id,
           payment_id: payment.id,
-          policy_refund_amount: Money.new(25000, :USD),
+          policy_refund_amount: Money.new(25_000, :USD),
           status: status_value
         }
 
@@ -172,7 +172,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
       attrs = %{
         booking_id: booking.id,
         payment_id: payment.id,
-        policy_refund_amount: Money.new(25000, :USD),
+        policy_refund_amount: Money.new(25_000, :USD),
         status: :invalid_status
       }
 
@@ -189,15 +189,15 @@ defmodule Ysc.Bookings.PendingRefundTest do
       attrs = %{
         booking_id: booking.id,
         payment_id: payment.id,
-        policy_refund_amount: Money.new(25000, :USD),
-        admin_refund_amount: Money.new(30000, :USD),
+        policy_refund_amount: Money.new(25_000, :USD),
+        admin_refund_amount: Money.new(30_000, :USD),
         status: :pending
       }
 
       changeset = PendingRefund.changeset(%PendingRefund{}, attrs)
 
       assert changeset.valid?
-      assert changeset.changes.admin_refund_amount == Money.new(30000, :USD)
+      assert changeset.changes.admin_refund_amount == Money.new(30_000, :USD)
     end
 
     test "accepts optional cancellation_reason" do
@@ -207,7 +207,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
       attrs = %{
         booking_id: booking.id,
         payment_id: payment.id,
-        policy_refund_amount: Money.new(25000, :USD),
+        policy_refund_amount: Money.new(25_000, :USD),
         status: :pending,
         cancellation_reason: "Family emergency"
       }
@@ -225,7 +225,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
       attrs = %{
         booking_id: booking.id,
         payment_id: payment.id,
-        policy_refund_amount: Money.new(25000, :USD),
+        policy_refund_amount: Money.new(25_000, :USD),
         status: :pending,
         admin_notes: "Approved due to special circumstances"
       }
@@ -245,7 +245,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
       attrs = %{
         booking_id: booking.id,
         payment_id: payment.id,
-        policy_refund_amount: Money.new(25000, :USD),
+        policy_refund_amount: Money.new(25_000, :USD),
         status: :approved,
         reviewed_by_id: admin.id,
         reviewed_at: reviewed_at
@@ -264,7 +264,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
       attrs = %{
         booking_id: booking.id,
         payment_id: payment.id,
-        policy_refund_amount: Money.new(25000, :USD),
+        policy_refund_amount: Money.new(25_000, :USD),
         status: :pending,
         applied_rule_days_before_checkin: 14,
         applied_rule_refund_percentage: Decimal.new("50.00")
@@ -290,7 +290,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
       attrs = %{
         booking_id: booking.id,
         payment_id: payment.id,
-        policy_refund_amount: Money.new(25000, :USD),
+        policy_refund_amount: Money.new(25_000, :USD),
         status: :pending
       }
 
@@ -301,7 +301,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
 
       assert retrieved.booking_id == booking.id
       assert retrieved.payment_id == payment.id
-      assert retrieved.policy_refund_amount == Money.new(25000, :USD)
+      assert retrieved.policy_refund_amount == Money.new(25_000, :USD)
       assert retrieved.status == :pending
       assert retrieved.inserted_at != nil
       assert retrieved.updated_at != nil
@@ -316,7 +316,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
         |> PendingRefund.changeset(%{
           booking_id: booking.id,
           payment_id: payment.id,
-          policy_refund_amount: Money.new(25000, :USD),
+          policy_refund_amount: Money.new(25_000, :USD),
           status: :pending
         })
         |> Repo.insert()
@@ -335,7 +335,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
         |> PendingRefund.changeset(%{
           booking_id: booking.id,
           payment_id: payment.id,
-          policy_refund_amount: Money.new(25000, :USD),
+          policy_refund_amount: Money.new(25_000, :USD),
           status: :pending
         })
         |> Repo.insert()
@@ -354,7 +354,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
         |> PendingRefund.changeset(%{
           booking_id: booking.id,
           payment_id: payment.id,
-          policy_refund_amount: Money.new(25000, :USD),
+          policy_refund_amount: Money.new(25_000, :USD),
           status: :pending
         })
         |> Repo.insert()
@@ -379,7 +379,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
         |> PendingRefund.changeset(%{
           booking_id: booking.id,
           payment_id: payment.id,
-          policy_refund_amount: Money.new(25000, :USD),
+          policy_refund_amount: Money.new(25_000, :USD),
           status: :pending,
           cancellation_reason: "Schedule conflict",
           applied_rule_days_before_checkin: 14,
@@ -388,7 +388,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
         |> Repo.insert()
 
       # Verify 50% refund
-      assert pending_refund.policy_refund_amount == Money.new(25000, :USD)
+      assert pending_refund.policy_refund_amount == Money.new(25_000, :USD)
       assert Decimal.equal?(pending_refund.applied_rule_refund_percentage, Decimal.new("50.00"))
     end
 
@@ -402,7 +402,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
         |> PendingRefund.changeset(%{
           booking_id: booking.id,
           payment_id: payment.id,
-          policy_refund_amount: Money.new(25000, :USD),
+          policy_refund_amount: Money.new(25_000, :USD),
           status: :pending
         })
         |> Repo.insert()
@@ -411,7 +411,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
       {:ok, updated} =
         pending_refund
         |> PendingRefund.changeset(%{
-          admin_refund_amount: Money.new(40000, :USD),
+          admin_refund_amount: Money.new(40_000, :USD),
           admin_notes: "Increased refund due to property maintenance issue",
           reviewed_by_id: admin.id,
           reviewed_at: DateTime.utc_now(),
@@ -419,8 +419,8 @@ defmodule Ysc.Bookings.PendingRefundTest do
         })
         |> Repo.update()
 
-      assert updated.admin_refund_amount == Money.new(40000, :USD)
-      assert updated.policy_refund_amount == Money.new(25000, :USD)
+      assert updated.admin_refund_amount == Money.new(40_000, :USD)
+      assert updated.policy_refund_amount == Money.new(25_000, :USD)
       assert updated.status == :approved
     end
 
@@ -434,7 +434,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
         |> PendingRefund.changeset(%{
           booking_id: booking.id,
           payment_id: payment.id,
-          policy_refund_amount: Money.new(25000, :USD),
+          policy_refund_amount: Money.new(25_000, :USD),
           status: :pending,
           cancellation_reason: "Changed mind"
         })
@@ -466,7 +466,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
         |> PendingRefund.changeset(%{
           booking_id: booking1.id,
           payment_id: payment1.id,
-          policy_refund_amount: Money.new(25000, :USD),
+          policy_refund_amount: Money.new(25_000, :USD),
           status: :pending
         })
         |> Repo.insert()
@@ -476,7 +476,7 @@ defmodule Ysc.Bookings.PendingRefundTest do
         |> PendingRefund.changeset(%{
           booking_id: booking2.id,
           payment_id: payment2.id,
-          policy_refund_amount: Money.new(15000, :USD),
+          policy_refund_amount: Money.new(15_000, :USD),
           status: :pending
         })
         |> Repo.insert()

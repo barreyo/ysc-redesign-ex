@@ -191,7 +191,7 @@ defmodule YscWeb.BookingReceiptLiveTest do
       booking = booking_fixture(%{user_id: user.id, status: :complete})
 
       # Create a payment for the booking
-      create_payment_for_booking(booking, Money.new(10000, :USD))
+      create_payment_for_booking(booking, Money.new(10_000, :USD))
 
       {:ok, view, _html} = live(conn, ~p"/bookings/#{booking.id}/receipt")
 

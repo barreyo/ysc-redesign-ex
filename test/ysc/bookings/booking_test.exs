@@ -563,14 +563,14 @@ defmodule Ysc.Bookings.BookingTest do
         checkout_date: ~D[2024-08-07],
         property: :tahoe,
         booking_mode: :room,
-        total_price: Money.new(45000, :USD)
+        total_price: Money.new(45_000, :USD)
       }
 
       changeset = Booking.changeset(%Booking{}, attrs, skip_validation: true)
       {:ok, booking} = Repo.insert(changeset)
 
       retrieved = Repo.get(Booking, booking.id)
-      assert retrieved.total_price == Money.new(45000, :USD)
+      assert retrieved.total_price == Money.new(45_000, :USD)
     end
 
     test "defaults total_price currency to USD" do
@@ -698,8 +698,8 @@ defmodule Ysc.Bookings.BookingTest do
         property: :tahoe,
         booking_mode: :room,
         status: :hold,
-        total_price: Money.new(60000, :USD),
-        pricing_items: %{base: 50000, fees: 10000}
+        total_price: Money.new(60_000, :USD),
+        pricing_items: %{base: 50_000, fees: 10_000}
       }
 
       changeset = Booking.changeset(%Booking{}, attrs, skip_validation: true)
@@ -714,8 +714,8 @@ defmodule Ysc.Bookings.BookingTest do
       assert retrieved.property == :tahoe
       assert retrieved.booking_mode == :room
       assert retrieved.status == :hold
-      assert retrieved.total_price == Money.new(60000, :USD)
-      assert retrieved.pricing_items == %{"base" => 50000, "fees" => 10000}
+      assert retrieved.total_price == Money.new(60_000, :USD)
+      assert retrieved.pricing_items == %{"base" => 50_000, "fees" => 10_000}
       assert retrieved.inserted_at != nil
       assert retrieved.updated_at != nil
       assert String.starts_with?(retrieved.reference_id, "BKG-")
@@ -793,7 +793,7 @@ defmodule Ysc.Bookings.BookingTest do
       user = user_fixture()
 
       pricing_items = %{
-        base_price: 40000,
+        base_price: 40_000,
         cleaning_fee: 5000,
         service_fee: 3000,
         tax: 2000
@@ -814,7 +814,7 @@ defmodule Ysc.Bookings.BookingTest do
       retrieved = Repo.get(Booking, booking.id)
 
       # Map keys get converted to strings when stored
-      assert retrieved.pricing_items["base_price"] == 40000
+      assert retrieved.pricing_items["base_price"] == 40_000
       assert retrieved.pricing_items["cleaning_fee"] == 5000
       assert retrieved.pricing_items["service_fee"] == 3000
       assert retrieved.pricing_items["tax"] == 2000

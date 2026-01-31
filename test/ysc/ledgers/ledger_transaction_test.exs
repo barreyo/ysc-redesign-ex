@@ -26,7 +26,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
     test "creates valid changeset with all required fields" do
       attrs = %{
         type: :payment,
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :pending
       }
 
@@ -34,7 +34,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
 
       assert changeset.valid?
       assert changeset.changes.type == :payment
-      assert changeset.changes.total_amount == Money.new(10000, :USD)
+      assert changeset.changes.total_amount == Money.new(10_000, :USD)
       assert changeset.changes.status == :pending
     end
 
@@ -43,7 +43,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
 
       attrs = %{
         type: :payment,
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :completed,
         payment_id: payment.id
       }
@@ -73,7 +73,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
 
     test "requires type" do
       attrs = %{
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :pending
       }
 
@@ -98,7 +98,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
     test "requires status" do
       attrs = %{
         type: :payment,
-        total_amount: Money.new(10000, :USD)
+        total_amount: Money.new(10_000, :USD)
       }
 
       changeset = LedgerTransaction.changeset(%LedgerTransaction{}, attrs)
@@ -115,7 +115,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
       for type <- transaction_types do
         attrs = %{
           type: type,
-          total_amount: Money.new(10000, :USD),
+          total_amount: Money.new(10_000, :USD),
           status: :pending
         }
 
@@ -129,7 +129,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
     test "rejects invalid transaction type" do
       attrs = %{
         type: :invalid_type,
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :pending
       }
 
@@ -142,7 +142,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
     test "accepts pending status" do
       attrs = %{
         type: :payment,
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :pending
       }
 
@@ -155,7 +155,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
     test "accepts completed status" do
       attrs = %{
         type: :payment,
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :completed
       }
 
@@ -168,7 +168,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
     test "accepts reversed status" do
       attrs = %{
         type: :payment,
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :reversed
       }
 
@@ -181,7 +181,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
     test "rejects invalid status" do
       attrs = %{
         type: :payment,
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :invalid_status
       }
 
@@ -194,14 +194,14 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
     test "handles positive amounts" do
       attrs = %{
         type: :payment,
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :completed
       }
 
       changeset = LedgerTransaction.changeset(%LedgerTransaction{}, attrs)
       {:ok, transaction} = Repo.insert(changeset)
 
-      assert transaction.total_amount == Money.new(10000, :USD)
+      assert transaction.total_amount == Money.new(10_000, :USD)
     end
 
     test "handles zero amounts" do
@@ -234,14 +234,14 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
     test "maintains precision for fractional amounts" do
       attrs = %{
         type: :payment,
-        total_amount: Money.new(12345, :USD),
+        total_amount: Money.new(12_345, :USD),
         status: :completed
       }
 
       changeset = LedgerTransaction.changeset(%LedgerTransaction{}, attrs)
       {:ok, transaction} = Repo.insert(changeset)
 
-      assert transaction.total_amount == Money.new(12345, :USD)
+      assert transaction.total_amount == Money.new(12_345, :USD)
       assert Money.to_decimal(transaction.total_amount) == Decimal.new("12345")
     end
   end
@@ -252,7 +252,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
 
       attrs = %{
         type: :payment,
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :completed,
         payment_id: invalid_payment_id
       }
@@ -340,7 +340,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
     test "can create pending transaction and update to completed" do
       attrs = %{
         type: :payment,
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :pending
       }
 
@@ -362,7 +362,7 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
     test "can create completed transaction and reverse it" do
       attrs = %{
         type: :payment,
-        total_amount: Money.new(10000, :USD),
+        total_amount: Money.new(10_000, :USD),
         status: :completed
       }
 

@@ -379,7 +379,7 @@ defmodule Ysc.Accounts.AuthServiceTest do
 
       # Verify suspicious activity was logged
       suspicious_events = AuthService.get_suspicious_events(10)
-      assert length(suspicious_events) > 0
+      refute suspicious_events == []
     end
   end
 
@@ -411,7 +411,7 @@ defmodule Ysc.Accounts.AuthServiceTest do
 
       history = AuthService.get_user_auth_history(user, 5)
 
-      assert length(history) == 5
+      assert [_, _, _, _, _] = history
     end
 
     test "returns events ordered by most recent first" do
@@ -426,7 +426,7 @@ defmodule Ysc.Accounts.AuthServiceTest do
       history = AuthService.get_user_auth_history(user, 10)
 
       # Most recent should be first (if history includes this event type)
-      if length(history) > 0 do
+      if history != [] do
         # Verify at least that the list includes event2
         event_ids = Enum.map(history, & &1.id)
         assert event2.id in event_ids
@@ -447,7 +447,7 @@ defmodule Ysc.Accounts.AuthServiceTest do
 
       suspicious = AuthService.get_suspicious_events(100)
 
-      assert length(suspicious) >= 1
+      refute suspicious == []
       assert Enum.all?(suspicious, fn event -> event.is_suspicious == true end)
     end
   end

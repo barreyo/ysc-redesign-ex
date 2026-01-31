@@ -17,7 +17,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         key: "public/test-file.jpg",
         content_type: "image/jpeg",
         max_file_size: 10_000_000,
-        expires_in: 3600_000
+        expires_in: 3_600_000
       ]
 
       assert {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
@@ -35,7 +35,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         key: "public/test-file.jpg",
         content_type: "image/jpeg",
         max_file_size: 10_000_000,
-        expires_in: 3600_000
+        expires_in: 3_600_000
       ]
 
       {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
@@ -63,7 +63,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         key: "public/test-file.jpg",
         content_type: "image/jpeg",
         max_file_size: 10_000_000,
-        expires_in: 3600_000
+        expires_in: 3_600_000
       ]
 
       {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
@@ -93,7 +93,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         key: "public/test-file.jpg",
         content_type: "image/jpeg",
         max_file_size: 10_000_000,
-        expires_in: 3600_000
+        expires_in: 3_600_000
       ]
 
       {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
@@ -110,7 +110,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         key: "public/test-file.jpg",
         content_type: "image/jpeg",
         max_file_size: 10_000_000,
-        expires_in: 3600_000
+        expires_in: 3_600_000
       ]
 
       {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
@@ -131,7 +131,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         key: "public/test-file.jpg",
         content_type: "image/jpeg",
         max_file_size: 10_000_000,
-        expires_in: 3600_000
+        expires_in: 3_600_000
       ]
 
       {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
@@ -152,7 +152,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
           key: "public/test-file",
           content_type: content_type,
           max_file_size: 10_000_000,
-          expires_in: 3600_000
+          expires_in: 3_600_000
         ]
 
         assert {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
@@ -168,7 +168,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
           key: "public/test-file.jpg",
           content_type: "image/jpeg",
           max_file_size: max_file_size,
-          expires_in: 3600_000
+          expires_in: 3_600_000
         ]
 
         assert {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
@@ -183,7 +183,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
     end
 
     test "handles different expiration times" do
-      expiration_times = [1000, 3600_000, 86_400_000]
+      expiration_times = [1000, 3_600_000, 86_400_000]
 
       Enum.each(expiration_times, fn expires_in ->
         opts = [
@@ -218,7 +218,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         key: "public/test-file.jpg",
         content_type: "image/jpeg",
         max_file_size: 10_000_000,
-        expires_in: 3600_000
+        expires_in: 3_600_000
       ]
 
       assert {:ok, fields} = SimpleS3Upload.sign_form_upload(tigris_config, @bucket, opts)
@@ -230,7 +230,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         key: "public/test-file.jpg",
         content_type: "image/jpeg",
         max_file_size: 10_000_000,
-        expires_in: 3600_000
+        expires_in: 3_600_000
       ]
 
       # Note: Due to timestamp in policy, signatures will differ
@@ -250,7 +250,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         SimpleS3Upload.sign_form_upload(@config, @bucket,
           content_type: "image/jpeg",
           max_file_size: 10_000_000,
-          expires_in: 3600_000
+          expires_in: 3_600_000
         )
       end
 
@@ -259,7 +259,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         SimpleS3Upload.sign_form_upload(@config, @bucket,
           key: "public/test-file.jpg",
           max_file_size: 10_000_000,
-          expires_in: 3600_000
+          expires_in: 3_600_000
         )
       end
 
@@ -268,7 +268,7 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         SimpleS3Upload.sign_form_upload(@config, @bucket,
           key: "public/test-file.jpg",
           content_type: "image/jpeg",
-          expires_in: 3600_000
+          expires_in: 3_600_000
         )
       end
 

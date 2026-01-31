@@ -986,7 +986,7 @@ defmodule YscWeb.EventDetailsLiveTest do
           event_id: event.id,
           name: "VIP with Registration",
           type: :paid,
-          price: Money.new(10000, :USD),
+          price: Money.new(10_000, :USD),
           quantity: 50,
           requires_registration: true
         })

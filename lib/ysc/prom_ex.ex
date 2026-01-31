@@ -123,7 +123,7 @@ defmodule Ysc.PromEx do
       summary("ysc.payments.stripe_webhook_processing.duration.milliseconds",
         event_name: [:ysc, :payments, :stripe_webhook_processing_duration],
         description: "Duration of Stripe webhook processing in milliseconds",
-        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10000],
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000],
         tags: [:event_type, :status],
         tag_values: &extract_webhook_processing_tags/1,
         measurement: :duration
@@ -150,7 +150,7 @@ defmodule Ysc.PromEx do
       summary("ysc.ledgers.reconciliation.duration.milliseconds",
         event_name: [:ysc, :ledgers, :reconciliation_completed],
         description: "Duration of reconciliation checks in milliseconds",
-        buckets: [100, 500, 1000, 2500, 5000, 10000, 30000, 60000],
+        buckets: [100, 500, 1000, 2500, 5000, 10_000, 30_000, 60_000],
         tags: [:status],
         tag_values: &extract_reconciliation_tags/1,
         measurement: :duration

@@ -20,8 +20,8 @@ defmodule EventDetailsLiveHelpers do
       iex> build_payment_intent()
       %Stripe.PaymentIntent{id: "pi_test_...", status: "requires_payment_method"}
 
-      iex> build_payment_intent(%{status: "succeeded", amount: 10000})
-      %Stripe.PaymentIntent{status: "succeeded", amount: 10000}
+      iex> build_payment_intent(%{status: "succeeded", amount: 10_000})
+      %Stripe.PaymentIntent{status: "succeeded", amount: 10_000}
   """
   def build_payment_intent(attrs \\ %{}) do
     defaults = %{
@@ -176,7 +176,7 @@ defmodule EventDetailsLiveHelpers do
         event_id: event.id,
         name: "VIP Pass",
         type: :paid,
-        price: Money.new(15000, :USD),
+        price: Money.new(15_000, :USD),
         quantity: 20
       })
 
