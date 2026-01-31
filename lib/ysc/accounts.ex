@@ -564,10 +564,28 @@ defmodule Ysc.Accounts do
   end
 
   defp subscribe_user_to_newsletter(user) do
-    # Subscribe user to Mailpoet newsletter asynchronously via Oban
+    # Subscribe user to Keila newsletter asynchronously via Oban
     # Failures are logged but don't affect user registration
-    case %{"email" => user.email}
-         |> YscWeb.Workers.MailpoetSubscriber.new()
+
+    # Build custom metadata
+    metadata = %{
+      "user_id" => user.id,
+      "signup_date" => DateTime.utc_now() |> DateTime.to_iso8601(),
+      "role" => to_string(user.role || "member"),
+      "state" => to_string(user.state || "active")
+    }
+
+    # Build job args with all available user data
+    job_args = %{
+      "email" => user.email,
+      "action" => "subscribe",
+      "first_name" => user.first_name,
+      "last_name" => user.last_name,
+      "data" => metadata
+    }
+
+    case job_args
+         |> YscWeb.Workers.KeilaSubscriber.new()
          |> Oban.insert() do
       {:ok, _job} ->
         :ok
@@ -575,13 +593,86 @@ defmodule Ysc.Accounts do
       {:error, changeset} ->
         require Logger
 
-        Logger.warning("Failed to enqueue Mailpoet subscription job",
+        Logger.warning("Failed to enqueue Keila subscription job",
           user_id: user.id,
           email: user.email,
           errors: inspect(changeset.errors)
         )
 
         :ok
+    end
+  end
+
+  @doc """
+  Updates newsletter subscription when user changes email.
+  Only subscribes the new email if user has newsletter_notifications enabled.
+  Unsubscribes the old email.
+  """
+  def update_newsletter_on_email_change(user, old_email, new_email) do
+    require Logger
+
+    # Unsubscribe old email
+    case %{"email" => old_email, "action" => "unsubscribe"}
+         |> YscWeb.Workers.KeilaSubscriber.new()
+         |> Oban.insert() do
+      {:ok, _job} ->
+        Logger.debug("Enqueued newsletter unsubscription for old email",
+          user_id: user.id,
+          old_email: old_email
+        )
+
+      {:error, changeset} ->
+        Logger.warning("Failed to enqueue newsletter unsubscription for old email",
+          user_id: user.id,
+          old_email: old_email,
+          errors: inspect(changeset.errors)
+        )
+    end
+
+    # Subscribe new email only if user has newsletter_notifications enabled
+    if user.newsletter_notifications do
+      metadata = %{
+        "user_id" => user.id,
+        "email_changed_date" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "role" => to_string(user.role || "member"),
+        "state" => to_string(user.state || "active")
+      }
+
+      job_args = %{
+        "email" => new_email,
+        "action" => "subscribe",
+        "first_name" => user.first_name,
+        "last_name" => user.last_name,
+        "data" => metadata
+      }
+
+      case job_args
+           |> YscWeb.Workers.KeilaSubscriber.new()
+           |> Oban.insert() do
+        {:ok, _job} ->
+          Logger.debug("Enqueued newsletter subscription for new email",
+            user_id: user.id,
+            new_email: new_email
+          )
+
+          :ok
+
+        {:error, changeset} ->
+          Logger.warning("Failed to enqueue newsletter subscription for new email",
+            user_id: user.id,
+            new_email: new_email,
+            errors: inspect(changeset.errors)
+          )
+
+          :ok
+      end
+    else
+      Logger.debug("Skipping newsletter subscription for new email (notifications disabled)",
+        user_id: user.id,
+        new_email: new_email
+      )
+
+      :ok
     end
   end
 
@@ -669,7 +760,10 @@ defmodule Ysc.Accounts do
   Returns {:ok, code} if found and valid, {:error, reason} otherwise.
   """
   def get_email_verification_code(user) do
-    Ysc.VerificationCache.get_code(user.id, :email_verification)
+    case Ysc.VerificationCache.get_code(user.id, :email_verification) do
+      {:ok, code} -> code
+      {:error, _} -> nil
+    end
   end
 
   @doc """

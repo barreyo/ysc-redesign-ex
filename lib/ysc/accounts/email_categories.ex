@@ -11,6 +11,7 @@ defmodule Ysc.Accounts.EmailCategories do
     "confirm_email" => :account,
     "reset_password" => :account,
     "password_changed" => :account,
+    "passkey_added" => :account,
     "change_email" => :account,
     "email_changed" => :account,
     "application_submitted" => :account,
@@ -41,7 +42,7 @@ defmodule Ysc.Accounts.EmailCategories do
     "booking_refund_pending" => :account,
     "account_setup_verification" => :account
     # Newsletter notifications (can be disabled)
-    # Note: Newsletter emails are handled by Mailpoet, not through this system
+    # Note: Newsletter emails are handled by Keila, not through this system
   }
 
   @doc """

@@ -2,6 +2,7 @@ defmodule YscWeb.PasskeyRegistrationLive do
   use YscWeb, :live_view
 
   alias Ysc.Accounts
+  alias Ysc.Accounts.UserNotifier
   alias Ysc.Accounts.UserPasskey
 
   def render(assigns) do
@@ -196,7 +197,10 @@ defmodule YscWeb.PasskeyRegistrationLive do
             }
 
             case Accounts.create_user_passkey(user, attrs) do
-              {:ok, _passkey} ->
+              {:ok, passkey} ->
+                # Send security notification email
+                UserNotifier.deliver_passkey_added_notification(user, passkey.nickname)
+
                 {:noreply,
                  socket
                  |> assign(:success, true)

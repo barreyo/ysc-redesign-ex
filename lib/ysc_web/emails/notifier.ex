@@ -22,6 +22,7 @@ defmodule YscWeb.Emails.Notifier do
     "confirm_email" => YscWeb.Emails.ConfirmEmail,
     "reset_password" => YscWeb.Emails.ResetPassword,
     "password_changed" => YscWeb.Emails.PasswordChanged,
+    "passkey_added" => YscWeb.Emails.PasskeyAdded,
     "change_email" => YscWeb.Emails.ChangeEmail,
     "email_changed" => YscWeb.Emails.EmailChanged,
     "admin_application_submitted" => YscWeb.Emails.AdminApplicationSubmitted,

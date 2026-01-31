@@ -26,6 +26,7 @@ defmodule Ysc.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import Ysc.DataCase
+      import Mox
     end
   end
 

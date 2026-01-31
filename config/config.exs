@@ -196,16 +196,13 @@ config :ysc,
     }
   ]
 
-# Mailpoet configuration
-# For production, set MAILPOET_API_URL and MAILPOET_API_KEY environment variables
-# The API URL should be your WordPress site URL + /wp-json/mailpoet/v1
-# Example: https://example.com/wp-json/mailpoet/v1
-mailpoet_list_id = System.get_env("MAILPOET_DEFAULT_LIST_ID")
-
-config :ysc, :mailpoet,
-  api_url: System.get_env("MAILPOET_API_URL"),
-  api_key: System.get_env("MAILPOET_API_KEY"),
-  default_list_id: if(mailpoet_list_id, do: String.to_integer(mailpoet_list_id), else: nil)
+# Keila configuration
+# For production, set KEILA_API_URL, KEILA_API_KEY, KEILA_PROJECT_ID, and KEILA_FORM_ID environment variables
+config :ysc, :keila,
+  api_url: System.get_env("KEILA_API_URL"),
+  api_key: System.get_env("KEILA_API_KEY"),
+  project_id: System.get_env("KEILA_PROJECT_ID"),
+  form_id: System.get_env("KEILA_FORM_ID")
 
 # Accounting settings
 config :ysc, :accounting,

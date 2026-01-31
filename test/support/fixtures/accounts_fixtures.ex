@@ -43,6 +43,30 @@ defmodule Ysc.AccountsFixtures do
     user
   end
 
+  @doc """
+  Creates a user without a password (like an OAuth user).
+  Directly inserts into the database to bypass password requirement.
+  """
+  def oauth_user_fixture(attrs \\ %{}) do
+    user_attrs =
+      %{
+        email: unique_user_email(),
+        first_name: valid_user_first_name(),
+        last_name: valid_user_last_name(),
+        phone_number: "+14159098268",
+        state: :active,
+        role: :member,
+        hashed_password: nil,
+        password_set_at: nil,
+        confirmed_at: DateTime.utc_now()
+      }
+      |> Map.merge(Enum.into(attrs, %{}))
+
+    %Ysc.Accounts.User{}
+    |> Ysc.Accounts.User.registration_changeset(user_attrs)
+    |> Ysc.Repo.insert!()
+  end
+
   def extract_user_token(fun) do
     {:ok, captured} = fun.(&"[TOKEN]#{&1}[TOKEN]")
 

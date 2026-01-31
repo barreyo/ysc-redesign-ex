@@ -4,6 +4,9 @@ defmodule YscWeb.UserSecurityLiveTest do
   import Phoenix.LiveViewTest
   import Ysc.AccountsFixtures
 
+  alias Ysc.Accounts
+  alias Ysc.Repo
+
   describe "mount/3" do
     test "loads security settings page with password form", %{conn: conn} do
       user = user_fixture()
@@ -73,7 +76,6 @@ defmodule YscWeb.UserSecurityLiveTest do
       result =
         view
         |> form("#password_form",
-          current_password: valid_user_password(),
           user: %{
             password: "new valid password",
             password_confirmation: "new valid password"
@@ -93,7 +95,6 @@ defmodule YscWeb.UserSecurityLiveTest do
       result =
         view
         |> form("#password_form",
-          current_password: valid_user_password(),
           user: %{
             password: "short",
             password_confirmation: "short"
@@ -113,7 +114,6 @@ defmodule YscWeb.UserSecurityLiveTest do
       result =
         view
         |> form("#password_form",
-          current_password: valid_user_password(),
           user: %{
             password: "new valid password",
             password_confirmation: "different password"
@@ -125,48 +125,54 @@ defmodule YscWeb.UserSecurityLiveTest do
     end
   end
 
-  describe "password update" do
-    test "updates password successfully with correct credentials", %{conn: conn} do
+  describe "password update flow" do
+    test "shows re-auth modal when valid password submitted", %{conn: conn} do
       user = user_fixture()
       conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/users/settings/security")
 
-      # Submit password change
-      result =
-        view
-        |> form("#password_form",
-          current_password: valid_user_password(),
-          user: %{
-            password: "new valid password 123",
-            password_confirmation: "new valid password 123"
-          }
-        )
-        |> render_submit()
+      # Submit password change request
+      render_submit(view, "request_password_change", %{
+        user: %{
+          password: "new valid password 123",
+          password_confirmation: "new valid password 123"
+        }
+      })
 
-      # The form should be updated after successful password change
-      # Check that the form is present (it stays on the same page but trigger_submit is set)
-      assert result =~ "password_form"
+      # Should show re-auth modal
+      assert has_element?(view, "#reauth-modal")
+      assert render(view) =~ "Verify Your Identity"
     end
 
-    test "shows error with incorrect current password", %{conn: conn} do
+    test "completes password change after successful re-auth", %{conn: conn} do
       user = user_fixture()
       conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/users/settings/security")
 
-      result =
-        view
-        |> form("#password_form",
-          current_password: "wrong password",
-          user: %{
-            password: "new valid password 123",
-            password_confirmation: "new valid password 123"
-          }
-        )
-        |> render_submit()
+      # Submit password change request
+      render_submit(view, "request_password_change", %{
+        user: %{
+          password: "new valid password 123",
+          password_confirmation: "new valid password 123"
+        }
+      })
 
-      assert result =~ "is not valid"
+      # Re-authenticate with password
+      render_submit(view, "reauth_with_password", %{
+        password: valid_user_password()
+      })
+
+      # Should close modal
+      refute has_element?(view, "#reauth-modal")
+
+      # Verify password was actually changed
+      :timer.sleep(100)
+      updated_user = Repo.reload!(user)
+
+      assert Accounts.get_user_by_email_and_password(updated_user.email, "new valid password 123") !=
+               nil
     end
   end
 

@@ -3469,8 +3469,12 @@ details[open] summary .chevron-icon {
 
 /* Datalist dropdown indicator alignment */
 
+
 /* Ensure inputs with datalist have proper right padding for the dropdown indicator */
+
+
 /* This provides space for the native browser dropdown indicator and helps with vertical centering */
+
 input[type="text"][list],
 input[type="search"][list] {
     padding-right: 2.5rem;

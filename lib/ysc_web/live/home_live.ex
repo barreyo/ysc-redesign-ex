@@ -4,7 +4,7 @@ defmodule YscWeb.HomeLive do
 
   import YscWeb.Live.AsyncHelpers
 
-  alias Ysc.{Accounts, Events, Posts, Mailpoet, Tickets}
+  alias Ysc.{Accounts, Events, Posts, Keila, Tickets}
   alias Ysc.Bookings.{Booking, Season}
   alias Ysc.Posts.Post
   alias Ysc.Media.Image
@@ -104,6 +104,9 @@ defmodule YscWeb.HomeLive do
 
     latest_news = Posts.list_posts(3)
 
+    # Get remote IP for Turnstile verification
+    remote_ip = get_connect_info(socket, :peer_data).address
+
     assign(socket,
       page_title: "Home",
       upcoming_events: upcoming_events,
@@ -111,8 +114,11 @@ defmodule YscWeb.HomeLive do
       hero_video: hero_video,
       hero_poster: hero_poster,
       newsletter_email: "",
+      newsletter_first_name: "",
+      newsletter_last_name: "",
       newsletter_submitted: false,
       newsletter_error: nil,
+      remote_ip: remote_ip,
       # Data is already loaded
       async_data_loaded: true
     )
@@ -892,25 +898,29 @@ defmodule YscWeb.HomeLive do
           </p>
 
           <form phx-submit="subscribe_newsletter" class="mt-8">
-            <div class="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-              <input
-                type="email"
-                id="newsletter-email"
-                name="email"
-                value={@newsletter_email}
-                class="flex-1 px-4 py-3 border border-zinc-300 rounded-lg text-zinc-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your email"
-                required
-                disabled={@newsletter_submitted}
-              />
-              <.button
-                :if={!@newsletter_submitted}
-                type="submit"
-                phx-disable-with="Subscribing..."
-                class="px-6 py-3 whitespace-nowrap"
-              >
-                Subscribe
-              </.button>
+            <div class="max-w-lg mx-auto space-y-4">
+              <div class="flex flex-col sm:flex-row gap-4">
+                <input
+                  type="email"
+                  id="newsletter-email"
+                  name="email"
+                  value={@newsletter_email}
+                  class="flex-1 px-4 py-3 border border-zinc-300 rounded-lg text-zinc-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Email address"
+                  required
+                  disabled={@newsletter_submitted}
+                />
+                <.button
+                  :if={!@newsletter_submitted}
+                  type="submit"
+                  phx-disable-with="Subscribing..."
+                  class="px-6 py-3 whitespace-nowrap"
+                >
+                  Subscribe
+                </.button>
+              </div>
+              <%!-- Invisible Turnstile verification --%>
+              <Turnstile.widget appearance="interaction-only" />
             </div>
             <p :if={@newsletter_error} class="mt-3 text-sm text-red-600">
               <%= @newsletter_error %>
@@ -920,7 +930,7 @@ defmodule YscWeb.HomeLive do
               class="mt-3 flex items-center justify-center text-emerald-600"
             >
               <.icon name="hero-check-circle" class="w-5 h-5 mr-2" />
-              <span>Thank you for subscribing! Check your email to confirm.</span>
+              <span>Thank you for subscribing!</span>
             </div>
             <p class="mt-4 text-sm text-zinc-500">
               We don't spam! Read our
@@ -1973,9 +1983,36 @@ defmodule YscWeb.HomeLive do
     {:noreply, push_navigate(socket, to: ~p"/users/settings/passkeys/new")}
   end
 
-  def handle_event("subscribe_newsletter", %{"email" => email}, socket) do
-    case Mailpoet.subscribe_email(email) do
-      {:ok, _response} ->
+  def handle_event("subscribe_newsletter", params, socket) do
+    email = params["email"]
+
+    # Verify Turnstile for spam protection
+    case Turnstile.verify(params, socket.assigns.remote_ip) do
+      {:ok, _} ->
+        subscribe_to_newsletter(email, socket)
+
+      {:error, _reason} ->
+        {:noreply,
+         socket
+         |> assign(
+           newsletter_email: email,
+           newsletter_error: "Please complete the verification to continue."
+         )
+         |> Turnstile.refresh()}
+    end
+  end
+
+  defp subscribe_to_newsletter(email, socket) do
+    # For unauthenticated users, only collect email with minimal metadata
+    metadata = %{
+      "source" => "public_signup",
+      "signup_date" => DateTime.utc_now() |> DateTime.to_iso8601()
+    }
+
+    opts = [data: metadata]
+
+    case Keila.subscribe_email(email, opts) do
+      :ok ->
         {:noreply,
          socket
          |> assign(
@@ -1993,36 +2030,20 @@ defmodule YscWeb.HomeLive do
            newsletter_error: "Please enter a valid email address."
          )}
 
-      {:error, :mailpoet_api_url_not_configured} ->
+      {:error, :not_configured} ->
         {:noreply,
          socket
          |> assign(
            newsletter_email: email,
-           newsletter_error: "Newsletter service is not configured. Please contact support."
+           newsletter_error: "Newsletter subscription is currently unavailable."
          )}
 
-      {:error, :mailpoet_api_key_not_configured} ->
+      {:error, _error} ->
         {:noreply,
          socket
          |> assign(
            newsletter_email: email,
-           newsletter_error: "Newsletter service is not configured. Please contact support."
-         )}
-
-      {:error, error_message} when is_binary(error_message) ->
-        {:noreply,
-         socket
-         |> assign(
-           newsletter_email: email,
-           newsletter_error: "Unable to subscribe at this time. Please try again later."
-         )}
-
-      {:error, _} ->
-        {:noreply,
-         socket
-         |> assign(
-           newsletter_email: email,
-           newsletter_error: "Unable to subscribe at this time. Please try again later."
+           newsletter_error: "Something went wrong. Please try again later."
          )}
     end
   end

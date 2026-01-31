@@ -150,4 +150,35 @@ defmodule Ysc.Accounts.UserNotifier do
       user.id
     )
   end
+
+  @doc """
+  Deliver passkey added notification to a user.
+
+  Alerts the user when a new passkey is added to their account for security purposes.
+  """
+  def deliver_passkey_added_notification(user, passkey_nickname) do
+    Notifier.schedule_email(
+      user.email,
+      UUID.uuid4(),
+      "New Passkey Added to Your YSC Account",
+      "passkey_added",
+      %{first_name: String.capitalize(user.first_name), device_name: passkey_nickname},
+      """
+      ==============================
+
+      Hi #{String.capitalize(user.first_name)},
+
+      This is to confirm that a new passkey has been added to your Young Scandinavians Club account.
+
+      Device: #{passkey_nickname}
+
+      If you did not add this passkey, please contact us immediately at info@ysc.org so we can secure your account.
+
+      If you did add this passkey, you can safely ignore this notification.
+
+      ==============================
+      """,
+      user.id
+    )
+  end
 end

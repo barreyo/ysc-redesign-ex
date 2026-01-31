@@ -61,6 +61,7 @@ import Autocomplete from "./autocomplete";
 import ReceiptLightbox from "./receipt_lightbox";
 import ScrollToSection from "./scroll_to_section";
 import PasskeyAuth from "./passkey_auth";
+import ConfirmCloseModal from "./confirm_close_modal";
 
 let Hooks = {
     StickyNavbar,
@@ -100,6 +101,7 @@ let Hooks = {
     ReceiptLightbox,
     ScrollToSection,
     PasskeyAuth,
+    ConfirmCloseModal,
 };
 Hooks.LivePhone = LivePhone;
 
