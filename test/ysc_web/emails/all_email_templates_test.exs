@@ -786,6 +786,7 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
         "confirm_email" => ConfirmEmail,
         "reset_password" => ResetPassword,
         "password_changed" => PasswordChanged,
+        "passkey_added" => PasskeyAdded,
         "change_email" => ChangeEmail,
         "email_changed" => EmailChanged,
         "admin_application_submitted" => AdminApplicationSubmitted,
