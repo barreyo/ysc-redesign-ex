@@ -69,7 +69,7 @@ defmodule YscWeb.TrixUploadsController do
         current_user
       )
 
-    make_temp_dir(@temp_dir)
+    File.mkdir_p!(@temp_dir)
     tmp_output_file = "#{@temp_dir}/#{new_image.id}"
     # Format will be determined dynamically in process_image_upload
     optimized_output_path = "#{tmp_output_file}_optimized"
@@ -98,8 +98,4 @@ defmodule YscWeb.TrixUploadsController do
 
   defp get_return_url(%Media.Image{optimized_image_path: nil} = image), do: image.raw_image_path
   defp get_return_url(%Media.Image{optimized_image_path: optimized_path}), do: optimized_path
-
-  defp make_temp_dir(path) do
-    File.mkdir(path)
-  end
 end

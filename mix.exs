@@ -11,6 +11,7 @@ defmodule Ysc.MixProject do
       aliases: aliases(),
       deps: deps(),
       test_coverage: [
+        tool: ExCoveralls,
         ignore_modules: [
           YscNative,
           YscWeb.PropertyCheckInLive.SwiftUI,
@@ -30,7 +31,15 @@ defmodule Ysc.MixProject do
           YscWeb.TahoeCabinRulesLive,
           YscWeb.TahoeStayingWithLive,
           YscWeb.PropertyCheckInLive,
-          YscWeb.TestLogFilter
+          YscWeb.TestLogFilter,
+          Mix.Tasks.CheckQuickbooksSync,
+          Mix.Tasks.DebugEmails,
+          Mix.Tasks.ExpireCheckoutSessions,
+          Mix.Tasks.GenerateVideoPosters,
+          Mix.Tasks.Message.Requeue,
+          Mix.Tasks.TestOutageEmail,
+          Mix.Tasks.TestSubscriptionExpiration,
+          Mix.Tasks.Webhook.Reprocess
         ]
       ]
     ]
@@ -71,6 +80,7 @@ defmodule Ysc.MixProject do
       {:ecto_sql, "~> 3.11"},
       {:ecto_ulid, "~> 0.3"},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
+      {:excoveralls, "~> 0.18", only: :test, runtime: false},
       {:ex_aws_s3, "~> 2.0"},
       {:ex_aws, "~> 2.1"},
       {:ex_cldr_calendars, "~> 2.4"},
@@ -122,7 +132,7 @@ defmodule Ysc.MixProject do
       {:req, "~> 0.5"},
       {:retry_on, "~> 0.1.0"},
       {:sentry, "~> 11.0"},
-      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.14", only: [:dev, :test], runtime: false},
       {:stripity_stripe, "~> 2.17"},
       {:swoosh, "~> 1.14"},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},

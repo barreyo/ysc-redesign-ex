@@ -1,5 +1,6 @@
 defmodule YscWeb.UserLoginLive do
   use YscWeb, :live_view
+  require Logger
 
   def render(assigns) do
     ~H"""
@@ -108,7 +109,7 @@ defmodule YscWeb.UserLoginLive do
                 </g>
               </svg>
             <% else %>
-              <.icon name="hero-key" class="w-5 h-5" />
+              <.icon name="hero-finger-print" class="w-5 h-5" />
             <% end %>
             <%= if @is_ios_mobile do %>
               Sign in with Face ID (Passkey)
@@ -294,10 +295,6 @@ defmodule YscWeb.UserLoginLive do
   end
 
   def handle_event("sign_in_with_passkey", _params, socket) do
-    require Logger
-
-    Logger.info("[UserLoginLive] sign_in_with_passkey event received")
-
     # Use discoverable credentials (passwordless - no email needed)
     # The browser will show a native account picker with available passkeys
 
@@ -312,20 +309,9 @@ defmodule YscWeb.UserLoginLive do
     rp_id = Application.get_env(:wax_, :rp_id) || "localhost"
     origin = Application.get_env(:wax_, :origin) || "http://localhost:4000"
 
-    Logger.debug("[UserLoginLive] Creating authentication challenge", %{
-      rp_id: rp_id,
-      origin: origin
-    })
-
     # Get all passkeys from all users for discoverable credentials
     # Wax needs to know all possible credential_ids and public keys for verification
     all_passkeys = Ysc.Repo.all(Ysc.Accounts.UserPasskey)
-
-    Logger.debug("[UserLoginLive] Loaded passkeys for authentication", %{
-      passkey_count: length(all_passkeys),
-      passkey_ids:
-        Enum.map(all_passkeys, fn p -> Base.url_encode64(p.external_id, padding: false) end)
-    })
 
     # Convert to list of {credential_id, public_key} tuples for Wax
     allow_credentials =
