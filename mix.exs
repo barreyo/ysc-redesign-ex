@@ -16,6 +16,7 @@ defmodule Ysc.MixProject do
           YscWeb.PropertyCheckInLive.SwiftUI,
           YscWeb.TahoeCabinRulesLive.SwiftUI,
           YscWeb.TahoeStayingWithLive.SwiftUI,
+          YscWeb.CoreComponents.SwiftUI,
           YscWeb.HomeLive.SwiftUI,
           YscWeb.Layouts.SwiftUI,
           YscWeb.Styles.App.SwiftUI,
@@ -28,7 +29,8 @@ defmodule Ysc.MixProject do
           Ysc.Cldr.Unit,
           YscWeb.TahoeCabinRulesLive,
           YscWeb.TahoeStayingWithLive,
-          YscWeb.PropertyCheckInLive
+          YscWeb.PropertyCheckInLive,
+          YscWeb.TestLogFilter
         ]
       ]
     ]

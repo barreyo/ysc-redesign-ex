@@ -3222,7 +3222,7 @@ defmodule YscWeb.EventDetailsLive do
             restore_payment_state_from_url(socket, ticket_order, checkout_step)
           end
         else
-          Logger.error(
+          Logger.debug(
             "restore_checkout_state_from_url: Validation failed - order_id=#{ticket_order.id}, user_matches=#{user_matches}, event_matches=#{event_matches}, status_pending=#{status_pending}, order_user_id=#{ticket_order.user_id}, current_user_id=#{socket.assigns.current_user.id}, order_event_id=#{ticket_order.event_id}, expected_event_id=#{event_id}, order_status=#{inspect(ticket_order.status)}"
           )
 
@@ -3313,7 +3313,7 @@ defmodule YscWeb.EventDetailsLive do
             restore_payment_state_from_url(socket, ticket_order, checkout_step)
           end
         else
-          Logger.error(
+          Logger.debug(
             "restore_checkout_state: Validation failed - order_id=#{ticket_order.id}, user_matches=#{user_matches}, event_matches=#{event_matches}, status_pending=#{status_pending}, order_user_id=#{ticket_order.user_id}, current_user_id=#{socket.assigns.current_user.id}, order_event_id=#{ticket_order.event_id}, expected_event_id=#{event_id}, order_status=#{inspect(ticket_order.status)}"
           )
 

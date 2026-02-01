@@ -164,7 +164,7 @@ defmodule YscWeb.UserSecurityLive do
 
   def handle_event("passkey_auth_error", %{"error" => error}, socket) do
     require Logger
-    Logger.error("[UserSecurityLive] Passkey authentication error: #{inspect(error)}")
+    Logger.debug("[UserSecurityLive] Passkey authentication error: #{inspect(error)}")
 
     {:noreply, assign(socket, :reauth_error, "Passkey authentication failed. Please try again.")}
   end

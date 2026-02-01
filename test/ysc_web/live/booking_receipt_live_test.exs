@@ -360,12 +360,19 @@ defmodule YscWeb.BookingReceiptLiveTest do
 
       today = Date.utc_today()
 
+      # Find a past Monday to avoid weekend validation issues
+      # Go back 10 days and then adjust to previous Monday
+      past_date = Date.add(today, -10)
+      days_since_monday = Date.day_of_week(past_date, :monday) - 1
+      checkin_date = Date.add(past_date, -days_since_monday)
+      checkout_date = Date.add(checkin_date, 3)
+
       booking =
         booking_fixture(%{
           user_id: user.id,
           status: :complete,
-          checkin_date: Date.add(today, -10),
-          checkout_date: Date.add(today, -7)
+          checkin_date: checkin_date,
+          checkout_date: checkout_date
         })
 
       {:ok, view, _html} = live(conn, ~p"/bookings/#{booking.id}/receipt")
