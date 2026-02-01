@@ -348,7 +348,6 @@ defmodule Ysc.Bookings.PricingRule do
         booking_mode,
         price_unit
       ) do
-    alias Ysc.Bookings.PricingRule
     require Logger
 
     Logger.debug(
